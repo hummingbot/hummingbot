@@ -12,11 +12,11 @@ class WebUtilsTests(TestCase):
 
     def test_rest_url(self):
         url = web_utils.rest_url(path_url=CONSTANTS.LAST_TRADED_PRICE_PATH, domain=CONSTANTS.DEFAULT_DOMAIN)
-        self.assertEqual('https://open-api.bingx.com/openApi/spot/v1/ticker/24hr', url)
+        self.assertEqual("https://open-api.bingx.com/openApi/spot/v1/ticker/24hr", url)
 
     def test_wss_url(self):
         url = web_utils.wss_url(path_url="", domain=CONSTANTS.DEFAULT_DOMAIN)
-        self.assertEqual('wss://open-api-ws.bingx.com/market', url)
+        self.assertEqual("wss://open-api-ws.bingx.com/market", url)
 
     def test_create_throttler(self):
         throttler = web_utils.create_throttler()

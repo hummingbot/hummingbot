@@ -20,7 +20,8 @@ class SpotPerpetualArbitrageStartTest(unittest.TestCase):
         self.client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.markets = {
             "binance": ExchangeBase(client_config_map=self.client_config_map),
-            "kucoin": MockPerpConnector(client_config_map=self.client_config_map)}
+            "kucoin": MockPerpConnector(client_config_map=self.client_config_map),
+        }
         self.notifications = []
         self.log_errors = []
         assign_config_default(strategy_cmap)

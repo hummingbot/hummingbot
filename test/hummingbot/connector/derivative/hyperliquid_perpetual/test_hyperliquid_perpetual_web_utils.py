@@ -33,21 +33,13 @@ class HyperliquidPerpetualWebUtilsTest(unittest.TestCase):
         data = web_utils.order_type_to_tuple({"limit": {"tif": "Ioc"}})
         self.assertEqual((3, 0), data)
 
-        data = web_utils.order_type_to_tuple({"trigger": {"triggerPx": 1200,
-                                                          "isMarket": True,
-                                                          "tpsl": "tp"}})
+        data = web_utils.order_type_to_tuple({"trigger": {"triggerPx": 1200, "isMarket": True, "tpsl": "tp"}})
         self.assertEqual((4, 1200), data)
-        data = web_utils.order_type_to_tuple({"trigger": {"triggerPx": 1200,
-                                                          "isMarket": False,
-                                                          "tpsl": "tp"}})
+        data = web_utils.order_type_to_tuple({"trigger": {"triggerPx": 1200, "isMarket": False, "tpsl": "tp"}})
         self.assertEqual((5, 1200), data)
-        data = web_utils.order_type_to_tuple({"trigger": {"triggerPx": 1200,
-                                                          "isMarket": True,
-                                                          "tpsl": "sl"}})
+        data = web_utils.order_type_to_tuple({"trigger": {"triggerPx": 1200, "isMarket": True, "tpsl": "sl"}})
         self.assertEqual((6, 1200), data)
-        data = web_utils.order_type_to_tuple({"trigger": {"triggerPx": 1200,
-                                                          "isMarket": False,
-                                                          "tpsl": "sl"}})
+        data = web_utils.order_type_to_tuple({"trigger": {"triggerPx": 1200, "isMarket": False, "tpsl": "sl"}})
         self.assertEqual((7, 1200), data)
 
     def test_float_to_int_for_hashing(self):

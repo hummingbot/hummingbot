@@ -18,6 +18,7 @@ class RESTAssistant:
     the `RESTPreProcessorBase` and `RESTPostProcessorBase` classes. The pre-processors are applied to a request
     before it is sent out, while the post-processors are applied to a response before it is returned to the caller.
     """
+
     def __init__(
         self,
         connection: RESTConnection,
@@ -59,22 +60,23 @@ class RESTAssistant:
         return response_json
 
     async def execute_request_and_get_response(
-            self,
-            url: str,
-            throttler_limit_id: str,
-            params: Optional[Dict[str, Any]] = None,
-            data: Optional[Dict[str, Any]] = None,
-            method: RESTMethod = RESTMethod.GET,
-            is_auth_required: bool = False,
-            return_err: bool = False,
-            timeout: Optional[float] = None,
-            headers: Optional[Dict[str, Any]] = None,
+        self,
+        url: str,
+        throttler_limit_id: str,
+        params: Optional[Dict[str, Any]] = None,
+        data: Optional[Dict[str, Any]] = None,
+        method: RESTMethod = RESTMethod.GET,
+        is_auth_required: bool = False,
+        return_err: bool = False,
+        timeout: Optional[float] = None,
+        headers: Optional[Dict[str, Any]] = None,
     ) -> RESTResponse:
 
         headers = headers or {}
 
         local_headers = {
-            "Content-Type": ("application/json" if method != RESTMethod.GET else "application/x-www-form-urlencoded")}
+            "Content-Type": ("application/json" if method != RESTMethod.GET else "application/x-www-form-urlencoded")
+        }
 
         local_headers.update(headers)
 
@@ -87,7 +89,7 @@ class RESTAssistant:
             data=data,
             headers=local_headers,
             is_auth_required=is_auth_required,
-            throttler_limit_id=throttler_limit_id
+            throttler_limit_id=throttler_limit_id,
         )
 
         async with self._throttler.execute_task(limit_id=throttler_limit_id):
@@ -97,8 +99,10 @@ class RESTAssistant:
                 if not return_err:
                     error_response = await response.text()
                     error_text = "N/A" if "<html" in error_response else error_response
-                    raise IOError(f"Error executing request {method.name} {url}. HTTP status is {response.status}. "
-                                  f"Error: {error_text}")
+                    raise IOError(
+                        f"Error executing request {method.name} {url}. HTTP status is {response.status}. "
+                        f"Error: {error_text}"
+                    )
             return response
 
     async def call(self, request: RESTRequest, timeout: Optional[float] = None) -> RESTResponse:

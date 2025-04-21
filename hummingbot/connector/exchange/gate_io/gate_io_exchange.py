@@ -32,13 +32,15 @@ class GateIoExchange(ExchangePyBase):
 
     web_utils = web_utils
 
-    def __init__(self,
-                 client_config_map: "ClientConfigAdapter",
-                 gate_io_api_key: str,
-                 gate_io_secret_key: str,
-                 trading_pairs: Optional[List[str]] = None,
-                 trading_required: bool = True,
-                 domain: str = DEFAULT_DOMAIN):
+    def __init__(
+        self,
+        client_config_map: "ClientConfigAdapter",
+        gate_io_api_key: str,
+        gate_io_secret_key: str,
+        trading_pairs: Optional[List[str]] = None,
+        trading_required: bool = True,
+        domain: str = DEFAULT_DOMAIN,
+    ):
         """
         :param gate_io_api_key: The API key to connect to private Gate.io APIs.
         :param gate_io_secret_key: The API secret.
@@ -56,9 +58,8 @@ class GateIoExchange(ExchangePyBase):
     @property
     def authenticator(self):
         return GateIoAuth(
-            api_key=self._gate_io_api_key,
-            secret_key=self._gate_io_secret_key,
-            time_provider=self._time_synchronizer)
+            api_key=self._gate_io_api_key, secret_key=self._gate_io_secret_key, time_provider=self._time_synchronizer
+        )
 
     @property
     def name(self) -> str:
@@ -118,9 +119,8 @@ class GateIoExchange(ExchangePyBase):
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer,
-            auth=self._auth)
+            throttler=self._throttler, time_synchronizer=self._time_synchronizer, auth=self._auth
+        )
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         return GateIoAPIOrderBookDataSource(
@@ -172,18 +172,19 @@ class GateIoExchange(ExchangePyBase):
                     )
                 )
             except Exception:
-                self.logger().error(
-                    f"Error parsing the trading pair rule {rule}. Skipping.", exc_info=True)
+                self.logger().error(f"Error parsing the trading pair rule {rule}. Skipping.", exc_info=True)
         return result
 
-    async def _place_order(self,
-                           order_id: str,
-                           trading_pair: str,
-                           amount: Decimal,
-                           trade_type: TradeType,
-                           order_type: OrderType,
-                           price: Decimal,
-                           **kwargs) -> Tuple[str, float]:
+    async def _place_order(
+        self,
+        order_id: str,
+        trading_pair: str,
+        amount: Decimal,
+        trade_type: TradeType,
+        order_type: OrderType,
+        price: Decimal,
+        **kwargs,
+    ) -> Tuple[str, float]:
         order_type_str = order_type.name.lower().split("_")[0]
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         # When type is market, it refers to different currency according to side
@@ -197,26 +198,23 @@ class GateIoExchange(ExchangePyBase):
             "amount": f"{amount:f}",
         }
         if order_type.is_limit_type():
-            data.update({
-                "price": f"{price:f}",
-                "time_in_force": "gtc"
-            })
+            data.update({"price": f"{price:f}", "time_in_force": "gtc"})
             if order_type is OrderType.LIMIT_MAKER:
                 data.update({"time_in_force": "poc"})
         else:
-            data.update({
-                "time_in_force": "ioc",
-            })
-            if trade_type.name.lower() == 'buy':
+            data.update(
+                {
+                    "time_in_force": "ioc",
+                }
+            )
+            if trade_type.name.lower() == "buy":
                 if price.is_nan():
-                    price = self.get_price_for_volume(
-                        trading_pair,
-                        True,
-                        amount
-                    ).result_price
-                data.update({
-                    "amount": f"{price * amount:f}",
-                })
+                    price = self.get_price_for_volume(trading_pair, True, amount).result_price
+                data.update(
+                    {
+                        "amount": f"{price * amount:f}",
+                    }
+                )
 
         # RESTRequest does not support json, and if we pass a dict
         # the underlying aiohttp will encode it to params
@@ -241,7 +239,7 @@ class GateIoExchange(ExchangePyBase):
         canceled = False
         exchange_order_id = await tracked_order.get_exchange_order_id()
         params = {
-            'currency_pair': await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
+            "currency_pair": await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
         }
         resp = await self._api_delete(
             path_url=CONSTANTS.ORDER_DELETE_PATH_URL.format(order_id=exchange_order_id),
@@ -261,13 +259,15 @@ class GateIoExchange(ExchangePyBase):
             account_info = await self._api_get(
                 path_url=CONSTANTS.USER_BALANCES_PATH_URL,
                 is_auth_required=True,
-                limit_id=CONSTANTS.USER_BALANCES_PATH_URL
+                limit_id=CONSTANTS.USER_BALANCES_PATH_URL,
             )
             self._process_balance_message(account_info)
         except Exception as e:
             self.logger().network(
-                f"Unexpected error while fetching balance update - {str(e)}", exc_info=True,
-                app_warning_msg=(f"Could not fetch balance update from {self.name_cap}"))
+                f"Unexpected error while fetching balance update - {str(e)}",
+                exc_info=True,
+                app_warning_msg=(f"Could not fetch balance update from {self.name_cap}"),
+            )
             raise e
         return account_info
 
@@ -279,22 +279,19 @@ class GateIoExchange(ExchangePyBase):
             trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
             all_fills_response = await self._api_get(
                 path_url=CONSTANTS.MY_TRADES_PATH_URL,
-                params={
-                    "currency_pair": trading_pair,
-                    "order_id": exchange_order_id
-                },
+                params={"currency_pair": trading_pair, "order_id": exchange_order_id},
                 is_auth_required=True,
-                limit_id=CONSTANTS.MY_TRADES_PATH_URL)
+                limit_id=CONSTANTS.MY_TRADES_PATH_URL,
+            )
 
             for trade_fill in all_fills_response:
-                trade_update = self._create_trade_update_with_order_fill_data(
-                    order_fill=trade_fill,
-                    order=order)
+                trade_update = self._create_trade_update_with_order_fill_data(order_fill=trade_fill, order=order)
                 trade_updates.append(trade_update)
 
         except asyncio.TimeoutError:
-            raise IOError(f"Skipped order update with order fills for {order.client_order_id} "
-                          "- waiting for exchange order id.")
+            raise IOError(
+                f"Skipped order update with order fills for {order.client_order_id} " "- waiting for exchange order id."
+            )
 
         return trade_updates
 
@@ -304,29 +301,31 @@ class GateIoExchange(ExchangePyBase):
             trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
             updated_order_data = await self._api_get(
                 path_url=CONSTANTS.ORDER_STATUS_PATH_URL.format(order_id=exchange_order_id),
-                params={
-                    "currency_pair": trading_pair
-                },
+                params={"currency_pair": trading_pair},
                 is_auth_required=True,
-                limit_id=CONSTANTS.ORDER_STATUS_LIMIT_ID)
+                limit_id=CONSTANTS.ORDER_STATUS_LIMIT_ID,
+            )
 
             order_update = self._create_order_update_with_order_status_data(
-                order_status=updated_order_data,
-                order=tracked_order)
+                order_status=updated_order_data, order=tracked_order
+            )
         except asyncio.TimeoutError:
-            raise IOError(f"Skipped order status update for {tracked_order.client_order_id}"
-                          f" - waiting for exchange order id.")
+            raise IOError(
+                f"Skipped order status update for {tracked_order.client_order_id}" f" - waiting for exchange order id."
+            )
 
         return order_update
 
-    def _get_fee(self,
-                 base_currency: str,
-                 quote_currency: str,
-                 order_type: OrderType,
-                 order_side: TradeType,
-                 amount: Decimal,
-                 price: Decimal = s_decimal_NaN,
-                 is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
+    def _get_fee(
+        self,
+        base_currency: str,
+        quote_currency: str,
+        order_type: OrderType,
+        order_side: TradeType,
+        amount: Decimal,
+        price: Decimal = s_decimal_NaN,
+        is_maker: Optional[bool] = None,
+    ) -> AddedToCostTradeFee:
         is_maker = order_type is OrderType.LIMIT_MAKER
         return AddedToCostTradeFee(percent=self.estimate_fee_pct(is_maker))
 
@@ -351,8 +350,7 @@ class GateIoExchange(ExchangePyBase):
             results: List[Dict[str, Any]] = event_message.get("result", None)
             try:
                 if channel not in user_channels:
-                    self.logger().error(
-                        f"Unexpected message in user stream: {event_message}.", exc_info=True)
+                    self.logger().error(f"Unexpected message in user stream: {event_message}.", exc_info=True)
                     continue
 
                 if channel == CONSTANTS.USER_TRADES_ENDPOINT_NAME:
@@ -367,8 +365,7 @@ class GateIoExchange(ExchangePyBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error(
-                    "Unexpected error in user stream listener loop.", exc_info=True)
+                self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await self._sleep(5.0)
 
     def _normalise_order_message_state(self, order_msg: Dict[str, Any], tracked_order):
@@ -442,19 +439,13 @@ class GateIoExchange(ExchangePyBase):
         order_update = self._create_order_update_with_order_status_data(order_status=order_msg, order=tracked_order)
         self._order_tracker.process_order_update(order_update=order_update)
 
-    def _create_trade_update_with_order_fill_data(
-            self,
-            order_fill: Dict[str, Any],
-            order: InFlightOrder):
+    def _create_trade_update_with_order_fill_data(self, order_fill: Dict[str, Any], order: InFlightOrder):
 
         fee = TradeFeeBase.new_spot_fee(
             fee_schema=self.trade_fee_schema(),
             trade_type=order.trade_type,
             percent_token=order_fill["fee_currency"],
-            flat_fees=[TokenAmount(
-                amount=Decimal(order_fill["fee"]),
-                token=order_fill["fee_currency"]
-            )]
+            flat_fees=[TokenAmount(amount=Decimal(order_fill["fee"]), token=order_fill["fee_currency"])],
         )
         trade_update = TradeUpdate(
             trade_id=str(order_fill["id"]),
@@ -481,9 +472,7 @@ class GateIoExchange(ExchangePyBase):
         if tracked_order is None:
             self.logger().debug(f"Ignoring trade message with id {client_order_id}: not in in_flight_orders.")
         else:
-            trade_update = self._create_trade_update_with_order_fill_data(
-                order_fill=trade,
-                order=tracked_order)
+            trade_update = self._create_trade_update_with_order_fill_data(order_fill=trade, order=tracked_order)
             self._order_tracker.process_trade_update(trade_update)
 
     def _process_balance_message(self, balance_update):
@@ -508,19 +497,14 @@ class GateIoExchange(ExchangePyBase):
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
         for symbol_data in filter(web_utils.is_exchange_information_valid, exchange_info):
-            mapping[symbol_data["id"]] = combine_to_hb_trading_pair(base=symbol_data["base"],
-                                                                    quote=symbol_data["quote"])
+            mapping[symbol_data["id"]] = combine_to_hb_trading_pair(
+                base=symbol_data["base"], quote=symbol_data["quote"]
+            )
         self._set_trading_pair_symbol_map(mapping)
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
-        params = {
-            "currency_pair": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        }
+        params = {"currency_pair": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)}
 
-        resp_json = await self._api_request(
-            method=RESTMethod.GET,
-            path_url=CONSTANTS.TICKER_PATH_URL,
-            params=params
-        )
+        resp_json = await self._api_request(method=RESTMethod.GET, path_url=CONSTANTS.TICKER_PATH_URL, params=params)
 
         return float(resp_json[0]["last"])

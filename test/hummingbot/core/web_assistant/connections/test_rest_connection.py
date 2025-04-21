@@ -25,13 +25,13 @@ class RESTConnectionTest(IsolatedAsyncioWrapperTestCase):
         connection = RESTConnection(client_session)
         request = RESTRequest(method=RESTMethod.GET, url=url)
 
-        ret = await (connection.call(request))
+        ret = await connection.call(request)
 
         self.assertIsInstance(ret, RESTResponse)
         self.assertEqual(url, ret.url)
         self.assertEqual(200, ret.status)
 
-        j = await (ret.json())
+        j = await ret.json()
 
         self.assertEqual(resp, j)
-        await (client_session.close())
+        await client_session.close()

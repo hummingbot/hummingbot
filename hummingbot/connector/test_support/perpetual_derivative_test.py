@@ -215,9 +215,9 @@ class AbstractPerpetualDerivativeTests:
 
             creation_response = self.order_creation_request_successful_mock_response
 
-            mock_api.post(url,
-                          body=json.dumps(creation_response),
-                          callback=lambda *args, **kwargs: request_sent_event.set())
+            mock_api.post(
+                url, body=json.dumps(creation_response), callback=lambda *args, **kwargs: request_sent_event.set()
+            )
 
             leverage = 2
             self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
@@ -228,19 +228,17 @@ class AbstractPerpetualDerivativeTests:
             self.validate_auth_credentials_present(order_request)
             self.assertIn(order_id, self.exchange.in_flight_orders)
             self.validate_order_creation_request(
-                order=self.exchange.in_flight_orders[order_id],
-                request_call=order_request)
+                order=self.exchange.in_flight_orders[order_id], request_call=order_request
+            )
 
             create_event: BuyOrderCreatedEvent = self.buy_order_created_logger.event_log[0]
-            self.assertEqual(self.exchange.current_timestamp,
-                             create_event.timestamp)
+            self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
             self.assertEqual(self.trading_pair, create_event.trading_pair)
             self.assertEqual(OrderType.LIMIT, create_event.type)
             self.assertEqual(Decimal("100"), create_event.amount)
             self.assertEqual(Decimal("10000"), create_event.price)
             self.assertEqual(order_id, create_event.order_id)
-            self.assertEqual(str(self.expected_exchange_order_id),
-                             create_event.exchange_order_id)
+            self.assertEqual(str(self.expected_exchange_order_id), create_event.exchange_order_id)
             self.assertEqual(leverage, create_event.leverage)
             self.assertEqual(PositionAction.OPEN.value, create_event.position)
 
@@ -249,7 +247,7 @@ class AbstractPerpetualDerivativeTests:
                     "INFO",
                     f"Created {OrderType.LIMIT.name} {TradeType.BUY.name} order {order_id} for "
                     f"{Decimal('100.000000')} to {PositionAction.OPEN.name} a {self.trading_pair} position "
-                    f"at {Decimal('10000.0000')}."
+                    f"at {Decimal('10000.0000')}.",
                 )
             )
 
@@ -263,9 +261,9 @@ class AbstractPerpetualDerivativeTests:
             url = self.order_creation_url
             creation_response = self.order_creation_request_successful_mock_response
 
-            mock_api.post(url,
-                          body=json.dumps(creation_response),
-                          callback=lambda *args, **kwargs: request_sent_event.set())
+            mock_api.post(
+                url, body=json.dumps(creation_response), callback=lambda *args, **kwargs: request_sent_event.set()
+            )
             leverage = 3
             self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
             order_id = self.place_sell_order()
@@ -275,8 +273,8 @@ class AbstractPerpetualDerivativeTests:
             self.validate_auth_credentials_present(order_request)
             self.assertIn(order_id, self.exchange.in_flight_orders)
             self.validate_order_creation_request(
-                order=self.exchange.in_flight_orders[order_id],
-                request_call=order_request)
+                order=self.exchange.in_flight_orders[order_id], request_call=order_request
+            )
 
             create_event: SellOrderCreatedEvent = self.sell_order_created_logger.event_log[0]
             self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
@@ -294,7 +292,7 @@ class AbstractPerpetualDerivativeTests:
                     "INFO",
                     f"Created {OrderType.LIMIT.name} {TradeType.SELL.name} order {order_id} for "
                     f"{Decimal('100.000000')} to {PositionAction.OPEN.name} a {self.trading_pair} position "
-                    f"at {Decimal('10000.0000')}."
+                    f"at {Decimal('10000.0000')}.",
                 )
             )
 
@@ -308,9 +306,9 @@ class AbstractPerpetualDerivativeTests:
 
             creation_response = self.order_creation_request_successful_mock_response
 
-            mock_api.post(url,
-                          body=json.dumps(creation_response),
-                          callback=lambda *args, **kwargs: request_sent_event.set())
+            mock_api.post(
+                url, body=json.dumps(creation_response), callback=lambda *args, **kwargs: request_sent_event.set()
+            )
             leverage = 4
             self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
             order_id = self.place_buy_order(position_action=PositionAction.CLOSE)
@@ -320,19 +318,17 @@ class AbstractPerpetualDerivativeTests:
             self.validate_auth_credentials_present(order_request)
             self.assertIn(order_id, self.exchange.in_flight_orders)
             self.validate_order_creation_request(
-                order=self.exchange.in_flight_orders[order_id],
-                request_call=order_request)
+                order=self.exchange.in_flight_orders[order_id], request_call=order_request
+            )
 
             create_event: BuyOrderCreatedEvent = self.buy_order_created_logger.event_log[0]
-            self.assertEqual(self.exchange.current_timestamp,
-                             create_event.timestamp)
+            self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
             self.assertEqual(self.trading_pair, create_event.trading_pair)
             self.assertEqual(OrderType.LIMIT, create_event.type)
             self.assertEqual(Decimal("100"), create_event.amount)
             self.assertEqual(Decimal("10000"), create_event.price)
             self.assertEqual(order_id, create_event.order_id)
-            self.assertEqual(str(self.expected_exchange_order_id),
-                             create_event.exchange_order_id)
+            self.assertEqual(str(self.expected_exchange_order_id), create_event.exchange_order_id)
             self.assertEqual(leverage, create_event.leverage)
             self.assertEqual(PositionAction.CLOSE.value, create_event.position)
 
@@ -341,7 +337,7 @@ class AbstractPerpetualDerivativeTests:
                     "INFO",
                     f"Created {OrderType.LIMIT.name} {TradeType.BUY.name} order {order_id} for "
                     f"{Decimal('100.000000')} to {PositionAction.CLOSE.name} a {self.trading_pair} position "
-                    f"at {Decimal('10000.0000')}."
+                    f"at {Decimal('10000.0000')}.",
                 )
             )
 
@@ -354,9 +350,9 @@ class AbstractPerpetualDerivativeTests:
             url = self.order_creation_url
             creation_response = self.order_creation_request_successful_mock_response
 
-            mock_api.post(url,
-                          body=json.dumps(creation_response),
-                          callback=lambda *args, **kwargs: request_sent_event.set())
+            mock_api.post(
+                url, body=json.dumps(creation_response), callback=lambda *args, **kwargs: request_sent_event.set()
+            )
             leverage = 5
             self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
             order_id = self.place_sell_order(position_action=PositionAction.CLOSE)
@@ -366,8 +362,8 @@ class AbstractPerpetualDerivativeTests:
             self.validate_auth_credentials_present(order_request)
             self.assertIn(order_id, self.exchange.in_flight_orders)
             self.validate_order_creation_request(
-                order=self.exchange.in_flight_orders[order_id],
-                request_call=order_request)
+                order=self.exchange.in_flight_orders[order_id], request_call=order_request
+            )
 
             create_event: SellOrderCreatedEvent = self.sell_order_created_logger.event_log[0]
             self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
@@ -385,7 +381,7 @@ class AbstractPerpetualDerivativeTests:
                     "INFO",
                     f"Created {OrderType.LIMIT.name} {TradeType.SELL.name} order {order_id} for "
                     f"{Decimal('100.000000')} to {PositionAction.CLOSE.name} a {self.trading_pair} position "
-                    f"at {Decimal('10000.0000')}."
+                    f"at {Decimal('10000.0000')}.",
                 )
             )
 
@@ -409,14 +405,11 @@ class AbstractPerpetualDerivativeTests:
             order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
             urls = self.configure_completely_filled_order_status_response(
-                order=order,
-                mock_api=mock_api,
-                callback=lambda *args, **kwargs: request_sent_event.set())
+                order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
+            )
 
             if self.is_order_fill_http_update_included_in_status_update:
-                trade_url = self.configure_full_fill_trade_response(
-                    order=order,
-                    mock_api=mock_api)
+                trade_url = self.configure_full_fill_trade_response(order=order, mock_api=mock_api)
             else:
                 # If the fill events will not be requested with the order status, we need to manually set the event
                 # to allow the ClientOrderTracker to process the last status update
@@ -425,7 +418,7 @@ class AbstractPerpetualDerivativeTests:
             # Execute one more synchronization to ensure the async task that processes the update is finished
             self.async_run_with_timeout(request_sent_event.wait())
 
-            for url in (urls if isinstance(urls, list) else [urls]):
+            for url in urls if isinstance(urls, list) else [urls]:
                 order_status_request = self._all_executed_requests(mock_api, url)[0]
                 self.validate_auth_credentials_present(order_status_request)
                 self.validate_order_status_request(order=order, request_call=order_status_request)
@@ -439,9 +432,7 @@ class AbstractPerpetualDerivativeTests:
                 if trade_url:
                     trades_request = self._all_executed_requests(mock_api, trade_url)[0]
                     self.validate_auth_credentials_present(trades_request)
-                    self.validate_trades_request(
-                        order=order,
-                        request_call=trades_request)
+                    self.validate_trades_request(order=order, request_call=trades_request)
 
                 fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
                 self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
@@ -462,21 +453,16 @@ class AbstractPerpetualDerivativeTests:
             self.assertEqual(order.quote_asset, buy_event.quote_asset)
             self.assertEqual(
                 order.amount if self.is_order_fill_http_update_included_in_status_update else Decimal(0),
-                buy_event.base_asset_amount)
+                buy_event.base_asset_amount,
+            )
             self.assertEqual(
-                order.amount * order.price
-                if self.is_order_fill_http_update_included_in_status_update
-                else Decimal(0),
-                buy_event.quote_asset_amount)
+                order.amount * order.price if self.is_order_fill_http_update_included_in_status_update else Decimal(0),
+                buy_event.quote_asset_amount,
+            )
             self.assertEqual(order.order_type, buy_event.order_type)
             self.assertEqual(order.exchange_order_id, buy_event.exchange_order_id)
             self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
-            self.assertTrue(
-                self.is_logged(
-                    "INFO",
-                    f"BUY order {order.client_order_id} completely filled."
-                )
-            )
+            self.assertTrue(self.is_logged("INFO", f"BUY order {order.client_order_id} completely filled."))
 
         @aioresponses()
         def test_user_stream_update_for_order_full_fill(self, mock_api):
@@ -515,9 +501,7 @@ class AbstractPerpetualDerivativeTests:
             self.exchange._user_stream_tracker._user_stream = mock_queue
 
             if self.is_order_fill_http_update_executed_during_websocket_order_event_processing:
-                self.configure_full_fill_trade_response(
-                    order=order,
-                    mock_api=mock_api)
+                self.configure_full_fill_trade_response(order=order, mock_api=mock_api)
 
             try:
                 self.async_run_with_timeout(self.exchange._user_stream_event_listener())
@@ -552,12 +536,7 @@ class AbstractPerpetualDerivativeTests:
             self.assertTrue(order.is_filled)
             self.assertTrue(order.is_done)
 
-            self.assertTrue(
-                self.is_logged(
-                    "INFO",
-                    f"SELL order {order.client_order_id} completely filled."
-                )
-            )
+            self.assertTrue(self.is_logged("INFO", f"SELL order {order.client_order_id} completely filled."))
 
             self.assertEqual(1, len(self.exchange.account_positions))
 
@@ -587,7 +566,7 @@ class AbstractPerpetualDerivativeTests:
             self.assertTrue(
                 self.is_logged(
                     log_level="NETWORK",
-                    message=f"Error switching {self.trading_pair} mode to {PositionMode.HEDGE}: {error_msg}"
+                    message=f"Error switching {self.trading_pair} mode to {PositionMode.HEDGE}: {error_msg}",
                 )
             )
 
@@ -703,8 +682,7 @@ class AbstractPerpetualDerivativeTests:
             mock_queue_get.side_effect = event_messages
 
             try:
-                self.async_run_with_timeout(
-                    self.exchange._listen_for_funding_info())
+                self.async_run_with_timeout(self.exchange._listen_for_funding_info())
             except asyncio.CancelledError:
                 pass
 

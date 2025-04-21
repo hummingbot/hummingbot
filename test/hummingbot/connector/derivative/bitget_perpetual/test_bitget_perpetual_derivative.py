@@ -42,9 +42,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     @property
     def latest_prices_url(self):
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT)
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
@@ -61,8 +59,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     @property
     def order_creation_url(self):
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.PLACE_ACTIVE_ORDER_PATH_URL)
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.PLACE_ACTIVE_ORDER_PATH_URL)
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
@@ -73,15 +70,13 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     @property
     def funding_info_url(self):
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL)
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL)
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
     @property
     def funding_payment_url(self):
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.GET_FUNDING_FEES_PATH_URL)
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.GET_FUNDING_FEES_PATH_URL)
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
@@ -89,27 +84,27 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     def all_symbols_request_mock_response(self):
         mock_response = {
             "code": "00000",
-            "data": [{
-                "baseCoin": self.base_asset,
-                "buyLimitPriceRatio": "0.01",
-                "feeRateUpRatio": "0.005",
-                "makerFeeRate": "0.0002",
-                "minTradeNum": "0.001",
-                "openCostUpRatio": "0.01",
-                "priceEndStep": "5",
-                "pricePlace": "1",
-                "quoteCoin": self.quote_asset,
-                "sellLimitPriceRatio": "0.01",
-                "supportMarginCoins": [
-                    self.quote_asset
-                ],
-                "symbol": self.exchange_trading_pair,
-                "takerFeeRate": "0.0006",
-                "volumePlace": "3",
-                "sizeMultiplier": "5"
-            }],
+            "data": [
+                {
+                    "baseCoin": self.base_asset,
+                    "buyLimitPriceRatio": "0.01",
+                    "feeRateUpRatio": "0.005",
+                    "makerFeeRate": "0.0002",
+                    "minTradeNum": "0.001",
+                    "openCostUpRatio": "0.01",
+                    "priceEndStep": "5",
+                    "pricePlace": "1",
+                    "quoteCoin": self.quote_asset,
+                    "sellLimitPriceRatio": "0.01",
+                    "supportMarginCoins": [self.quote_asset],
+                    "symbol": self.exchange_trading_pair,
+                    "takerFeeRate": "0.0006",
+                    "volumePlace": "3",
+                    "sizeMultiplier": "5",
+                }
+            ],
             "msg": "success",
-            "requestTime": 1627114525850
+            "requestTime": 1627114525850,
         }
         return mock_response
 
@@ -131,8 +126,8 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "quoteVolume": "3735854069.908",
                 "usdtVolume": "3735854069.908",
                 "openUtc": "23841.5",
-                "chgUtc": "0.00625"
-            }
+                "chgUtc": "0.00625",
+            },
         }
         return mock_response
 
@@ -154,13 +149,15 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     def trading_rules_request_erroneous_mock_response(self):
         mock_response = {
             "code": "00000",
-            "data": [{
-                "baseCoin": self.base_asset,
-                "quoteCoin": self.quote_asset,
-                "symbol": self.exchange_trading_pair,
-            }],
+            "data": [
+                {
+                    "baseCoin": self.base_asset,
+                    "quoteCoin": self.quote_asset,
+                    "symbol": self.exchange_trading_pair,
+                }
+            ],
             "msg": "success",
-            "requestTime": 1627114525850
+            "requestTime": 1627114525850,
         }
         return mock_response
 
@@ -168,12 +165,9 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     def order_creation_request_successful_mock_response(self):
         mock_response = {
             "code": "00000",
-            "data": {
-                "orderId": "1627293504612",
-                "clientOid": "BITGET#1627293504612"
-            },
+            "data": {"orderId": "1627293504612", "clientOid": "BITGET#1627293504612"},
             "msg": "success",
-            "requestTime": 1627293504612
+            "requestTime": 1627293504612,
         }
         return mock_response
 
@@ -191,7 +185,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "maxTransferOut": "10572.92904289",
                     "equity": "2000",
                     "usdtEquity": "10582.902657719473",
-                    "btcEquity": "0.204885807029"
+                    "btcEquity": "0.204885807029",
                 },
                 {
                     "marginCoin": self.base_asset,
@@ -202,11 +196,11 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "maxTransferOut": "10572.92904289",
                     "equity": "15",
                     "usdtEquity": "10582.902657719473",
-                    "btcEquity": "0.204885807029"
-                }
+                    "btcEquity": "0.204885807029",
+                },
             ],
             "msg": "success",
-            "requestTime": 1630901215622
+            "requestTime": 1630901215622,
         }
         return mock_response
 
@@ -224,11 +218,11 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "maxTransferOut": "10572.92904289",
                     "equity": "15",
                     "usdtEquity": "10582.902657719473",
-                    "btcEquity": "0.204885807029"
+                    "btcEquity": "0.204885807029",
                 }
             ],
             "msg": "success",
-            "requestTime": 1630901215622
+            "requestTime": 1630901215622,
         }
 
     @property
@@ -237,7 +231,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             "arg": {
                 "channel": CONSTANTS.WS_SUBSCRIPTION_WALLET_ENDPOINT_NAME,
                 "instType": "umcbl",
-                "instId": "default"
+                "instId": "default",
             },
             "data": [
                 {
@@ -247,7 +241,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "maxOpenPosAvailable": "10",
                     "equity": "15",
                 }
-            ]
+            ],
         }
         return mock_response
 
@@ -260,12 +254,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return {
             "code": "00000",
             "msg": "success",
-            "data": {
-                "result": [],
-                "endId": "885353495773458432",
-                "nextFlag": False,
-                "preFlag": False
-            }
+            "data": {"result": [], "endId": "885353495773458432", "nextFlag": False, "preFlag": False},
         }
 
     @property
@@ -277,21 +266,22 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "result": [
                     {
                         "id": "892962903462432768",
-                        "symbol": self.exchange_symbol_for_tokens(base_token=self.base_asset,
-                                                                  quote_token=self.quote_asset),
+                        "symbol": self.exchange_symbol_for_tokens(
+                            base_token=self.base_asset, quote_token=self.quote_asset
+                        ),
                         "marginCoin": self.quote_asset,
                         "amount": str(self.target_funding_payment_payment_amount),
                         "fee": "0",
                         "feeByCoupon": "",
                         "feeCoin": self.quote_asset,
                         "business": "contract_settle_fee",
-                        "cTime": "1657110053000"
+                        "cTime": "1657110053000",
                     }
                 ],
                 "endId": "885353495773458432",
                 "nextFlag": False,
-                "preFlag": False
-            }
+                "preFlag": False,
+            },
         }
 
     @property
@@ -329,8 +319,9 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return TradingRule(
             trading_pair=self.trading_pair,
             min_order_size=Decimal(str(trading_rules_resp["minTradeNum"])),
-            min_price_increment=(Decimal(str(trading_rules_resp["priceEndStep"]))
-                                 * Decimal(f"1e-{trading_rules_resp['pricePlace']}")),
+            min_price_increment=(
+                Decimal(str(trading_rules_resp["priceEndStep"])) * Decimal(f"1e-{trading_rules_resp['pricePlace']}")
+            ),
             min_base_amount_increment=Decimal(str(trading_rules_resp["sizeMultiplier"])),
             buy_order_collateral_token=self.quote_asset,
             sell_order_collateral_token=self.quote_asset,
@@ -398,7 +389,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             index_price=Decimal(-1),
             mark_price=Decimal(-1),
             next_funding_utc_timestamp=1640001119,
-            rate=self.target_funding_payment_funding_rate
+            rate=self.target_funding_payment_funding_rate,
         )
         exchange._perpetual_trading._funding_info[self.trading_pair] = funding_info
         return exchange
@@ -440,31 +431,27 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(order.exchange_order_id, request_params["orderId"])
 
     def configure_successful_cancelation_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        order: InFlightOrder,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         """
         :return: the URL configured for the cancelation
         """
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.CANCEL_ACTIVE_ORDER_PATH_URL
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.CANCEL_ACTIVE_ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         response = self._order_cancelation_request_successful_mock_response(order=order)
         mock_api.post(regex_url, body=json.dumps(response), callback=callback)
         return url
 
     def configure_erroneous_cancelation_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        order: InFlightOrder,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.CANCEL_ACTIVE_ORDER_PATH_URL
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.CANCEL_ACTIVE_ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         response = {
             "code": "43026",
@@ -474,10 +461,10 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return url
 
     def configure_one_successful_one_erroneous_cancel_all_response(
-            self,
-            successful_order: InFlightOrder,
-            erroneous_order: InFlightOrder,
-            mock_api: aioresponses,
+        self,
+        successful_order: InFlightOrder,
+        erroneous_order: InFlightOrder,
+        mock_api: aioresponses,
     ) -> List[str]:
         """
         :return: a list of all configured URLs for the cancelations
@@ -490,146 +477,119 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return all_urls
 
     def configure_order_not_found_error_cancelation_response(
-            self, order: InFlightOrder, mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         # Implement the expected not found response when enabling test_cancel_order_not_found_in_the_exchange
         raise NotImplementedError
 
     def configure_order_not_found_error_order_status_response(
-            self, order: InFlightOrder, mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
         # Implement the expected not found response when enabling
         # test_lost_order_removed_if_not_found_during_order_status_update
         raise NotImplementedError
 
     def configure_completely_filled_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_status_request_completely_filled_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
         return url
 
     def configure_canceled_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        order: InFlightOrder,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_status_request_canceled_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
         return url
 
     def configure_open_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        order: InFlightOrder,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_status_request_open_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
         return url
 
     def configure_http_error_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        order: InFlightOrder,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL)
         regex_url = re.compile(url + r"\?.*")
         mock_api.get(regex_url, status=404, callback=callback)
         return url
 
     def configure_partially_filled_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        order: InFlightOrder,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_status_request_partially_filled_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
         return url
 
     def configure_partial_cancelled_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        return self.configure_canceled_order_status_response(
-            order=order,
-            mock_api=mock_api,
-            callback=callback
-        )
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
+        return self.configure_canceled_order_status_response(order=order, mock_api=mock_api, callback=callback)
 
     def configure_partial_fill_trade_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        order: InFlightOrder,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.USER_TRADE_RECORDS_PATH_URL
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.USER_TRADE_RECORDS_PATH_URL)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_fills_request_partial_fill_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
         return url
 
     def configure_full_fill_trade_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        order: InFlightOrder,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.USER_TRADE_RECORDS_PATH_URL
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.USER_TRADE_RECORDS_PATH_URL)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_fills_request_full_fill_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
         return url
 
     def configure_erroneous_http_fill_trade_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        order: InFlightOrder,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.USER_TRADE_RECORDS_PATH_URL
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.USER_TRADE_RECORDS_PATH_URL)
         regex_url = re.compile(url + r"\?.*")
         mock_api.get(regex_url, status=400, callback=callback)
         return url
 
     def configure_successful_set_position_mode(
-            self,
-            position_mode: PositionMode,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        position_mode: PositionMode,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ):
         url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.SET_POSITION_MODE_URL)
         response = {
@@ -639,20 +599,20 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "marginCoin": "USDT",
                 "longLeverage": 25,
                 "shortLeverage": 20,
-                "marginMode": "crossed"
+                "marginMode": "crossed",
             },
             "msg": "success",
-            "requestTime": 1627293445916
+            "requestTime": 1627293445916,
         }
         mock_api.post(url, body=json.dumps(response), callback=callback)
 
         return url
 
     def configure_failed_set_position_mode(
-            self,
-            position_mode: PositionMode,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self,
+        position_mode: PositionMode,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ):
         url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.SET_POSITION_MODE_URL)
         regex_url = re.compile(f"^{url}")
@@ -666,24 +626,22 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "marginCoin": "USDT",
                 "longLeverage": 25,
                 "shortLeverage": 20,
-                "marginMode": "crossed"
+                "marginMode": "crossed",
             },
             "msg": error_msg,
-            "requestTime": 1627293445916
+            "requestTime": 1627293445916,
         }
         mock_api.post(regex_url, body=json.dumps(mock_response), callback=callback)
 
         return url, f"ret_code <{error_code}> - {error_msg}"
 
     def configure_failed_set_leverage(
-            self,
-            leverage: PositionMode,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        leverage: PositionMode,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> Tuple[str, str]:
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.SET_LEVERAGE_PATH_URL
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.SET_LEVERAGE_PATH_URL)
         regex_url = re.compile(f"^{url}")
 
         err_code = CONSTANTS.RET_CODE_PARAMS_ERROR
@@ -695,24 +653,22 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "marginCoin": "USDT",
                 "longLeverage": 25,
                 "shortLeverage": 20,
-                "marginMode": "crossed"
+                "marginMode": "crossed",
             },
             "msg": err_msg,
-            "requestTime": 1627293049406
+            "requestTime": 1627293049406,
         }
         mock_api.post(regex_url, body=json.dumps(mock_response), callback=callback)
 
         return url, f"ret_code <{err_code}> - {err_msg}"
 
     def configure_successful_set_leverage(
-            self,
-            leverage: int,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        leverage: int,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ):
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.SET_LEVERAGE_PATH_URL
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.SET_LEVERAGE_PATH_URL)
         regex_url = re.compile(f"^{url}")
 
         mock_response = {
@@ -722,10 +678,10 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "marginCoin": "USDT",
                 "longLeverage": 25,
                 "shortLeverage": 20,
-                "marginMode": "crossed"
+                "marginMode": "crossed",
             },
             "msg": "success",
-            "requestTime": 1627293049406
+            "requestTime": 1627293049406,
         }
 
         mock_api.post(regex_url, body=json.dumps(mock_response), callback=callback)
@@ -737,41 +693,42 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             "arg": {
                 "channel": CONSTANTS.WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME,
                 "instType": "umcbl",
-                "instId": "default"
-            },
-            "data": [{
                 "instId": "default",
-                "ordId": order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
-                "clOrdId": order.client_order_id or "",
-                "px": str(order.price),
-                "sz": str(order.amount),
-                "notionalUsd": "100",
-                "ordType": order.order_type.name.capitalize(),
-                "force": "post_only",
-                "side": order.trade_type.name.capitalize(),
-                "posSide": "long",
-                "tdMode": "cross",
-                "tgtCcy": self.base_asset,
-                "fillPx": "0",
-                "tradeId": "0",
-                "fillSz": "0",
-                "fillTime": "1627293049406",
-                "fillFee": "0",
-                "fillFeeCcy": "USDT",
-                "execType": "maker",
-                "accFillSz": "0",
-                "fillNotionalUsd": "0",
-                "avgPx": "0",
-                "status": "new",
-                "lever": "1",
-                "orderFee": [
-                    {"feeCcy": "USDT",
-                     "fee": "0.001"},
-                ],
-                "pnl": "0.1",
-                "uTime": "1627293049406",
-                "cTime": "1627293049406",
-            }],
+            },
+            "data": [
+                {
+                    "instId": "default",
+                    "ordId": order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
+                    "clOrdId": order.client_order_id or "",
+                    "px": str(order.price),
+                    "sz": str(order.amount),
+                    "notionalUsd": "100",
+                    "ordType": order.order_type.name.capitalize(),
+                    "force": "post_only",
+                    "side": order.trade_type.name.capitalize(),
+                    "posSide": "long",
+                    "tdMode": "cross",
+                    "tgtCcy": self.base_asset,
+                    "fillPx": "0",
+                    "tradeId": "0",
+                    "fillSz": "0",
+                    "fillTime": "1627293049406",
+                    "fillFee": "0",
+                    "fillFeeCcy": "USDT",
+                    "execType": "maker",
+                    "accFillSz": "0",
+                    "fillNotionalUsd": "0",
+                    "avgPx": "0",
+                    "status": "new",
+                    "lever": "1",
+                    "orderFee": [
+                        {"feeCcy": "USDT", "fee": "0.001"},
+                    ],
+                    "pnl": "0.1",
+                    "uTime": "1627293049406",
+                    "cTime": "1627293049406",
+                }
+            ],
         }
 
     def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
@@ -779,41 +736,42 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             "arg": {
                 "channel": CONSTANTS.WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME,
                 "instType": "umcbl",
-                "instId": "default"
-            },
-            "data": [{
                 "instId": "default",
-                "ordId": order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
-                "clOrdId": order.client_order_id or "",
-                "px": str(order.price),
-                "sz": str(order.amount),
-                "notionalUsd": "100",
-                "ordType": order.order_type.name.capitalize(),
-                "force": "post_only",
-                "side": order.trade_type.name.capitalize(),
-                "posSide": "long",
-                "tdMode": "cross",
-                "tgtCcy": self.base_asset,
-                "fillPx": str(order.price),
-                "tradeId": "0",
-                "fillSz": "10",
-                "fillTime": "1627293049406",
-                "fillFee": "0",
-                "fillFeeCcy": self.quote_asset,
-                "execType": "maker",
-                "accFillSz": "10",
-                "fillNotionalUsd": "10",
-                "avgPx": str(order.price),
-                "status": "cancelled",
-                "lever": "1",
-                "orderFee": [
-                    {"feeCcy": "USDT",
-                     "fee": "0.001"},
-                ],
-                "pnl": "0.1",
-                "uTime": "1627293049416",
-                "cTime": "1627293049416",
-            }],
+            },
+            "data": [
+                {
+                    "instId": "default",
+                    "ordId": order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
+                    "clOrdId": order.client_order_id or "",
+                    "px": str(order.price),
+                    "sz": str(order.amount),
+                    "notionalUsd": "100",
+                    "ordType": order.order_type.name.capitalize(),
+                    "force": "post_only",
+                    "side": order.trade_type.name.capitalize(),
+                    "posSide": "long",
+                    "tdMode": "cross",
+                    "tgtCcy": self.base_asset,
+                    "fillPx": str(order.price),
+                    "tradeId": "0",
+                    "fillSz": "10",
+                    "fillTime": "1627293049406",
+                    "fillFee": "0",
+                    "fillFeeCcy": self.quote_asset,
+                    "execType": "maker",
+                    "accFillSz": "10",
+                    "fillNotionalUsd": "10",
+                    "avgPx": str(order.price),
+                    "status": "cancelled",
+                    "lever": "1",
+                    "orderFee": [
+                        {"feeCcy": "USDT", "fee": "0.001"},
+                    ],
+                    "pnl": "0.1",
+                    "uTime": "1627293049416",
+                    "cTime": "1627293049416",
+                }
+            ],
         }
 
     def order_event_for_partially_canceled_websocket_update(self, order: InFlightOrder):
@@ -824,83 +782,81 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             "arg": {
                 "channel": CONSTANTS.WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME,
                 "instType": "umcbl",
-                "instId": "default"
-            },
-            "data": [{
                 "instId": "default",
-                "ordId": order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
-                "clOrdId": order.client_order_id or "",
-                "px": str(order.price),
-                "sz": str(order.amount),
-                "notionalUsd": "100",
-                "ordType": order.order_type.name.capitalize(),
-                "force": "post_only",
-                "side": order.trade_type.name.capitalize(),
-                "posSide": "long",
-                "tdMode": "cross",
-                "tgtCcy": self.base_asset,
-                "fillPx": str(self.expected_partial_fill_price),
-                "tradeId": "xxxxxxxx-xxxx-xxxx-8b66-c3d2fcd352f6",
-                "fillSz": str(self.expected_partial_fill_amount),
-                "fillTime": "1627293049409",
-                "fillFee": "10",
-                "fillFeeCcy": self.quote_asset,
-                "execType": "maker",
-                "accFillSz": str(self.expected_partial_fill_amount),
-                "fillNotionalUsd": "10",
-                "avgPx": str(self.expected_partial_fill_price),
-                "status": "partial-fill",
-                "lever": "1",
-                "orderFee": [
-                    {"feeCcy": self.quote_asset,
-                     "fee": str(self.expected_partial_fill_fee.flat_fees[0].amount)},
-                ],
-                "pnl": "0.1",
-                "uTime": "1627293049409",
-                "cTime": "1627293049409",
-            }],
+            },
+            "data": [
+                {
+                    "instId": "default",
+                    "ordId": order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
+                    "clOrdId": order.client_order_id or "",
+                    "px": str(order.price),
+                    "sz": str(order.amount),
+                    "notionalUsd": "100",
+                    "ordType": order.order_type.name.capitalize(),
+                    "force": "post_only",
+                    "side": order.trade_type.name.capitalize(),
+                    "posSide": "long",
+                    "tdMode": "cross",
+                    "tgtCcy": self.base_asset,
+                    "fillPx": str(self.expected_partial_fill_price),
+                    "tradeId": "xxxxxxxx-xxxx-xxxx-8b66-c3d2fcd352f6",
+                    "fillSz": str(self.expected_partial_fill_amount),
+                    "fillTime": "1627293049409",
+                    "fillFee": "10",
+                    "fillFeeCcy": self.quote_asset,
+                    "execType": "maker",
+                    "accFillSz": str(self.expected_partial_fill_amount),
+                    "fillNotionalUsd": "10",
+                    "avgPx": str(self.expected_partial_fill_price),
+                    "status": "partial-fill",
+                    "lever": "1",
+                    "orderFee": [
+                        {"feeCcy": self.quote_asset, "fee": str(self.expected_partial_fill_fee.flat_fees[0].amount)},
+                    ],
+                    "pnl": "0.1",
+                    "uTime": "1627293049409",
+                    "cTime": "1627293049409",
+                }
+            ],
         }
 
     def order_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         return {
-            "arg": {
-                "channel": "orders",
-                "instType": "umcbl",
-                "instId": "default"
-            },
-            "data": [{
-                "instId": "default",
-                "ordId": order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
-                "clOrdId": order.client_order_id or "",
-                "px": str(order.price),
-                "sz": str(order.amount),
-                "notionalUsd": "100",
-                "ordType": order.order_type.name.capitalize(),
-                "force": "post_only",
-                "side": order.trade_type.name.capitalize(),
-                "posSide": "short",
-                "tdMode": "cross",
-                "tgtCcy": self.base_asset,
-                "fillPx": str(order.price),
-                "tradeId": "0",
-                "fillSz": str(order.amount),
-                "fillTime": "1627293049406",
-                "fillFee": str(self.expected_fill_fee.flat_fees[0].amount),
-                "fillFeeCcy": self.quote_asset,
-                "execType": "maker",
-                "accFillSz": str(order.amount),
-                "fillNotionalUsd": "0",
-                "avgPx": str(order.price),
-                "status": "full-fill",
-                "lever": "1",
-                "orderFee": [
-                    {"feeCcy": self.quote_asset,
-                     "fee": str(self.expected_fill_fee.flat_fees[0].amount)},
-                ],
-                "pnl": "0.1",
-                "uTime": "1627293049406",
-                "cTime": "1627293049406",
-            }],
+            "arg": {"channel": "orders", "instType": "umcbl", "instId": "default"},
+            "data": [
+                {
+                    "instId": "default",
+                    "ordId": order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
+                    "clOrdId": order.client_order_id or "",
+                    "px": str(order.price),
+                    "sz": str(order.amount),
+                    "notionalUsd": "100",
+                    "ordType": order.order_type.name.capitalize(),
+                    "force": "post_only",
+                    "side": order.trade_type.name.capitalize(),
+                    "posSide": "short",
+                    "tdMode": "cross",
+                    "tgtCcy": self.base_asset,
+                    "fillPx": str(order.price),
+                    "tradeId": "0",
+                    "fillSz": str(order.amount),
+                    "fillTime": "1627293049406",
+                    "fillFee": str(self.expected_fill_fee.flat_fees[0].amount),
+                    "fillFeeCcy": self.quote_asset,
+                    "execType": "maker",
+                    "accFillSz": str(order.amount),
+                    "fillNotionalUsd": "0",
+                    "avgPx": str(order.price),
+                    "status": "full-fill",
+                    "lever": "1",
+                    "orderFee": [
+                        {"feeCcy": self.quote_asset, "fee": str(self.expected_fill_fee.flat_fees[0].amount)},
+                    ],
+                    "pnl": "0.1",
+                    "uTime": "1627293049406",
+                    "cTime": "1627293049406",
+                }
+            ],
         }
 
     def trade_event_for_partial_fill_websocket_update(self, order: InFlightOrder):
@@ -912,76 +868,78 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     def position_event_for_full_fill_websocket_update(self, order: InFlightOrder, unrealized_pnl: float):
         return {
             "action": "snapshot",
-            "arg": {
-                "channel": "positions",
-                "instType": "umcbl",
-                "instId": "default"
-            },
-            "data": [{
-                "instId": self.exchange_symbol_for_tokens(base_token=self.base_asset, quote_token=self.quote_asset),
-                "posId": order.exchange_order_id or "960836851453296640",
-                "instName": self.exchange_trading_pair,
-                "marginCoin": self.quote_asset,
-                "margin": str(order.amount),
-                "marginMode": "fixed",
-                "holdSide": "short",
-                "holdMode": "double_hold",
-                "total": str(order.amount),
-                "available": str(order.amount),
-                "locked": "0",
-                "averageOpenPrice": str(order.price),
-                "leverage": str(order.leverage),
-                "achievedProfits": "0",
-                "upl": str(unrealized_pnl),
-                "uplRate": "1627293049406",
-                "liqPx": "0",
-                "keepMarginRate": "",
-                "fixedMarginRate": "",
-                "marginRate": "0",
-                "uTime": "1627293049406",
-                "cTime": "1627293049406",
-                "markPrice": "1317.43",
-            }],
+            "arg": {"channel": "positions", "instType": "umcbl", "instId": "default"},
+            "data": [
+                {
+                    "instId": self.exchange_symbol_for_tokens(base_token=self.base_asset, quote_token=self.quote_asset),
+                    "posId": order.exchange_order_id or "960836851453296640",
+                    "instName": self.exchange_trading_pair,
+                    "marginCoin": self.quote_asset,
+                    "margin": str(order.amount),
+                    "marginMode": "fixed",
+                    "holdSide": "short",
+                    "holdMode": "double_hold",
+                    "total": str(order.amount),
+                    "available": str(order.amount),
+                    "locked": "0",
+                    "averageOpenPrice": str(order.price),
+                    "leverage": str(order.leverage),
+                    "achievedProfits": "0",
+                    "upl": str(unrealized_pnl),
+                    "uplRate": "1627293049406",
+                    "liqPx": "0",
+                    "keepMarginRate": "",
+                    "fixedMarginRate": "",
+                    "marginRate": "0",
+                    "uTime": "1627293049406",
+                    "cTime": "1627293049406",
+                    "markPrice": "1317.43",
+                }
+            ],
         }
 
     def funding_info_event_for_websocket_update(self):
         return {
-            "arg": {
-                "channel": "ticker",
-                "instType": "UMCBL",
-                "instId": f"{self.base_asset}{self.quote_asset}"
-            },
-            "data": [{
-                "instId": f"{self.base_asset}{self.quote_asset}",
-                "indexPrice": "0",
-                "markPrice": "0",
-                "nextSettleTime": "0",
-                "capitalRate": "0",
-            }],
+            "arg": {"channel": "ticker", "instType": "UMCBL", "instId": f"{self.base_asset}{self.quote_asset}"},
+            "data": [
+                {
+                    "instId": f"{self.base_asset}{self.quote_asset}",
+                    "indexPrice": "0",
+                    "markPrice": "0",
+                    "nextSettleTime": "0",
+                    "capitalRate": "0",
+                }
+            ],
         }
 
     def configure_all_symbols_response(
-            self,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> List[str]:
 
         all_urls = []
 
-        url = (f"{web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.QUERY_SYMBOL_ENDPOINT)}"
-               f"?productType={CONSTANTS.USDT_PRODUCT_TYPE.lower()}")
+        url = (
+            f"{web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.QUERY_SYMBOL_ENDPOINT)}"
+            f"?productType={CONSTANTS.USDT_PRODUCT_TYPE.lower()}"
+        )
         response = self.all_symbols_request_mock_response
         mock_api.get(url, body=json.dumps(response))
         all_urls.append(url)
 
-        url = (f"{web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.QUERY_SYMBOL_ENDPOINT)}"
-               f"?productType={CONSTANTS.USD_PRODUCT_TYPE.lower()}")
+        url = (
+            f"{web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.QUERY_SYMBOL_ENDPOINT)}"
+            f"?productType={CONSTANTS.USD_PRODUCT_TYPE.lower()}"
+        )
         response = self._all_usd_symbols_request_mock_response()
         mock_api.get(url, body=json.dumps(response))
         all_urls.append(url)
 
-        url = (f"{web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.QUERY_SYMBOL_ENDPOINT)}"
-               f"?productType={CONSTANTS.USDC_PRODUCT_TYPE.lower()}")
+        url = (
+            f"{web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.QUERY_SYMBOL_ENDPOINT)}"
+            f"?productType={CONSTANTS.USDC_PRODUCT_TYPE.lower()}"
+        )
         response = self._all_usdc_symbols_request_mock_response()
         mock_api.get(url, body=json.dumps(response))
         all_urls.append(url)
@@ -989,39 +947,40 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return all_urls
 
     def configure_trading_rules_response(
-            self,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> List[str]:
         return self.configure_all_symbols_response(mock_api=mock_api, callback=callback)
 
     def configure_erroneous_trading_rules_response(
-            self,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> List[str]:
 
         all_urls = []
 
-        url = (f"{web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.QUERY_SYMBOL_ENDPOINT)}"
-               f"?productType={CONSTANTS.USDT_PRODUCT_TYPE.lower()}")
+        url = (
+            f"{web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.QUERY_SYMBOL_ENDPOINT)}"
+            f"?productType={CONSTANTS.USDT_PRODUCT_TYPE.lower()}"
+        )
         response = self.trading_rules_request_erroneous_mock_response
         mock_api.get(url, body=json.dumps(response))
         all_urls.append(url)
 
-        url = (f"{web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.QUERY_SYMBOL_ENDPOINT)}"
-               f"?productType={CONSTANTS.USD_PRODUCT_TYPE.lower()}")
-        response = {
-            "code": "00000",
-            "data": [],
-            "msg": "success",
-            "requestTime": "0"
-        }
+        url = (
+            f"{web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.QUERY_SYMBOL_ENDPOINT)}"
+            f"?productType={CONSTANTS.USD_PRODUCT_TYPE.lower()}"
+        )
+        response = {"code": "00000", "data": [], "msg": "success", "requestTime": "0"}
         mock_api.get(url, body=json.dumps(response))
         all_urls.append(url)
 
-        url = (f"{web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.QUERY_SYMBOL_ENDPOINT)}"
-               f"?productType={CONSTANTS.USDC_PRODUCT_TYPE.lower()}")
+        url = (
+            f"{web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.QUERY_SYMBOL_ENDPOINT)}"
+            f"?productType={CONSTANTS.USDC_PRODUCT_TYPE.lower()}"
+        )
         mock_api.get(url, body=json.dumps(response))
         all_urls.append(url)
 
@@ -1045,7 +1004,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
         self.assertEqual(
             f"Invalid position action {PositionAction.NIL}. Must be one of {[PositionAction.OPEN, PositionAction.CLOSE]}",
-            str(exception_context.exception)
+            str(exception_context.exception),
         )
 
     def test_get_buy_and_sell_collateral_tokens(self):
@@ -1106,7 +1065,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             unrealized_pnl=Decimal("0"),
             entry_price=order.price,
             amount=order.amount,
-            leverage=Decimal("1")
+            leverage=Decimal("1"),
         )
         self.exchange._perpetual_trading.set_position(self.exchange_trading_pair, fake_position)
 
@@ -1117,7 +1076,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             "arg": {
                 "channel": CONSTANTS.WS_SUBSCRIPTION_POSITIONS_ENDPOINT_NAME,
                 "instType": "umcbl",
-                "instId": "default"
+                "instId": "default",
             },
             "data": [],
         }
@@ -1140,22 +1099,24 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     @patch("asyncio.Queue.get")
     def test_listen_for_funding_info_update_updates_funding_info(self, mock_api, mock_queue_get):
         rate_regex_url = re.compile(
-            f"^{web_utils.get_rest_url_for_endpoint(CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL)}".replace(".",
-                                                                                                        r"\.").replace(
-                "?", r"\?")
+            f"^{web_utils.get_rest_url_for_endpoint(CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL)}".replace(
+                ".", r"\."
+            ).replace("?", r"\?")
         )
         interest_regex_url = re.compile(
-            f"^{web_utils.get_rest_url_for_endpoint(CONSTANTS.OPEN_INTEREST_PATH_URL)}".replace(".", r"\.").replace("?",
-                                                                                                                    r"\?")
+            f"^{web_utils.get_rest_url_for_endpoint(CONSTANTS.OPEN_INTEREST_PATH_URL)}".replace(".", r"\.").replace(
+                "?", r"\?"
+            )
         )
         mark_regex_url = re.compile(
-            f"^{web_utils.get_rest_url_for_endpoint(CONSTANTS.MARK_PRICE_PATH_URL)}".replace(".", r"\.").replace("?",
-                                                                                                                 r"\?")
+            f"^{web_utils.get_rest_url_for_endpoint(CONSTANTS.MARK_PRICE_PATH_URL)}".replace(".", r"\.").replace(
+                "?", r"\?"
+            )
         )
         settlement_regex_url = re.compile(
-            f"^{web_utils.get_rest_url_for_endpoint(CONSTANTS.FUNDING_SETTLEMENT_TIME_PATH_URL)}".replace(".",
-                                                                                                          r"\.").replace(
-                "?", r"\?")
+            f"^{web_utils.get_rest_url_for_endpoint(CONSTANTS.FUNDING_SETTLEMENT_TIME_PATH_URL)}".replace(
+                ".", r"\."
+            ).replace("?", r"\?")
         )
         resp = self.funding_info_mock_response
         mock_api.get(rate_regex_url, body=json.dumps(resp))
@@ -1169,8 +1130,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         mock_queue_get.side_effect = event_messages
 
         try:
-            self.async_run_with_timeout(
-                self.exchange._listen_for_funding_info())
+            self.async_run_with_timeout(self.exchange._listen_for_funding_info())
         except asyncio.CancelledError:
             pass
 
@@ -1180,22 +1140,24 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     @patch("asyncio.Queue.get")
     def test_listen_for_funding_info_update_initializes_funding_info(self, mock_api, mock_queue_get):
         rate_regex_url = re.compile(
-            f"^{web_utils.get_rest_url_for_endpoint(CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL)}".replace(".",
-                                                                                                        r"\.").replace(
-                "?", r"\?")
+            f"^{web_utils.get_rest_url_for_endpoint(CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL)}".replace(
+                ".", r"\."
+            ).replace("?", r"\?")
         )
         interest_regex_url = re.compile(
-            f"^{web_utils.get_rest_url_for_endpoint(CONSTANTS.OPEN_INTEREST_PATH_URL)}".replace(".", r"\.").replace("?",
-                                                                                                                    r"\?")
+            f"^{web_utils.get_rest_url_for_endpoint(CONSTANTS.OPEN_INTEREST_PATH_URL)}".replace(".", r"\.").replace(
+                "?", r"\?"
+            )
         )
         mark_regex_url = re.compile(
-            f"^{web_utils.get_rest_url_for_endpoint(CONSTANTS.MARK_PRICE_PATH_URL)}".replace(".", r"\.").replace("?",
-                                                                                                                 r"\?")
+            f"^{web_utils.get_rest_url_for_endpoint(CONSTANTS.MARK_PRICE_PATH_URL)}".replace(".", r"\.").replace(
+                "?", r"\?"
+            )
         )
         settlement_regex_url = re.compile(
-            f"^{web_utils.get_rest_url_for_endpoint(CONSTANTS.FUNDING_SETTLEMENT_TIME_PATH_URL)}".replace(".",
-                                                                                                          r"\.").replace(
-                "?", r"\?")
+            f"^{web_utils.get_rest_url_for_endpoint(CONSTANTS.FUNDING_SETTLEMENT_TIME_PATH_URL)}".replace(
+                ".", r"\."
+            ).replace("?", r"\?")
         )
         resp = self.funding_info_mock_response
         mock_api.get(rate_regex_url, body=json.dumps(resp))
@@ -1216,38 +1178,41 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(self.trading_pair, funding_info.trading_pair)
         self.assertEqual(self.target_funding_info_index_price, funding_info.index_price)
         self.assertEqual(self.target_funding_info_mark_price, funding_info.mark_price)
-        self.assertEqual(
-            self.target_funding_info_next_funding_utc_timestamp, funding_info.next_funding_utc_timestamp
-        )
+        self.assertEqual(self.target_funding_info_next_funding_utc_timestamp, funding_info.next_funding_utc_timestamp)
         self.assertEqual(self.target_funding_info_rate, funding_info.rate)
 
     def test_exchange_symbol_associated_to_pair_without_product_type(self):
         self.exchange._set_trading_pair_symbol_map(
-            bidict({
-                self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset): self.trading_pair,
-                "BTCUSD_DMCBL": "BTC-USD",
-                "ETHPERP_CMCBL": "ETH-USDC",
-            }))
+            bidict(
+                {
+                    self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset): self.trading_pair,
+                    "BTCUSD_DMCBL": "BTC-USD",
+                    "ETHPERP_CMCBL": "ETH-USDC",
+                }
+            )
+        )
 
         trading_pair = self.async_run_with_timeout(
             self.exchange.trading_pair_associated_to_exchange_instrument_id(
-                instrument_id=f"{self.base_asset}{self.quote_asset}"))
+                instrument_id=f"{self.base_asset}{self.quote_asset}"
+            )
+        )
         self.assertEqual(self.trading_pair, trading_pair)
 
         trading_pair = self.async_run_with_timeout(
-            self.exchange.trading_pair_associated_to_exchange_instrument_id(
-                instrument_id="BTCUSD"))
+            self.exchange.trading_pair_associated_to_exchange_instrument_id(instrument_id="BTCUSD")
+        )
         self.assertEqual("BTC-USD", trading_pair)
 
         trading_pair = self.async_run_with_timeout(
-            self.exchange.trading_pair_associated_to_exchange_instrument_id(
-                instrument_id="ETHPERP"))
+            self.exchange.trading_pair_associated_to_exchange_instrument_id(instrument_id="ETHPERP")
+        )
         self.assertEqual("ETH-USDC", trading_pair)
 
         with self.assertRaises(ValueError) as context:
             self.async_run_with_timeout(
-                self.exchange.trading_pair_associated_to_exchange_instrument_id(
-                    instrument_id="XMRPERP"))
+                self.exchange.trading_pair_associated_to_exchange_instrument_id(instrument_id="XMRPERP")
+            )
         self.assertEqual("No trading pair associated to instrument ID XMRPERP", str(context.exception))
 
     @aioresponses()
@@ -1286,11 +1251,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
         order_creation_event = {
             "action": "snapshot",
-            "arg": {
-                "instType": "umcbl",
-                "channel": "orders",
-                "instId": "default"
-            },
+            "arg": {"instType": "umcbl", "channel": "orders", "instId": "default"},
             "data": [
                 {
                     "accFillSz": "0",
@@ -1310,8 +1271,9 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "sz": "1",
                     "tdMode": "cross",
                     "tgtCcy": "USDT",
-                    "uTime": 1664807277548}
-            ]
+                    "uTime": 1664807277548,
+                }
+            ],
         }
 
         mock_queue = AsyncMock()
@@ -1333,11 +1295,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
         order_creation_event = {
             "action": "snapshot",
-            "arg": {
-                "instType": "umcbl",
-                "channel": "orders",
-                "instId": "default"
-            },
+            "arg": {"instType": "umcbl", "channel": "orders", "instId": "default"},
             "data": [
                 {
                     "accFillSz": "0",
@@ -1357,8 +1315,9 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "sz": "1",
                     "tdMode": "cross",
                     "tgtCcy": "USDT",
-                    "uTime": 1664807277548}
-            ]
+                    "uTime": 1664807277548,
+                }
+            ],
         }
 
         mock_queue = AsyncMock()
@@ -1380,11 +1339,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
         order_creation_event = {
             "action": "snapshot",
-            "arg": {
-                "instType": "umcbl",
-                "channel": "orders",
-                "instId": "default"
-            },
+            "arg": {"instType": "umcbl", "channel": "orders", "instId": "default"},
             "data": [
                 {
                     "accFillSz": "0",
@@ -1404,8 +1359,9 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "sz": "1",
                     "tdMode": "cross",
                     "tgtCcy": "USDT",
-                    "uTime": 1664807277548}
-            ]
+                    "uTime": 1664807277548,
+                }
+            ],
         }
 
         mock_queue = AsyncMock()
@@ -1427,11 +1383,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
         order_creation_event = {
             "action": "snapshot",
-            "arg": {
-                "instType": "umcbl",
-                "channel": "orders",
-                "instId": "default"
-            },
+            "arg": {"instType": "umcbl", "channel": "orders", "instId": "default"},
             "data": [
                 {
                     "accFillSz": "0",
@@ -1451,8 +1403,9 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "sz": "1",
                     "tdMode": "cross",
                     "tgtCcy": "USDT",
-                    "uTime": 1664807277548}
-            ]
+                    "uTime": 1664807277548,
+                }
+            ],
         }
 
         mock_queue = AsyncMock()
@@ -1487,21 +1440,16 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "maxTransferOut": "10572.92904289",
                     "equity": "70",
                     "usdtEquity": "10582.902657719473",
-                    "btcEquity": "0.204885807029"
+                    "btcEquity": "0.204885807029",
                 }
             ],
             "msg": "success",
-            "requestTime": 1630901215622
+            "requestTime": 1630901215622,
         }
         mock_api.get(url, body=json.dumps(response))
 
         url = self.balance_url + f"?productType={CONSTANTS.USDC_PRODUCT_TYPE.lower()}"
-        response = {
-            "code": "00000",
-            "data": [],
-            "msg": "success",
-            "requestTime": 1630901215622
-        }
+        response = {"code": "00000", "data": [], "msg": "success", "requestTime": 1630901215622}
         mock_api.get(url, body=json.dumps(response))
 
         self.async_run_with_timeout(self.exchange._update_balances())
@@ -1545,12 +1493,9 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
         return {
             "code": "00000",
-            "data": {
-                "orderId": self.expected_exchange_order_id,
-                "clientOid": str(order.client_order_id)
-            },
+            "data": {"orderId": self.expected_exchange_order_id, "clientOid": str(order.client_order_id)},
             "msg": "success",
-            "requestTime": 1627293504612
+            "requestTime": 1627293504612,
         }
 
     def _order_status_request_completely_filled_mock_response(self, order: InFlightOrder) -> Any:
@@ -1576,10 +1521,10 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "filledAmount": float(order.amount),
                 "orderType": "limit",
                 "cTime": 1627028708807,
-                "uTime": 1627028717807
+                "uTime": 1627028717807,
             },
             "msg": "success",
-            "requestTime": 1627300098776
+            "requestTime": 1627300098776,
         }
 
     def _order_status_request_canceled_mock_response(self, order: InFlightOrder) -> Any:
@@ -1615,11 +1560,11 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "sizeQty": float(self.expected_partial_fill_amount),
                     "fee": str(self.expected_fill_fee.flat_fees[0].amount),
                     "side": "close_long",
-                    "cTime": "1627027632241"
+                    "cTime": "1627027632241",
                 }
             ],
             "msg": "success",
-            "requestTime": 1627386245672
+            "requestTime": 1627386245672,
         }
 
     def _order_fills_request_full_fill_mock_response(self, order: InFlightOrder):
@@ -1634,11 +1579,11 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "sizeQty": float(order.amount),
                     "fee": str(self.expected_fill_fee.flat_fees[0].amount),
                     "side": "close_short",
-                    "cTime": "1627027632241"
+                    "cTime": "1627027632241",
                 }
             ],
             "msg": "success",
-            "requestTime": 1627386245672
+            "requestTime": 1627386245672,
         }
 
     def _all_usd_symbols_request_mock_response(self):
@@ -1660,10 +1605,11 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "supportMarginCoins": ["BTC", "ETH", "USDC", "XRP", "BGB"],
                     "symbol": "BTCUSD_DMCBL",
                     "takerFeeRate": "0.0006",
-                    "volumePlace": "3"},
+                    "volumePlace": "3",
+                },
             ],
             "msg": "success",
-            "requestTime": "0"
+            "requestTime": "0",
         }
 
     def _all_usdc_symbols_request_mock_response(self):
@@ -1685,29 +1631,24 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "supportMarginCoins": ["USDC"],
                     "symbol": "BTCPERP_CMCBL",
                     "takerFeeRate": "0.0006",
-                    "volumePlace": "4"
+                    "volumePlace": "4",
                 },
             ],
             "msg": "success",
-            "requestTime": "0"
+            "requestTime": "0",
         }
 
     def _configure_balance_response(
-            self,
-            response: Dict[str, Any],
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        response: Dict[str, Any],
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
 
         return_url = super()._configure_balance_response(response=response, mock_api=mock_api, callback=callback)
 
         url = self.balance_url + f"?productType={CONSTANTS.USD_PRODUCT_TYPE.lower()}"
-        response = {
-            "code": "00000",
-            "data": [],
-            "msg": "success",
-            "requestTime": 1630901215622
-        }
+        response = {"code": "00000", "data": [], "msg": "success", "requestTime": 1630901215622}
         mock_api.get(url, body=json.dumps(response))
 
         url = self.balance_url + f"?productType={CONSTANTS.USDC_PRODUCT_TYPE.lower()}"

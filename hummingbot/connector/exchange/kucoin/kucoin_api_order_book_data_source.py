@@ -19,11 +19,11 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
     _logger: Optional[HummingbotLogger] = None
 
     def __init__(
-            self,
-            trading_pairs: List[str],
-            connector: 'KucoinExchange',
-            api_factory: WebAssistantsFactory,
-            domain: str = CONSTANTS.DEFAULT_DOMAIN,
+        self,
+        trading_pairs: List[str],
+        connector: "KucoinExchange",
+        api_factory: WebAssistantsFactory,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
         super().__init__(trading_pairs)
         self._connector = connector
@@ -32,9 +32,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._last_ws_message_sent_timestamp = 0
         self._ping_interval = 0
 
-    async def get_last_traded_prices(self,
-                                     trading_pairs: List[str],
-                                     domain: Optional[str] = None) -> Dict[str, float]:
+    async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
@@ -46,12 +44,11 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "trading_pair": trading_pair,
             "update_id": update_id,
             "bids": snapshot_response["data"]["bids"],
-            "asks": snapshot_response["data"]["asks"]
+            "asks": snapshot_response["data"]["asks"],
         }
         snapshot_msg: OrderBookMessage = OrderBookMessage(
-            OrderBookMessageType.SNAPSHOT,
-            order_book_message_content,
-            snapshot_timestamp)
+            OrderBookMessageType.SNAPSHOT, order_book_message_content, snapshot_timestamp
+        )
 
         return snapshot_msg
 
@@ -63,9 +60,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         :return: the response from the exchange (JSON dictionary)
         """
-        params = {
-            "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        }
+        params = {"symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)}
 
         rest_assistant = await self._api_factory.get_rest_assistant()
         data = await rest_assistant.execute_request(
@@ -85,15 +80,13 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "trade_id": trade_data["tradeId"],
             "update_id": trade_data["sequence"],
             "trading_pair": trading_pair,
-            "trade_type": float(TradeType.BUY.value) if trade_data["side"] == "buy" else float(
-                TradeType.SELL.value),
+            "trade_type": float(TradeType.BUY.value) if trade_data["side"] == "buy" else float(TradeType.SELL.value),
             "amount": trade_data["size"],
-            "price": trade_data["price"]
+            "price": trade_data["price"],
         }
         trade_message: Optional[OrderBookMessage] = OrderBookMessage(
-            message_type=OrderBookMessageType.TRADE,
-            content=message_content,
-            timestamp=timestamp)
+            message_type=OrderBookMessageType.TRADE, content=message_content, timestamp=timestamp
+        )
 
         message_queue.put_nowait(trade_message)
 
@@ -112,16 +105,19 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "asks": diff_data["changes"]["asks"],
         }
         diff_message: OrderBookMessage = OrderBookMessage(
-            OrderBookMessageType.DIFF,
-            order_book_message_content,
-            timestamp)
+            OrderBookMessageType.DIFF, order_book_message_content, timestamp
+        )
 
         message_queue.put_nowait(diff_message)
 
     async def _subscribe_channels(self, ws: WSAssistant):
         try:
-            symbols = ",".join([await self._connector.exchange_symbol_associated_to_pair(trading_pair=pair)
-                                for pair in self._trading_pairs])
+            symbols = ",".join(
+                [
+                    await self._connector.exchange_symbol_associated_to_pair(trading_pair=pair)
+                    for pair in self._trading_pairs
+                ]
+            )
 
             trades_payload = {
                 "id": web_utils.next_message_id(),
@@ -167,8 +163,10 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 seconds_until_next_ping = self._ping_interval - (self._time() - self._last_ws_message_sent_timestamp)
-                await asyncio.wait_for(super()._process_websocket_messages(websocket_assistant=websocket_assistant),
-                                       timeout=seconds_until_next_ping)
+                await asyncio.wait_for(
+                    super()._process_websocket_messages(websocket_assistant=websocket_assistant),
+                    timeout=seconds_until_next_ping,
+                )
             except asyncio.TimeoutError:
                 payload = {
                     "id": web_utils.next_message_id(),

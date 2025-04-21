@@ -12,9 +12,7 @@ class DydxV4PerpetualRESTPreProcessor(RESTPreProcessorBase):
     async def pre_process(self, request: RESTRequest) -> RESTRequest:
         if request.headers is None:
             request.headers = {}
-        request.headers["Accept"] = (
-            "application/json"
-        )
+        request.headers["Accept"] = "application/json"
         return request
 
 
@@ -39,7 +37,7 @@ def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> s
 
 
 def build_api_factory(
-        throttler: AsyncThrottler = None,
+    throttler: AsyncThrottler = None,
 ) -> WebAssistantsFactory:
     throttler = throttler or create_throttler()
     api_factory = WebAssistantsFactory(

@@ -18,19 +18,19 @@ def start(self):
         position_mode = c_map.get("position_mode").value
         order_amount = c_map.get("order_amount").value
         order_refresh_time = c_map.get("order_refresh_time").value
-        bid_spread = c_map.get("bid_spread").value / Decimal('100')
-        ask_spread = c_map.get("ask_spread").value / Decimal('100')
-        long_profit_taking_spread = c_map.get("long_profit_taking_spread").value / Decimal('100')
-        short_profit_taking_spread = c_map.get("short_profit_taking_spread").value / Decimal('100')
-        stop_loss_spread = c_map.get("stop_loss_spread").value / Decimal('100')
+        bid_spread = c_map.get("bid_spread").value / Decimal("100")
+        ask_spread = c_map.get("ask_spread").value / Decimal("100")
+        long_profit_taking_spread = c_map.get("long_profit_taking_spread").value / Decimal("100")
+        short_profit_taking_spread = c_map.get("short_profit_taking_spread").value / Decimal("100")
+        stop_loss_spread = c_map.get("stop_loss_spread").value / Decimal("100")
         time_between_stop_loss_orders = c_map.get("time_between_stop_loss_orders").value
-        stop_loss_slippage_buffer = c_map.get("stop_loss_slippage_buffer").value / Decimal('100')
-        minimum_spread = c_map.get("minimum_spread").value / Decimal('100')
+        stop_loss_slippage_buffer = c_map.get("stop_loss_slippage_buffer").value / Decimal("100")
+        minimum_spread = c_map.get("minimum_spread").value / Decimal("100")
         price_ceiling = c_map.get("price_ceiling").value
         price_floor = c_map.get("price_floor").value
         order_levels = c_map.get("order_levels").value
         order_level_amount = c_map.get("order_level_amount").value
-        order_level_spread = c_map.get("order_level_spread").value / Decimal('100')
+        order_level_spread = c_map.get("order_level_spread").value / Decimal("100")
         exchange = c_map.get("derivative").value.lower()
         raw_trading_pair = c_map.get("market").value
         filled_order_delay = c_map.get("filled_order_delay").value
@@ -43,7 +43,7 @@ def start(self):
         price_source_market = c_map.get("price_source_market").value
         price_source_custom_api = c_map.get("price_source_custom_api").value
         custom_api_update_interval = c_map.get("custom_api_update_interval").value
-        order_refresh_tolerance_pct = c_map.get("order_refresh_tolerance_pct").value / Decimal('100')
+        order_refresh_tolerance_pct = c_map.get("order_refresh_tolerance_pct").value / Decimal("100")
         order_override = c_map.get("order_override").value
 
         trading_pair: str = raw_trading_pair
@@ -55,17 +55,14 @@ def start(self):
         asset_price_delegate = None
         if price_source == "external_market":
             asset_trading_pair: str = price_source_market
-            ext_market = create_paper_trade_market(
-                price_source_exchange, self.client_config_map, [asset_trading_pair]
-            )
+            ext_market = create_paper_trade_market(price_source_exchange, self.client_config_map, [asset_trading_pair])
             self.markets[price_source_exchange]: ExchangeBase = ext_market
             asset_price_delegate = OrderBookAssetPriceDelegate(ext_market, asset_trading_pair)
         elif price_source == "custom_api":
-            ext_market = create_paper_trade_market(
-                exchange, self.client_config_map, [raw_trading_pair]
+            ext_market = create_paper_trade_market(exchange, self.client_config_map, [raw_trading_pair])
+            asset_price_delegate = APIAssetPriceDelegate(
+                ext_market, price_source_custom_api, custom_api_update_interval
             )
-            asset_price_delegate = APIAssetPriceDelegate(ext_market, price_source_custom_api,
-                                                         custom_api_update_interval)
 
         strategy_logging_options = PerpetualMarketMakingStrategy.OPTION_LOG_ALL
 

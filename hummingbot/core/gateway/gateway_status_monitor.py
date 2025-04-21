@@ -89,7 +89,9 @@ class GatewayStatusMonitor:
                     if self.gateway_status is GatewayStatus.OFFLINE:
                         gateway_connectors = await gateway_http_client.get_connectors(fail_silently=True)
                         GATEWAY_CONNECTORS.clear()
-                        GATEWAY_CONNECTORS.extend([connector["name"] for connector in gateway_connectors.get("connectors", [])])
+                        GATEWAY_CONNECTORS.extend(
+                            [connector["name"] for connector in gateway_connectors.get("connectors", [])]
+                        )
                         await self.update_gateway_config_key_list()
 
                     self._gateway_status = GatewayStatus.ONLINE
@@ -127,8 +129,9 @@ class GatewayStatusMonitor:
             self.gateway_config_keys = config_list
             self._app.app.input_field.completer = load_completer(self._app)
         except Exception:
-            self.logger().error("Error fetching gateway configs. Please check that Gateway service is online. ",
-                                exc_info=True)
+            self.logger().error(
+                "Error fetching gateway configs. Please check that Gateway service is online. ", exc_info=True
+            )
 
     def _get_gateway_instance(self) -> GatewayHttpClient:
         gateway_instance = GatewayHttpClient.get_instance(self._app.client_config_map)

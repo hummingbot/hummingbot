@@ -45,7 +45,8 @@ class TestBingXAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
             client_config_map=client_config_map,
             bingx_api_key="",
             bingx_api_secret="",
-            trading_pairs=[self.trading_pair])
+            trading_pairs=[self.trading_pair],
+        )
 
         self.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         self.time_synchronnizer = TimeSynchronizer()
@@ -84,8 +85,7 @@ class TestBingXAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message
-                   for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
@@ -140,35 +140,29 @@ class TestBingXAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
     async def test_listen_for_subscriptions_subscribes_to_trades_and_depth(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
-        result_subscribe_trades = {
-            'id': 'trade',
-            'dataType': self.ex_trading_pair + "@trade"
-        }
+        result_subscribe_trades = {"id": "trade", "dataType": self.ex_trading_pair + "@trade"}
 
-        result_subscribe_depth = {
-            'id': 'depth',
-            'dataType': self.ex_trading_pair + "@depth"
-        }
+        result_subscribe_depth = {"id": "depth", "dataType": self.ex_trading_pair + "@depth"}
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(result_subscribe_trades))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe_trades)
+        )
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(result_subscribe_depth))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe_depth)
+        )
 
         self.listening_task = self.local_event_loop.create_task(self.ob_data_source.listen_for_subscriptions())
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
-            websocket_mock=ws_connect_mock.return_value)
+            websocket_mock=ws_connect_mock.return_value
+        )
 
         self.assertEqual(2, len(sent_subscription_messages))
-        self.assertTrue(self._is_logged(
-            "INFO",
-            f"Subscribed to public order book and trade channels of {self.trading_pair}..."
-        ))
+        self.assertTrue(
+            self._is_logged("INFO", f"Subscribed to public order book and trade channels of {self.trading_pair}...")
+        )
 
     @aioresponses()
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
@@ -193,7 +187,117 @@ class TestBingXAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
 
     async def test_listen_for_order_book_snapshots_successful_ws(self):
         mock_queue = AsyncMock()
-        snapshot_event = {"code": 0, "data": {"asks": [["36719.12", "0.00006"], ["36711.77", "0.00006"], ["36710.20", "0.00008"], ["36709.84", "0.00003"], ["36709.75", "0.00024"], ["36706.60", "0.01970"], ["36706.59", "0.00027"], ["36706.00", "0.00006"], ["36702.47", "0.00003"], ["36700.00", "0.00073"], ["36697.87", "0.00024"], ["36695.12", "0.00122"], ["36693.58", "0.00003"], ["36689.16", "0.00003"], ["36688.20", "0.00009"], ["36684.90", "0.00045"], ["36684.72", "0.00015"], ["36684.22", "0.00004"], ["36630.03", "45.81320"], ["36621.09", "19.39050"], ["36617.36", "24.33784"], ["36617.23", "26.39174"], ["36605.02", "7.81271"], ["36604.69", "45.17086"], ["36604.37", "10.15167"], ["36603.41", "10.65501"], ["36602.30", "8.46013"], ["36602.15", "6.22030"], ["36602.13", "9.94170"], ["36602.10", "9.02612"], ["36602.08", "2.93909"], ["36602.06", "2.93909"], ["36602.03", "3.24589"], ["36602.02", "3.84824"], ["36601.99", "3.20728"], ["36601.96", "2.74891"], ["36601.93", "3.27233"], ["36601.92", "3.27233"], ["36601.90", "3.51604"], ["36601.88", "7.90918"], ["36601.86", "6.84844"], ["36601.85", "2.82023"], ["36601.84", "3.09484"], ["36601.82", "9.95274"], ["36601.80", "3.70646"], ["36601.79", "9.94170"], ["36601.78", "3.70646"], ["36601.77", "3.74076"], ["36601.76", "3.58971"], ["36601.73", "3.89171"]], "bids": [["36600.88", "3.98861"], ["36600.82", "3.99039"], ["36600.78", "7.19757"], ["36600.76", "3.14702"], ["36600.74", "2.94611"], ["36600.72", "13.10343"], ["36600.71", "3.37661"], ["36600.69", "2.97868"], ["36600.67", "3.98861"], ["36600.66", "3.38748"], ["36600.65", "3.23822"], ["36600.64", "3.37090"], ["36600.63", "3.00087"], ["36600.62", "7.71135"], ["36600.60", "8.92355"], ["36600.58", "3.13724"], ["36600.56", "3.33551"], ["36600.52", "4.05712"], ["36600.49", "9.42464"], ["36600.47", "3.67233"], ["36600.45", "3.67233"], ["36595.27", "9.44341"], ["36594.28", "7.53681"], ["36589.83", "9.11043"], ["36589.49", "25.66650"], ["36589.41", "25.28057"], ["36587.76", "10.04297"], ["36573.46", "0.00016"], ["36572.25", "0.00003"], ["36571.02", "0.00001"], ["36570.02", "0.00002"], ["36568.07", "0.00009"], ["36568.00", "0.00049"], ["36567.76", "0.00007"], ["36567.63", "0.00014"], ["36567.56", "0.00003"], ["36567.55", "0.00001"], ["36567.50", "0.00004"], ["36562.50", "0.00003"], ["36560.83", "0.00015"], ["36560.32", "0.00016"], ["36560.00", "0.00009"], ["36559.47", "0.00005"], ["36559.31", "0.00006"], ["36558.61", "0.00040"], ["36558.23", "0.00007"], ["36556.85", "0.00037"], ["36556.78", "0.00026"], ["36556.30", "0.00007"], ["36556.26", "0.00003"]]}, "dataType": "BTC-USDT@depth", "success": True}
+        snapshot_event = {
+            "code": 0,
+            "data": {
+                "asks": [
+                    ["36719.12", "0.00006"],
+                    ["36711.77", "0.00006"],
+                    ["36710.20", "0.00008"],
+                    ["36709.84", "0.00003"],
+                    ["36709.75", "0.00024"],
+                    ["36706.60", "0.01970"],
+                    ["36706.59", "0.00027"],
+                    ["36706.00", "0.00006"],
+                    ["36702.47", "0.00003"],
+                    ["36700.00", "0.00073"],
+                    ["36697.87", "0.00024"],
+                    ["36695.12", "0.00122"],
+                    ["36693.58", "0.00003"],
+                    ["36689.16", "0.00003"],
+                    ["36688.20", "0.00009"],
+                    ["36684.90", "0.00045"],
+                    ["36684.72", "0.00015"],
+                    ["36684.22", "0.00004"],
+                    ["36630.03", "45.81320"],
+                    ["36621.09", "19.39050"],
+                    ["36617.36", "24.33784"],
+                    ["36617.23", "26.39174"],
+                    ["36605.02", "7.81271"],
+                    ["36604.69", "45.17086"],
+                    ["36604.37", "10.15167"],
+                    ["36603.41", "10.65501"],
+                    ["36602.30", "8.46013"],
+                    ["36602.15", "6.22030"],
+                    ["36602.13", "9.94170"],
+                    ["36602.10", "9.02612"],
+                    ["36602.08", "2.93909"],
+                    ["36602.06", "2.93909"],
+                    ["36602.03", "3.24589"],
+                    ["36602.02", "3.84824"],
+                    ["36601.99", "3.20728"],
+                    ["36601.96", "2.74891"],
+                    ["36601.93", "3.27233"],
+                    ["36601.92", "3.27233"],
+                    ["36601.90", "3.51604"],
+                    ["36601.88", "7.90918"],
+                    ["36601.86", "6.84844"],
+                    ["36601.85", "2.82023"],
+                    ["36601.84", "3.09484"],
+                    ["36601.82", "9.95274"],
+                    ["36601.80", "3.70646"],
+                    ["36601.79", "9.94170"],
+                    ["36601.78", "3.70646"],
+                    ["36601.77", "3.74076"],
+                    ["36601.76", "3.58971"],
+                    ["36601.73", "3.89171"],
+                ],
+                "bids": [
+                    ["36600.88", "3.98861"],
+                    ["36600.82", "3.99039"],
+                    ["36600.78", "7.19757"],
+                    ["36600.76", "3.14702"],
+                    ["36600.74", "2.94611"],
+                    ["36600.72", "13.10343"],
+                    ["36600.71", "3.37661"],
+                    ["36600.69", "2.97868"],
+                    ["36600.67", "3.98861"],
+                    ["36600.66", "3.38748"],
+                    ["36600.65", "3.23822"],
+                    ["36600.64", "3.37090"],
+                    ["36600.63", "3.00087"],
+                    ["36600.62", "7.71135"],
+                    ["36600.60", "8.92355"],
+                    ["36600.58", "3.13724"],
+                    ["36600.56", "3.33551"],
+                    ["36600.52", "4.05712"],
+                    ["36600.49", "9.42464"],
+                    ["36600.47", "3.67233"],
+                    ["36600.45", "3.67233"],
+                    ["36595.27", "9.44341"],
+                    ["36594.28", "7.53681"],
+                    ["36589.83", "9.11043"],
+                    ["36589.49", "25.66650"],
+                    ["36589.41", "25.28057"],
+                    ["36587.76", "10.04297"],
+                    ["36573.46", "0.00016"],
+                    ["36572.25", "0.00003"],
+                    ["36571.02", "0.00001"],
+                    ["36570.02", "0.00002"],
+                    ["36568.07", "0.00009"],
+                    ["36568.00", "0.00049"],
+                    ["36567.76", "0.00007"],
+                    ["36567.63", "0.00014"],
+                    ["36567.56", "0.00003"],
+                    ["36567.55", "0.00001"],
+                    ["36567.50", "0.00004"],
+                    ["36562.50", "0.00003"],
+                    ["36560.83", "0.00015"],
+                    ["36560.32", "0.00016"],
+                    ["36560.00", "0.00009"],
+                    ["36559.47", "0.00005"],
+                    ["36559.31", "0.00006"],
+                    ["36558.61", "0.00040"],
+                    ["36558.23", "0.00007"],
+                    ["36556.85", "0.00037"],
+                    ["36556.78", "0.00026"],
+                    ["36556.30", "0.00007"],
+                    ["36556.26", "0.00003"],
+                ],
+            },
+            "dataType": "BTC-USDT@depth",
+            "success": True,
+        }
         mock_queue.get.side_effect = [snapshot_event, asyncio.CancelledError()]
         self.ob_data_source._message_queue[CONSTANTS.DIFF_EVENT_TYPE] = mock_queue
 
@@ -218,28 +322,13 @@ class TestBingXAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
             "code": 0,
             "timestamp": 1698722045839,
             "data": {
-                "bids": [
-                    [
-                        "0.031000",
-                        "35.0"
-                    ],
-                    [
-                        "0.029017",
-                        "11054.2"
-                    ]
-                ],
+                "bids": [["0.031000", "35.0"], ["0.029017", "11054.2"]],
                 "asks": [
-                    [
-                        "0.260000",
-                        "130.1"
-                    ],
-                    [
-                        "0.095000",
-                        "988.7"
-                    ],
-                ]
+                    ["0.260000", "130.1"],
+                    ["0.095000", "988.7"],
+                ],
             },
-            "ts": 1698722045839
+            "ts": 1698722045839,
         }
         return snapshot
 
@@ -247,26 +336,11 @@ class TestBingXAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
     def _snapshot_response_processed() -> Dict:
         snapshot_processed = {
             "timestamp": 1698722045839,
-            "bids": [
-                [
-                    "0.031000",
-                    "35.0"
-                ],
-                [
-                    "0.029017",
-                    "11054.2"
-                ]
-            ],
+            "bids": [["0.031000", "35.0"], ["0.029017", "11054.2"]],
             "asks": [
-                [
-                    "0.260000",
-                    "130.1"
-                ],
-                [
-                    "0.095000",
-                    "988.7"
-                ],
-            ]
+                ["0.260000", "130.1"],
+                ["0.095000", "988.7"],
+            ],
         }
         return snapshot_processed
 
@@ -285,10 +359,10 @@ class TestBingXAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
                         "maxNotional": 100000,
                         "status": 1,
                         "tickSize": 0.01,
-                        "stepSize": 0.00001
+                        "stepSize": 0.00001,
                     },
                 ]
-            }
+            },
         }
         return exchange_rules
 
@@ -310,8 +384,9 @@ class TestBingXAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
 
         self.assertTrue(
             self._is_logged(
-                "ERROR",
-                "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."))
+                "ERROR", "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
+            )
+        )
 
     async def test_listen_for_trades_cancelled_when_listening(self):
         mock_queue = MagicMock()
@@ -326,18 +401,14 @@ class TestBingXAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
     async def test_listen_for_trades_logs_exception(self):
         incomplete_resp = {
             "topic": "trade",
-            "params": {
-                "symbol": self.ex_trading_pair,
-                "binary": "false",
-                "symbolName": self.ex_trading_pair
-            },
+            "params": {"symbol": self.ex_trading_pair, "binary": "false", "symbolName": self.ex_trading_pair},
             "data": {
                 "v": "564265886622695424",
                 # "t": 1582001735462,
                 "p": "9787.5",
                 "q": "0.195009",
-                "m": True
-            }
+                "m": True,
+            },
         }
 
         mock_queue = AsyncMock()
@@ -352,12 +423,25 @@ class TestBingXAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
         except asyncio.CancelledError:
             pass
 
-        self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
+        self.assertTrue(self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
 
     async def test_listen_for_trades_successful(self):
         mock_queue = AsyncMock()
-        trade_event = {"code": 0, "data": {"E": 1698820885373, "T": 1698820885294, "e": "trade", "m": True, "p": "34411.07", "q": "0.01530", "s": "BTC-USDT", "t": "68710186"}, "dataType": "BTC-USDT@trade", "success": True}
+        trade_event = {
+            "code": 0,
+            "data": {
+                "E": 1698820885373,
+                "T": 1698820885294,
+                "e": "trade",
+                "m": True,
+                "p": "34411.07",
+                "q": "0.01530",
+                "s": "BTC-USDT",
+                "t": "68710186",
+            },
+            "dataType": "BTC-USDT@trade",
+            "success": True,
+        }
         mock_queue.get.side_effect = [trade_event, asyncio.CancelledError()]
         self.ob_data_source._message_queue[CONSTANTS.TRADE_EVENT_TYPE] = mock_queue
 
@@ -370,4 +454,4 @@ class TestBingXAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
 
         msg: OrderBookMessage = await msg_queue.get()
 
-        self.assertTrue(trade_event["data"]['T'], msg.trade_id)
+        self.assertTrue(trade_event["data"]["T"], msg.trade_id)

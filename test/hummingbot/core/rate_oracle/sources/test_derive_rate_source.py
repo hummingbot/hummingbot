@@ -46,7 +46,7 @@ class DeriveRateSourceTest(unittest.TestCase):
             derive_api_key="testAPIKey",
             derive_api_secret="testSecret",
             sub_id="45465",
-            trading_required = False,
+            trading_required=False,
             trading_pairs=[self.trading_pair],
         )
 
@@ -70,58 +70,60 @@ class DeriveRateSourceTest(unittest.TestCase):
 
     @property
     def trading_rules_request_mock_response(self):
-        return {"result": {
-            "instruments": [
-                {
-                    'instrument_type': 'erc20',  # noqa: mock
-                    'instrument_name': 'COINALPHA-USDC',
-                    'scheduled_activation': 1728508925,
-                    'scheduled_deactivation': 9223372036854775807,
-                    'is_active': True,
-                    'tick_size': '0.01',
-                    'minimum_amount': '0.1',
-                    'maximum_amount': '1000',
-                    'amount_step': '0.01',
-                    'mark_price_fee_rate_cap': '0',
-                    'maker_fee_rate': '0.0015',
-                    'taker_fee_rate': '0.0015',
-                    'base_fee': '0.1',
-                    'base_currency': 'COINALPHA',
-                    'quote_currency': 'USDC',
-                    'option_details': None,
-                    "erc20_details": {
-                        "decimals": 18,
-                        "underlying_erc20_address": "0x15CEcd5190A43C7798dD2058308781D0662e678E",  # noqa: mock
-                        "borrow_index": "1",
-                        "supply_index": "1"
-                    },
-                    "base_asset_address": "0xE201fCEfD4852f96810C069f66560dc25B2C7A55",  # noqa: mock
-                    "base_asset_sub_id": "0",
-                    "pro_rata_fraction": "0",
-                    "fifo_min_allocation": "0",
-                    "pro_rata_amount_step": "1"
-                }
-            ],
-            "pagination": {
-                "num_pages": 1,
-                "count": 1
-            }
-        },
-            "id": "dedda961-4a97-46fb-84fb-6510f90dceb0"  # noqa: mock
+        return {
+            "result": {
+                "instruments": [
+                    {
+                        "instrument_type": "erc20",  # noqa: mock
+                        "instrument_name": "COINALPHA-USDC",
+                        "scheduled_activation": 1728508925,
+                        "scheduled_deactivation": 9223372036854775807,
+                        "is_active": True,
+                        "tick_size": "0.01",
+                        "minimum_amount": "0.1",
+                        "maximum_amount": "1000",
+                        "amount_step": "0.01",
+                        "mark_price_fee_rate_cap": "0",
+                        "maker_fee_rate": "0.0015",
+                        "taker_fee_rate": "0.0015",
+                        "base_fee": "0.1",
+                        "base_currency": "COINALPHA",
+                        "quote_currency": "USDC",
+                        "option_details": None,
+                        "erc20_details": {
+                            "decimals": 18,
+                            "underlying_erc20_address": "0x15CEcd5190A43C7798dD2058308781D0662e678E",  # noqa: mock
+                            "borrow_index": "1",
+                            "supply_index": "1",
+                        },
+                        "base_asset_address": "0xE201fCEfD4852f96810C069f66560dc25B2C7A55",  # noqa: mock
+                        "base_asset_sub_id": "0",
+                        "pro_rata_fraction": "0",
+                        "fifo_min_allocation": "0",
+                        "pro_rata_amount_step": "1",
+                    }
+                ],
+                "pagination": {"num_pages": 1, "count": 1},
+            },
+            "id": "dedda961-4a97-46fb-84fb-6510f90dceb0",  # noqa: mock
         }
 
     @property
     def currency_request_mock_response(self):
         return {
-            'result': [
-                {'currency': 'COINALPHA', 'spot_price': '27.761323954505412608', 'spot_price_24h': '33.240154426604556288'},
+            "result": [
+                {
+                    "currency": "COINALPHA",
+                    "spot_price": "27.761323954505412608",
+                    "spot_price_24h": "33.240154426604556288",
+                },
             ]
         }
 
     def configure_trading_rules_response(
-            self,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> List[str]:
 
         url = self.trading_rules_url
@@ -130,9 +132,9 @@ class DeriveRateSourceTest(unittest.TestCase):
         return [url]
 
     def configure_currency_trading_rules_response(
-            self,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> List[str]:
 
         url = self.trading_rules_currency_url
@@ -141,9 +143,9 @@ class DeriveRateSourceTest(unittest.TestCase):
         return [url]
 
     def configure_all_symbols_response(
-            self,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> List[str]:
 
         url = self.all_symbols_url
@@ -157,8 +159,7 @@ class DeriveRateSourceTest(unittest.TestCase):
 
         response = {"result": 1640000003000}
 
-        mock_api.get(regex_url,
-                     body=json.dumps(response))
+        mock_api.get(regex_url, body=json.dumps(response))
 
         pairs_url = web_utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL)
         symbols_response = self.trading_rules_request_mock_response
@@ -187,7 +188,7 @@ class DeriveRateSourceTest(unittest.TestCase):
                     "decimals": 18,
                     "underlying_erc20_address": "0x15CEcd5190A43C7798dD2058308781D0662e678E",
                     "borrow_index": "1",
-                    "supply_index": "1"
+                    "supply_index": "1",
                 },
                 "base_asset_address": "0xE201fCEfD4852f96810C069f66560dc25B2C7A55",
                 "base_asset_sub_id": "0",
@@ -210,28 +211,39 @@ class DeriveRateSourceTest(unittest.TestCase):
                     "high": "3287.67",
                     "low": "3123.59",
                     "percent_change": "-0.046946",
-                    "usd_change": "-155.02"
+                    "usd_change": "-155.02",
                 },
                 "timestamp": 1738456434000,
                 "min_price": "3085.47",
-                "max_price": "3210.11"
+                "max_price": "3210.11",
             },
-            "id": "0a34780b-cad3-462c-be5c-7097a36cc9a0"
+            "id": "0a34780b-cad3-462c-be5c-7097a36cc9a0",
         }
         mock_api.post(pairs_url, body=json.dumps(symbols_response))
         # mock_api.post(derive_prices_us_url, body=json.dumps(derive_prices_us_response))
         mock_api.post(derive_prices_global_url, body=json.dumps(derive_prices_global_response))
 
-    @patch("hummingbot.connector.exchange.derive.derive_exchange.DeriveExchange._make_trading_rules_request", new_callable=AsyncMock)
-    @patch("hummingbot.connector.exchange.derive.derive_exchange.DeriveExchange._make_currency_request", new_callable=AsyncMock)
-    @patch("hummingbot.connector.exchange.derive.derive_exchange.DeriveExchange.get_all_pairs_prices", new_callable=AsyncMock)
+    @patch(
+        "hummingbot.connector.exchange.derive.derive_exchange.DeriveExchange._make_trading_rules_request",
+        new_callable=AsyncMock,
+    )
+    @patch(
+        "hummingbot.connector.exchange.derive.derive_exchange.DeriveExchange._make_currency_request",
+        new_callable=AsyncMock,
+    )
+    @patch(
+        "hummingbot.connector.exchange.derive.derive_exchange.DeriveExchange.get_all_pairs_prices",
+        new_callable=AsyncMock,
+    )
     @aioresponses()
     def test_get_prices(self, mock_prices: AsyncMock, mock_request: AsyncMock, mock_rules, mock_api):
 
         res = [{"symbol": {"instrument_name": "COINALPHA-USDC", "best_bid": "3143.16", "best_ask": "3149.46"}}]
 
         expected_rate = Decimal("3146.31")
-        self.setup_derive_responses(mock_api=mock_api, mock_request=mock_request, mock_prices=mock_prices, expected_rate=expected_rate)
+        self.setup_derive_responses(
+            mock_api=mock_api, mock_request=mock_request, mock_prices=mock_prices, expected_rate=expected_rate
+        )
 
         rate_source = DeriveRateSource()
         self.configure_currency_trading_rules_response(mock_api=mock_api)

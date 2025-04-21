@@ -42,7 +42,7 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         self.controller = MarketMakingControllerBase(
             config=self.mock_controller_config,
             market_data_provider=self.mock_market_data_provider,
-            actions_queue=self.mock_actions_queue
+            actions_queue=self.mock_actions_queue,
         )
 
     async def test_update_processed_data(self):
@@ -51,11 +51,20 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(self.controller.processed_data["reference_price"], Decimal("100"))
         self.assertEqual(self.controller.processed_data["spread_multiplier"], Decimal("1"))
 
-    @patch("hummingbot.strategy_v2.controllers.market_making_controller_base.MarketMakingControllerBase.get_executor_config", new_callable=MagicMock)
+    @patch(
+        "hummingbot.strategy_v2.controllers.market_making_controller_base.MarketMakingControllerBase.get_executor_config",
+        new_callable=MagicMock,
+    )
     async def test_determine_executor_actions(self, executor_config_mock: MagicMock):
         executor_config_mock.return_value = PositionExecutorConfig(
-            timestamp=1234, controller_id=self.controller.config.id, connector_name="binance_perpetual",
-            trading_pair="ETH-USDT", side=TradeType.BUY, entry_price=Decimal(100), amount=Decimal(10))
+            timestamp=1234,
+            controller_id=self.controller.config.id,
+            connector_name="binance_perpetual",
+            trading_pair="ETH-USDT",
+            side=TradeType.BUY,
+            entry_price=Decimal(100),
+            amount=Decimal(10),
+        )
         type(self.mock_market_data_provider).get_price_by_type = MagicMock(return_value=Decimal("100"))
         await self.controller.update_processed_data()
         actions = self.controller.determine_executor_actions()
@@ -72,8 +81,7 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
     def test_validate_order_type(self):
         for order_type_name in OrderType.__members__:
             self.assertEqual(
-                MarketMakingControllerConfigBase.validate_order_type(order_type_name),
-                OrderType[order_type_name]
+                MarketMakingControllerConfigBase.validate_order_type(order_type_name), OrderType[order_type_name]
             )
 
         with self.assertRaises(ValueError):
@@ -90,7 +98,7 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         for position_mode_name in PositionMode.__members__:
             self.assertEqual(
                 MarketMakingControllerConfigBase.validate_position_mode(position_mode_name),
-                PositionMode[position_mode_name]
+                PositionMode[position_mode_name],
             )
 
         with self.assertRaises(ValueError):
@@ -122,5 +130,7 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
 
     def test_balance_requirements(self):
         self.controller.processed_data["reference_price"] = Decimal("1")
-        self.assertEqual(self.controller.get_balance_requirements(),
-                         [TokenAmount("ETH", Decimal("50")), TokenAmount("USDT", Decimal("50"))])
+        self.assertEqual(
+            self.controller.get_balance_requirements(),
+            [TokenAmount("ETH", Decimal("50")), TokenAmount("USDT", Decimal("50"))],
+        )

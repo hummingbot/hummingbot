@@ -4,13 +4,9 @@ from typing import (
     Tuple,
 )
 
-from hummingbot.strategy.conditional_execution_state import (
-    RunAlwaysExecutionState,
-    RunInTimeConditionalExecutionState)
+from hummingbot.strategy.conditional_execution_state import RunAlwaysExecutionState, RunInTimeConditionalExecutionState
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.twap import (
-    TwapTradeStrategy
-)
+from hummingbot.strategy.twap import TwapTradeStrategy
 from hummingbot.strategy.twap.twap_config_map import twap_config_map
 
 
@@ -58,14 +54,16 @@ def start(self):
             order_delay_time = twap_config_map.get("order_delay_time").value
             execution_state = RunAlwaysExecutionState()
 
-        self.strategy = TwapTradeStrategy(market_infos=[MarketTradingPairTuple(*maker_data)],
-                                          is_buy=is_buy,
-                                          target_asset_amount=target_asset_amount,
-                                          order_step_size=order_step_size,
-                                          order_price=order_price,
-                                          order_delay_time=order_delay_time,
-                                          execution_state=execution_state,
-                                          cancel_order_wait_time=cancel_order_wait_time)
+        self.strategy = TwapTradeStrategy(
+            market_infos=[MarketTradingPairTuple(*maker_data)],
+            is_buy=is_buy,
+            target_asset_amount=target_asset_amount,
+            order_step_size=order_step_size,
+            order_price=order_price,
+            order_delay_time=order_delay_time,
+            execution_state=execution_state,
+            cancel_order_wait_time=cancel_order_wait_time,
+        )
     except Exception as e:
         self.notify(str(e))
         self.logger().error("Unknown error during initialization.", exc_info=True)

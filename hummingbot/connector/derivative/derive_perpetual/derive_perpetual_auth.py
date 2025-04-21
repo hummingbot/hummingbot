@@ -61,14 +61,14 @@ class DerivePerpetualAuth(AuthBase):
     def get_ws_auth_payload(self) -> List[Dict[str, Any]]:
         payload = {}
         timestamp = str(self.utc_now_ms())
-        signature = to_0x_hex(self._w3.eth.account.sign_message(
-            encode_defunct(text=timestamp), private_key=self._api_secret
-        ).signature)
+        signature = to_0x_hex(
+            self._w3.eth.account.sign_message(encode_defunct(text=timestamp), private_key=self._api_secret).signature
+        )
         """
         This method is intended to configure a websocket request to be authenticated. Dexalot does not use this
         functionality
         """
-        payload["accept"] = 'application/json'
+        payload["accept"] = "application/json"
         payload["wallet"] = self._api_key
         payload["timestamp"] = timestamp
         payload["signature"] = signature
@@ -94,8 +94,12 @@ class DerivePerpetualAuth(AuthBase):
         return json.dumps(payload) if request.method == RESTMethod.POST else payload
 
     def sign(self, params):
-        domain_seperator = CONSTANTS.DOMAIN_SEPARATOR if "testnet" not in self._domain else CONSTANTS.TESTNET_DOMAIN_SEPARATOR
-        action_typehash = CONSTANTS.ACTION_TYPEHASH if "testnet" not in self._domain else CONSTANTS.TESTNET_ACTION_TYPEHASH
+        domain_seperator = (
+            CONSTANTS.DOMAIN_SEPARATOR if "testnet" not in self._domain else CONSTANTS.TESTNET_DOMAIN_SEPARATOR
+        )
+        action_typehash = (
+            CONSTANTS.ACTION_TYPEHASH if "testnet" not in self._domain else CONSTANTS.TESTNET_ACTION_TYPEHASH
+        )
         action = SignedAction(
             subaccount_id=int(self._sub_id),
             owner=self._api_key,
@@ -124,12 +128,12 @@ class DerivePerpetualAuth(AuthBase):
 
     def header_for_authentication(self) -> Dict[str, str]:
         timestamp = str(self.utc_now_ms())
-        signature = to_0x_hex(self._w3.eth.account.sign_message(
-            encode_defunct(text=timestamp), private_key=self._api_secret
-        ).signature)
+        signature = to_0x_hex(
+            self._w3.eth.account.sign_message(encode_defunct(text=timestamp), private_key=self._api_secret).signature
+        )
         payload = {}
 
-        payload["accept"] = 'application/json'
+        payload["accept"] = "application/json"
         payload["X-LyraWallet"] = self._api_key
         payload["X-LyraTimestamp"] = timestamp
         payload["X-LyraSignature"] = signature

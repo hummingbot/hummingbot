@@ -36,13 +36,9 @@ class TegroUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.mocking_assistant = NetworkMockingAssistant(self.local_event_loop)
 
         self.emulated_time = 1640001112.223
-        self.auth = TegroAuth(
-            api_key=self.api_key,
-            api_secret=self.secret_key)
+        self.auth = TegroAuth(api_key=self.api_key, api_secret=self.secret_key)
         self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
-        self.data_source = TegroUserStreamDataSource(
-            auth=self.auth, domain=self.domain, throttler=self.throttler
-        )
+        self.data_source = TegroUserStreamDataSource(auth=self.auth, domain=self.domain, throttler=self.throttler)
 
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
@@ -79,20 +75,22 @@ class TegroUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         # Order Trade Update
         resp = {
             "action": "order_submitted",
-            "data": [{
-                "baseCurrency": 'KRYPTONITE',
-                "contractAddress": '0x6464e14854d58feb60e130873329d77fcd2d8eb7',  # noqa: mock
-                "marketId": '80001_0x6464e14854d58feb60e130873329d77fcd2d8eb7_0xe5ae73187d0fed71bda83089488736cadcbf072d',  # noqa: mock
-                "orderHash": '4a1137a5de82da926e14ef3a559f1dac142bd4cbbeae0c8025f3990c7a2cc9ac',  # noqa: mock
-                "orderId": '64c02448-6c31-43dc-859f-2b7c479af6ec',
-                "price": 63.485,
-                "quantity": 1,
-                "quantityFilled": 1,
-                "quoteCurrency": 'USDT',
-                "side": 'buy',
-                "status": 'Matched',
-                "time": '2024-02-10T21:23:54.751322Z',
-            }],
+            "data": [
+                {
+                    "baseCurrency": "KRYPTONITE",
+                    "contractAddress": "0x6464e14854d58feb60e130873329d77fcd2d8eb7",  # noqa: mock
+                    "marketId": "80001_0x6464e14854d58feb60e130873329d77fcd2d8eb7_0xe5ae73187d0fed71bda83089488736cadcbf072d",  # noqa: mock
+                    "orderHash": "4a1137a5de82da926e14ef3a559f1dac142bd4cbbeae0c8025f3990c7a2cc9ac",  # noqa: mock
+                    "orderId": "64c02448-6c31-43dc-859f-2b7c479af6ec",
+                    "price": 63.485,
+                    "quantity": 1,
+                    "quantityFilled": 1,
+                    "quoteCurrency": "USDT",
+                    "side": "buy",
+                    "status": "Matched",
+                    "time": "2024-02-10T21:23:54.751322Z",
+                }
+            ],
         }
         return ujson.dumps(resp)
 

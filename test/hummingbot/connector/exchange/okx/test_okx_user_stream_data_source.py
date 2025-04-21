@@ -42,7 +42,8 @@ class OkxUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             api_key="TEST_API_KEY",
             secret_key="TEST_SECRET",
             passphrase="TEST_PASSPHRASE",
-            time_provider=self.time_synchronizer)
+            time_provider=self.time_synchronizer,
+        )
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = OkxExchange(
@@ -56,9 +57,7 @@ class OkxUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.connector._web_assistants_factory._auth = self.auth
 
         self.data_source = OkxAPIUserStreamDataSource(
-            auth=self.auth,
-            connector=self.connector,
-            api_factory=self.connector._web_assistants_factory
+            auth=self.auth, connector=self.connector, api_factory=self.connector._web_assistants_factory
         )
 
         self.data_source.logger().setLevel(1)
@@ -74,8 +73,7 @@ class OkxUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message
-                   for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
     def _raise_exception(self, exception_class):
         raise exception_class
@@ -92,42 +90,36 @@ class OkxUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
     async def test_listen_for_user_stream_subscribes_to_orders_and_balances_events(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
-        successful_login_response = {
-            "event": "login",
-            "code": "0",
-            "msg": ""
-        }
-        result_subscribe_orders = {
-            "event": "subscribe",
-            "arg": {
-                "channel": "account"
-            }
-        }
+        successful_login_response = {"event": "login", "code": "0", "msg": ""}
+        result_subscribe_orders = {"event": "subscribe", "arg": {"channel": "account"}}
         result_subscribe_account = {
             "event": "subscribe",
             "arg": {
                 "channel": "orders",
                 "instType": "SPOT",
-            }
+            },
         }
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(successful_login_response))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(successful_login_response)
+        )
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(result_subscribe_orders))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe_orders)
+        )
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(result_subscribe_account))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe_account)
+        )
 
         output_queue = asyncio.Queue()
 
-        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(output=output_queue)
+        )
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         sent_messages = self.mocking_assistant.json_messages_sent_through_websocket(
-            websocket_mock=ws_connect_mock.return_value)
+            websocket_mock=ws_connect_mock.return_value
+        )
 
         self.assertEqual(3, len(sent_messages))
         expected_login = {
@@ -136,20 +128,13 @@ class OkxUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
                 {
                     "apiKey": self.auth.api_key,
                     "passphrase": self.auth.passphrase,
-                    'timestamp': '1640001112',
-                    'sign': 'wEhbGLkjM+fzAclpjd67vGUzbRpxPe4AlLyh6/wVwL4=',
+                    "timestamp": "1640001112",
+                    "sign": "wEhbGLkjM+fzAclpjd67vGUzbRpxPe4AlLyh6/wVwL4=",
                 }
-            ]
+            ],
         }
         self.assertEqual(expected_login, sent_messages[0])
-        expected_account_subscription = {
-            "op": "subscribe",
-            "args": [
-                {
-                    "channel": "account"
-                }
-            ]
-        }
+        expected_account_subscription = {"op": "subscribe", "args": [{"channel": "account"}]}
         self.assertEqual(expected_account_subscription, sent_messages[1])
         expected_orders_subscription = {
             "op": "subscribe",
@@ -158,56 +143,44 @@ class OkxUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
                     "channel": "orders",
                     "instType": "SPOT",
                 }
-            ]
+            ],
         }
         self.assertEqual(expected_orders_subscription, sent_messages[2])
 
-        self.assertTrue(self._is_logged(
-            "INFO",
-            "Subscribed to private account and orders channels..."
-        ))
+        self.assertTrue(self._is_logged("INFO", "Subscribed to private account and orders channels..."))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_user_stream_authentication_failure(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
-        login_response = {
-            "event": "error",
-            "code": "60009",
-            "msg": "Login failed."
-        }
+        login_response = {"event": "error", "code": "60009", "msg": "Login failed."}
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(login_response))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(login_response)
+        )
 
         output_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(output=output_queue)
+        )
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
-        self.assertTrue(self._is_logged(
-            "ERROR",
-            "Unexpected error while listening to user stream. Retrying after 5 seconds..."
-        ))
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error while listening to user stream. Retrying after 5 seconds...")
+        )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_user_stream_does_not_queue_empty_payload(self, mock_ws):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
-        successful_login_response = {
-            "event": "login",
-            "code": "0",
-            "msg": ""
-        }
+        successful_login_response = {"event": "login", "code": "0", "msg": ""}
         self.mocking_assistant.add_websocket_aiohttp_message(
-            mock_ws.return_value,
-            json.dumps(successful_login_response))
+            mock_ws.return_value, json.dumps(successful_login_response)
+        )
         self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, "")
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_user_stream(msg_queue)
-        )
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
@@ -216,35 +189,29 @@ class OkxUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_user_stream_connection_failed(self, mock_ws):
         mock_ws.side_effect = lambda *arg, **kwars: self._create_exception_and_unlock_test_with_event(
-            Exception("TEST ERROR."))
+            Exception("TEST ERROR.")
+        )
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_user_stream(msg_queue)
-        )
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
         await self.resume_test_event.wait()
 
         self.assertTrue(
-            self._is_logged("ERROR",
-                            "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
+            self._is_logged("ERROR", "Unexpected error while listening to user stream. Retrying after 5 seconds...")
+        )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    async def test_listen_for_user_stream_sends_ping_message_before_ping_interval_finishes(
-            self,
-            ws_connect_mock):
+    async def test_listen_for_user_stream_sends_ping_message_before_ping_interval_finishes(self, ws_connect_mock):
 
-        successful_login_response = {
-            "event": "login",
-            "code": "0",
-            "msg": ""
-        }
+        successful_login_response = {"event": "login", "code": "0", "msg": ""}
 
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         ws_connect_mock.return_value.receive.side_effect = [
             WSMessage(type=WSMsgType.TEXT, data=json.dumps(successful_login_response), extra=None),
             asyncio.TimeoutError("Test timeout"),
-            asyncio.CancelledError]
+            asyncio.CancelledError,
+        ]
 
         msg_queue = asyncio.Queue()
 
@@ -254,7 +221,8 @@ class OkxUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             pass
 
         sent_messages = self.mocking_assistant.text_messages_sent_through_websocket(
-            websocket_mock=ws_connect_mock.return_value)
+            websocket_mock=ws_connect_mock.return_value
+        )
 
         expected_ping_message = "ping"
         self.assertEqual(expected_ping_message, sent_messages[0])

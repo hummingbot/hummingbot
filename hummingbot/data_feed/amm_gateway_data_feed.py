@@ -98,8 +98,7 @@ class AmmGatewayDataFeed(NetworkBase):
                 raise
             except Exception as e:
                 self.logger().error(
-                    f"Error getting data from {self.name}"
-                    f"Check network connection. Error: {e}",
+                    f"Error getting data from {self.name}" f"Check network connection. Error: {e}",
                 )
             await self._async_sleep(self._update_interval)
 

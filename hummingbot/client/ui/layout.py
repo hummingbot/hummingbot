@@ -76,15 +76,15 @@ Useful Commands:
 
 """
 
-with open(realpath(join(dirname(__file__), '../../VERSION'))) as version_file:
+with open(realpath(join(dirname(__file__), "../../VERSION"))) as version_file:
     version = version_file.read().strip()
 
 
 def create_input_field(lexer=None, completer: Completer = None):
     return TextArea(
         height=10,
-        prompt='>>> ',
-        style='class:input_field',
+        prompt=">>> ",
+        style="class:input_field",
         multiline=False,
         focus_on_click=True,
         lexer=lexer,
@@ -96,19 +96,19 @@ def create_input_field(lexer=None, completer: Completer = None):
 
 def create_output_field(client_config_map: ClientConfigAdapter):
     return TextArea(
-        style='class:output_field',
+        style="class:output_field",
         focus_on_click=False,
         read_only=False,
         scrollbar=True,
         max_line_count=MAXIMUM_OUTPUT_PANE_LINE_COUNT,
         initial_text=HEADER,
-        lexer=FormattedTextLexer(client_config_map)
+        lexer=FormattedTextLexer(client_config_map),
     )
 
 
 def create_timer():
     return TextArea(
-        style='class:footer',
+        style="class:footer",
         focus_on_click=False,
         read_only=False,
         scrollbar=False,
@@ -119,18 +119,18 @@ def create_timer():
 
 def create_process_monitor():
     return TextArea(
-        style='class:footer',
+        style="class:footer",
         focus_on_click=False,
         read_only=False,
         scrollbar=False,
         max_line_count=1,
-        align=WindowAlign.RIGHT
+        align=WindowAlign.RIGHT,
     )
 
 
 def create_trade_monitor():
     return TextArea(
-        style='class:footer',
+        style="class:footer",
         focus_on_click=False,
         read_only=False,
         scrollbar=False,
@@ -139,14 +139,16 @@ def create_trade_monitor():
 
 
 def create_search_field() -> SearchToolbar:
-    return SearchToolbar(text_if_not_searching=[('class:primary', "[CTRL + F] to start searching.")],
-                         forward_search_prompt=[('class:primary', "Search logs [Press CTRL + F to hide search] >>> ")],
-                         ignore_case=True)
+    return SearchToolbar(
+        text_if_not_searching=[("class:primary", "[CTRL + F] to start searching.")],
+        forward_search_prompt=[("class:primary", "Search logs [Press CTRL + F to hide search] >>> ")],
+        ignore_case=True,
+    )
 
 
 def create_log_field(search_field: SearchToolbar):
     return TextArea(
-        style='class:log_field',
+        style="class:log_field",
         text="Running Logs\n",
         focus_on_click=False,
         read_only=False,
@@ -160,7 +162,7 @@ def create_log_field(search_field: SearchToolbar):
 
 def create_live_field():
     return TextArea(
-        style='class:log_field',
+        style="class:log_field",
         focus_on_click=False,
         read_only=False,
         scrollbar=True,
@@ -170,21 +172,17 @@ def create_live_field():
 
 def create_log_toggle(function):
     return Button(
-        text='> log pane',
+        text="> log pane",
         width=13,
         handler=function,
-        left_symbol='',
-        right_symbol='',
+        left_symbol="",
+        right_symbol="",
     )
 
 
-def create_tab_button(text, function, margin=2, left_symbol=' ', right_symbol=' '):
+def create_tab_button(text, function, margin=2, left_symbol=" ", right_symbol=" "):
     return Button(
-        text=text,
-        width=len(text) + margin,
-        handler=function,
-        left_symbol=left_symbol,
-        right_symbol=right_symbol
+        text=text, width=len(text) + margin, handler=function, left_symbol=left_symbol, right_symbol=right_symbol
     )
 
 
@@ -194,6 +192,7 @@ def get_version():
 
 def get_active_strategy():
     from hummingbot.client.hummingbot_application import HummingbotApplication
+
     hb = HummingbotApplication.main_application()
     style = "class:log_field"
     return [(style, f"Strategy: {hb.strategy_name}")]
@@ -201,6 +200,7 @@ def get_active_strategy():
 
 def get_strategy_file():
     from hummingbot.client.hummingbot_application import HummingbotApplication
+
     hb = HummingbotApplication.main_application()
     style = "class:log_field"
     return [(style, f"Strategy File: {hb._strategy_file_name}")]
@@ -208,23 +208,25 @@ def get_strategy_file():
 
 def get_gateway_status():
     from hummingbot.client.hummingbot_application import HummingbotApplication
+
     hb = HummingbotApplication.main_application()
     gateway_status = hb._gateway_monitor.gateway_status.name
     style = "class:log_field"
     return [(style, f"Gateway: {gateway_status}")]
 
 
-def generate_layout(input_field: TextArea,
-                    output_field: TextArea,
-                    log_field: TextArea,
-                    right_pane_toggle: Button,
-                    log_field_button: Button,
-                    search_field: SearchToolbar,
-                    timer: TextArea,
-                    process_monitor: TextArea,
-                    trade_monitor: TextArea,
-                    command_tabs: Dict[str, CommandTab],
-                    ):
+def generate_layout(
+    input_field: TextArea,
+    output_field: TextArea,
+    log_field: TextArea,
+    right_pane_toggle: Button,
+    log_field_button: Button,
+    search_field: SearchToolbar,
+    timer: TextArea,
+    process_monitor: TextArea,
+    trade_monitor: TextArea,
+    command_tabs: Dict[str, CommandTab],
+):
     components = {}
 
     components["item_top_version"] = Window(FormattedTextControl(get_version), style="class:header")
@@ -232,14 +234,17 @@ def generate_layout(input_field: TextArea,
     components["item_top_file"] = Window(FormattedTextControl(get_strategy_file), style="class:header")
     components["item_top_gateway"] = Window(FormattedTextControl(get_gateway_status), style="class:header")
     components["item_top_toggle"] = right_pane_toggle
-    components["pane_top"] = VSplit([components["item_top_version"],
-                                     components["item_top_active"],
-                                     components["item_top_file"],
-                                     components["item_top_gateway"],
-                                     components["item_top_toggle"]], height=1)
-    components["pane_bottom"] = VSplit([trade_monitor,
-                                        process_monitor,
-                                        timer], height=1)
+    components["pane_top"] = VSplit(
+        [
+            components["item_top_version"],
+            components["item_top_active"],
+            components["item_top_file"],
+            components["item_top_gateway"],
+            components["item_top_toggle"],
+        ],
+        height=1,
+    )
+    components["pane_bottom"] = VSplit([trade_monitor, process_monitor, timer], height=1)
     output_pane = Box(body=output_field, padding=0, padding_left=2, style="class:output_field")
     input_pane = Box(body=input_field, padding=0, padding_left=2, padding_top=1, style="class:input_field")
     components["pane_left"] = HSplit([output_pane, input_pane], width=Dimension(weight=1))
@@ -262,21 +267,23 @@ def generate_layout(input_field: TextArea,
         pane_right_field = focused_right_field[0]
     components["pane_right_top"] = VSplit(tab_buttons, height=1, style="class:log_field", padding_char=" ", padding=2)
     components["pane_right"] = ConditionalContainer(
-        Box(body=HSplit([components["pane_right_top"], pane_right_field, search_field], width=Dimension(weight=1)),
-            padding=0, padding_left=2, style="class:log_field"),
-        filter=True
+        Box(
+            body=HSplit([components["pane_right_top"], pane_right_field, search_field], width=Dimension(weight=1)),
+            padding=0,
+            padding_left=2,
+            style="class:log_field",
+        ),
+        filter=True,
     )
-    components["hint_menus"] = [Float(xcursor=True,
-                                      ycursor=True,
-                                      transparent=True,
-                                      content=CompletionsMenu(max_height=16,
-                                                              scroll_offset=1))]
+    components["hint_menus"] = [
+        Float(xcursor=True, ycursor=True, transparent=True, content=CompletionsMenu(max_height=16, scroll_offset=1))
+    ]
 
-    root_container = HSplit([
-        components["pane_top"],
-        VSplit(
-            [FloatContainer(components["pane_left"], components["hint_menus"]),
-             components["pane_right"]]),
-        components["pane_bottom"],
-    ])
+    root_container = HSplit(
+        [
+            components["pane_top"],
+            VSplit([FloatContainer(components["pane_left"], components["hint_menus"]), components["pane_right"]]),
+            components["pane_bottom"],
+        ]
+    )
     return Layout(root_container, focused_element=input_field), components

@@ -26,12 +26,13 @@ class AsyncThrottlerBase(ABC):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self,
-                 rate_limits: List[RateLimit],
-                 retry_interval: float = 0.1,
-                 safety_margin_pct: Optional[float] = 0.05,  # An extra safety margin, in percentage.
-                 limits_share_percentage: Optional[Decimal] = None
-                 ):
+    def __init__(
+        self,
+        rate_limits: List[RateLimit],
+        retry_interval: float = 0.1,
+        safety_margin_pct: Optional[float] = 0.05,  # An extra safety margin, in percentage.
+        limits_share_percentage: Optional[Decimal] = None,
+    ):
         """
         :param rate_limits: List of RateLimit(s).
         :param retry_interval: Time between every capacity check.
@@ -75,14 +76,16 @@ class AsyncThrottlerBase(ABC):
         rate_limit: Optional[RateLimit] = self._id_to_limit_map.get(limit_id, None)
         linked_limits: List[RateLimit] = [] if rate_limit is None else rate_limit.linked_limits
 
-        related_limits = [(self._id_to_limit_map[limit_weight_pair.limit_id], limit_weight_pair.weight)
-                          for limit_weight_pair in linked_limits
-                          if limit_weight_pair.limit_id in self._id_to_limit_map]
+        related_limits = [
+            (self._id_to_limit_map[limit_weight_pair.limit_id], limit_weight_pair.weight)
+            for limit_weight_pair in linked_limits
+            if limit_weight_pair.limit_id in self._id_to_limit_map
+        ]
 
         # Append self as part of the related_limits
         # if rate_limit is not None:
         #     related_limits.append((rate_limit, rate_limit.weight))
-#
+        #
         return rate_limit, related_limits
 
     @abstractmethod

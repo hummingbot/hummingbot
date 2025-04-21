@@ -51,15 +51,17 @@ class KrakenAPIUserStreamDataSourceTest(IsolatedAsyncioWrapperTestCase):
             kraken_api_key="",
             kraken_secret_key="",
             trading_pairs=[self.trading_pair],
-            trading_required=False)
+            trading_required=False,
+        )
 
         not_a_real_secret = "kQH5HW/8p1uGOVjbgWA7FunAmGO8lsSUXNsu3eow76sz84Q18fWxnyRzBHCd3pd5nE9qa99HAZtuZuj6F1huXg=="
         self.auth = KrakenAuth(api_key="someKey", secret_key=not_a_real_secret, time_provider=self.mock_time_provider)
 
         self.connector._web_assistants_factory._auth = self.auth
-        self.data_source = KrakenAPIUserStreamDataSource(self.connector,
-                                                         api_factory=self.connector._web_assistants_factory,
-                                                         )
+        self.data_source = KrakenAPIUserStreamDataSource(
+            self.connector,
+            api_factory=self.connector._web_assistants_factory,
+        )
 
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
@@ -76,8 +78,7 @@ class KrakenAPIUserStreamDataSourceTest(IsolatedAsyncioWrapperTestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message
-                   for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -85,34 +86,15 @@ class KrakenAPIUserStreamDataSourceTest(IsolatedAsyncioWrapperTestCase):
 
     @staticmethod
     def get_auth_response_mock() -> Dict:
-        auth_resp = {
-            "error": [],
-            "result": {
-                "token": "1Dwc4lzSwNWOAwkMdqhssNNFhs1ed606d1WcF3XfEMw",
-                "expires": 900
-            }
-        }
+        auth_resp = {"error": [], "result": {"token": "1Dwc4lzSwNWOAwkMdqhssNNFhs1ed606d1WcF3XfEMw", "expires": 900}}
         return auth_resp
 
     @staticmethod
     def get_open_orders_mock() -> List:
         open_orders = [
-            [
-                {
-                    "OGTT3Y-C6I3P-XRI6HX": {
-                        "status": "closed"
-                    }
-                },
-                {
-                    "OGTT3Y-C6I3P-XRI6HX": {
-                        "status": "closed"
-                    }
-                }
-            ],
+            [{"OGTT3Y-C6I3P-XRI6HX": {"status": "closed"}}, {"OGTT3Y-C6I3P-XRI6HX": {"status": "closed"}}],
             "openOrders",
-            {
-                "sequence": 59342
-            }
+            {"sequence": 59342},
         ]
         return open_orders
 
@@ -132,14 +114,12 @@ class KrakenAPIUserStreamDataSourceTest(IsolatedAsyncioWrapperTestCase):
                         "price": "100000.00000",
                         "time": "1560516023.070651",
                         "type": "sell",
-                        "vol": "1000000000.00000000"
+                        "vol": "1000000000.00000000",
                     }
                 },
             ],
             "ownTrades",
-            {
-                "sequence": 2948
-            }
+            {"sequence": 2948},
         ]
         return own_trades
 
@@ -150,7 +130,7 @@ class KrakenAPIUserStreamDataSourceTest(IsolatedAsyncioWrapperTestCase):
         resp = self.get_auth_response_mock()
         mocked_api.post(regex_url, body=json.dumps(resp))
 
-        ret = await (self.data_source.get_auth_token())
+        ret = await self.data_source.get_auth_token()
 
         self.assertEqual(ret, resp["result"]["token"])
 
@@ -177,6 +157,6 @@ class KrakenAPIUserStreamDataSourceTest(IsolatedAsyncioWrapperTestCase):
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=ws_connect_mock.return_value, message=json.dumps(resp)
         )
-        ret = await (output_queue.get())
+        ret = await output_queue.get()
 
         self.assertEqual(ret, resp)

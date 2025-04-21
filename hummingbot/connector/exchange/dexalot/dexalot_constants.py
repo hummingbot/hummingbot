@@ -71,11 +71,23 @@ RATE_LIMITS = [
     RateLimit(limit_id=IP_REQUEST_WEIGHT, limit=200, time_interval=ONE_MINUTE),
     RateLimit(limit_id=UID_REQUEST_WEIGHT, limit=200, time_interval=ONE_MINUTE),
     # Weighted Limits
-    RateLimit(limit_id=EXCHANGE_INFO_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(IP_REQUEST_WEIGHT, 1)]),
-    RateLimit(limit_id=PING_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(IP_REQUEST_WEIGHT, 1)]),
-    RateLimit(limit_id=ACCOUNTS_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(UID_REQUEST_WEIGHT, 1)]),
-    RateLimit(limit_id=WSS_URL, limit=5, time_interval=ONE_SECOND)
+    RateLimit(
+        limit_id=EXCHANGE_INFO_PATH_URL,
+        limit=MAX_REQUEST,
+        time_interval=ONE_MINUTE,
+        linked_limits=[LinkedLimitWeightPair(IP_REQUEST_WEIGHT, 1)],
+    ),
+    RateLimit(
+        limit_id=PING_PATH_URL,
+        limit=MAX_REQUEST,
+        time_interval=ONE_MINUTE,
+        linked_limits=[LinkedLimitWeightPair(IP_REQUEST_WEIGHT, 1)],
+    ),
+    RateLimit(
+        limit_id=ACCOUNTS_PATH_URL,
+        limit=MAX_REQUEST,
+        time_interval=ONE_MINUTE,
+        linked_limits=[LinkedLimitWeightPair(UID_REQUEST_WEIGHT, 1)],
+    ),
+    RateLimit(limit_id=WSS_URL, limit=5, time_interval=ONE_SECOND),
 ]

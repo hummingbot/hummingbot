@@ -30,6 +30,7 @@ class StatusCommandTest(unittest.TestCase):
     def get_async_sleep_fn(delay: float):
         async def async_sleep(*_, **__):
             await asyncio.sleep(delay)
+
         return async_sleep
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
@@ -55,7 +56,9 @@ class StatusCommandTest(unittest.TestCase):
 
     @patch("hummingbot.client.command.status_command.StatusCommand.validate_required_connections")
     @patch("hummingbot.client.config.security.Security.is_decryption_done")
-    def test_status_check_all_handles_network_timeouts(self, is_decryption_done_mock, validate_required_connections_mock):
+    def test_status_check_all_handles_network_timeouts(
+        self, is_decryption_done_mock, validate_required_connections_mock
+    ):
         validate_required_connections_mock.side_effect = self.get_async_sleep_fn(delay=0.02)
         self.client_config_map.commands_timeout.other_commands_timeout = 0.01
         is_decryption_done_mock.return_value = True

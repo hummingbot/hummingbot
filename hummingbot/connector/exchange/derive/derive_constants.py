@@ -116,7 +116,8 @@ ENDPOINTS = {
             ALL_ORDERS_PATH_URL,
             OPEN_ORDERS_PATH_URL,
             WS_CONNECTIONS_RATE_LIMIT,
-            ORDER_STATUS_PAATH_URL]
+            ORDER_STATUS_PAATH_URL,
+        ],
     },
 }
 
@@ -130,25 +131,25 @@ RATE_LIMITS = [
         limit_id=WSS_URL,
         limit=TRADER_NON_MATCHING,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(TRADER_ACCOUNTS_TYPE)]
+        linked_limits=[LinkedLimitWeightPair(TRADER_ACCOUNTS_TYPE)],
     ),
     RateLimit(
         limit_id=TICKER_PRICE_CHANGE_PATH_URL,
         limit=TRADER_NON_MATCHING,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(TRADER_ACCOUNTS_TYPE)]
+        linked_limits=[LinkedLimitWeightPair(TRADER_ACCOUNTS_TYPE)],
     ),
     RateLimit(
         limit_id=TICKER_BOOK_PATH_URL,
         limit=TRADER_NON_MATCHING,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(TRADER_ACCOUNTS_TYPE)]
+        linked_limits=[LinkedLimitWeightPair(TRADER_ACCOUNTS_TYPE)],
     ),
     RateLimit(
         limit_id=EXCHANGE_INFO_PATH_URL,
         limit=MARKET_MAKER_NON_MATCHING,
         time_interval=MINUTE,
-        linked_limits=[LinkedLimitWeightPair(TRADER_ACCOUNTS_TYPE)]
+        linked_limits=[LinkedLimitWeightPair(TRADER_ACCOUNTS_TYPE)],
     ),
     RateLimit(
         limit_id=EXCHANGE_CURRENCIES_PATH_URL,
@@ -166,13 +167,13 @@ RATE_LIMITS = [
         limit_id=SERVER_TIME_PATH_URL,
         limit=TRADER_NON_MATCHING,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(TRADER_ACCOUNTS_TYPE)]
+        linked_limits=[LinkedLimitWeightPair(TRADER_ACCOUNTS_TYPE)],
     ),
     RateLimit(
         limit_id=PING_PATH_URL,
         limit=TRADER_NON_MATCHING,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(TRADER_ACCOUNTS_TYPE)]
+        linked_limits=[LinkedLimitWeightPair(TRADER_ACCOUNTS_TYPE)],
     ),
     RateLimit(
         limit_id=ACCOUNTS_PATH_URL,

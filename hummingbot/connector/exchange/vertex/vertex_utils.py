@@ -153,7 +153,7 @@ class VertexConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     vertex_arbitrum_address: str = Field(
         default=...,
@@ -162,7 +162,7 @@ class VertexConfigMap(BaseConnectorConfigMap):
             "is_secure": False,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     model_config = ConfigDict(title="vertex")
 
@@ -179,7 +179,7 @@ class VertexTestnetConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     vertex_testnet_arbitrum_address: str = Field(
         default=...,
@@ -188,7 +188,7 @@ class VertexTestnetConfigMap(BaseConnectorConfigMap):
             "is_secure": False,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     model_config = ConfigDict(title="vertex_testnet")
 

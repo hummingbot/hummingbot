@@ -21,12 +21,14 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(self,
-                 auth: MexcAuth,
-                 trading_pairs: List[str],
-                 connector: 'MexcExchange',
-                 api_factory: WebAssistantsFactory,
-                 domain: str = CONSTANTS.DEFAULT_DOMAIN):
+    def __init__(
+        self,
+        auth: MexcAuth,
+        trading_pairs: List[str],
+        connector: "MexcExchange",
+        api_factory: WebAssistantsFactory,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+    ):
         super().__init__()
         self._auth: MexcAuth = auth
         self._current_listen_key = None
@@ -56,25 +58,13 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         try:
 
-            orders_change_payload = {
-                "method": "SUBSCRIPTION",
-                "params": [CONSTANTS.USER_ORDERS_ENDPOINT_NAME],
-                "id": 1
-            }
+            orders_change_payload = {"method": "SUBSCRIPTION", "params": [CONSTANTS.USER_ORDERS_ENDPOINT_NAME], "id": 1}
             subscribe_order_change_request: WSJSONRequest = WSJSONRequest(payload=orders_change_payload)
 
-            trades_payload = {
-                "method": "SUBSCRIPTION",
-                "params": [CONSTANTS.USER_TRADES_ENDPOINT_NAME],
-                "id": 2
-            }
+            trades_payload = {"method": "SUBSCRIPTION", "params": [CONSTANTS.USER_TRADES_ENDPOINT_NAME], "id": 2}
             subscribe_trades_request: WSJSONRequest = WSJSONRequest(payload=trades_payload)
 
-            balance_payload = {
-                "method": "SUBSCRIPTION",
-                "params": [CONSTANTS.USER_BALANCE_ENDPOINT_NAME],
-                "id": 3
-            }
+            balance_payload = {"method": "SUBSCRIPTION", "params": [CONSTANTS.USER_BALANCE_ENDPOINT_NAME], "id": 3}
             subscribe_balance_request: WSJSONRequest = WSJSONRequest(payload=balance_payload)
 
             await websocket_assistant.send(subscribe_order_change_request)
@@ -95,7 +85,7 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 url=web_utils.public_rest_url(path_url=CONSTANTS.MEXC_USER_STREAM_PATH_URL, domain=self._domain),
                 method=RESTMethod.POST,
                 throttler_limit_id=CONSTANTS.MEXC_USER_STREAM_PATH_URL,
-                is_auth_required=True
+                is_auth_required=True,
             )
         except asyncio.CancelledError:
             raise
@@ -113,7 +103,7 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 method=RESTMethod.PUT,
                 return_err=True,
                 throttler_limit_id=CONSTANTS.MEXC_USER_STREAM_PATH_URL,
-                is_auth_required=True
+                is_auth_required=True,
             )
 
             if "code" in data:
@@ -176,7 +166,7 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
             try:
                 await asyncio.wait_for(
                     super()._process_websocket_messages(websocket_assistant=websocket_assistant, queue=queue),
-                    timeout=CONSTANTS.WS_CONNECTION_TIME_INTERVAL
+                    timeout=CONSTANTS.WS_CONNECTION_TIME_INTERVAL,
                 )
             except asyncio.TimeoutError:
                 ping_request = WSJSONRequest(payload={"method": "PING"})

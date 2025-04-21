@@ -65,7 +65,8 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         self.data_source.logger().addHandler(self)
 
         self.connector._set_trading_pair_symbol_map(
-            bidict({f"{self.base_asset}{self.quote_asset}_UMCBL": self.trading_pair}))
+            bidict({f"{self.base_asset}{self.quote_asset}_UMCBL": self.trading_pair})
+        )
 
     async def asyncSetUp(self) -> None:
         await super().asyncSetUp()
@@ -82,69 +83,48 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message
-                   for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
     def get_rest_snapshot_msg(self) -> Dict:
         return {
             "code": "00000",
             "data": {
                 "asks": [
-                    [
-                        "9487.5",
-                        "522147"
-                    ],
+                    ["9487.5", "522147"],
                 ],
                 "bids": [
-                    [
-                        "9487",
-                        "336241"
-                    ],
+                    ["9487", "336241"],
                 ],
-                "timestamp": "1627115809358"
+                "timestamp": "1627115809358",
             },
             "msg": "success",
-            "requestTime": 1627115809358
+            "requestTime": 1627115809358,
         }
 
     def get_ws_diff_msg(self) -> Dict:
         return {
             "action": "update",
-            "arg": {
-                "instType": "mc",
-                "channel": CONSTANTS.WS_ORDER_BOOK_EVENTS_TOPIC,
-                "instId": self.ex_trading_pair
-            },
+            "arg": {"instType": "mc", "channel": CONSTANTS.WS_ORDER_BOOK_EVENTS_TOPIC, "instId": self.ex_trading_pair},
             "data": [
                 {
                     "asks": [["3001", "0", "1", "4"]],
-                    "bids": [
-                        ["2999.0", "8", "1", "4"],
-                        ["2998.0", "10", "1", "4"]
-                    ],
-                    "ts": "1627115809358"
+                    "bids": [["2999.0", "8", "1", "4"], ["2998.0", "10", "1", "4"]],
+                    "ts": "1627115809358",
                 }
-            ]
+            ],
         }
 
     def ws_snapshot_msg(self) -> Dict:
         return {
             "action": "snapshot",
-            "arg": {
-                "instType": "mc",
-                "channel": CONSTANTS.WS_ORDER_BOOK_EVENTS_TOPIC,
-                "instId": self.ex_trading_pair
-            },
+            "arg": {"instType": "mc", "channel": CONSTANTS.WS_ORDER_BOOK_EVENTS_TOPIC, "instId": self.ex_trading_pair},
             "data": [
                 {
                     "asks": [["3001", "0", "1", "4"]],
-                    "bids": [
-                        ["2999.0", "8", "1", "4"],
-                        ["2998.0", "10", "1", "4"]
-                    ],
-                    "ts": "1627115809358"
+                    "bids": [["2999.0", "8", "1", "4"], ["2998.0", "10", "1", "4"]],
+                    "ts": "1627115809358",
                 }
-            ]
+            ],
         }
 
     def get_funding_info_msg(self) -> Dict:
@@ -171,9 +151,9 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
                     "indexPrice": "44959.23",
                     "holding": "1825.822",
                     "baseVolume": "39746.470",
-                    "quoteVolume": "1760329683.834"
+                    "quoteVolume": "1760329683.834",
                 }
-            ]
+            ],
         }
 
     def get_funding_info_event(self):
@@ -254,29 +234,15 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         expected_subscription = {
             "op": "subscribe",
             "args": [
-                {
-                    "instType": "mc",
-                    "channel": "books",
-                    "instId": self.ex_trading_pair
-                },
-                {
-                    "instType": "mc",
-                    "channel": "trade",
-                    "instId": self.ex_trading_pair
-                },
-                {
-                    "instType": "mc",
-                    "channel": "ticker",
-                    "instId": self.ex_trading_pair
-                }
+                {"instType": "mc", "channel": "books", "instId": self.ex_trading_pair},
+                {"instType": "mc", "channel": "trade", "instId": self.ex_trading_pair},
+                {"instType": "mc", "channel": "ticker", "instId": self.ex_trading_pair},
             ],
         }
 
         self.assertEqual(expected_subscription, sent_subscription_messages[0])
 
-        self.assertTrue(
-            self._is_logged("INFO", "Subscribed to public order book, trade and funding info channels...")
-        )
+        self.assertTrue(self._is_logged("INFO", "Subscribed to public order book, trade and funding info channels..."))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_subscriptions_for_usdc_product_type_pair(self, ws_connect_mock):
@@ -293,8 +259,7 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
             domain=self.domain,
         )
 
-        self.connector._set_trading_pair_symbol_map(
-            bidict({f"{local_exchange_trading_pair}": local_trading_pair}))
+        self.connector._set_trading_pair_symbol_map(bidict({f"{local_exchange_trading_pair}": local_trading_pair}))
 
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
@@ -322,29 +287,15 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         expected_subscription = {
             "op": "subscribe",
             "args": [
-                {
-                    "instType": "mc",
-                    "channel": "books",
-                    "instId": local_exchange_trading_pair_without_type
-                },
-                {
-                    "instType": "mc",
-                    "channel": "trade",
-                    "instId": local_exchange_trading_pair_without_type
-                },
-                {
-                    "instType": "mc",
-                    "channel": "ticker",
-                    "instId": local_exchange_trading_pair_without_type
-                }
+                {"instType": "mc", "channel": "books", "instId": local_exchange_trading_pair_without_type},
+                {"instType": "mc", "channel": "trade", "instId": local_exchange_trading_pair_without_type},
+                {"instType": "mc", "channel": "ticker", "instId": local_exchange_trading_pair_without_type},
             ],
         }
 
         self.assertEqual(expected_subscription, sent_subscription_messages[0])
 
-        self.assertTrue(
-            self._is_logged("INFO", "Subscribed to public order book, trade and funding info channels...")
-        )
+        self.assertTrue(self._is_logged("INFO", "Subscribed to public order book, trade and funding info channels..."))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_subscriptions_for_usd_product_type_pair(self, ws_connect_mock):
@@ -361,8 +312,7 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
             domain=self.domain,
         )
 
-        self.connector._set_trading_pair_symbol_map(
-            bidict({f"{local_exchange_trading_pair}": local_trading_pair}))
+        self.connector._set_trading_pair_symbol_map(bidict({f"{local_exchange_trading_pair}": local_trading_pair}))
 
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
@@ -390,29 +340,15 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         expected_subscription = {
             "op": "subscribe",
             "args": [
-                {
-                    "instType": "mc",
-                    "channel": "books",
-                    "instId": local_exchange_trading_pair_without_type
-                },
-                {
-                    "instType": "mc",
-                    "channel": "trade",
-                    "instId": local_exchange_trading_pair_without_type
-                },
-                {
-                    "instType": "mc",
-                    "channel": "ticker",
-                    "instId": local_exchange_trading_pair_without_type
-                }
+                {"instType": "mc", "channel": "books", "instId": local_exchange_trading_pair_without_type},
+                {"instType": "mc", "channel": "trade", "instId": local_exchange_trading_pair_without_type},
+                {"instType": "mc", "channel": "ticker", "instId": local_exchange_trading_pair_without_type},
             ],
         }
 
         self.assertEqual(expected_subscription, sent_subscription_messages[0])
 
-        self.assertTrue(
-            self._is_logged("INFO", "Subscribed to public order book, trade and funding info channels...")
-        )
+        self.assertTrue(self._is_logged("INFO", "Subscribed to public order book, trade and funding info channels..."))
 
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect")
@@ -435,7 +371,8 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
 
         self.assertTrue(
             self._is_logged(
-                "ERROR", "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds...",
+                "ERROR",
+                "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds...",
             )
         )
 
@@ -481,8 +418,7 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         except asyncio.CancelledError:
             pass
 
-        self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
+        self.assertTrue(self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
 
     async def test_listen_for_trades_successful(self):
         mock_queue = AsyncMock()
@@ -495,7 +431,7 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
             },
             "data": [
                 ["1632470889087", "10", "411.8", "buy"],
-            ]
+            ],
         }
         mock_queue.get.side_effect = [trade_event, asyncio.CancelledError()]
         self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
@@ -503,7 +439,8 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_trades(self.local_event_loop, msg_queue))
+            self.data_source.listen_for_trades(self.local_event_loop, msg_queue)
+        )
 
         msg: OrderBookMessage = await msg_queue.get()
 
@@ -537,7 +474,8 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
             pass
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange"))
+            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange")
+        )
 
     async def test_listen_for_order_book_diffs_successful(self):
         mock_queue = AsyncMock()
@@ -548,7 +486,8 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue))
+            self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue)
+        )
 
         msg: OrderBookMessage = await msg_queue.get()
 
@@ -649,7 +588,8 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_order_book_snapshots(self.local_event_loop, msg_queue))
+            self.data_source.listen_for_order_book_snapshots(self.local_event_loop, msg_queue)
+        )
 
         msg: OrderBookMessage = await msg_queue.get()
 
@@ -697,7 +637,8 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
             pass
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public funding info updates from exchange"))
+            self._is_logged("ERROR", "Unexpected error when processing public funding info updates from exchange")
+        )
 
     async def test_listen_for_funding_info_successful(self):
         funding_info_event = self.get_funding_info_event()
@@ -726,16 +667,24 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
     @aioresponses()
     async def test_get_funding_info(self, mock_api):
         rate_regex_url = re.compile(
-            f"^{web_utils.get_rest_url_for_endpoint(CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL)}".replace(".", r"\.").replace("?", r"\?")
+            f"^{web_utils.get_rest_url_for_endpoint(CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL)}".replace(
+                ".", r"\."
+            ).replace("?", r"\?")
         )
         interest_regex_url = re.compile(
-            f"^{web_utils.get_rest_url_for_endpoint(CONSTANTS.OPEN_INTEREST_PATH_URL)}".replace(".", r"\.").replace("?", r"\?")
+            f"^{web_utils.get_rest_url_for_endpoint(CONSTANTS.OPEN_INTEREST_PATH_URL)}".replace(".", r"\.").replace(
+                "?", r"\?"
+            )
         )
         mark_regex_url = re.compile(
-            f"^{web_utils.get_rest_url_for_endpoint(CONSTANTS.MARK_PRICE_PATH_URL)}".replace(".", r"\.").replace("?", r"\?")
+            f"^{web_utils.get_rest_url_for_endpoint(CONSTANTS.MARK_PRICE_PATH_URL)}".replace(".", r"\.").replace(
+                "?", r"\?"
+            )
         )
         settlement_regex_url = re.compile(
-            f"^{web_utils.get_rest_url_for_endpoint(CONSTANTS.FUNDING_SETTLEMENT_TIME_PATH_URL)}".replace(".", r"\.").replace("?", r"\?")
+            f"^{web_utils.get_rest_url_for_endpoint(CONSTANTS.FUNDING_SETTLEMENT_TIME_PATH_URL)}".replace(
+                ".", r"\."
+            ).replace("?", r"\?")
         )
         resp = self.get_funding_info_rest_msg()
         mock_api.get(rate_regex_url, body=json.dumps(resp))
@@ -767,7 +716,7 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
             },
             "data": [
                 ["1632470889087", "10", "411.8", "buy"],
-            ]
+            ],
         }
         snapshot_event = self.ws_snapshot_msg()
 
@@ -794,17 +743,18 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
 
         self.assertEqual(1, self.data_source._message_queue[self.data_source._snapshot_messages_queue_key].qsize())
         self.assertEqual(
-            snapshot_event,
-            self.data_source._message_queue[self.data_source._snapshot_messages_queue_key].get_nowait())
+            snapshot_event, self.data_source._message_queue[self.data_source._snapshot_messages_queue_key].get_nowait()
+        )
         self.assertEqual(1, self.data_source._message_queue[self.data_source._diff_messages_queue_key].qsize())
         self.assertEqual(
-            diff_event,
-            self.data_source._message_queue[self.data_source._diff_messages_queue_key].get_nowait())
+            diff_event, self.data_source._message_queue[self.data_source._diff_messages_queue_key].get_nowait()
+        )
         self.assertEqual(1, self.data_source._message_queue[self.data_source._funding_info_messages_queue_key].qsize())
         self.assertEqual(
             funding_event,
-            self.data_source._message_queue[self.data_source._funding_info_messages_queue_key].get_nowait())
+            self.data_source._message_queue[self.data_source._funding_info_messages_queue_key].get_nowait(),
+        )
         self.assertEqual(1, self.data_source._message_queue[self.data_source._trade_messages_queue_key].qsize())
         self.assertEqual(
-            trade_event,
-            self.data_source._message_queue[self.data_source._trade_messages_queue_key].get_nowait())
+            trade_event, self.data_source._message_queue[self.data_source._trade_messages_queue_key].get_nowait()
+        )

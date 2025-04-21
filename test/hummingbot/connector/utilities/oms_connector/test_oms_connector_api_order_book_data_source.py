@@ -100,11 +100,7 @@ class OMSConnectorAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(
-            record.levelname == log_level
-            and record.getMessage() == message
-            for record in self.log_records
-        )
+        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
@@ -221,12 +217,7 @@ class OMSConnectorAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
             CONSTANTS.MSG_DATA_FIELD: json.dumps(req_params),
         }
         self.assertEqual(expected_diff_subscription, sent_subscription_messages[0])
-        self.assertTrue(
-            self._is_logged(
-                "INFO",
-                "Subscribed to public order book and trade channels..."
-            )
-        )
+        self.assertTrue(self._is_logged("INFO", "Subscribed to public order book and trade channels..."))
 
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect")
@@ -283,15 +274,12 @@ class OMSConnectorAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
 
     async def test_listen_for_trades_logs_exception(self):
         incomplete_resp = {
-            "arg": {
-                "channel": "trades",
-                "instId": "BTC-USDT"
-            },
+            "arg": {"channel": "trades", "instId": "BTC-USDT"},
             "data": [
                 {
                     "instId": "BTC-USDT",
                 }
-            ]
+            ],
         }
 
         mock_queue = AsyncMock()
@@ -305,9 +293,7 @@ class OMSConnectorAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
         except asyncio.CancelledError:
             pass
 
-        self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange")
-        )
+        self.assertTrue(self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
 
     async def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
@@ -321,10 +307,7 @@ class OMSConnectorAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
 
     async def test_listen_for_order_book_diffs_logs_exception(self):
         incomplete_resp = {
-            "arg": {
-                "channel": "books",
-                "instId": self.trading_pair
-            },
+            "arg": {"channel": "books", "instId": self.trading_pair},
             "action": "update",
         }
 
@@ -354,7 +337,7 @@ class OMSConnectorAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
             "o": [
                 [21288594, 1, ts_ms, 0, 0.0617018, 1, 0.0586575, self.pair_id, 0.087, 0],
                 [21288594, 1, ts_ms, 0, 0.0617018, 1, 0.0598854, self.pair_id, 2.0, 1],
-            ]
+            ],
         }
         mock_queue.get.side_effect = [diff_event, asyncio.CancelledError()]
         self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_queue
@@ -386,8 +369,10 @@ class OMSConnectorAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_subscriptions_sends_ping_message_before_ping_interval_finishes(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        ws_connect_mock.return_value.receive.side_effect = [asyncio.TimeoutError("Test timeout"),
-                                                            asyncio.CancelledError]
+        ws_connect_mock.return_value.receive.side_effect = [
+            asyncio.TimeoutError("Test timeout"),
+            asyncio.CancelledError,
+        ]
 
         try:
             await self.data_source.listen_for_subscriptions()
@@ -395,7 +380,8 @@ class OMSConnectorAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
             pass
 
         sent_messages = self.mocking_assistant.json_messages_sent_through_websocket(
-            websocket_mock=ws_connect_mock.return_value)
+            websocket_mock=ws_connect_mock.return_value
+        )
 
         expected_ping_message = {"n": "Ping", "o": "{}", "m": 0, "i": 4}
         self.assertEqual(expected_ping_message, sent_messages[-1])

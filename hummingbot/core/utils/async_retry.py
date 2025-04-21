@@ -18,13 +18,14 @@ class AllTriesFailedException(EnvironmentError):
     pass
 
 
-def async_retry(retry_count: int = 2,
-                exception_types: List[Type[Exception]] = [Exception],
-                logger: logging.Logger = logging.getLogger("retry"),
-                stats: Dict[str, int] = None,
-                raise_exp: bool = True,
-                retry_interval: float = 0.5
-                ):
+def async_retry(
+    retry_count: int = 2,
+    exception_types: List[Type[Exception]] = [Exception],
+    logger: logging.Logger = logging.getLogger("retry"),
+    stats: Dict[str, int] = None,
+    raise_exp: bool = True,
+    retry_interval: float = 0.5,
+):
     """
     A decorator for async functions that will retry a function x times, where x is retry_count.
 
@@ -35,6 +36,7 @@ def async_retry(retry_count: int = 2,
     :param raise_exp: raise an exception if all retries failed, otherwise log the last exception
     :param retry_interval: time to wait between retries
     """
+
     def decorator(fn):
         @functools.wraps(fn)
         async def retry(*args, _stats=stats, **kwargs):
@@ -47,7 +49,9 @@ def async_retry(retry_count: int = 2,
 
                 except tuple(exception_types) as exc:
                     last_exception = exc
-                    logger.info(f"Exception raised for {last_exception}: {fn.__name__}. Retrying {count}/{retry_count} times.")
+                    logger.info(
+                        f"Exception raised for {last_exception}: {fn.__name__}. Retrying {count}/{retry_count} times."
+                    )
                     if _stats is not None and type(_stats) is dict:
                         metric_name: str = f"retry.{fn.__name__}.count"
                         if metric_name not in _stats:
@@ -62,6 +66,7 @@ def async_retry(retry_count: int = 2,
                 raise AllTriesFailedException() from last_exception
             else:
                 logger.info(f"Last exception raised for {repr(last_exception)}: {fn.__name__}. aborting.")
+
         return retry
 
     return decorator

@@ -143,34 +143,29 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         raise NotImplementedError
 
     def configure_successful_set_position_mode(
-            self,
-            position_mode: PositionMode,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None):
+        self,
+        position_mode: PositionMode,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
+    ):
         raise NotImplementedError
 
     def configure_failed_set_position_mode(
-            self,
-            position_mode: PositionMode,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self,
+        position_mode: PositionMode,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> Tuple[str, str]:
         # Do nothing
         return "", ""
 
     def configure_failed_set_leverage(
-            self,
-            leverage: int,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, leverage: int, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> Tuple[str, str]:
         raise NotImplementedError
 
     def configure_successful_set_leverage(
-            self,
-            leverage: int,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, leverage: int, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ):
         raise NotImplementedError
 
@@ -218,23 +213,20 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                     "positionDelta": {
                         "tradeDirection": "sell",
                         "executionPrice": str(
-                            Decimal(str(self.expected_latest_price)) * Decimal(f"1e{self.quote_decimals}")),
+                            Decimal(str(self.expected_latest_price)) * Decimal(f"1e{self.quote_decimals}")
+                        ),
                         "executionQuantity": "142000000000000000000",
-                        "executionMargin": "1245280000"
+                        "executionMargin": "1245280000",
                     },
                     "payout": "1187984833.579447998034818126",
                     "fee": "-112393",
                     "executedAt": "1688734042063",
                     "feeRecipient": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa",  # noqa: mock
                     "tradeId": "13374245_801_0",
-                    "executionSide": "maker"
+                    "executionSide": "maker",
                 },
             ],
-            "paging": {
-                "total": "1",
-                "from": 1,
-                "to": 1
-            }
+            "paging": {"total": "1", "from": 1, "to": 1},
         }
 
     @property
@@ -304,9 +296,11 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     @property
     def order_creation_request_successful_mock_response(self):
-        return {"txhash": "017C130E3602A48E5C9D661CAC657BF1B79262D4B71D5C25B1DA62DE2338DA0E",  # noqa: mock
-                "rawLog": "[]",
-                "code": 0}  # noqa: mock
+        return {
+            "txhash": "017C130E3602A48E5C9D661CAC657BF1B79262D4B71D5C25B1DA62DE2338DA0E",  # noqa: mock
+            "rawLog": "[]",
+            "code": 0,
+        }  # noqa: mock
 
     @property
     def balance_request_mock_response_for_base_and_quote(self):
@@ -314,14 +308,8 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             "portfolio": {
                 "accountAddress": self.portfolio_account_injective_address,
                 "bankBalances": [
-                    {
-                        "denom": self.base_asset_denom,
-                        "amount": str(Decimal(5) * Decimal(1e18))
-                    },
-                    {
-                        "denom": self.quote_asset_denom,
-                        "amount": str(Decimal(1000) * Decimal(1e6))
-                    }
+                    {"denom": self.base_asset_denom, "amount": str(Decimal(5) * Decimal(1e18))},
+                    {"denom": self.quote_asset_denom, "amount": str(Decimal(1000) * Decimal(1e6))},
                 ],
                 "subaccounts": [
                     {
@@ -329,16 +317,16 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                         "denom": self.quote_asset_denom,
                         "deposit": {
                             "totalBalance": str(Decimal(1000) * Decimal(1e6)),
-                            "availableBalance": str(Decimal(1000) * Decimal(1e6))
-                        }
+                            "availableBalance": str(Decimal(1000) * Decimal(1e6)),
+                        },
                     },
                     {
                         "subaccountId": self.portfolio_account_subaccount_id,
                         "denom": self.base_asset_denom,
                         "deposit": {
                             "totalBalance": str(Decimal(10) * Decimal(1e18)),
-                            "availableBalance": str(Decimal(5) * Decimal(1e18))
-                        }
+                            "availableBalance": str(Decimal(5) * Decimal(1e18)),
+                        },
                     },
                 ],
             }
@@ -350,10 +338,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             "portfolio": {
                 "accountAddress": self.portfolio_account_injective_address,
                 "bankBalances": [
-                    {
-                        "denom": self.base_asset_denom,
-                        "amount": str(Decimal(5) * Decimal(1e18))
-                    },
+                    {"denom": self.base_asset_denom, "amount": str(Decimal(5) * Decimal(1e18))},
                 ],
                 "subaccounts": [
                     {
@@ -361,8 +346,8 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                         "denom": self.base_asset_denom,
                         "deposit": {
                             "totalBalance": str(Decimal(10) * Decimal(1e18)),
-                            "availableBalance": str(Decimal(5) * Decimal(1e18))
-                        }
+                            "availableBalance": str(Decimal(5) * Decimal(1e18)),
+                        },
                     },
                 ],
             }
@@ -381,10 +366,10 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                             "denom": self.base_asset_denom,
                             "deposit": {
                                 "availableBalance": str(int(Decimal("10") * Decimal("1e36"))),
-                                "totalBalance": str(int(Decimal("15") * Decimal("1e36")))
-                            }
+                                "totalBalance": str(int(Decimal("15") * Decimal("1e36"))),
+                            },
                         }
-                    ]
+                    ],
                 },
             ],
             "spotOrderbookUpdates": [],
@@ -409,8 +394,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
     @property
     def expected_trading_rule(self):
         market = list(self.all_derivative_markets_mock_response.values())[0]
-        min_price_tick_size = (market.min_price_tick_size
-                               * Decimal(f"1e{-market.quote_token.decimals}"))
+        min_price_tick_size = market.min_price_tick_size * Decimal(f"1e{-market.quote_token.decimals}")
         min_quantity_tick_size = market.min_quantity_tick_size
         min_notional = market.min_notional * Decimal(f"1e{-market.quote_token.decimals}")
         trading_rule = TradingRule(
@@ -582,7 +566,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         raise NotImplementedError
 
     def configure_all_symbols_response(
-            self, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         all_markets_mock_response = self.all_spot_markets_mock_response
         self.exchange._data_source._query_executor._spot_markets_responses.put_nowait(all_markets_mock_response)
@@ -595,18 +579,18 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         return ""
 
     def configure_trading_rules_response(
-            self,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> List[str]:
 
         self.configure_all_symbols_response(mock_api=mock_api, callback=callback)
         return ""
 
     def configure_erroneous_trading_rules_response(
-            self,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> List[str]:
 
         self.exchange._data_source._query_executor._spot_markets_responses.put_nowait({})
@@ -619,14 +603,12 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         return ""
 
     def configure_successful_cancelation_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         transaction_simulation_response = self._msg_exec_simulation_mock_response()
         self.exchange._data_source._query_executor._simulate_transaction_responses.put_nowait(
-            transaction_simulation_response)
+            transaction_simulation_response
+        )
         response = self._order_cancelation_request_successful_mock_response(order=order)
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = partial(self._callback_wrapper_with_response, callback=callback, response=response)
@@ -634,14 +616,12 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         return ""
 
     def configure_erroneous_cancelation_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         transaction_simulation_response = self._msg_exec_simulation_mock_response()
         self.exchange._data_source._query_executor._simulate_transaction_responses.put_nowait(
-            transaction_simulation_response)
+            transaction_simulation_response
+        )
         response = self._order_cancelation_request_erroneous_mock_response(order=order)
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = partial(self._callback_wrapper_with_response, callback=callback, response=response)
@@ -649,26 +629,20 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         return ""
 
     def configure_order_not_found_error_cancelation_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         raise NotImplementedError
 
     def configure_one_successful_one_erroneous_cancel_all_response(
-            self,
-            successful_order: InFlightOrder,
-            erroneous_order: InFlightOrder,
-            mock_api: aioresponses
+        self, successful_order: InFlightOrder, erroneous_order: InFlightOrder, mock_api: aioresponses
     ) -> List[str]:
         raise NotImplementedError
 
     def configure_completely_filled_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        order: InFlightOrder,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> List[str]:
         self.configure_all_symbols_response(mock_api=mock_api)
         response = self._order_status_request_completely_filled_mock_response(order=order)
@@ -678,17 +652,16 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         return []
 
     def configure_canceled_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> Union[str, List[str]]:
         self.configure_all_symbols_response(mock_api=mock_api)
 
         self.exchange._data_source._query_executor._spot_trades_responses.put_nowait(
-            {"trades": [], "paging": {"total": "0"}})
+            {"trades": [], "paging": {"total": "0"}}
+        )
         self.exchange._data_source._query_executor._derivative_trades_responses.put_nowait(
-            {"trades": [], "paging": {"total": "0"}})
+            {"trades": [], "paging": {"total": "0"}}
+        )
 
         response = self._order_status_request_canceled_mock_response(order=order)
         mock_queue = AsyncMock()
@@ -696,12 +669,14 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.exchange._data_source._query_executor._historical_derivative_orders_responses = mock_queue
         return []
 
-    def configure_open_order_status_response(self, order: InFlightOrder, mock_api: aioresponses,
-                                             callback: Optional[Callable] = lambda *args, **kwargs: None) -> List[str]:
+    def configure_open_order_status_response(
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> List[str]:
         self.configure_all_symbols_response(mock_api=mock_api)
 
         self.exchange._data_source._query_executor._derivative_trades_responses.put_nowait(
-            {"trades": [], "paging": {"total": "0"}})
+            {"trades": [], "paging": {"total": "0"}}
+        )
 
         response = self._order_status_request_open_mock_response(order=order)
         mock_queue = AsyncMock()
@@ -709,8 +684,9 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.exchange._data_source._query_executor._historical_derivative_orders_responses = mock_queue
         return []
 
-    def configure_http_error_order_status_response(self, order: InFlightOrder, mock_api: aioresponses,
-                                                   callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+    def configure_http_error_order_status_response(
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         self.configure_all_symbols_response(mock_api=mock_api)
 
         mock_queue = AsyncMock()
@@ -723,10 +699,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         return None
 
     def configure_partially_filled_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         self.configure_all_symbols_response(mock_api=mock_api)
         response = self._order_status_request_partially_filled_mock_response(order=order)
@@ -736,10 +709,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         return None
 
     def configure_order_not_found_error_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
         self.configure_all_symbols_response(mock_api=mock_api)
         response = self._order_status_request_not_found_mock_response(order=order)
@@ -749,10 +719,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         return []
 
     def configure_partial_fill_trade_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         response = self._order_fills_request_partial_fill_mock_response(order=order)
         mock_queue = AsyncMock()
@@ -761,18 +728,16 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         return None
 
     def configure_erroneous_http_fill_trade_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = IOError("Test error for trades responses")
         self.exchange._data_source._query_executor._derivative_trades_responses = mock_queue
         return None
 
-    def configure_full_fill_trade_response(self, order: InFlightOrder, mock_api: aioresponses,
-                                           callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+    def configure_full_fill_trade_response(
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         response = self._order_fills_request_full_fill_mock_response(order=order)
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = partial(self._callback_wrapper_with_response, callback=callback, response=response)
@@ -801,17 +766,17 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                             "orderInfo": {
                                 "subaccountId": self.portfolio_account_subaccount_id,
                                 "feeRecipient": self.portfolio_account_injective_address,
-                                "price": str(
-                                    int(order.price * Decimal(f"1e{self.quote_decimals + 18}"))),
+                                "price": str(int(order.price * Decimal(f"1e{self.quote_decimals + 18}"))),
                                 "quantity": str(int(order.amount * Decimal("1e18"))),
                                 "cid": order.client_order_id,
                             },
                             "orderType": order.trade_type.name.lower(),
                             "fillable": str(int(order.amount * Decimal("1e18"))),
                             "orderHash": base64.b64encode(
-                                bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                                bytes.fromhex(order.exchange_order_id.replace("0x", ""))
+                            ).decode(),
                             "triggerPrice": "",
-                        }
+                        },
                     },
                 },
             ],
@@ -841,17 +806,17 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                             "orderInfo": {
                                 "subaccountId": self.portfolio_account_subaccount_id,
                                 "feeRecipient": self.portfolio_account_injective_address,
-                                "price": str(
-                                    int(order.price * Decimal(f"1e{self.quote_decimals + 18}"))),
+                                "price": str(int(order.price * Decimal(f"1e{self.quote_decimals + 18}"))),
                                 "quantity": str(int(order.amount * Decimal("1e18"))),
                                 "cid": order.client_order_id,
                             },
                             "orderType": order.trade_type.name.lower(),
                             "fillable": str(int(order.amount * Decimal("1e18"))),
                             "orderHash": base64.b64encode(
-                                bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                                bytes.fromhex(order.exchange_order_id.replace("0x", ""))
+                            ).decode(),
                             "triggerPrice": "",
-                        }
+                        },
                     },
                 },
             ],
@@ -881,17 +846,17 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                             "orderInfo": {
                                 "subaccountId": self.portfolio_account_subaccount_id,
                                 "feeRecipient": self.portfolio_account_injective_address,
-                                "price": str(
-                                    int(order.price * Decimal(f"1e{self.quote_decimals + 18}"))),
+                                "price": str(int(order.price * Decimal(f"1e{self.quote_decimals + 18}"))),
                                 "quantity": str(int(order.amount * Decimal("1e18"))),
                                 "cid": order.client_order_id,
                             },
                             "orderType": order.trade_type.name.lower(),
                             "fillable": str(int(order.amount * Decimal("1e18"))),
                             "orderHash": base64.b64encode(
-                                bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                                bytes.fromhex(order.exchange_order_id.replace("0x", ""))
+                            ).decode(),
                             "triggerPrice": "",
-                        }
+                        },
                     },
                 },
             ],
@@ -977,14 +942,15 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         transaction_simulation_response = self._msg_exec_simulation_mock_response()
         self.exchange._data_source._query_executor._simulate_transaction_responses.put_nowait(
-            transaction_simulation_response)
+            transaction_simulation_response
+        )
 
         response = self.order_creation_request_successful_mock_response
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = partial(
             self._callback_wrapper_with_response,
             callback=lambda args, kwargs: request_sent_event.set(),
-            response=response
+            response=response,
         )
         self.exchange._data_source._query_executor._send_transaction_responses = mock_queue
 
@@ -999,7 +965,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             price=orders[0].price,
             amount=orders[0].quantity,
             exchange_order_id="hash1",
-            creation_transaction_hash=response["txhash"]
+            creation_transaction_hash=response["txhash"],
         )
         sell_order_to_create_in_flight = GatewayPerpetualInFlightOrder(
             client_order_id=orders[1].client_order_id,
@@ -1010,7 +976,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             price=orders[1].price,
             amount=orders[1].quantity,
             exchange_order_id="hash2",
-            creation_transaction_hash=response["txhash"]
+            creation_transaction_hash=response["txhash"],
         )
 
         self.async_run_with_timeout(request_sent_event.wait())
@@ -1023,11 +989,11 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         self.assertEqual(
             buy_order_to_create_in_flight.creation_transaction_hash,
-            self.exchange.in_flight_orders[buy_order_to_create_in_flight.client_order_id].creation_transaction_hash
+            self.exchange.in_flight_orders[buy_order_to_create_in_flight.client_order_id].creation_transaction_hash,
         )
         self.assertEqual(
             sell_order_to_create_in_flight.creation_transaction_hash,
-            self.exchange.in_flight_orders[sell_order_to_create_in_flight.client_order_id].creation_transaction_hash
+            self.exchange.in_flight_orders[sell_order_to_create_in_flight.client_order_id].creation_transaction_hash,
         )
 
     def test_batch_order_create_with_one_market_order(self):
@@ -1070,14 +1036,15 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         transaction_simulation_response = self._msg_exec_simulation_mock_response()
         self.exchange._data_source._query_executor._simulate_transaction_responses.put_nowait(
-            transaction_simulation_response)
+            transaction_simulation_response
+        )
 
         response = self.order_creation_request_successful_mock_response
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = partial(
             self._callback_wrapper_with_response,
             callback=lambda args, kwargs: request_sent_event.set(),
-            response=response
+            response=response,
         )
         self.exchange._data_source._query_executor._send_transaction_responses = mock_queue
 
@@ -1099,7 +1066,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             amount=orders[0].quantity,
             exchange_order_id="hash1",
             creation_transaction_hash=response["txhash"],
-            position=PositionAction.OPEN
+            position=PositionAction.OPEN,
         )
         sell_order_to_create_in_flight = GatewayPerpetualInFlightOrder(
             client_order_id=orders[1].order_id,
@@ -1111,7 +1078,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             amount=orders[1].quantity,
             exchange_order_id="hash2",
             creation_transaction_hash=response["txhash"],
-            position=PositionAction.CLOSE
+            position=PositionAction.CLOSE,
         )
 
         self.async_run_with_timeout(request_sent_event.wait())
@@ -1124,11 +1091,11 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         self.assertEqual(
             buy_order_to_create_in_flight.creation_transaction_hash,
-            self.exchange.in_flight_orders[buy_order_to_create_in_flight.client_order_id].creation_transaction_hash
+            self.exchange.in_flight_orders[buy_order_to_create_in_flight.client_order_id].creation_transaction_hash,
         )
         self.assertEqual(
             sell_order_to_create_in_flight.creation_transaction_hash,
-            self.exchange.in_flight_orders[sell_order_to_create_in_flight.client_order_id].creation_transaction_hash
+            self.exchange.in_flight_orders[sell_order_to_create_in_flight.client_order_id].creation_transaction_hash,
         )
 
     @aioresponses()
@@ -1142,14 +1109,15 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         transaction_simulation_response = self._msg_exec_simulation_mock_response()
         self.exchange._data_source._query_executor._simulate_transaction_responses.put_nowait(
-            transaction_simulation_response)
+            transaction_simulation_response
+        )
 
         response = self.order_creation_request_successful_mock_response
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = partial(
             self._callback_wrapper_with_response,
             callback=lambda args, kwargs: request_sent_event.set(),
-            response=response
+            response=response,
         )
         self.exchange._data_source._query_executor._send_transaction_responses = mock_queue
 
@@ -1173,14 +1141,15 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         transaction_simulation_response = self._msg_exec_simulation_mock_response()
         self.exchange._data_source._query_executor._simulate_transaction_responses.put_nowait(
-            transaction_simulation_response)
+            transaction_simulation_response
+        )
 
         response = self.order_creation_request_successful_mock_response
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = partial(
             self._callback_wrapper_with_response,
             callback=lambda args, kwargs: request_sent_event.set(),
-            response=response
+            response=response,
         )
         self.exchange._data_source._query_executor._send_transaction_responses = mock_queue
 
@@ -1210,22 +1179,21 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         transaction_simulation_response = self._msg_exec_simulation_mock_response()
         self.exchange._data_source._query_executor._simulate_transaction_responses.put_nowait(
-            transaction_simulation_response)
+            transaction_simulation_response
+        )
 
         response = self.order_creation_request_successful_mock_response
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = partial(
             self._callback_wrapper_with_response,
             callback=lambda args, kwargs: request_sent_event.set(),
-            response=response
+            response=response,
         )
         self.exchange._data_source._query_executor._send_transaction_responses = mock_queue
 
         order_amount = Decimal(1)
         expected_price_for_volume = self.exchange.get_price_for_volume(
-            trading_pair=self.trading_pair,
-            is_buy=True,
-            volume=order_amount
+            trading_pair=self.trading_pair, is_buy=True, volume=order_amount
         ).result_price
 
         order_id = self.place_buy_order(amount=order_amount, price=None, order_type=OrderType.MARKET)
@@ -1255,22 +1223,21 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         transaction_simulation_response = self._msg_exec_simulation_mock_response()
         self.exchange._data_source._query_executor._simulate_transaction_responses.put_nowait(
-            transaction_simulation_response)
+            transaction_simulation_response
+        )
 
         response = self.order_creation_request_successful_mock_response
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = partial(
             self._callback_wrapper_with_response,
             callback=lambda args, kwargs: request_sent_event.set(),
-            response=response
+            response=response,
         )
         self.exchange._data_source._query_executor._send_transaction_responses = mock_queue
 
         order_amount = Decimal(1)
         expected_price_for_volume = self.exchange.get_price_for_volume(
-            trading_pair=self.trading_pair,
-            is_buy=False,
-            volume=order_amount
+            trading_pair=self.trading_pair, is_buy=False, volume=order_amount
         ).result_price
 
         order_id = self.place_sell_order(amount=order_amount, price=None, order_type=OrderType.MARKET)
@@ -1292,14 +1259,15 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         transaction_simulation_response = self._msg_exec_simulation_mock_response()
         self.exchange._data_source._query_executor._simulate_transaction_responses.put_nowait(
-            transaction_simulation_response)
+            transaction_simulation_response
+        )
 
         response = {"txhash": "", "rawLog": "Error", "code": 11}
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = partial(
             self._callback_wrapper_with_response,
             callback=lambda args, kwargs: request_sent_event.set(),
-            response=response
+            response=response,
         )
         self.exchange._data_source._query_executor._send_transaction_responses = mock_queue
 
@@ -1319,7 +1287,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                 "INFO",
                 f"Order {order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)"
+                f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)",
             )
         )
 
@@ -1329,20 +1297,19 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
 
-        order_id_for_invalid_order = self.place_buy_order(
-            amount=Decimal("0.0001"), price=Decimal("0.0001")
-        )
+        order_id_for_invalid_order = self.place_buy_order(amount=Decimal("0.0001"), price=Decimal("0.0001"))
 
         transaction_simulation_response = self._msg_exec_simulation_mock_response()
         self.exchange._data_source._query_executor._simulate_transaction_responses.put_nowait(
-            transaction_simulation_response)
+            transaction_simulation_response
+        )
 
         response = {"txhash": "", "rawLog": "Error", "code": 11}
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = partial(
             self._callback_wrapper_with_response,
             callback=lambda args, kwargs: request_sent_event.set(),
-            response=response
+            response=response,
         )
         self.exchange._data_source._query_executor._send_transaction_responses = mock_queue
 
@@ -1362,7 +1329,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             self.is_logged(
                 "WARNING",
                 "Buy order amount 0.0001 is lower than the minimum order size 0.01. The order will not be created, "
-                "increase the amount to be higher than the minimum order size."
+                "increase the amount to be higher than the minimum order size.",
             )
         )
         self.assertTrue(
@@ -1370,7 +1337,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                 "INFO",
                 f"Order {order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)"
+                f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)",
             )
         )
 
@@ -1382,14 +1349,15 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         transaction_simulation_response = self._msg_exec_simulation_mock_response()
         self.exchange._data_source._query_executor._simulate_transaction_responses.put_nowait(
-            transaction_simulation_response)
+            transaction_simulation_response
+        )
 
         response = self.order_creation_request_successful_mock_response
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = partial(
             self._callback_wrapper_with_response,
             callback=lambda args, kwargs: request_sent_event.set(),
-            response=response
+            response=response,
         )
         self.exchange._data_source._query_executor._send_transaction_responses = mock_queue
 
@@ -1410,14 +1378,15 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         transaction_simulation_response = self._msg_exec_simulation_mock_response()
         self.exchange._data_source._query_executor._simulate_transaction_responses.put_nowait(
-            transaction_simulation_response)
+            transaction_simulation_response
+        )
 
         response = self.order_creation_request_successful_mock_response
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = partial(
             self._callback_wrapper_with_response,
             callback=lambda args, kwargs: request_sent_event.set(),
-            response=response
+            response=response,
         )
         self.exchange._data_source._query_executor._send_transaction_responses = mock_queue
 
@@ -1468,14 +1437,15 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         transaction_simulation_response = self._msg_exec_simulation_mock_response()
         self.exchange._data_source._query_executor._simulate_transaction_responses.put_nowait(
-            transaction_simulation_response)
+            transaction_simulation_response
+        )
 
         response = self._order_cancelation_request_successful_mock_response(order=buy_order_to_cancel)
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = partial(
             self._callback_wrapper_with_response,
             callback=lambda args, kwargs: request_sent_event.set(),
-            response=response
+            response=response,
         )
         self.exchange._data_source._query_executor._send_transaction_responses = mock_queue
 
@@ -1518,14 +1488,10 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         )
         order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
-        self.configure_partially_filled_order_status_response(
-            order=order,
-            mock_api=mock_api)
+        self.configure_partially_filled_order_status_response(order=order, mock_api=mock_api)
 
         if self.is_order_fill_http_update_included_in_status_update:
-            self.configure_partial_fill_trade_response(
-                order=order,
-                mock_api=mock_api)
+            self.configure_partial_fill_trade_response(order=order, mock_api=mock_api)
 
         self.assertTrue(order.is_open)
 
@@ -1582,11 +1548,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         mock_queue.get.side_effect = [balance_event, asyncio.CancelledError]
         self.exchange._data_source._query_executor._chain_stream_events = mock_queue
 
-        self.async_tasks.append(
-            asyncio.get_event_loop().create_task(
-                self.exchange._user_stream_event_listener()
-            )
-        )
+        self.async_tasks.append(asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener()))
 
         market = self.async_run_with_timeout(
             self.exchange._data_source.derivative_market_info_for_id(market_id=self.market_id)
@@ -1594,9 +1556,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         try:
             self.async_run_with_timeout(
                 self.exchange._data_source._listen_to_chain_updates(
-                    spot_markets=[],
-                    derivative_markets=[market],
-                    subaccount_ids=[self.portfolio_account_subaccount_id]
+                    spot_markets=[], derivative_markets=[market], subaccount_ids=[self.portfolio_account_subaccount_id]
                 ),
                 timeout=2,
             )
@@ -1628,11 +1588,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         mock_queue.get.side_effect = event_messages
         self.exchange._data_source._query_executor._chain_stream_events = mock_queue
 
-        self.async_tasks.append(
-            asyncio.get_event_loop().create_task(
-                self.exchange._user_stream_event_listener()
-            )
-        )
+        self.async_tasks.append(asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener()))
 
         market = self.async_run_with_timeout(
             self.exchange._data_source.derivative_market_info_for_id(market_id=self.market_id)
@@ -1640,9 +1596,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         try:
             self.async_run_with_timeout(
                 self.exchange._data_source._listen_to_chain_updates(
-                    spot_markets=[],
-                    derivative_markets=[market],
-                    subaccount_ids=[self.portfolio_account_subaccount_id]
+                    spot_markets=[], derivative_markets=[market], subaccount_ids=[self.portfolio_account_subaccount_id]
                 )
             )
         except asyncio.CancelledError:
@@ -1684,11 +1638,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         mock_queue.get.side_effect = event_messages
         self.exchange._data_source._query_executor._chain_stream_events = mock_queue
 
-        self.async_tasks.append(
-            asyncio.get_event_loop().create_task(
-                self.exchange._user_stream_event_listener()
-            )
-        )
+        self.async_tasks.append(asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener()))
 
         market = self.async_run_with_timeout(
             self.exchange._data_source.derivative_market_info_for_id(market_id=self.market_id)
@@ -1696,9 +1646,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         try:
             self.async_run_with_timeout(
                 self.exchange._data_source._listen_to_chain_updates(
-                    spot_markets=[],
-                    derivative_markets=[market],
-                    subaccount_ids=[self.portfolio_account_subaccount_id]
+                    spot_markets=[], derivative_markets=[market], subaccount_ids=[self.portfolio_account_subaccount_id]
                 )
             )
         except asyncio.CancelledError:
@@ -1712,9 +1660,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.assertTrue(order.is_cancelled)
         self.assertTrue(order.is_done)
 
-        self.assertTrue(
-            self.is_logged("INFO", f"Successfully canceled order {order.client_order_id}.")
-        )
+        self.assertTrue(self.is_logged("INFO", f"Successfully canceled order {order.client_order_id}."))
 
     @aioresponses()
     def test_user_stream_update_for_order_full_fill(self, mock_api):
@@ -1745,11 +1691,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         chain_stream_queue_mock.get.side_effect = messages
         self.exchange._data_source._query_executor._chain_stream_events = chain_stream_queue_mock
 
-        self.async_tasks.append(
-            asyncio.get_event_loop().create_task(
-                self.exchange._user_stream_event_listener()
-            )
-        )
+        self.async_tasks.append(asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener()))
 
         market = self.async_run_with_timeout(
             self.exchange._data_source.derivative_market_info_for_id(market_id=self.market_id)
@@ -1757,9 +1699,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         tasks = [
             asyncio.get_event_loop().create_task(
                 self.exchange._data_source._listen_to_chain_updates(
-                    spot_markets=[],
-                    derivative_markets=[market],
-                    subaccount_ids=[self.portfolio_account_subaccount_id]
+                    spot_markets=[], derivative_markets=[market], subaccount_ids=[self.portfolio_account_subaccount_id]
                 )
             ),
         ]
@@ -1794,12 +1734,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.assertTrue(order.is_filled)
         self.assertTrue(order.is_done)
 
-        self.assertTrue(
-            self.is_logged(
-                "INFO",
-                f"BUY order {order.client_order_id} completely filled."
-            )
-        )
+        self.assertTrue(self.is_logged("INFO", f"BUY order {order.client_order_id} completely filled."))
 
     def test_user_stream_logs_errors(self):
         # This test does not apply to Injective because it handles private events in its own data source
@@ -1826,7 +1761,8 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
             self.async_run_with_timeout(
-                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id))
+                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id)
+            )
 
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
 
@@ -1837,11 +1773,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         mock_queue.get.side_effect = event_messages
         self.exchange._data_source._query_executor._chain_stream_events = mock_queue
 
-        self.async_tasks.append(
-            asyncio.get_event_loop().create_task(
-                self.exchange._user_stream_event_listener()
-            )
-        )
+        self.async_tasks.append(asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener()))
 
         market = self.async_run_with_timeout(
             self.exchange._data_source.derivative_market_info_for_id(market_id=self.market_id)
@@ -1849,9 +1781,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         try:
             self.async_run_with_timeout(
                 self.exchange._data_source._listen_to_chain_updates(
-                    spot_markets=[],
-                    derivative_markets=[market],
-                    subaccount_ids=[self.portfolio_account_subaccount_id]
+                    spot_markets=[], derivative_markets=[market], subaccount_ids=[self.portfolio_account_subaccount_id]
                 )
             )
         except asyncio.CancelledError:
@@ -1879,7 +1809,8 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
             self.async_run_with_timeout(
-                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id))
+                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id)
+            )
 
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
 
@@ -1898,11 +1829,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         chain_stream_queue_mock.get.side_effect = messages
         self.exchange._data_source._query_executor._chain_stream_events = chain_stream_queue_mock
 
-        self.async_tasks.append(
-            asyncio.get_event_loop().create_task(
-                self.exchange._user_stream_event_listener()
-            )
-        )
+        self.async_tasks.append(asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener()))
 
         market = self.async_run_with_timeout(
             self.exchange._data_source.derivative_market_info_for_id(market_id=self.market_id)
@@ -1910,9 +1837,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         tasks = [
             asyncio.get_event_loop().create_task(
                 self.exchange._data_source._listen_to_chain_updates(
-                    spot_markets=[],
-                    derivative_markets=[market],
-                    subaccount_ids=[self.portfolio_account_subaccount_id]
+                    spot_markets=[], derivative_markets=[market], subaccount_ids=[self.portfolio_account_subaccount_id]
                 )
             ),
         ]
@@ -1959,20 +1884,19 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
             self.async_run_with_timeout(
-                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id))
+                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id)
+            )
 
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
 
         self.configure_completely_filled_order_status_response(
-            order=order,
-            mock_api=mock_api,
-            callback=lambda *args, **kwargs: request_sent_event.set())
+            order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
+        )
 
         if self.is_order_fill_http_update_included_in_status_update:
             self.configure_full_fill_trade_response(
-                order=order,
-                mock_api=mock_api,
-                callback=lambda *args, **kwargs: request_sent_event.set())
+                order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
+            )
         else:
             # If the fill events will not be requested with the order status, we need to manually set the event
             # to allow the ClientOrderTracker to process the last status update
@@ -2000,20 +1924,14 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
         self.assertIn(order.client_order_id, self.exchange._order_tracker.all_fillable_orders)
-        self.assertFalse(
-            self.is_logged(
-                "INFO",
-                f"BUY order {order.client_order_id} completely filled."
-            )
-        )
+        self.assertFalse(self.is_logged("INFO", f"BUY order {order.client_order_id} completely filled."))
 
         request_sent_event.clear()
 
         # Configure again the response to the order fills request since it is required by lost orders update logic
         self.configure_full_fill_trade_response(
-            order=order,
-            mock_api=mock_api,
-            callback=lambda *args, **kwargs: request_sent_event.set())
+            order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
+        )
 
         self.async_run_with_timeout(self.exchange._update_lost_orders_status())
         # Execute one more synchronization to ensure the async task that processes the update is finished
@@ -2025,12 +1943,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
         self.assertNotIn(order.client_order_id, self.exchange._order_tracker.all_fillable_orders)
-        self.assertFalse(
-            self.is_logged(
-                "INFO",
-                f"BUY order {order.client_order_id} completely filled."
-            )
-        )
+        self.assertFalse(self.is_logged("INFO", f"BUY order {order.client_order_id} completely filled."))
 
     @aioresponses()
     def test_invalid_trading_pair_not_in_all_trading_pairs(self, mock_api):
@@ -2104,7 +2017,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             position_action=PositionAction.OPEN,
             amount=Decimal("1000"),
             price=Decimal("5"),
-            is_maker=True
+            is_maker=True,
         )
 
         self.assertEqual(maker_fee_rate, maker_fee.percent)
@@ -2126,49 +2039,57 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     def test_restore_tracking_states_only_registers_open_orders(self):
         orders = []
-        orders.append(GatewayPerpetualInFlightOrder(
-            client_order_id=self.client_order_id_prefix + "1",
-            exchange_order_id=str(self.expected_exchange_order_id),
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            amount=Decimal("1000.0"),
-            price=Decimal("1.0"),
-            creation_timestamp=1640001112.223,
-        ))
-        orders.append(GatewayPerpetualInFlightOrder(
-            client_order_id=self.client_order_id_prefix + "2",
-            exchange_order_id=self.exchange_order_id_prefix + "2",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            amount=Decimal("1000.0"),
-            price=Decimal("1.0"),
-            creation_timestamp=1640001112.223,
-            initial_state=OrderState.CANCELED
-        ))
-        orders.append(GatewayPerpetualInFlightOrder(
-            client_order_id=self.client_order_id_prefix + "3",
-            exchange_order_id=self.exchange_order_id_prefix + "3",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            amount=Decimal("1000.0"),
-            price=Decimal("1.0"),
-            creation_timestamp=1640001112.223,
-            initial_state=OrderState.FILLED
-        ))
-        orders.append(GatewayPerpetualInFlightOrder(
-            client_order_id=self.client_order_id_prefix + "4",
-            exchange_order_id=self.exchange_order_id_prefix + "4",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            amount=Decimal("1000.0"),
-            price=Decimal("1.0"),
-            creation_timestamp=1640001112.223,
-            initial_state=OrderState.FAILED
-        ))
+        orders.append(
+            GatewayPerpetualInFlightOrder(
+                client_order_id=self.client_order_id_prefix + "1",
+                exchange_order_id=str(self.expected_exchange_order_id),
+                trading_pair=self.trading_pair,
+                order_type=OrderType.LIMIT,
+                trade_type=TradeType.BUY,
+                amount=Decimal("1000.0"),
+                price=Decimal("1.0"),
+                creation_timestamp=1640001112.223,
+            )
+        )
+        orders.append(
+            GatewayPerpetualInFlightOrder(
+                client_order_id=self.client_order_id_prefix + "2",
+                exchange_order_id=self.exchange_order_id_prefix + "2",
+                trading_pair=self.trading_pair,
+                order_type=OrderType.LIMIT,
+                trade_type=TradeType.BUY,
+                amount=Decimal("1000.0"),
+                price=Decimal("1.0"),
+                creation_timestamp=1640001112.223,
+                initial_state=OrderState.CANCELED,
+            )
+        )
+        orders.append(
+            GatewayPerpetualInFlightOrder(
+                client_order_id=self.client_order_id_prefix + "3",
+                exchange_order_id=self.exchange_order_id_prefix + "3",
+                trading_pair=self.trading_pair,
+                order_type=OrderType.LIMIT,
+                trade_type=TradeType.BUY,
+                amount=Decimal("1000.0"),
+                price=Decimal("1.0"),
+                creation_timestamp=1640001112.223,
+                initial_state=OrderState.FILLED,
+            )
+        )
+        orders.append(
+            GatewayPerpetualInFlightOrder(
+                client_order_id=self.client_order_id_prefix + "4",
+                exchange_order_id=self.exchange_order_id_prefix + "4",
+                trading_pair=self.trading_pair,
+                order_type=OrderType.LIMIT,
+                trade_type=TradeType.BUY,
+                amount=Decimal("1000.0"),
+                price=Decimal("1.0"),
+                creation_timestamp=1640001112.223,
+                initial_state=OrderState.FAILED,
+            )
+        )
 
         tracking_states = {order.client_order_id: order.to_json() for order in orders}
 
@@ -2207,15 +2128,15 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.async_tasks.append(asyncio.get_event_loop().create_task(self.exchange._funding_payment_polling_loop()))
 
         funding_payments = {
-            "payments": [{
-                "marketId": self.market_id,
-                "subaccountId": self.portfolio_account_subaccount_id,
-                "amount": str(self.target_funding_payment_payment_amount),
-                "timestamp": 1000 * 1e3,
-            }],
-            "paging": {
-                "total": 1000
-            }
+            "payments": [
+                {
+                    "marketId": self.market_id,
+                    "subaccountId": self.portfolio_account_subaccount_id,
+                    "amount": str(self.target_funding_payment_payment_amount),
+                    "timestamp": 1000 * 1e3,
+                }
+            ],
+            "paging": {"total": 1000},
         }
         self.exchange._data_source.query_executor._funding_payments_responses.put_nowait(funding_payments)
 
@@ -2224,18 +2145,16 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                 {
                     "marketId": self.market_id,
                     "rate": str(self.target_funding_payment_funding_rate),
-                    "timestamp": "1690426800493"
+                    "timestamp": "1690426800493",
                 },
             ],
-            "paging": {
-                "total": "2370"
-            }
+            "paging": {"total": "2370"},
         }
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = partial(
             self._callback_wrapper_with_response,
             callback=lambda args, kwargs: request_sent_event.set(),
-            response=funding_rate
+            response=funding_rate,
         )
         self.exchange._data_source.query_executor._funding_rates_responses = mock_queue
 
@@ -2245,15 +2164,15 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         request_sent_event.clear()
 
         funding_payments = {
-            "payments": [{
-                "marketId": self.market_id,
-                "subaccountId": self.portfolio_account_subaccount_id,
-                "amount": str(self.target_funding_payment_payment_amount),
-                "timestamp": self.target_funding_payment_timestamp * 1e3,
-            }],
-            "paging": {
-                "total": 1000
-            }
+            "payments": [
+                {
+                    "marketId": self.market_id,
+                    "subaccountId": self.portfolio_account_subaccount_id,
+                    "amount": str(self.target_funding_payment_payment_amount),
+                    "timestamp": self.target_funding_payment_timestamp * 1e3,
+                }
+            ],
+            "paging": {"total": 1000},
         }
         self.exchange._data_source.query_executor._funding_payments_responses.put_nowait(funding_payments)
 
@@ -2262,18 +2181,16 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                 {
                     "marketId": self.market_id,
                     "rate": str(self.target_funding_payment_funding_rate),
-                    "timestamp": "1690426800493"
+                    "timestamp": "1690426800493",
                 },
             ],
-            "paging": {
-                "total": "2370"
-            }
+            "paging": {"total": "2370"},
         }
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = partial(
             self._callback_wrapper_with_response,
             callback=lambda args, kwargs: request_sent_event.set(),
-            response=funding_rate
+            response=funding_rate,
         )
         self.exchange._data_source.query_executor._funding_rates_responses = mock_queue
 
@@ -2311,7 +2228,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                         "symbol": self.quote_asset,
                         "logo": "https://static.alchemyapi.io/images/assets/825.png",
                         "decimals": self.quote_decimals,
-                        "updatedAt": "1687190809716"
+                        "updatedAt": "1687190809716",
                     },
                     "makerFeeRate": "-0.0003",
                     "takerFeeRate": "0.003",
@@ -2323,12 +2240,12 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                         "hourlyFundingRateCap": "0.000625",
                         "hourlyInterestRate": "0.00000416666",
                         "nextFundingTimestamp": str(self.target_funding_info_next_funding_utc_timestamp),
-                        "fundingInterval": "3600"
+                        "fundingInterval": "3600",
                     },
                     "perpetualMarketFunding": {
                         "cumulativeFunding": "81363.592243119007273334",
                         "cumulativePrice": "1.432536051546776736",
-                        "lastTimestamp": "1689423842"
+                        "lastTimestamp": "1689423842",
                     },
                     "minNotional": "1000000",
                 }
@@ -2337,21 +2254,13 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         funding_rate = {
             "fundingRates": [
-                {
-                    "marketId": self.market_id,
-                    "rate": str(self.target_funding_info_rate),
-                    "timestamp": "1690426800493"
-                },
+                {"marketId": self.market_id, "rate": str(self.target_funding_info_rate), "timestamp": "1690426800493"},
             ],
-            "paging": {
-                "total": "2370"
-            }
+            "paging": {"total": "2370"},
         }
         self.exchange._data_source.query_executor._funding_rates_responses.put_nowait(funding_rate)
 
-        oracle_price = {
-            "price": str(self.target_funding_info_mark_price)
-        }
+        oracle_price = {"price": str(self.target_funding_info_mark_price)}
         self.exchange._data_source.query_executor._oracle_prices_responses.put_nowait(oracle_price)
 
         trades = {
@@ -2365,23 +2274,20 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                     "positionDelta": {
                         "tradeDirection": "buy",
                         "executionPrice": str(
-                            self.target_funding_info_index_price * Decimal(f"1e{self.quote_decimals}")),
+                            self.target_funding_info_index_price * Decimal(f"1e{self.quote_decimals}")
+                        ),
                         "executionQuantity": "3",
-                        "executionMargin": "5472660"
+                        "executionMargin": "5472660",
                     },
                     "payout": "0",
                     "fee": "81764.1",
                     "executedAt": "1689423842613",
                     "feeRecipient": "inj1zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3t5qxqh",  # noqa: mock
                     "tradeId": "13659264_800_0",
-                    "executionSide": "taker"
+                    "executionSide": "taker",
                 }
             ],
-            "paging": {
-                "total": "1000",
-                "from": 1,
-                "to": 1
-            }
+            "paging": {"total": "1000", "from": 1, "to": 1},
         }
         self.exchange._data_source.query_executor._derivative_trades_responses.put_nowait(trades)
 
@@ -2408,9 +2314,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.assertEqual(self.trading_pair, funding_info.trading_pair)
         self.assertEqual(self.target_funding_info_index_price, funding_info.index_price)
         self.assertEqual(self.target_funding_info_mark_price, funding_info.mark_price)
-        self.assertEqual(
-            self.target_funding_info_next_funding_utc_timestamp, funding_info.next_funding_utc_timestamp
-        )
+        self.assertEqual(self.target_funding_info_next_funding_utc_timestamp, funding_info.next_funding_utc_timestamp)
         self.assertEqual(self.target_funding_info_rate, funding_info.rate)
 
     def test_listen_for_funding_info_update_updates_funding_info(self):
@@ -2436,7 +2340,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                         "symbol": self.quote_asset,
                         "logo": "https://static.alchemyapi.io/images/assets/825.png",
                         "decimals": self.quote_decimals,
-                        "updatedAt": "1687190809716"
+                        "updatedAt": "1687190809716",
                     },
                     "makerFeeRate": "-0.0003",
                     "takerFeeRate": "0.003",
@@ -2448,12 +2352,12 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                         "hourlyFundingRateCap": "0.000625",
                         "hourlyInterestRate": "0.00000416666",
                         "nextFundingTimestamp": str(self.target_funding_info_next_funding_utc_timestamp),
-                        "fundingInterval": "3600"
+                        "fundingInterval": "3600",
                     },
                     "perpetualMarketFunding": {
                         "cumulativeFunding": "81363.592243119007273334",
                         "cumulativePrice": "1.432536051546776736",
-                        "lastTimestamp": "1689423842"
+                        "lastTimestamp": "1689423842",
                     },
                     "minNotional": "1000000",
                 }
@@ -2462,21 +2366,13 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         funding_rate = {
             "fundingRates": [
-                {
-                    "marketId": self.market_id,
-                    "rate": str(self.target_funding_info_rate),
-                    "timestamp": "1690426800493"
-                },
+                {"marketId": self.market_id, "rate": str(self.target_funding_info_rate), "timestamp": "1690426800493"},
             ],
-            "paging": {
-                "total": "2370"
-            }
+            "paging": {"total": "2370"},
         }
         self.exchange._data_source.query_executor._funding_rates_responses.put_nowait(funding_rate)
 
-        oracle_price = {
-            "price": str(self.target_funding_info_mark_price)
-        }
+        oracle_price = {"price": str(self.target_funding_info_mark_price)}
         self.exchange._data_source.query_executor._oracle_prices_responses.put_nowait(oracle_price)
 
         trades = {
@@ -2490,23 +2386,20 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                     "positionDelta": {
                         "tradeDirection": "buy",
                         "executionPrice": str(
-                            self.target_funding_info_index_price * Decimal(f"1e{self.quote_decimals}")),
+                            self.target_funding_info_index_price * Decimal(f"1e{self.quote_decimals}")
+                        ),
                         "executionQuantity": "3",
-                        "executionMargin": "5472660"
+                        "executionMargin": "5472660",
                     },
                     "payout": "0",
                     "fee": "81764.1",
                     "executedAt": "1689423842613",
                     "feeRecipient": "inj1zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3t5qxqh",  # noqa: mock
                     "tradeId": "13659264_800_0",
-                    "executionSide": "taker"
+                    "executionSide": "taker",
                 }
             ],
-            "paging": {
-                "total": "1000",
-                "from": 1,
-                "to": 1
-            }
+            "paging": {"total": "1000", "from": 1, "to": 1},
         }
         self.exchange._data_source.query_executor._derivative_trades_responses.put_nowait(trades)
 
@@ -2524,8 +2417,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         ] = mock_queue
 
         try:
-            self.async_run_with_timeout(
-                self.exchange._listen_for_funding_info())
+            self.async_run_with_timeout(self.exchange._listen_for_funding_info())
         except asyncio.CancelledError:
             pass
 
@@ -2547,16 +2439,9 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             "markPrice": "28984256513.07",
             "aggregateReduceOnlyQuantity": "0",
             "updatedAt": "1691077382583",
-            "createdAt": "-62135596800000"
+            "createdAt": "-62135596800000",
         }
-        positions = {
-            "positions": [position_data],
-            "paging": {
-                "total": "1",
-                "from": 1,
-                "to": 1
-            }
-        }
+        positions = {"positions": [position_data], "paging": {"total": "1", "from": 1, "to": 1}}
         self.exchange._data_source._query_executor._derivative_positions_responses.put_nowait(positions)
 
         self.async_run_with_timeout(self.exchange._update_positions())
@@ -2568,8 +2453,9 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.assertEqual(Decimal(position_data["quantity"]), pos.amount)
         entry_price = Decimal(position_data["entryPrice"]) * Decimal(f"1e{-self.quote_decimals}")
         self.assertEqual(entry_price, pos.entry_price)
-        expected_leverage = ((Decimal(position_data["entryPrice"]) * Decimal(position_data["quantity"]))
-                             / Decimal(position_data["margin"]))
+        expected_leverage = (Decimal(position_data["entryPrice"]) * Decimal(position_data["quantity"])) / Decimal(
+            position_data["margin"]
+        )
         self.assertEqual(expected_leverage, pos.leverage)
         mark_price = Decimal(position_data["markPrice"]) * Decimal(f"1e{-self.quote_decimals}")
         expected_unrealized_pnl = (mark_price - entry_price) * Decimal(position_data["quantity"])
@@ -2579,9 +2465,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.configure_all_symbols_response(mock_api=None)
         self.exchange._set_current_timestamp(1640780000)
 
-        oracle_price = {
-            "price": "294.16356086"
-        }
+        oracle_price = {"price": "294.16356086"}
         self.exchange._data_source._query_executor._oracle_prices_responses.put_nowait(oracle_price)
 
         position_data = {
@@ -2603,7 +2487,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                     "entryPrice": "214151864000000000000000000",
                     "margin": "1191084296676205949365390184",
                     "cumulativeFundingEntry": "-10673348771610276382679388",
-                    "isLong": True
+                    "isLong": True,
                 },
             ],
             "oraclePrices": [],
@@ -2613,11 +2497,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         mock_queue.get.side_effect = [position_data, asyncio.CancelledError]
         self.exchange._data_source._query_executor._chain_stream_events = mock_queue
 
-        self.async_tasks.append(
-            asyncio.get_event_loop().create_task(
-                self.exchange._user_stream_event_listener()
-            )
-        )
+        self.async_tasks.append(asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener()))
 
         market = self.async_run_with_timeout(
             self.exchange._data_source.derivative_market_info_for_id(market_id=self.market_id)
@@ -2625,9 +2505,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         try:
             self.async_run_with_timeout(
                 self.exchange._data_source._listen_to_chain_updates(
-                    spot_markets=[],
-                    derivative_markets=[market],
-                    subaccount_ids=[self.portfolio_account_subaccount_id]
+                    spot_markets=[], derivative_markets=[market], subaccount_ids=[self.portfolio_account_subaccount_id]
                 ),
             )
         except asyncio.CancelledError:
@@ -2642,7 +2520,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         entry_price = Decimal(position_data["positions"][0]["entryPrice"]) * Decimal(f"1e{-self.quote_decimals - 18}")
         self.assertEqual(entry_price, pos.entry_price)
         margin = Decimal(position_data["positions"][0]["margin"]) * Decimal(f"1e{-self.quote_decimals - 18}")
-        expected_leverage = ((entry_price * quantity) / margin)
+        expected_leverage = (entry_price * quantity) / margin
         self.assertEqual(expected_leverage, pos.leverage)
         mark_price = Decimal(oracle_price["price"])
         expected_unrealized_pnl = (mark_price - entry_price) * quantity
@@ -2666,7 +2544,8 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.assertIn(self.client_order_id_prefix + "1", self.exchange.in_flight_orders)
         order: GatewayPerpetualInFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
         order.update_creation_transaction_hash(
-            creation_transaction_hash="66A360DA2FD6884B53B5C019F1A2B5BED7C7C8FC07E83A9C36AD3362EDE096AE")  # noqa: mock
+            creation_transaction_hash="66A360DA2FD6884B53B5C019F1A2B5BED7C7C8FC07E83A9C36AD3362EDE096AE"
+        )  # noqa: mock
 
         transaction_response = {
             "tx": {
@@ -2675,12 +2554,12 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                     "timeoutHeight": "20557725",
                     "memo": "",
                     "extensionOptions": [],
-                    "nonCriticalExtensionOptions": []
+                    "nonCriticalExtensionOptions": [],
                 },
                 "authInfo": {},
                 "signatures": [
                     "/xSRaq4l5D6DZI5syfAOI5ITongbgJnN97sxCBLXsnFqXLbc4ztEOdQJeIZUuQM+EoqMxUjUyP1S5hg8lM+00w=="
-                ]
+                ],
             },
             "txResponse": {
                 "height": "20557627",
@@ -2699,14 +2578,10 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                             {
                                 "key": "spender",
                                 "value": "inj1jtcvrdguuyx6dwz6xszpvkucyplw7z94vxlu07",  # noqa: mock
-                                "index": True
+                                "index": True,
                             },
-                            {
-                                "key": "amount",
-                                "value": "33576000000000inj",
-                                "index": True
-                            }
-                        ]
+                            {"key": "amount", "value": "33576000000000inj", "index": True},
+                        ],
                     },
                     {
                         "type": "coin_received",
@@ -2714,14 +2589,10 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                             {
                                 "key": "receiver",
                                 "value": "inj17xpfvakm2amg962yls6f84z3kell8c5l6s5ye9",  # noqa: mock
-                                "index": True
+                                "index": True,
                             },
-                            {
-                                "key": "amount",
-                                "value": "33576000000000inj",
-                                "index": True
-                            }
-                        ]
+                            {"key": "amount", "value": "33576000000000inj", "index": True},
+                        ],
                     },
                     {
                         "type": "transfer",
@@ -2729,19 +2600,15 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                             {
                                 "key": "recipient",
                                 "value": "inj17xpfvakm2amg962yls6f84z3kell8c5l6s5ye9",  # noqa: mock
-                                "index": True
+                                "index": True,
                             },
                             {
                                 "key": "sender",
                                 "value": "inj1jtcvrdguuyx6dwz6xszpvkucyplw7z94vxlu07",  # noqa: mock
-                                "index": True
+                                "index": True,
                             },
-                            {
-                                "key": "amount",
-                                "value": "33576000000000inj",
-                                "index": True
-                            }
-                        ]
+                            {"key": "amount", "value": "33576000000000inj", "index": True},
+                        ],
                     },
                     {
                         "type": "message",
@@ -2749,34 +2616,26 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                             {
                                 "key": "sender",
                                 "value": "inj1jtcvrdguuyx6dwz6xszpvkucyplw7z94vxlu07",  # noqa: mock
-                                "index": True
+                                "index": True,
                             }
-                        ]
+                        ],
                     },
                     {
                         "type": "tx",
                         "attributes": [
-                            {
-                                "key": "fee",
-                                "value": "33576000000000inj",
-                                "index": True
-                            },
+                            {"key": "fee", "value": "33576000000000inj", "index": True},
                             {
                                 "key": "fee_payer",
                                 "value": "inj1jtcvrdguuyx6dwz6xszpvkucyplw7z94vxlu07",  # noqa: mock
-                                "index": True
-                            }
-                        ]
+                                "index": True,
+                            },
+                        ],
                     },
                     {
                         "type": "tx",
                         "attributes": [
-                            {
-                                "key": "acc_seq",
-                                "value": "inj1jtcvrdguuyx6dwz6xszpvkucyplw7z94vxlu07/989",
-                                "index": True
-                            }
-                        ]
+                            {"key": "acc_seq", "value": "inj1jtcvrdguuyx6dwz6xszpvkucyplw7z94vxlu07/989", "index": True}
+                        ],
                     },
                     {
                         "type": "tx",
@@ -2784,9 +2643,9 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                             {
                                 "key": "signature",
                                 "value": "/xSRaq4l5D6DZI5syfAOI5ITongbgJnN97sxCBLXsnFqXLbc4ztEOdQJeIZUuQM+EoqMxUjUyP1S5hg8lM+00w==",
-                                "index": True
+                                "index": True,
                             }
-                        ]
+                        ],
                     },
                     {
                         "type": "message",
@@ -2794,19 +2653,15 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                             {
                                 "key": "action",
                                 "value": "/injective.exchange.v1beta1.MsgBatchUpdateOrders",
-                                "index": True
+                                "index": True,
                             },
                             {
                                 "key": "sender",
                                 "value": "inj1jtcvrdguuyx6dwz6xszpvkucyplw7z94vxlu07",  # noqa: mock
-                                "index": True
+                                "index": True,
                             },
-                            {
-                                "key": "module",
-                                "value": "exchange",
-                                "index": True
-                            }
-                        ]
+                            {"key": "module", "value": "exchange", "index": True},
+                        ],
                     },
                     {
                         "type": "injective.exchange.v1beta1.EventNewDerivativeOrders",
@@ -2821,35 +2676,35 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                                                 "fee_recipient": "inj1an30rm4gkqhdwxsxcty6rrj72m27tycqh2qy8v",  # noqa: mock
                                                 "price": "50000000000.000000000000000000",
                                                 "quantity": "0.010000000000000000",
-                                                "cid": order.client_order_id
+                                                "cid": order.client_order_id,
                                             },
                                             "order_type": "BUY_PO",
                                             "margin": "500000000.000000000000000000",
                                             "fillable": "0.010000000000000000",
                                             "trigger_price": "0.000000000000000000",
-                                            "order_hash": base64.b64encode(order.exchange_order_id.encode()).decode()
+                                            "order_hash": base64.b64encode(order.exchange_order_id.encode()).decode(),
                                         }
                                     ]
                                 ),
-                                "index": True
+                                "index": True,
                             },
                             {
                                 "key": "market_id",
-                                "value": "\"0x17ef48032cb24375ba7c2e39f384e56433bcab20cbee9a7357e4cba2eb00abe6\"",  # noqa: mock"
-                                "index": True
+                                "value": '"0x17ef48032cb24375ba7c2e39f384e56433bcab20cbee9a7357e4cba2eb00abe6"',  # noqa: mock"
+                                "index": True,
                             },
                             {
                                 "key": "sell_orders",
-                                "value": "[{\"order_info\":{\"subaccount_id\":\"0xece2f1eea8b02ed71a06c2c9a18e5e56d5e59300000000000000000000000000\",\"fee_recipient\":\"inj1an30rm4gkqhdwxsxcty6rrj72m27tycqh2qy8v\",\"price\":\"50000000000.000000000000000000\",\"quantity\":\"0.010000000000000000\",\"cid\":\"d4bfca07-d803-4444-809b-24e2c79d5491\"},\"order_type\":\"SELL_PO\",\"margin\":\"500000000.000000000000000000\",\"fillable\":\"0.010000000000000000\",\"trigger_price\":\"0.000000000000000000\",\"order_hash\":\"b55V8vJGE8L8f5s7iJ1HJV276+V8OsLe3N1NN4ddOWg=\"}]",  # noqa: mock"
-                                "index": True
-                            }
-                        ]
+                                "value": '[{"order_info":{"subaccount_id":"0xece2f1eea8b02ed71a06c2c9a18e5e56d5e59300000000000000000000000000","fee_recipient":"inj1an30rm4gkqhdwxsxcty6rrj72m27tycqh2qy8v","price":"50000000000.000000000000000000","quantity":"0.010000000000000000","cid":"d4bfca07-d803-4444-809b-24e2c79d5491"},"order_type":"SELL_PO","margin":"500000000.000000000000000000","fillable":"0.010000000000000000","trigger_price":"0.000000000000000000","order_hash":"b55V8vJGE8L8f5s7iJ1HJV276+V8OsLe3N1NN4ddOWg="}]',  # noqa: mock"
+                                "index": True,
+                            },
+                        ],
                     },
                 ],
                 "codespace": "",
                 "code": 0,
-                "info": ""
-            }
+                "info": "",
+            },
         }
 
         self.exchange._data_source._query_executor._get_tx_responses.put_nowait(transaction_response)
@@ -2864,7 +2719,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                 "INFO",
                 f"Order {order.client_order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='{order.client_order_id}', exchange_order_id=None, misc_updates=None)"
+                f"client_order_id='{order.client_order_id}', exchange_order_id=None, misc_updates=None)",
             )
         )
 
@@ -3136,7 +2991,8 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         order: GatewayPerpetualInFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
         order.update_creation_transaction_hash(
-            creation_transaction_hash="66A360DA2FD6884B53B5C019F1A2B5BED7C7C8FC07E83A9C36AD3362EDE096AE")  # noqa: mock
+            creation_transaction_hash="66A360DA2FD6884B53B5C019F1A2B5BED7C7C8FC07E83A9C36AD3362EDE096AE"
+        )  # noqa: mock
 
         transaction_response = {
             "tx": {
@@ -3145,12 +3001,12 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                     "timeoutHeight": "20557725",
                     "memo": "",
                     "extensionOptions": [],
-                    "nonCriticalExtensionOptions": []
+                    "nonCriticalExtensionOptions": [],
                 },
                 "authInfo": {},
                 "signatures": [
                     "/xSRaq4l5D6DZI5syfAOI5ITongbgJnN97sxCBLXsnFqXLbc4ztEOdQJeIZUuQM+EoqMxUjUyP1S5hg8lM+00w=="
-                ]
+                ],
             },
             "txResponse": {
                 "height": "20557627",
@@ -3165,8 +3021,8 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                 "events": [],
                 "codespace": "",
                 "code": 5,
-                "info": ""
-            }
+                "info": "",
+            },
         }
 
         self.exchange._data_source._query_executor._get_tx_responses.put_nowait(transaction_response)
@@ -3184,7 +3040,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                 "INFO",
                 f"Order {order.client_order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='{order.client_order_id}', exchange_order_id=None, misc_updates=None)"
+                f"client_order_id='{order.client_order_id}', exchange_order_id=None, misc_updates=None)",
             )
         )
 
@@ -3202,10 +3058,10 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             return response
 
     def _configure_balance_response(
-            self,
-            response: Dict[str, Any],
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        response: Dict[str, Any],
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         self.configure_all_symbols_response(mock_api=mock_api)
         self.exchange._data_source._query_executor._account_portfolio_responses.put_nowait(response)
@@ -3213,35 +3069,42 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     def _msg_exec_simulation_mock_response(self) -> Any:
         return {
-            "gasInfo": {
-                "gasWanted": "50000000",
-                "gasUsed": "90749"
-            },
+            "gasInfo": {"gasWanted": "50000000", "gasUsed": "90749"},
             "result": {
                 "data": "Em8KJS9jb3Ntb3MuYXV0aHoudjFiZXRhMS5Nc2dFeGVjUmVzcG9uc2USRgpECkIweGYxNGU5NGMxZmQ0MjE0M2I3ZGRhZjA4ZDE3ZWMxNzAzZGMzNzZlOWU2YWI0YjY0MjBhMzNkZTBhZmFlYzJjMTA=",
                 # noqa: mock
                 "log": "",
                 "events": [],
                 "msgResponses": [
-                    OrderedDict([
-                        ("@type", "/cosmos.authz.v1beta1.MsgExecResponse"),
-                        ("results", [
-                            "CkIweGYxNGU5NGMxZmQ0MjE0M2I3ZGRhZjA4ZDE3ZWMxNzAzZGMzNzZlOWU2YWI0YjY0MjBhMzNkZTBhZmFlYzJjMTA="])
-                        # noqa: mock
-                    ])
-                ]
-            }
+                    OrderedDict(
+                        [
+                            ("@type", "/cosmos.authz.v1beta1.MsgExecResponse"),
+                            (
+                                "results",
+                                [
+                                    "CkIweGYxNGU5NGMxZmQ0MjE0M2I3ZGRhZjA4ZDE3ZWMxNzAzZGMzNzZlOWU2YWI0YjY0MjBhMzNkZTBhZmFlYzJjMTA="
+                                ],
+                            ),
+                            # noqa: mock
+                        ]
+                    )
+                ],
+            },
         }
 
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Dict[str, Any]:
-        return {"txhash": "79DBF373DE9C534EE2DC9D009F32B850DA8D0C73833FAA0FD52C6AE8989EC659",  # noqa: mock
-                "rawLog": "[]",
-                "code": 0}
+        return {
+            "txhash": "79DBF373DE9C534EE2DC9D009F32B850DA8D0C73833FAA0FD52C6AE8989EC659",  # noqa: mock
+            "rawLog": "[]",
+            "code": 0,
+        }
 
     def _order_cancelation_request_erroneous_mock_response(self, order: InFlightOrder) -> Dict[str, Any]:
-        return {"txhash": "79DBF373DE9C534EE2DC9D009F32B850DA8D0C73833FAA0FD52C6AE8989EC659",  # noqa: mock
-                "rawLog": "Error",
-                "code": 11}
+        return {
+            "txhash": "79DBF373DE9C534EE2DC9D009F32B850DA8D0C73833FAA0FD52C6AE8989EC659",  # noqa: mock
+            "rawLog": "Error",
+            "code": 11,
+        }
 
     def _order_status_request_open_mock_response(self, order: GatewayPerpetualInFlightOrder) -> Dict[str, Any]:
         return {
@@ -3266,9 +3129,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                     "txHash": order.creation_transaction_hash,
                 },
             ],
-            "paging": {
-                "total": "1"
-            },
+            "paging": {"total": "1"},
         }
 
     def _order_status_request_partially_filled_mock_response(
@@ -3296,9 +3157,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                     "txHash": order.creation_transaction_hash,
                 },
             ],
-            "paging": {
-                "total": "1"
-            },
+            "paging": {"total": "1"},
         }
 
     def _order_status_request_completely_filled_mock_response(
@@ -3326,9 +3185,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                     "txHash": order.creation_transaction_hash,
                 },
             ],
-            "paging": {
-                "total": "1"
-            },
+            "paging": {"total": "1"},
         }
 
     def _order_status_request_canceled_mock_response(self, order: GatewayPerpetualInFlightOrder) -> Dict[str, Any]:
@@ -3354,17 +3211,13 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                     "txHash": order.creation_transaction_hash,
                 },
             ],
-            "paging": {
-                "total": "1"
-            },
+            "paging": {"total": "1"},
         }
 
     def _order_status_request_not_found_mock_response(self, order: GatewayPerpetualInFlightOrder) -> Dict[str, Any]:
         return {
             "orders": [],
-            "paging": {
-                "total": "0"
-            },
+            "paging": {"total": "0"},
         }
 
     def _order_fills_request_partial_fill_mock_response(self, order: GatewayPerpetualInFlightOrder) -> Dict[str, Any]:
@@ -3380,21 +3233,17 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                         "tradeDirection": order.trade_type.name.lower,
                         "executionPrice": str(self.expected_partial_fill_price * Decimal(f"1e{self.quote_decimals}")),
                         "executionQuantity": str(self.expected_partial_fill_amount),
-                        "executionMargin": "1245280000"
+                        "executionMargin": "1245280000",
                     },
                     "payout": "1187984833.579447998034818126",
                     "fee": str(self.expected_fill_fee.flat_fees[0].amount * Decimal(f"1e{self.quote_decimals}")),
                     "executedAt": "1681735786785",
                     "feeRecipient": self.portfolio_account_injective_address,
                     "tradeId": self.expected_fill_trade_id,
-                    "executionSide": "maker"
+                    "executionSide": "maker",
                 },
             ],
-            "paging": {
-                "total": "1",
-                "from": 1,
-                "to": 1
-            }
+            "paging": {"total": "1", "from": 1, "to": 1},
         }
 
     def _order_fills_request_full_fill_mock_response(self, order: GatewayPerpetualInFlightOrder) -> Dict[str, Any]:
@@ -3410,19 +3259,15 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                         "tradeDirection": order.trade_type.name.lower,
                         "executionPrice": str(order.price * Decimal(f"1e{self.quote_decimals}")),
                         "executionQuantity": str(order.amount),
-                        "executionMargin": "1245280000"
+                        "executionMargin": "1245280000",
                     },
                     "payout": "1187984833.579447998034818126",
                     "fee": str(self.expected_fill_fee.flat_fees[0].amount * Decimal(f"1e{self.quote_decimals}")),
                     "executedAt": "1681735786785",
                     "feeRecipient": self.portfolio_account_injective_address,
                     "tradeId": self.expected_fill_trade_id,
-                    "executionSide": "maker"
+                    "executionSide": "maker",
                 },
             ],
-            "paging": {
-                "total": "1",
-                "from": 1,
-                "to": 1
-            }
+            "paging": {"total": "1", "from": 1, "to": 1},
         }

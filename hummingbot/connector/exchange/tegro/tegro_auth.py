@@ -48,8 +48,7 @@ class TegroAuth(AuthBase):
     async def ws_authenticate(self, request: WSRequest) -> WSRequest:
         return request  # pass-through
 
-    def add_auth_to_params(self,
-                           params: Dict[str, Any]):
+    def add_auth_to_params(self, params: Dict[str, Any]):
         request_params = OrderedDict(params or {})
 
         addr = self._api_key
@@ -61,7 +60,7 @@ class TegroAuth(AuthBase):
 
     def header_for_authentication(self) -> Dict[str, Any]:
         return {
-            "Content-Type": 'application/json',
+            "Content-Type": "application/json",
         }
 
     def get_auth_headers(self):

@@ -59,9 +59,7 @@ def encode_field(
             )
 
         parsed_type = parse_parent_array_type(type_)
-        type_value_pairs = [
-            encode_field(types, name, parsed_type, item) for item in value
-        ]
+        type_value_pairs = [encode_field(types, name, parsed_type, item) for item in value]
         if not type_value_pairs:
             # the keccak hash of `encode((), ())`
             return (
@@ -120,8 +118,7 @@ def find_type_dependencies(type_, types, results=None):
     # a type must be a string
     if not isinstance(type_, str):
         raise ValueError(
-            "Invalid find_type_dependencies input: expected string, got "
-            f"`{type_}` of type `{type(type_)}`"
+            "Invalid find_type_dependencies input: expected string, got " f"`{type_}` of type `{type(type_)}`"
         )
     # get core type if it's an array type
     type_ = parse_core_array_type(type_)
@@ -177,9 +174,7 @@ def encode_data(
     encoded_values: List[Union[bytes, int]] = [hash_type(type_, types)]
 
     for field in types[type_]:
-        type, value = encode_field(
-            types, field["name"], field["type"], data.get(field["name"])
-        )
+        type, value = encode_field(types, field["name"], field["type"], data.get(field["name"]))
         encoded_types.append(type)
         encoded_values.append(value)
 
@@ -217,10 +212,6 @@ def hash_domain(domain_data: Dict[str, Any]) -> bytes:
         if k not in eip712_domain_map.keys():
             raise ValueError(f"Invalid domain key: `{k}`")
 
-    domain_types = {
-        "EIP712Domain": [
-            eip712_domain_map[k] for k in eip712_domain_map.keys() if k in domain_data
-        ]
-    }
+    domain_types = {"EIP712Domain": [eip712_domain_map[k] for k in eip712_domain_map.keys() if k in domain_data]}
 
     return hash_struct("EIP712Domain", domain_types, domain_data)

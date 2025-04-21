@@ -12,7 +12,7 @@ EXAMPLE_PAIR = "ZRX-ETH"
 DEFAULT_FEES = TradeFeeSchema(
     maker_percent_fee_decimal=Decimal("0.001"),
     taker_percent_fee_decimal=Decimal("0.001"),
-    buy_percent_fee_deducted_from_returns=True
+    buy_percent_fee_deducted_from_returns=True,
 )
 
 
@@ -47,7 +47,7 @@ class BinanceConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     binance_api_secret: SecretStr = Field(
         default=...,
@@ -56,7 +56,7 @@ class BinanceConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     model_config = ConfigDict(title="binance")
 
@@ -78,7 +78,7 @@ class BinanceUSConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     binance_api_secret: SecretStr = Field(
         default=...,
@@ -87,7 +87,7 @@ class BinanceUSConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     model_config = ConfigDict(title="binance_us")
 

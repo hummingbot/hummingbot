@@ -75,13 +75,14 @@ class OneOverNPortfolio(ScriptStrategyBase):
         self.total_available_balance = sum(balances[1] for balances in self.quote_balances.values())
         self.logger().info(f"TOT ({self.quote_currency}): {self.total_available_balance}")
         self.logger().info(
-            f"TOT/{len(self.base_currencies)} ({self.quote_currency}): {self.total_available_balance / len(self.base_currencies)}")
+            f"TOT/{len(self.base_currencies)} ({self.quote_currency}): {self.total_available_balance / len(self.base_currencies)}"
+        )
         #: Calculate the percentage of each available_balance over total_available_balance
         total_available_balance = self.total_available_balance
         percentages_dict = {}
         for asset, balances in self.quote_balances.items():
             available_balance = balances[1]
-            percentage = (available_balance / total_available_balance)
+            percentage = available_balance / total_available_balance
             percentages_dict[asset] = percentage
             self.logger().info(f"Total share {asset}: {percentage * 100}%")
         number_of_assets = Decimal(len(self.quote_balances))
@@ -104,7 +105,7 @@ class OneOverNPortfolio(ScriptStrategyBase):
         #: log the planned ordered trades with sequence number
         for i, (asset, deficit) in enumerate(ordered_trades):
             trade_number = i + 1
-            trade_type = "sell" if deficit < Decimal('0') else "buy"
+            trade_type = "sell" if deficit < Decimal("0") else "buy"
             self.logger().info(f"Trade {trade_number}: {trade_type} {asset}: {deficit}")
 
         if 0 < self.activeOrders:
@@ -116,14 +117,24 @@ class OneOverNPortfolio(ScriptStrategyBase):
             if abs(deficit * quote_price) < 1:
                 self.logger().info(f"{abs(deficit * quote_price)} < 1 too small to trade")
                 continue
-            trade_is_buy = True if deficit > Decimal('0') else False
+            trade_is_buy = True if deficit > Decimal("0") else False
             try:
                 if trade_is_buy:
-                    self.buy(connector_name=self.exchange_name, trading_pair=f"{asset}-{self.quote_currency}",
-                             amount=abs(deficit), order_type=OrderType.MARKET, price=quote_price)
+                    self.buy(
+                        connector_name=self.exchange_name,
+                        trading_pair=f"{asset}-{self.quote_currency}",
+                        amount=abs(deficit),
+                        order_type=OrderType.MARKET,
+                        price=quote_price,
+                    )
                 else:
-                    self.sell(connector_name=self.exchange_name, trading_pair=f"{asset}-{self.quote_currency}",
-                              amount=abs(deficit), order_type=OrderType.MARKET, price=quote_price)
+                    self.sell(
+                        connector_name=self.exchange_name,
+                        trading_pair=f"{asset}-{self.quote_currency}",
+                        amount=abs(deficit),
+                        order_type=OrderType.MARKET,
+                        price=quote_price,
+                    )
             except decimal.InvalidOperation as e:
                 # Handle the error by logging it or taking other appropriate actions
                 print(f"Caught an error: {e}")
@@ -134,7 +145,7 @@ class OneOverNPortfolio(ScriptStrategyBase):
     def calculate_deficit_percentages(self, number_of_assets, percentages_dict):
         differences_dict = {}
         for asset, percentage in percentages_dict.items():
-            deficit = (Decimal('1') / number_of_assets) - percentage
+            deficit = (Decimal("1") / number_of_assets) - percentage
             differences_dict[asset] = deficit
             self.logger().info(f"Missing from 1/N {asset}: {deficit * 100}%")
         return differences_dict
@@ -151,7 +162,8 @@ class OneOverNPortfolio(ScriptStrategyBase):
             available_balance = balances[1] * current_price
             quote_balances[asset] = (total_balance, available_balance, current_price)
             self.logger().info(
-                f"{asset} * {current_price} {self.quote_currency} = {available_balance} {self.quote_currency}")
+                f"{asset} * {current_price} {self.quote_currency} = {available_balance} {self.quote_currency}"
+            )
         return quote_balances
 
     def calculate_base_balances(self, exchange_balance_df):
@@ -177,9 +189,12 @@ class OneOverNPortfolio(ScriptStrategyBase):
             table_of_balances += f"{base_balances[1]:15,.5f} {asset_name:5} {quote_balance:15,.5f} {price:15,.5f} {self.quote_currency}\n"
         table_of_balances += f"TOT    ({self.quote_currency}): {self.total_available_balance:15,.2f}\n"
         table_of_balances += f"TOT/{len(self.base_currencies)} ({self.quote_currency}): {self.total_available_balance / len(self.base_currencies):15,.2f}\n"
-        return f"active orders: {self.activeOrders}\n" + \
-            table_of_balances + "\n" + \
-            create_differences_bar_chart(self.differences_dict)
+        return (
+            f"active orders: {self.activeOrders}\n"
+            + table_of_balances
+            + "\n"
+            + create_differences_bar_chart(self.differences_dict)
+        )
 
     def did_create_buy_order(self, event: BuyOrderCreatedEvent):
         self.activeOrders += 1

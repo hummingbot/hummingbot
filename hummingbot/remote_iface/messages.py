@@ -11,33 +11,33 @@ class MQTT_STATUS_CODE:
 class NotifyMessage(PubSubMessage):
     seq: Optional[int] = 0
     timestamp: Optional[int] = -1
-    msg: Optional[str] = ''
+    msg: Optional[str] = ""
 
 
 class StatusUpdateMessage(PubSubMessage):
     timestamp: Optional[int] = -1
-    type: Optional[str] = ''
-    msg: Optional[str] = ''
+    type: Optional[str] = ""
+    msg: Optional[str] = ""
 
 
 class InternalEventMessage(PubSubMessage):
     timestamp: Optional[int] = -1
-    type: Optional[str] = 'ievent'
+    type: Optional[str] = "ievent"
     data: Optional[dict] = {}
 
 
 class LogMessage(PubSubMessage):
     timestamp: float = 0.0
-    msg: str = ''
+    msg: str = ""
     level_no: int = 0
-    level_name: str = ''
-    logger_name: str = ''
+    level_name: str = ""
+    logger_name: str = ""
 
 
 class ExternalEventMessage(PubSubMessage):
     timestamp: Optional[int] = -1
     sequence: Optional[int] = 0
-    type: Optional[str] = 'eevent'
+    type: Optional[str] = "eevent"
     data: Optional[Dict[str, Any]] = {}
 
 
@@ -51,7 +51,7 @@ class StartCommandMessage(RPCMessage):
 
     class Response(RPCMessage.Response):
         status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
-        msg: Optional[str] = ''
+        msg: Optional[str] = ""
 
 
 class StopCommandMessage(RPCMessage):
@@ -61,7 +61,7 @@ class StopCommandMessage(RPCMessage):
 
     class Response(RPCMessage.Response):
         status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
-        msg: Optional[str] = ''
+        msg: Optional[str] = ""
 
 
 class ConfigCommandMessage(RPCMessage):
@@ -72,7 +72,7 @@ class ConfigCommandMessage(RPCMessage):
         changes: Optional[List[Tuple[str, Any]]] = []
         config: Optional[Dict[str, Any]] = {}
         status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
-        msg: Optional[str] = ''
+        msg: Optional[str] = ""
 
 
 class CommandShortcutMessage(RPCMessage):
@@ -82,7 +82,7 @@ class CommandShortcutMessage(RPCMessage):
     class Response(RPCMessage.Response):
         success: Optional[List[bool]] = []
         status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
-        msg: Optional[str] = ''
+        msg: Optional[str] = ""
 
 
 class ImportCommandMessage(RPCMessage):
@@ -91,7 +91,7 @@ class ImportCommandMessage(RPCMessage):
 
     class Response(RPCMessage.Response):
         status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
-        msg: Optional[str] = ''
+        msg: Optional[str] = ""
 
 
 class StatusCommandMessage(RPCMessage):
@@ -100,8 +100,8 @@ class StatusCommandMessage(RPCMessage):
 
     class Response(RPCMessage.Response):
         status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
-        msg: Optional[str] = ''
-        data: Optional[Any] = ''
+        msg: Optional[str] = ""
+        data: Optional[Any] = ""
 
 
 class HistoryCommandMessage(RPCMessage):
@@ -113,7 +113,7 @@ class HistoryCommandMessage(RPCMessage):
 
     class Response(RPCMessage.Response):
         status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
-        msg: Optional[str] = ''
+        msg: Optional[str] = ""
         trades: Optional[List[Any]] = []
 
 
@@ -125,8 +125,8 @@ class BalanceLimitCommandMessage(RPCMessage):
 
     class Response(RPCMessage.Response):
         status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
-        msg: Optional[str] = ''
-        data: Optional[str] = ''
+        msg: Optional[str] = ""
+        data: Optional[str] = ""
 
 
 class BalancePaperCommandMessage(RPCMessage):
@@ -136,5 +136,5 @@ class BalancePaperCommandMessage(RPCMessage):
 
     class Response(RPCMessage.Response):
         status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
-        msg: Optional[str] = ''
-        data: Optional[str] = ''
+        msg: Optional[str] = ""
+        data: Optional[str] = ""

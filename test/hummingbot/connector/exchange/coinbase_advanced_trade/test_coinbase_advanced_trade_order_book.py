@@ -10,27 +10,16 @@ class CoinbaseAdvancedTradeOrderBookTests(TestCase):
 
     def test_snapshot_message_from_exchange(self):
         snapshot_message = CoinbaseAdvancedTradeOrderBook.snapshot_message_from_exchange(
-            msg=
-            {
+            msg={
                 "pricebook": {
                     "product_id": "BTC-USD",
-                    "bids": [
-                        {
-                            "price": "4.00000000",
-                            "size": "431.00000000"
-                        }
-                    ],
-                    "asks": [
-                        {
-                            "price": "4.00000200",
-                            "size": "12.00000000"
-                        }
-                    ],
-                    "time": "2023-07-11T22:34:09+02:00"
+                    "bids": [{"price": "4.00000000", "size": "431.00000000"}],
+                    "asks": [{"price": "4.00000200", "size": "12.00000000"}],
+                    "time": "2023-07-11T22:34:09+02:00",
                 }
             },
             timestamp=1728378636,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
+            metadata={"trading_pair": "COINALPHA-HBOT"},
         )
 
         self.assertEqual("COINALPHA-HBOT", snapshot_message.trading_pair)
@@ -49,35 +38,34 @@ class CoinbaseAdvancedTradeOrderBookTests(TestCase):
 
     def test_diff_message_from_exchange(self):
         diff_msg = CoinbaseAdvancedTradeOrderBook.diff_message_from_exchange(
-            msg=
-            {
-                'channel': 'l2_data',
-                'client_id': '',
-                'timestamp': '2024-10-08T09:10:36.04370306Z',
-                'sequence_num': 9,
-                'events': [
+            msg={
+                "channel": "l2_data",
+                "client_id": "",
+                "timestamp": "2024-10-08T09:10:36.04370306Z",
+                "sequence_num": 9,
+                "events": [
                     {
-                        'type': 'update',
-                        'product_id': 'COINALPHA-HBOT',
-                        'updates': [
+                        "type": "update",
+                        "product_id": "COINALPHA-HBOT",
+                        "updates": [
                             {
-                                'side': 'bid',
-                                'event_time': '2024-10-08T09:10:34.970831Z',
-                                'price_level': '0.0024',
-                                'new_quantity': '10'
+                                "side": "bid",
+                                "event_time": "2024-10-08T09:10:34.970831Z",
+                                "price_level": "0.0024",
+                                "new_quantity": "10",
                             },
                             {
-                                'side': 'ask',
-                                'event_time': '2024-10-08T09:10:34.970831Z',
-                                'price_level': '0.0026',
-                                'new_quantity': '100'
-                            }
-                        ]
+                                "side": "ask",
+                                "event_time": "2024-10-08T09:10:34.970831Z",
+                                "price_level": "0.0026",
+                                "new_quantity": "100",
+                            },
+                        ],
                     }
-                ]
+                ],
             },
             timestamp=1728378636,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
+            metadata={"trading_pair": "COINALPHA-HBOT"},
         )
 
         self.assertEqual("COINALPHA-HBOT", diff_msg.trading_pair)
@@ -113,14 +101,13 @@ class CoinbaseAdvancedTradeOrderBookTests(TestCase):
                             "side": "BUY",
                             "time": "2019-08-14T20:42:27.265Z",
                         }
-                    ]
+                    ],
                 }
-            ]
+            ],
         }
 
         trade_message = CoinbaseAdvancedTradeOrderBook.trade_message_from_exchange(
-            msg=trade_update,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
+            msg=trade_update, metadata={"trading_pair": "COINALPHA-HBOT"}
         )
 
         self.assertEqual("COINALPHA-HBOT", trade_message.trading_pair)

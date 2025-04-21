@@ -1,4 +1,3 @@
-
 class CurrencyAmount:
 
     def __init__(self):

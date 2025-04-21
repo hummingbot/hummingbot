@@ -79,7 +79,7 @@ class RingBufferTest(unittest.TestCase):
 
     def test_std_dev_and_variance_with_alternated_samples(self):
         for i in range(self.BUFFER_LENGTH * 3):
-            self.buffer.add_value(2 * ((-1)**i))
+            self.buffer.add_value(2 * ((-1) ** i))
             if self.buffer.is_full:
                 self.assertEqual(self.buffer.std_dev, 2)
                 self.assertEqual(self.buffer.variance, 4)

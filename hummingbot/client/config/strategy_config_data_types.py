@@ -16,7 +16,7 @@ class BaseStrategyConfigMap(BaseClientModel):
         json_schema_extra={
             "prompt": "Enter the strategy name (e.g., market_making, arbitrage): ",
             "prompt_on_new": True,
-        }
+        },
     )
 
     @field_validator("strategy", mode="before")
@@ -37,7 +37,10 @@ class BaseTradingStrategyConfigMap(BaseStrategyConfigMap):
     market: str = Field(
         default=...,
         description="The trading pair.",
-        json_schema_extra={"prompt": "Enter the token trading pair you would like to trade on (e.g. BTC-USDT)", "prompt_on_new": True},
+        json_schema_extra={
+            "prompt": "Enter the token trading pair you would like to trade on (e.g. BTC-USDT)",
+            "prompt_on_new": True,
+        },
     )
 
     @field_validator("exchange", mode="before")
@@ -80,14 +83,18 @@ class BaseTradingStrategyMakerTakerConfigMap(BaseStrategyConfigMap):
     maker_market_trading_pair: str = Field(
         default=...,
         description="The name of the maker trading pair.",
-        json_schema_extra={"prompt": "Enter the token trading pair you would like to trade on maker market: (e.g. BTC-USDT)",
-                           "prompt_on_new": True},
+        json_schema_extra={
+            "prompt": "Enter the token trading pair you would like to trade on maker market: (e.g. BTC-USDT)",
+            "prompt_on_new": True,
+        },
     )
     taker_market_trading_pair: str = Field(
         default=...,
         description="The name of the taker trading pair.",
-        json_schema_extra={"prompt": "Enter the token trading pair you would like to trade on maker market: (e.g. BTC-USDT)",
-                           "prompt_on_new": True},
+        json_schema_extra={
+            "prompt": "Enter the token trading pair you would like to trade on maker market: (e.g. BTC-USDT)",
+            "prompt_on_new": True,
+        },
     )
 
     @field_validator("maker_market_trading_pair", "taker_market_trading_pair", mode="before")

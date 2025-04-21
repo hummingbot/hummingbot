@@ -10,7 +10,7 @@ from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 DEFAULT_FEES = TradeFeeSchema(
     maker_percent_fee_decimal=Decimal("0.0002"),
     taker_percent_fee_decimal=Decimal("0.0004"),
-    buy_percent_fee_deducted_from_returns=True
+    buy_percent_fee_deducted_from_returns=True,
 )
 
 CENTRALIZED = True
@@ -58,8 +58,8 @@ class HashkeyPerpetualConfigMap(BaseConnectorConfigMap):
             "prompt": "Enter your Hashkey Perpetual API key",
             "is_secure": True,
             "is_connect_key": True,
-            "prompt_on_new": True
-        }
+            "prompt_on_new": True,
+        },
     )
     hashkey_perpetual_secret_key: SecretStr = Field(
         default=...,
@@ -67,8 +67,8 @@ class HashkeyPerpetualConfigMap(BaseConnectorConfigMap):
             "prompt": "Enter your Hashkey Perpetual API secret",
             "is_secure": True,
             "is_connect_key": True,
-            "prompt_on_new": True
-        }
+            "prompt_on_new": True,
+        },
     )
 
 
@@ -88,8 +88,8 @@ class HashkeyPerpetualTestnetConfigMap(BaseConnectorConfigMap):
             "prompt": "Enter your Hashkey Perpetual testnet API key",
             "is_secure": True,
             "is_connect_key": True,
-            "prompt_on_new": True
-        }
+            "prompt_on_new": True,
+        },
     )
     hashkey_perpetual_testnet_secret_key: SecretStr = Field(
         default=...,
@@ -97,8 +97,8 @@ class HashkeyPerpetualTestnetConfigMap(BaseConnectorConfigMap):
             "prompt": "Enter your Hashkey Perpetual testnet API secret",
             "is_secure": True,
             "is_connect_key": True,
-            "prompt_on_new": True
-        }
+            "prompt_on_new": True,
+        },
     )
     model_config = ConfigDict(title="hashkey_perpetual")
 

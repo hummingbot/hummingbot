@@ -16,31 +16,19 @@ class CubeUtilTestCases(unittest.TestCase):
         cls.ex_trading_pair = f"{cls.base_asset}{cls.quote_asset}"
 
     def test_is_exchange_information_valid(self):
-        invalid_info_0 = {
-            "disabled": False,
-            "status": 1
-        }
+        invalid_info_0 = {"disabled": False, "status": 1}
 
         self.assertTrue(utils.is_exchange_information_valid(invalid_info_0))
 
-        invalid_info_1 = {
-            "disabled": False,
-            "status": 2
-        }
+        invalid_info_1 = {"disabled": False, "status": 2}
 
         self.assertTrue(utils.is_exchange_information_valid(invalid_info_1))
 
-        invalid_info_2 = {
-            "disabled": True,
-            "status": 1
-        }
+        invalid_info_2 = {"disabled": True, "status": 1}
 
         self.assertFalse(utils.is_exchange_information_valid(invalid_info_2))
 
-        invalid_info_3 = {
-            "disabled": False,
-            "status": 3
-        }
+        invalid_info_3 = {"disabled": False, "status": 3}
 
         self.assertFalse(utils.is_exchange_information_valid(invalid_info_3))
 
@@ -56,8 +44,9 @@ class CubeUtilTestCases(unittest.TestCase):
         result = utils.raw_units_to_number(raw_units)
 
         # Calculate the expected result
-        expected_result = raw_units.word0 + (raw_units.word1 << 64) + (raw_units.word2 << 128) + (
-            raw_units.word3 << 192)
+        expected_result = (
+            raw_units.word0 + (raw_units.word1 << 64) + (raw_units.word2 << 128) + (raw_units.word3 << 192)
+        )
 
         # Assert that the function returned the expected result
         self.assertEqual(result, expected_result)

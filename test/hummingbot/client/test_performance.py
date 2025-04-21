@@ -41,10 +41,8 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
         return ret
 
     def test_position_order_returns_nothing_when_no_open_and_no_close_orders(self):
-        trade_for_open = [self.mock_trade(id=f"order{i}", amount=100, price=10, position="INVALID")
-                          for i in range(3)]
-        trades_for_close = [self.mock_trade(id=f"order{i}", amount=100, price=10, position="INVALID")
-                            for i in range(2)]
+        trade_for_open = [self.mock_trade(id=f"order{i}", amount=100, price=10, position="INVALID") for i in range(3)]
+        trades_for_close = [self.mock_trade(id=f"order{i}", amount=100, price=10, position="INVALID") for i in range(2)]
 
         self.assertIsNone(PerformanceMetrics.position_order(trade_for_open, trades_for_close))
 
@@ -58,16 +56,15 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
         self.assertIsNone(PerformanceMetrics.position_order(trade_for_open, trades_for_close))
 
     def test_position_order_returns_open_and_close_pair(self):
-        trades_for_open = [self.mock_trade(id=f"order{i}", amount=100, price=10, position="INVALID")
-                           for i in range(3)]
-        trades_for_close = [self.mock_trade(id=f"order{i}", amount=100, price=10, position="INVALID")
-                            for i in range(2)]
+        trades_for_open = [self.mock_trade(id=f"order{i}", amount=100, price=10, position="INVALID") for i in range(3)]
+        trades_for_close = [self.mock_trade(id=f"order{i}", amount=100, price=10, position="INVALID") for i in range(2)]
 
         trades_for_open[1].position = "OPEN"
         trades_for_close[-1].position = "CLOSE"
 
-        selected_open, selected_close = PerformanceMetrics.position_order(trades_for_open.copy(),
-                                                                          trades_for_close.copy())
+        selected_open, selected_close = PerformanceMetrics.position_order(
+            trades_for_open.copy(), trades_for_close.copy()
+        )
         self.assertEqual(selected_open, trades_for_open[1])
         self.assertEqual(selected_close, trades_for_close[-1])
 
@@ -163,15 +160,14 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
                 trade_fee=trade_fee.to_json(),
                 exchange_trade_id="someExchangeId1",
                 position=PositionAction.NIL.value,
-            )
+            ),
         ]
         cur_bals = {base: 100, quote: 10000}
-        metrics = asyncio.get_event_loop().run_until_complete(
-            PerformanceMetrics.create(trading_pair, trades, cur_bals))
+        metrics = asyncio.get_event_loop().run_until_complete(PerformanceMetrics.create(trading_pair, trades, cur_bals))
         self.assertEqual(Decimal("799"), metrics.trade_pnl)
         print(metrics)
 
-    @patch('hummingbot.client.performance.PerformanceMetrics._is_trade_fill')
+    @patch("hummingbot.client.performance.PerformanceMetrics._is_trade_fill")
     def test_performance_metrics_for_derivatives(self, is_trade_fill_mock):
         rate_oracle = RateOracle()
         rate_oracle._prices["USDT-HBOT"] = Decimal("5")
@@ -179,36 +175,49 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
 
         is_trade_fill_mock.return_value = True
         trades = []
-        trades.append(self.mock_trade(id="order1",
-                                      amount=Decimal("100"),
-                                      price=Decimal("10"),
-                                      position="OPEN",
-                                      type="BUY",
-                                      fee=AddedToCostTradeFee(flat_fees=[TokenAmount(quote, Decimal("0"))])))
-        trades.append(self.mock_trade(id="order2",
-                                      amount=Decimal("100"),
-                                      price=Decimal("15"),
-                                      position="CLOSE",
-                                      type="SELL",
-                                      fee=AddedToCostTradeFee(flat_fees=[TokenAmount(quote, Decimal("0"))])))
-        trades.append(self.mock_trade(id="order3",
-                                      amount=Decimal("100"),
-                                      price=Decimal("20"),
-                                      position="OPEN",
-                                      type="SELL",
-                                      fee=AddedToCostTradeFee(Decimal("0.1"),
-                                                              flat_fees=[TokenAmount("USD", Decimal("0"))])))
-        trades.append(self.mock_trade(id="order4",
-                                      amount=Decimal("100"),
-                                      price=Decimal("15"),
-                                      position="CLOSE",
-                                      type="BUY",
-                                      fee=AddedToCostTradeFee(Decimal("0.1"),
-                                                              flat_fees=[TokenAmount("USD", Decimal("0"))])))
+        trades.append(
+            self.mock_trade(
+                id="order1",
+                amount=Decimal("100"),
+                price=Decimal("10"),
+                position="OPEN",
+                type="BUY",
+                fee=AddedToCostTradeFee(flat_fees=[TokenAmount(quote, Decimal("0"))]),
+            )
+        )
+        trades.append(
+            self.mock_trade(
+                id="order2",
+                amount=Decimal("100"),
+                price=Decimal("15"),
+                position="CLOSE",
+                type="SELL",
+                fee=AddedToCostTradeFee(flat_fees=[TokenAmount(quote, Decimal("0"))]),
+            )
+        )
+        trades.append(
+            self.mock_trade(
+                id="order3",
+                amount=Decimal("100"),
+                price=Decimal("20"),
+                position="OPEN",
+                type="SELL",
+                fee=AddedToCostTradeFee(Decimal("0.1"), flat_fees=[TokenAmount("USD", Decimal("0"))]),
+            )
+        )
+        trades.append(
+            self.mock_trade(
+                id="order4",
+                amount=Decimal("100"),
+                price=Decimal("15"),
+                position="CLOSE",
+                type="BUY",
+                fee=AddedToCostTradeFee(Decimal("0.1"), flat_fees=[TokenAmount("USD", Decimal("0"))]),
+            )
+        )
 
         cur_bals = {base: 100, quote: 10000}
-        metrics = asyncio.get_event_loop().run_until_complete(
-            PerformanceMetrics.create(trading_pair, trades, cur_bals))
+        metrics = asyncio.get_event_loop().run_until_complete(PerformanceMetrics.create(trading_pair, trades, cur_bals))
         self.assertEqual(metrics.num_buys, 2)
         self.assertEqual(metrics.num_sells, 2)
         self.assertEqual(metrics.num_trades, 4)
@@ -273,14 +282,10 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
             order_type=OrderType.LIMIT,
             market="binance",
             timestamp=1640001112.223,
-            trade_fee=AddedToCostTradeFee(percent=Decimal("0.1"),
-                                          percent_token="COINALPHA",
-                                          flat_fees=flat_fees)
+            trade_fee=AddedToCostTradeFee(percent=Decimal("0.1"), percent_token="COINALPHA", flat_fees=flat_fees),
         )
 
-        self.async_run_with_timeout(performance_metric._calculate_fees(
-            quote="COINALPHA",
-            trades=[trade]))
+        self.async_run_with_timeout(performance_metric._calculate_fees(quote="COINALPHA", trades=[trade]))
 
         expected_fee_amount = trade.amount * trade.price * trade.trade_fee.percent
         expected_fee_amount += flat_fees[0].amount * Decimal("0.9") * Decimal("2")
@@ -311,16 +316,14 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
             order_type="LIMIT",
             price=1000,
             amount=1,
-            trade_fee=AddedToCostTradeFee(percent=Decimal("0.1"),
-                                          percent_token="COINALPHA",
-                                          flat_fees=flat_fees).to_json(),
+            trade_fee=AddedToCostTradeFee(
+                percent=Decimal("0.1"), percent_token="COINALPHA", flat_fees=flat_fees
+            ).to_json(),
             exchange_trade_id="someExchangeId0",
             position=PositionAction.NIL.value,
         )
 
-        self.async_run_with_timeout(performance_metric._calculate_fees(
-            quote="COINALPHA",
-            trades=[trade]))
+        self.async_run_with_timeout(performance_metric._calculate_fees(quote="COINALPHA", trades=[trade]))
 
         expected_fee_amount = Decimal(str(trade.amount)) * Decimal(str(trade.price)) * Decimal("0.1")
         expected_fee_amount += flat_fees[0].amount * Decimal("0.9") * Decimal("2")
@@ -328,15 +331,16 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
         self.assertEqual(expected_fee_amount, performance_metric.fee_in_quote)
 
     def test__process_deducted_fees_impact_in_quote_vol(self):
-        dummy_trade = Trade(trading_pair="HBOT-COINALPHA",
-                            side=TradeType.BUY,
-                            price=1000,
-                            amount=1,
-                            order_type=OrderType.LIMIT,
-                            market="binance",
-                            timestamp=1640001112.223,
-                            trade_fee=DeductedFromReturnsTradeFee(percent=Decimal("0.1"),
-                                                                  percent_token="COINALPHA"))
+        dummy_trade = Trade(
+            trading_pair="HBOT-COINALPHA",
+            side=TradeType.BUY,
+            price=1000,
+            amount=1,
+            order_type=OrderType.LIMIT,
+            market="binance",
+            timestamp=1640001112.223,
+            trade_fee=DeductedFromReturnsTradeFee(percent=Decimal("0.1"), percent_token="COINALPHA"),
+        )
 
         performance_metric = PerformanceMetrics()
         returned_impact = performance_metric._process_deducted_fees_impact_in_quote_vol(dummy_trade)

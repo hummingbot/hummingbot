@@ -11,5 +11,4 @@ class RESTPreProcessorBase(abc.ABC):
     """
 
     @abc.abstractmethod
-    async def pre_process(self, request: RESTRequest) -> RESTRequest:
-        ...
+    async def pre_process(self, request: RESTRequest) -> RESTRequest: ...

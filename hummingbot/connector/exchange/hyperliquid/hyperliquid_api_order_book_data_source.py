@@ -26,11 +26,13 @@ class HyperliquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(self,
-                 trading_pairs: List[str],
-                 connector: 'HyperliquidExchange',
-                 api_factory: WebAssistantsFactory,
-                 domain: str = CONSTANTS.DOMAIN):
+    def __init__(
+        self,
+        trading_pairs: List[str],
+        connector: "HyperliquidExchange",
+        api_factory: WebAssistantsFactory,
+        domain: str = CONSTANTS.DOMAIN,
+    ):
         super().__init__(trading_pairs)
         self._connector = connector
         self._trade_messages_queue_key = CONSTANTS.TRADE_EVENT_TYPE
@@ -38,31 +40,22 @@ class HyperliquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._domain = domain
         self._api_factory = api_factory
 
-    async def get_last_traded_prices(self,
-                                     trading_pairs: List[str],
-                                     domain: Optional[str] = None) -> Dict[str, float]:
+    async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         ex_trading_pair = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        params = {
-            "type": 'l2Book',
-            "coin": ex_trading_pair
-        }
+        params = {"type": "l2Book", "coin": ex_trading_pair}
 
-        data = await self._connector._api_post(
-            path_url=CONSTANTS.SNAPSHOT_REST_URL,
-            data=params)
+        data = await self._connector._api_post(path_url=CONSTANTS.SNAPSHOT_REST_URL, data=params)
         return data
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
         snapshot.update({"trading_pair": trading_pair})
-        snapshot_timestamp: float = snapshot['time']
+        snapshot_timestamp: float = snapshot["time"]
         snapshot_msg: OrderBookMessage = HyperliquidOrderBook.snapshot_message_from_exchange(
-            snapshot,
-            snapshot_timestamp,
-            metadata={"trading_pair": trading_pair}
+            snapshot, snapshot_timestamp, metadata={"trading_pair": trading_pair}
         )
         return snapshot_msg
 
@@ -86,7 +79,7 @@ class HyperliquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     "subscription": {
                         "type": CONSTANTS.TRADES_ENDPOINT_NAME,
                         "coin": symbol,
-                    }
+                    },
                 }
                 subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trades_payload)
 
@@ -95,7 +88,7 @@ class HyperliquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     "subscription": {
                         "type": CONSTANTS.DEPTH_ENDPOINT_NAME,
                         "coin": symbol,
-                    }
+                    },
                 }
                 subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=order_book_payload)
 
@@ -111,29 +104,31 @@ class HyperliquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         timestamp: float = raw_message["data"]["time"] * 1e-3
-        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-            raw_message["data"]["coin"])
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(raw_message["data"]["coin"])
         data = raw_message["data"]
         order_book_message: OrderBookMessage = HyperliquidOrderBook.diff_message_from_exchange(
-            data, timestamp, {"trading_pair": trading_pair})
+            data, timestamp, {"trading_pair": trading_pair}
+        )
         message_queue.put_nowait(order_book_message)
 
     async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-            raw_message["data"]["coin"])
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(raw_message["data"]["coin"])
         data = raw_message["data"]
         timestamp: float = raw_message["data"]["time"] * 1e-3
         trade_message: OrderBookMessage = HyperliquidOrderBook.snapshot_message_from_exchange(
-            data, timestamp, {"trading_pair": trading_pair},)
+            data,
+            timestamp,
+            {"trading_pair": trading_pair},
+        )
         message_queue.put_nowait(trade_message)
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         data = raw_message["data"]
         for trade_data in data:
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-                trade_data["coin"])
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(trade_data["coin"])
             trade_message: OrderBookMessage = HyperliquidOrderBook.trade_message_from_exchange(
-                trade_data, {"trading_pair": trading_pair})
+                trade_data, {"trading_pair": trading_pair}
+            )
             message_queue.put_nowait(trade_message)
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:

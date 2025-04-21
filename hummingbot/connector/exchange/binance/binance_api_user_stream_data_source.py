@@ -22,12 +22,14 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(self,
-                 auth: BinanceAuth,
-                 trading_pairs: List[str],
-                 connector: 'BinanceExchange',
-                 api_factory: WebAssistantsFactory,
-                 domain: str = CONSTANTS.DEFAULT_DOMAIN):
+    def __init__(
+        self,
+        auth: BinanceAuth,
+        trading_pairs: List[str],
+        connector: "BinanceExchange",
+        api_factory: WebAssistantsFactory,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+    ):
         super().__init__()
         self._auth: BinanceAuth = auth
         self._current_listen_key = None
@@ -66,7 +68,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 url=web_utils.public_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_PATH_URL, domain=self._domain),
                 method=RESTMethod.POST,
                 throttler_limit_id=CONSTANTS.BINANCE_USER_STREAM_PATH_URL,
-                headers=self._auth.header_for_authentication()
+                headers=self._auth.header_for_authentication(),
             )
         except asyncio.CancelledError:
             raise
@@ -84,7 +86,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 method=RESTMethod.PUT,
                 return_err=True,
                 throttler_limit_id=CONSTANTS.BINANCE_USER_STREAM_PATH_URL,
-                headers=self._auth.header_for_authentication()
+                headers=self._auth.header_for_authentication(),
             )
 
             if "code" in data:

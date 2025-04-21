@@ -196,10 +196,10 @@ class InjectiveDataSource(ABC):
 
     @abstractmethod
     async def order_updates_for_transaction(
-            self,
-            transaction_hash: str,
-            spot_orders: Optional[List[GatewayInFlightOrder]] = None,
-            perpetual_orders: Optional[List[GatewayPerpetualInFlightOrder]] = None,
+        self,
+        transaction_hash: str,
+        spot_orders: Optional[List[GatewayInFlightOrder]] = None,
+        perpetual_orders: Optional[List[GatewayPerpetualInFlightOrder]] = None,
     ) -> List[OrderUpdate]:
         raise NotImplementedError
 
@@ -239,11 +239,15 @@ class InjectiveDataSource(ABC):
                         derivative_market_ids.append(market_id)
 
                 self.add_listening_task(asyncio.create_task(self._listen_to_chain_transactions()))
-                self.add_listening_task(asyncio.create_task(self._listen_to_chain_updates(
-                    spot_markets=spot_markets,
-                    derivative_markets=derivative_markets,
-                    subaccount_ids=[self.portfolio_account_subaccount_id]
-                )))
+                self.add_listening_task(
+                    asyncio.create_task(
+                        self._listen_to_chain_updates(
+                            spot_markets=spot_markets,
+                            derivative_markets=derivative_markets,
+                            subaccount_ids=[self.portfolio_account_subaccount_id],
+                        )
+                    )
+                )
 
                 await self._initialize_timeout_height()
 
@@ -274,12 +278,20 @@ class InjectiveDataSource(ABC):
             snapshot_data = await self.query_executor.get_spot_orderbook(market_id=market_id)
 
         market = await self.spot_market_info_for_id(market_id=market_id)
-        bids = [(market.price_from_chain_format(chain_price=Decimal(price)),
-                 market.quantity_from_chain_format(chain_quantity=Decimal(quantity)))
-                for price, quantity, _ in snapshot_data["buys"]]
-        asks = [(market.price_from_chain_format(chain_price=Decimal(price)),
-                 market.quantity_from_chain_format(chain_quantity=Decimal(quantity)))
-                for price, quantity, _ in snapshot_data["sells"]]
+        bids = [
+            (
+                market.price_from_chain_format(chain_price=Decimal(price)),
+                market.quantity_from_chain_format(chain_quantity=Decimal(quantity)),
+            )
+            for price, quantity, _ in snapshot_data["buys"]
+        ]
+        asks = [
+            (
+                market.price_from_chain_format(chain_price=Decimal(price)),
+                market.quantity_from_chain_format(chain_quantity=Decimal(quantity)),
+            )
+            for price, quantity, _ in snapshot_data["sells"]
+        ]
         snapshot_msg = OrderBookMessage(
             message_type=OrderBookMessageType.SNAPSHOT,
             content={
@@ -297,12 +309,20 @@ class InjectiveDataSource(ABC):
             snapshot_data = await self.query_executor.get_derivative_orderbook(market_id=market_id)
 
         market = await self.derivative_market_info_for_id(market_id=market_id)
-        bids = [(market.price_from_chain_format(chain_price=Decimal(price)),
-                 market.quantity_from_chain_format(chain_quantity=Decimal(quantity)))
-                for price, quantity, _ in snapshot_data["buys"]]
-        asks = [(market.price_from_chain_format(chain_price=Decimal(price)),
-                 market.quantity_from_chain_format(chain_quantity=Decimal(quantity)))
-                for price, quantity, _ in snapshot_data["sells"]]
+        bids = [
+            (
+                market.price_from_chain_format(chain_price=Decimal(price)),
+                market.quantity_from_chain_format(chain_quantity=Decimal(quantity)),
+            )
+            for price, quantity, _ in snapshot_data["buys"]
+        ]
+        asks = [
+            (
+                market.price_from_chain_format(chain_price=Decimal(price)),
+                market.quantity_from_chain_format(chain_quantity=Decimal(quantity)),
+            )
+            for price, quantity, _ in snapshot_data["sells"]
+        ]
         snapshot_msg = OrderBookMessage(
             message_type=OrderBookMessageType.SNAPSHOT,
             content={
@@ -351,7 +371,8 @@ class InjectiveDataSource(ABC):
 
                     total_balance = token.value_from_chain_format(chain_value=Decimal(entry["deposit"]["totalBalance"]))
                     available_balance = token.value_from_chain_format(
-                        chain_value=Decimal(entry["deposit"]["availableBalance"]))
+                        chain_value=Decimal(entry["deposit"]["availableBalance"])
+                    )
 
                     balance_element = balances_dict.get(
                         asset_name, {"total_balance": Decimal("0"), "available_balance": Decimal("0")}
@@ -401,9 +422,9 @@ class InjectiveDataSource(ABC):
         return positions
 
     async def create_orders(
-            self,
-            spot_orders: Optional[List[GatewayInFlightOrder]] = None,
-            perpetual_orders: Optional[List[GatewayPerpetualInFlightOrder]] = None,
+        self,
+        spot_orders: Optional[List[GatewayInFlightOrder]] = None,
+        perpetual_orders: Optional[List[GatewayPerpetualInFlightOrder]] = None,
     ) -> List[PlaceOrderResult]:
         spot_orders = spot_orders or []
         perpetual_orders = perpetual_orders or []
@@ -430,7 +451,8 @@ class InjectiveDataSource(ABC):
                 raise
             except Exception as ex:
                 self.logger().debug(
-                    f"Error broadcasting transaction to create orders (message: {order_creation_messages})")
+                    f"Error broadcasting transaction to create orders (message: {order_creation_messages})"
+                )
                 results = self._place_order_results(
                     orders_to_create=spot_orders + perpetual_orders,
                     misc_updates={},
@@ -440,9 +462,9 @@ class InjectiveDataSource(ABC):
         return results
 
     async def cancel_orders(
-            self,
-            spot_orders: Optional[List[GatewayInFlightOrder]] = None,
-            perpetual_orders: Optional[List[GatewayPerpetualInFlightOrder]] = None,
+        self,
+        spot_orders: Optional[List[GatewayInFlightOrder]] = None,
+        perpetual_orders: Optional[List[GatewayPerpetualInFlightOrder]] = None,
     ) -> List[CancelOrderResult]:
         spot_orders = spot_orders or []
         perpetual_orders = perpetual_orders or []
@@ -477,31 +499,39 @@ class InjectiveDataSource(ABC):
                         raise ValueError(f"Error sending the order cancel transaction ({result['rawLog']})")
                     else:
                         cancel_transaction_hash = result.get("txhash", "")
-                        results.extend([
-                            CancelOrderResult(
-                                client_order_id=order.client_order_id,
-                                trading_pair=order.trading_pair,
-                                misc_updates={"cancelation_transaction_hash": cancel_transaction_hash},
-                            ) for order in orders_with_hash
-                        ])
+                        results.extend(
+                            [
+                                CancelOrderResult(
+                                    client_order_id=order.client_order_id,
+                                    trading_pair=order.trading_pair,
+                                    misc_updates={"cancelation_transaction_hash": cancel_transaction_hash},
+                                )
+                                for order in orders_with_hash
+                            ]
+                        )
                 except asyncio.CancelledError:
                     raise
                 except Exception as ex:
-                    self.logger().debug(f"Error broadcasting transaction to cancel orders (message: {delegated_message})")
-                    results.extend([
-                        CancelOrderResult(
-                            client_order_id=order.client_order_id,
-                            trading_pair=order.trading_pair,
-                            exception=ex,
-                        ) for order in orders_with_hash
-                    ])
+                    self.logger().debug(
+                        f"Error broadcasting transaction to cancel orders (message: {delegated_message})"
+                    )
+                    results.extend(
+                        [
+                            CancelOrderResult(
+                                client_order_id=order.client_order_id,
+                                trading_pair=order.trading_pair,
+                                exception=ex,
+                            )
+                            for order in orders_with_hash
+                        ]
+                    )
 
         return results
 
     async def cancel_all_subaccount_orders(
-            self,
-            spot_markets_ids: Optional[List[str]] = None,
-            perpetual_markets_ids: Optional[List[str]] = None,
+        self,
+        spot_markets_ids: Optional[List[str]] = None,
+        perpetual_markets_ids: Optional[List[str]] = None,
     ):
         spot_markets_ids = spot_markets_ids or []
         perpetual_markets_ids = perpetual_markets_ids or []
@@ -565,7 +595,9 @@ class InjectiveDataSource(ABC):
             else:
                 done = True
 
-        trade_updates = [await self._parse_derivative_trade_entry(trade_info=trade_info) for trade_info in trade_entries]
+        trade_updates = [
+            await self._parse_derivative_trade_entry(trade_info=trade_info) for trade_info in trade_entries
+        ]
 
         return trade_updates
 
@@ -645,7 +677,9 @@ class InjectiveDataSource(ABC):
             trading_pair=await self.trading_pair_for_market(market_id=market_id),
             index_price=last_traded_price,  # Use the last traded price as the index_price
             mark_price=oracle_price,
-            next_funding_utc_timestamp=int(updated_market_info["market"]["perpetualMarketInfo"]["nextFundingTimestamp"]),
+            next_funding_utc_timestamp=int(
+                updated_market_info["market"]["perpetualMarketInfo"]["nextFundingTimestamp"]
+            ),
             rate=funding_rate,
         )
         return funding_info
@@ -664,9 +698,7 @@ class InjectiveDataSource(ABC):
     async def last_funding_payment(self, market_id: str) -> Tuple[Decimal, float]:
         async with self.throttler.execute_task(limit_id=CONSTANTS.FUNDING_PAYMENTS_LIMIT_ID):
             response = await self.query_executor.get_funding_payments(
-                subaccount_id=self.portfolio_account_subaccount_id,
-                market_id=market_id,
-                limit=1
+                subaccount_id=self.portfolio_account_subaccount_id, market_id=market_id, limit=1
             )
 
         last_payment = Decimal(-1)
@@ -693,30 +725,30 @@ class InjectiveDataSource(ABC):
 
     @abstractmethod
     async def _order_creation_messages(
-            self,
-            spot_orders_to_create: List[GatewayInFlightOrder],
-            derivative_orders_to_create: List[GatewayPerpetualInFlightOrder],
+        self,
+        spot_orders_to_create: List[GatewayInFlightOrder],
+        derivative_orders_to_create: List[GatewayPerpetualInFlightOrder],
     ) -> List[any_pb2.Any]:
         raise NotImplementedError
 
     @abstractmethod
     async def _order_cancel_message(
-            self,
-            spot_orders_to_cancel: List[injective_exchange_tx_pb.OrderData],
-            derivative_orders_to_cancel: List[injective_exchange_tx_pb.OrderData]
+        self,
+        spot_orders_to_cancel: List[injective_exchange_tx_pb.OrderData],
+        derivative_orders_to_cancel: List[injective_exchange_tx_pb.OrderData],
     ) -> any_pb2.Any:
         raise NotImplementedError
 
     @abstractmethod
     async def _all_subaccount_orders_cancel_message(
-            self,
-            spot_markets_ids: List[str],
-            derivative_markets_ids: List[str]
+        self, spot_markets_ids: List[str], derivative_markets_ids: List[str]
     ) -> any_pb2.Any:
         raise NotImplementedError
 
     @abstractmethod
-    async def _generate_injective_order_data(self, order: GatewayInFlightOrder, market_id: str) -> injective_exchange_tx_pb.OrderData:
+    async def _generate_injective_order_data(
+        self, order: GatewayInFlightOrder, market_id: str
+    ) -> injective_exchange_tx_pb.OrderData:
         raise NotImplementedError
 
     @abstractmethod
@@ -728,10 +760,10 @@ class InjectiveDataSource(ABC):
         raise NotImplementedError
 
     def _place_order_results(
-            self,
-            orders_to_create: List[GatewayInFlightOrder],
-            misc_updates: Dict[str, Any],
-            exception: Optional[Exception] = None,
+        self,
+        orders_to_create: List[GatewayInFlightOrder],
+        misc_updates: Dict[str, Any],
+        exception: Optional[Exception] = None,
     ) -> List[PlaceOrderResult]:
         return [
             PlaceOrderResult(
@@ -740,8 +772,9 @@ class InjectiveDataSource(ABC):
                 exchange_order_id=None,
                 trading_pair=order.trading_pair,
                 misc_updates=misc_updates,
-                exception=exception
-            ) for order in orders_to_create
+                exception=exception,
+            )
+            for order in orders_to_create
         ]
 
     async def _last_traded_price(self, market_id: str) -> Decimal:
@@ -755,8 +788,7 @@ class InjectiveDataSource(ABC):
                 )
             trades = trades_response.get("trades", [])
             if len(trades) > 0:
-                price = market.price_from_chain_format(
-                    chain_price=Decimal(trades[0]["price"]["price"]))
+                price = market.price_from_chain_format(chain_price=Decimal(trades[0]["price"]["price"]))
 
         else:
             market = await self.derivative_market_info_for_id(market_id=market_id)
@@ -768,7 +800,8 @@ class InjectiveDataSource(ABC):
             trades = trades_response.get("trades", [])
             if len(trades) > 0:
                 price = market.price_from_chain_format(
-                    chain_price=Decimal(trades_response["trades"][0]["positionDelta"]["executionPrice"]))
+                    chain_price=Decimal(trades_response["trades"][0]["positionDelta"]["executionPrice"])
+                )
 
         return price
 
@@ -786,14 +819,14 @@ class InjectiveDataSource(ABC):
         return price
 
     async def _listen_chain_stream_updates(
-            self,
-            spot_markets: List[InjectiveSpotMarket],
-            derivative_markets: List[InjectiveDerivativeMarket],
-            subaccount_ids: List[str],
-            composer: Composer,
-            callback: Callable,
-            on_end_callback: Optional[Callable] = None,
-            on_status_callback: Optional[Callable] = None,
+        self,
+        spot_markets: List[InjectiveSpotMarket],
+        derivative_markets: List[InjectiveDerivativeMarket],
+        subaccount_ids: List[str],
+        composer: Composer,
+        callback: Callable,
+        on_end_callback: Optional[Callable] = None,
+        on_status_callback: Optional[Callable] = None,
     ):
         spot_market_ids = [market_info.market_id for market_info in spot_markets]
         derivative_market_ids = []
@@ -809,7 +842,8 @@ class InjectiveDataSource(ABC):
             spot_orderbooks_filter = composer.chain_stream_orderbooks_filter(market_ids=spot_market_ids)
             spot_trades_filter = composer.chain_stream_trades_filter(market_ids=spot_market_ids)
             spot_orders_filter = composer.chain_stream_orders_filter(
-                subaccount_ids=subaccount_ids, market_ids=spot_market_ids,
+                subaccount_ids=subaccount_ids,
+                market_ids=spot_market_ids,
             )
         else:
             spot_orderbooks_filter = None
@@ -845,7 +879,7 @@ class InjectiveDataSource(ABC):
             spot_orderbooks_filter=spot_orderbooks_filter,
             derivative_orderbooks_filter=derivative_orderbooks_filter,
             positions_filter=positions_filter,
-            oracle_price_filter=oracle_price_filter
+            oracle_price_filter=oracle_price_filter,
         )
 
     async def _listen_transactions_updates(
@@ -878,7 +912,7 @@ class InjectiveDataSource(ABC):
             fee_schema=TradeFeeSchema(),
             trade_type=trade_type,
             percent_token=market.quote_token.symbol,
-            flat_fees=[TokenAmount(amount=fee_amount, token=market.quote_token.symbol)]
+            flat_fees=[TokenAmount(amount=fee_amount, token=market.quote_token.symbol)],
         )
 
         trade_update = TradeUpdate(
@@ -903,7 +937,9 @@ class InjectiveDataSource(ABC):
         trading_pair = await self.trading_pair_for_market(market_id=trade_info["marketId"])
 
         price = market.price_from_chain_format(chain_price=Decimal(trade_info["positionDelta"]["executionPrice"]))
-        size = market.quantity_from_chain_format(chain_quantity=Decimal(trade_info["positionDelta"]["executionQuantity"]))
+        size = market.quantity_from_chain_format(
+            chain_quantity=Decimal(trade_info["positionDelta"]["executionQuantity"])
+        )
         is_taker: bool = trade_info["executionSide"] == "taker"
         trade_time = int(trade_info["executedAt"]) * 1e-3
         trade_id = trade_info["tradeId"]
@@ -913,7 +949,7 @@ class InjectiveDataSource(ABC):
             fee_schema=TradeFeeSchema(),
             position_action=PositionAction.OPEN,  # will be changed by the exchange class
             percent_token=market.quote_token.symbol,
-            flat_fees=[TokenAmount(amount=fee_amount, token=market.quote_token.symbol)]
+            flat_fees=[TokenAmount(amount=fee_amount, token=market.quote_token.symbol)],
         )
 
         trade_update = TradeUpdate(
@@ -1014,17 +1050,18 @@ class InjectiveDataSource(ABC):
         self.logger().debug("Reconnecting stream for chain stream")
 
     async def _listen_to_chain_updates(
-            self,
-            spot_markets: List[InjectiveSpotMarket],
-            derivative_markets: List[InjectiveDerivativeMarket],
-            subaccount_ids: List[str],
+        self,
+        spot_markets: List[InjectiveSpotMarket],
+        derivative_markets: List[InjectiveDerivativeMarket],
+        subaccount_ids: List[str],
     ):
         composer = await self.composer()
 
         async def _chain_stream_event_handler(event: Dict[str, Any]):
             try:
                 await self._process_chain_stream_update(
-                    chain_stream_update=event, derivative_markets=derivative_markets,
+                    chain_stream_update=event,
+                    derivative_markets=derivative_markets,
                 )
             except asyncio.CancelledError:
                 raise
@@ -1059,7 +1096,9 @@ class InjectiveDataSource(ABC):
             )
 
     async def _process_chain_stream_update(
-        self, chain_stream_update: Dict[str, Any], derivative_markets: List[InjectiveDerivativeMarket],
+        self,
+        chain_stream_update: Dict[str, Any],
+        derivative_markets: List[InjectiveDerivativeMarket],
     ):
         block_height = int(chain_stream_update["blockHeight"])
         block_timestamp = int(chain_stream_update["blockTime"]) * 1e-3
@@ -1114,8 +1153,8 @@ class InjectiveDataSource(ABC):
             asyncio.create_task(
                 self._process_chain_order_update(
                     order_updates=chain_stream_update.get("spotOrders", []),
-                    block_height = block_height,
-                    block_timestamp = block_timestamp,
+                    block_height=block_height,
+                    block_timestamp=block_timestamp,
                 )
             )
         )
@@ -1151,10 +1190,7 @@ class InjectiveDataSource(ABC):
         await safe_gather(*tasks)
 
     async def _process_chain_spot_order_book_update(
-            self,
-            order_book_updates: List[Dict[str, Any]],
-            block_height: int,
-            block_timestamp: float
+        self, order_book_updates: List[Dict[str, Any]], block_height: int, block_timestamp: float
     ):
         for order_book_update in order_book_updates:
             try:
@@ -1173,10 +1209,7 @@ class InjectiveDataSource(ABC):
                 self.logger().debug(f"Error processing the spot orderbook event {order_book_update}")
 
     async def _process_chain_derivative_order_book_update(
-            self,
-            order_book_updates: List[Dict[str, Any]],
-            block_height: int,
-            block_timestamp: float
+        self, order_book_updates: List[Dict[str, Any]], block_height: int, block_timestamp: float
     ):
         for order_book_update in order_book_updates:
             try:
@@ -1203,16 +1236,22 @@ class InjectiveDataSource(ABC):
     ):
         trading_pair = await self.trading_pair_for_market(market_id=market.market_id)
         buy_levels = sorted(
-            order_book_update["orderbook"].get("buyLevels", []),
-            key=lambda bid: int(bid["p"]),
-            reverse=True
+            order_book_update["orderbook"].get("buyLevels", []), key=lambda bid: int(bid["p"]), reverse=True
         )
-        bids = [(market.price_from_special_chain_format(chain_price=Decimal(bid["p"])),
-                 market.quantity_from_special_chain_format(chain_quantity=Decimal(bid["q"])))
-                for bid in buy_levels]
-        asks = [(market.price_from_special_chain_format(chain_price=Decimal(ask["p"])),
-                 market.quantity_from_special_chain_format(chain_quantity=Decimal(ask["q"])))
-                for ask in order_book_update["orderbook"].get("sellLevels", [])]
+        bids = [
+            (
+                market.price_from_special_chain_format(chain_price=Decimal(bid["p"])),
+                market.quantity_from_special_chain_format(chain_quantity=Decimal(bid["q"])),
+            )
+            for bid in buy_levels
+        ]
+        asks = [
+            (
+                market.price_from_special_chain_format(chain_price=Decimal(ask["p"])),
+                market.quantity_from_special_chain_format(chain_quantity=Decimal(ask["q"])),
+            )
+            for ask in order_book_update["orderbook"].get("sellLevels", [])
+        ]
 
         order_book_message_content = {
             "trading_pair": trading_pair,
@@ -1225,15 +1264,10 @@ class InjectiveDataSource(ABC):
             content=order_book_message_content,
             timestamp=block_timestamp,
         )
-        self.publisher.trigger_event(
-            event_tag=OrderBookDataSourceEvent.DIFF_EVENT, message=diff_message
-        )
+        self.publisher.trigger_event(event_tag=OrderBookDataSourceEvent.DIFF_EVENT, message=diff_message)
 
     async def _process_chain_spot_trade_update(
-        self,
-        trade_updates: List[Dict[str, Any]],
-        block_height: int,
-        block_timestamp: float
+        self, trade_updates: List[Dict[str, Any]], block_height: int, block_timestamp: float
     ):
         for trade_update in trade_updates:
             try:
@@ -1262,16 +1296,16 @@ class InjectiveDataSource(ABC):
                     content=message_content,
                     timestamp=timestamp,
                 )
-                self.publisher.trigger_event(
-                    event_tag=OrderBookDataSourceEvent.TRADE_EVENT, message=trade_message
-                )
+                self.publisher.trigger_event(event_tag=OrderBookDataSourceEvent.TRADE_EVENT, message=trade_message)
 
-                fee_amount = market_info.quote_token.value_from_special_chain_format(chain_value=Decimal(trade_update["fee"]))
+                fee_amount = market_info.quote_token.value_from_special_chain_format(
+                    chain_value=Decimal(trade_update["fee"])
+                )
                 fee = TradeFeeBase.new_spot_fee(
                     fee_schema=TradeFeeSchema(),
                     trade_type=trade_type,
                     percent_token=market_info.quote_token.symbol,
-                    flat_fees=[TokenAmount(amount=fee_amount, token=market_info.quote_token.symbol)]
+                    flat_fees=[TokenAmount(amount=fee_amount, token=market_info.quote_token.symbol)],
                 )
 
                 trade_update = TradeUpdate(
@@ -1293,10 +1327,7 @@ class InjectiveDataSource(ABC):
                 self.logger().debug(f"Error processing the spot trade event {trade_update}")
 
     async def _process_chain_derivative_trade_update(
-        self,
-        trade_updates: List[Dict[str, Any]],
-        block_height: int,
-        block_timestamp: float
+        self, trade_updates: List[Dict[str, Any]], block_height: int, block_timestamp: float
     ):
         for trade_update in trade_updates:
             try:
@@ -1309,7 +1340,8 @@ class InjectiveDataSource(ABC):
                     chain_quantity=Decimal(str(trade_update["positionDelta"]["executionQuantity"]))
                 )
                 price = market_info.price_from_special_chain_format(
-                    chain_price=Decimal(str(trade_update["positionDelta"]["executionPrice"])))
+                    chain_price=Decimal(str(trade_update["positionDelta"]["executionPrice"]))
+                )
                 order_hash = to_0x_hex(base64.b64decode(trade_update["orderHash"]))
                 client_order_id = trade_update.get("cid", "")
                 trade_id = trade_update["tradeId"]
@@ -1326,16 +1358,16 @@ class InjectiveDataSource(ABC):
                     content=message_content,
                     timestamp=block_timestamp,
                 )
-                self.publisher.trigger_event(
-                    event_tag=OrderBookDataSourceEvent.TRADE_EVENT, message=trade_message
-                )
+                self.publisher.trigger_event(event_tag=OrderBookDataSourceEvent.TRADE_EVENT, message=trade_message)
 
-                fee_amount = market_info.quote_token.value_from_special_chain_format(chain_value=Decimal(trade_update["fee"]))
+                fee_amount = market_info.quote_token.value_from_special_chain_format(
+                    chain_value=Decimal(trade_update["fee"])
+                )
                 fee = TradeFeeBase.new_perpetual_fee(
                     fee_schema=TradeFeeSchema(),
                     position_action=PositionAction.OPEN,  # will be changed by the exchange class
                     percent_token=market_info.quote_token.symbol,
-                    flat_fees=[TokenAmount(amount=fee_amount, token=market_info.quote_token.symbol)]
+                    flat_fees=[TokenAmount(amount=fee_amount, token=market_info.quote_token.symbol)],
                 )
 
                 trade_update = TradeUpdate(
@@ -1357,10 +1389,10 @@ class InjectiveDataSource(ABC):
                 self.logger().debug(f"Error processing the derivative trade event {trade_update}")
 
     async def _process_chain_order_update(
-            self,
-            order_updates: List[Dict[str, Any]],
-            block_height: int,
-            block_timestamp: float,
+        self,
+        order_updates: List[Dict[str, Any]],
+        block_height: int,
+        block_timestamp: float,
     ):
         for order_update in order_updates:
             try:
@@ -1384,10 +1416,10 @@ class InjectiveDataSource(ABC):
                 self.logger().debug(f"Error processing the order event {order_update}")
 
     async def _process_chain_position_updates(
-            self,
-            position_updates: List[Dict[str, Any]],
-            block_height: int,
-            block_timestamp: float,
+        self,
+        position_updates: List[Dict[str, Any]],
+        block_height: int,
+        block_timestamp: float,
     ):
         for event in position_updates:
             try:
@@ -1397,9 +1429,9 @@ class InjectiveDataSource(ABC):
 
                 position_side = PositionSide.LONG if event["isLong"] else PositionSide.SHORT
                 amount_sign = Decimal(-1) if position_side == PositionSide.SHORT else Decimal(1)
-                entry_price = (market.price_from_special_chain_format(chain_price=Decimal(event["entryPrice"])))
-                amount = (market.quantity_from_special_chain_format(chain_quantity=Decimal(event["quantity"])))
-                margin = (market.price_from_special_chain_format(chain_price=Decimal(event["margin"])))
+                entry_price = market.price_from_special_chain_format(chain_price=Decimal(event["entryPrice"]))
+                amount = market.quantity_from_special_chain_format(chain_quantity=Decimal(event["quantity"]))
+                margin = market.price_from_special_chain_format(chain_price=Decimal(event["margin"]))
                 oracle_price = await self._oracle_price(market_id=market_id)
                 leverage = (amount * entry_price) / margin
                 unrealized_pnl = (oracle_price - entry_price) * amount * amount_sign
@@ -1422,11 +1454,11 @@ class InjectiveDataSource(ABC):
                 self.logger().debug(f"Error processing the position event {event}")
 
     async def _process_oracle_price_updates(
-            self,
-            oracle_price_updates: List[Dict[str, Any]],
-            block_height: int,
-            block_timestamp: float,
-            derivative_markets: List[InjectiveDerivativeMarket],
+        self,
+        oracle_price_updates: List[Dict[str, Any]],
+        block_height: int,
+        block_timestamp: float,
+        derivative_markets: List[InjectiveDerivativeMarket],
     ):
         updated_symbols = {update["symbol"] for update in oracle_price_updates}
         for market in derivative_markets:
@@ -1446,19 +1478,14 @@ class InjectiveDataSource(ABC):
             except asyncio.CancelledError:
                 raise
             except Exception as ex:
-                self.logger().warning(
-                    f"Error processing oracle price update for market {market.trading_pair()} ({ex})"
-                )
+                self.logger().warning(f"Error processing oracle price update for market {market.trading_pair()} ({ex})")
 
     async def _process_position_update(self, position_event: Dict[str, Any]):
         parsed_event = await self._parse_position_update_event(event=position_event)
         self.publisher.trigger_event(event_tag=AccountEvent.PositionUpdate, message=parsed_event)
 
     async def _process_subaccount_balance_update(
-            self,
-            balance_events: List[Dict[str, Any]],
-            block_height: int,
-            block_timestamp: float
+        self, balance_events: List[Dict[str, Any]], block_height: int, block_timestamp: float
     ):
         if len(balance_events) > 0 and self._uses_default_portfolio_subaccount():
             token_balances = await self.all_account_balances()
@@ -1473,13 +1500,17 @@ class InjectiveDataSource(ABC):
                             available_balance = token_balances[updated_token.unique_symbol]["available_balance"]
                         else:
                             updated_total = deposit["deposit"].get("totalBalance")
-                            total_balance = (updated_token.value_from_special_chain_format(chain_value=Decimal(updated_total))
-                                             if updated_total is not None
-                                             else None)
+                            total_balance = (
+                                updated_token.value_from_special_chain_format(chain_value=Decimal(updated_total))
+                                if updated_total is not None
+                                else None
+                            )
                             updated_available = deposit["deposit"].get("availableBalance")
-                            available_balance = (updated_token.value_from_special_chain_format(chain_value=Decimal(updated_available))
-                                                 if updated_available is not None
-                                                 else None)
+                            available_balance = (
+                                updated_token.value_from_special_chain_format(chain_value=Decimal(updated_available))
+                                if updated_available is not None
+                                else None
+                            )
 
                         balance_msg = BalanceUpdateEvent(
                             timestamp=self._time(),
@@ -1538,7 +1569,7 @@ class InjectiveDataSource(ABC):
         return definition
 
     def _create_trading_rules(
-            self, markets: List[Union[InjectiveSpotMarket, InjectiveDerivativeMarket]]
+        self, markets: List[Union[InjectiveSpotMarket, InjectiveDerivativeMarket]]
     ) -> List[TradingRule]:
         trading_rules = []
         for market in markets:
@@ -1552,7 +1583,7 @@ class InjectiveDataSource(ABC):
                     min_price_increment=min_price_tick_size,
                     min_base_amount_increment=min_quantity_tick_size,
                     min_quote_amount_increment=min_price_tick_size,
-                    min_notional_size=min_notional
+                    min_notional_size=min_notional,
                 )
                 trading_rules.append(trading_rule)
             except asyncio.CancelledError:
@@ -1563,7 +1594,7 @@ class InjectiveDataSource(ABC):
         return trading_rules
 
     async def _create_trading_fees(
-            self, markets: List[Union[InjectiveSpotMarket, InjectiveDerivativeMarket]]
+        self, markets: List[Union[InjectiveSpotMarket, InjectiveDerivativeMarket]]
     ) -> Dict[str, TradeFeeSchema]:
         fees = {}
         for market in markets:
@@ -1577,14 +1608,14 @@ class InjectiveDataSource(ABC):
         return fees
 
     async def _get_markets_and_tokens(
-        self
+        self,
     ) -> Tuple[
         Dict[str, InjectiveToken],
         Mapping[str, str],
         Dict[str, InjectiveSpotMarket],
         Mapping[str, str],
         Dict[str, InjectiveDerivativeMarket],
-        Mapping[str, str]
+        Mapping[str, str],
     ]:
         tokens_map = {}
         token_symbol_and_denom_map = bidict()
@@ -1600,10 +1631,7 @@ class InjectiveDataSource(ABC):
                 tokens: Dict[str, Token] = await self.query_executor.tokens()
 
         for unique_symbol, injective_native_token in tokens.items():
-            token = InjectiveToken(
-                unique_symbol=unique_symbol,
-                native_token=injective_native_token
-            )
+            token = InjectiveToken(unique_symbol=unique_symbol, native_token=injective_native_token)
             tokens_map[token.denom] = token
             token_symbol_and_denom_map[unique_symbol] = token.denom
 
@@ -1613,14 +1641,15 @@ class InjectiveDataSource(ABC):
                     market_id=market.id,
                     base_token=tokens_map[market.base_token.denom],
                     quote_token=tokens_map[market.quote_token.denom],
-                    native_market=market
+                    native_market=market,
                 )
 
                 spot_market_id_to_trading_pair[parsed_market.market_id] = parsed_market.trading_pair()
                 spot_markets_map[parsed_market.market_id] = parsed_market
             except KeyError:
-                self.logger().debug(f"The spot market {market.id} will be excluded because it could not "
-                                    f"be parsed ({market})")
+                self.logger().debug(
+                    f"The spot market {market.id} will be excluded because it could not " f"be parsed ({market})"
+                )
                 continue
 
         for market in derivative_markets.values():
@@ -1634,13 +1663,15 @@ class InjectiveDataSource(ABC):
                 if parsed_market.trading_pair() in derivative_market_id_to_trading_pair.inverse:
                     self.logger().debug(
                         f"The derivative market {market.id} will be excluded because there is other"
-                        f" market with trading pair {parsed_market.trading_pair()} ({market})")
+                        f" market with trading pair {parsed_market.trading_pair()} ({market})"
+                    )
                     continue
                 derivative_market_id_to_trading_pair[parsed_market.market_id] = parsed_market.trading_pair()
                 derivative_markets_map[parsed_market.market_id] = parsed_market
             except KeyError:
-                self.logger().debug(f"The derivative market {market.id} will be excluded because it could"
-                                    f" not be parsed ({market})")
+                self.logger().debug(
+                    f"The derivative market {market.id} will be excluded because it could" f" not be parsed ({market})"
+                )
                 continue
 
         return (
@@ -1649,7 +1680,7 @@ class InjectiveDataSource(ABC):
             spot_markets_map,
             spot_market_id_to_trading_pair,
             derivative_markets_map,
-            derivative_market_id_to_trading_pair
+            derivative_market_id_to_trading_pair,
         )
 
     def _time(self):

@@ -135,12 +135,10 @@ class HttpRecorder(HttpPlayerBase):
           data = await resp.json()      # the request and response are recorded to test.db
           ...
     """
+
     async def aiohttp_request_method(
-            self,
-            client: ClientSession,
-            method: str,
-            url: str,
-            **kwargs) -> HttpRecorderClientResponse:
+        self, client: ClientSession, method: str, url: str, **kwargs
+    ) -> HttpRecorderClientResponse:
         try:
             if hasattr(client, "_reentrant_ref_count"):
                 client._reentrant_ref_count += 1
@@ -169,7 +167,7 @@ class HttpRecorder(HttpPlayerBase):
                     request_params=request_params,
                     request_json=request_json,
                     response_type=HttpResponseType.HEADER_ONLY,
-                    response_code=response.status
+                    response_code=response.status,
                 )
                 session.add(playback_entry)
                 session.flush()
@@ -226,6 +224,7 @@ class HttpPlayer(HttpPlayerBase):
           data = await resp.json()      # the data returned will be the recorded response
           ...
     """
+
     _replay_timestamp_ms: Optional[int]
 
     def __init__(self, db_path: str):
@@ -240,15 +239,10 @@ class HttpPlayer(HttpPlayerBase):
     def replay_timestamp_ms(self, value: Optional[int]):
         self._replay_timestamp_ms = value
 
-    async def aiohttp_request_method(
-            self,
-            _: ClientSession,
-            method: str,
-            url: str,
-            **kwargs) -> HttpPlayerResponse:
+    async def aiohttp_request_method(self, _: ClientSession, method: str, url: str, **kwargs) -> HttpPlayerResponse:
         with self.begin() as session:
             session: Session = session
-            query: Query = (HttpPlayback.url == url)
+            query: Query = HttpPlayback.url == url
             query = cast(Query, and_(query, HttpPlayback.method == method))
             if "params" in kwargs:
                 query = cast(Query, and_(query, HttpPlayback.request_params == kwargs["params"]))
@@ -256,24 +250,16 @@ class HttpPlayer(HttpPlayerBase):
                 query = cast(Query, and_(query, HttpPlayback.request_json == kwargs["json"]))
             if self._replay_timestamp_ms is not None:
                 query = cast(Query, and_(query, HttpPlayback.timestamp >= self._replay_timestamp_ms))
-            playback_entry: Optional[HttpPlayback] = (
-                session.query(HttpPlayback).filter(query).first()
-            )
+            playback_entry: Optional[HttpPlayback] = session.query(HttpPlayback).filter(query).first()
 
             # Loosen the query conditions if the first, precise query didn't work.
             if playback_entry is None:
-                query = (HttpPlayback.url == url)
+                query = HttpPlayback.url == url
                 query = cast(Query, and_(query, HttpPlayback.method == method))
                 if self._replay_timestamp_ms is not None:
                     query = cast(Query, and_(query, HttpPlayback.timestamp >= self._replay_timestamp_ms))
-                playback_entry = (
-                    session.query(HttpPlayback).filter(query).first()
-                )
+                playback_entry = session.query(HttpPlayback).filter(query).first()
 
             return HttpPlayerResponse(
-                method,
-                url,
-                playback_entry.response_code,
-                playback_entry.response_text,
-                playback_entry.response_json
+                method, url, playback_entry.response_code, playback_entry.response_text, playback_entry.response_json
             )

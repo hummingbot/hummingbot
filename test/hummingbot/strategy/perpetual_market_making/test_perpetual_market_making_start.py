@@ -25,7 +25,7 @@ class PerpetualMarketMakingStartTest(unittest.TestCase):
 
         c_map.get("leverage").value = Decimal("5")
         c_map.get("order_amount").value = Decimal("1")
-        c_map.get("order_refresh_time").value = 60.
+        c_map.get("order_refresh_time").value = 60.0
         c_map.get("bid_spread").value = Decimal("1")
         c_map.get("ask_spread").value = Decimal("2")
 
@@ -47,6 +47,6 @@ class PerpetualMarketMakingStartTest(unittest.TestCase):
     def test_strategy_creation(self):
         strategy_start.start(self)
         self.assertEqual(self.strategy.order_amount, Decimal("1"))
-        self.assertEqual(self.strategy.order_refresh_time, 60.)
+        self.assertEqual(self.strategy.order_refresh_time, 60.0)
         self.assertEqual(self.strategy.bid_spread, Decimal("0.01"))
         self.assertEqual(self.strategy.ask_spread, Decimal("0.02"))

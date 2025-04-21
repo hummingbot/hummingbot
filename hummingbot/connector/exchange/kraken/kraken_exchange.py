@@ -43,15 +43,16 @@ class KrakenExchange(ExchangePyBase):
     web_utils = web_utils
     REQUEST_ATTEMPTS = 5
 
-    def __init__(self,
-                 client_config_map: "ClientConfigAdapter",
-                 kraken_api_key: str,
-                 kraken_secret_key: str,
-                 trading_pairs: Optional[List[str]] = None,
-                 trading_required: bool = True,
-                 domain: str = CONSTANTS.DEFAULT_DOMAIN,
-                 kraken_api_tier: str = "starter"
-                 ):
+    def __init__(
+        self,
+        client_config_map: "ClientConfigAdapter",
+        kraken_api_key: str,
+        kraken_secret_key: str,
+        trading_pairs: Optional[List[str]] = None,
+        trading_required: bool = True,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+        kraken_api_tier: str = "starter",
+    ):
         self.api_key = kraken_api_key
         self.secret_key = kraken_secret_key
         self._domain = domain
@@ -75,10 +76,7 @@ class KrakenExchange(ExchangePyBase):
 
     @property
     def authenticator(self):
-        return KrakenAuth(
-            api_key=self.api_key,
-            secret_key=self.secret_key,
-            time_provider=self._time_synchronizer)
+        return KrakenAuth(api_key=self.api_key, secret_key=self.secret_key, time_provider=self._time_synchronizer)
 
     @property
     def name(self) -> str:
@@ -148,15 +146,12 @@ class KrakenExchange(ExchangePyBase):
         return CONSTANTS.UNKNOWN_ORDER_MESSAGE in str(cancelation_exception)
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
-        return web_utils.build_api_factory(
-            throttler=self._throttler,
-            auth=self._auth)
+        return web_utils.build_api_factory(throttler=self._throttler, auth=self._auth)
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         return KrakenAPIOrderBookDataSource(
-            trading_pairs=self._trading_pairs,
-            connector=self,
-            api_factory=self._web_assistants_factory)
+            trading_pairs=self._trading_pairs, connector=self, api_factory=self._web_assistants_factory
+        )
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         return KrakenAPIUserStreamDataSource(
@@ -164,14 +159,16 @@ class KrakenExchange(ExchangePyBase):
             api_factory=self._web_assistants_factory,
         )
 
-    def _get_fee(self,
-                 base_currency: str,
-                 quote_currency: str,
-                 order_type: OrderType,
-                 order_side: TradeType,
-                 amount: Decimal,
-                 price: Decimal = s_decimal_NaN,
-                 is_maker: Optional[bool] = None) -> TradeFeeBase:
+    def _get_fee(
+        self,
+        base_currency: str,
+        quote_currency: str,
+        order_type: OrderType,
+        order_side: TradeType,
+        amount: Decimal,
+        price: Decimal = s_decimal_NaN,
+        is_maker: Optional[bool] = None,
+    ) -> TradeFeeBase:
         is_maker = order_type is OrderType.LIMIT_MAKER
         trade_base_fee = build_trade_fee(
             exchange=self.name,
@@ -181,7 +178,7 @@ class KrakenExchange(ExchangePyBase):
             amount=amount,
             price=price,
             base_currency=base_currency,
-            quote_currency=quote_currency
+            quote_currency=quote_currency,
         )
         return trade_base_fee
 
@@ -210,20 +207,16 @@ class KrakenExchange(ExchangePyBase):
         return bool(re.search(r"HTTP status is (5|10)\d\d\.", str(exception)))
 
     async def get_open_orders_with_userref(self, userref: int):
-        data = {'userref': userref}
-        return await self._api_request_with_retry(RESTMethod.POST,
-                                                  CONSTANTS.OPEN_ORDERS_PATH_URL,
-                                                  is_auth_required=True,
-                                                  data=data)
+        data = {"userref": userref}
+        return await self._api_request_with_retry(
+            RESTMethod.POST, CONSTANTS.OPEN_ORDERS_PATH_URL, is_auth_required=True, data=data
+        )
 
     # === Orders placing ===
 
-    def buy(self,
-            trading_pair: str,
-            amount: Decimal,
-            order_type=OrderType.LIMIT,
-            price: Decimal = s_decimal_NaN,
-            **kwargs) -> str:
+    def buy(
+        self, trading_pair: str, amount: Decimal, order_type=OrderType.LIMIT, price: Decimal = s_decimal_NaN, **kwargs
+    ) -> str:
         """
         Creates a promise to create a buy order using the parameters
 
@@ -234,25 +227,32 @@ class KrakenExchange(ExchangePyBase):
 
         :return: the id assigned by the connector to the order (the client id)
         """
-        order_id = str(get_new_numeric_client_order_id(
-            nonce_creator=self._client_order_id_nonce_provider,
-            max_id_bit_count=CONSTANTS.MAX_ID_BIT_COUNT,
-        ))
-        safe_ensure_future(self._create_order(
-            trade_type=TradeType.BUY,
-            order_id=order_id,
-            trading_pair=trading_pair,
-            amount=amount,
-            order_type=order_type,
-            price=price))
+        order_id = str(
+            get_new_numeric_client_order_id(
+                nonce_creator=self._client_order_id_nonce_provider,
+                max_id_bit_count=CONSTANTS.MAX_ID_BIT_COUNT,
+            )
+        )
+        safe_ensure_future(
+            self._create_order(
+                trade_type=TradeType.BUY,
+                order_id=order_id,
+                trading_pair=trading_pair,
+                amount=amount,
+                order_type=order_type,
+                price=price,
+            )
+        )
         return order_id
 
-    def sell(self,
-             trading_pair: str,
-             amount: Decimal,
-             order_type: OrderType = OrderType.LIMIT,
-             price: Decimal = s_decimal_NaN,
-             **kwargs) -> str:
+    def sell(
+        self,
+        trading_pair: str,
+        amount: Decimal,
+        order_type: OrderType = OrderType.LIMIT,
+        price: Decimal = s_decimal_NaN,
+        **kwargs,
+    ) -> str:
         """
         Creates a promise to create a sell order using the parameters.
         :param trading_pair: the token pair to operate with
@@ -261,36 +261,46 @@ class KrakenExchange(ExchangePyBase):
         :param price: the order price
         :return: the id assigned by the connector to the order (the client id)
         """
-        order_id = str(get_new_numeric_client_order_id(
-            nonce_creator=self._client_order_id_nonce_provider,
-            max_id_bit_count=CONSTANTS.MAX_ID_BIT_COUNT,
-        ))
-        safe_ensure_future(self._create_order(
-            trade_type=TradeType.SELL,
-            order_id=order_id,
-            trading_pair=trading_pair,
-            amount=amount,
-            order_type=order_type,
-            price=price))
+        order_id = str(
+            get_new_numeric_client_order_id(
+                nonce_creator=self._client_order_id_nonce_provider,
+                max_id_bit_count=CONSTANTS.MAX_ID_BIT_COUNT,
+            )
+        )
+        safe_ensure_future(
+            self._create_order(
+                trade_type=TradeType.SELL,
+                order_id=order_id,
+                trading_pair=trading_pair,
+                amount=amount,
+                order_type=order_type,
+                price=price,
+            )
+        )
         return order_id
 
     async def get_asset_pairs(self) -> Dict[str, Any]:
         if not self._asset_pairs:
-            asset_pairs = await self._api_request_with_retry(method=RESTMethod.GET,
-                                                             path_url=CONSTANTS.ASSET_PAIRS_PATH_URL)
-            self._asset_pairs = {f"{details['base']}-{details['quote']}": details
-                                 for _, details in asset_pairs.items() if
-                                 web_utils.is_exchange_information_valid(details)}
+            asset_pairs = await self._api_request_with_retry(
+                method=RESTMethod.GET, path_url=CONSTANTS.ASSET_PAIRS_PATH_URL
+            )
+            self._asset_pairs = {
+                f"{details['base']}-{details['quote']}": details
+                for _, details in asset_pairs.items()
+                if web_utils.is_exchange_information_valid(details)
+            }
         return self._asset_pairs
 
-    async def _place_order(self,
-                           order_id: str,
-                           trading_pair: str,
-                           amount: Decimal,
-                           trade_type: TradeType,
-                           order_type: OrderType,
-                           price: Decimal,
-                           **kwargs) -> Tuple[str, float]:
+    async def _place_order(
+        self,
+        order_id: str,
+        trading_pair: str,
+        amount: Decimal,
+        trade_type: TradeType,
+        order_type: OrderType,
+        price: Decimal,
+        **kwargs,
+    ) -> Tuple[str, float]:
         trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         data = {
             "pair": trading_pair,
@@ -298,39 +308,43 @@ class KrakenExchange(ExchangePyBase):
             "ordertype": "market" if order_type is OrderType.MARKET else "limit",
             "volume": str(amount),
             "userref": order_id,
-            "price": str(price)
+            "price": str(price),
         }
 
         if order_type is OrderType.MARKET:
             del data["price"]
         if order_type is OrderType.LIMIT_MAKER:
             data["oflags"] = "post"
-        order_result = await self._api_request_with_retry(RESTMethod.POST,
-                                                          CONSTANTS.ADD_ORDER_PATH_URL,
-                                                          data=data,
-                                                          is_auth_required=True)
+        order_result = await self._api_request_with_retry(
+            RESTMethod.POST, CONSTANTS.ADD_ORDER_PATH_URL, data=data, is_auth_required=True
+        )
 
         o_id = order_result["txid"][0]
         return (o_id, self.current_timestamp)
 
-    async def _api_request_with_retry(self,
-                                      method: RESTMethod,
-                                      path_url: str,
-                                      params: Optional[Dict[str, Any]] = None,
-                                      data: Optional[Dict[str, Any]] = None,
-                                      is_auth_required: bool = False,
-                                      retry_interval=2.0) -> Dict[str, Any]:
+    async def _api_request_with_retry(
+        self,
+        method: RESTMethod,
+        path_url: str,
+        params: Optional[Dict[str, Any]] = None,
+        data: Optional[Dict[str, Any]] = None,
+        is_auth_required: bool = False,
+        retry_interval=2.0,
+    ) -> Dict[str, Any]:
         response_json = None
         result = None
         for retry_attempt in range(self.REQUEST_ATTEMPTS):
             try:
-                response_json = await self._api_request(path_url=path_url, method=method, params=params, data=data,
-                                                        is_auth_required=is_auth_required)
+                response_json = await self._api_request(
+                    path_url=path_url, method=method, params=params, data=data, is_auth_required=is_auth_required
+                )
 
                 if response_json.get("error") and "EAPI:Invalid nonce" in response_json.get("error", ""):
-                    self.logger().error(f"Invalid nonce error from {path_url}. " +
-                                        "Please ensure your Kraken API key nonce window is at least 10, " +
-                                        "and if needed reset your API key.")
+                    self.logger().error(
+                        f"Invalid nonce error from {path_url}. "
+                        + "Please ensure your Kraken API key nonce window is at least 10, "
+                        + "and if needed reset your API key."
+                    )
                 result = response_json.get("result")
                 if not result or response_json.get("error"):
                     raise IOError({"error": response_json})
@@ -340,14 +354,14 @@ class KrakenExchange(ExchangePyBase):
                     if path_url == CONSTANTS.ADD_ORDER_PATH_URL:
                         self.logger().info(f"Retrying {path_url}")
                         # Order placement could have been successful despite the IOError, so check for the open order.
-                        response = await self.get_open_orders_with_userref(data.get('userref'))
+                        response = await self.get_open_orders_with_userref(data.get("userref"))
                         if any(response.get("open").values()):
                             return response
                     self.logger().warning(
                         f"Cloudflare error. Attempt {retry_attempt + 1}/{self.REQUEST_ATTEMPTS}"
                         f" API command {method}: {path_url}"
                     )
-                    await asyncio.sleep(retry_interval ** retry_attempt)
+                    await asyncio.sleep(retry_interval**retry_attempt)
                     continue
                 else:
                     raise e
@@ -361,13 +375,11 @@ class KrakenExchange(ExchangePyBase):
             "txid": exchange_order_id,
         }
         cancel_result = await self._api_request_with_retry(
-            method=RESTMethod.POST,
-            path_url=CONSTANTS.CANCEL_ORDER_PATH_URL,
-            data=api_params,
-            is_auth_required=True)
+            method=RESTMethod.POST, path_url=CONSTANTS.CANCEL_ORDER_PATH_URL, data=api_params, is_auth_required=True
+        )
         if isinstance(cancel_result, dict) and (
-                cancel_result.get("count") == 1 or
-                cancel_result.get("error") is not None):
+            cancel_result.get("count") == 1 or cancel_result.get("error") is not None
+        ):
             return True
         return False
 
@@ -422,7 +434,7 @@ class KrakenExchange(ExchangePyBase):
         for rule in filter(web_utils.is_exchange_information_valid, trading_pair_rules):
             try:
                 trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule.get("altname"))
-                min_order_size = Decimal(rule.get('ordermin', 0))
+                min_order_size = Decimal(rule.get("ordermin", 0))
                 min_price_increment = Decimal(f"1e-{rule.get('pair_decimals')}")
                 min_base_amount_increment = Decimal(f"1e-{rule.get('lot_decimals')}")
                 retval.append(
@@ -464,24 +476,17 @@ class KrakenExchange(ExchangePyBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error(
-                    "Unexpected error in user stream listener loop.", exc_info=True)
+                self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await self._sleep(5.0)
 
-    def _create_trade_update_with_order_fill_data(
-            self,
-            order_fill: Dict[str, Any],
-            order: InFlightOrder):
+    def _create_trade_update_with_order_fill_data(self, order_fill: Dict[str, Any], order: InFlightOrder):
         fee_asset = order.quote_asset
 
         fee = TradeFeeBase.new_spot_fee(
             fee_schema=self.trade_fee_schema(),
             trade_type=order.trade_type,
             percent_token=fee_asset,
-            flat_fees=[TokenAmount(
-                amount=Decimal(order_fill["fee"]),
-                token=fee_asset
-            )]
+            flat_fees=[TokenAmount(amount=Decimal(order_fill["fee"]), token=fee_asset)],
         )
         trade_update = TradeUpdate(
             trade_id=str(order_fill["trade_id"]),
@@ -508,9 +513,7 @@ class KrakenExchange(ExchangePyBase):
             if not tracked_order:
                 self.logger().debug(f"Ignoring trade message with id {exchange_order_id}: not in in_flight_orders.")
             else:
-                trade_update = self._create_trade_update_with_order_fill_data(
-                    order_fill=trade,
-                    order=tracked_order)
+                trade_update = self._create_trade_update_with_order_fill_data(order_fill=trade, order=tracked_order)
                 self._order_tracker.process_trade_update(trade_update)
 
     def _create_order_update_with_order_status_data(self, order_status: Dict[str, Any], order: InFlightOrder):
@@ -530,12 +533,12 @@ class KrakenExchange(ExchangePyBase):
                 client_order_id = str(order_msg.get("userref", ""))
                 tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
                 if not tracked_order:
-                    self.logger().debug(
-                        f"Ignoring order message with id {order_msg}: not in in_flight_orders.")
+                    self.logger().debug(f"Ignoring order message with id {order_msg}: not in in_flight_orders.")
                     return
                 if "status" in order_msg:
-                    order_update = self._create_order_update_with_order_status_data(order_status=order_msg,
-                                                                                    order=tracked_order)
+                    order_update = self._create_order_update_with_order_status_data(
+                        order_status=order_msg, order=tracked_order
+                    )
                     self._order_tracker.process_order_update(order_update=order_update)
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
@@ -547,19 +550,19 @@ class KrakenExchange(ExchangePyBase):
                 method=RESTMethod.POST,
                 path_url=CONSTANTS.QUERY_TRADES_PATH_URL,
                 data={"txid": exchange_order_id},
-                is_auth_required=True)
+                is_auth_required=True,
+            )
 
             for trade_id, trade_fill in all_fills_response.items():
                 trade: Dict[str, str] = all_fills_response[trade_id]
                 trade["trade_id"] = trade_id
-                trade_update = self._create_trade_update_with_order_fill_data(
-                    order_fill=trade,
-                    order=order)
+                trade_update = self._create_trade_update_with_order_fill_data(order_fill=trade, order=order)
                 trade_updates.append(trade_update)
 
         except asyncio.TimeoutError:
-            raise IOError(f"Skipped order update with order fills for {order.client_order_id} "
-                          "- waiting for exchange order id.")
+            raise IOError(
+                f"Skipped order update with order fills for {order.client_order_id} " "- waiting for exchange order id."
+            )
         except Exception as e:
             if "EOrder:Unknown order" in str(e) or "EOrder:Invalid order" in str(e):
                 return trade_updates
@@ -571,7 +574,8 @@ class KrakenExchange(ExchangePyBase):
             method=RESTMethod.POST,
             path_url=CONSTANTS.QUERY_ORDERS_PATH_URL,
             data={"txid": exchange_order_id},
-            is_auth_required=True)
+            is_auth_required=True,
+        )
 
         update = updated_order_data.get(exchange_order_id)
         new_state = CONSTANTS.ORDER_STATE[update["status"]]
@@ -589,10 +593,12 @@ class KrakenExchange(ExchangePyBase):
     async def _update_balances(self):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
-        balances = await self._api_request_with_retry(RESTMethod.POST, CONSTANTS.BALANCE_PATH_URL,
-                                                      is_auth_required=True)
-        open_orders = await self._api_request_with_retry(RESTMethod.POST, CONSTANTS.OPEN_ORDERS_PATH_URL,
-                                                         is_auth_required=True)
+        balances = await self._api_request_with_retry(
+            RESTMethod.POST, CONSTANTS.BALANCE_PATH_URL, is_auth_required=True
+        )
+        open_orders = await self._api_request_with_retry(
+            RESTMethod.POST, CONSTANTS.OPEN_ORDERS_PATH_URL, is_auth_required=True
+        )
 
         locked = defaultdict(Decimal)
 
@@ -646,13 +652,9 @@ class KrakenExchange(ExchangePyBase):
         self._set_trading_pair_symbol_map(mapping)
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
-        params = {
-            "pair": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        }
+        params = {"pair": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)}
         resp_json = await self._api_request_with_retry(
-            method=RESTMethod.GET,
-            path_url=CONSTANTS.TICKER_PATH_URL,
-            params=params
+            method=RESTMethod.GET, path_url=CONSTANTS.TICKER_PATH_URL, params=params
         )
         record = list(resp_json.values())[0]
         return float(record["c"][0])

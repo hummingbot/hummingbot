@@ -32,14 +32,15 @@ s_decimal_NaN = Decimal("nan")
 class BybitExchange(ExchangePyBase):
     web_utils = web_utils
 
-    def __init__(self,
-                 client_config_map: "ClientConfigAdapter",
-                 bybit_api_key: str,
-                 bybit_api_secret: str,
-                 trading_pairs: Optional[List[str]] = None,
-                 trading_required: bool = True,
-                 domain: str = CONSTANTS.DEFAULT_DOMAIN,
-                 ):
+    def __init__(
+        self,
+        client_config_map: "ClientConfigAdapter",
+        bybit_api_key: str,
+        bybit_api_secret: str,
+        trading_pairs: Optional[List[str]] = None,
+        trading_required: bool = True,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+    ):
         self.api_key = bybit_api_key
         self.secret_key = bybit_api_secret
         self._domain = domain
@@ -63,10 +64,7 @@ class BybitExchange(ExchangePyBase):
 
     @property
     def authenticator(self):
-        return BybitAuth(
-            api_key=self.api_key,
-            secret_key=self.secret_key,
-            time_provider=self._time_synchronizer)
+        return BybitAuth(api_key=self.api_key, secret_key=self.secret_key, time_provider=self._time_synchronizer)
 
     @property
     def name(self) -> str:
@@ -120,8 +118,7 @@ class BybitExchange(ExchangePyBase):
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         error_description = str(request_exception)
-        is_time_synchronizer_related = ("-1021" in error_description
-                                        and "Timestamp for the request" in error_description)
+        is_time_synchronizer_related = "-1021" in error_description and "Timestamp for the request" in error_description
         return is_time_synchronizer_related
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
@@ -140,10 +137,8 @@ class BybitExchange(ExchangePyBase):
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer,
-            domain=self._domain,
-            auth=self._auth)
+            throttler=self._throttler, time_synchronizer=self._time_synchronizer, domain=self._domain, auth=self._auth
+        )
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         return BybitAPIOrderBookDataSource(
@@ -152,7 +147,8 @@ class BybitExchange(ExchangePyBase):
             domain=self.domain,
             api_factory=self._web_assistants_factory,
             throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer)
+            time_synchronizer=self._time_synchronizer,
+        )
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         return BybitAPIUserStreamDataSource(
@@ -163,14 +159,16 @@ class BybitExchange(ExchangePyBase):
             domain=self.domain,
         )
 
-    def _get_fee(self,
-                 base_currency: str,
-                 quote_currency: str,
-                 order_type: OrderType,
-                 order_side: TradeType,
-                 amount: Decimal,
-                 price: Decimal = s_decimal_NaN,
-                 is_maker: Optional[bool] = None) -> TradeFeeBase:
+    def _get_fee(
+        self,
+        base_currency: str,
+        quote_currency: str,
+        order_type: OrderType,
+        order_side: TradeType,
+        amount: Decimal,
+        price: Decimal = s_decimal_NaN,
+        is_maker: Optional[bool] = None,
+    ) -> TradeFeeBase:
         is_maker = order_type is OrderType.LIMIT_MAKER
         trading_pair = combine_to_hb_trading_pair(base=base_currency, quote=quote_currency)
         if trading_pair in self._trading_fees:
@@ -195,9 +193,7 @@ class BybitExchange(ExchangePyBase):
             path_url=CONSTANTS.ACCOUNT_INFO_PATH_URL,
             params=None,
             is_auth_required=True,
-            headers={
-                "referer": CONSTANTS.HBOT_BROKER_ID
-            },
+            headers={"referer": CONSTANTS.HBOT_BROKER_ID},
         )
         return account_info
 
@@ -205,21 +201,23 @@ class BybitExchange(ExchangePyBase):
         account_info = await self._get_account_info()
         if account_info["retCode"] != 0:
             raise ValueError(f"{account_info['retMsg']}")
-        account_type = 'SPOT' if account_info["result"]["unifiedMarginStatus"] == 1 else 'UNIFIED'
+        account_type = "SPOT" if account_info["result"]["unifiedMarginStatus"] == 1 else "UNIFIED"
 
         return account_type
 
     async def _update_account_type(self):
         self._account_type = await self._get_account_type()
 
-    async def _place_order(self,
-                           order_id: str,
-                           trading_pair: str,
-                           amount: Decimal,
-                           trade_type: TradeType,
-                           order_type: OrderType,
-                           price: Decimal,
-                           **kwargs) -> Tuple[str, float]:
+    async def _place_order(
+        self,
+        order_id: str,
+        trading_pair: str,
+        amount: Decimal,
+        trade_type: TradeType,
+        order_type: OrderType,
+        price: Decimal,
+        **kwargs,
+    ) -> Tuple[str, float]:
         type_str = self.bybit_order_type(order_type)
 
         side_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
@@ -233,16 +231,13 @@ class BybitExchange(ExchangePyBase):
             "qty": f"{amount:f}",
             "marketUnit": "baseCoin",
             "price": f"{price:f}",
-            "orderLinkId": order_id
+            "orderLinkId": order_id,
         }
         if order_type == OrderType.LIMIT:
             api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_GTC
 
         response = await self._api_post(
-            path_url=CONSTANTS.ORDER_PLACE_PATH_URL,
-            data=api_params,
-            is_auth_required=True,
-            trading_pair=trading_pair
+            path_url=CONSTANTS.ORDER_PLACE_PATH_URL, data=api_params, is_auth_required=True, trading_pair=trading_pair
         )
         if response["retCode"] != 0:
             raise ValueError(f"{response['retMsg']}")
@@ -255,10 +250,7 @@ class BybitExchange(ExchangePyBase):
         exchange_order_id = tracked_order.exchange_order_id
         client_order_id = tracked_order.client_order_id
         trading_pair = tracked_order.trading_pair
-        api_params = {
-            "category": self._category,
-            "symbol": trading_pair
-        }
+        api_params = {"category": self._category, "symbol": trading_pair}
         if exchange_order_id:
             api_params["orderId"] = exchange_order_id
         else:
@@ -291,8 +283,8 @@ class BybitExchange(ExchangePyBase):
                         max_order_size=Decimal(lot_size_filter.get("maxOrderQty")),
                         min_price_increment=Decimal(price_filter.get("tickSize")),
                         min_base_amount_increment=Decimal(lot_size_filter.get("basePrecision")),
-                        min_quote_amount_increment=Decimal(lot_size_filter.get('quotePrecision')),
-                        min_notional_size=Decimal(lot_size_filter.get("minOrderAmt"))
+                        min_quote_amount_increment=Decimal(lot_size_filter.get("quotePrecision")),
+                        min_notional_size=Decimal(lot_size_filter.get("minOrderAmt")),
                     )
                 )
             except Exception:
@@ -370,14 +362,19 @@ class BybitExchange(ExchangePyBase):
                     for balance_entry in balances:
                         asset_name = balance_entry["coin"]
                         if self._account_type == "UNIFIED":
-                            free_balance = Decimal(balance_entry["walletBalance"]) - Decimal(balance_entry["locked"]) - Decimal(balance_entry["totalOrderIM"]) - Decimal(
-                                balance_entry["totalPositionMM"]) - Decimal(balance_entry["totalPositionIM"])
+                            free_balance = (
+                                Decimal(balance_entry["walletBalance"])
+                                - Decimal(balance_entry["locked"])
+                                - Decimal(balance_entry["totalOrderIM"])
+                                - Decimal(balance_entry["totalPositionMM"])
+                                - Decimal(balance_entry["totalPositionIM"])
+                            )
 
                         else:
                             free_balance = Decimal(
-                                balance_entry.get("free") or
-                                balance_entry.get("availableToWithdraw") or
-                                balance_entry.get("availableToBorrow")
+                                balance_entry.get("free")
+                                or balance_entry.get("availableToWithdraw")
+                                or balance_entry.get("availableToBorrow")
                             )
 
                         total_balance = Decimal(balance_entry["walletBalance"])
@@ -409,11 +406,7 @@ class BybitExchange(ExchangePyBase):
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
         exchange_order_id = str(order.exchange_order_id)
         client_order_id = str(order.client_order_id)
-        api_params = {
-            "category": self._category,
-            "symbol": exchange_symbol,
-            "execType": "Trade"
-        }
+        api_params = {"category": self._category, "symbol": exchange_symbol, "execType": "Trade"}
         if exchange_order_id:
             api_params["orderId"] = exchange_order_id
         else:
@@ -461,13 +454,14 @@ class BybitExchange(ExchangePyBase):
             fee_schema=self.trade_fee_schema(),
             trade_type=tracked_order.trade_type,
             percent_token=ptoken,
-            flat_fees=flat_fees
+            flat_fees=flat_fees,
         )
 
         exec_price = Decimal(trade_msg["execPrice"]) if "execPrice" in trade_msg else Decimal(trade_msg["price"])
         exec_time = (
-            int(trade_msg["execTime"]) * 1e-3 if "execTime" in trade_msg else
-            pd.Timestamp(trade_msg["trade_time"]).timestamp() * 1e-3
+            int(trade_msg["execTime"]) * 1e-3
+            if "execTime" in trade_msg
+            else pd.Timestamp(trade_msg["trade_time"]).timestamp() * 1e-3
         )
 
         trade_update: TradeUpdate = TradeUpdate(
@@ -487,10 +481,7 @@ class BybitExchange(ExchangePyBase):
         exchange_order_id = tracked_order.exchange_order_id
         client_order_id = tracked_order.client_order_id
         trading_pair = tracked_order.trading_pair
-        api_params = {
-            "category": self._category,
-            "symbol": trading_pair
-        }
+        api_params = {"category": self._category, "symbol": trading_pair}
         if exchange_order_id:
             api_params["orderId"] = exchange_order_id
         else:
@@ -499,7 +490,7 @@ class BybitExchange(ExchangePyBase):
             path_url=CONSTANTS.GET_ORDERS_PATH_URL,
             params=api_params,
             is_auth_required=True,
-            limit_id=CONSTANTS.GET_ORDERS_PATH_URL
+            limit_id=CONSTANTS.GET_ORDERS_PATH_URL,
         )
         if not len(updated_order_data["result"]["list"]):
             raise ValueError(f"No order found for {client_order_id} or {exchange_order_id}")
@@ -525,10 +516,8 @@ class BybitExchange(ExchangePyBase):
         balances = await self._api_request(
             method=RESTMethod.GET,
             path_url=CONSTANTS.BALANCE_PATH_URL,
-            params={
-                'accountType': self._account_type
-            },
-            is_auth_required=True
+            params={"accountType": self._account_type},
+            is_auth_required=True,
         )
         if balances["retCode"] != 0:
             raise ValueError(f"{balances['retMsg']}")
@@ -536,18 +525,24 @@ class BybitExchange(ExchangePyBase):
         self._account_balances.clear()
         for coin in balances["result"]["list"][0]["coin"]:
             name = coin["coin"]
-            free_balance = Decimal(coin["free"]) if self._account_type == "SPOT" else Decimal(coin["walletBalance"]) - Decimal(coin["locked"]) - Decimal(coin["totalOrderIM"]) - Decimal(
-                coin["totalPositionMM"]) - Decimal(coin["totalPositionIM"])
+            free_balance = (
+                Decimal(coin["free"])
+                if self._account_type == "SPOT"
+                else Decimal(coin["walletBalance"])
+                - Decimal(coin["locked"])
+                - Decimal(coin["totalOrderIM"])
+                - Decimal(coin["totalPositionMM"])
+                - Decimal(coin["totalPositionIM"])
+            )
             balance = Decimal(coin["walletBalance"])
             self._account_available_balances[name] = free_balance
             self._account_balances[name] = Decimal(balance)
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
-        for symbol_data in exchange_info["result"]['list']:
+        for symbol_data in exchange_info["result"]["list"]:
             mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(
-                base=symbol_data["baseCoin"],
-                quote=symbol_data["quoteCoin"]
+                base=symbol_data["baseCoin"], quote=symbol_data["quoteCoin"]
             )
         self._set_trading_pair_symbol_map(mapping)
 
@@ -564,16 +559,18 @@ class BybitExchange(ExchangePyBase):
 
         return float(resp_json["result"]["list"][0]["lastPrice"])
 
-    async def _api_request(self,
-                           path_url,
-                           method: RESTMethod = RESTMethod.GET,
-                           params: Optional[Dict[str, Any]] = None,
-                           data: Optional[Dict[str, Any]] = None,
-                           is_auth_required: bool = False,
-                           return_err: bool = False,
-                           limit_id: Optional[str] = None,
-                           headers: Optional[Dict[str, Any]] = None,
-                           **kwargs) -> Dict[str, Any]:
+    async def _api_request(
+        self,
+        path_url,
+        method: RESTMethod = RESTMethod.GET,
+        params: Optional[Dict[str, Any]] = None,
+        data: Optional[Dict[str, Any]] = None,
+        is_auth_required: bool = False,
+        return_err: bool = False,
+        limit_id: Optional[str] = None,
+        headers: Optional[Dict[str, Any]] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
         last_exception = None
         rest_assistant = await self._web_assistants_factory.get_rest_assistant()
         url = web_utils.rest_url(path_url, domain=self.domain)
@@ -605,43 +602,35 @@ class BybitExchange(ExchangePyBase):
 
     async def _make_trading_rules_request(self) -> Any:
         exchange_info = await self._api_get(
-            path_url=self.trading_rules_request_path,
-            params={
-                'category': self._category
-            }
+            path_url=self.trading_rules_request_path, params={"category": self._category}
         )
         return exchange_info
 
     async def _make_trading_pairs_request(self) -> Any:
         exchange_info = await self._api_get(
-            path_url=self.trading_pairs_request_path,
-            params={
-                'category': self._category
-            }
+            path_url=self.trading_pairs_request_path, params={"category": self._category}
         )
         return exchange_info
 
     async def _get_trading_pair_fee_rate(self, trading_pair: str) -> Any:
         api_params = {
             "category": self._category,
-            "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+            "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
         }
         fee_rates = await self._api_get(
             path_url=CONSTANTS.EXCHANGE_FEE_RATE_PATH_URL,
             params=api_params,
             is_auth_required=True,
-            limit_id=CONSTANTS.EXCHANGE_FEE_RATE_PATH_URL
+            limit_id=CONSTANTS.EXCHANGE_FEE_RATE_PATH_URL,
         )
         return fee_rates["result"]["list"][0]
 
     async def _get_exchange_fee_rates(self) -> Any:
-        api_params = {
-            "category": self._category
-        }
+        api_params = {"category": self._category}
         fee_rates = await self._api_get(
             path_url=CONSTANTS.EXCHANGE_FEE_RATE_PATH_URL,
             params=api_params,
             is_auth_required=True,
-            limit_id=CONSTANTS.EXCHANGE_FEE_RATE_PATH_URL
+            limit_id=CONSTANTS.EXCHANGE_FEE_RATE_PATH_URL,
         )
         return fee_rates["result"]["list"]

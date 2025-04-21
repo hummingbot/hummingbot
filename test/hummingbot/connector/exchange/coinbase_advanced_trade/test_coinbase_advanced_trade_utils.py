@@ -46,8 +46,7 @@ class CoinbaseAdvancedTradeUtilTestCases(unittest.TestCase):
 
     def test_coinbase_advanced_trade_config_map(self):
         config_map = CoinbaseAdvancedTradeConfigMap(
-            coinbase_advanced_trade_api_key="test_key",
-            coinbase_advanced_trade_api_secret="test_secret"
+            coinbase_advanced_trade_api_key="test_key", coinbase_advanced_trade_api_secret="test_secret"
         )
         self.assertEqual(config_map.connector, "coinbase_advanced_trade")
         self.assertEqual(config_map.coinbase_advanced_trade_api_key, SecretStr("test_key"))

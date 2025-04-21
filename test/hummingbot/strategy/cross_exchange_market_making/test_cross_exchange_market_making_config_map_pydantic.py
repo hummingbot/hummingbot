@@ -38,7 +38,8 @@ class CrossExchangeMarketMakingConfigMapPydanticTest(unittest.TestCase):
 
         self._get_exchange_names_patcher = patch("hummingbot.client.settings.AllConnectorSettings.get_exchange_names")
         self._get_connector_settings_patcher = patch(
-            "hummingbot.client.settings.AllConnectorSettings.get_connector_settings")
+            "hummingbot.client.settings.AllConnectorSettings.get_connector_settings"
+        )
 
         get_exchange_names_mock = self._get_exchange_names_patcher.start()
         get_exchange_names_mock.return_value = set(self.get_mock_connector_settings().keys())
@@ -73,33 +74,33 @@ class CrossExchangeMarketMakingConfigMapPydanticTest(unittest.TestCase):
 
     def get_mock_connector_settings(self):
 
-        conf_var_connector_maker = ConfigVar(key='mock_paper_exchange', prompt="")
-        conf_var_connector_maker.value = 'mock_paper_exchange'
+        conf_var_connector_maker = ConfigVar(key="mock_paper_exchange", prompt="")
+        conf_var_connector_maker.value = "mock_paper_exchange"
 
-        conf_var_connector_taker = ConfigVar(key='mock_paper_exchange', prompt="")
-        conf_var_connector_taker.value = 'mock_paper_exchange'
+        conf_var_connector_taker = ConfigVar(key="mock_paper_exchange", prompt="")
+        conf_var_connector_taker.value = "mock_paper_exchange"
 
         settings = {
             "mock_paper_exchange": ConnectorSetting(
-                name='mock_paper_exchange',
+                name="mock_paper_exchange",
                 type=ConnectorType.Exchange,
-                example_pair='ZRX-ETH',
+                example_pair="ZRX-ETH",
                 centralised=True,
                 use_ethereum_wallet=False,
                 trade_fee_schema=TradeFeeSchema(
                     percent_fee_token=None,
-                    maker_percent_fee_decimal=Decimal('0.001'),
-                    taker_percent_fee_decimal=Decimal('0.001'),
+                    maker_percent_fee_decimal=Decimal("0.001"),
+                    taker_percent_fee_decimal=Decimal("0.001"),
                     buy_percent_fee_deducted_from_returns=False,
                     maker_fixed_fees=[],
-                    taker_fixed_fees=[]),
-                config_keys={
-                    'connector': conf_var_connector_maker
-                },
+                    taker_fixed_fees=[],
+                ),
+                config_keys={"connector": conf_var_connector_maker},
                 is_sub_domain=False,
                 parent_name=None,
                 domain_parameter=None,
-                use_eth_gas_lookup=False)
+                use_eth_gas_lookup=False,
+            )
         }
 
         return settings
@@ -131,9 +132,7 @@ class CrossExchangeMarketMakingConfigMapPydanticTest(unittest.TestCase):
         with self.assertRaises(ConfigValidationError) as e:
             self.config_map.order_refresh_mode = "XXX"
 
-        error_msg = (
-            "Value error, Invalid order refresh mode, please choose value from ['passive_order_refresh', 'active_order_refresh']."
-        )
+        error_msg = "Value error, Invalid order refresh mode, please choose value from ['passive_order_refresh', 'active_order_refresh']."
         self.assertEqual(error_msg, str(e.exception))
 
         self.config_map.conversion_rate_mode = "rate_oracle_conversion_rate"
@@ -147,9 +146,7 @@ class CrossExchangeMarketMakingConfigMapPydanticTest(unittest.TestCase):
         with self.assertRaises(ConfigValidationError) as e:
             self.config_map.conversion_rate_mode = "XXX"
 
-        error_msg = (
-            "Value error, Invalid conversion rate mode, please choose value from ['rate_oracle_conversion_rate', 'fixed_conversion_rate']."
-        )
+        error_msg = "Value error, Invalid conversion rate mode, please choose value from ['rate_oracle_conversion_rate', 'fixed_conversion_rate']."
         self.assertEqual(error_msg, str(e.exception))
 
     @patch("hummingbot.client.settings.AllConnectorSettings.get_exchange_names")

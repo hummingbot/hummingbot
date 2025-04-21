@@ -28,14 +28,12 @@ class SimpleOrder(ScriptStrategyBase):
     base = "SOL"
     quote = "USDT"
     side = "buy"
-    order_type = "market"   # market or limit
+    order_type = "market"  # market or limit
     spread = Decimal(0.01)  # for limit orders only
 
     # Other Parameters
     order_created = False
-    markets = {
-        exchange: {f"{base}-{quote}"}
-    }
+    markets = {exchange: {f"{base}-{quote}"}}
 
     def on_tick(self):
         if self.order_created is False:
@@ -58,7 +56,7 @@ class SimpleOrder(ScriptStrategyBase):
                     trading_pair=f"{self.base}-{self.quote}",
                     amount=amount,
                     order_type=order_type,
-                    price=price
+                    price=price,
                 )
             else:
                 self.buy(
@@ -66,32 +64,32 @@ class SimpleOrder(ScriptStrategyBase):
                     trading_pair=f"{self.base}-{self.quote}",
                     amount=amount,
                     order_type=order_type,
-                    price=price
+                    price=price,
                 )
             self.order_created = True
 
     def did_fill_order(self, event: OrderFilledEvent):
-        msg = (f"{event.trade_type.name} {event.amount} of {event.trading_pair} {self.exchange} at {event.price}")
+        msg = f"{event.trade_type.name} {event.amount} of {event.trading_pair} {self.exchange} at {event.price}"
         self.log_with_clock(logging.INFO, msg)
         self.notify_hb_app_with_timestamp(msg)
         HummingbotApplication.main_application().stop()
 
     def did_complete_buy_order(self, event: BuyOrderCompletedEvent):
-        msg = (f"Order {event.order_id} to buy {event.base_asset_amount} of {event.base_asset} is completed.")
+        msg = f"Order {event.order_id} to buy {event.base_asset_amount} of {event.base_asset} is completed."
         self.log_with_clock(logging.INFO, msg)
         self.notify_hb_app_with_timestamp(msg)
 
     def did_complete_sell_order(self, event: SellOrderCompletedEvent):
-        msg = (f"Order {event.order_id} to sell {event.base_asset_amount} of {event.base_asset} is completed.")
+        msg = f"Order {event.order_id} to sell {event.base_asset_amount} of {event.base_asset} is completed."
         self.log_with_clock(logging.INFO, msg)
         self.notify_hb_app_with_timestamp(msg)
 
     def did_create_buy_order(self, event: BuyOrderCreatedEvent):
-        msg = (f"Created BUY order {event.order_id}")
+        msg = f"Created BUY order {event.order_id}"
         self.log_with_clock(logging.INFO, msg)
         self.notify_hb_app_with_timestamp(msg)
 
     def did_create_sell_order(self, event: SellOrderCreatedEvent):
-        msg = (f"Created SELL order {event.order_id}")
+        msg = f"Created SELL order {event.order_id}"
         self.log_with_clock(logging.INFO, msg)
         self.notify_hb_app_with_timestamp(msg)

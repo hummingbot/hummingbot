@@ -3,11 +3,7 @@ from typing import List, Optional
 import warnings
 
 from hummingbot.client.config.trade_fee_schema_loader import TradeFeeSchemaLoader
-from hummingbot.core.data_type.trade_fee import (
-    TradeFeeBase,
-    TokenAmount,
-    TradeFeeSchema
-)
+from hummingbot.core.data_type.trade_fee import TradeFeeBase, TokenAmount, TradeFeeSchema
 from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 
 
@@ -29,14 +25,10 @@ def build_trade_fee(
     """
     trade_fee_schema: TradeFeeSchema = TradeFeeSchemaLoader.configured_schema_for_exchange(exchange_name=exchange)
     fee_percent: Decimal = (
-        trade_fee_schema.maker_percent_fee_decimal
-        if is_maker
-        else trade_fee_schema.taker_percent_fee_decimal
+        trade_fee_schema.maker_percent_fee_decimal if is_maker else trade_fee_schema.taker_percent_fee_decimal
     )
     fixed_fees: List[TokenAmount] = (
-        trade_fee_schema.maker_fixed_fees
-        if is_maker
-        else trade_fee_schema.taker_fixed_fees
+        trade_fee_schema.maker_fixed_fees if is_maker else trade_fee_schema.taker_fixed_fees
     ).copy()
     if extra_flat_fees is not None and len(extra_flat_fees) > 0:
         fixed_fees = fixed_fees + extra_flat_fees
@@ -45,7 +37,7 @@ def build_trade_fee(
         trade_type=order_side,
         percent=fee_percent,
         percent_token=trade_fee_schema.percent_fee_token,
-        flat_fees=fixed_fees
+        flat_fees=fixed_fees,
     )
     return trade_fee
 
@@ -74,7 +66,8 @@ def build_perpetual_trade_fee(
         position_action=position_action,
         percent=percent,
         percent_token=trade_fee_schema.percent_fee_token,
-        flat_fees=fixed_fees)
+        flat_fees=fixed_fees,
+    )
     return trade_fee
 
 

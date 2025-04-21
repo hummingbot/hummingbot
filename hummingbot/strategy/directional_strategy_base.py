@@ -48,6 +48,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
         markets (Dict[str, Set[str]]): Dictionary mapping exchanges to trading pairs.
         cooldown_after_execution (int): Cooldown between position executions, in seconds.
     """
+
     directional_strategy_name: str
     # Define the trading pair and exchange that we want to use and the csv where we are going to store the entries
     trading_pair: str
@@ -106,7 +107,10 @@ class DirectionalStrategyBase(ScriptStrategyBase):
 
     def get_csv_path(self) -> str:
         today = datetime.datetime.today()
-        csv_path = data_path() + f"/{self.directional_strategy_name}_position_executors_{self.exchange}_{self.trading_pair}_{today.day:02d}-{today.month:02d}-{today.year}.csv"
+        csv_path = (
+            data_path()
+            + f"/{self.directional_strategy_name}_position_executors_{self.exchange}_{self.trading_pair}_{today.day:02d}-{today.month:02d}-{today.year}.csv"
+        )
         return csv_path
 
     def __init__(self, connectors: Dict[str, ConnectorBase]):
@@ -118,11 +122,12 @@ class DirectionalStrategyBase(ScriptStrategyBase):
             time_limit=self.time_limit,
             trailing_stop=TrailingStop(
                 activation_price=Decimal(self.trailing_stop_activation_delta),
-                trailing_delta=Decimal(self.trailing_stop_trailing_delta)),
+                trailing_delta=Decimal(self.trailing_stop_trailing_delta),
+            ),
             open_order_type=self.open_order_type,
             take_profit_order_type=self.take_profit_order_type,
             stop_loss_order_type=self.stop_loss_order_type,
-            time_limit_order_type=self.time_limit_order_type
+            time_limit_order_type=self.time_limit_order_type,
         )
         for candle in self.candles:
             candle.start()
@@ -132,7 +137,11 @@ class DirectionalStrategyBase(ScriptStrategyBase):
         candles_df = candles_df.copy()
         candles_df["timestamp"] = pd.to_datetime(candles_df["timestamp"], unit="ms")
         lines.extend(["    " + line for line in candles_df[columns_to_show].tail().to_string(index=False).split("\n")])
-        lines.extend(["\n-----------------------------------------------------------------------------------------------------------\n"])
+        lines.extend(
+            [
+                "\n-----------------------------------------------------------------------------------------------------------\n"
+            ]
+        )
         return lines
 
     def on_stop(self):
@@ -147,12 +156,10 @@ class DirectionalStrategyBase(ScriptStrategyBase):
             candle.stop()
 
     def get_active_executors(self) -> List[PositionExecutor]:
-        return [signal_executor for signal_executor in self.active_executors
-                if not signal_executor.is_closed]
+        return [signal_executor for signal_executor in self.active_executors if not signal_executor.is_closed]
 
     def get_closed_executors(self) -> List[PositionExecutor]:
-        return [signal_executor for signal_executor in self.active_executors
-                if signal_executor.is_closed]
+        return [signal_executor for signal_executor in self.active_executors if signal_executor.is_closed]
 
     def get_timestamp_of_last_executor(self):
         if len(self.stored_executors) > 0:
@@ -211,8 +218,11 @@ class DirectionalStrategyBase(ScriptStrategyBase):
         for executor in self.stored_executors:
             lines.extend([f"|Signal id: {executor.config.timestamp}"])
             lines.extend(executor.to_format_status())
-            lines.extend([
-                "-----------------------------------------------------------------------------------------------------------"])
+            lines.extend(
+                [
+                    "-----------------------------------------------------------------------------------------------------------"
+                ]
+            )
 
         if len(self.active_executors) > 0:
             lines.extend(["\n################################## Active Executors ##################################"])
@@ -241,55 +251,66 @@ class DirectionalStrategyBase(ScriptStrategyBase):
         executors_to_store = [executor for executor in self.active_executors if executor.is_closed]
         csv_path = self.get_csv_path()
         if not os.path.exists(csv_path):
-            df_header = pd.DataFrame([("timestamp",
-                                       "exchange",
-                                       "trading_pair",
-                                       "side",
-                                       "amount",
-                                       "trade_pnl",
-                                       "trade_pnl_quote",
-                                       "cum_fee_quote",
-                                       "net_pnl_quote",
-                                       "net_pnl",
-                                       "close_timestamp",
-                                       "close_type",
-                                       "entry_price",
-                                       "close_price",
-                                       "sl",
-                                       "tp",
-                                       "tl",
-                                       "open_order_type",
-                                       "take_profit_order_type",
-                                       "stop_loss_order_type",
-                                       "time_limit_order_type",
-                                       "leverage"
-                                       )])
-            df_header.to_csv(csv_path, mode='a', header=False, index=False)
+            df_header = pd.DataFrame(
+                [
+                    (
+                        "timestamp",
+                        "exchange",
+                        "trading_pair",
+                        "side",
+                        "amount",
+                        "trade_pnl",
+                        "trade_pnl_quote",
+                        "cum_fee_quote",
+                        "net_pnl_quote",
+                        "net_pnl",
+                        "close_timestamp",
+                        "close_type",
+                        "entry_price",
+                        "close_price",
+                        "sl",
+                        "tp",
+                        "tl",
+                        "open_order_type",
+                        "take_profit_order_type",
+                        "stop_loss_order_type",
+                        "time_limit_order_type",
+                        "leverage",
+                    )
+                ]
+            )
+            df_header.to_csv(csv_path, mode="a", header=False, index=False)
         for executor in executors_to_store:
             self.stored_executors.append(executor)
-            df = pd.DataFrame([(executor.config.timestamp,
-                                executor.config.connector_name,
-                                executor.config.trading_pair,
-                                executor.config.side,
-                                executor.config.amount,
-                                executor.trade_pnl_pct,
-                                executor.trade_pnl_quote,
-                                executor.cum_fees_quote,
-                                executor.net_pnl_quote,
-                                executor.net_pnl_pct,
-                                executor.close_timestamp,
-                                executor.close_type,
-                                executor.entry_price,
-                                executor.close_price,
-                                executor.config.triple_barrier_config.stop_loss,
-                                executor.config.triple_barrier_config.take_profit,
-                                executor.config.triple_barrier_config.time_limit,
-                                executor.config.triple_barrier_config.open_order_type,
-                                executor.config.triple_barrier_config.take_profit_order_type,
-                                executor.config.triple_barrier_config.stop_loss_order_type,
-                                executor.config.triple_barrier_config.time_limit_order_type,
-                                self.leverage)])
-            df.to_csv(self.get_csv_path(), mode='a', header=False, index=False)
+            df = pd.DataFrame(
+                [
+                    (
+                        executor.config.timestamp,
+                        executor.config.connector_name,
+                        executor.config.trading_pair,
+                        executor.config.side,
+                        executor.config.amount,
+                        executor.trade_pnl_pct,
+                        executor.trade_pnl_quote,
+                        executor.cum_fees_quote,
+                        executor.net_pnl_quote,
+                        executor.net_pnl_pct,
+                        executor.close_timestamp,
+                        executor.close_type,
+                        executor.entry_price,
+                        executor.close_price,
+                        executor.config.triple_barrier_config.stop_loss,
+                        executor.config.triple_barrier_config.take_profit,
+                        executor.config.triple_barrier_config.time_limit,
+                        executor.config.triple_barrier_config.open_order_type,
+                        executor.config.triple_barrier_config.take_profit_order_type,
+                        executor.config.triple_barrier_config.stop_loss_order_type,
+                        executor.config.triple_barrier_config.time_limit_order_type,
+                        self.leverage,
+                    )
+                ]
+            )
+            df.to_csv(self.get_csv_path(), mode="a", header=False, index=False)
         self.active_executors = [executor for executor in self.active_executors if not executor.is_closed]
 
     def close_open_positions(self):
@@ -297,19 +318,23 @@ class DirectionalStrategyBase(ScriptStrategyBase):
         for connector_name, connector in self.connectors.items():
             for trading_pair, position in connector.account_positions.items():
                 if position.position_side == PositionSide.LONG:
-                    self.sell(connector_name=connector_name,
-                              trading_pair=position.trading_pair,
-                              amount=abs(position.amount),
-                              order_type=OrderType.MARKET,
-                              price=connector.get_mid_price(position.trading_pair),
-                              position_action=PositionAction.CLOSE)
+                    self.sell(
+                        connector_name=connector_name,
+                        trading_pair=position.trading_pair,
+                        amount=abs(position.amount),
+                        order_type=OrderType.MARKET,
+                        price=connector.get_mid_price(position.trading_pair),
+                        position_action=PositionAction.CLOSE,
+                    )
                 elif position.position_side == PositionSide.SHORT:
-                    self.buy(connector_name=connector_name,
-                             trading_pair=position.trading_pair,
-                             amount=abs(position.amount),
-                             order_type=OrderType.MARKET,
-                             price=connector.get_mid_price(position.trading_pair),
-                             position_action=PositionAction.CLOSE)
+                    self.buy(
+                        connector_name=connector_name,
+                        trading_pair=position.trading_pair,
+                        amount=abs(position.amount),
+                        order_type=OrderType.MARKET,
+                        price=connector.get_mid_price(position.trading_pair),
+                        position_action=PositionAction.CLOSE,
+                    )
 
     def market_data_extra_info(self):
         return ["\n"]

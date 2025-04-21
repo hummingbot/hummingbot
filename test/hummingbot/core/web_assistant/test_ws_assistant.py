@@ -41,17 +41,21 @@ class WSAssistantTest(IsolatedAsyncioWrapperTestCase):
         message_timeout = 20
         max_msg_size = 4 * 1024 * 1024
 
-        await self.ws_assistant.connect(ws_url, ping_timeout=ping_timeout, message_timeout=message_timeout, max_msg_size=max_msg_size)
+        await self.ws_assistant.connect(
+            ws_url, ping_timeout=ping_timeout, message_timeout=message_timeout, max_msg_size=max_msg_size
+        )
 
-        connect_mock.assert_called_with(ws_url=ws_url,
-                                        ws_headers={},
-                                        ping_timeout=ping_timeout,
-                                        message_timeout=message_timeout,
-                                        max_msg_size=max_msg_size)
+        connect_mock.assert_called_with(
+            ws_url=ws_url,
+            ws_headers={},
+            ping_timeout=ping_timeout,
+            message_timeout=message_timeout,
+            max_msg_size=max_msg_size,
+        )
 
     @patch("hummingbot.core.web_assistant.connections.ws_connection.WSConnection.disconnect")
     async def test_disconnect(self, disconnect_mock):
-        await (self.ws_assistant.disconnect())
+        await self.ws_assistant.disconnect()
 
         disconnect_mock.assert_called()
 
@@ -62,7 +66,7 @@ class WSAssistantTest(IsolatedAsyncioWrapperTestCase):
         payload = {"one": 1}
         request = WSJSONRequest(payload)
 
-        await (self.ws_assistant.send(request))
+        await self.ws_assistant.send(request)
 
         self.assertEqual(1, len(sent_requests))
 
@@ -78,15 +82,13 @@ class WSAssistantTest(IsolatedAsyncioWrapperTestCase):
                 request_.payload["two"] = 2
                 return request_
 
-        ws_assistant = WSAssistant(
-            connection=self.ws_connection, ws_pre_processors=[SomePreProcessor()]
-        )
+        ws_assistant = WSAssistant(connection=self.ws_connection, ws_pre_processors=[SomePreProcessor()])
         sent_requests = []
         send_mock.side_effect = lambda r: sent_requests.append(r)
         payload = {"one": 1}
         request = WSJSONRequest(payload)
 
-        await (ws_assistant.send(request))
+        await ws_assistant.send(request)
 
         sent_request = sent_requests[0]
         expected = {"one": 1, "two": 2}
@@ -100,7 +102,7 @@ class WSAssistantTest(IsolatedAsyncioWrapperTestCase):
         payload = {"one": 1}
         request = WSJSONRequest(payload)
 
-        await (self.ws_assistant.subscribe(request))
+        await self.ws_assistant.subscribe(request)
 
         self.assertEqual(1, len(sent_requests))
 
@@ -126,8 +128,8 @@ class WSAssistantTest(IsolatedAsyncioWrapperTestCase):
         req = WSJSONRequest(payload)
         auth_req = WSJSONRequest(payload, is_auth_required=True)
 
-        await (ws_assistant.send(req))
-        await (ws_assistant.send(auth_req))
+        await ws_assistant.send(req)
+        await ws_assistant.send(auth_req)
 
         sent_request = sent_requests[0]
         auth_sent_request = sent_requests[1]
@@ -143,7 +145,7 @@ class WSAssistantTest(IsolatedAsyncioWrapperTestCase):
         response_mock = WSResponse(data)
         receive_mock.return_value = response_mock
 
-        response = await (self.ws_assistant.receive())
+        response = await self.ws_assistant.receive()
 
         self.assertEqual(data, response.data)
 
@@ -151,11 +153,9 @@ class WSAssistantTest(IsolatedAsyncioWrapperTestCase):
     async def test_receive_plain_text(self, ws_connect_mock):
         data = "pong"
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=data)
-        await (self.ws_assistant.connect(ws_url="test.url"))
-        response = await (self.ws_assistant.receive())
+        self.mocking_assistant.add_websocket_aiohttp_message(websocket_mock=ws_connect_mock.return_value, message=data)
+        await self.ws_assistant.connect(ws_url="test.url")
+        response = await self.ws_assistant.receive()
 
         self.assertEqual(data, response.data)
 
@@ -166,14 +166,12 @@ class WSAssistantTest(IsolatedAsyncioWrapperTestCase):
                 response_.data["two"] = 2
                 return response_
 
-        ws_assistant = WSAssistant(
-            connection=self.ws_connection, ws_post_processors=[SomePostProcessor()]
-        )
+        ws_assistant = WSAssistant(connection=self.ws_connection, ws_post_processors=[SomePostProcessor()])
         data = {"one": 1}
         response_mock = WSResponse(data)
         receive_mock.return_value = response_mock
 
-        response = await (ws_assistant.receive())
+        response = await ws_assistant.receive()
 
         expected = {"one": 1, "two": 2}
 
@@ -191,11 +189,11 @@ class WSAssistantTest(IsolatedAsyncioWrapperTestCase):
         receive_mock.return_value = response_mock
         iter_messages_iterator = self.ws_assistant.iter_messages()
 
-        response = await (iter_messages_iterator.__anext__())
+        response = await iter_messages_iterator.__anext__()
 
         self.assertEqual(data, response.data)
 
         connected_mock.return_value = False
 
         with self.assertRaises(StopAsyncIteration):
-            await (iter_messages_iterator.__anext__())
+            await iter_messages_iterator.__anext__()

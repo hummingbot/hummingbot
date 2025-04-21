@@ -17,10 +17,13 @@ class HtxAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(self, htx_auth: HtxAuth,
-                 trading_pairs: List[str],
-                 connector: 'HtxExchange',
-                 api_factory: Optional[WebAssistantsFactory]):
+    def __init__(
+        self,
+        htx_auth: HtxAuth,
+        trading_pairs: List[str],
+        connector: "HtxExchange",
+        api_factory: Optional[WebAssistantsFactory],
+    ):
         self._auth: HtxAuth = htx_auth
         self._connector = connector
         self._api_factory = api_factory
@@ -45,7 +48,7 @@ class HtxAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 }
             )
             auth_params = self._auth.generate_auth_params_for_WS(ws_request)
-            ws_request.payload['params'] = auth_params
+            ws_request.payload["params"] = auth_params
             await ws.send(ws_request)
             resp: WSResponse = await ws.receive()
             auth_response = resp.data
@@ -87,10 +90,12 @@ class HtxAPIUserStreamDataSource(UserStreamTrackerDataSource):
             await self._subscribe_topic(CONSTANTS.HTX_ACCOUNT_UPDATE_TOPIC, websocket_assistant)
             for trading_pair in self._trading_pairs:
                 exchange_symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                await self._subscribe_topic(CONSTANTS.HTX_TRADE_DETAILS_TOPIC.format(exchange_symbol),
-                                            websocket_assistant)
-                await self._subscribe_topic(CONSTANTS.HTX_ORDER_UPDATE_TOPIC.format(exchange_symbol),
-                                            websocket_assistant)
+                await self._subscribe_topic(
+                    CONSTANTS.HTX_TRADE_DETAILS_TOPIC.format(exchange_symbol), websocket_assistant
+                )
+                await self._subscribe_topic(
+                    CONSTANTS.HTX_ORDER_UPDATE_TOPIC.format(exchange_symbol), websocket_assistant
+                )
         except asyncio.CancelledError:
             raise
         except Exception:

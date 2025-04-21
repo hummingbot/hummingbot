@@ -70,48 +70,25 @@ class OKXPerpetualWebUtilsTest(unittest.TestCase):
     @staticmethod
     def push_data_mock_message():
         return {
-            "arg": {
-                "channel": "some-channel",
-                "instId": "COINALPHA-HBOT-SWAP"
-            },
-            "data": [
-                {
-                    "instType": "SWAP",
-                    "instId": "COINALPHA-HBOT-SWAP",
-                    "someParam": "someValue"
-                }
-            ]
+            "arg": {"channel": "some-channel", "instId": "COINALPHA-HBOT-SWAP"},
+            "data": [{"instType": "SWAP", "instId": "COINALPHA-HBOT-SWAP", "someParam": "someValue"}],
         }
 
     @staticmethod
     def failure_response_example_mock_message():
-        return {
-            "event": "error",
-            "code": "9999",
-            "msg": "Some error message",
-            "connId": "a4d3ae55"
-        }
+        return {"event": "error", "code": "9999", "msg": "Some error message", "connId": "a4d3ae55"}
 
     @staticmethod
     def successful_response_mock_message():
         return {
             "event": "subscribe",
-            "arg": {
-                "channel": "some-channel",
-                "instId": "COINALPHA-HBOT-SWAP"
-            },
-            "connId": "a4d3ae55"
+            "arg": {"channel": "some-channel", "instId": "COINALPHA-HBOT-SWAP"},
+            "connId": "a4d3ae55",
         }
 
     def test_payload_from_message(self):
         payload = web_utils.payload_from_message(self.push_data_mock_message())
-        self.assertEqual(payload, [
-            {
-                "instType": "SWAP",
-                "instId": "COINALPHA-HBOT-SWAP",
-                "someParam": "someValue"
-            }
-        ])
+        self.assertEqual(payload, [{"instType": "SWAP", "instId": "COINALPHA-HBOT-SWAP", "someParam": "someValue"}])
         self.assertIsInstance(payload, list)
 
     def test_endpoint_from_message(self):
@@ -134,9 +111,7 @@ class OKXPerpetualWebUtilsTest(unittest.TestCase):
         self.assertTrue(2, len(api_factory._rest_pre_processors))
 
     def test_get_pair_specific_limit_id(self):
-        limit_id = web_utils.get_pair_specific_limit_id("GET",
-                                                        "test/endpoint",
-                                                        "BTC-USDT")
+        limit_id = web_utils.get_pair_specific_limit_id("GET", "test/endpoint", "BTC-USDT")
         self.assertEqual("GET-test/endpoint-BTC-USDT", limit_id)
 
     def test_build_api_factory_without_time_synchronizer_pre_processor(self):
@@ -171,15 +146,7 @@ class OKXPerpetualWebUtilsTest(unittest.TestCase):
 
     @aioresponses()
     def test_get_current_server_time(self, mock_api):
-        response = {
-            "code": "0",
-            "msg": "",
-            "data": [
-                {
-                    "ts": "1597026383085"
-                }
-            ]
-        }
+        response = {"code": "0", "msg": "", "data": [{"ts": "1597026383085"}]}
         url = web_utils.get_rest_url_for_endpoint(
             endpoint=CONSTANTS.REST_SERVER_TIME[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
         )

@@ -36,6 +36,7 @@ class TriangularArbitrage(ScriptStrategyBase):
     - Profit is calculated each round and total profit is checked for the kill_switch to prevent from excessive losses
     - !!! Profitability calculation doesn't take into account trading fees, set min_profitability to at least 3 * fee
     """
+
     # Config params
     connector_name: str = "kucoin"
     first_pair: str = "ADA-USDT"
@@ -88,20 +89,26 @@ class TriangularArbitrage(ScriptStrategyBase):
         if not self.ready_for_new_orders():
             return
 
-        self.profit["direct"], self.order_amount["direct"] = self.calculate_profit(self.trading_pair["direct"],
-                                                                                   self.order_side["direct"])
-        self.profit["reverse"], self.order_amount["reverse"] = self.calculate_profit(self.trading_pair["reverse"],
-                                                                                     self.order_side["reverse"])
-        self.log_with_clock(logging.INFO, f"Profit direct: {round(self.profit['direct'], 2)}, "
-                                          f"Profit reverse: {round(self.profit['reverse'], 2)}")
+        self.profit["direct"], self.order_amount["direct"] = self.calculate_profit(
+            self.trading_pair["direct"], self.order_side["direct"]
+        )
+        self.profit["reverse"], self.order_amount["reverse"] = self.calculate_profit(
+            self.trading_pair["reverse"], self.order_side["reverse"]
+        )
+        self.log_with_clock(
+            logging.INFO,
+            f"Profit direct: {round(self.profit['direct'], 2)}, " f"Profit reverse: {round(self.profit['reverse'], 2)}",
+        )
 
         if self.profit["direct"] < self.min_profitability and self.profit["reverse"] < self.min_profitability:
             return
 
         self.profitable_direction = "direct" if self.profit["direct"] > self.profit["reverse"] else "reverse"
-        self.start_arbitrage(self.trading_pair[self.profitable_direction],
-                             self.order_side[self.profitable_direction],
-                             self.order_amount[self.profitable_direction])
+        self.start_arbitrage(
+            self.trading_pair[self.profitable_direction],
+            self.order_side[self.profitable_direction],
+            self.order_amount[self.profitable_direction],
+        )
 
     def init_strategy(self):
         """
@@ -123,8 +130,11 @@ class TriangularArbitrage(ScriptStrategyBase):
         all_assets = {base_1, base_2, base_3, quote_1, quote_2, quote_3}
         if len(all_assets) != 3 or self.holding_asset not in all_assets:
             self.status = "NOT_ACTIVE"
-            self.log_with_clock(logging.WARNING, f"Pairs {self.first_pair}, {self.second_pair}, {self.third_pair} "
-                                                 f"are not suited for triangular arbitrage!")
+            self.log_with_clock(
+                logging.WARNING,
+                f"Pairs {self.first_pair}, {self.second_pair}, {self.third_pair} "
+                f"are not suited for triangular arbitrage!",
+            )
 
     def set_trading_pair(self):
         """
@@ -167,8 +177,11 @@ class TriangularArbitrage(ScriptStrategyBase):
         if self.status == "ARBITRAGE_STARTED":
             if self.order_candidate and self.place_order_failure:
                 if self.place_order_trials_count <= self.place_order_trials_limit:
-                    self.log_with_clock(logging.INFO, f"Failed to place {self.order_candidate.trading_pair} "
-                                                      f"{self.order_candidate.order_side} order. Trying again!")
+                    self.log_with_clock(
+                        logging.INFO,
+                        f"Failed to place {self.order_candidate.trading_pair} "
+                        f"{self.order_candidate.order_side} order. Trying again!",
+                    )
                     self.process_candidate(self.order_candidate, True)
                 else:
                     msg = f"Error placing {self.order_candidate.trading_pair} {self.order_candidate.order_side} order"
@@ -190,8 +203,9 @@ class TriangularArbitrage(ScriptStrategyBase):
             return False
 
         if self.connector.get_available_balance(self.holding_asset) < self.order_amount_in_holding_asset:
-            self.log_with_clock(logging.INFO,
-                                f"{self.connector_name} {self.holding_asset} balance is too low. Cannot place order.")
+            self.log_with_clock(
+                logging.INFO, f"{self.connector_name} {self.holding_asset} balance is too low. Cannot place order."
+            )
             return False
 
         return True
@@ -204,14 +218,16 @@ class TriangularArbitrage(ScriptStrategyBase):
         order_amount = [0, 0, 0]
 
         for i in range(3):
-            order_amount[i] = self.get_order_amount_from_exchanged_amount(trading_pair[i], order_side[i],
-                                                                          exchanged_amount)
+            order_amount[i] = self.get_order_amount_from_exchanged_amount(
+                trading_pair[i], order_side[i], exchanged_amount
+            )
             # Update exchanged_amount for the next cycle
             if order_side[i]:
                 exchanged_amount = order_amount[i]
             else:
-                exchanged_amount = self.connector.get_quote_volume_for_base_amount(trading_pair[i], order_side[i],
-                                                                                   order_amount[i]).result_volume
+                exchanged_amount = self.connector.get_quote_volume_for_base_amount(
+                    trading_pair[i], order_side[i], order_amount[i]
+                ).result_volume
         start_amount = self.order_amount_in_holding_asset
         end_amount = exchanged_amount
         profit = (end_amount / start_amount - 1) * 100
@@ -236,8 +252,8 @@ class TriangularArbitrage(ScriptStrategyBase):
         """
         Calculates base amount that you get for the quote volume using the orderbook entries
         """
-        cumulative_volume = 0.
-        cumulative_base_amount = 0.
+        cumulative_volume = 0.0
+        cumulative_base_amount = 0.0
         quote_volume = float(quote_volume)
 
         for order_book_row in orderbook_entries:
@@ -282,38 +298,44 @@ class TriangularArbitrage(ScriptStrategyBase):
             order_type=OrderType.MARKET,
             order_side=side,
             amount=amount_quantize,
-            price=price_quantize)
+            price=price_quantize,
+        )
 
     def process_candidate(self, order_candidate, multiple_trials_enabled) -> bool:
         """
         Checks order candidate balance and either places an order or sets a failure for the next trials
         """
         order_candidate_adjusted = self.connector.budget_checker.adjust_candidate(order_candidate, all_or_none=True)
-        if math.isclose(order_candidate.amount, Decimal("0"), rel_tol=1E-6):
-            self.logger().info(f"Order adjusted amount: {order_candidate.amount} on {order_candidate.trading_pair}, "
-                               f"too low to place an order")
+        if math.isclose(order_candidate.amount, Decimal("0"), rel_tol=1e-6):
+            self.logger().info(
+                f"Order adjusted amount: {order_candidate.amount} on {order_candidate.trading_pair}, "
+                f"too low to place an order"
+            )
             if multiple_trials_enabled:
                 self.place_order_trials_count += 1
                 self.place_order_failure = True
             return False
         else:
             is_buy = True if order_candidate.order_side == TradeType.BUY else False
-            self.place_order(self.connector_name,
-                             order_candidate.trading_pair,
-                             is_buy,
-                             order_candidate_adjusted.amount,
-                             order_candidate.order_type,
-                             order_candidate_adjusted.price)
+            self.place_order(
+                self.connector_name,
+                order_candidate.trading_pair,
+                is_buy,
+                order_candidate_adjusted.amount,
+                order_candidate.order_type,
+                order_candidate_adjusted.price,
+            )
             return True
 
-    def place_order(self,
-                    connector_name: str,
-                    trading_pair: str,
-                    is_buy: bool,
-                    amount: Decimal,
-                    order_type: OrderType,
-                    price=Decimal("NaN"),
-                    ):
+    def place_order(
+        self,
+        connector_name: str,
+        trading_pair: str,
+        is_buy: bool,
+        amount: Decimal,
+        order_type: OrderType,
+        price=Decimal("NaN"),
+    ):
         if is_buy:
             self.buy(connector_name, trading_pair, amount, order_type, price)
         else:
@@ -345,15 +367,19 @@ class TriangularArbitrage(ScriptStrategyBase):
             self.place_order_failure = True
 
     def did_complete_buy_order(self, event: BuyOrderCompletedEvent):
-        msg = f"Buy {round(event.base_asset_amount, 6)} {event.base_asset} " \
-              f"for {round(event.quote_asset_amount, 6)} {event.quote_asset} is completed"
+        msg = (
+            f"Buy {round(event.base_asset_amount, 6)} {event.base_asset} "
+            f"for {round(event.quote_asset_amount, 6)} {event.quote_asset} is completed"
+        )
         self.notify_hb_app_with_timestamp(msg)
         self.log_with_clock(logging.INFO, msg)
         self.process_next_pair(event)
 
     def did_complete_sell_order(self, event: SellOrderCompletedEvent):
-        msg = f"Sell {round(event.base_asset_amount, 6)} {event.base_asset} " \
-              f"for {round(event.quote_asset_amount, 6)} {event.quote_asset} is completed"
+        msg = (
+            f"Sell {round(event.base_asset_amount, 6)} {event.base_asset} "
+            f"for {round(event.quote_asset_amount, 6)} {event.quote_asset} is completed"
+        )
         self.notify_hb_app_with_timestamp(msg)
         self.log_with_clock(logging.INFO, msg)
         self.process_next_pair(event)
@@ -379,15 +405,17 @@ class TriangularArbitrage(ScriptStrategyBase):
 
         # Save initial amount spent for further profit calculation
         if event_order_index == 0:
-            self.initial_spent_amount = order_event.quote_asset_amount if order_side[event_order_index] \
-                else order_event.base_asset_amount
+            self.initial_spent_amount = (
+                order_event.quote_asset_amount if order_side[event_order_index] else order_event.base_asset_amount
+            )
 
         if event_order_index < 2:
-            order_amount = self.get_order_amount_from_exchanged_amount(trading_pair[event_order_index + 1],
-                                                                       order_side[event_order_index + 1],
-                                                                       exchanged_amount)
-            self.order_candidate = self.create_order_candidate(trading_pair[event_order_index + 1],
-                                                               order_side[event_order_index + 1], order_amount)
+            order_amount = self.get_order_amount_from_exchanged_amount(
+                trading_pair[event_order_index + 1], order_side[event_order_index + 1], exchanged_amount
+            )
+            self.order_candidate = self.create_order_candidate(
+                trading_pair[event_order_index + 1], order_side[event_order_index + 1], order_amount
+            )
             if self.order_candidate:
                 self.process_candidate(self.order_candidate, True)
         else:
@@ -427,12 +455,16 @@ class TriangularArbitrage(ScriptStrategyBase):
 
         lines.extend(["", "  Strategy status:"] + ["    " + self.status])
 
-        lines.extend(["", "  Total profit:"] + ["    " + f"{self.total_profit} {self.holding_asset}"
-                                                         f"({self.total_profit_pct}%)"])
+        lines.extend(
+            ["", "  Total profit:"]
+            + ["    " + f"{self.total_profit} {self.holding_asset}" f"({self.total_profit_pct}%)"]
+        )
 
         for direction in self.trading_pair:
-            pairs_str = [f"{'buy' if side else 'sell'} {pair}"
-                         for side, pair in zip(self.order_side[direction], self.trading_pair[direction])]
+            pairs_str = [
+                f"{'buy' if side else 'sell'} {pair}"
+                for side, pair in zip(self.order_side[direction], self.trading_pair[direction])
+            ]
             pairs_str = " > ".join(pairs_str)
             profit_str = str(round(self.profit[direction], 2))
             lines.extend(["", f"  {direction.capitalize()}:", f"    {pairs_str}", f"    profitability: {profit_str}%"])
@@ -448,7 +480,8 @@ class TriangularArbitrage(ScriptStrategyBase):
 
         if self.connector.get_available_balance(self.holding_asset) < self.order_amount_in_holding_asset:
             warning_lines.extend(
-                [f"{self.connector_name} {self.holding_asset} balance is too low. Cannot place order."])
+                [f"{self.connector_name} {self.holding_asset} balance is too low. Cannot place order."]
+            )
 
         if len(warning_lines) > 0:
             lines.extend(["", "*** WARNINGS ***"] + warning_lines)

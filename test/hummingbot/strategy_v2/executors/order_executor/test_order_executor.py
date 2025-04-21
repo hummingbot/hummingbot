@@ -60,7 +60,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             trading_pair="ETH-USDT",
             amount=Decimal("1"),
             price=Decimal("100"),
-            execution_strategy=ExecutionStrategy.MARKET
+            execution_strategy=ExecutionStrategy.MARKET,
         )
         executor = self.get_order_executor_from_config(config)
         executor._status = RunnableStatus.RUNNING
@@ -77,7 +77,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             trading_pair="ETH-USDT",
             amount=Decimal("1"),
             price=Decimal("100"),
-            execution_strategy=ExecutionStrategy.LIMIT_MAKER
+            execution_strategy=ExecutionStrategy.LIMIT_MAKER,
         )
         executor = self.get_order_executor_from_config(config)
         executor._status = RunnableStatus.RUNNING
@@ -95,7 +95,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             amount=Decimal("1"),
             price=Decimal("100"),
             execution_strategy=ExecutionStrategy.LIMIT_CHASER,
-            chaser_config=LimitChaserConfig(distance=Decimal("0.01"), refresh_threshold=Decimal("0.02"))
+            chaser_config=LimitChaserConfig(distance=Decimal("0.01"), refresh_threshold=Decimal("0.02")),
         )
         executor = self.get_order_executor_from_config(config)
         executor._status = RunnableStatus.RUNNING
@@ -111,7 +111,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             trading_pair="ETH-USDT",
             amount=Decimal("1"),
             price=Decimal("100"),
-            execution_strategy=ExecutionStrategy.MARKET
+            execution_strategy=ExecutionStrategy.MARKET,
         )
         executor = self.get_order_executor_from_config(config)
         executor._status = RunnableStatus.RUNNING
@@ -126,7 +126,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             price=Decimal("100"),
             amount=Decimal("1"),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.OPEN
+            initial_state=OrderState.OPEN,
         )
         tracked_order = TrackedOrder(order_id)
         tracked_order.order = order
@@ -134,9 +134,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         # Trigger the order failed event
         failure_event = MarketOrderFailureEvent(
-            order_id=order_id,
-            timestamp=1640001112.223,
-            order_type=OrderType.MARKET
+            order_id=order_id, timestamp=1640001112.223, order_type=OrderType.MARKET
         )
         executor.process_order_failed_event(1, self.strategy.connectors["binance"], failure_event)
 
@@ -157,7 +155,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             amount=Decimal("1"),
             price=Decimal("100"),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.COMPLETED
+            initial_state=OrderState.COMPLETED,
         )
         in_flight_order_mock.return_value = order
 
@@ -170,7 +168,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             trading_pair="ETH-USDT",
             amount=Decimal("1"),
             price=Decimal("100"),
-            execution_strategy=ExecutionStrategy.MARKET
+            execution_strategy=ExecutionStrategy.MARKET,
         )
         executor = self.get_order_executor_from_config(config)
         executor._status = RunnableStatus.RUNNING
@@ -178,6 +176,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         # Create and process the completed event
         from hummingbot.core.event.events import BuyOrderCompletedEvent
+
         completed_event = BuyOrderCompletedEvent(
             timestamp=1234567890,
             order_id="OID-COMPLETE",
@@ -186,7 +185,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             base_asset_amount=config.amount,
             quote_asset_amount=config.amount * config.price,
             order_type=OrderType.MARKET,
-            exchange_order_id="EOID4"
+            exchange_order_id="EOID4",
         )
         market = MagicMock()
         executor.process_order_completed_event("102", market, completed_event)
@@ -206,7 +205,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             trading_pair="ETH-USDT",
             amount=Decimal("1"),
             price=Decimal("100"),
-            execution_strategy=ExecutionStrategy.MARKET
+            execution_strategy=ExecutionStrategy.MARKET,
         )
         executor = self.get_order_executor_from_config(config)
         executor._status = RunnableStatus.RUNNING
@@ -221,7 +220,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             price=Decimal("100"),
             amount=Decimal("1"),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.OPEN
+            initial_state=OrderState.OPEN,
         )
         tracked_order = TrackedOrder(order_id)
         tracked_order.order = order
@@ -243,7 +242,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             trading_pair="ETH-USDT",
             amount=Decimal("1"),
             price=Decimal("100"),
-            execution_strategy=ExecutionStrategy.MARKET
+            execution_strategy=ExecutionStrategy.MARKET,
         )
         executor = self.get_order_executor_from_config(config)
         executor._status = RunnableStatus.RUNNING
@@ -258,7 +257,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             price=Decimal("100"),
             amount=Decimal("1"),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.OPEN
+            initial_state=OrderState.OPEN,
         )
         tracked_order = TrackedOrder(order_id)
         tracked_order.order = order
@@ -282,7 +281,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             trading_pair="ETH-USDT",
             amount=Decimal("1"),
             price=Decimal("100"),
-            execution_strategy=ExecutionStrategy.MARKET
+            execution_strategy=ExecutionStrategy.MARKET,
         )
         executor = self.get_order_executor_from_config(config)
         executor._status = RunnableStatus.RUNNING
@@ -291,12 +290,16 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(executor.net_pnl_quote, Decimal("0"))
         self.assertEqual(executor.cum_fees_quote, Decimal("0"))
 
-    @patch.object(OrderExecutor, 'get_trading_rules')
-    @patch.object(OrderExecutor, 'adjust_order_candidates')
+    @patch.object(OrderExecutor, "get_trading_rules")
+    @patch.object(OrderExecutor, "adjust_order_candidates")
     async def test_validate_sufficient_balance(self, mock_adjust_order_candidates, mock_get_trading_rules):
         # Mock trading rules
-        trading_rules = TradingRule(trading_pair="ETH-USDT", min_order_size=Decimal("0.1"),
-                                    min_price_increment=Decimal("0.1"), min_base_amount_increment=Decimal("0.1"))
+        trading_rules = TradingRule(
+            trading_pair="ETH-USDT",
+            min_order_size=Decimal("0.1"),
+            min_price_increment=Decimal("0.1"),
+            min_base_amount_increment=Decimal("0.1"),
+        )
         mock_get_trading_rules.return_value = trading_rules
         config = OrderExecutorConfig(
             id="test",
@@ -306,7 +309,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             trading_pair="ETH-USDT",
             amount=Decimal("1"),
             price=Decimal("100"),
-            execution_strategy=ExecutionStrategy.MARKET
+            execution_strategy=ExecutionStrategy.MARKET,
         )
         executor = self.get_order_executor_from_config(config)
         # Mock order candidate
@@ -316,7 +319,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             order_type=OrderType.LIMIT,
             order_side=TradeType.BUY,
             amount=Decimal("1"),
-            price=Decimal("100")
+            price=Decimal("100"),
         )
         # Test for sufficient balance
         mock_adjust_order_candidates.return_value = [order_candidate]
@@ -330,12 +333,16 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(executor.close_type, CloseType.INSUFFICIENT_BALANCE)
         self.assertEqual(executor.status, RunnableStatus.TERMINATED)
 
-    @patch.object(OrderExecutor, 'get_trading_rules')
-    @patch.object(OrderExecutor, 'adjust_order_candidates')
+    @patch.object(OrderExecutor, "get_trading_rules")
+    @patch.object(OrderExecutor, "adjust_order_candidates")
     async def test_validate_sufficient_balance_perpetual(self, mock_adjust_order_candidates, mock_get_trading_rules):
         # Mock trading rules
-        trading_rules = TradingRule(trading_pair="ETH-USDT", min_order_size=Decimal("0.1"),
-                                    min_price_increment=Decimal("0.1"), min_base_amount_increment=Decimal("0.1"))
+        trading_rules = TradingRule(
+            trading_pair="ETH-USDT",
+            min_order_size=Decimal("0.1"),
+            min_price_increment=Decimal("0.1"),
+            min_base_amount_increment=Decimal("0.1"),
+        )
         mock_get_trading_rules.return_value = trading_rules
         config = OrderExecutorConfig(
             id="test",
@@ -345,7 +352,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             trading_pair="ETH-USDT",
             amount=Decimal("1"),
             price=Decimal("100"),
-            execution_strategy=ExecutionStrategy.MARKET
+            execution_strategy=ExecutionStrategy.MARKET,
         )
         executor = self.get_order_executor_from_config(config)
         # Mock order candidate
@@ -355,7 +362,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             order_type=OrderType.LIMIT,
             order_side=TradeType.BUY,
             amount=Decimal("1"),
-            price=Decimal("100")
+            price=Decimal("100"),
         )
         # Test for sufficient balance
         mock_adjust_order_candidates.return_value = [order_candidate]
@@ -369,7 +376,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(executor.close_type, CloseType.INSUFFICIENT_BALANCE)
         self.assertEqual(executor.status, RunnableStatus.TERMINATED)
 
-    @patch.object(OrderExecutor, '_sleep')
+    @patch.object(OrderExecutor, "_sleep")
     async def test_control_shutdown_process_with_open_order(self, mock_sleep):
         config = OrderExecutorConfig(
             id="test",
@@ -379,7 +386,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             trading_pair="ETH-USDT",
             amount=Decimal("1"),
             price=Decimal("100"),
-            execution_strategy=ExecutionStrategy.MARKET
+            execution_strategy=ExecutionStrategy.MARKET,
         )
         executor = self.get_order_executor_from_config(config)
         executor._status = RunnableStatus.SHUTTING_DOWN
@@ -393,7 +400,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             price=Decimal("100"),
             amount=Decimal("1"),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.OPEN
+            initial_state=OrderState.OPEN,
         )
         executor._order = TrackedOrder("OID-OPEN")
         executor._order.order = order
@@ -401,12 +408,10 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         await executor.control_shutdown_process()
         mock_sleep.assert_called_once_with(5.0)
         self.strategy.cancel.assert_called_once_with(
-            connector_name=config.connector_name,
-            trading_pair=config.trading_pair,
-            order_id="OID-OPEN"
+            connector_name=config.connector_name, trading_pair=config.trading_pair, order_id="OID-OPEN"
         )
 
-    @patch.object(OrderExecutor, '_sleep')
+    @patch.object(OrderExecutor, "_sleep")
     async def test_control_shutdown_process_with_filled_order(self, mock_sleep):
         config = OrderExecutorConfig(
             id="test",
@@ -416,7 +421,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             trading_pair="ETH-USDT",
             amount=Decimal("1"),
             price=Decimal("100"),
-            execution_strategy=ExecutionStrategy.MARKET
+            execution_strategy=ExecutionStrategy.MARKET,
         )
         executor = self.get_order_executor_from_config(config)
         executor._status = RunnableStatus.SHUTTING_DOWN
@@ -430,7 +435,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             price=Decimal("100"),
             amount=Decimal("1"),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.FILLED
+            initial_state=OrderState.FILLED,
         )
         executor._order = TrackedOrder("OID-FILLED")
         executor._order.order = order
@@ -441,7 +446,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(len(executor._held_position_orders), 1)
         self.assertEqual(executor.status, RunnableStatus.TERMINATED)
 
-    @patch.object(OrderExecutor, '_sleep')
+    @patch.object(OrderExecutor, "_sleep")
     async def test_control_shutdown_process_with_partial_filled_orders(self, mock_sleep):
         config = OrderExecutorConfig(
             id="test",
@@ -451,7 +456,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             trading_pair="ETH-USDT",
             amount=Decimal("1"),
             price=Decimal("100"),
-            execution_strategy=ExecutionStrategy.MARKET
+            execution_strategy=ExecutionStrategy.MARKET,
         )
         executor = self.get_order_executor_from_config(config)
         executor._status = RunnableStatus.SHUTTING_DOWN
@@ -465,7 +470,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             price=Decimal("100"),
             amount=Decimal("1"),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.PARTIALLY_FILLED
+            initial_state=OrderState.PARTIALLY_FILLED,
         )
         tracked_order = TrackedOrder("OID-PARTIAL")
         tracked_order.order = order
@@ -477,7 +482,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(len(executor._held_position_orders), 1)
         self.assertEqual(executor.status, RunnableStatus.TERMINATED)
 
-    @patch.object(OrderExecutor, '_sleep')
+    @patch.object(OrderExecutor, "_sleep")
     async def test_control_shutdown_process_with_no_orders(self, mock_sleep):
         config = OrderExecutorConfig(
             id="test",
@@ -487,7 +492,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             trading_pair="ETH-USDT",
             amount=Decimal("1"),
             price=Decimal("100"),
-            execution_strategy=ExecutionStrategy.MARKET
+            execution_strategy=ExecutionStrategy.MARKET,
         )
         executor = self.get_order_executor_from_config(config)
         executor._status = RunnableStatus.SHUTTING_DOWN
@@ -496,7 +501,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         mock_sleep.assert_called_once_with(5.0)
         self.assertEqual(executor.status, RunnableStatus.TERMINATED)
 
-    @patch.object(OrderExecutor, 'current_market_price', new_callable=PropertyMock)
+    @patch.object(OrderExecutor, "current_market_price", new_callable=PropertyMock)
     def test_get_order_price_market_order(self, mock_current_market_price):
         mock_current_market_price.return_value = Decimal("120")
         config = OrderExecutorConfig(
@@ -507,13 +512,13 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             trading_pair="ETH-USDT",
             amount=Decimal("1"),
             price=Decimal("100"),
-            execution_strategy=ExecutionStrategy.MARKET
+            execution_strategy=ExecutionStrategy.MARKET,
         )
         executor = self.get_order_executor_from_config(config)
         price = executor.get_order_price()
         self.assertTrue(price.is_nan())
 
-    @patch.object(OrderExecutor, 'current_market_price', new_callable=PropertyMock)
+    @patch.object(OrderExecutor, "current_market_price", new_callable=PropertyMock)
     def test_get_order_price_limit_chaser_buy(self, mock_current_market_price):
         mock_current_market_price.return_value = Decimal("120")
         config = OrderExecutorConfig(
@@ -525,7 +530,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             amount=Decimal("1"),
             price=Decimal("100"),
             execution_strategy=ExecutionStrategy.LIMIT_CHASER,
-            chaser_config=LimitChaserConfig(distance=Decimal("0.01"), refresh_threshold=Decimal("0.02"))
+            chaser_config=LimitChaserConfig(distance=Decimal("0.01"), refresh_threshold=Decimal("0.02")),
         )
         executor = self.get_order_executor_from_config(config)
         price = executor.get_order_price()
@@ -533,7 +538,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         expected_price = Decimal("120") * (Decimal("1") - Decimal("0.01"))
         self.assertEqual(price, expected_price)
 
-    @patch.object(OrderExecutor, 'current_market_price', new_callable=PropertyMock)
+    @patch.object(OrderExecutor, "current_market_price", new_callable=PropertyMock)
     def test_get_order_price_limit_chaser_sell(self, mock_current_market_price):
         mock_current_market_price.return_value = Decimal("120")
         config = OrderExecutorConfig(
@@ -545,7 +550,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             amount=Decimal("1"),
             price=Decimal("100"),
             execution_strategy=ExecutionStrategy.LIMIT_CHASER,
-            chaser_config=LimitChaserConfig(distance=Decimal("0.01"), refresh_threshold=Decimal("0.02"))
+            chaser_config=LimitChaserConfig(distance=Decimal("0.01"), refresh_threshold=Decimal("0.02")),
         )
         executor = self.get_order_executor_from_config(config)
         price = executor.get_order_price()
@@ -553,7 +558,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         expected_price = Decimal("120") * (Decimal("1") + Decimal("0.01"))
         self.assertEqual(price, expected_price)
 
-    @patch.object(OrderExecutor, 'current_market_price', new_callable=PropertyMock)
+    @patch.object(OrderExecutor, "current_market_price", new_callable=PropertyMock)
     def test_get_order_price_limit_maker_buy(self, mock_current_market_price):
         mock_current_market_price.return_value = Decimal("120")
         config = OrderExecutorConfig(
@@ -564,14 +569,14 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             trading_pair="ETH-USDT",
             amount=Decimal("1"),
             price=Decimal("100"),
-            execution_strategy=ExecutionStrategy.LIMIT_MAKER
+            execution_strategy=ExecutionStrategy.LIMIT_MAKER,
         )
         executor = self.get_order_executor_from_config(config)
         price = executor.get_order_price()
         # For buy orders: min(config_price, current_price)
         self.assertEqual(price, Decimal("100"))
 
-    @patch.object(OrderExecutor, 'current_market_price', new_callable=PropertyMock)
+    @patch.object(OrderExecutor, "current_market_price", new_callable=PropertyMock)
     def test_get_order_price_limit_maker_sell(self, mock_current_market_price):
         mock_current_market_price.return_value = Decimal("120")
         config = OrderExecutorConfig(
@@ -582,14 +587,14 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             trading_pair="ETH-USDT",
             amount=Decimal("1"),
             price=Decimal("100"),
-            execution_strategy=ExecutionStrategy.LIMIT_MAKER
+            execution_strategy=ExecutionStrategy.LIMIT_MAKER,
         )
         executor = self.get_order_executor_from_config(config)
         price = executor.get_order_price()
         # For sell orders: max(config_price, current_price)
         self.assertEqual(price, Decimal("120"))
 
-    @patch.object(OrderExecutor, 'current_market_price', new_callable=PropertyMock)
+    @patch.object(OrderExecutor, "current_market_price", new_callable=PropertyMock)
     def test_get_order_price_limit(self, mock_current_market_price):
         mock_current_market_price.return_value = Decimal("120")
         config = OrderExecutorConfig(
@@ -600,17 +605,19 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             trading_pair="ETH-USDT",
             amount=Decimal("1"),
             price=Decimal("100"),
-            execution_strategy=ExecutionStrategy.LIMIT
+            execution_strategy=ExecutionStrategy.LIMIT,
         )
         executor = self.get_order_executor_from_config(config)
         price = executor.get_order_price()
         # For limit orders: use config price
         self.assertEqual(price, Decimal("100"))
 
-    @patch.object(OrderExecutor, 'current_market_price', new_callable=PropertyMock)
-    @patch.object(OrderExecutor, 'place_open_order')
-    @patch.object(OrderExecutor, 'cancel_order')
-    async def test_limit_chaser_order_refresh(self, mock_cancel_order, mock_place_open_order, mock_current_market_price):
+    @patch.object(OrderExecutor, "current_market_price", new_callable=PropertyMock)
+    @patch.object(OrderExecutor, "place_open_order")
+    @patch.object(OrderExecutor, "cancel_order")
+    async def test_limit_chaser_order_refresh(
+        self, mock_cancel_order, mock_place_open_order, mock_current_market_price
+    ):
         # Setup initial configuration
         config = OrderExecutorConfig(
             id="test",
@@ -621,7 +628,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             amount=Decimal("1"),
             price=Decimal("100"),
             execution_strategy=ExecutionStrategy.LIMIT_CHASER,
-            chaser_config=LimitChaserConfig(distance=Decimal("0.01"), refresh_threshold=Decimal("0.02"))
+            chaser_config=LimitChaserConfig(distance=Decimal("0.01"), refresh_threshold=Decimal("0.02")),
         )
         executor = self.get_order_executor_from_config(config)
         executor._status = RunnableStatus.RUNNING
@@ -635,7 +642,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             price=Decimal("118.8"),  # 120 * (1 - 0.01)
             amount=Decimal("1"),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.OPEN
+            initial_state=OrderState.OPEN,
         )
         executor._order = TrackedOrder("OID-CHASER")
         executor._order.order = order

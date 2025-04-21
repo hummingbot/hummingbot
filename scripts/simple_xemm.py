@@ -15,24 +15,36 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 class SimpleXEMMConfig(BaseClientModel):
     script_file_name: str = os.path.basename(__file__)
-    maker_exchange: str = Field("kucoin_paper_trade", json_schema_extra={
-        "prompt": "Maker exchange where the bot will place maker orders", "prompt_on_new": True})
-    maker_pair: str = Field("ETH-USDT", json_schema_extra={
-        "prompt": "Maker pair where the bot will place maker orders", "prompt_on_new": True})
-    taker_exchange: str = Field("binance_paper_trade", json_schema_extra={
-        "prompt": "Taker exchange where the bot will hedge filled orders", "prompt_on_new": True})
-    taker_pair: str = Field("ETH-USDT", json_schema_extra={
-        "prompt": "Taker pair where the bot will hedge filled orders", "prompt_on_new": True})
-    order_amount: Decimal = Field(0.1, json_schema_extra={
-        "prompt": "Order amount (denominated in base asset)", "prompt_on_new": True})
-    spread_bps: Decimal = Field(10, json_schema_extra={
-        "prompt": "Spread between maker and taker orders (in basis points)", "prompt_on_new": True})
-    min_spread_bps: Decimal = Field(0, json_schema_extra={
-        "prompt": "Minimum spread (in basis points)", "prompt_on_new": True})
-    slippage_buffer_spread_bps: Decimal = Field(100, json_schema_extra={
-        "prompt": "Slippage buffer (in basis points)", "prompt_on_new": True})
-    max_order_age: int = Field(120, json_schema_extra={
-        "prompt": "Max order age (in seconds)", "prompt_on_new": True})
+    maker_exchange: str = Field(
+        "kucoin_paper_trade",
+        json_schema_extra={"prompt": "Maker exchange where the bot will place maker orders", "prompt_on_new": True},
+    )
+    maker_pair: str = Field(
+        "ETH-USDT",
+        json_schema_extra={"prompt": "Maker pair where the bot will place maker orders", "prompt_on_new": True},
+    )
+    taker_exchange: str = Field(
+        "binance_paper_trade",
+        json_schema_extra={"prompt": "Taker exchange where the bot will hedge filled orders", "prompt_on_new": True},
+    )
+    taker_pair: str = Field(
+        "ETH-USDT",
+        json_schema_extra={"prompt": "Taker pair where the bot will hedge filled orders", "prompt_on_new": True},
+    )
+    order_amount: Decimal = Field(
+        0.1, json_schema_extra={"prompt": "Order amount (denominated in base asset)", "prompt_on_new": True}
+    )
+    spread_bps: Decimal = Field(
+        10,
+        json_schema_extra={"prompt": "Spread between maker and taker orders (in basis points)", "prompt_on_new": True},
+    )
+    min_spread_bps: Decimal = Field(
+        0, json_schema_extra={"prompt": "Minimum spread (in basis points)", "prompt_on_new": True}
+    )
+    slippage_buffer_spread_bps: Decimal = Field(
+        100, json_schema_extra={"prompt": "Slippage buffer (in basis points)", "prompt_on_new": True}
+    )
+    max_order_age: int = Field(120, json_schema_extra={"prompt": "Max order age (in seconds)", "prompt_on_new": True})
 
 
 class SimpleXEMM(ScriptStrategyBase):
@@ -58,24 +70,58 @@ class SimpleXEMM(ScriptStrategyBase):
         self.config = config
 
     def on_tick(self):
-        taker_buy_result = self.connectors[self.config.taker_exchange].get_price_for_volume(self.config.taker_pair, True, self.config.order_amount)
-        taker_sell_result = self.connectors[self.config.taker_exchange].get_price_for_volume(self.config.taker_pair, False, self.config.order_amount)
+        taker_buy_result = self.connectors[self.config.taker_exchange].get_price_for_volume(
+            self.config.taker_pair, True, self.config.order_amount
+        )
+        taker_sell_result = self.connectors[self.config.taker_exchange].get_price_for_volume(
+            self.config.taker_pair, False, self.config.order_amount
+        )
 
         if not self.buy_order_placed:
             maker_buy_price = taker_sell_result.result_price * Decimal(1 - self.config.spread_bps / 10000)
             buy_order_amount = min(self.config.order_amount, self.buy_hedging_budget())
 
-            buy_order = OrderCandidate(trading_pair=self.config.maker_pair, is_maker=True, order_type=OrderType.LIMIT, order_side=TradeType.BUY, amount=Decimal(buy_order_amount), price=maker_buy_price)
-            buy_order_adjusted = self.connectors[self.config.maker_exchange].budget_checker.adjust_candidate(buy_order, all_or_none=False)
-            self.buy(self.config.maker_exchange, self.config.maker_pair, buy_order_adjusted.amount, buy_order_adjusted.order_type, buy_order_adjusted.price)
+            buy_order = OrderCandidate(
+                trading_pair=self.config.maker_pair,
+                is_maker=True,
+                order_type=OrderType.LIMIT,
+                order_side=TradeType.BUY,
+                amount=Decimal(buy_order_amount),
+                price=maker_buy_price,
+            )
+            buy_order_adjusted = self.connectors[self.config.maker_exchange].budget_checker.adjust_candidate(
+                buy_order, all_or_none=False
+            )
+            self.buy(
+                self.config.maker_exchange,
+                self.config.maker_pair,
+                buy_order_adjusted.amount,
+                buy_order_adjusted.order_type,
+                buy_order_adjusted.price,
+            )
             self.buy_order_placed = True
 
         if not self.sell_order_placed:
             maker_sell_price = taker_buy_result.result_price * Decimal(1 + self.config.spread_bps / 10000)
             sell_order_amount = min(self.config.order_amount, self.sell_hedging_budget())
-            sell_order = OrderCandidate(trading_pair=self.config.maker_pair, is_maker=True, order_type=OrderType.LIMIT, order_side=TradeType.SELL, amount=Decimal(sell_order_amount), price=maker_sell_price)
-            sell_order_adjusted = self.connectors[self.config.maker_exchange].budget_checker.adjust_candidate(sell_order, all_or_none=False)
-            self.sell(self.config.maker_exchange, self.config.maker_pair, sell_order_adjusted.amount, sell_order_adjusted.order_type, sell_order_adjusted.price)
+            sell_order = OrderCandidate(
+                trading_pair=self.config.maker_pair,
+                is_maker=True,
+                order_type=OrderType.LIMIT,
+                order_side=TradeType.SELL,
+                amount=Decimal(sell_order_amount),
+                price=maker_sell_price,
+            )
+            sell_order_adjusted = self.connectors[self.config.maker_exchange].budget_checker.adjust_candidate(
+                sell_order, all_or_none=False
+            )
+            self.sell(
+                self.config.maker_exchange,
+                self.config.maker_pair,
+                sell_order_adjusted.amount,
+                sell_order_adjusted.order_type,
+                sell_order_adjusted.price,
+            )
             self.sell_order_placed = True
 
         for order in self.get_active_orders(connector_name=self.config.maker_exchange):
@@ -102,7 +148,9 @@ class SimpleXEMM(ScriptStrategyBase):
     def sell_hedging_budget(self) -> Decimal:
         quote_asset = self.config.taker_pair.split("-")[1]
         balance = self.connectors[self.config.taker_exchange].get_available_balance(quote_asset)
-        taker_buy_result = self.connectors[self.config.taker_exchange].get_price_for_volume(self.config.taker_pair, True, self.config.order_amount)
+        taker_buy_result = self.connectors[self.config.taker_exchange].get_price_for_volume(
+            self.config.taker_pair, True, self.config.order_amount
+        )
         return balance / taker_buy_result.result_price
 
     def is_active_maker_order(self, event: OrderFilledEvent):
@@ -125,51 +173,91 @@ class SimpleXEMM(ScriptStrategyBase):
                 self.place_buy_order(self.config.taker_exchange, self.config.taker_pair, event.amount)
                 self.sell_order_placed = False
 
-    def place_buy_order(self, exchange: str, trading_pair: str, amount: Decimal, order_type: OrderType = OrderType.LIMIT):
+    def place_buy_order(
+        self, exchange: str, trading_pair: str, amount: Decimal, order_type: OrderType = OrderType.LIMIT
+    ):
         buy_result = self.connectors[exchange].get_price_for_volume(trading_pair, True, amount)
         buy_price_with_slippage = buy_result.result_price * Decimal(1 + self.config.slippage_buffer_spread_bps / 10000)
-        buy_order = OrderCandidate(trading_pair=trading_pair, is_maker=False, order_type=order_type, order_side=TradeType.BUY, amount=amount, price=buy_price_with_slippage)
+        buy_order = OrderCandidate(
+            trading_pair=trading_pair,
+            is_maker=False,
+            order_type=order_type,
+            order_side=TradeType.BUY,
+            amount=amount,
+            price=buy_price_with_slippage,
+        )
         buy_order_adjusted = self.connectors[exchange].budget_checker.adjust_candidate(buy_order, all_or_none=False)
-        self.buy(exchange, trading_pair, buy_order_adjusted.amount, buy_order_adjusted.order_type, buy_order_adjusted.price)
+        self.buy(
+            exchange, trading_pair, buy_order_adjusted.amount, buy_order_adjusted.order_type, buy_order_adjusted.price
+        )
 
-    def place_sell_order(self, exchange: str, trading_pair: str, amount: Decimal, order_type: OrderType = OrderType.LIMIT):
+    def place_sell_order(
+        self, exchange: str, trading_pair: str, amount: Decimal, order_type: OrderType = OrderType.LIMIT
+    ):
         sell_result = self.connectors[exchange].get_price_for_volume(trading_pair, False, amount)
-        sell_price_with_slippage = sell_result.result_price * Decimal(1 - self.config.slippage_buffer_spread_bps / 10000)
-        sell_order = OrderCandidate(trading_pair=trading_pair, is_maker=False, order_type=order_type, order_side=TradeType.SELL, amount=amount, price=sell_price_with_slippage)
+        sell_price_with_slippage = sell_result.result_price * Decimal(
+            1 - self.config.slippage_buffer_spread_bps / 10000
+        )
+        sell_order = OrderCandidate(
+            trading_pair=trading_pair,
+            is_maker=False,
+            order_type=order_type,
+            order_side=TradeType.SELL,
+            amount=amount,
+            price=sell_price_with_slippage,
+        )
         sell_order_adjusted = self.connectors[exchange].budget_checker.adjust_candidate(sell_order, all_or_none=False)
-        self.sell(exchange, trading_pair, sell_order_adjusted.amount, sell_order_adjusted.order_type, sell_order_adjusted.price)
+        self.sell(
+            exchange,
+            trading_pair,
+            sell_order_adjusted.amount,
+            sell_order_adjusted.order_type,
+            sell_order_adjusted.price,
+        )
 
     def exchanges_df(self) -> pd.DataFrame:
         """
         Return a custom data frame of prices on maker vs taker exchanges for display purposes
         """
         mid_price = self.connectors[self.config.maker_exchange].get_mid_price(self.config.maker_pair)
-        maker_buy_result = self.connectors[self.config.maker_exchange].get_price_for_volume(self.config.maker_pair, True, self.config.order_amount)
-        maker_sell_result = self.connectors[self.config.maker_exchange].get_price_for_volume(self.config.maker_pair, False, self.config.order_amount)
-        taker_buy_result = self.connectors[self.config.taker_exchange].get_price_for_volume(self.config.taker_pair, True, self.config.order_amount)
-        taker_sell_result = self.connectors[self.config.taker_exchange].get_price_for_volume(self.config.taker_pair, False, self.config.order_amount)
+        maker_buy_result = self.connectors[self.config.maker_exchange].get_price_for_volume(
+            self.config.maker_pair, True, self.config.order_amount
+        )
+        maker_sell_result = self.connectors[self.config.maker_exchange].get_price_for_volume(
+            self.config.maker_pair, False, self.config.order_amount
+        )
+        taker_buy_result = self.connectors[self.config.taker_exchange].get_price_for_volume(
+            self.config.taker_pair, True, self.config.order_amount
+        )
+        taker_sell_result = self.connectors[self.config.taker_exchange].get_price_for_volume(
+            self.config.taker_pair, False, self.config.order_amount
+        )
         maker_buy_spread_bps = (maker_buy_result.result_price - taker_buy_result.result_price) / mid_price * 10000
         maker_sell_spread_bps = (taker_sell_result.result_price - maker_sell_result.result_price) / mid_price * 10000
         columns = ["Exchange", "Market", "Mid Price", "Buy Price", "Sell Price", "Buy Spread", "Sell Spread"]
         data = []
-        data.append([
-            self.config.maker_exchange,
-            self.config.maker_pair,
-            float(self.connectors[self.config.maker_exchange].get_mid_price(self.config.maker_pair)),
-            float(maker_buy_result.result_price),
-            float(maker_sell_result.result_price),
-            int(maker_buy_spread_bps),
-            int(maker_sell_spread_bps)
-        ])
-        data.append([
-            self.config.taker_exchange,
-            self.config.taker_pair,
-            float(self.connectors[self.config.taker_exchange].get_mid_price(self.config.taker_pair)),
-            float(taker_buy_result.result_price),
-            float(taker_sell_result.result_price),
-            int(-maker_buy_spread_bps),
-            int(-maker_sell_spread_bps)
-        ])
+        data.append(
+            [
+                self.config.maker_exchange,
+                self.config.maker_pair,
+                float(self.connectors[self.config.maker_exchange].get_mid_price(self.config.maker_pair)),
+                float(maker_buy_result.result_price),
+                float(maker_sell_result.result_price),
+                int(maker_buy_spread_bps),
+                int(maker_sell_spread_bps),
+            ]
+        )
+        data.append(
+            [
+                self.config.taker_exchange,
+                self.config.taker_pair,
+                float(self.connectors[self.config.taker_exchange].get_mid_price(self.config.taker_pair)),
+                float(taker_buy_result.result_price),
+                float(taker_sell_result.result_price),
+                int(-maker_buy_spread_bps),
+                int(-maker_sell_spread_bps),
+            ]
+        )
         df = pd.DataFrame(data=data, columns=columns)
         return df
 
@@ -180,25 +268,39 @@ class SimpleXEMM(ScriptStrategyBase):
         columns = ["Exchange", "Market", "Side", "Price", "Amount", "Spread Mid", "Spread Cancel", "Age"]
         data = []
         mid_price = self.connectors[self.config.maker_exchange].get_mid_price(self.config.maker_pair)
-        taker_buy_result = self.connectors[self.config.taker_exchange].get_price_for_volume(self.config.taker_pair, True, self.config.order_amount)
-        taker_sell_result = self.connectors[self.config.taker_exchange].get_price_for_volume(self.config.taker_pair, False, self.config.order_amount)
+        taker_buy_result = self.connectors[self.config.taker_exchange].get_price_for_volume(
+            self.config.taker_pair, True, self.config.order_amount
+        )
+        taker_sell_result = self.connectors[self.config.taker_exchange].get_price_for_volume(
+            self.config.taker_pair, False, self.config.order_amount
+        )
         buy_cancel_threshold = taker_sell_result.result_price * Decimal(1 - self.config.min_spread_bps / 10000)
         sell_cancel_threshold = taker_buy_result.result_price * Decimal(1 + self.config.min_spread_bps / 10000)
         for connector_name, connector in self.connectors.items():
             for order in self.get_active_orders(connector_name):
-                age_txt = "n/a" if order.age() <= 0. else pd.Timestamp(order.age(), unit='s').strftime('%H:%M:%S')
-                spread_mid_bps = (mid_price - order.price) / mid_price * 10000 if order.is_buy else (order.price - mid_price) / mid_price * 10000
-                spread_cancel_bps = (buy_cancel_threshold - order.price) / buy_cancel_threshold * 10000 if order.is_buy else (order.price - sell_cancel_threshold) / sell_cancel_threshold * 10000
-                data.append([
-                    self.config.maker_exchange,
-                    order.trading_pair,
-                    "buy" if order.is_buy else "sell",
-                    float(order.price),
-                    float(order.quantity),
-                    int(spread_mid_bps),
-                    int(spread_cancel_bps),
-                    age_txt
-                ])
+                age_txt = "n/a" if order.age() <= 0.0 else pd.Timestamp(order.age(), unit="s").strftime("%H:%M:%S")
+                spread_mid_bps = (
+                    (mid_price - order.price) / mid_price * 10000
+                    if order.is_buy
+                    else (order.price - mid_price) / mid_price * 10000
+                )
+                spread_cancel_bps = (
+                    (buy_cancel_threshold - order.price) / buy_cancel_threshold * 10000
+                    if order.is_buy
+                    else (order.price - sell_cancel_threshold) / sell_cancel_threshold * 10000
+                )
+                data.append(
+                    [
+                        self.config.maker_exchange,
+                        order.trading_pair,
+                        "buy" if order.is_buy else "sell",
+                        float(order.price),
+                        float(order.quantity),
+                        int(spread_mid_bps),
+                        int(spread_cancel_bps),
+                        age_txt,
+                    ]
+                )
         if not data:
             raise ValueError
         df = pd.DataFrame(data=data, columns=columns)
@@ -222,7 +324,9 @@ class SimpleXEMM(ScriptStrategyBase):
 
         try:
             orders_df = self.active_orders_df()
-            lines.extend(["", "  Active Orders:"] + ["    " + line for line in orders_df.to_string(index=False).split("\n")])
+            lines.extend(
+                ["", "  Active Orders:"] + ["    " + line for line in orders_df.to_string(index=False).split("\n")]
+            )
         except ValueError:
             lines.extend(["", "  No active maker orders."])
 

@@ -20,14 +20,15 @@ class TWAPMultiplePairsConfig(StrategyV2ConfigBase):
     controllers_config: List[str] = []
     markets: Dict[str, Set[str]] = {}
     position_mode: PositionMode = Field(
-        default="HEDGE",
-        json_schema_extra={
-            "prompt": "Enter the position mode (HEDGE/ONEWAY): ", "prompt_on_new": True})
+        default="HEDGE", json_schema_extra={"prompt": "Enter the position mode (HEDGE/ONEWAY): ", "prompt_on_new": True}
+    )
     twap_configs: List[TWAPExecutorConfig] = Field(
         default="binance,WLD-USDT,BUY,1,100,60,15,TAKER",
         json_schema_extra={
             "prompt": "Enter the TWAP configurations (e.g. connector,trading_pair,side,leverage,total_amount_quote,total_duration,order_interval,mode:same_for_other_config): ",
-            "prompt_on_new": True})
+            "prompt_on_new": True,
+        },
+    )
 
     @field_validator("twap_configs", mode="before")
     @classmethod
@@ -35,7 +36,9 @@ class TWAPMultiplePairsConfig(StrategyV2ConfigBase):
         if isinstance(v, str):
             twap_configs = []
             for config in v.split(":"):
-                connector, trading_pair, side, leverage, total_amount_quote, total_duration, order_interval, mode = config.split(",")
+                connector, trading_pair, side, leverage, total_amount_quote, total_duration, order_interval, mode = (
+                    config.split(",")
+                )
                 twap_configs.append(
                     TWAPExecutorConfig(
                         timestamp=time.time(),
@@ -46,11 +49,13 @@ class TWAPMultiplePairsConfig(StrategyV2ConfigBase):
                         total_amount_quote=total_amount_quote,
                         total_duration=total_duration,
                         order_interval=order_interval,
-                        mode=TWAPMode[mode.upper()]))
+                        mode=TWAPMode[mode.upper()],
+                    )
+                )
             return twap_configs
         return v
 
-    @field_validator('position_mode', mode="before")
+    @field_validator("position_mode", mode="before")
     @classmethod
     def validate_position_mode(cls, v: str) -> PositionMode:
         if v.upper() in PositionMode.__members__:

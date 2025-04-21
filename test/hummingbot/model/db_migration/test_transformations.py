@@ -31,8 +31,8 @@ class ConvertPriceAndAmountColumnsToBigintTests(TestCase):
         self.assertIn("primary key (market, order_id, exchange_trade_id)", executed_queries[8])
         self.assertIn("CAST(amount * 1000000 AS INTEGER)", executed_queries[9])
         self.assertIn("CAST(price * 1000000 AS INTEGER", executed_queries[9])
-        self.assertEqual('drop table TradeFill;', executed_queries[10])
-        self.assertEqual('alter table TradeFill_dg_tmp rename to TradeFill;', executed_queries[11])
+        self.assertEqual("drop table TradeFill;", executed_queries[10])
+        self.assertEqual("alter table TradeFill_dg_tmp rename to TradeFill;", executed_queries[11])
 
 
 class AddTradeFeeInQuoteTests(TestCase):

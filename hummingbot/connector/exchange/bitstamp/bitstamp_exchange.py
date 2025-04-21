@@ -35,15 +35,16 @@ class BitstampExchange(ExchangePyBase):
 
     web_utils = web_utils
 
-    def __init__(self,
-                 client_config_map: "ClientConfigAdapter",
-                 bitstamp_api_key: str,
-                 bitstamp_api_secret: str,
-                 trading_pairs: Optional[List[str]] = None,
-                 trading_required: bool = True,
-                 domain: str = CONSTANTS.DEFAULT_DOMAIN,
-                 time_provider: Optional[Callable] = None,
-                 ):
+    def __init__(
+        self,
+        client_config_map: "ClientConfigAdapter",
+        bitstamp_api_key: str,
+        bitstamp_api_secret: str,
+        trading_pairs: Optional[List[str]] = None,
+        trading_required: bool = True,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+        time_provider: Optional[Callable] = None,
+    ):
         self.api_key = bitstamp_api_key
         self.secret_key = bitstamp_api_secret
         self._trading_pairs = trading_pairs
@@ -66,10 +67,7 @@ class BitstampExchange(ExchangePyBase):
 
     @property
     def authenticator(self):
-        return BitstampAuth(
-            api_key=self.api_key,
-            secret_key=self.secret_key,
-            time_provider=self._time_synchronizer)
+        return BitstampAuth(api_key=self.api_key, secret_key=self.secret_key, time_provider=self._time_synchronizer)
 
     @property
     def name(self) -> str:
@@ -131,9 +129,9 @@ class BitstampExchange(ExchangePyBase):
         return f"{base_asset}-{quote_asset}"
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
-        return CONSTANTS.TIMESTAMP_ERROR_CODE in str(
+        return CONSTANTS.TIMESTAMP_ERROR_CODE in str(request_exception) and CONSTANTS.TIMESTAMP_ERROR_MESSAGE in str(
             request_exception
-        ) and CONSTANTS.TIMESTAMP_ERROR_MESSAGE in str(request_exception)
+        )
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
         return CONSTANTS.ORDER_NOT_EXIST_ERROR_CODE in str(
@@ -151,14 +149,16 @@ class BitstampExchange(ExchangePyBase):
             time_synchronizer=self._time_synchronizer,
             time_provider=self._time_provider,
             domain=self._domain,
-            auth=self._auth)
+            auth=self._auth,
+        )
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         return BitstampAPIOrderBookDataSource(
             trading_pairs=self._trading_pairs,
             connector=self,
             domain=self.domain,
-            api_factory=self._web_assistants_factory)
+            api_factory=self._web_assistants_factory,
+        )
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         return BitstampAPIUserStreamDataSource(
@@ -169,14 +169,16 @@ class BitstampExchange(ExchangePyBase):
             domain=self.domain,
         )
 
-    def _get_fee(self,
-                 base_currency: str,
-                 quote_currency: str,
-                 order_type: OrderType,
-                 order_side: TradeType,
-                 amount: Decimal,
-                 price: Decimal = s_decimal_NaN,
-                 is_maker: Optional[bool] = None) -> TradeFeeBase:
+    def _get_fee(
+        self,
+        base_currency: str,
+        quote_currency: str,
+        order_type: OrderType,
+        order_side: TradeType,
+        amount: Decimal,
+        price: Decimal = s_decimal_NaN,
+        is_maker: Optional[bool] = None,
+    ) -> TradeFeeBase:
 
         is_maker = is_maker or (order_type is OrderType.LIMIT_MAKER)
         trading_pair = combine_to_hb_trading_pair(base=base_currency, quote=quote_currency)
@@ -186,11 +188,7 @@ class BitstampExchange(ExchangePyBase):
             fee_percent: Decimal = (
                 trade_fee_schema.maker_percent_fee_decimal if is_maker else trade_fee_schema.taker_percent_fee_decimal
             )
-            fee = TradeFeeBase.new_spot_fee(
-                fee_schema=trade_fee_schema,
-                trade_type=order_side,
-                percent=fee_percent
-            )
+            fee = TradeFeeBase.new_spot_fee(fee_schema=trade_fee_schema, trade_type=order_side, percent=fee_percent)
         else:
             fee = build_trade_fee(
                 self.name,
@@ -204,18 +202,17 @@ class BitstampExchange(ExchangePyBase):
             )
         return fee
 
-    async def _place_order(self,
-                           order_id: str,
-                           trading_pair: str,
-                           amount: Decimal,
-                           trade_type: TradeType,
-                           order_type: OrderType,
-                           price: Decimal,
-                           **kwargs) -> Tuple[str, float]:
-        api_params = {
-            "amount": f"{amount:f}",
-            "client_order_id": order_id
-        }
+    async def _place_order(
+        self,
+        order_id: str,
+        trading_pair: str,
+        amount: Decimal,
+        trade_type: TradeType,
+        order_type: OrderType,
+        price: Decimal,
+        **kwargs,
+    ) -> Tuple[str, float]:
+        api_params = {"amount": f"{amount:f}", "client_order_id": order_id}
 
         side_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
@@ -230,10 +227,7 @@ class BitstampExchange(ExchangePyBase):
             order_url = f"/{side_str}/market/{symbol}/"
 
         order_result = await self._api_post(
-            path_url=order_url,
-            data=api_params,
-            is_auth_required=True,
-            limit_id=CONSTANTS.ORDER_CREATE_URL_LIMIT_ID
+            path_url=order_url, data=api_params, is_auth_required=True, limit_id=CONSTANTS.ORDER_CREATE_URL_LIMIT_ID
         )
 
         if order_result.get("status", "") == "error":
@@ -248,9 +242,7 @@ class BitstampExchange(ExchangePyBase):
         exchange_order_id = await tracked_order.get_exchange_order_id()
 
         cancel_response = await self._api_post(
-            path_url=f"{CONSTANTS.ORDER_CANCEL_URL}",
-            data={"id": exchange_order_id},
-            is_auth_required=True
+            path_url=f"{CONSTANTS.ORDER_CANCEL_URL}", data={"id": exchange_order_id}, is_auth_required=True
         )
         if cancel_response.get("status", "") == "error":
             raise IOError(f"Error canceling order. Error: {cancel_response}")
@@ -267,7 +259,8 @@ class BitstampExchange(ExchangePyBase):
                         min_price_increment=Decimal(f"1e-{info['counter_decimals']}"),
                         min_base_amount_increment=Decimal(f"1e-{info['base_decimals']}"),
                         min_quote_amount_increment=Decimal(f"1e-{info['counter_decimals']}"),
-                        min_notional_size=Decimal(info["minimum_order"].split(" ")[0]))
+                        min_notional_size=Decimal(info["minimum_order"].split(" ")[0]),
+                    )
                 )
             except Exception:
                 self.logger().exception(f"Error parsing the trading pair rule {info}. Skipping.")
@@ -278,8 +271,7 @@ class BitstampExchange(ExchangePyBase):
         Update fees information from the exchange
         """
         trading_fees: List[Dict[str, Any]] = await self._api_post(
-            path_url=CONSTANTS.TRADING_FEES_URL,
-            is_auth_required=True
+            path_url=CONSTANTS.TRADING_FEES_URL, is_auth_required=True
         )
 
         for fee_info in trading_fees:
@@ -291,8 +283,7 @@ class BitstampExchange(ExchangePyBase):
             if trading_pair:
                 fees = fee_info["fees"]
                 self._trading_fees[trading_pair] = TradeFeeSchema(
-                    maker_percent_fee_decimal=Decimal(fees["maker"]),
-                    taker_percent_fee_decimal=Decimal(fees["taker"])
+                    maker_percent_fee_decimal=Decimal(fees["maker"]), taker_percent_fee_decimal=Decimal(fees["taker"])
                 )
 
     async def _user_stream_event_listener(self):
@@ -334,7 +325,7 @@ class BitstampExchange(ExchangePyBase):
                 fee = TradeFeeBase.new_spot_fee(
                     fee_schema=self.trade_fee_schema(),
                     trade_type=order.trade_type,
-                    flat_fees=[TokenAmount(amount=Decimal(event_data["fee"]), token=order.quote_asset)]
+                    flat_fees=[TokenAmount(amount=Decimal(event_data["fee"]), token=order.quote_asset)],
                 )
 
                 amount = Decimal(event_data["amount"])
@@ -361,7 +352,9 @@ class BitstampExchange(ExchangePyBase):
                 amount = Decimal(event_data["amount"])
                 price = Decimal(event_data["price"])
 
-                buy_order: InFlightOrder = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(buy_order_id)
+                buy_order: InFlightOrder = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(
+                    buy_order_id
+                )
                 if buy_order:
                     buy_trade_update = TradeUpdate(
                         trade_id=f"{buy_order_id}-{sell_order_id}",
@@ -371,15 +364,18 @@ class BitstampExchange(ExchangePyBase):
                         fee=TradeFeeBase.new_spot_fee(
                             fee_schema=self.trade_fee_schema(),
                             trade_type=buy_order.trade_type,
-                            flat_fees=TokenAmount(amount=Decimal(0), token=buy_order.quote_asset)),
+                            flat_fees=TokenAmount(amount=Decimal(0), token=buy_order.quote_asset),
+                        ),
                         fill_base_amount=amount,
                         fill_quote_amount=price * amount,
                         fill_price=price,
-                        fill_timestamp=float(event_data["timestamp"])
+                        fill_timestamp=float(event_data["timestamp"]),
                     )
                     self._order_tracker.process_trade_update(buy_trade_update)
 
-                sell_order: InFlightOrder = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(sell_order_id)
+                sell_order: InFlightOrder = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(
+                    sell_order_id
+                )
                 if sell_order:
                     sell_trade_update = TradeUpdate(
                         trade_id=f"{buy_order_id}-{sell_order_id}",
@@ -389,7 +385,8 @@ class BitstampExchange(ExchangePyBase):
                         fee=TradeFeeBase.new_spot_fee(
                             fee_schema=self.trade_fee_schema(),
                             trade_type=sell_order.trade_type,
-                            flat_fees=TokenAmount(amount=Decimal(0), token=sell_order.quote_asset)),
+                            flat_fees=TokenAmount(amount=Decimal(0), token=sell_order.quote_asset),
+                        ),
                         fill_base_amount=amount,
                         fill_quote_amount=price * amount,
                         fill_price=price,
@@ -434,7 +431,7 @@ class BitstampExchange(ExchangePyBase):
                 "client_order_id": order.client_order_id,
                 "omit_transactions": "false",
             },
-            is_auth_required=True
+            is_auth_required=True,
         )
 
         exchange_order_id = await order.get_exchange_order_id()
@@ -443,7 +440,7 @@ class BitstampExchange(ExchangePyBase):
             fee = TradeFeeBase.new_spot_fee(
                 fee_schema=self.trade_fee_schema(),
                 trade_type=order.trade_type,
-                flat_fees=[TokenAmount(amount=Decimal(trade["fee"]), token=order.quote_asset)]
+                flat_fees=[TokenAmount(amount=Decimal(trade["fee"]), token=order.quote_asset)],
             )
             trade_update = TradeUpdate(
                 trade_id=str(trade["tid"]),
@@ -463,11 +460,8 @@ class BitstampExchange(ExchangePyBase):
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         updated_order_data = await self._api_post(
             path_url=CONSTANTS.ORDER_STATUS_URL,
-            data={
-                "client_order_id": tracked_order.client_order_id,
-                "omit_transactions": "true"
-            },
-            is_auth_required = True
+            data={"client_order_id": tracked_order.client_order_id, "omit_transactions": "true"},
+            is_auth_required=True,
         )
 
         if updated_order_data.get("status", "") == "error":
@@ -492,10 +486,7 @@ class BitstampExchange(ExchangePyBase):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
-        balances = await self._api_post(
-            path_url=CONSTANTS.ACCOUNT_BALANCES_URL,
-            is_auth_required=True
-        )
+        balances = await self._api_post(path_url=CONSTANTS.ACCOUNT_BALANCES_URL, is_auth_required=True)
 
         for balance_entry in balances:
             asset_name = balance_entry["currency"].upper()
@@ -522,9 +513,7 @@ class BitstampExchange(ExchangePyBase):
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
 
         resp_json = await self._api_get(
-            method=RESTMethod.GET,
-            path_url=CONSTANTS.TICKER_URL.format(symbol),
-            limit_id=CONSTANTS.TICKER_URL_LIMIT_ID
+            method=RESTMethod.GET, path_url=CONSTANTS.TICKER_URL.format(symbol), limit_id=CONSTANTS.TICKER_URL_LIMIT_ID
         )
 
         return float(resp_json["last"])

@@ -27,11 +27,11 @@ class BinancePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     _mapping_initialization_lock = asyncio.Lock()
 
     def __init__(
-            self,
-            trading_pairs: List[str],
-            connector: 'BinancePerpetualDerivative',
-            api_factory: WebAssistantsFactory,
-            domain: str = CONSTANTS.DOMAIN
+        self,
+        trading_pairs: List[str],
+        connector: "BinancePerpetualDerivative",
+        api_factory: WebAssistantsFactory,
+        domain: str = CONSTANTS.DOMAIN,
     ):
         super().__init__(trading_pairs)
         self._connector = connector
@@ -44,9 +44,7 @@ class BinancePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._funding_info_messages_queue_key = CONSTANTS.FUNDING_INFO_STREAM_ID
         self._snapshot_messages_queue_key = "order_book_snapshot"
 
-    async def get_last_traded_prices(self,
-                                     trading_pairs: List[str],
-                                     domain: Optional[str] = None) -> Dict[str, float]:
+    async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
@@ -63,26 +61,25 @@ class BinancePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         ex_trading_pair = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
 
-        params = {
-            "symbol": ex_trading_pair,
-            "limit": "1000"
-        }
+        params = {"symbol": ex_trading_pair, "limit": "1000"}
 
-        data = await self._connector._api_get(
-            path_url=CONSTANTS.SNAPSHOT_REST_URL,
-            params=params)
+        data = await self._connector._api_get(path_url=CONSTANTS.SNAPSHOT_REST_URL, params=params)
         return data
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot_response: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
         snapshot_timestamp: float = time.time()
         snapshot_response.update({"trading_pair": trading_pair})
-        snapshot_msg: OrderBookMessage = OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "trading_pair": snapshot_response["trading_pair"],
-            "update_id": snapshot_response["lastUpdateId"],
-            "bids": snapshot_response["bids"],
-            "asks": snapshot_response["asks"]
-        }, timestamp=snapshot_timestamp)
+        snapshot_msg: OrderBookMessage = OrderBookMessage(
+            OrderBookMessageType.SNAPSHOT,
+            {
+                "trading_pair": snapshot_response["trading_pair"],
+                "update_id": snapshot_response["lastUpdateId"],
+                "bids": snapshot_response["bids"],
+                "asks": snapshot_response["asks"],
+            },
+            timestamp=snapshot_timestamp,
+        )
         return snapshot_msg
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
@@ -136,28 +133,33 @@ class BinancePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         timestamp: float = time.time()
         raw_message["data"]["s"] = await self._connector.trading_pair_associated_to_exchange_symbol(
-            raw_message["data"]["s"])
+            raw_message["data"]["s"]
+        )
         data = raw_message["data"]
-        order_book_message: OrderBookMessage = OrderBookMessage(OrderBookMessageType.DIFF, {
-            "trading_pair": data["s"],
-            "update_id": data["u"],
-            "bids": data["b"],
-            "asks": data["a"]
-        }, timestamp=timestamp)
+        order_book_message: OrderBookMessage = OrderBookMessage(
+            OrderBookMessageType.DIFF,
+            {"trading_pair": data["s"], "update_id": data["u"], "bids": data["b"], "asks": data["a"]},
+            timestamp=timestamp,
+        )
         message_queue.put_nowait(order_book_message)
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         raw_message["data"]["s"] = await self._connector.trading_pair_associated_to_exchange_symbol(
-            raw_message["data"]["s"])
+            raw_message["data"]["s"]
+        )
         data = raw_message["data"]
-        trade_message: OrderBookMessage = OrderBookMessage(OrderBookMessageType.TRADE, {
-            "trading_pair": data["s"],
-            "trade_type": float(TradeType.SELL.value) if data["m"] else float(TradeType.BUY.value),
-            "trade_id": data["a"],
-            "update_id": data["E"],
-            "price": data["p"],
-            "amount": data["q"]
-        }, timestamp=data["E"] * 1e-3)
+        trade_message: OrderBookMessage = OrderBookMessage(
+            OrderBookMessageType.TRADE,
+            {
+                "trading_pair": data["s"],
+                "trade_type": float(TradeType.SELL.value) if data["m"] else float(TradeType.BUY.value),
+                "trade_id": data["a"],
+                "update_id": data["E"],
+                "price": data["p"],
+                "amount": data["q"],
+            },
+            timestamp=data["E"] * 1e-3,
+        )
 
         message_queue.put_nowait(trade_message)
 
@@ -198,7 +200,6 @@ class BinancePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     async def _request_complete_funding_info(self, trading_pair: str):
         ex_trading_pair = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         data = await self._connector._api_get(
-            path_url=CONSTANTS.MARK_PRICE_URL,
-            params={"symbol": ex_trading_pair},
-            is_auth_required=True)
+            path_url=CONSTANTS.MARK_PRICE_URL, params={"symbol": ex_trading_pair}, is_auth_required=True
+        )
         return data

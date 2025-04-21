@@ -25,9 +25,7 @@ class TestInventoryCostPriceDelegate(unittest.TestCase):
             for table in [InventoryCost.__table__]:
                 with session.begin():
                     session.execute(table.delete())
-        self.delegate = InventoryCostPriceDelegate(
-            self.trade_fill_sql, self.trading_pair
-        )
+        self.delegate = InventoryCostPriceDelegate(self.trade_fill_sql, self.trading_pair)
 
     def test_process_order_fill_event_buy(self):
         amount = Decimal("1")
@@ -50,9 +48,7 @@ class TestInventoryCostPriceDelegate(unittest.TestCase):
 
             # second event causes update to existing record
             self.delegate.process_order_fill_event(event)
-            record = InventoryCost.get_record(
-                session, self.base_asset, self.quote_asset
-            )
+            record = InventoryCost.get_record(session, self.base_asset, self.quote_asset)
             self.assertEqual(record.base_volume, amount * 2)
             self.assertEqual(record.quote_volume, price * 2)
 
@@ -88,9 +84,7 @@ class TestInventoryCostPriceDelegate(unittest.TestCase):
 
         self.delegate.process_order_fill_event(event)
         with self.trade_fill_sql.get_new_session() as session:
-            record = InventoryCost.get_record(
-                session, self.base_asset, self.quote_asset
-            )
+            record = InventoryCost.get_record(session, self.base_asset, self.quote_asset)
             # Remaining base volume reduced by sold amount
             self.assertEqual(record.base_volume, amount - amount_sell)
             # Remaining quote volume has been reduced using original price

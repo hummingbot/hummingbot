@@ -18,22 +18,17 @@ class OkxAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(self,
-                 trading_pairs: List[str],
-                 connector: 'OkxExchange',
-                 api_factory: WebAssistantsFactory):
+    def __init__(self, trading_pairs: List[str], connector: "OkxExchange", api_factory: WebAssistantsFactory):
         super().__init__(trading_pairs)
         self._connector = connector
         self._api_factory = api_factory
 
-    async def get_last_traded_prices(self,
-                                     trading_pairs: List[str],
-                                     domain: Optional[str] = None) -> Dict[str, float]:
+    async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot_response: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
-        snapshot_data: Dict[str, Any] = snapshot_response['data'][0]
+        snapshot_data: Dict[str, Any] = snapshot_response["data"][0]
         snapshot_timestamp: float = int(snapshot_data["ts"]) * 1e-3
         update_id: int = int(snapshot_timestamp)
 
@@ -44,9 +39,8 @@ class OkxAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "asks": [(ask[0], ask[1]) for ask in snapshot_data["asks"]],
         }
         snapshot_msg: OrderBookMessage = OrderBookMessage(
-            OrderBookMessageType.SNAPSHOT,
-            order_book_message_content,
-            snapshot_timestamp)
+            OrderBookMessageType.SNAPSHOT, order_book_message_content, snapshot_timestamp
+        )
 
         return snapshot_msg
 
@@ -60,15 +54,12 @@ class OkxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         params = {
             "instId": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
-            "sz": "400"
+            "sz": "400",
         }
 
         rest_assistant = await self._api_factory.get_rest_assistant()
         data = await rest_assistant.execute_request(
-            url=web_utils.public_rest_url(
-                path_url=CONSTANTS.OKX_ORDER_BOOK_PATH,
-                domain=self._connector.domain
-            ),
+            url=web_utils.public_rest_url(path_url=CONSTANTS.OKX_ORDER_BOOK_PATH, domain=self._connector.domain),
             params=params,
             method=RESTMethod.GET,
             throttler_limit_id=CONSTANTS.OKX_ORDER_BOOK_PATH,
@@ -77,7 +68,9 @@ class OkxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return data
 
     async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["arg"]["instId"])
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
+            symbol=raw_message["arg"]["instId"]
+        )
         snapshot_data = raw_message["data"][0]
         snapshot_timestamp: float = int(snapshot_data["ts"]) * 1e-3
         update_id: int = int(snapshot_timestamp)
@@ -89,9 +82,8 @@ class OkxAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "asks": [(ask[0], ask[1]) for ask in snapshot_data["asks"]],
         }
         snapshot_msg: OrderBookMessage = OrderBookMessage(
-            OrderBookMessageType.SNAPSHOT,
-            order_book_message_content,
-            snapshot_timestamp)
+            OrderBookMessageType.SNAPSHOT, order_book_message_content, snapshot_timestamp
+        )
 
         message_queue.put_nowait(snapshot_msg)
 
@@ -103,15 +95,17 @@ class OkxAPIOrderBookDataSource(OrderBookTrackerDataSource):
             message_content = {
                 "trade_id": trade_data["tradeId"],
                 "trading_pair": trading_pair,
-                "trade_type": float(TradeType.BUY.value) if trade_data["side"] == "buy" else float(
-                    TradeType.SELL.value),
+                "trade_type": (
+                    float(TradeType.BUY.value) if trade_data["side"] == "buy" else float(TradeType.SELL.value)
+                ),
                 "amount": trade_data["sz"],
-                "price": trade_data["px"]
+                "price": trade_data["px"],
             }
             trade_message: Optional[OrderBookMessage] = OrderBookMessage(
                 message_type=OrderBookMessageType.TRADE,
                 content=message_content,
-                timestamp=(int(trade_data["ts"]) * 1e-3))
+                timestamp=(int(trade_data["ts"]) * 1e-3),
+            )
 
             message_queue.put_nowait(trade_message)
 
@@ -122,7 +116,8 @@ class OkxAPIOrderBookDataSource(OrderBookTrackerDataSource):
             timestamp: float = int(diff_data["ts"]) * 1e-3
             update_id: int = int(timestamp)
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-                symbol=raw_message["arg"]["instId"])
+                symbol=raw_message["arg"]["instId"]
+            )
 
             order_book_message_content = {
                 "trading_pair": trading_pair,
@@ -131,9 +126,8 @@ class OkxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 "asks": [(ask[0], ask[1]) for ask in diff_data["asks"]],
             }
             diff_message: OrderBookMessage = OrderBookMessage(
-                OrderBookMessageType.DIFF,
-                order_book_message_content,
-                timestamp)
+                OrderBookMessageType.DIFF, order_book_message_content, timestamp
+            )
 
             message_queue.put_nowait(diff_message)
 
@@ -149,7 +143,7 @@ class OkxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             "channel": "trades",
                             "instId": symbol,
                         }
-                    ]
+                    ],
                 }
                 subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
@@ -159,7 +153,8 @@ class OkxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         {
                             "channel": "books",
                             "instId": symbol,
-                        }]
+                        }
+                    ],
                 }
                 subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
@@ -201,5 +196,6 @@ class OkxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_CONNECTION_LIMIT_ID):
             await ws.connect(
                 ws_url=CONSTANTS.get_okx_ws_uri_public(sub_domain=self._connector.okx_registration_sub_domain),
-                message_timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE)
+                message_timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE,
+            )
         return ws

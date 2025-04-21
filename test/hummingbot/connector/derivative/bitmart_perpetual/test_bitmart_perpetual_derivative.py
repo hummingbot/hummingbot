@@ -87,52 +87,39 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
 
     @property
     def all_symbols_url(self):
-        url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_URL,
-                                        domain=CONSTANTS.DOMAIN)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_URL, domain=CONSTANTS.DOMAIN)
         return url
 
     @property
     def latest_prices_url(self):
-        url = web_utils.public_rest_url(
-            path_url=CONSTANTS.EXCHANGE_INFO_URL,
-            domain=CONSTANTS.DOMAIN
-        )
+        url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_URL, domain=CONSTANTS.DOMAIN)
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
     @property
     def network_status_url(self):
-        url = web_utils.public_rest_url(path_url=CONSTANTS.SERVER_TIME_PATH_URL,
-                                        domain=CONSTANTS.DOMAIN)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.SERVER_TIME_PATH_URL, domain=CONSTANTS.DOMAIN)
         return url
 
     @property
     def trading_rules_url(self):
-        url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_URL,
-                                        domain=CONSTANTS.DOMAIN)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_URL, domain=CONSTANTS.DOMAIN)
         return url
 
     @property
     def balance_url(self):
-        url = web_utils.private_rest_url(path_url=CONSTANTS.ASSETS_DETAIL,
-                                         domain=CONSTANTS.DOMAIN)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.ASSETS_DETAIL, domain=CONSTANTS.DOMAIN)
         return url
 
     @property
     def funding_info_url(self):
-        url = web_utils.public_rest_url(
-            path_url=CONSTANTS.EXCHANGE_INFO_URL,
-            domain=CONSTANTS.DOMAIN
-        )
+        url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_URL, domain=CONSTANTS.DOMAIN)
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
     @property
     def funding_payment_url(self):
-        url = web_utils.private_rest_url(
-            path_url=CONSTANTS.GET_INCOME_HISTORY_URL,
-            domain=CONSTANTS.DOMAIN
-        )
+        url = web_utils.private_rest_url(path_url=CONSTANTS.GET_INCOME_HISTORY_URL, domain=CONSTANTS.DOMAIN)
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
@@ -153,7 +140,8 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
             (MarketEvent.SellOrderCompleted, self.sell_order_completed_logger),
             (MarketEvent.OrderCancelled, self.order_cancelled_logger),
             (MarketEvent.OrderFilled, self.order_filled_logger),
-            (MarketEvent.FundingPaymentCompleted, self.funding_payment_completed_logger)]
+            (MarketEvent.FundingPaymentCompleted, self.funding_payment_completed_logger),
+        ]
 
         for event, logger in events_and_loggers:
             self.exchange.add_listener(event, logger)
@@ -203,10 +191,10 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
                     "current_amount": "1",
                     "unrealized_value": "1903.956643943943943944339",
                     "realized_value": "55.049173071454605573",
-                    "position_type": 1
+                    "position_type": 1,
                 }
             ],
-            "trace": "ae96cae5-1f09-4ea5-971e-4474a6724bc8"
+            "trace": "ae96cae5-1f09-4ea5-971e-4474a6724bc8",
         }
         return positions
 
@@ -235,10 +223,10 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
                     "current_amount": "899",
                     "unrealized_value": "1903.956643943943943944339",
                     "realized_value": "55.049173071454605573",
-                    "position_type": 2
+                    "position_type": 2,
                 }
             ],
-            "trace": "ae96cae5-1f09-4ea5-971e-4474a6724bc8"
+            "trace": "ae96cae5-1f09-4ea5-971e-4474a6724bc8",
         }
         return positions
 
@@ -258,9 +246,9 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
                     "open_avg_price": "19406.2092",
                     "liquidate_price": "15621.998406",
                     "create_time": 1662692862255,
-                    "update_time": 1662692862255
+                    "update_time": 1662692862255,
                 }
-            ]
+            ],
         }
         return account_update
 
@@ -280,9 +268,9 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
                     "open_avg_price": "19406.2092",
                     "liquidate_price": "15621.998406",
                     "create_time": 1662692862255,
-                    "update_time": 1662692862255
+                    "update_time": 1662692862255,
                 }
-            ]
+            ],
         }
         return account_update
 
@@ -297,7 +285,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
                     "amount": "-0.37500000",
                     "asset": "USDT",
                     "time": "1570608000000",
-                    "tran_id": "9689322392"
+                    "tran_id": "9689322392",
                 },
                 {
                     "symbol": self.symbol,
@@ -305,10 +293,10 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
                     "amount": "-0.01000000",
                     "asset": "USDT",
                     "time": "1570636800000",
-                    "tran_id": "9689322392"
-                }
+                    "tran_id": "9689322392",
+                },
             ],
-            "trace": "80ba1f07-1b6f-46ad-81dd-78ac7e9bbccd"
+            "trace": "80ba1f07-1b6f-46ad-81dd-78ac7e9bbccd",
         }
         return income_history
 
@@ -323,9 +311,9 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
                 "expected_rate": "0.000164",
                 "funding_time": 1709971200000,
                 "funding_upper_limit": "0.0375",
-                "funding_lower_limit": "-0.0375"
+                "funding_lower_limit": "-0.0375",
             },
-            "trace": "13f7fda9-9543-4e11-a0ba-cbe117989988"
+            "trace": "13f7fda9-9543-4e11-a0ba-cbe117989988",
         }
         return funding_info
 
@@ -333,12 +321,14 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         trading_pair_symbol_map = {self.symbol: f"{self.base_asset}-{self.quote_asset}"}
         return trading_pair_symbol_map
 
-    def _get_exchange_info_mock_response(self,
-                                         contract_size: int = 10,
-                                         min_volume: int = 1,
-                                         vol_precision: float = 0.1,
-                                         price_precision: float = 0.01,
-                                         last_price: float = 10.0) -> Dict[str, Any]:
+    def _get_exchange_info_mock_response(
+        self,
+        contract_size: int = 10,
+        min_volume: int = 1,
+        vol_precision: float = 0.1,
+        price_precision: float = 0.01,
+        last_price: float = 10.0,
+    ) -> Dict[str, Any]:
         mocked_exchange_info = {
             "code": 1000,
             "message": "Ok",
@@ -373,19 +363,21 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
                         "high_24h": "23900",
                         "low_24h": "23100",
                         "change_24h": "0.004",
-                        "funding_interval_hours": 8
+                        "funding_interval_hours": 8,
                     }
                 ]
-            }
+            },
         }
         return mocked_exchange_info
 
-    def _get_exchange_info_with_unknown_pair_mock_response(self,
-                                                           contract_size: int = 10,
-                                                           min_volume: int = 1,
-                                                           vol_precision: float = 0.1,
-                                                           price_precision: float = 0.01,
-                                                           last_price: float = 10.0) -> Dict[str, Any]:
+    def _get_exchange_info_with_unknown_pair_mock_response(
+        self,
+        contract_size: int = 10,
+        min_volume: int = 1,
+        vol_precision: float = 0.1,
+        price_precision: float = 0.01,
+        last_price: float = 10.0,
+    ) -> Dict[str, Any]:
         mocked_exchange_info = {
             "code": 1000,
             "message": "Ok",
@@ -420,7 +412,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
                         "high_24h": "23900",
                         "low_24h": "23100",
                         "change_24h": "0.004",
-                        "funding_interval_hours": 8
+                        "funding_interval_hours": 8,
                     },
                     {
                         "symbol": self.symbol,
@@ -450,19 +442,21 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
                         "high_24h": "23900",
                         "low_24h": "23100",
                         "change_24h": "0.004",
-                        "funding_interval_hours": 8
-                    }
+                        "funding_interval_hours": 8,
+                    },
                 ]
-            }
+            },
         }
         return mocked_exchange_info
 
-    def _get_exchange_info_error_mock_response(self,
-                                               contract_size: int = 10,
-                                               min_volume: int = 1,
-                                               vol_precision: float = 0.1,
-                                               price_precision: float = 0.01,
-                                               last_price: float = 10.0) -> Dict[str, Any]:
+    def _get_exchange_info_error_mock_response(
+        self,
+        contract_size: int = 10,
+        min_volume: int = 1,
+        vol_precision: float = 0.1,
+        price_precision: float = 0.01,
+        last_price: float = 10.0,
+    ) -> Dict[str, Any]:
         mocked_exchange_info = {
             "code": 1000,
             "message": "Ok",
@@ -496,19 +490,17 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
                         "high_24h": "23900",
                         "low_24h": "23100",
                         "change_24h": "0.004",
-                        "funding_interval_hours": 8
+                        "funding_interval_hours": 8,
                     }
                 ]
-            }
+            },
         }
         return mocked_exchange_info
 
     @aioresponses()
     def test_existing_account_position_detected_on_positions_update(self, req_mock):
         self._simulate_trading_rules_initialized()
-        url = web_utils.private_rest_url(
-            CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain
-        )
+        url = web_utils.private_rest_url(CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         positions = self._get_position_risk_api_endpoint_single_position_list()
@@ -525,9 +517,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
     def test_wrong_symbol_position_detected_on_positions_update(self, req_mock):
         self._simulate_trading_rules_initialized()
 
-        url = web_utils.private_rest_url(
-            CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain
-        )
+        url = web_utils.private_rest_url(CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         positions = self._get_wrong_symbol_position_risk_api_endpoint_single_position_list()
@@ -541,9 +531,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
     @aioresponses()
     def test_account_position_updated_on_positions_update(self, req_mock):
         self._simulate_trading_rules_initialized()
-        url = web_utils.private_rest_url(
-            CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain
-        )
+        url = web_utils.private_rest_url(CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         positions = self._get_position_risk_api_endpoint_single_position_list()
@@ -567,9 +555,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
     @aioresponses()
     def test_new_account_position_detected_on_positions_update(self, req_mock):
         self._simulate_trading_rules_initialized()
-        url = web_utils.private_rest_url(
-            CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain
-        )
+        url = web_utils.private_rest_url(CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         req_mock.get(regex_url, body=json.dumps({"data": []}))
@@ -589,9 +575,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
     @aioresponses()
     def test_closed_account_position_removed_on_positions_update(self, req_mock):
         self._simulate_trading_rules_initialized()
-        url = web_utils.private_rest_url(
-            CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain
-        )
+        url = web_utils.private_rest_url(CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         positions = self._get_position_risk_api_endpoint_single_position_list()
@@ -610,7 +594,9 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(len(self.exchange.account_positions), 0)
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_derivative.BitmartPerpetualDerivative.get_price_by_type")
+    @patch(
+        "hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_derivative.BitmartPerpetualDerivative.get_price_by_type"
+    )
     def test_new_account_position_detected_on_stream_event(self, mock_api, mock_price):
         self._simulate_trading_rules_initialized()
 
@@ -618,9 +604,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.assertEqual(len(self.exchange.account_positions), 0)
 
-        url = web_utils.private_rest_url(
-            CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain
-        )
+        url = web_utils.private_rest_url(CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         positions = self._get_position_risk_api_endpoint_single_position_list()
         mock_api.get(regex_url, body=json.dumps(positions))
@@ -631,13 +615,13 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(len(self.exchange.account_positions), 1)
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_derivative.BitmartPerpetualDerivative.get_price_by_type")
+    @patch(
+        "hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_derivative.BitmartPerpetualDerivative.get_price_by_type"
+    )
     def test_account_position_updated_on_stream_event(self, mock_api, mock_price):
 
         self._simulate_trading_rules_initialized()
-        url = web_utils.private_rest_url(
-            CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain
-        )
+        url = web_utils.private_rest_url(CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         positions = self._get_position_risk_api_endpoint_single_position_list()
         mock_api.get(regex_url, body=json.dumps(positions))
@@ -661,12 +645,12 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(pos.amount, 2000)
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_derivative.BitmartPerpetualDerivative.get_price_by_type")
+    @patch(
+        "hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_derivative.BitmartPerpetualDerivative.get_price_by_type"
+    )
     def test_closed_account_position_removed_on_stream_event(self, mock_api, mock_price):
         self._simulate_trading_rules_initialized()
-        url = web_utils.private_rest_url(
-            CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain
-        )
+        url = web_utils.private_rest_url(CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         positions = self._get_position_risk_api_endpoint_single_position_list()
         mock_api.get(regex_url, body=json.dumps(positions))
@@ -693,9 +677,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.assertEqual(len(self.exchange.account_positions), 0)
 
-        url = web_utils.private_rest_url(
-            CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain
-        )
+        url = web_utils.private_rest_url(CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         positions = self._get_position_risk_api_endpoint_single_position_list()
         mock_api.get(regex_url, body=json.dumps(positions))
@@ -716,8 +698,9 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         vol_precision = 3.0
         price_precision = 1.0
         last_price = 6.0
-        mocked_response = self._get_exchange_info_mock_response(contract_size, min_volume, vol_precision,
-                                                                price_precision, last_price)
+        mocked_response = self._get_exchange_info_mock_response(
+            contract_size, min_volume, vol_precision, price_precision, last_price
+        )
         self._simulate_trading_rules_initialized()
         trading_rules = self.async_run_with_timeout(self.exchange._format_trading_rules(mocked_response))
 
@@ -737,10 +720,12 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         self._simulate_trading_rules_initialized()
 
         self.async_run_with_timeout(self.exchange._format_trading_rules(mocked_response))
-        self.assertTrue(self._is_logged(
-            "ERROR",
-            f"Error parsing the trading pair rule {mocked_response['data']['symbols'][0]}. Error: 'quote_currency'. Skipping..."
-        ))
+        self.assertTrue(
+            self._is_logged(
+                "ERROR",
+                f"Error parsing the trading pair rule {mocked_response['data']['symbols'][0]}. Error: 'quote_currency'. Skipping...",
+            )
+        )
 
     def test_get_collateral_token(self):
         margin_asset = self.quote_asset
@@ -749,16 +734,18 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(margin_asset, self.exchange.get_buy_collateral_token(self.trading_pair))
         self.assertEqual(margin_asset, self.exchange.get_sell_collateral_token(self.trading_pair))
 
-    def _get_order_channel_mock_response(self,
-                                         order_id="OID1",
-                                         exchange_order_id="8886774",
-                                         price="10000",
-                                         deal_size="0",
-                                         state=2,
-                                         amount=Decimal("1"),
-                                         fee="-0.00027",
-                                         fill_qty="0",
-                                         last_trade_id=1234):
+    def _get_order_channel_mock_response(
+        self,
+        order_id="OID1",
+        exchange_order_id="8886774",
+        price="10000",
+        deal_size="0",
+        state=2,
+        amount=Decimal("1"),
+        fee="-0.00027",
+        fill_qty="0",
+        last_trade_id=1234,
+    ):
         mocked_response = {
             "group": "futures/order",
             "data": [
@@ -785,17 +772,17 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
                             "fillQty": fill_qty,
                             "fillPrice": price,
                             "fee": fee,
-                            "feeCcy": "USDT"
+                            "feeCcy": "USDT",
                         },
                         "trigger_price": "-",
                         "trigger_price_type": "-",
                         "execution_price": "-",
                         "activation_price_type": "-",
                         "activation_price": "-",
-                        "callback_rate": "-"
-                    }
+                        "callback_rate": "-",
+                    },
                 }
-            ]
+            ],
         }
         return mocked_response
 
@@ -817,35 +804,43 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
             position_action=PositionAction.OPEN,
         )
 
-        partial_fill = self._get_order_channel_mock_response(order_id=order_id,
-                                                             exchange_order_id=exchange_order_id,
-                                                             amount=amount,
-                                                             state=2,
-                                                             deal_size="2",
-                                                             fill_qty="20",
-                                                             last_trade_id=1234)
+        partial_fill = self._get_order_channel_mock_response(
+            order_id=order_id,
+            exchange_order_id=exchange_order_id,
+            amount=amount,
+            state=2,
+            deal_size="2",
+            fill_qty="20",
+            last_trade_id=1234,
+        )
         self.async_run_with_timeout(self.exchange._process_user_stream_event(partial_fill))
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
         self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
-        fee = TokenAmount(token=partial_fill["data"][0]["order"]["last_trade"]["feeCcy"],
-                          amount=Decimal(partial_fill["data"][0]["order"]["last_trade"]["fee"]))
+        fee = TokenAmount(
+            token=partial_fill["data"][0]["order"]["last_trade"]["feeCcy"],
+            amount=Decimal(partial_fill["data"][0]["order"]["last_trade"]["fee"]),
+        )
         self.assertEqual([fee], fill_event.trade_fee.flat_fees)
 
-        complete_fill = self._get_order_channel_mock_response(order_id=order_id,
-                                                              exchange_order_id=exchange_order_id,
-                                                              amount=amount,
-                                                              state=4,
-                                                              deal_size="5",
-                                                              fill_qty="3",
-                                                              last_trade_id=1235)
+        complete_fill = self._get_order_channel_mock_response(
+            order_id=order_id,
+            exchange_order_id=exchange_order_id,
+            amount=amount,
+            state=4,
+            deal_size="5",
+            fill_qty="3",
+            last_trade_id=1235,
+        )
         self.async_run_with_timeout(self.exchange._process_user_stream_event(complete_fill))
 
         self.assertEqual(2, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
         self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
-        fee = TokenAmount(token=partial_fill["data"][0]["order"]["last_trade"]["feeCcy"],
-                          amount=Decimal(partial_fill["data"][0]["order"]["last_trade"]["fee"]))
+        fee = TokenAmount(
+            token=partial_fill["data"][0]["order"]["last_trade"]["feeCcy"],
+            amount=Decimal(partial_fill["data"][0]["order"]["last_trade"]["fee"]),
+        )
         self.assertEqual([fee], fill_event.trade_fee.flat_fees)
         self.assertEqual(1, len(self.buy_order_completed_logger.event_log))
 
@@ -863,13 +858,13 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
             position_action=PositionAction.OPEN,
         )
 
-        partial_fill = self._get_order_channel_mock_response(amount="5",
-                                                             deal_size="2",
-                                                             fill_qty="2",
-                                                             last_trade_id=1234)
+        partial_fill = self._get_order_channel_mock_response(
+            amount="5", deal_size="2", fill_qty="2", last_trade_id=1234
+        )
         mock_user_stream = AsyncMock()
-        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
-                                                             lambda: partial_fill)
+        mock_user_stream.get.side_effect = functools.partial(
+            self._return_calculation_and_set_done_event, lambda: partial_fill
+        )
 
         self.exchange._user_stream_tracker._user_stream = mock_user_stream
 
@@ -879,19 +874,20 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
         self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
-        fee = TokenAmount(token=partial_fill["data"][0]["order"]["last_trade"]["feeCcy"],
-                          amount=Decimal(partial_fill["data"][0]["order"]["last_trade"]["fee"]))
+        fee = TokenAmount(
+            token=partial_fill["data"][0]["order"]["last_trade"]["feeCcy"],
+            amount=Decimal(partial_fill["data"][0]["order"]["last_trade"]["fee"]),
+        )
         self.assertEqual([fee], fill_event.trade_fee.flat_fees)
 
-        complete_fill = self._get_order_channel_mock_response(amount="5",
-                                                              state=4,
-                                                              deal_size="5",
-                                                              fill_qty="3",
-                                                              last_trade_id=1235)
+        complete_fill = self._get_order_channel_mock_response(
+            amount="5", state=4, deal_size="5", fill_qty="3", last_trade_id=1235
+        )
 
         self.resume_test_event = asyncio.Event()
-        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
-                                                             lambda: complete_fill)
+        mock_user_stream.get.side_effect = functools.partial(
+            self._return_calculation_and_set_done_event, lambda: complete_fill
+        )
 
         self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
         self.async_run_with_timeout(self.resume_test_event.wait())
@@ -899,8 +895,10 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(2, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
         self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
-        fee = TokenAmount(token=partial_fill["data"][0]["order"]["last_trade"]["feeCcy"],
-                          amount=Decimal(partial_fill["data"][0]["order"]["last_trade"]["fee"]))
+        fee = TokenAmount(
+            token=partial_fill["data"][0]["order"]["last_trade"]["feeCcy"],
+            amount=Decimal(partial_fill["data"][0]["order"]["last_trade"]["fee"]),
+        )
         self.assertEqual([fee], fill_event.trade_fee.flat_fees)
 
         self.assertEqual(1, len(self.sell_order_completed_logger.event_log))
@@ -919,15 +917,14 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
             position_action=PositionAction.OPEN,
         )
 
-        partial_fill = self._get_order_channel_mock_response(amount="5",
-                                                             state=2,
-                                                             deal_size="2",
-                                                             fill_qty="2",
-                                                             last_trade_id=1234)
+        partial_fill = self._get_order_channel_mock_response(
+            amount="5", state=2, deal_size="2", fill_qty="2", last_trade_id=1234
+        )
 
         mock_user_stream = AsyncMock()
-        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
-                                                             lambda: partial_fill)
+        mock_user_stream.get.side_effect = functools.partial(
+            self._return_calculation_and_set_done_event, lambda: partial_fill
+        )
 
         self.exchange._user_stream_tracker._user_stream = mock_user_stream
 
@@ -937,19 +934,20 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
         self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
-        fee = TokenAmount(token=partial_fill["data"][0]["order"]["last_trade"]["feeCcy"],
-                          amount=Decimal(partial_fill["data"][0]["order"]["last_trade"]["fee"]))
+        fee = TokenAmount(
+            token=partial_fill["data"][0]["order"]["last_trade"]["feeCcy"],
+            amount=Decimal(partial_fill["data"][0]["order"]["last_trade"]["fee"]),
+        )
         self.assertEqual([fee], fill_event.trade_fee.flat_fees)
 
-        repeated_partial_fill = self._get_order_channel_mock_response(amount="5",
-                                                                      state=2,
-                                                                      deal_size="2",
-                                                                      fill_qty="2",
-                                                                      last_trade_id=1234)
+        repeated_partial_fill = self._get_order_channel_mock_response(
+            amount="5", state=2, deal_size="2", fill_qty="2", last_trade_id=1234
+        )
 
         self.resume_test_event = asyncio.Event()
-        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
-                                                             lambda: repeated_partial_fill)
+        mock_user_stream.get.side_effect = functools.partial(
+            self._return_calculation_and_set_done_event, lambda: repeated_partial_fill
+        )
 
         self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
         self.async_run_with_timeout(self.resume_test_event.wait())
@@ -1000,15 +998,14 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
 
         order = self.exchange.in_flight_orders.get("OID1")
 
-        partial_fill = self._get_order_channel_mock_response(amount="5",
-                                                             state=4,
-                                                             deal_size="2",
-                                                             fill_qty="2",
-                                                             last_trade_id=1234)
+        partial_fill = self._get_order_channel_mock_response(
+            amount="5", state=4, deal_size="2", fill_qty="2", last_trade_id=1234
+        )
 
         mock_user_stream = AsyncMock()
-        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
-                                                             lambda: partial_fill)
+        mock_user_stream.get.side_effect = functools.partial(
+            self._return_calculation_and_set_done_event, lambda: partial_fill
+        )
 
         self.exchange._user_stream_tracker._user_stream = mock_user_stream
 
@@ -1017,10 +1014,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.assertEqual(1, len(self.order_cancelled_logger.event_log))
 
-        self.assertTrue(self._is_logged(
-            "INFO",
-            f"Successfully canceled order {order.client_order_id}."
-        ))
+        self.assertTrue(self._is_logged("INFO", f"Successfully canceled order {order.client_order_id}."))
 
     def test_user_stream_event_listener_raises_cancelled_error(self):
         mock_user_stream = AsyncMock()
@@ -1032,8 +1026,10 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertRaises(asyncio.CancelledError, self.async_run_with_timeout, self.test_task)
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_derivative."
-           "BitmartPerpetualDerivative.current_timestamp")
+    @patch(
+        "hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_derivative."
+        "BitmartPerpetualDerivative.current_timestamp"
+    )
     def test_update_order_fills_from_trades_successful(self, req_mock, mock_timestamp):
         self._simulate_trading_rules_initialized()
         self.exchange._last_poll_timestamp = 0
@@ -1067,15 +1063,13 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
                     "profit": False,
                     "realised_profit": "-0.00832",
                     "paid_fees": "0",
-                    "create_time": 1663663818589
+                    "create_time": 1663663818589,
                 }
             ],
-            "trace": "638d5048-ad21-4a4b-9365-d0756fbfc7ba"
+            "trace": "638d5048-ad21-4a4b-9365-d0756fbfc7ba",
         }
 
-        url = web_utils.private_rest_url(
-            CONSTANTS.ACCOUNT_TRADE_LIST_URL, domain=self.domain
-        )
+        url = web_utils.private_rest_url(CONSTANTS.ACCOUNT_TRADE_LIST_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         req_mock.get(regex_url, body=json.dumps(trades))
@@ -1120,9 +1114,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
             position_action=PositionAction.OPEN,
         )
 
-        url = web_utils.private_rest_url(
-            CONSTANTS.ACCOUNT_TRADE_LIST_URL, domain=self.domain
-        )
+        url = web_utils.private_rest_url(CONSTANTS.ACCOUNT_TRADE_LIST_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         req_mock.get(regex_url, exception=Exception())
@@ -1150,8 +1142,9 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(1640001112.0, in_flight_orders["OID1"].last_update_timestamp)
 
         # Error was logged
-        self.assertTrue(self._is_logged("NETWORK",
-                                        f"Error fetching trades update for the order {self.trading_pair}: ."))
+        self.assertTrue(
+            self._is_logged("NETWORK", f"Error fetching trades update for the order {self.trading_pair}: .")
+        )
 
     def _get_order_detail_response_mock(self):
         mocked_response = {
@@ -1171,15 +1164,17 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
                 "deal_avg_price": "10000",
                 "deal_size": "1",
                 "create_time": 1662368173000,
-                "update_time": 1662368173000
+                "update_time": 1662368173000,
             },
-            "trace": "638d5048-ad21-4a4b-9365-d0756fbfc7ba"
+            "trace": "638d5048-ad21-4a4b-9365-d0756fbfc7ba",
         }
         return mocked_response
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_derivative."
-           "BitmartPerpetualDerivative.current_timestamp")
+    @patch(
+        "hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_derivative."
+        "BitmartPerpetualDerivative.current_timestamp"
+    )
     def test_update_order_status_successful(self, req_mock, mock_timestamp):
         self._simulate_trading_rules_initialized()
         self.exchange._last_poll_timestamp = 0
@@ -1199,9 +1194,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
 
         order = self._get_order_detail_response_mock()
 
-        url = web_utils.private_rest_url(
-            CONSTANTS.ORDER_DETAILS, domain=self.domain
-        )
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_DETAILS, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         req_mock.get(regex_url, body=json.dumps(order))
@@ -1232,8 +1225,10 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(0, len(in_flight_orders["OID1"].order_fills))
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_derivative."
-           "BitmartPerpetualDerivative.current_timestamp")
+    @patch(
+        "hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_derivative."
+        "BitmartPerpetualDerivative.current_timestamp"
+    )
     def test_request_order_status_successful(self, req_mock, mock_timestamp):
         self._simulate_trading_rules_initialized()
         self.exchange._last_poll_timestamp = 0
@@ -1254,9 +1249,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
 
         order = self._get_order_detail_response_mock()
 
-        url = web_utils.private_rest_url(
-            CONSTANTS.ORDER_DETAILS, domain=self.domain
-        )
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_DETAILS, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         req_mock.get(regex_url, body=json.dumps(order))
@@ -1278,25 +1271,20 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         response = {
             "code": 1000,
             "message": "Ok",
-            "data": {
-                "symbol": self.symbol,
-                "leverage": "21",
-                "open_type": "isolated",
-                "max_value": "100"
-            },
-            "trace": "13f7fda9-9543-4e11-a0ba-cbe117989988"
+            "data": {"symbol": self.symbol, "leverage": "21", "open_type": "isolated", "max_value": "100"},
+            "trace": "13f7fda9-9543-4e11-a0ba-cbe117989988",
         }
 
-        url = web_utils.private_rest_url(
-            CONSTANTS.SET_LEVERAGE_URL, domain=self.domain
-        )
+        url = web_utils.private_rest_url(CONSTANTS.SET_LEVERAGE_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         req_mock.post(regex_url, body=json.dumps(response))
 
-        success, msg = self.async_run_with_timeout(self.exchange._set_trading_pair_leverage(self.trading_pair, leverage))
+        success, msg = self.async_run_with_timeout(
+            self.exchange._set_trading_pair_leverage(self.trading_pair, leverage)
+        )
         self.assertEqual(success, True)
-        self.assertEqual(msg, '')
+        self.assertEqual(msg, "")
 
     @aioresponses()
     def test_set_leverage_failed(self, req_mock):
@@ -1306,37 +1294,33 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         response = {
             "code": 40040,
             "message": "Invalid Leverage",
-            "trace": "d73d949bbd8645f6a40c8fc7f5ae6738.67.17364673745684111"
+            "trace": "d73d949bbd8645f6a40c8fc7f5ae6738.67.17364673745684111",
         }
 
-        url = web_utils.private_rest_url(
-            CONSTANTS.SET_LEVERAGE_URL, domain=self.domain
-        )
+        url = web_utils.private_rest_url(CONSTANTS.SET_LEVERAGE_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         req_mock.post(regex_url, body=json.dumps(response))
 
-        success, message = self.async_run_with_timeout(self.exchange._set_trading_pair_leverage(self.trading_pair, leverage))
+        success, message = self.async_run_with_timeout(
+            self.exchange._set_trading_pair_leverage(self.trading_pair, leverage)
+        )
         self.assertEqual(success, False)
-        self.assertEqual(message, 'Unable to set leverage')
+        self.assertEqual(message, "Unable to set leverage")
 
     @aioresponses()
     def test_fetch_funding_payment_successful(self, req_mock):
         self._simulate_trading_rules_initialized()
         income_history = self._get_income_history_dict()
 
-        url = web_utils.private_rest_url(
-            CONSTANTS.GET_INCOME_HISTORY_URL, domain=self.domain
-        )
+        url = web_utils.private_rest_url(CONSTANTS.GET_INCOME_HISTORY_URL, domain=self.domain)
         regex_url_income_history = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         req_mock.get(regex_url_income_history, body=json.dumps(income_history))
 
         funding_info = self._get_funding_info_dict()
 
-        url = web_utils.public_rest_url(
-            CONSTANTS.FUNDING_INFO_URL, domain=self.domain
-        )
+        url = web_utils.public_rest_url(CONSTANTS.FUNDING_INFO_URL, domain=self.domain)
         regex_url_funding_info = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         req_mock.get(regex_url_funding_info, body=json.dumps(funding_info))
@@ -1361,25 +1345,23 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
     @aioresponses()
     def test_fetch_funding_payment_failed(self, req_mock):
         self._simulate_trading_rules_initialized()
-        url = web_utils.private_rest_url(
-            CONSTANTS.GET_INCOME_HISTORY_URL, domain=self.domain
-        )
+        url = web_utils.private_rest_url(CONSTANTS.GET_INCOME_HISTORY_URL, domain=self.domain)
         regex_url_income_history = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         req_mock.get(regex_url_income_history, exception=Exception)
 
         self.async_run_with_timeout(self.exchange._update_funding_payment(self.trading_pair, False))
 
-        self.assertTrue(self._is_logged(
-            "NETWORK",
-            f"Unexpected error while fetching last fee payment for {self.trading_pair}.",
-        ))
+        self.assertTrue(
+            self._is_logged(
+                "NETWORK",
+                f"Unexpected error while fetching last fee payment for {self.trading_pair}.",
+            )
+        )
 
     @aioresponses()
     def test_cancel_all_successful(self, mocked_api):
-        url = web_utils.private_rest_url(
-            CONSTANTS.CANCEL_ORDER_URL, domain=self.domain
-        )
+        url = web_utils.private_rest_url(CONSTANTS.CANCEL_ORDER_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         cancel_response = self._get_cancel_order_successful_response_mock()
@@ -1422,9 +1404,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
     @aioresponses()
     def test_cancel_all_unknown_order(self, req_mock):
         self._simulate_trading_rules_initialized()
-        url = web_utils.private_rest_url(
-            CONSTANTS.CANCEL_ORDER_URL, domain=self.domain
-        )
+        url = web_utils.private_rest_url(CONSTANTS.CANCEL_ORDER_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         cancel_response = self._get_cancel_order_successful_response_mock()
@@ -1454,19 +1434,15 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(1, len(cancellation_results))
         self.assertEqual("OID1", cancellation_results[0].order_id)
 
-        self.assertTrue(self._is_logged(
-            "DEBUG",
-            "The order OID1 does not exist on Bitmart Perpetual. "
-            "No cancelation needed."
-        ))
+        self.assertTrue(
+            self._is_logged("DEBUG", "The order OID1 does not exist on Bitmart Perpetual. " "No cancelation needed.")
+        )
 
         self.assertTrue("OID1" in self.exchange._order_tracker._order_not_found_records)
 
     @aioresponses()
     def test_cancel_all_exception(self, req_mock):
-        url = web_utils.private_rest_url(
-            CONSTANTS.CANCEL_ORDER_URL, domain=self.domain
-        )
+        url = web_utils.private_rest_url(CONSTANTS.CANCEL_ORDER_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         req_mock.delete(regex_url, exception=Exception())
@@ -1493,21 +1469,18 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(1, len(cancellation_results))
         self.assertEqual("OID1", cancellation_results[0].order_id)
 
-        self.assertTrue(self._is_logged(
-            "ERROR",
-            "Failed to cancel order OID1",
-        ))
+        self.assertTrue(
+            self._is_logged(
+                "ERROR",
+                "Failed to cancel order OID1",
+            )
+        )
 
         self.assertTrue("OID1" in self.exchange._order_tracker._in_flight_orders)
 
     @staticmethod
     def _get_cancel_order_successful_response_mock():
-        mocked_response = {
-            "code": 1000,
-            "trace": "0cc6f4c4-8b8c-4253-8e90-8d3195aa109c",
-            "message": "Ok",
-            "data": {}
-        }
+        mocked_response = {"code": 1000, "trace": "0cc6f4c4-8b8c-4253-8e90-8d3195aa109c", "message": "Ok", "data": {}}
         return mocked_response
 
     @aioresponses()
@@ -1529,15 +1502,14 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         tracked_order.current_state = OrderState.OPEN
         self.assertTrue("OID1" in self.exchange._order_tracker._in_flight_orders)
 
-        url = web_utils.private_rest_url(
-            CONSTANTS.CANCEL_ORDER_URL, domain=self.domain
-        )
+        url = web_utils.private_rest_url(CONSTANTS.CANCEL_ORDER_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         cancel_response = self._get_cancel_order_successful_response_mock()
         mock_api.post(regex_url, body=json.dumps(cancel_response))
-        canceled_order_id = self.async_run_with_timeout(self.exchange._execute_cancel(trading_pair=self.trading_pair,
-                                                                                      order_id="OID1"))
+        canceled_order_id = self.async_run_with_timeout(
+            self.exchange._execute_cancel(trading_pair=self.trading_pair, order_id="OID1")
+        )
 
         order_cancelled_events = self.order_cancelled_logger.event_log
 
@@ -1547,9 +1519,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
     @aioresponses()
     def test_cancel_order_failed(self, mock_api):
         self._simulate_trading_rules_initialized()
-        url = web_utils.private_rest_url(
-            CONSTANTS.CANCEL_ORDER_URL, domain=self.domain
-        )
+        url = web_utils.private_rest_url(CONSTANTS.CANCEL_ORDER_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         cancel_response = self._get_cancel_order_successful_response_mock()
@@ -1580,22 +1550,24 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
 
     @aioresponses()
     def test_create_order_successful(self, req_mock):
-        url = web_utils.private_rest_url(
-            CONSTANTS.SUBMIT_ORDER_URL, domain=self.domain
-        )
+        url = web_utils.private_rest_url(CONSTANTS.SUBMIT_ORDER_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         create_response = self._get_submit_order_mock_response()
         req_mock.post(regex_url, body=json.dumps(create_response))
         self._simulate_trading_rules_initialized()
 
-        self.async_run_with_timeout(self.exchange._create_order(trade_type=TradeType.BUY,
-                                                                order_id="OID1",
-                                                                trading_pair=self.trading_pair,
-                                                                amount=Decimal("10000"),
-                                                                order_type=OrderType.LIMIT,
-                                                                position_action=PositionAction.OPEN,
-                                                                price=Decimal("10000")))
+        self.async_run_with_timeout(
+            self.exchange._create_order(
+                trade_type=TradeType.BUY,
+                order_id="OID1",
+                trading_pair=self.trading_pair,
+                amount=Decimal("10000"),
+                order_type=OrderType.LIMIT,
+                position_action=PositionAction.OPEN,
+                price=Decimal("10000"),
+            )
+        )
 
         self.assertTrue("OID1" in self.exchange._order_tracker._in_flight_orders)
 
@@ -1604,60 +1576,63 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         mocked_response = {
             "code": 1000,
             "message": "Ok",
-            "data": {
-                "order_id": 123456789,
-                "price": "25637.2"
-            },
-            "trace": "13f7fda9-9543-4e11-a0ba-cbe117989988"
+            "data": {"order_id": 123456789, "price": "25637.2"},
+            "trace": "13f7fda9-9543-4e11-a0ba-cbe117989988",
         }
         return mocked_response
 
     @aioresponses()
     def test_create_limit_maker_successful(self, req_mock):
         self._simulate_trading_rules_initialized()
-        url = web_utils.private_rest_url(
-            CONSTANTS.SUBMIT_ORDER_URL, domain=self.domain
-        )
+        url = web_utils.private_rest_url(CONSTANTS.SUBMIT_ORDER_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         create_response = self._get_submit_order_mock_response()
         req_mock.post(regex_url, body=json.dumps(create_response))
 
-        self.async_run_with_timeout(self.exchange._create_order(trade_type=TradeType.BUY,
-                                                                order_id="OID1",
-                                                                trading_pair=self.trading_pair,
-                                                                amount=Decimal("10000"),
-                                                                order_type=OrderType.LIMIT_MAKER,
-                                                                position_action=PositionAction.OPEN,
-                                                                price=Decimal("25637.2")))
+        self.async_run_with_timeout(
+            self.exchange._create_order(
+                trade_type=TradeType.BUY,
+                order_id="OID1",
+                trading_pair=self.trading_pair,
+                amount=Decimal("10000"),
+                order_type=OrderType.LIMIT_MAKER,
+                position_action=PositionAction.OPEN,
+                price=Decimal("25637.2"),
+            )
+        )
 
         self.assertTrue("OID1" in self.exchange._order_tracker._in_flight_orders)
 
     @aioresponses()
     def test_create_order_exception(self, req_mock):
-        url = web_utils.private_rest_url(
-            CONSTANTS.SUBMIT_ORDER_URL, domain=self.domain
-        )
+        url = web_utils.private_rest_url(CONSTANTS.SUBMIT_ORDER_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         req_mock.post(regex_url, exception=Exception())
         self._simulate_trading_rules_initialized()
-        self.async_run_with_timeout(self.exchange._create_order(trade_type=TradeType.BUY,
-                                                                order_id="OID1",
-                                                                trading_pair=self.trading_pair,
-                                                                amount=Decimal("10000"),
-                                                                order_type=OrderType.LIMIT,
-                                                                position_action=PositionAction.OPEN,
-                                                                price=Decimal("1010")))
+        self.async_run_with_timeout(
+            self.exchange._create_order(
+                trade_type=TradeType.BUY,
+                order_id="OID1",
+                trading_pair=self.trading_pair,
+                amount=Decimal("10000"),
+                order_type=OrderType.LIMIT,
+                position_action=PositionAction.OPEN,
+                price=Decimal("1010"),
+            )
+        )
 
         self.assertTrue("OID1" not in self.exchange._order_tracker._in_flight_orders)
 
         # The order amount is quantizied
         # "Error submitting buy LIMIT order to Bitmart_perpetual for 9999 COINALPHA-HBOT 1010."
-        self.assertTrue(self._is_logged(
-            "NETWORK",
-            f"Error submitting {TradeType.BUY.name.lower()} {OrderType.LIMIT.name.upper()} order to {self.exchange.name_cap} for "
-            f"{Decimal('9999')} {self.trading_pair} {Decimal('1010')}.",
-        ))
+        self.assertTrue(
+            self._is_logged(
+                "NETWORK",
+                f"Error submitting {TradeType.BUY.name.lower()} {OrderType.LIMIT.name.upper()} order to {self.exchange.name_cap} for "
+                f"{Decimal('9999')} {self.trading_pair} {Decimal('1010')}.",
+            )
+        )
 
     def test_create_order_min_order_size_failure(self):
         self._simulate_trading_rules_initialized()
@@ -1668,90 +1643,108 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         trade_type = TradeType.BUY
         amount = Decimal("2")
 
-        self.async_run_with_timeout(self.exchange._create_order(trade_type=trade_type,
-                                                                order_id="OID1",
-                                                                trading_pair=self.trading_pair,
-                                                                amount=amount,
-                                                                order_type=OrderType.LIMIT,
-                                                                position_action=PositionAction.OPEN,
-                                                                price=Decimal("1010")))
+        self.async_run_with_timeout(
+            self.exchange._create_order(
+                trade_type=trade_type,
+                order_id="OID1",
+                trading_pair=self.trading_pair,
+                amount=amount,
+                order_type=OrderType.LIMIT,
+                position_action=PositionAction.OPEN,
+                price=Decimal("1010"),
+            )
+        )
 
         self.assertTrue("OID1" not in self.exchange._order_tracker._in_flight_orders)
 
-        self.assertTrue(self._is_logged(
-            "WARNING",
-            f"{trade_type.name.title()} order amount {amount} is lower than the minimum order "
-            f"size {trading_rules[0].min_order_size}. The order will not be created, increase the "
-            f"amount to be higher than the minimum order size."
-        ))
+        self.assertTrue(
+            self._is_logged(
+                "WARNING",
+                f"{trade_type.name.title()} order amount {amount} is lower than the minimum order "
+                f"size {trading_rules[0].min_order_size}. The order will not be created, increase the "
+                f"amount to be higher than the minimum order size.",
+            )
+        )
 
     def test_create_order_min_notional_size_failure(self):
         min_notional_size = 10
         self._simulate_trading_rules_initialized()
-        mocked_response = self._get_exchange_info_mock_response(contract_size=1,
-                                                                min_volume=min_notional_size,
-                                                                vol_precision=0.5)
+        mocked_response = self._get_exchange_info_mock_response(
+            contract_size=1, min_volume=min_notional_size, vol_precision=0.5
+        )
         trading_rules = self.async_run_with_timeout(self.exchange._format_trading_rules(mocked_response))
         self.exchange._trading_rules[self.trading_pair] = trading_rules[0]
         trade_type = TradeType.BUY
         amount = Decimal("2")
         price = Decimal("4")
 
-        self.async_run_with_timeout(self.exchange._create_order(trade_type=trade_type,
-                                                                order_id="OID1",
-                                                                trading_pair=self.trading_pair,
-                                                                amount=amount,
-                                                                order_type=OrderType.LIMIT,
-                                                                position_action=PositionAction.OPEN,
-                                                                price=price))
+        self.async_run_with_timeout(
+            self.exchange._create_order(
+                trade_type=trade_type,
+                order_id="OID1",
+                trading_pair=self.trading_pair,
+                amount=amount,
+                order_type=OrderType.LIMIT,
+                position_action=PositionAction.OPEN,
+                price=price,
+            )
+        )
 
         self.assertTrue("OID1" not in self.exchange._order_tracker._in_flight_orders)
 
     def test_restore_tracking_states_only_registers_open_orders(self):
         orders = []
-        orders.append(InFlightOrder(
-            client_order_id="OID1",
-            exchange_order_id="EOID1",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            amount=Decimal("1000.0"),
-            price=Decimal("1.0"),
-            creation_timestamp=1640001112.223,
-        ))
-        orders.append(InFlightOrder(
-            client_order_id="OID2",
-            exchange_order_id="EOID2",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            amount=Decimal("1000.0"),
-            price=Decimal("1.0"),
-            creation_timestamp=1640001112.223,
-            initial_state=OrderState.CANCELED
-        ))
-        orders.append(InFlightOrder(
-            client_order_id="OID3",
-            exchange_order_id="EOID3",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            amount=Decimal("1000.0"),
-            price=Decimal("1.0"),
-            creation_timestamp=1640001112.223,
-            initial_state=OrderState.FILLED
-        ))
-        orders.append(InFlightOrder(
-            client_order_id="OID4",
-            exchange_order_id="EOID4",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            amount=Decimal("1000.0"),
-            price=Decimal("1.0"),
-            creation_timestamp=1640001112.223,
-            initial_state=OrderState.FAILED
-        ))
+        orders.append(
+            InFlightOrder(
+                client_order_id="OID1",
+                exchange_order_id="EOID1",
+                trading_pair=self.trading_pair,
+                order_type=OrderType.LIMIT,
+                trade_type=TradeType.BUY,
+                amount=Decimal("1000.0"),
+                price=Decimal("1.0"),
+                creation_timestamp=1640001112.223,
+            )
+        )
+        orders.append(
+            InFlightOrder(
+                client_order_id="OID2",
+                exchange_order_id="EOID2",
+                trading_pair=self.trading_pair,
+                order_type=OrderType.LIMIT,
+                trade_type=TradeType.BUY,
+                amount=Decimal("1000.0"),
+                price=Decimal("1.0"),
+                creation_timestamp=1640001112.223,
+                initial_state=OrderState.CANCELED,
+            )
+        )
+        orders.append(
+            InFlightOrder(
+                client_order_id="OID3",
+                exchange_order_id="EOID3",
+                trading_pair=self.trading_pair,
+                order_type=OrderType.LIMIT,
+                trade_type=TradeType.BUY,
+                amount=Decimal("1000.0"),
+                price=Decimal("1.0"),
+                creation_timestamp=1640001112.223,
+                initial_state=OrderState.FILLED,
+            )
+        )
+        orders.append(
+            InFlightOrder(
+                client_order_id="OID4",
+                exchange_order_id="EOID4",
+                trading_pair=self.trading_pair,
+                order_type=OrderType.LIMIT,
+                trade_type=TradeType.BUY,
+                amount=Decimal("1000.0"),
+                price=Decimal("1.0"),
+                creation_timestamp=1640001112.223,
+                initial_state=OrderState.FAILED,
+            )
+        )
 
         tracking_states = {order.client_order_id: order.to_json() for order in orders}
 
@@ -1813,7 +1806,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
                     "frozen_balance": "100",
                     "available_balance": "100",
                     "equity": "100",
-                    "unrealized": "100"
+                    "unrealized": "100",
                 },
                 {
                     "currency": "BTC",
@@ -1821,7 +1814,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
                     "frozen_balance": "0",
                     "unrealized": "0",
                     "equity": "0.1",
-                    "position_deposit": "0"
+                    "position_deposit": "0",
                 },
                 {
                     "currency": "ETH",
@@ -1829,10 +1822,10 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
                     "frozen_balance": "0",
                     "unrealized": "0",
                     "equity": "7",
-                    "position_deposit": "0"
-                }
+                    "position_deposit": "0",
+                },
             ],
-            "trace": "13f7fda9-9543-4e11-a0ba-cbe117989988"
+            "trace": "13f7fda9-9543-4e11-a0ba-cbe117989988",
         }
 
         mock_api.get(regex_url, body=json.dumps(response))

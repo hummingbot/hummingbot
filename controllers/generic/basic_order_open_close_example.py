@@ -43,7 +43,9 @@ class BasicOrderOpenClose(ControllerBase):
                 return position
 
     def determine_executor_actions(self) -> list[ExecutorAction]:
-        mid_price = self.market_data_provider.get_price_by_type(self.config.connector_name, self.config.trading_pair, PriceType.MidPrice)
+        mid_price = self.market_data_provider.get_price_by_type(
+            self.config.connector_name, self.config.trading_pair, PriceType.MidPrice
+        )
         if not self.open_order_placed:
             config = OrderExecutorConfig(
                 timestamp=self.market_data_provider.time(),
@@ -57,16 +59,19 @@ class BasicOrderOpenClose(ControllerBase):
             )
             self.open_order_placed = True
             self.last_timestamp = self.market_data_provider.time()
-            return [CreateExecutorAction(
-                controller_id=self.config.id,
-                executor_config=config)]
+            return [CreateExecutorAction(controller_id=self.config.id, executor_config=config)]
         else:
-            if self.market_data_provider.time() - self.last_timestamp > self.config.close_order_delay and not self.closed_order_placed:
+            if (
+                self.market_data_provider.time() - self.last_timestamp > self.config.close_order_delay
+                and not self.closed_order_placed
+            ):
                 current_position = self.get_position(self.config.connector_name, self.config.trading_pair)
                 if current_position is None:
                     self.logger().info("The original position is not found, can close the position")
                 else:
-                    amount = current_position.amount / 2 if self.config.close_partial_position else current_position.amount
+                    amount = (
+                        current_position.amount / 2 if self.config.close_partial_position else current_position.amount
+                    )
                     config = OrderExecutorConfig(
                         timestamp=self.market_data_provider.time(),
                         connector_name=self.config.connector_name,
@@ -74,13 +79,13 @@ class BasicOrderOpenClose(ControllerBase):
                         side=self.close_side,
                         amount=amount,
                         execution_strategy=ExecutionStrategy.MARKET,
-                        position_action=PositionAction.OPEN if self.config.open_short_to_close_long else PositionAction.CLOSE,
+                        position_action=(
+                            PositionAction.OPEN if self.config.open_short_to_close_long else PositionAction.CLOSE
+                        ),
                         price=mid_price,
                     )
                     self.closed_order_placed = True
-                    return [CreateExecutorAction(
-                        controller_id=self.config.id,
-                        executor_config=config)]
+                    return [CreateExecutorAction(controller_id=self.config.id, executor_config=config)]
         return []
 
     async def update_processed_data(self):

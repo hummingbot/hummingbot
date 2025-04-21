@@ -25,23 +25,27 @@ def wss_url(endpoint: str, domain: str = "tegro"):
 
 
 def build_api_factory(
-        throttler: Optional[AsyncThrottler] = None,
-        time_synchronizer: Optional[TimeSynchronizer] = None,
-        domain: str = CONSTANTS.DEFAULT_DOMAIN,
-        time_provider: Optional[Callable] = None,
-        auth: Optional[AuthBase] = None, ) -> WebAssistantsFactory:
+    throttler: Optional[AsyncThrottler] = None,
+    time_synchronizer: Optional[TimeSynchronizer] = None,
+    domain: str = CONSTANTS.DEFAULT_DOMAIN,
+    time_provider: Optional[Callable] = None,
+    auth: Optional[AuthBase] = None,
+) -> WebAssistantsFactory:
     throttler = throttler or create_throttler()
     time_synchronizer = time_synchronizer or TimeSynchronizer()
-    time_provider = time_provider or (lambda: get_current_server_time(
-        throttler=throttler,
-        domain=domain,
-    ))
+    time_provider = time_provider or (
+        lambda: get_current_server_time(
+            throttler=throttler,
+            domain=domain,
+        )
+    )
     api_factory = WebAssistantsFactory(
         throttler=throttler,
         auth=auth,
         rest_pre_processors=[
             TimeSynchronizerRESTPreProcessor(synchronizer=time_synchronizer, time_provider=time_provider),
-        ])
+        ],
+    )
     return api_factory
 
 
@@ -51,7 +55,6 @@ def create_throttler() -> AsyncThrottler:
 
 async def get_current_server_time(
     throttler: Optional[AsyncThrottler] = None,
-
     domain=CONSTANTS.DEFAULT_DOMAIN,
 ) -> float:
     throttler = throttler or create_throttler()

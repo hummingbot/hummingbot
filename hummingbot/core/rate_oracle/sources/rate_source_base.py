@@ -11,8 +11,7 @@ class RateSourceBase(ABC):
 
     @property
     @abstractmethod
-    def name(self) -> str:
-        ...
+    def name(self) -> str: ...
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -21,5 +20,4 @@ class RateSourceBase(ABC):
         return cls._logger
 
     @abstractmethod
-    async def get_prices(self, quote_token: Optional[str] = None) -> Dict[str, Decimal]:
-        ...
+    async def get_prices(self, quote_token: Optional[str] = None) -> Dict[str, Decimal]: ...

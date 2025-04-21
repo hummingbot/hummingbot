@@ -46,8 +46,10 @@ class Proposal:
         self.sells: List[PriceSize] = sells
 
     def __repr__(self):
-        return f"{len(self.buys)} buys: {', '.join([str(o) for o in self.buys])} " \
-               f"{len(self.sells)} sells: {', '.join([str(o) for o in self.sells])}"
+        return (
+            f"{len(self.buys)} buys: {', '.join([str(o) for o in self.buys])} "
+            f"{len(self.sells)} sells: {', '.join([str(o) for o in self.sells])}"
+        )
 
 
 @dataclass(frozen=True)
@@ -61,21 +63,24 @@ class HangingOrder:
 
     @property
     def base_asset(self):
-        return self.trading_pair.split('-')[0]
+        return self.trading_pair.split("-")[0]
 
     @property
     def quote_asset(self):
-        return self.trading_pair.split('-')[1]
+        return self.trading_pair.split("-")[1]
 
     def distance_to_price(self, price: Decimal):
         return abs(self.price - price)
 
     def __eq__(self, other):
         return isinstance(other, HangingOrder) and all(
-            (self.trading_pair == other.trading_pair,
-             self.is_buy == other.is_buy,
-             self.price == other.price,
-             self.amount == other.amount))
+            (
+                self.trading_pair == other.trading_pair,
+                self.is_buy == other.is_buy,
+                self.price == other.price,
+                self.amount == other.amount,
+            )
+        )
 
     def __hash__(self):
         return hash((self.trading_pair, self.is_buy, self.price, self.amount))

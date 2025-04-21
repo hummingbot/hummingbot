@@ -19,8 +19,8 @@ class OrderBookUnitTest(unittest.TestCase):
         bids, asks = self.order_book_dex.snapshot
         best_bid = bids.iloc[0].tolist()
         best_ask = asks.iloc[0].tolist()
-        self.assertEqual(best_bid, [3., 1., 3.])
-        self.assertEqual(best_ask, [4., 1., 1.])
+        self.assertEqual(best_bid, [3.0, 1.0, 3.0])
+        self.assertEqual(best_ask, [4.0, 1.0, 1.0])
 
         new_ask = np.array([[2, 0.1, 5]])
         new_bid = np.array([[3.5, 1, 5]])
@@ -28,8 +28,8 @@ class OrderBookUnitTest(unittest.TestCase):
         bids, asks = self.order_book_dex.snapshot
         best_bid = bids.iloc[0].tolist()
         best_ask = asks.iloc[0].tolist()
-        self.assertEqual(best_bid, [3.5, 1., 5.])
-        self.assertEqual(best_ask, [4., 1., 1.])
+        self.assertEqual(best_bid, [3.5, 1.0, 5.0])
+        self.assertEqual(best_ask, [4.0, 1.0, 1.0])
 
     def test_truncate_overlap_entries_cex(self):
         bids_array = np.array([[1, 1, 1], [2, 1, 2], [3, 1, 3]], dtype=np.float64)
@@ -38,8 +38,8 @@ class OrderBookUnitTest(unittest.TestCase):
         bids, asks = self.order_book_cex.snapshot
         best_bid = bids.iloc[0].tolist()
         best_ask = asks.iloc[0].tolist()
-        self.assertEqual(best_bid, [3., 1., 3.])
-        self.assertEqual(best_ask, [4., 1., 1.])
+        self.assertEqual(best_bid, [3.0, 1.0, 3.0])
+        self.assertEqual(best_ask, [4.0, 1.0, 1.0])
 
         new_ask = np.array([[2, 0.1, 5]])
         new_bid = np.array([[50, 0.01, 6]])
@@ -47,7 +47,7 @@ class OrderBookUnitTest(unittest.TestCase):
         bids, asks = self.order_book_cex.snapshot
         best_bid = len(bids) and bids.iloc[0].tolist()
         best_ask = len(asks) and asks.iloc[0].tolist()
-        self.assertEqual(best_bid, [50., 0.01, 6.])
+        self.assertEqual(best_bid, [50.0, 0.01, 6.0])
         self.assertEqual(best_ask, 0)
 
 

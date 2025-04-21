@@ -29,9 +29,7 @@ class TegroUtilTestCases(unittest.TestCase):
         path_url = "/TEST_PATH_URL"
 
         expected_url = f"{CONSTANTS.TESTNET_BASE_URL}{path_url}"
-        self.assertEqual(
-            expected_url, web_utils.public_rest_url(path_url=path_url, domain="testnet")
-        )
+        self.assertEqual(expected_url, web_utils.public_rest_url(path_url=path_url, domain="testnet"))
 
     def test_wss_url_main_domain(self):
         endpoint = "TEST_SUBSCRIBE"

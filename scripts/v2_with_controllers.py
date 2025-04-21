@@ -38,6 +38,7 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
     specific controller and wait until the active executors finalize their execution. The rest of the executors will
     wait until the main strategy stops them.
     """
+
     performance_report_interval: int = 1
 
     def __init__(self, connectors: Dict[str, ConnectorBase], config: GenericV2StrategyWithCashOutConfig):
@@ -79,14 +80,20 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
 
     def on_tick(self):
         super().on_tick()
-        self.performance_reports = {controller_id: self.executor_orchestrator.generate_performance_report(controller_id=controller_id).dict() for controller_id in self.controllers.keys()}
+        self.performance_reports = {
+            controller_id: self.executor_orchestrator.generate_performance_report(controller_id=controller_id).dict()
+            for controller_id in self.controllers.keys()
+        }
         self.control_rebalance()
         self.control_cash_out()
         self.control_max_drawdown()
         self.send_performance_report()
 
     def control_rebalance(self):
-        if self.rebalance_interval and self._last_rebalance_check_timestamp + self.rebalance_interval <= self.current_timestamp:
+        if (
+            self.rebalance_interval
+            and self._last_rebalance_check_timestamp + self.rebalance_interval <= self.current_timestamp
+        ):
             balance_required = {}
             for controller_id, controller in self.controllers.items():
                 connector_name = controller.config.model_dump().get("connector_name")
@@ -112,36 +119,65 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
                     amount_with_safe_margin = amount * (1 + Decimal(self.config.extra_inventory))
                     active_executors_for_pair = self.filter_executors(
                         executors=self.get_all_executors(),
-                        filter_func=lambda x: x.is_active and x.trading_pair == trading_pair and x.connector_name == connector_name
+                        filter_func=lambda x: x.is_active
+                        and x.trading_pair == trading_pair
+                        and x.connector_name == connector_name,
                     )
-                    unmatched_amount = sum([executor.filled_amount_quote for executor in active_executors_for_pair if executor.side == TradeType.SELL]) - sum([executor.filled_amount_quote for executor in active_executors_for_pair if executor.side == TradeType.BUY])
+                    unmatched_amount = sum(
+                        [
+                            executor.filled_amount_quote
+                            for executor in active_executors_for_pair
+                            if executor.side == TradeType.SELL
+                        ]
+                    ) - sum(
+                        [
+                            executor.filled_amount_quote
+                            for executor in active_executors_for_pair
+                            if executor.side == TradeType.BUY
+                        ]
+                    )
                     balance += unmatched_amount / mid_price
                     base_balance_diff = balance - amount_with_safe_margin
                     abs_balance_diff = abs(base_balance_diff)
-                    trading_rules_condition = abs_balance_diff > trading_rule.min_order_size and abs_balance_diff * mid_price > trading_rule.min_notional_size and abs_balance_diff * mid_price > self.config.min_amount_to_rebalance_usd
+                    trading_rules_condition = (
+                        abs_balance_diff > trading_rule.min_order_size
+                        and abs_balance_diff * mid_price > trading_rule.min_notional_size
+                        and abs_balance_diff * mid_price > self.config.min_amount_to_rebalance_usd
+                    )
                     order_type = OrderType.MARKET
                     if base_balance_diff > 0:
                         if trading_rules_condition:
-                            self.logger().info(f"Rebalance: Selling {amount_with_safe_margin} {token} to {self.config.asset_to_rebalance}. Balance: {balance} | Executors unmatched balance {unmatched_amount / mid_price}")
+                            self.logger().info(
+                                f"Rebalance: Selling {amount_with_safe_margin} {token} to {self.config.asset_to_rebalance}. Balance: {balance} | Executors unmatched balance {unmatched_amount / mid_price}"
+                            )
                             connector.sell(
                                 trading_pair=trading_pair,
                                 amount=abs_balance_diff,
                                 order_type=order_type,
-                                price=mid_price)
+                                price=mid_price,
+                            )
                         else:
-                            self.logger().info("Skipping rebalance due a low amount to sell that may cause future imbalance")
+                            self.logger().info(
+                                "Skipping rebalance due a low amount to sell that may cause future imbalance"
+                            )
                     else:
                         if not trading_rules_condition:
-                            amount = max([self.config.min_amount_to_rebalance_usd / mid_price, trading_rule.min_order_size, trading_rule.min_notional_size / mid_price])
-                            self.logger().info(f"Rebalance: Buying for a higher value to avoid future imbalance {amount} {token} to {self.config.asset_to_rebalance}. Balance: {balance} | Executors unmatched balance {unmatched_amount}")
+                            amount = max(
+                                [
+                                    self.config.min_amount_to_rebalance_usd / mid_price,
+                                    trading_rule.min_order_size,
+                                    trading_rule.min_notional_size / mid_price,
+                                ]
+                            )
+                            self.logger().info(
+                                f"Rebalance: Buying for a higher value to avoid future imbalance {amount} {token} to {self.config.asset_to_rebalance}. Balance: {balance} | Executors unmatched balance {unmatched_amount}"
+                            )
                         else:
                             amount = abs_balance_diff
-                            self.logger().info(f"Rebalance: Buying {amount} {token} to {self.config.asset_to_rebalance}. Balance: {balance} | Executors unmatched balance {unmatched_amount}")
-                        connector.buy(
-                            trading_pair=trading_pair,
-                            amount=amount,
-                            order_type=order_type,
-                            price=mid_price)
+                            self.logger().info(
+                                f"Rebalance: Buying {amount} {token} to {self.config.asset_to_rebalance}. Balance: {balance} | Executors unmatched balance {unmatched_amount}"
+                            )
+                        connector.buy(trading_pair=trading_pair, amount=amount, order_type=order_type, price=mid_price)
             self._last_rebalance_check_timestamp = self.current_timestamp
 
     def control_max_drawdown(self):
@@ -168,7 +204,10 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
                         filter_func=lambda x: x.is_active and not x.is_trading,
                     )
                     self.executor_orchestrator.execute_actions(
-                        actions=[StopExecutorAction(controller_id=controller_id, executor_id=executor.id) for executor in executors_order_placed]
+                        actions=[
+                            StopExecutorAction(controller_id=controller_id, executor_id=executor.id)
+                            for executor in executors_order_placed
+                        ]
                     )
                     self.drawdown_exited_controllers.append(controller_id)
 
@@ -184,7 +223,10 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
                 HummingbotApplication.main_application().stop()
 
     def send_performance_report(self):
-        if self.current_timestamp - self._last_performance_report_timestamp >= self.performance_report_interval and self.mqtt_enabled:
+        if (
+            self.current_timestamp - self._last_performance_report_timestamp >= self.performance_report_interval
+            and self.mqtt_enabled
+        ):
             self._pub(self.performance_reports)
             self._last_performance_report_timestamp = self.current_timestamp
 
@@ -211,8 +253,11 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
                 controller.stop()
                 executors_to_stop = self.get_executors_by_controller(controller_id)
                 self.executor_orchestrator.execute_actions(
-                    [StopExecutorAction(executor_id=executor.id,
-                                        controller_id=executor.controller_id) for executor in executors_to_stop])
+                    [
+                        StopExecutorAction(executor_id=executor.id, controller_id=executor.controller_id)
+                        for executor in executors_to_stop
+                    ]
+                )
             if not controller.config.manual_kill_switch and controller.status == RunnableStatus.TERMINATED:
                 if controller_id in self.drawdown_exited_controllers:
                     continue
@@ -221,20 +266,21 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
 
     def check_executors_status(self):
         active_executors = self.filter_executors(
-            executors=self.get_all_executors(),
-            filter_func=lambda executor: executor.status == RunnableStatus.RUNNING
+            executors=self.get_all_executors(), filter_func=lambda executor: executor.status == RunnableStatus.RUNNING
         )
         if not active_executors:
             self.logger().info("All executors have finalized their execution. Stopping the strategy.")
             HummingbotApplication.main_application().stop()
         else:
             non_trading_executors = self.filter_executors(
-                executors=active_executors,
-                filter_func=lambda executor: not executor.is_trading
+                executors=active_executors, filter_func=lambda executor: not executor.is_trading
             )
             self.executor_orchestrator.execute_actions(
-                [StopExecutorAction(executor_id=executor.id,
-                                    controller_id=executor.controller_id) for executor in non_trading_executors])
+                [
+                    StopExecutorAction(executor_id=executor.id, controller_id=executor.controller_id)
+                    for executor in non_trading_executors
+                ]
+            )
 
     def create_actions_proposal(self) -> List[CreateExecutorAction]:
         return []
@@ -252,7 +298,8 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
                     if "position_mode" in config_dict:
                         connectors_position_mode[config_dict["connector_name"]] = config_dict["position_mode"]
                     if "leverage" in config_dict:
-                        self.connectors[config_dict["connector_name"]].set_leverage(leverage=config_dict["leverage"],
-                                                                                    trading_pair=config_dict["trading_pair"])
+                        self.connectors[config_dict["connector_name"]].set_leverage(
+                            leverage=config_dict["leverage"], trading_pair=config_dict["trading_pair"]
+                        )
         for connector_name, position_mode in connectors_position_mode.items():
             self.connectors[connector_name].set_position_mode(position_mode)

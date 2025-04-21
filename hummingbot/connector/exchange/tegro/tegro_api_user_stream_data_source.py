@@ -36,9 +36,7 @@ class TegroUserStreamDataSource(UserStreamTrackerDataSource):
         super().__init__()
         self._domain = domain
         self._throttler = throttler
-        self._api_factory: WebAssistantsFactory = api_factory or web_utils.build_api_factory(
-            auth=auth
-        )
+        self._api_factory: WebAssistantsFactory = api_factory or web_utils.build_api_factory(auth=auth)
         self._auth: TegroAuth = auth
         self._ws_assistant: Optional[WSAssistant] = None
 
@@ -65,16 +63,15 @@ class TegroUserStreamDataSource(UserStreamTrackerDataSource):
             try:
                 # # establish initial connection to websocket
                 ws: WSAssistant = await self._get_ws_assistant()
-                await ws.connect(ws_url=web_utils.wss_url(CONSTANTS.PUBLIC_WS_ENDPOINT, self._domain), ping_timeout=PING_TIMEOUT)
+                await ws.connect(
+                    ws_url=web_utils.wss_url(CONSTANTS.PUBLIC_WS_ENDPOINT, self._domain), ping_timeout=PING_TIMEOUT
+                )
 
                 # # send auth request
                 API_KEY = self._auth._api_key
                 subscribe_payload = {"action": "subscribe", "channelId": API_KEY}
 
-                subscribe_request: WSJSONRequest = WSJSONRequest(
-                    payload=subscribe_payload,
-                    is_auth_required=False
-                )
+                subscribe_request: WSJSONRequest = WSJSONRequest(payload=subscribe_payload, is_auth_required=False)
                 await ws.send(subscribe_request)
                 await self._send_ping(ws)
                 async for msg in ws.iter_messages():
@@ -84,8 +81,7 @@ class TegroUserStreamDataSource(UserStreamTrackerDataSource):
                 raise
             except Exception as e:
                 self.logger().error(
-                    f"Unexpected error while listening to user stream. Retrying after 5 seconds... "
-                    f"Error: {e}",
+                    f"Unexpected error while listening to user stream. Retrying after 5 seconds... " f"Error: {e}",
                     exc_info=True,
                 )
             finally:

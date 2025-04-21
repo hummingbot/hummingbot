@@ -39,7 +39,7 @@ class MarketConfigMap(BaseClientModel):
     connector: Union[None, ExchangeEnum] = Field(
         default=...,
         description="The name of the exchange connector.",
-        json_schema_extra={"prompt": "Enter name of the exchange to use", "prompt_on_new": True}
+        json_schema_extra={"prompt": "Enter name of the exchange to use", "prompt_on_new": True},
     )
     markets: Union[None, List[str]] = Field(
         default=...,
@@ -51,10 +51,10 @@ class MarketConfigMap(BaseClientModel):
         description="The offsets for each trading pair.",
         json_schema_extra={
             "prompt": "Enter the offsets to use to hedge the markets comma seperated, the remainder will be assumed as 0 if no inputs. "
-                      "e.g if markets is BTC-USDT,ETH-USDT,LTC-USDT, and offsets is 0.1, -0.2. "
-                      "then the offset amount that will be added is 0.1 BTC, -0.2 ETH and 0 LTC. ",
+            "e.g if markets is BTC-USDT,ETH-USDT,LTC-USDT, and offsets is 0.1, -0.2. "
+            "then the offset amount that will be added is 0.1 BTC, -0.2 ETH and 0 LTC. ",
             "prompt_on_new": True,
-        }
+        },
     )
 
     @staticmethod
@@ -67,6 +67,7 @@ class MarketConfigMap(BaseClientModel):
             f"Enter the token trading pair you would like to hedge/monitor on comma seperated"
             f" {exchange}{f' (e.g. {example})' if example else ''}"
         )
+
     model_config = ConfigDict(title="y")
 
 
@@ -81,7 +82,7 @@ class HedgeConfigMap(BaseStrategyConfigMap):
         json_schema_extra={
             "prompt": "Do you want to hedge by asset value [y] or asset amount[n] (y/n)?",
             "prompt_on_new": True,
-        }
+        },
     )
     hedge_ratio: Decimal = Field(
         default=Decimal("1"),
@@ -89,7 +90,7 @@ class HedgeConfigMap(BaseStrategyConfigMap):
         json_schema_extra={
             "prompt": "Enter the ratio of asset to hedge, e.g 0.5 means 50 percent of the total asset value will be hedged.",
             "prompt_on_new": True,
-        }
+        },
     )
     hedge_interval: int = Field(
         default=60,
@@ -135,7 +136,9 @@ class HedgeConfigMap(BaseStrategyConfigMap):
     enable_auto_set_position_mode: bool = Field(
         default=False,
         description="Whether to automatically set the exchange position mode to one-way or hedge based  ratio.",
-        json_schema_extra={"prompt": "Do you want to automatically set the exchange position mode to one-way or hedge based on the ratio [y/n]?"},
+        json_schema_extra={
+            "prompt": "Do you want to automatically set the exchange position mode to one-way or hedge based on the ratio [y/n]?"
+        },
     )
     connector_0: market_config_map = get_field(0)
     connector_1: market_config_map = get_field(1)

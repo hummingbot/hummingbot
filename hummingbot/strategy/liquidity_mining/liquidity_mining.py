@@ -41,25 +41,27 @@ class LiquidityMiningStrategy(StrategyPyBase):
             lms_logger = logging.getLogger(__name__)
         return lms_logger
 
-    def init_params(self,
-                    client_config_map: Union[ClientConfigAdapter, ClientConfigMap],
-                    exchange: ExchangeBase,
-                    market_infos: Dict[str, MarketTradingPairTuple],
-                    token: str,
-                    order_amount: Decimal,
-                    spread: Decimal,
-                    inventory_skew_enabled: bool,
-                    target_base_pct: Decimal,
-                    order_refresh_time: float,
-                    order_refresh_tolerance_pct: Decimal,
-                    inventory_range_multiplier: Decimal = Decimal("1"),
-                    volatility_interval: int = 60 * 5,
-                    avg_volatility_period: int = 10,
-                    volatility_to_spread_multiplier: Decimal = Decimal("1"),
-                    max_spread: Decimal = Decimal("-1"),
-                    max_order_age: float = 60. * 60.,
-                    status_report_interval: float = 900,
-                    hb_app_notification: bool = False):
+    def init_params(
+        self,
+        client_config_map: Union[ClientConfigAdapter, ClientConfigMap],
+        exchange: ExchangeBase,
+        market_infos: Dict[str, MarketTradingPairTuple],
+        token: str,
+        order_amount: Decimal,
+        spread: Decimal,
+        inventory_skew_enabled: bool,
+        target_base_pct: Decimal,
+        order_refresh_time: float,
+        order_refresh_tolerance_pct: Decimal,
+        inventory_range_multiplier: Decimal = Decimal("1"),
+        volatility_interval: int = 60 * 5,
+        avg_volatility_period: int = 10,
+        volatility_to_spread_multiplier: Decimal = Decimal("1"),
+        max_spread: Decimal = Decimal("-1"),
+        max_order_age: float = 60.0 * 60.0,
+        status_report_interval: float = 900,
+        hb_app_notification: bool = False,
+    ):
         self._client_config_map = client_config_map
         self._exchange = exchange
         self._market_infos = market_infos
@@ -87,7 +89,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
         self._buy_budgets = {}
         self._mid_prices = {market: [] for market in market_infos}
         self._volatility = {market: s_decimal_nan for market in self._market_infos}
-        self._last_vol_reported = 0.
+        self._last_vol_reported = 0.0
         self._hb_app_notification = hb_app_notification
 
         self.add_markets([exchange])
@@ -124,7 +126,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
                 if self._validate_order_book_for_markets() >= 1:
                     self.create_budget_allocation()
                 else:
-                    self.logger().warning(f"{self._exchange.name} has no pairs with order book. Consider redefining your strategy.")
+                    self.logger().warning(
+                        f"{self._exchange.name} has no pairs with order book. Consider redefining your strategy."
+                    )
                     return
 
         self.update_mid_prices()
@@ -152,16 +156,18 @@ class LiquidityMiningStrategy(StrategyPyBase):
             size_q = order.quantity * mid_price
             age = order_age(order, self.current_timestamp)
             # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
-            age_txt = "n/a" if age <= 0. else pd.Timestamp(age, unit='s').strftime('%H:%M:%S')
-            data.append([
-                order.trading_pair,
-                "buy" if order.is_buy else "sell",
-                float(order.price),
-                f"{spread:.2%}",
-                float(order.quantity),
-                float(size_q),
-                age_txt
-            ])
+            age_txt = "n/a" if age <= 0.0 else pd.Timestamp(age, unit="s").strftime("%H:%M:%S")
+            data.append(
+                [
+                    order.trading_pair,
+                    "buy" if order.is_buy else "sell",
+                    float(order.price),
+                    f"{spread:.2%}",
+                    float(order.quantity),
+                    float(size_q),
+                    age_txt,
+                ]
+            )
         df = pd.DataFrame(data=data, columns=columns)
         df.sort_values(by=["Market", "Side"], inplace=True)
         return df
@@ -182,14 +188,16 @@ class LiquidityMiningStrategy(StrategyPyBase):
                 total_bal_in_token = base_bal + (quote_bal / mid_price)
             base_pct = (base_bal * mid_price) / total_bal_in_quote if total_bal_in_quote > 0 else s_decimal_zero
             quote_pct = quote_bal / total_bal_in_quote if total_bal_in_quote > 0 else s_decimal_zero
-            data.append([
-                market,
-                float(total_bal_in_token),
-                float(base_bal),
-                float(quote_bal),
-                f"{base_pct:.0%} / {quote_pct:.0%}"
-            ])
-        df = pd.DataFrame(data=data, columns=columns).replace(np.nan, '', regex=True)
+            data.append(
+                [
+                    market,
+                    float(total_bal_in_token),
+                    float(base_bal),
+                    float(quote_bal),
+                    f"{base_pct:.0%} / {quote_pct:.0%}",
+                ]
+            )
+        df = pd.DataFrame(data=data, columns=columns).replace(np.nan, "", regex=True)
         df.sort_values(by=["Market"], inplace=True)
         return df
 
@@ -205,14 +213,16 @@ class LiquidityMiningStrategy(StrategyPyBase):
             best_ask = self._exchange.get_price(market, True)
             best_bid_pct = abs(best_bid - mid_price) / mid_price
             best_ask_pct = (best_ask - mid_price) / mid_price
-            data.append([
-                market,
-                float(mid_price),
-                f"{best_bid_pct:.2%}",
-                f"{best_ask_pct:.2%}",
-                "" if self._volatility[market].is_nan() else f"{self._volatility[market]:.2%}",
-            ])
-        df = pd.DataFrame(data=data, columns=columns).replace(np.nan, '', regex=True)
+            data.append(
+                [
+                    market,
+                    float(mid_price),
+                    f"{best_bid_pct:.2%}",
+                    f"{best_ask_pct:.2%}",
+                    "" if self._volatility[market].is_nan() else f"{self._volatility[market]:.2%}",
+                ]
+            )
+        df = pd.DataFrame(data=data, columns=columns).replace(np.nan, "", regex=True)
         df.sort_values(by=["Market"], inplace=True)
         return df
 
@@ -228,15 +238,17 @@ class LiquidityMiningStrategy(StrategyPyBase):
             reward = await RateOracle.get_instance().get_value(
                 amount=campaign.reward_per_wk, base_token=campaign.payout_asset
             )
-            data.append([
-                market,
-                campaign.payout_asset,
-                f"{g_sym}{reward:.0f}",
-                f"{g_sym}{campaign.liquidity_usd:.0f}",
-                f"{campaign.apy:.2%}",
-                f"{campaign.spread_max:.2%}%"
-            ])
-        df = pd.DataFrame(data=data, columns=columns).replace(np.nan, '', regex=True)
+            data.append(
+                [
+                    market,
+                    campaign.payout_asset,
+                    f"{g_sym}{reward:.0f}",
+                    f"{g_sym}{campaign.liquidity_usd:.0f}",
+                    f"{campaign.apy:.2%}",
+                    f"{campaign.spread_max:.2%}%",
+                ]
+            )
+        df = pd.DataFrame(data=data, columns=columns).replace(np.nan, "", regex=True)
         df.sort_values(by=["Market"], inplace=True)
         return df
 
@@ -377,8 +389,16 @@ class LiquidityMiningStrategy(StrategyPyBase):
 
             quote_size = proposal.buy.size * proposal.buy.price
             quote_size = balances[proposal.quote()] if balances[proposal.quote()] < quote_size else quote_size
-            buy_fee = build_trade_fee(self._exchange.name, True, proposal.base(), proposal.quote(),
-                                      OrderType.LIMIT, TradeType.BUY, proposal.buy.size, proposal.buy.price)
+            buy_fee = build_trade_fee(
+                self._exchange.name,
+                True,
+                proposal.base(),
+                proposal.quote(),
+                OrderType.LIMIT,
+                TradeType.BUY,
+                proposal.buy.size,
+                proposal.buy.price,
+            )
             buy_size = quote_size / (proposal.buy.price * (Decimal("1") + buy_fee.percent))
             proposal.buy.size = self._exchange.quantize_order_amount(proposal.market, buy_size)
             balances[proposal.quote()] -= quote_size
@@ -392,11 +412,15 @@ class LiquidityMiningStrategy(StrategyPyBase):
         cur_sell = [o for o in cur_orders if not o.is_buy]
         if (cur_buy and proposal.buy.size <= 0) or (cur_sell and proposal.sell.size <= 0):
             return False
-        if cur_buy and \
-                abs(proposal.buy.price - cur_buy[0].price) / cur_buy[0].price > self._order_refresh_tolerance_pct:
+        if (
+            cur_buy
+            and abs(proposal.buy.price - cur_buy[0].price) / cur_buy[0].price > self._order_refresh_tolerance_pct
+        ):
             return False
-        if cur_sell and \
-                abs(proposal.sell.price - cur_sell[0].price) / cur_sell[0].price > self._order_refresh_tolerance_pct:
+        if (
+            cur_sell
+            and abs(proposal.sell.price - cur_sell[0].price) / cur_sell[0].price > self._order_refresh_tolerance_pct
+        ):
             return False
         return True
 
@@ -409,8 +433,11 @@ class LiquidityMiningStrategy(StrategyPyBase):
             cur_orders = [o for o in self.active_orders if o.trading_pair == proposal.market]
             if cur_orders and any(order_age(o, self.current_timestamp) > self._max_order_age for o in cur_orders):
                 to_cancel = True
-            elif self._refresh_times[proposal.market] <= self.current_timestamp and \
-                    cur_orders and not self.is_within_tolerance(cur_orders, proposal):
+            elif (
+                self._refresh_times[proposal.market] <= self.current_timestamp
+                and cur_orders
+                and not self.is_within_tolerance(cur_orders, proposal)
+            ):
                 to_cancel = True
             if to_cancel:
                 for order in cur_orders:
@@ -432,32 +459,37 @@ class LiquidityMiningStrategy(StrategyPyBase):
             spread = s_decimal_zero
             if proposal.buy.size > 0:
                 spread = abs(proposal.buy.price - mid_price) / mid_price
-                self.logger().info(f"({proposal.market}) Creating a bid order {proposal.buy} value: "
-                                   f"{proposal.buy.size * proposal.buy.price:.2f} {proposal.quote()} spread: "
-                                   f"{spread:.2%}")
+                self.logger().info(
+                    f"({proposal.market}) Creating a bid order {proposal.buy} value: "
+                    f"{proposal.buy.size * proposal.buy.price:.2f} {proposal.quote()} spread: "
+                    f"{spread:.2%}"
+                )
                 self.buy_with_specific_market(
                     self._market_infos[proposal.market],
                     proposal.buy.size,
                     order_type=maker_order_type,
-                    price=proposal.buy.price
+                    price=proposal.buy.price,
                 )
             if proposal.sell.size > 0:
                 spread = abs(proposal.sell.price - mid_price) / mid_price
-                self.logger().info(f"({proposal.market}) Creating an ask order at {proposal.sell} value: "
-                                   f"{proposal.sell.size * proposal.sell.price:.2f} {proposal.quote()} spread: "
-                                   f"{spread:.2%}")
+                self.logger().info(
+                    f"({proposal.market}) Creating an ask order at {proposal.sell} value: "
+                    f"{proposal.sell.size * proposal.sell.price:.2f} {proposal.quote()} spread: "
+                    f"{spread:.2%}"
+                )
                 self.sell_with_specific_market(
                     self._market_infos[proposal.market],
                     proposal.sell.size,
                     order_type=maker_order_type,
-                    price=proposal.sell.price
+                    price=proposal.sell.price,
                 )
             if proposal.buy.size > 0 or proposal.sell.size > 0:
                 if not self._volatility[proposal.market].is_nan() and spread > self._spread:
                     adjusted_vol = self._volatility[proposal.market] * self._volatility_to_spread_multiplier
                     if adjusted_vol > self._spread:
-                        self.logger().info(f"({proposal.market}) Spread is widened to {spread:.2%} due to high "
-                                           f"market volatility")
+                        self.logger().info(
+                            f"({proposal.market}) Spread is widened to {spread:.2%} due to high " f"market volatility"
+                        )
 
                 self._refresh_times[proposal.market] = self.current_timestamp + self._order_refresh_time
 
@@ -530,7 +562,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
                 float(buy_budget),
                 float(mid_price),
                 float(self._target_base_pct),
-                float(total_order_size * self._inventory_range_multiplier)
+                float(total_order_size * self._inventory_range_multiplier),
             )
             proposal.buy.size *= Decimal(bid_ask_ratios.bid_ratio)
             proposal.sell.size *= Decimal(bid_ask_ratios.ask_ratio)
@@ -543,19 +575,23 @@ class LiquidityMiningStrategy(StrategyPyBase):
         market_info = self.order_tracker.get_shadow_market_pair_from_order_id(order_id)
         if market_info is not None:
             if event.trade_type is TradeType.BUY:
-                msg = f"({market_info.trading_pair}) Maker BUY order (price: {event.price}) of {event.amount} " \
-                      f"{market_info.base_asset} is filled."
+                msg = (
+                    f"({market_info.trading_pair}) Maker BUY order (price: {event.price}) of {event.amount} "
+                    f"{market_info.base_asset} is filled."
+                )
                 self.log_with_clock(logging.INFO, msg)
                 self.notify_hb_app_with_timestamp(msg)
-                self._buy_budgets[market_info.trading_pair] -= (event.amount * event.price)
+                self._buy_budgets[market_info.trading_pair] -= event.amount * event.price
                 self._sell_budgets[market_info.trading_pair] += event.amount
             else:
-                msg = f"({market_info.trading_pair}) Maker SELL order (price: {event.price}) of {event.amount} " \
-                      f"{market_info.base_asset} is filled."
+                msg = (
+                    f"({market_info.trading_pair}) Maker SELL order (price: {event.price}) of {event.amount} "
+                    f"{market_info.base_asset} is filled."
+                )
                 self.log_with_clock(logging.INFO, msg)
                 self.notify_hb_app_with_timestamp(msg)
                 self._sell_budgets[market_info.trading_pair] -= event.amount
-                self._buy_budgets[market_info.trading_pair] += (event.amount * event.price)
+                self._buy_budgets[market_info.trading_pair] += event.amount * event.price
 
     def update_mid_prices(self):
         """
@@ -566,7 +602,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
             self._mid_prices[market].append(mid_price)
             # To avoid memory leak, we store only the last part of the list needed for volatility calculation
             max_len = self._volatility_interval * self._avg_volatility_period
-            self._mid_prices[market] = self._mid_prices[market][-1 * max_len:]
+            self._mid_prices[market] = self._mid_prices[market][-1 * max_len :]
 
     def update_volatility(self):
         """
@@ -579,7 +615,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
             first_index = last_index - (self._volatility_interval * self._avg_volatility_period)
             first_index = max(first_index, 0)
             for i in range(last_index, first_index, self._volatility_interval * -1):
-                prices = mid_prices[i - self._volatility_interval + 1: i + 1]
+                prices = mid_prices[i - self._volatility_interval + 1 : i + 1]
                 if not prices:
                     break
                 atr.append((max(prices) - min(prices)) / min(prices))

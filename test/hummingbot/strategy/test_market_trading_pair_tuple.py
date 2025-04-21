@@ -43,22 +43,18 @@ class MarketTradingPairTupleUnitTest(unittest.TestCase):
 
     def setUp(self):
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
-        self.market: MockPaperExchange = MockPaperExchange(
-            client_config_map=ClientConfigAdapter(ClientConfigMap())
+        self.market: MockPaperExchange = MockPaperExchange(client_config_map=ClientConfigAdapter(ClientConfigMap()))
+        self.market.set_balanced_order_book(
+            trading_pair=self.trading_pair,
+            mid_price=100,
+            min_price=50,
+            max_price=150,
+            price_step_size=1,
+            volume_step_size=10,
         )
-        self.market.set_balanced_order_book(trading_pair=self.trading_pair,
-                                            mid_price=100,
-                                            min_price=50,
-                                            max_price=150,
-                                            price_step_size=1,
-                                            volume_step_size=10)
         self.market.set_balance("COINALPHA", self.base_balance)
         self.market.set_balance("HBOT", self.quote_balance)
-        self.market.set_quantization_param(
-            QuantizationParams(
-                self.trading_pair, 6, 6, 6, 6
-            )
-        )
+        self.market.set_quantization_param(QuantizationParams(self.trading_pair, 6, 6, 6, 6))
 
         self.market_info = MarketTradingPairTuple(self.market, self.trading_pair, self.base_asset, self.quote_asset)
 
@@ -74,7 +70,7 @@ class MarketTradingPairTupleUnitTest(unittest.TestCase):
             timestamp=timestamp,
             type=TradeType.BUY if limit_order.is_buy else TradeType.SELL,
             price=limit_order.price,
-            amount=limit_order.quantity
+            amount=limit_order.quantity,
         )
 
         market.get_order_book(limit_order.trading_pair).apply_trade(trade_event)
@@ -82,47 +78,59 @@ class MarketTradingPairTupleUnitTest(unittest.TestCase):
         if limit_order.is_buy:
             market.set_balance(quote_currency, market.get_balance(quote_currency) - quote_currency_traded)
             market.set_balance(base_currency, market.get_balance(base_currency) + base_currency_traded)
-            market.trigger_event(MarketEvent.OrderFilled, OrderFilledEvent(
-                market.current_timestamp,
-                limit_order.client_order_id,
-                limit_order.trading_pair,
-                TradeType.BUY,
-                OrderType.LIMIT,
-                limit_order.price,
-                limit_order.quantity,
-                AddedToCostTradeFee(Decimal(0.0))
-            ))
-            market.trigger_event(MarketEvent.BuyOrderCompleted, BuyOrderCompletedEvent(
-                market.current_timestamp,
-                limit_order.client_order_id,
-                base_currency,
-                quote_currency,
-                base_currency_traded,
-                quote_currency_traded,
-                OrderType.LIMIT
-            ))
+            market.trigger_event(
+                MarketEvent.OrderFilled,
+                OrderFilledEvent(
+                    market.current_timestamp,
+                    limit_order.client_order_id,
+                    limit_order.trading_pair,
+                    TradeType.BUY,
+                    OrderType.LIMIT,
+                    limit_order.price,
+                    limit_order.quantity,
+                    AddedToCostTradeFee(Decimal(0.0)),
+                ),
+            )
+            market.trigger_event(
+                MarketEvent.BuyOrderCompleted,
+                BuyOrderCompletedEvent(
+                    market.current_timestamp,
+                    limit_order.client_order_id,
+                    base_currency,
+                    quote_currency,
+                    base_currency_traded,
+                    quote_currency_traded,
+                    OrderType.LIMIT,
+                ),
+            )
         else:
             market.set_balance(quote_currency, market.get_balance(quote_currency) + quote_currency_traded)
             market.set_balance(base_currency, market.get_balance(base_currency) - base_currency_traded)
-            market.trigger_event(MarketEvent.OrderFilled, OrderFilledEvent(
-                market.current_timestamp,
-                limit_order.client_order_id,
-                limit_order.trading_pair,
-                TradeType.SELL,
-                OrderType.LIMIT,
-                limit_order.price,
-                limit_order.quantity,
-                AddedToCostTradeFee(Decimal(0.0))
-            ))
-            market.trigger_event(MarketEvent.SellOrderCompleted, SellOrderCompletedEvent(
-                market.current_timestamp,
-                limit_order.client_order_id,
-                base_currency,
-                quote_currency,
-                base_currency_traded,
-                quote_currency_traded,
-                OrderType.LIMIT
-            ))
+            market.trigger_event(
+                MarketEvent.OrderFilled,
+                OrderFilledEvent(
+                    market.current_timestamp,
+                    limit_order.client_order_id,
+                    limit_order.trading_pair,
+                    TradeType.SELL,
+                    OrderType.LIMIT,
+                    limit_order.price,
+                    limit_order.quantity,
+                    AddedToCostTradeFee(Decimal(0.0)),
+                ),
+            )
+            market.trigger_event(
+                MarketEvent.SellOrderCompleted,
+                SellOrderCompletedEvent(
+                    market.current_timestamp,
+                    limit_order.client_order_id,
+                    base_currency,
+                    quote_currency,
+                    base_currency_traded,
+                    quote_currency_traded,
+                    OrderType.LIMIT,
+                ),
+            )
 
     @staticmethod
     def simulate_order_book_update(market_info: MarketTradingPairTuple, n: int, is_bid: bool):
@@ -169,8 +177,12 @@ class MarketTradingPairTupleUnitTest(unittest.TestCase):
 
         # Check order book by comparing the total volume
         # TODO: Determine a better approach to comparing orderbooks
-        current_bid_volume: Decimal = sum([Decimal(entry.amount) for entry in self.market_info.order_book.bid_entries()])
-        current_ask_volume: Decimal = sum([Decimal(entry.amount) for entry in self.market_info.order_book.ask_entries()])
+        current_bid_volume: Decimal = sum(
+            [Decimal(entry.amount) for entry in self.market_info.order_book.bid_entries()]
+        )
+        current_ask_volume: Decimal = sum(
+            [Decimal(entry.amount) for entry in self.market_info.order_book.ask_entries()]
+        )
 
         self.assertEqual(expected_bid_volume, current_bid_volume)
         self.assertEqual(expected_ask_volume, current_ask_volume)
@@ -181,13 +193,15 @@ class MarketTradingPairTupleUnitTest(unittest.TestCase):
         self.assertEqual(self.quote_balance, self.market_info.quote_balance)
 
         # Simulate an order fill
-        fill_order: LimitOrder = LimitOrder(client_order_id="test",
-                                            trading_pair=self.trading_pair,
-                                            is_buy=True,
-                                            base_currency=self.base_asset,
-                                            quote_currency=self.quote_asset,
-                                            price=Decimal("101.0"),
-                                            quantity=Decimal("10"))
+        fill_order: LimitOrder = LimitOrder(
+            client_order_id="test",
+            trading_pair=self.trading_pair,
+            is_buy=True,
+            base_currency=self.base_asset,
+            quote_currency=self.quote_asset,
+            price=Decimal("101.0"),
+            quantity=Decimal("10"),
+        )
         self.simulate_limit_order_fill(self.market_info.market, fill_order)
 
         # Updates expected quote balance
@@ -201,13 +215,15 @@ class MarketTradingPairTupleUnitTest(unittest.TestCase):
         self.assertEqual(self.base_balance, self.market_info.base_balance)
 
         # Simulate order fill
-        fill_order: LimitOrder = LimitOrder(client_order_id="test",
-                                            trading_pair=self.trading_pair,
-                                            is_buy=True,
-                                            base_currency=self.base_asset,
-                                            quote_currency=self.quote_asset,
-                                            price=Decimal("101.0"),
-                                            quantity=Decimal("10"))
+        fill_order: LimitOrder = LimitOrder(
+            client_order_id="test",
+            trading_pair=self.trading_pair,
+            is_buy=True,
+            base_currency=self.base_asset,
+            quote_currency=self.quote_asset,
+            price=Decimal("101.0"),
+            quantity=Decimal("10"),
+        )
         self.simulate_limit_order_fill(self.market_info.market, fill_order)
 
         # Updates expected base balance
@@ -236,20 +252,28 @@ class MarketTradingPairTupleUnitTest(unittest.TestCase):
 
     def test_get_price(self):
         # Check buy price
-        expected_buy_price: Decimal = min([entry.price for entry in self.market.order_book_ask_entries(self.trading_pair)])
+        expected_buy_price: Decimal = min(
+            [entry.price for entry in self.market.order_book_ask_entries(self.trading_pair)]
+        )
         self.assertEqual(expected_buy_price, self.market_info.get_price(is_buy=True))
 
         # Check sell price
-        expected_sell_price: Decimal = max([entry.price for entry in self.market.order_book_bid_entries(self.trading_pair)])
+        expected_sell_price: Decimal = max(
+            [entry.price for entry in self.market.order_book_bid_entries(self.trading_pair)]
+        )
         self.assertEqual(expected_sell_price, self.market_info.get_price(is_buy=False))
 
     def test_get_price_by_type(self):
         # Check PriceType.BestAsk
-        expected_best_ask: Decimal = max([entry.price for entry in self.market.order_book_bid_entries(self.trading_pair)])
+        expected_best_ask: Decimal = max(
+            [entry.price for entry in self.market.order_book_bid_entries(self.trading_pair)]
+        )
         self.assertEqual(expected_best_ask, self.market_info.get_price_by_type(PriceType.BestBid))
 
         # Check PriceType.BestAsk
-        expected_best_ask: Decimal = min([entry.price for entry in self.market.order_book_ask_entries(self.trading_pair)])
+        expected_best_ask: Decimal = min(
+            [entry.price for entry in self.market.order_book_ask_entries(self.trading_pair)]
+        )
         self.assertEqual(expected_best_ask, self.market_info.get_price_by_type(PriceType.BestAsk))
 
         # Check PriceType.MidPrice
@@ -261,13 +285,15 @@ class MarketTradingPairTupleUnitTest(unittest.TestCase):
 
         # Simulate fill buy order
         expected_trade_price = Decimal("101.0")
-        fill_order: LimitOrder = LimitOrder(client_order_id="test",
-                                            trading_pair=self.trading_pair,
-                                            is_buy=True,
-                                            base_currency=self.base_asset,
-                                            quote_currency=self.quote_asset,
-                                            price=expected_trade_price,
-                                            quantity=Decimal("10"))
+        fill_order: LimitOrder = LimitOrder(
+            client_order_id="test",
+            trading_pair=self.trading_pair,
+            is_buy=True,
+            base_currency=self.base_asset,
+            quote_currency=self.quote_asset,
+            price=expected_trade_price,
+            quantity=Decimal("10"),
+        )
         self.simulate_limit_order_fill(self.market_info.market, fill_order)
 
         # Check for updated trade price
@@ -294,14 +320,18 @@ class MarketTradingPairTupleUnitTest(unittest.TestCase):
         filled_orders: List[OrderBookRow] = self.market.get_order_book(self.trading_pair).simulate_buy(order_volume)
         expected_buy_price: Decimal = max([Decimal(o.price) for o in filled_orders])
 
-        self.assertAlmostEqual(expected_buy_price, self.market_info.get_price_for_volume(True, order_volume).result_price, 3)
+        self.assertAlmostEqual(
+            expected_buy_price, self.market_info.get_price_for_volume(True, order_volume).result_price, 3
+        )
 
         # Check price on SELL side
         order_volume = 15
         filled_orders: List[OrderBookRow] = self.market.get_order_book(self.trading_pair).simulate_sell(order_volume)
         expected_sell_price: Decimal = min([Decimal(o.price) for o in filled_orders])
 
-        self.assertAlmostEqual(expected_sell_price, self.market_info.get_price_for_volume(False, order_volume).result_price, 3)
+        self.assertAlmostEqual(
+            expected_sell_price, self.market_info.get_price_for_volume(False, order_volume).result_price, 3
+        )
 
     def test_order_book_bid_entries(self):
         # Check all entries.

@@ -79,22 +79,22 @@ def get_gateway_paths(client_config_map: "ClientConfigAdapter") -> GatewayPaths:
         local_logs_path=local_logs_path,
         mount_conf_path=mount_conf_path,
         mount_certs_path=mount_certs_path,
-        mount_logs_path=mount_logs_path
+        mount_logs_path=mount_logs_path,
     )
     return _default_paths
 
 
 def check_transaction_exceptions(
-        balances: Dict[str, Decimal],
-        base_asset: str,
-        quote_asset: str,
-        amount: Decimal,
-        side: TradeType,
-        gas_limit: int,
-        gas_cost: Decimal,
-        gas_asset: str,
-        allowances: Optional[Dict[str, Decimal]] = None,
-        chain: Chain = Chain.SOLANA
+    balances: Dict[str, Decimal],
+    base_asset: str,
+    quote_asset: str,
+    amount: Decimal,
+    side: TradeType,
+    gas_limit: int,
+    gas_cost: Decimal,
+    gas_asset: str,
+    allowances: Optional[Dict[str, Decimal]] = None,
+    chain: Chain = Chain.SOLANA,
 ) -> List[str]:
     """
     Check trade data for Ethereum decentralized exchanges
@@ -105,8 +105,10 @@ def check_transaction_exceptions(
 
     # check for sufficient gas
     if gas_asset_balance < gas_cost:
-        exception_list.append(f"Insufficient {gas_asset} balance to cover gas:"
-                              f" Balance: {gas_asset_balance} vs estimated gas cost: {gas_cost}.")
+        exception_list.append(
+            f"Insufficient {gas_asset} balance to cover gas:"
+            f" Balance: {gas_asset_balance} vs estimated gas cost: {gas_cost}."
+        )
 
     asset_out: str = quote_asset if side is TradeType.BUY else base_asset
     asset_out_allowance: Decimal = allowances.get(asset_out, S_DECIMAL_0)

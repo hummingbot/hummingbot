@@ -48,14 +48,15 @@ class BtcMarketsExchange(ExchangePyBase):
 
     web_utils = web_utils
 
-    def __init__(self,
-                 client_config_map: "ClientConfigAdapter",
-                 btc_markets_api_key: str,
-                 btc_markets_api_secret: str,
-                 trading_pairs: Optional[List[str]] = None,
-                 trading_required: bool = True,
-                 domain: str = CONSTANTS.DEFAULT_DOMAIN,
-                 ):
+    def __init__(
+        self,
+        client_config_map: "ClientConfigAdapter",
+        btc_markets_api_key: str,
+        btc_markets_api_secret: str,
+        trading_pairs: Optional[List[str]] = None,
+        trading_required: bool = True,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+    ):
         """
         :param btc_markets_api_key: The API key to connect to private BTCMarkets APIs.
         :param btc_markets_api_secret: The API secret.
@@ -72,29 +73,25 @@ class BtcMarketsExchange(ExchangePyBase):
 
     @property
     def authenticator(self):
-        return BtcMarketsAuth(
-            api_key=self._api_key,
-            secret_key=self._secret_key,
-            time_provider=self._time_synchronizer)
+        return BtcMarketsAuth(api_key=self._api_key, secret_key=self._secret_key, time_provider=self._time_synchronizer)
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer,
-            auth=self.authenticator)
+            throttler=self._throttler, time_synchronizer=self._time_synchronizer, auth=self.authenticator
+        )
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         return BtcMarketsAPIOrderBookDataSource(
-            trading_pairs=self.trading_pairs,
-            connector=self,
-            api_factory=self._web_assistants_factory)
+            trading_pairs=self.trading_pairs, connector=self, api_factory=self._web_assistants_factory
+        )
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         return BtcMarketsAPIUserStreamDataSource(
             auth=self.authenticator,
             trading_pairs=self.trading_pairs,
             connector=self,
-            api_factory=self._web_assistants_factory)
+            api_factory=self._web_assistants_factory,
+        )
 
     @property
     def rate_limits_rules(self):
@@ -159,7 +156,12 @@ class BtcMarketsExchange(ExchangePyBase):
     # https://docs.btcmarkets.net/v3/#tag/ErrorCodes
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         error_code = str(request_exception)
-        is_time_synchronizer_related = CONSTANTS.INVALID_TIME_WINDOW in error_code or CONSTANTS.INVALID_TIMESTAMP in error_code or CONSTANTS.INVALID_AUTH_TIMESTAMP in error_code or CONSTANTS.INVALID_AUTH_SIGNATURE in error_code
+        is_time_synchronizer_related = (
+            CONSTANTS.INVALID_TIME_WINDOW in error_code
+            or CONSTANTS.INVALID_TIMESTAMP in error_code
+            or CONSTANTS.INVALID_AUTH_TIMESTAMP in error_code
+            or CONSTANTS.INVALID_AUTH_SIGNATURE in error_code
+        )
         return is_time_synchronizer_related
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
@@ -172,7 +174,7 @@ class BtcMarketsExchange(ExchangePyBase):
         response = await self._api_delete(
             path_url=f"{CONSTANTS.ORDERS_URL}/{tracked_order.exchange_order_id}",
             is_auth_required=True,
-            limit_id=f"{CONSTANTS.ORDERS_URL}"
+            limit_id=f"{CONSTANTS.ORDERS_URL}",
         )
         cancelled = True if response["clientOrderId"] == order_id else False
 
@@ -186,12 +188,12 @@ class BtcMarketsExchange(ExchangePyBase):
         trade_type: TradeType,
         order_type: OrderType,
         price: Decimal,
-        **kwargs
+        **kwargs,
     ) -> Tuple[str, float]:
         order_result = None
         amount_str = f"{amount:f}"
         price_str = f"{price:f}"
-        type_str = 'Bid' if trade_type is TradeType.BUY else 'Ask'
+        type_str = "Bid" if trade_type is TradeType.BUY else "Ask"
 
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         post_data = {
@@ -200,7 +202,7 @@ class BtcMarketsExchange(ExchangePyBase):
             "amount": amount_str,
             "selfTrade": "P",  # prevents self trading
             "clientOrderId": order_id,
-            "timeInForce": CONSTANTS.TIME_IN_FORCE_GTC
+            "timeInForce": CONSTANTS.TIME_IN_FORCE_GTC,
         }
 
         if order_type == OrderType.MARKET:
@@ -213,11 +215,7 @@ class BtcMarketsExchange(ExchangePyBase):
             post_data["price"] = price_str
             post_data["postOnly"] = "true"
 
-        order_result = await self._api_post(
-            path_url = CONSTANTS.ORDERS_URL,
-            data = post_data,
-            is_auth_required = True
-        )
+        order_result = await self._api_post(path_url=CONSTANTS.ORDERS_URL, data=post_data, is_auth_required=True)
         exchange_order_id = str(order_result["orderId"])
 
         return exchange_order_id, self.current_timestamp
@@ -230,7 +228,7 @@ class BtcMarketsExchange(ExchangePyBase):
         order_side: TradeType,
         amount: Decimal,
         price: Decimal = s_decimal_NaN,
-        is_maker: Optional[bool] = None
+        is_maker: Optional[bool] = None,
     ) -> AddedToCostTradeFee:
         """
         Calculates the estimated fee an order would pay based on the connector configuration
@@ -270,11 +268,7 @@ class BtcMarketsExchange(ExchangePyBase):
         """
         Update fees information from the exchange
         """
-        resp = await self._api_get(
-            path_url=CONSTANTS.FEES_URL,
-            is_auth_required=True,
-            limit_id=CONSTANTS.FEES_URL
-        )
+        resp = await self._api_get(path_url=CONSTANTS.FEES_URL, is_auth_required=True, limit_id=CONSTANTS.FEES_URL)
         fees_json = resp["feeByMarkets"]
         for fee_json in fees_json:
             trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=fee_json["marketId"])
@@ -300,11 +294,9 @@ class BtcMarketsExchange(ExchangePyBase):
         orderId = await order.get_exchange_order_id()
         return await self._api_get(
             path_url=CONSTANTS.TRADES_URL,
-            params={
-                "orderId": orderId
-            },
+            params={"orderId": orderId},
             is_auth_required=True,
-            limit_id=CONSTANTS.TRADES_URL
+            limit_id=CONSTANTS.TRADES_URL,
         )
 
     async def _request_order_update(self, order: InFlightOrder) -> Dict[str, Any]:
@@ -312,9 +304,7 @@ class BtcMarketsExchange(ExchangePyBase):
 
     async def _get_order_update(self, orderId: int) -> Dict[str, Any]:
         return await self._api_get(
-            path_url=f"{CONSTANTS.ORDERS_URL}/{orderId}",
-            is_auth_required=True,
-            limit_id=CONSTANTS.ORDERS_URL
+            path_url=f"{CONSTANTS.ORDERS_URL}/{orderId}", is_auth_required=True, limit_id=CONSTANTS.ORDERS_URL
         )
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
@@ -409,10 +399,12 @@ class BtcMarketsExchange(ExchangePyBase):
                             try:
                                 for trade in event_message["trades"]:
                                     fee = TradeFeeBase.new_spot_fee(
-                                        fee_schema = self.trade_fee_schema(),
-                                        trade_type = fillable_order.trade_type,
-                                        percent_token = fillable_order.quote_asset,
-                                        flat_fees = [TokenAmount(amount=Decimal(trade["fee"]), token = fillable_order.quote_asset)]
+                                        fee_schema=self.trade_fee_schema(),
+                                        trade_type=fillable_order.trade_type,
+                                        percent_token=fillable_order.quote_asset,
+                                        flat_fees=[
+                                            TokenAmount(amount=Decimal(trade["fee"]), token=fillable_order.quote_asset)
+                                        ],
                                     )
 
                                     try:
@@ -425,7 +417,7 @@ class BtcMarketsExchange(ExchangePyBase):
                                             fill_base_amount=Decimal(trade["volume"]),
                                             fill_quote_amount=Decimal(trade["valueInQuoteAsset"]),
                                             fill_price=Decimal(trade["price"]),
-                                            fill_timestamp=event_timestamp
+                                            fill_timestamp=event_timestamp,
                                         )
 
                                         self._order_tracker.process_trade_update(trade_update)
@@ -433,13 +425,15 @@ class BtcMarketsExchange(ExchangePyBase):
                                         raise
                                     except Exception:
                                         self.logger().exception(
-                                            f"Unexpected error requesting order fills for {fillable_order.client_order_id}")
+                                            f"Unexpected error requesting order fills for {fillable_order.client_order_id}"
+                                        )
 
                             except asyncio.CancelledError:
                                 raise
                             except Exception:
                                 self.logger().exception(
-                                    "Unexpected error requesting order fills for {fillable_order.client_order_id}")
+                                    "Unexpected error requesting order fills for {fillable_order.client_order_id}"
+                                )
 
                     if updatable_order is not None:
                         order_update = OrderUpdate(
@@ -458,12 +452,16 @@ class BtcMarketsExchange(ExchangePyBase):
                     amount = Decimal(event_message.get("amount"))
                     if status == "Complete":
                         if type == "Deposit":
-                            self._account_available_balances[asset_name] = self._account_available_balances[asset_name] + amount
+                            self._account_available_balances[asset_name] = (
+                                self._account_available_balances[asset_name] + amount
+                            )
                             self._account_balances[asset_name] = self._account_balances[asset_name] + amount
                         elif type == "Withdrawal":
                             self._account_balances[asset_name] = self._account_balances[asset_name] - amount
                     if status == "Pending Authorization" and type == "Withdrawal":
-                        self._account_available_balances[asset_name] = self._account_available_balances[asset_name] - amount
+                        self._account_available_balances[asset_name] = (
+                            self._account_available_balances[asset_name] - amount
+                        )
 
             except asyncio.CancelledError:
                 raise
@@ -480,32 +478,28 @@ class BtcMarketsExchange(ExchangePyBase):
                 self.logger().exception("Error while reading user events queue. Retrying after 1 second.")
                 await asyncio.sleep(1.0)
 
-    def _create_order_fill_updates(
-        self,
-        order: InFlightOrder,
-        fill_update: Dict[str, Any]
-    ) -> List[TradeUpdate]:
+    def _create_order_fill_updates(self, order: InFlightOrder, fill_update: Dict[str, Any]) -> List[TradeUpdate]:
         updates = []
         fills_data = fill_update
 
         for fill_data in fills_data:
             fee = TradeFeeBase.new_spot_fee(
-                fee_schema = self.trade_fee_schema(),
-                trade_type = order.trade_type,
-                percent_token = order.quote_asset,
-                flat_fees = [TokenAmount(amount=Decimal(fill_data.get("fee")), token = order.quote_asset)]
+                fee_schema=self.trade_fee_schema(),
+                trade_type=order.trade_type,
+                percent_token=order.quote_asset,
+                flat_fees=[TokenAmount(amount=Decimal(fill_data.get("fee")), token=order.quote_asset)],
             )
 
             trade_update = TradeUpdate(
-                trade_id = str(fill_data.get("id")),
-                client_order_id = fill_data.get("clientOrderId"),
-                exchange_order_id = fill_data.get("orderId"),
-                trading_pair = order.trading_pair,
-                fee = fee,
-                fill_base_amount = Decimal(fill_data.get("amount")),
-                fill_price = Decimal(fill_data.get("price")),
+                trade_id=str(fill_data.get("id")),
+                client_order_id=fill_data.get("clientOrderId"),
+                exchange_order_id=fill_data.get("orderId"),
+                trading_pair=order.trading_pair,
+                fee=fee,
+                fill_base_amount=Decimal(fill_data.get("amount")),
+                fill_price=Decimal(fill_data.get("price")),
                 fill_quote_amount=Decimal(fill_data.get("amount")) * Decimal(fill_data["price"]),
-                fill_timestamp = int(dateparse(fill_data.get("timestamp")).timestamp())
+                fill_timestamp=int(dateparse(fill_data.get("timestamp")).timestamp()),
             )
             updates.append(trade_update)
 
@@ -515,18 +509,15 @@ class BtcMarketsExchange(ExchangePyBase):
         new_state = CONSTANTS.ORDER_STATE[order_update["status"]]
         return OrderUpdate(
             trading_pair=order.trading_pair,
-            update_timestamp = int(dateparse(order_update["creationTime"]).timestamp()),
-            new_state = new_state,
-            client_order_id = order.client_order_id,
-            exchange_order_id = str(order_update["orderId"])
+            update_timestamp=int(dateparse(order_update["creationTime"]).timestamp()),
+            new_state=new_state,
+            client_order_id=order.client_order_id,
+            exchange_order_id=str(order_update["orderId"]),
         )
 
     async def _get_balances(self):
         return await self._api_get(
-            method=RESTMethod.GET,
-            path_url=CONSTANTS.BALANCE_URL,
-            is_auth_required=True,
-            limit_id=CONSTANTS.BALANCE_URL
+            method=RESTMethod.GET, path_url=CONSTANTS.BALANCE_URL, is_auth_required=True, limit_id=CONSTANTS.BALANCE_URL
         )
 
     async def _update_balances(self):
@@ -554,8 +545,7 @@ class BtcMarketsExchange(ExchangePyBase):
         for symbol_data in filter(utils.is_exchange_information_valid, exchange_info):
             instrument_id = symbol_data["marketId"]
             trading_pair = combine_to_hb_trading_pair(
-                base = symbol_data["baseAssetName"],
-                quote = symbol_data["quoteAssetName"]
+                base=symbol_data["baseAssetName"], quote=symbol_data["quoteAssetName"]
             )
             if instrument_id in mapping:
                 self.logger().error(
@@ -578,7 +568,7 @@ class BtcMarketsExchange(ExchangePyBase):
         data = await self._api_request(
             method=RESTMethod.GET,
             path_url=f"{CONSTANTS.MARKETS_URL}/{trading_pair}/ticker",
-            limit_id=CONSTANTS.MARKETS_URL
+            limit_id=CONSTANTS.MARKETS_URL,
         )
 
         return float(data["lastPrice"])

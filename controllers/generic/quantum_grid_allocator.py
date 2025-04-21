@@ -38,7 +38,8 @@ class QGAConfig(ControllerConfigBase):
         default={
             "SOL": Decimal("0.50"),  # 50%
         },
-        json_schema_extra={"is_updatable": True})
+        json_schema_extra={"is_updatable": True},
+    )
     # Grid parameters
     grid_range: Decimal = Field(default=Decimal("0.002"), json_schema_extra={"is_updatable": True})
     tp_sl_ratio: Decimal = Field(default=Decimal("0.8"), json_schema_extra={"is_updatable": True})
@@ -54,18 +55,18 @@ class QGAConfig(ControllerConfigBase):
     fee_asset: str = "BNB"
     # Grid price multipliers
     min_spread_between_orders: Decimal = Field(
-        default=Decimal("0.0001"),  # 0.01% between orders
-        json_schema_extra={"is_updatable": True})
+        default=Decimal("0.0001"), json_schema_extra={"is_updatable": True}  # 0.01% between orders
+    )
     grid_tp_multiplier: Decimal = Field(
-        default=Decimal("0.0001"),  # 0.2% take profit
-        json_schema_extra={"is_updatable": True})
+        default=Decimal("0.0001"), json_schema_extra={"is_updatable": True}  # 0.2% take profit
+    )
     # Grid safety parameters
     limit_price_spread: Decimal = Field(
-        default=Decimal("0.001"),  # 0.1% spread for limit price
-        json_schema_extra={"is_updatable": True})
+        default=Decimal("0.001"), json_schema_extra={"is_updatable": True}  # 0.1% spread for limit price
+    )
     activation_bounds: Decimal = Field(
-        default=Decimal("0.0002"),  # Activation bounds for orders
-        json_schema_extra={"is_updatable": True})
+        default=Decimal("0.0002"), json_schema_extra={"is_updatable": True}  # Activation bounds for orders
+    )
     bb_lenght: int = 100
     bb_std_dev: float = 2.0
     interval: str = "1s"
@@ -104,22 +105,27 @@ class QuantumGridAllocator(ControllerBase):
         # Track held positions from unfavorable grids
         self.unfavorable_positions = {
             f"{asset}-{config.quote_asset}": {
-                'long': {'size': Decimal('0'), 'value': Decimal('0'), 'weighted_price': Decimal('0')},
-                'short': {'size': Decimal('0'), 'value': Decimal('0'), 'weighted_price': Decimal('0')}
+                "long": {"size": Decimal("0"), "value": Decimal("0"), "weighted_price": Decimal("0")},
+                "short": {"size": Decimal("0"), "value": Decimal("0"), "weighted_price": Decimal("0")},
             }
             for asset in config.portfolio_allocation
         }
-        self.config.candles_config = [CandlesConfig(
-            connector=config.connector_name,
-            trading_pair=trading_pair + "-" + config.quote_asset,
-            interval=config.interval,
-            max_records=config.bb_lenght + 100
-        ) for trading_pair in config.portfolio_allocation.keys()]
+        self.config.candles_config = [
+            CandlesConfig(
+                connector=config.connector_name,
+                trading_pair=trading_pair + "-" + config.quote_asset,
+                interval=config.interval,
+                max_records=config.bb_lenght + 100,
+            )
+            for trading_pair in config.portfolio_allocation.keys()
+        ]
         super().__init__(config, *args, **kwargs)
         self.initialize_rate_sources()
 
     def initialize_rate_sources(self):
-        fee_pair = ConnectorPair(connector_name=self.config.connector_name, trading_pair=f"{self.config.fee_asset}-{self.config.quote_asset}")
+        fee_pair = ConnectorPair(
+            connector_name=self.config.connector_name, trading_pair=f"{self.config.fee_asset}-{self.config.quote_asset}"
+        )
         self.market_data_provider.initialize_rate_sources([fee_pair])
 
     async def update_processed_data(self):
@@ -130,16 +136,14 @@ class QuantumGridAllocator(ControllerBase):
                 connector_name=self.config.connector_name,
                 trading_pair=trading_pair,
                 interval=self.config.interval,
-                max_records=self.config.bb_lenght + 100
+                max_records=self.config.bb_lenght + 100,
             )
             if len(candles) == 0:
                 bb_width = self.config.grid_range
             else:
                 bb = ta.bbands(candles["close"], length=self.config.bb_lenght, std=self.config.bb_std_dev)
                 bb_width = bb[f"BBB_{self.config.bb_lenght}_{self.config.bb_std_dev}"].iloc[-1] / 100
-            self.processed_data[trading_pair] = {
-                "bb_width": bb_width
-            }
+            self.processed_data[trading_pair] = {"bb_width": bb_width}
 
     def update_portfolio_metrics(self):
         """
@@ -185,10 +189,7 @@ class QuantumGridAllocator(ControllerBase):
             trading_pair = f"{asset}-{self.config.quote_asset}"
             active_executors = self.filter_executors(
                 executors=self.executors_info,
-                filter_func=lambda e: (
-                    e.is_active and
-                    e.config.trading_pair == trading_pair
-                )
+                filter_func=lambda e: (e.is_active and e.config.trading_pair == trading_pair),
             )
             if active_executors:
                 active_grids[asset] = active_executors
@@ -204,11 +205,7 @@ class QuantumGridAllocator(ControllerBase):
         status_lines.append("Portfolio Status:")
         status_lines.append("-" * 80)
         status_lines.append(
-            f"{'Asset':<8} | "
-            f"{'Actual':>10} | "
-            f"{'Target':>10} | "
-            f"{'Diff':>10} | "
-            f"{'Dev %':>8}"
+            f"{'Asset':<8} | " f"{'Actual':>10} | " f"{'Target':>10} | " f"{'Diff':>10} | " f"{'Dev %':>8}"
         )
         status_lines.append("-" * 80)
         # Show metrics for each asset
@@ -259,10 +256,10 @@ class QuantumGridAllocator(ControllerBase):
                     current_price = self.get_mid_price(trading_pair)
                     # Get grid metrics
                     total_amount = Decimal(str(config.total_amount_quote))
-                    position_size = Decimal(str(custom_info.get('position_size_quote', '0')))
+                    position_size = Decimal(str(custom_info.get("position_size_quote", "0")))
                     volume = executor.filled_amount_quote
                     pnl = executor.net_pnl_quote
-                    realized_pnl_quote = custom_info.get('realized_pnl_quote', Decimal('0'))
+                    realized_pnl_quote = custom_info.get("realized_pnl_quote", Decimal("0"))
                     fees = executor.cum_fees_quote
                     status_lines.append(
                         f"{asset:<8} {config.side.name:<6} | "
@@ -299,12 +296,14 @@ class QuantumGridAllocator(ControllerBase):
 
             # Calculate dynamic grid value percentage based on deviation
             abs_deviation = abs(deviation)
-            grid_value_pct = self.config.max_grid_value_pct if abs_deviation > self.config.max_deviation else self.config.base_grid_value_pct
+            grid_value_pct = (
+                self.config.max_grid_value_pct
+                if abs_deviation > self.config.max_deviation
+                else self.config.base_grid_value_pct
+            )
 
             self.logger().info(
-                f"{trading_pair} Grid Sizing - "
-                f"Deviation: {deviation:+.1%}, "
-                f"Grid Value %: {grid_value_pct:.1%}"
+                f"{trading_pair} Grid Sizing - " f"Deviation: {deviation:+.1%}, " f"Grid Value %: {grid_value_pct:.1%}"
             )
             if self.config.dynamic_grid_range:
                 grid_range = Decimal(self.processed_data[trading_pair]["bb_width"])
@@ -324,7 +323,7 @@ class QuantumGridAllocator(ControllerBase):
                         start_price=start_price,
                         end_price=end_price,
                         grid_value=grid_value,
-                        is_unfavorable=False
+                        is_unfavorable=False,
                     )
                     if grid_action is not None:
                         actions.append(grid_action)
@@ -340,7 +339,7 @@ class QuantumGridAllocator(ControllerBase):
                         start_price=start_price,
                         end_price=end_price,
                         grid_value=grid_value,
-                        is_unfavorable=False
+                        is_unfavorable=False,
                     )
                     if grid_action is not None:
                         actions.append(grid_action)
@@ -358,7 +357,7 @@ class QuantumGridAllocator(ControllerBase):
                         start_price=start_price,
                         end_price=end_price,
                         grid_value=grid_value,
-                        is_unfavorable=False
+                        is_unfavorable=False,
                     )
                     if buy_grid_action is not None:
                         actions.append(buy_grid_action)
@@ -371,7 +370,7 @@ class QuantumGridAllocator(ControllerBase):
                         start_price=start_price,
                         end_price=end_price,
                         grid_value=grid_value,
-                        is_unfavorable=False
+                        is_unfavorable=False,
                     )
                     if sell_grid_action is not None:
                         actions.append(sell_grid_action)
@@ -385,7 +384,7 @@ class QuantumGridAllocator(ControllerBase):
                         start_price=start_price,
                         end_price=end_price,
                         grid_value=grid_value,
-                        is_unfavorable=False
+                        is_unfavorable=False,
                     )
                     if sell_grid_action is not None:
                         actions.append(sell_grid_action)
@@ -398,7 +397,7 @@ class QuantumGridAllocator(ControllerBase):
                         start_price=start_price,
                         end_price=end_price,
                         grid_value=grid_value,
-                        is_unfavorable=False
+                        is_unfavorable=False,
                     )
                     if buy_grid_action is not None:
                         actions.append(buy_grid_action)
@@ -411,14 +410,13 @@ class QuantumGridAllocator(ControllerBase):
         start_price: Decimal,
         end_price: Decimal,
         grid_value: Decimal,
-        is_unfavorable: bool = False
+        is_unfavorable: bool = False,
     ) -> CreateExecutorAction:
         """Creates a grid executor with dynamic sizing and range adjustments"""
         # Get trading rules and minimum notional
         trading_rules = self.market_data_provider.get_trading_rules(self.config.connector_name, trading_pair)
         min_notional = max(
-            self.config.min_order_amount,
-            trading_rules.min_notional_size if trading_rules else Decimal("5.0")
+            self.config.min_order_amount, trading_rules.min_notional_size if trading_rules else Decimal("5.0")
         )
         # Add safety margin and check if grid value is sufficient
         min_grid_value = min_notional * Decimal("5")  # Ensure room for at least 5 levels
@@ -431,8 +429,7 @@ class QuantumGridAllocator(ControllerBase):
 
         # Select order frequency based on grid favorability
         order_frequency = (
-            self.config.unfavorable_order_frequency if is_unfavorable
-            else self.config.favorable_order_frequency
+            self.config.unfavorable_order_frequency if is_unfavorable else self.config.favorable_order_frequency
         )
         # Calculate limit price to be more aggressive than grid boundaries
         if side == TradeType.BUY:
@@ -470,7 +467,9 @@ class QuantumGridAllocator(ControllerBase):
                     stop_loss=None,
                     time_limit=None,
                     trailing_stop=None,
-                )))
+                ),
+            ),
+        )
         # Track unfavorable grid configs
         if is_unfavorable:
             self.unfavorable_grid_ids.add(action.executor_config.id)

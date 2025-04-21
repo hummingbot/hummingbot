@@ -36,7 +36,9 @@ class TimeSynchronizer:
             offset = (self._time() - self._current_seconds_counter()) * 1e3
         else:
             median = numpy.median(self._time_offset_ms)
-            weighted_average = numpy.average(self._time_offset_ms, weights=range(1, len(self._time_offset_ms) * 2 + 1, 2))
+            weighted_average = numpy.average(
+                self._time_offset_ms, weights=range(1, len(self._time_offset_ms) * 2 + 1, 2)
+            )
             offset = numpy.mean([median, weighted_average])
 
         return offset
@@ -71,8 +73,11 @@ class TimeSynchronizer:
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().network("Error getting server time.", exc_info=True,
-                                  app_warning_msg="Could not refresh server time. Check network connection.")
+            self.logger().network(
+                "Error getting server time.",
+                exc_info=True,
+                app_warning_msg="Could not refresh server time. Check network connection.",
+            )
             time_provider.close()
 
     async def update_server_time_if_not_initialized(self, time_provider: Awaitable):

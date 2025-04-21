@@ -34,10 +34,10 @@ def get_rest_url_for_endpoint(endpoint: Dict[str, str], domain: str = None):
 
 
 def build_api_factory(
-        throttler: Optional[AsyncThrottler] = None,
-        time_synchronizer: Optional[TimeSynchronizer] = None,
-        time_provider: Optional[Callable] = None,
-        auth: Optional[AuthBase] = None,
+    throttler: Optional[AsyncThrottler] = None,
+    time_synchronizer: Optional[TimeSynchronizer] = None,
+    time_provider: Optional[Callable] = None,
+    auth: Optional[AuthBase] = None,
 ) -> WebAssistantsFactory:
     throttler = throttler or create_throttler()
     time_synchronizer = time_synchronizer or TimeSynchronizer()
@@ -62,9 +62,7 @@ def create_throttler() -> AsyncThrottler:
     return throttler
 
 
-async def get_current_server_time(
-    throttler: Optional[AsyncThrottler] = None, domain: str = ""
-) -> float:
+async def get_current_server_time(throttler: Optional[AsyncThrottler] = None, domain: str = "") -> float:
     throttler = throttler or create_throttler()
     api_factory = build_api_factory_without_time_synchronizer_pre_processor(throttler=throttler)
     rest_assistant = await api_factory.get_rest_assistant()

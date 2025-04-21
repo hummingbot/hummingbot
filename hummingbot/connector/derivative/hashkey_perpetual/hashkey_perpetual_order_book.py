@@ -7,10 +7,9 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage, Order
 
 class HashkeyPerpetualsOrderBook(OrderBook):
     @classmethod
-    def snapshot_message_from_exchange_websocket(cls,
-                                                 msg: Dict[str, any],
-                                                 timestamp: float,
-                                                 metadata: Optional[Dict] = None) -> OrderBookMessage:
+    def snapshot_message_from_exchange_websocket(
+        cls, msg: Dict[str, any], timestamp: float, metadata: Optional[Dict] = None
+    ) -> OrderBookMessage:
         """
         Creates a snapshot message with the order book snapshot message
         :param msg: the response from the exchange when requesting the order book snapshot
@@ -21,18 +20,16 @@ class HashkeyPerpetualsOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         ts = msg["t"]
-        return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "trading_pair": msg["trading_pair"],
-            "update_id": ts,
-            "bids": msg["b"],
-            "asks": msg["a"]
-        }, timestamp=timestamp)
+        return OrderBookMessage(
+            OrderBookMessageType.SNAPSHOT,
+            {"trading_pair": msg["trading_pair"], "update_id": ts, "bids": msg["b"], "asks": msg["a"]},
+            timestamp=timestamp,
+        )
 
     @classmethod
-    def snapshot_message_from_exchange_rest(cls,
-                                            msg: Dict[str, any],
-                                            timestamp: float,
-                                            metadata: Optional[Dict] = None) -> OrderBookMessage:
+    def snapshot_message_from_exchange_rest(
+        cls, msg: Dict[str, any], timestamp: float, metadata: Optional[Dict] = None
+    ) -> OrderBookMessage:
         """
         Creates a snapshot message with the order book snapshot message
         :param msg: the response from the exchange when requesting the order book snapshot
@@ -43,12 +40,11 @@ class HashkeyPerpetualsOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         ts = msg["t"]
-        return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "trading_pair": msg["trading_pair"],
-            "update_id": ts,
-            "bids": msg["b"],
-            "asks": msg["a"]
-        }, timestamp=timestamp)
+        return OrderBookMessage(
+            OrderBookMessageType.SNAPSHOT,
+            {"trading_pair": msg["trading_pair"], "update_id": ts, "bids": msg["b"], "asks": msg["a"]},
+            timestamp=timestamp,
+        )
 
     @classmethod
     def trade_message_from_exchange(cls, msg: Dict[str, any], metadata: Optional[Dict] = None):
@@ -61,11 +57,15 @@ class HashkeyPerpetualsOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         ts = msg["t"]
-        return OrderBookMessage(OrderBookMessageType.TRADE, {
-            "trading_pair": msg["trading_pair"],
-            "trade_type": float(TradeType.BUY.value) if msg["m"] else float(TradeType.SELL.value),
-            "trade_id": ts,
-            "update_id": ts,
-            "price": msg["p"],
-            "amount": msg["q"]
-        }, timestamp=ts * 1e-3)
+        return OrderBookMessage(
+            OrderBookMessageType.TRADE,
+            {
+                "trading_pair": msg["trading_pair"],
+                "trade_type": float(TradeType.BUY.value) if msg["m"] else float(TradeType.SELL.value),
+                "trade_id": ts,
+                "update_id": ts,
+                "price": msg["p"],
+                "amount": msg["q"],
+            },
+            timestamp=ts * 1e-3,
+        )

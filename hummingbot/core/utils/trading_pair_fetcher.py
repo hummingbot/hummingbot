@@ -33,9 +33,8 @@ class TradingPairFetcher:
         self._fetch_task = safe_ensure_future(self.fetch_all(client_config_map))
 
     def _fetch_pairs_from_connector_setting(
-            self,
-            connector_setting: ConnectorSetting,
-            connector_name: Optional[str] = None):
+        self, connector_setting: ConnectorSetting, connector_name: Optional[str] = None
+    ):
         connector_name = connector_name or connector_setting.name
         connector = connector_setting.non_trading_connector_instance_with_default_configuration()
         safe_ensure_future(self.call_fetch_pairs(connector.all_trading_pairs(), connector_name))
@@ -49,8 +48,7 @@ class TradingPairFetcher:
             try:
                 if conn_setting.base_name().endswith("paper_trade"):
                     self._fetch_pairs_from_connector_setting(
-                        connector_setting=connector_settings[conn_setting.parent_name],
-                        connector_name=conn_setting.name
+                        connector_setting=connector_settings[conn_setting.parent_name], connector_name=conn_setting.name
                     )
                 elif not self.fetch_pairs_from_all_exchanges:
                     if conn_setting.connector_connected():
@@ -60,8 +58,9 @@ class TradingPairFetcher:
             except ModuleNotFoundError:
                 continue
             except Exception:
-                self.logger().exception(f"An error occurred when fetching trading pairs for {conn_setting.name}."
-                                        "Please check the logs")
+                self.logger().exception(
+                    f"An error occurred when fetching trading pairs for {conn_setting.name}." "Please check the logs"
+                )
         self.ready = True
 
     async def call_fetch_pairs(self, fetch_fn: Callable[[], Awaitable[List[str]]], exchange_name: str):
@@ -69,8 +68,11 @@ class TradingPairFetcher:
             pairs = await fetch_fn
             self.trading_pairs[exchange_name] = pairs
         except Exception:
-            self.logger().error(f"Connector {exchange_name} failed to retrieve its trading pairs. "
-                                f"Trading pairs autocompletion won't work.", exc_info=True)
+            self.logger().error(
+                f"Connector {exchange_name} failed to retrieve its trading pairs. "
+                f"Trading pairs autocompletion won't work.",
+                exc_info=True,
+            )
             # In case of error just assign empty list, this is st. the bot won't stop working
             self.trading_pairs[exchange_name] = []
 

@@ -28,7 +28,9 @@ def signed_action(trade_module_data):
     return SignedAction(
         subaccount_id=1,
         owner=Web3.to_checksum_address("0x3F5CE5FBFe3E9af3971dD833D26BA9b5C936F0bE"),  # noqa: mock
-        signer=Web3().eth.account.from_key("0x4c0883a69102937d6231471b5dbb6204fe512961708279ca6f297d6b50ab8148").address,  # noqa: mock
+        signer=Web3()
+        .eth.account.from_key("0x4c0883a69102937d6231471b5dbb6204fe512961708279ca6f297d6b50ab8148")
+        .address,  # noqa: mock
         signature_expiry_sec=1700000000,
         nonce=1695836058725001,
         module_address=Web3.to_checksum_address("0x53d284357ec70cE289D6D64134DfAc8E511c8a3D"),  # noqa: mock
@@ -40,40 +42,15 @@ def signed_action(trade_module_data):
 
 def test_trade_module_encoding(trade_module_data):
     encoded_data = trade_module_data.to_abi_encoded()
-    decoded_data = decode(
-        [
-            "address",
-            "uint256",
-            "int256",
-            "int256",
-            "uint256",
-            "uint256",
-            "bool"
-        ],
-        encoded_data
-    )
+    decoded_data = decode(["address", "uint256", "int256", "int256", "uint256", "uint256", "bool"], encoded_data)
 
-    assert Web3.to_checksum_address(decoded_data[
-        0
-    ]) == trade_module_data.asset_address
-    assert decoded_data[
-        1
-    ] == trade_module_data.sub_id
-    assert decoded_data[
-        2
-    ] == decimal_to_big_int(trade_module_data.limit_price)
-    assert decoded_data[
-        3
-    ] == decimal_to_big_int(trade_module_data.amount)
-    assert decoded_data[
-        4
-    ] == decimal_to_big_int(trade_module_data.max_fee)
-    assert decoded_data[
-        5
-    ] == trade_module_data.recipient_id
-    assert decoded_data[
-        6
-    ] == trade_module_data.is_bid
+    assert Web3.to_checksum_address(decoded_data[0]) == trade_module_data.asset_address
+    assert decoded_data[1] == trade_module_data.sub_id
+    assert decoded_data[2] == decimal_to_big_int(trade_module_data.limit_price)
+    assert decoded_data[3] == decimal_to_big_int(trade_module_data.amount)
+    assert decoded_data[4] == decimal_to_big_int(trade_module_data.max_fee)
+    assert decoded_data[5] == trade_module_data.recipient_id
+    assert decoded_data[6] == trade_module_data.is_bid
 
 
 def test_trade_module_json(trade_module_data):
@@ -87,18 +64,10 @@ def test_trade_module_json(trade_module_data):
 
 def test_signed_action_to_json(signed_action):
     json_data = signed_action.to_json()
-    assert json_data[
-        "subaccount_id"
-    ] == signed_action.subaccount_id
-    assert json_data[
-        "nonce"
-    ] == signed_action.nonce
-    assert json_data[
-        "signer"
-    ] == signed_action.signer
-    assert json_data[
-        "signature_expiry_sec"
-    ] == signed_action.signature_expiry_sec
+    assert json_data["subaccount_id"] == signed_action.subaccount_id
+    assert json_data["nonce"] == signed_action.nonce
+    assert json_data["signer"] == signed_action.signer
+    assert json_data["signature_expiry_sec"] == signed_action.signature_expiry_sec
 
 
 def test_signed_action_sign_and_validate(signed_action):

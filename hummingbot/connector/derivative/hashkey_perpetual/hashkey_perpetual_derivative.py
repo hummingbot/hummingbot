@@ -48,13 +48,13 @@ class HashkeyPerpetualDerivative(PerpetualDerivativePyBase):
     LONG_POLL_INTERVAL = 120.0
 
     def __init__(
-            self,
-            client_config_map: "ClientConfigAdapter",
-            hashkey_perpetual_api_key: str = None,
-            hashkey_perpetual_secret_key: str = None,
-            trading_pairs: Optional[List[str]] = None,
-            trading_required: bool = True,
-            domain: str = CONSTANTS.DEFAULT_DOMAIN,
+        self,
+        client_config_map: "ClientConfigAdapter",
+        hashkey_perpetual_api_key: str = None,
+        hashkey_perpetual_secret_key: str = None,
+        trading_pairs: Optional[List[str]] = None,
+        trading_required: bool = True,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
         self.hashkey_perpetual_api_key = hashkey_perpetual_api_key
         self.hashkey_perpetual_secret_key = hashkey_perpetual_secret_key
@@ -72,8 +72,9 @@ class HashkeyPerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def authenticator(self) -> HashkeyPerpetualAuth:
-        return HashkeyPerpetualAuth(self.hashkey_perpetual_api_key, self.hashkey_perpetual_secret_key,
-                                    self._time_synchronizer)
+        return HashkeyPerpetualAuth(
+            self.hashkey_perpetual_api_key, self.hashkey_perpetual_secret_key, self._time_synchronizer
+        )
 
     @property
     def rate_limits_rules(self) -> List[RateLimit]:
@@ -141,8 +142,9 @@ class HashkeyPerpetualDerivative(PerpetualDerivativePyBase):
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         error_description = str(request_exception)
-        is_time_synchronizer_related = ("-1021" in error_description
-                                        and "Timestamp for this request" in error_description)
+        is_time_synchronizer_related = (
+            "-1021" in error_description and "Timestamp for this request" in error_description
+        )
         return is_time_synchronizer_related
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
@@ -155,10 +157,8 @@ class HashkeyPerpetualDerivative(PerpetualDerivativePyBase):
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer,
-            domain=self._domain,
-            auth=self._auth)
+            throttler=self._throttler, time_synchronizer=self._time_synchronizer, domain=self._domain, auth=self._auth
+        )
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         return HashkeyPerpetualAPIOrderBookDataSource(
@@ -167,7 +167,8 @@ class HashkeyPerpetualDerivative(PerpetualDerivativePyBase):
             domain=self.domain,
             api_factory=self._web_assistants_factory,
             throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer)
+            time_synchronizer=self._time_synchronizer,
+        )
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         return HashkeyPerpetualUserStreamDataSource(
@@ -178,15 +179,17 @@ class HashkeyPerpetualDerivative(PerpetualDerivativePyBase):
             domain=self.domain,
         )
 
-    def _get_fee(self,
-                 base_currency: str,
-                 quote_currency: str,
-                 order_type: OrderType,
-                 order_side: TradeType,
-                 position_action: PositionAction,
-                 amount: Decimal,
-                 price: Decimal = s_decimal_NaN,
-                 is_maker: Optional[bool] = None) -> TradeFeeBase:
+    def _get_fee(
+        self,
+        base_currency: str,
+        quote_currency: str,
+        order_type: OrderType,
+        order_side: TradeType,
+        position_action: PositionAction,
+        amount: Decimal,
+        price: Decimal = s_decimal_NaN,
+        is_maker: Optional[bool] = None,
+    ) -> TradeFeeBase:
         is_maker = is_maker or False
         fee = build_perpetual_trade_fee(
             self.name,
@@ -221,13 +224,11 @@ class HashkeyPerpetualDerivative(PerpetualDerivativePyBase):
             api_params["orderId"] = tracked_order.exchange_order_id
         else:
             api_params["clientOrderId"] = tracked_order.client_order_id
-        cancel_result = await self._api_delete(
-            path_url=CONSTANTS.ORDER_URL,
-            params=api_params,
-            is_auth_required=True)
+        cancel_result = await self._api_delete(path_url=CONSTANTS.ORDER_URL, params=api_params, is_auth_required=True)
         if cancel_result.get("code") == -2011 and "Unknown order sent." == cancel_result.get("msg", ""):
-            self.logger().debug(f"The order {order_id} does not exist on Hashkey Perpetuals. "
-                                f"No cancelation needed.")
+            self.logger().debug(
+                f"The order {order_id} does not exist on Hashkey Perpetuals. " f"No cancelation needed."
+            )
             await self._order_tracker.process_order_not_found(order_id)
             raise IOError(f"{cancel_result.get('code')} - {cancel_result['msg']}")
         if cancel_result.get("status") == "CANCELED":
@@ -235,27 +236,28 @@ class HashkeyPerpetualDerivative(PerpetualDerivativePyBase):
         return False
 
     async def _place_order(
-            self,
-            order_id: str,
-            trading_pair: str,
-            amount: Decimal,
-            trade_type: TradeType,
-            order_type: OrderType,
-            price: Decimal,
-            position_action: PositionAction = PositionAction.NIL,
-            **kwargs,
+        self,
+        order_id: str,
+        trading_pair: str,
+        amount: Decimal,
+        trade_type: TradeType,
+        order_type: OrderType,
+        price: Decimal,
+        position_action: PositionAction = PositionAction.NIL,
+        **kwargs,
     ) -> Tuple[str, float]:
 
         price_str = f"{price:f}"
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         side = f"BUY_{position_action.value}" if trade_type is TradeType.BUY else f"SELL_{position_action.value}"
-        api_params = {"symbol": symbol,
-                      "side": side,
-                      "quantity": self.get_quantity_of_contracts(trading_pair, amount),
-                      "type": "LIMIT",
-                      "priceType": "MARKET" if order_type is OrderType.MARKET else "INPUT",
-                      "clientOrderId": order_id
-                      }
+        api_params = {
+            "symbol": symbol,
+            "side": side,
+            "quantity": self.get_quantity_of_contracts(trading_pair, amount),
+            "type": "LIMIT",
+            "priceType": "MARKET" if order_type is OrderType.MARKET else "INPUT",
+            "clientOrderId": order_id,
+        }
         if order_type.is_limit_type():
             api_params["price"] = price_str
         if order_type == OrderType.LIMIT:
@@ -263,16 +265,15 @@ class HashkeyPerpetualDerivative(PerpetualDerivativePyBase):
         if order_type == OrderType.LIMIT_MAKER:
             api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_MAKER
         try:
-            order_result = await self._api_post(
-                path_url=CONSTANTS.ORDER_URL,
-                params=api_params,
-                is_auth_required=True)
+            order_result = await self._api_post(path_url=CONSTANTS.ORDER_URL, params=api_params, is_auth_required=True)
             o_id = str(order_result["orderId"])
             transact_time = int(order_result["time"]) * 1e-3
         except IOError as e:
             error_description = str(e)
-            is_server_overloaded = ("status is 503" in error_description
-                                    and "Unknown error, please check your request or try again later." in error_description)
+            is_server_overloaded = (
+                "status is 503" in error_description
+                and "Unknown error, please check your request or try again later." in error_description
+            )
             if is_server_overloaded:
                 o_id = "UNKNOWN"
                 transact_time = time.time()
@@ -291,7 +292,8 @@ class HashkeyPerpetualDerivative(PerpetualDerivativePyBase):
                     "clientOrderId": order.client_order_id,
                 },
                 is_auth_required=True,
-                limit_id=CONSTANTS.ACCOUNT_TRADE_LIST_URL)
+                limit_id=CONSTANTS.ACCOUNT_TRADE_LIST_URL,
+            )
             if fills_data is not None:
                 for trade in fills_data:
                     exchange_order_id = str(trade["orderId"])
@@ -301,7 +303,7 @@ class HashkeyPerpetualDerivative(PerpetualDerivativePyBase):
                         fee_schema=self.trade_fee_schema(),
                         trade_type=order.trade_type,
                         percent_token=trade["commissionAsset"],
-                        flat_fees=[TokenAmount(amount=Decimal(trade["commission"]), token=trade["commissionAsset"])]
+                        flat_fees=[TokenAmount(amount=Decimal(trade["commission"]), token=trade["commissionAsset"])],
                     )
                     amount = self.get_amount_of_contracts(order.trading_pair, int(trade["quantity"]))
                     trade_update = TradeUpdate(
@@ -321,10 +323,8 @@ class HashkeyPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         updated_order_data = await self._api_get(
-            path_url=CONSTANTS.ORDER_URL,
-            params={
-                "clientOrderId": tracked_order.client_order_id},
-            is_auth_required=True)
+            path_url=CONSTANTS.ORDER_URL, params={"clientOrderId": tracked_order.client_order_id}, is_auth_required=True
+        )
 
         new_state = CONSTANTS.ORDER_STATE[updated_order_data["status"]]
 
@@ -375,9 +375,13 @@ class HashkeyPerpetualDerivative(PerpetualDerivativePyBase):
                                     fee_schema=self.trade_fee_schema(),
                                     position_action=PositionAction.CLOSE if event_message["C"] else PositionAction.OPEN,
                                     percent_token=event_message["N"],
-                                    flat_fees=[TokenAmount(amount=Decimal(event_message["n"]), token=event_message["N"])]
+                                    flat_fees=[
+                                        TokenAmount(amount=Decimal(event_message["n"]), token=event_message["N"])
+                                    ],
                                 )
-                                base_amount = Decimal(self.get_amount_of_contracts(updatable_order.trading_pair, int(event_message["l"])))
+                                base_amount = Decimal(
+                                    self.get_amount_of_contracts(updatable_order.trading_pair, int(event_message["l"]))
+                                )
                                 trade_update = TradeUpdate(
                                     trade_id=str(event_message["d"]),
                                     client_order_id=client_order_id,
@@ -424,7 +428,8 @@ class HashkeyPerpetualDerivative(PerpetualDerivativePyBase):
                                 position_side=position_side,
                                 unrealized_pnl=unrealized_pnl,
                                 entry_price=entry_price,
-                                amount=amount * (Decimal("-1.0") if position_side == PositionSide.SHORT else Decimal("1.0")),
+                                amount=amount
+                                * (Decimal("-1.0") if position_side == PositionSide.SHORT else Decimal("1.0")),
                                 leverage=leverage,
                             )
                             self._perpetual_trading.set_position(pos_key, position)
@@ -536,11 +541,14 @@ class HashkeyPerpetualDerivative(PerpetualDerivativePyBase):
                 min_notional_size = trading_filter_info.get("MIN_NOTIONAL", {}).get("minNotional")
 
                 retval.append(
-                    TradingRule(trading_pair,
-                                min_order_size=Decimal(min_order_size),
-                                min_price_increment=Decimal(min_price_increment),
-                                min_base_amount_increment=Decimal(min_base_amount_increment),
-                                min_notional_size=Decimal(min_notional_size)))
+                    TradingRule(
+                        trading_pair,
+                        min_order_size=Decimal(min_order_size),
+                        min_price_increment=Decimal(min_price_increment),
+                        min_base_amount_increment=Decimal(min_base_amount_increment),
+                        min_notional_size=Decimal(min_notional_size),
+                    )
+                )
 
             except Exception:
                 self.logger().exception(f"Error parsing the trading pair rule {rule.get('symbol')}. Skipping.")
@@ -549,8 +557,9 @@ class HashkeyPerpetualDerivative(PerpetualDerivativePyBase):
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
         for symbol_data in filter(hashkey_utils.is_exchange_information_valid, exchange_info["contracts"]):
-            mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(base=symbol_data["underlying"],
-                                                                        quote=symbol_data["quoteAsset"])
+            mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(
+                base=symbol_data["underlying"], quote=symbol_data["quoteAsset"]
+            )
         self._set_trading_pair_symbol_map(mapping)
 
     async def exchange_index_symbol_associated_to_pair(self, trading_pair: str):
@@ -574,9 +583,8 @@ class HashkeyPerpetualDerivative(PerpetualDerivativePyBase):
         remote_asset_names = set()
 
         balances = await self._api_request(
-            method=RESTMethod.GET,
-            path_url=CONSTANTS.ACCOUNT_INFO_URL,
-            is_auth_required=True)
+            method=RESTMethod.GET, path_url=CONSTANTS.ACCOUNT_INFO_URL, is_auth_required=True
+        )
 
         for balance_entry in balances:
             asset_name = balance_entry["asset"]
@@ -598,12 +606,14 @@ class HashkeyPerpetualDerivative(PerpetualDerivativePyBase):
             ex_trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair)
             body_params = {"symbol": ex_trading_pair}
             position_tasks.append(
-                asyncio.create_task(self._api_get(
-                    path_url=CONSTANTS.POSITION_INFORMATION_URL,
-                    params=body_params,
-                    is_auth_required=True,
-                    trading_pair=trading_pair,
-                ))
+                asyncio.create_task(
+                    self._api_get(
+                        path_url=CONSTANTS.POSITION_INFORMATION_URL,
+                        params=body_params,
+                        is_auth_required=True,
+                        trading_pair=trading_pair,
+                    )
+                )
             )
 
         raw_responses: List[Dict[str, Any]] = await safe_gather(*position_tasks, return_exceptions=True)
@@ -663,7 +673,7 @@ class HashkeyPerpetualDerivative(PerpetualDerivativePyBase):
                 if isinstance(trades, Exception):
                     self.logger().network(
                         f"Error fetching trades update for the order {trading_pair}: {trades}.",
-                        app_warning_msg=f"Failed to fetch trade update for {trading_pair}."
+                        app_warning_msg=f"Failed to fetch trade update for {trading_pair}.",
                     )
                     continue
                 for trade in trades:
@@ -671,15 +681,23 @@ class HashkeyPerpetualDerivative(PerpetualDerivativePyBase):
                     if order_id in order_map:
                         tracked_order: InFlightOrder = order_map.get(order_id)
                         position_side = trade["side"]
-                        position_action = (PositionAction.OPEN
-                                           if (tracked_order.trade_type is TradeType.BUY and position_side == "LONG"
-                                               or tracked_order.trade_type is TradeType.SELL and position_side == "SHORT")
-                                           else PositionAction.CLOSE)
+                        position_action = (
+                            PositionAction.OPEN
+                            if (
+                                tracked_order.trade_type is TradeType.BUY
+                                and position_side == "LONG"
+                                or tracked_order.trade_type is TradeType.SELL
+                                and position_side == "SHORT"
+                            )
+                            else PositionAction.CLOSE
+                        )
                         fee = TradeFeeBase.new_perpetual_fee(
                             fee_schema=self.trade_fee_schema(),
                             position_action=position_action,
                             percent_token=trade["commissionAsset"],
-                            flat_fees=[TokenAmount(amount=Decimal(trade["commission"]), token=trade["commissionAsset"])]
+                            flat_fees=[
+                                TokenAmount(amount=Decimal(trade["commission"]), token=trade["commissionAsset"])
+                            ],
                         )
                         amount = self.get_amount_of_contracts(trading_pair, int(trade["quantity"]))
                         trade_update: TradeUpdate = TradeUpdate(
@@ -708,7 +726,7 @@ class HashkeyPerpetualDerivative(PerpetualDerivativePyBase):
                     path_url=CONSTANTS.ORDER_URL,
                     params={
                         "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair),
-                        "clientOrderId": order.client_order_id
+                        "clientOrderId": order.client_order_id,
                     },
                     is_auth_required=True,
                     return_err=True,
@@ -723,8 +741,10 @@ class HashkeyPerpetualDerivative(PerpetualDerivativePyBase):
                 if client_order_id not in self._order_tracker.all_orders:
                     continue
                 if isinstance(order_update, Exception) or order_update is None or "code" in order_update:
-                    if not isinstance(order_update, Exception) and \
-                            (not order_update or (order_update["code"] == -2013 or order_update["msg"] == "Order does not exist.")):
+                    if not isinstance(order_update, Exception) and (
+                        not order_update
+                        or (order_update["code"] == -2013 or order_update["msg"] == "Order does not exist.")
+                    ):
                         await self._order_tracker.process_order_not_found(client_order_id)
                     else:
                         self.logger().network(
@@ -733,7 +753,7 @@ class HashkeyPerpetualDerivative(PerpetualDerivativePyBase):
                     continue
 
                 new_order_update: OrderUpdate = OrderUpdate(
-                    trading_pair=await self.trading_pair_associated_to_exchange_symbol(order_update['symbol']),
+                    trading_pair=await self.trading_pair_associated_to_exchange_symbol(order_update["symbol"]),
                     update_timestamp=int(order_update["updateTime"]) * 1e-3,
                     new_state=CONSTANTS.ORDER_STATE[order_update["status"]],
                     client_order_id=order_update["clientOrderId"],
@@ -763,7 +783,7 @@ class HashkeyPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
-        params = {'symbol': symbol, 'leverage': leverage}
+        params = {"symbol": symbol, "leverage": leverage}
         resp = await self._api_post(
             path_url=CONSTANTS.SET_LEVERAGE_URL,
             params=params,
@@ -776,22 +796,21 @@ class HashkeyPerpetualDerivative(PerpetualDerivativePyBase):
         elif "msg" in resp:
             msg = resp["msg"]
         else:
-            msg = 'Unable to set leverage'
+            msg = "Unable to set leverage"
         return success, msg
 
     async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
 
-        params = {
-            "symbol": exchange_symbol,
-            "timestamp": int(self._time_synchronizer.time() * 1e3)
-        }
-        result = (await self._api_get(
-            path_url=CONSTANTS.FUNDING_INFO_URL,
-            params=params,
-            is_auth_required=True,
-            trading_pair=trading_pair,
-        ))[0]
+        params = {"symbol": exchange_symbol, "timestamp": int(self._time_synchronizer.time() * 1e3)}
+        result = (
+            await self._api_get(
+                path_url=CONSTANTS.FUNDING_INFO_URL,
+                params=params,
+                is_auth_required=True,
+                trading_pair=trading_pair,
+            )
+        )[0]
 
         if not result:
             # An empty funding fee/payment is retrieved.
@@ -804,21 +823,22 @@ class HashkeyPerpetualDerivative(PerpetualDerivativePyBase):
 
         return timestamp, funding_rate, payment
 
-    async def _api_request(self,
-                           path_url,
-                           method: RESTMethod = RESTMethod.GET,
-                           params: Optional[Dict[str, Any]] = None,
-                           data: Optional[Dict[str, Any]] = None,
-                           is_auth_required: bool = False,
-                           return_err: bool = False,
-                           limit_id: Optional[str] = None,
-                           trading_pair: Optional[str] = None,
-                           **kwargs) -> Dict[str, Any]:
+    async def _api_request(
+        self,
+        path_url,
+        method: RESTMethod = RESTMethod.GET,
+        params: Optional[Dict[str, Any]] = None,
+        data: Optional[Dict[str, Any]] = None,
+        is_auth_required: bool = False,
+        return_err: bool = False,
+        limit_id: Optional[str] = None,
+        trading_pair: Optional[str] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
         last_exception = None
         rest_assistant = await self._web_assistants_factory.get_rest_assistant()
         url = web_utils.rest_url(path_url, domain=self.domain)
-        local_headers = {
-            "Content-Type": "application/x-www-form-urlencoded"}
+        local_headers = {"Content-Type": "application/x-www-form-urlencoded"}
         for _ in range(2):
             try:
                 request_result = await rest_assistant.execute_request(

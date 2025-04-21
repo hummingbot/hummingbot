@@ -74,19 +74,14 @@ class PerpetualTrading:
         """
         Checks if there is funding information for all trading pairs.
         """
-        return all(
-            trading_pair in self._funding_info
-            for trading_pair in self._trading_pairs
-        )
+        return all(trading_pair in self._funding_info for trading_pair in self._trading_pairs)
 
     def start(self):
         """
         Starts the async task that updates the funding information from the updates stream queue.
         """
         self.stop()
-        self._funding_info_updater_task = safe_ensure_future(
-            self._funding_info_updater()
-        )
+        self._funding_info_updater_task = safe_ensure_future(self._funding_info_updater())
 
     def stop(self):
         """

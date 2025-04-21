@@ -18,11 +18,13 @@ if TYPE_CHECKING:
 class BitstampAPIOrderBookDataSource(OrderBookTrackerDataSource):
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(self,
-                 trading_pairs: List[str],
-                 connector: 'BitstampExchange',
-                 api_factory: WebAssistantsFactory,
-                 domain: str = CONSTANTS.DEFAULT_DOMAIN):
+    def __init__(
+        self,
+        trading_pairs: List[str],
+        connector: "BitstampExchange",
+        api_factory: WebAssistantsFactory,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+    ):
         super().__init__(trading_pairs)
         self._connector = connector
         self._trade_messages_queue_key = CONSTANTS.TRADE_EVENT_TYPE
@@ -31,9 +33,7 @@ class BitstampAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._api_factory = api_factory
         self._channel_associated_to_tradingpair = {}
 
-    async def get_last_traded_prices(self,
-                                     trading_pairs: List[str],
-                                     domain: Optional[str] = None) -> Dict[str, float]:
+    async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
@@ -66,22 +66,12 @@ class BitstampAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
 
                 channel = CONSTANTS.WS_PUBLIC_LIVE_TRADES.format(symbol)
-                payload = {
-                    "event": "bts:subscribe",
-                    "data": {
-                        "channel": channel
-                    }
-                }
+                payload = {"event": "bts:subscribe", "data": {"channel": channel}}
                 subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=payload)
                 self._channel_associated_to_tradingpair[channel] = trading_pair
 
                 channel = CONSTANTS.WS_PUBLIC_DIFF_ORDER_BOOK.format(symbol)
-                payload = {
-                    "event": "bts:subscribe",
-                    "data": {
-                        "channel": channel
-                    }
-                }
+                payload = {"event": "bts:subscribe", "data": {"channel": channel}}
                 subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=payload)
                 self._channel_associated_to_tradingpair[channel] = trading_pair
 
@@ -93,8 +83,7 @@ class BitstampAPIOrderBookDataSource(OrderBookTrackerDataSource):
             raise
         except Exception:
             self.logger().error(
-                "Unexpected error occurred subscribing to order book trading and delta streams...",
-                exc_info=True
+                "Unexpected error occurred subscribing to order book trading and delta streams...", exc_info=True
             )
             raise
 
@@ -103,24 +92,22 @@ class BitstampAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Creates an instance of WSAssistant connected to the exchange
         """
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        await ws.connect(ws_url=CONSTANTS.WSS_URL.format(self._domain),
-                         ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+        await ws.connect(
+            ws_url=CONSTANTS.WSS_URL.format(self._domain), ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL
+        )
         return ws
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
         snapshot_msg: OrderBookMessage = BitstampOrderBook.snapshot_message_from_exchange(
-            snapshot,
-            time.time(),
-            metadata={"trading_pair": trading_pair}
+            snapshot, time.time(), metadata={"trading_pair": trading_pair}
         )
         return snapshot_msg
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         trading_pair = self._channel_associated_to_tradingpair.get(raw_message["channel"])
 
-        trade_message = BitstampOrderBook.trade_message_from_exchange(
-            raw_message, {"trading_pair": trading_pair})
+        trade_message = BitstampOrderBook.trade_message_from_exchange(raw_message, {"trading_pair": trading_pair})
 
         message_queue.put_nowait(trade_message)
 
@@ -128,14 +115,17 @@ class BitstampAPIOrderBookDataSource(OrderBookTrackerDataSource):
         trading_pair = self._channel_associated_to_tradingpair.get(raw_message["channel"])
 
         order_book_message: OrderBookMessage = BitstampOrderBook.diff_message_from_exchange(
-            raw_message, time.time(), {"trading_pair": trading_pair})
+            raw_message, time.time(), {"trading_pair": trading_pair}
+        )
 
         message_queue.put_nowait(order_book_message)
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
         return event_message.get("event", "")
 
-    async def _process_message_for_unknown_channel(self, event_message: Dict[str, Any], websocket_assistant: WSAssistant):
+    async def _process_message_for_unknown_channel(
+        self, event_message: Dict[str, Any], websocket_assistant: WSAssistant
+    ):
         event = event_message.get("event", "")
         channel = event_message.get("channel")
         if event == "bts:subscription_succeeded":

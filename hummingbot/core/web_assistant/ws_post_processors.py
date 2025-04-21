@@ -11,5 +11,4 @@ class WSPostProcessorBase(abc.ABC):
     """
 
     @abc.abstractmethod
-    async def post_process(self, response: WSResponse) -> WSResponse:
-        ...
+    async def post_process(self, response: WSResponse) -> WSResponse: ...

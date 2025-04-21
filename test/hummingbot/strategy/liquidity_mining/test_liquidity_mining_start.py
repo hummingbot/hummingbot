@@ -28,14 +28,14 @@ class LiquidityMiningStartTest(unittest.TestCase):
 
         strategy_cmap.get("inventory_skew_enabled").value = False
         strategy_cmap.get("target_base_pct").value = Decimal("50")
-        strategy_cmap.get("order_refresh_time").value = 60.
+        strategy_cmap.get("order_refresh_time").value = 60.0
         strategy_cmap.get("order_refresh_tolerance_pct").value = Decimal("1.5")
         strategy_cmap.get("inventory_range_multiplier").value = Decimal("2")
         strategy_cmap.get("volatility_interval").value = 30
         strategy_cmap.get("avg_volatility_period").value = 5
         strategy_cmap.get("volatility_to_spread_multiplier").value = Decimal("1.1")
         strategy_cmap.get("max_spread").value = Decimal("4")
-        strategy_cmap.get("max_order_age").value = 300.
+        strategy_cmap.get("max_order_age").value = 300.0
         self.client_config_map = ClientConfigMap()
 
     def _initialize_market_assets(self, market, trading_pairs):
@@ -60,11 +60,11 @@ class LiquidityMiningStartTest(unittest.TestCase):
 
         self.assertEqual(self.strategy._inventory_skew_enabled, False)
         self.assertEqual(self.strategy._target_base_pct, Decimal("0.5"))
-        self.assertEqual(self.strategy._order_refresh_time, 60.)
+        self.assertEqual(self.strategy._order_refresh_time, 60.0)
         self.assertEqual(self.strategy._order_refresh_tolerance_pct, Decimal("0.015"))
         self.assertEqual(self.strategy._inventory_range_multiplier, Decimal("2"))
         self.assertEqual(self.strategy._volatility_interval, 30)
         self.assertEqual(self.strategy._avg_volatility_period, 5)
         self.assertEqual(self.strategy._volatility_to_spread_multiplier, Decimal("1.1"))
         self.assertEqual(self.strategy._max_spread, Decimal("0.04"))
-        self.assertEqual(self.strategy._max_order_age, 300.)
+        self.assertEqual(self.strategy._max_order_age, 300.0)

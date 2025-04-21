@@ -23,37 +23,25 @@ class HashkeyPerpetualUtilsTests(TestCase):
             "isAggregate": False,
             "allowMargin": False,
             "filters": [
-                {
-                    "minPrice": "0.01",
-                    "maxPrice": "100000.00000000",
-                    "tickSize": "0.01",
-                    "filterType": "PRICE_FILTER"
-                },
+                {"minPrice": "0.01", "maxPrice": "100000.00000000", "tickSize": "0.01", "filterType": "PRICE_FILTER"},
                 {
                     "minQty": "0.001",
                     "maxQty": "50",
                     "stepSize": "0.001",
                     "marketOrderMinQty": "0",
                     "marketOrderMaxQty": "0",
-                    "filterType": "LOT_SIZE"
+                    "filterType": "LOT_SIZE",
                 },
-                {
-                    "minNotional": "0",
-                    "filterType": "MIN_NOTIONAL"
-                },
+                {"minNotional": "0", "filterType": "MIN_NOTIONAL"},
                 {
                     "maxSellPrice": "99999",
                     "buyPriceUpRate": "0.05",
                     "sellPriceDownRate": "0.05",
                     "maxEntrustNum": 200,
                     "maxConditionNum": 200,
-                    "filterType": "LIMIT_TRADING"
+                    "filterType": "LIMIT_TRADING",
                 },
-                {
-                    "buyPriceUpRate": "0.05",
-                    "sellPriceDownRate": "0.05",
-                    "filterType": "MARKET_TRADING"
-                },
+                {"buyPriceUpRate": "0.05", "sellPriceDownRate": "0.05", "filterType": "MARKET_TRADING"},
                 {
                     "noAllowMarketStartTime": "0",
                     "noAllowMarketEndTime": "0",
@@ -61,9 +49,9 @@ class HashkeyPerpetualUtilsTests(TestCase):
                     "limitOrderEndTime": "0",
                     "limitMinPrice": "0",
                     "limitMaxPrice": "0",
-                    "filterType": "OPEN_QUOTE"
-                }
-            ]
+                    "filterType": "OPEN_QUOTE",
+                },
+            ],
         }
 
         self.assertTrue(utils.is_exchange_information_valid(exchange_info))

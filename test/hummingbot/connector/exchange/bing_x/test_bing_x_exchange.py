@@ -46,10 +46,7 @@ class TestBingXExchange(unittest.TestCase):
         self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         self.exchange = BingXExchange(
-            self.client_config_map,
-            self.api_key,
-            self.api_secret_key,
-            trading_pairs=[self.trading_pair]
+            self.client_config_map, self.api_key, self.api_secret_key, trading_pairs=[self.trading_pair]
         )
 
         self.exchange.logger().setLevel(1)
@@ -63,8 +60,7 @@ class TestBingXExchange(unittest.TestCase):
         self._initialize_event_loggers()
 
         BingXAPIOrderBookDataSource._trading_pair_symbol_map = {
-            CONSTANTS.DEFAULT_DOMAIN: bidict(
-                {self.ex_trading_pair: self.trading_pair})
+            CONSTANTS.DEFAULT_DOMAIN: bidict({self.ex_trading_pair: self.trading_pair})
         }
 
     def tearDown(self) -> None:
@@ -88,7 +84,8 @@ class TestBingXExchange(unittest.TestCase):
             (MarketEvent.OrderFailure, self.order_failure_logger),
             (MarketEvent.OrderFilled, self.order_filled_logger),
             (MarketEvent.SellOrderCompleted, self.sell_order_completed_logger),
-            (MarketEvent.SellOrderCreated, self.sell_order_created_logger)]
+            (MarketEvent.SellOrderCreated, self.sell_order_created_logger),
+        ]
 
         for event, logger in events_and_loggers:
             self.exchange.add_listener(event, logger)
@@ -118,10 +115,10 @@ class TestBingXExchange(unittest.TestCase):
                         "maxNotional": 20000,
                         "status": 1,
                         "tickSize": 0.000001,
-                        "stepSize": 0.1
+                        "stepSize": 0.1,
                     }
                 ]
-            }
+            },
         }
         return exchange_rules
 
@@ -186,14 +183,10 @@ class TestBingXExchange(unittest.TestCase):
         mock_api.get(url, body=json.dumps(resp))
 
         get_last_traded_price_url = web_utils.rest_url(CONSTANTS.LAST_TRADED_PRICE_PATH)
-        get_last_traded_price_url_regex_url = re.compile(f"^{get_last_traded_price_url}".replace(".", r"\.").replace("?", r"\?"))
-        resp = {
-            "data": [
-                {
-                    "lastPrice": 0.00001
-                }
-            ]
-        }
+        get_last_traded_price_url_regex_url = re.compile(
+            f"^{get_last_traded_price_url}".replace(".", r"\.").replace("?", r"\?")
+        )
+        resp = {"data": [{"lastPrice": 0.00001}]}
         mock_api.get(get_last_traded_price_url_regex_url, body=json.dumps(resp))
 
         self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
@@ -205,18 +198,7 @@ class TestBingXExchange(unittest.TestCase):
         self.exchange._set_current_timestamp(1000)
 
         url = web_utils.rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
-        exchange_rules = {
-            "code": 0,
-            "msg": "",
-            "debugMsg": "",
-            "data": {
-                "symbols": [
-                    {
-                        "symbol": "AURA-USDT"
-                    }
-                ]
-            }
-        }
+        exchange_rules = {"code": 0, "msg": "", "debugMsg": "", "data": {"symbols": [{"symbol": "AURA-USDT"}]}}
         mock_api.get(url, body=json.dumps(exchange_rules))
 
         self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
@@ -285,49 +267,57 @@ class TestBingXExchange(unittest.TestCase):
 
     def test_restore_tracking_states_only_registers_open_orders(self):
         orders = []
-        orders.append(InFlightOrder(
-            client_order_id="OID1",
-            exchange_order_id="EOID1",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            amount=Decimal("1000.0"),
-            price=Decimal("1.0"),
-            creation_timestamp=1640001112.223,
-        ))
-        orders.append(InFlightOrder(
-            client_order_id="OID2",
-            exchange_order_id="EOID2",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            amount=Decimal("1000.0"),
-            price=Decimal("1.0"),
-            creation_timestamp=1640001112.223,
-            initial_state=OrderState.CANCELED
-        ))
-        orders.append(InFlightOrder(
-            client_order_id="OID3",
-            exchange_order_id="EOID3",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            amount=Decimal("1000.0"),
-            price=Decimal("1.0"),
-            creation_timestamp=1640001112.223,
-            initial_state=OrderState.FILLED
-        ))
-        orders.append(InFlightOrder(
-            client_order_id="OID4",
-            exchange_order_id="EOID4",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            amount=Decimal("1000.0"),
-            price=Decimal("1.0"),
-            creation_timestamp=1640001112.223,
-            initial_state=OrderState.FAILED
-        ))
+        orders.append(
+            InFlightOrder(
+                client_order_id="OID1",
+                exchange_order_id="EOID1",
+                trading_pair=self.trading_pair,
+                order_type=OrderType.LIMIT,
+                trade_type=TradeType.BUY,
+                amount=Decimal("1000.0"),
+                price=Decimal("1.0"),
+                creation_timestamp=1640001112.223,
+            )
+        )
+        orders.append(
+            InFlightOrder(
+                client_order_id="OID2",
+                exchange_order_id="EOID2",
+                trading_pair=self.trading_pair,
+                order_type=OrderType.LIMIT,
+                trade_type=TradeType.BUY,
+                amount=Decimal("1000.0"),
+                price=Decimal("1.0"),
+                creation_timestamp=1640001112.223,
+                initial_state=OrderState.CANCELED,
+            )
+        )
+        orders.append(
+            InFlightOrder(
+                client_order_id="OID3",
+                exchange_order_id="EOID3",
+                trading_pair=self.trading_pair,
+                order_type=OrderType.LIMIT,
+                trade_type=TradeType.BUY,
+                amount=Decimal("1000.0"),
+                price=Decimal("1.0"),
+                creation_timestamp=1640001112.223,
+                initial_state=OrderState.FILLED,
+            )
+        )
+        orders.append(
+            InFlightOrder(
+                client_order_id="OID4",
+                exchange_order_id="EOID4",
+                trading_pair=self.trading_pair,
+                order_type=OrderType.LIMIT,
+                trade_type=TradeType.BUY,
+                amount=Decimal("1000.0"),
+                price=Decimal("1.0"),
+                creation_timestamp=1640001112.223,
+                initial_state=OrderState.FAILED,
+            )
+        )
 
         tracking_states = {order.client_order_id: order.to_json() for order in orders}
 
@@ -360,27 +350,31 @@ class TestBingXExchange(unittest.TestCase):
                 "cummulativeQuoteQty": "0",
                 "status": "PENDING",
                 "type": "LIMIT",
-                "side": "SELL"
-            }
+                "side": "SELL",
+            },
         }
         tradingrule_url = web_utils.rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
         resp = self.get_exchange_rules_mock()
         mock_api.get(tradingrule_url, body=json.dumps(resp))
-        mock_api.post(regex_url,
-                      body=json.dumps(creation_response),
-                      callback=lambda *args, **kwargs: request_sent_event.set())
+        mock_api.post(
+            regex_url, body=json.dumps(creation_response), callback=lambda *args, **kwargs: request_sent_event.set()
+        )
 
         self.test_task = asyncio.get_event_loop().create_task(
-            self.exchange._create_order(trade_type=TradeType.BUY,
-                                        order_id="OID1",
-                                        trading_pair=self.trading_pair,
-                                        amount=Decimal("100"),
-                                        order_type=OrderType.LIMIT,
-                                        price=Decimal("0.05")))
+            self.exchange._create_order(
+                trade_type=TradeType.BUY,
+                order_id="OID1",
+                trading_pair=self.trading_pair,
+                amount=Decimal("100"),
+                order_type=OrderType.LIMIT,
+                price=Decimal("0.05"),
+            )
+        )
         self.async_run_with_timeout(request_sent_event.wait())
 
-        order_request = next(((key, value) for key, value in mock_api.requests.items()
-                              if key[1].human_repr().startswith(url)))
+        order_request = next(
+            ((key, value) for key, value in mock_api.requests.items() if key[1].human_repr().startswith(url))
+        )
         self._validate_auth_credentials_present(order_request[1][0])
         request_params = order_request[1][0].kwargs["params"]
         self.assertEqual("AURA-USDT", request_params["symbol"])
@@ -403,7 +397,7 @@ class TestBingXExchange(unittest.TestCase):
         self.assertTrue(
             self._is_logged(
                 "INFO",
-                f"""Created LIMIT BUY order {request_params["newClientOrderId"]} for {Decimal(request_params["quantity"])} {self.trading_pair} at {Decimal(request_params["price"])}."""
+                f"""Created LIMIT BUY order {request_params["newClientOrderId"]} for {Decimal(request_params["quantity"])} {self.trading_pair} at {Decimal(request_params["price"])}.""",
             )
         )
 
@@ -442,38 +436,37 @@ class TestBingXExchange(unittest.TestCase):
                 "cummulativeQuoteQty": "0",
                 "status": "CANCELED",
                 "type": "LIMIT",
-                "side": "SELL"
-            }
+                "side": "SELL",
+            },
         }
 
-        mock_api.post(regex_url,
-                      body=json.dumps(response),
-                      callback=lambda *args, **kwargs: request_sent_event.set())
+        mock_api.post(regex_url, body=json.dumps(response), callback=lambda *args, **kwargs: request_sent_event.set())
 
         self.exchange.cancel(client_order_id="OID1", trading_pair=self.trading_pair)
         self.async_run_with_timeout(request_sent_event.wait())
 
-        cancel_request = next(((key, value) for key, value in mock_api.requests.items()
-                               if key[1].human_repr().startswith(url)))
+        cancel_request = next(
+            ((key, value) for key, value in mock_api.requests.items() if key[1].human_repr().startswith(url))
+        )
         self._validate_auth_credentials_present(cancel_request[1][0])
 
         cancel_event: OrderCancelledEvent = self.order_cancelled_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, cancel_event.timestamp)
         self.assertEqual(order.client_order_id, cancel_event.order_id)
 
-        self.assertTrue(
-            self._is_logged(
-                "INFO",
-                f"Successfully canceled order {order.client_order_id}."
-            )
-        )
+        self.assertTrue(self._is_logged("INFO", f"Successfully canceled order {order.client_order_id}."))
 
     @aioresponses()
     def test_update_balances(self, mock_api):
         url = web_utils.rest_url(CONSTANTS.ACCOUNTS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        response = {"code": 0, "msg": "", "debugMsg": "", "data": {"balances": [{"asset": "AURA", "free": "1000", "locked": "0"}]}}
+        response = {
+            "code": 0,
+            "msg": "",
+            "debugMsg": "",
+            "data": {"balances": [{"asset": "AURA", "free": "1000", "locked": "0"}]},
+        }
 
         mock_api.get(regex_url, body=json.dumps(response))
         self.async_run_with_timeout(self.exchange._update_balances())
@@ -483,7 +476,12 @@ class TestBingXExchange(unittest.TestCase):
 
         self.assertEqual(Decimal("1000"), available_balances["AURA"])
 
-        response = {"code": 0, "msg": "", "debugMsg": "", "data": {"balances": [{"asset": "AURA", "free": "2000", "locked": "0"}]}}
+        response = {
+            "code": 0,
+            "msg": "",
+            "debugMsg": "",
+            "data": {"balances": [{"asset": "AURA", "free": "2000", "locked": "0"}]},
+        }
 
         mock_api.get(regex_url, body=json.dumps(response))
         self.async_run_with_timeout(self.exchange._update_balances())
@@ -1077,9 +1075,8 @@ class TestBingXExchange(unittest.TestCase):
         self.exchange._user_stream_tracker._user_stream = mock_queue
 
         self.assertRaises(
-            asyncio.CancelledError,
-            self.async_run_with_timeout,
-            self.exchange._user_stream_event_listener())
+            asyncio.CancelledError, self.async_run_with_timeout, self.exchange._user_stream_event_listener()
+        )
 
     # @patch("hummingbot.connector.exchange.bing_x.bing_x_exchange.BingXExchange._sleep")
     # def test_user_stream_logs_errors(self, _):

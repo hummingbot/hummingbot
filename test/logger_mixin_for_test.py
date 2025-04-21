@@ -27,11 +27,9 @@ class LoggerMixinProtocol(Protocol):
 
 
 class _LoggerProtocol(LoggerMixinProtocol, Protocol):
-    def setLevel(self, level: _IntOrStr):
-        ...
+    def setLevel(self, level: _IntOrStr): ...
 
-    def addHandler(self, handler: Handler):
-        ...
+    def addHandler(self, handler: Handler): ...
 
 
 class LoggerMixinForTest(LoggerMixinProtocol):
@@ -51,6 +49,7 @@ class LoggerMixinForTest(LoggerMixinProtocol):
     Attributes:
     - `level`: The default log level for the logger.
     """
+
     level: _IntOrStr = LogLevel.NOTSET
 
     def _initialize(self: _LoggerProtocol):
@@ -101,10 +100,7 @@ class LoggerMixinForTest(LoggerMixinProtocol):
         :params str message: The message to check.
         """
         log_level = self._to_loglevel(log_level)
-        return any(
-            record.getMessage() == message and record.levelname == log_level
-            for record in self.log_records
-        )
+        return any(record.getMessage() == message and record.levelname == log_level for record in self.log_records)
 
     def is_partially_logged(self, log_level: _IntOrStr, message: str) -> bool:
         """
@@ -114,23 +110,18 @@ class LoggerMixinForTest(LoggerMixinProtocol):
         :params str message: The message to check.
         """
         log_level = self._to_loglevel(log_level)
-        return any(
-            message in record.getMessage() and record.levelname == log_level
-            for record in self.log_records
-        )
+        return any(message in record.getMessage() and record.levelname == log_level for record in self.log_records)
 
-    async def wait_for_logged(self,
-                              log_level: _IntOrStr,
-                              message: str,
-                              partial: bool = False,
-                              wait_s: float = 3) -> None:
+    async def wait_for_logged(
+        self, log_level: _IntOrStr, message: str, partial: bool = False, wait_s: float = 3
+    ) -> None:
         """
         Wait for a certain message to be logged at a certain level.
         :params int | str log_level: The log level to check.
         :params str message: The message to check.
         :params bool partial: Whether to check if the message is partially logged.
         :params float wait_s: The number of seconds to wait before timing out.
-                """
+        """
         log_level = self._to_loglevel(log_level)
         log_method: Callable[[str | int, str], bool] = self.is_partially_logged if partial else self.is_logged
         try:
@@ -140,8 +131,10 @@ class LoggerMixinForTest(LoggerMixinProtocol):
         except asyncio.TimeoutError as e:
             # Used within a class derived from unittest.TestCase
             if callable(getattr(self, "fail", None)):
-                getattr(self, "fail")(f"Message: {message} was not logged.\n"
-                                      f"Received Logs: {[record.getMessage() for record in self.log_records]}")
+                getattr(self, "fail")(
+                    f"Message: {message} was not logged.\n"
+                    f"Received Logs: {[record.getMessage() for record in self.log_records]}"
+                )
             else:
                 print(f"Message: {message} was not logged.")
                 print(f"Received Logs: {[record.getMessage() for record in self.log_records]}")

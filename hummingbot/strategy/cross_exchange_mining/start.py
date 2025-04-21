@@ -33,7 +33,9 @@ def start(self):
     maker_market_trading_pair_tuple = MarketTradingPairTuple(*maker_data)
     taker_market_trading_pair_tuple = MarketTradingPairTuple(*taker_data)
     self.market_trading_pair_tuples = [maker_market_trading_pair_tuple, taker_market_trading_pair_tuple]
-    self.market_pair = CrossExchangeMiningPair(maker=maker_market_trading_pair_tuple, taker=taker_market_trading_pair_tuple)
+    self.market_pair = CrossExchangeMiningPair(
+        maker=maker_market_trading_pair_tuple, taker=taker_market_trading_pair_tuple
+    )
 
     strategy_logging_options = (
         CrossExchangeMiningStrategy.OPTION_LOG_CREATE_ORDER

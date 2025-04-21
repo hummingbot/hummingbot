@@ -39,13 +39,14 @@ class TimeSynchronizerTests(TestCase):
         self.async_run_with_timeout(
             time_provider.update_server_time_offset_with_time_provider(
                 time_provider=self.configurable_timestamp_provider(now * 1e3)
-            ))
+            )
+        )
         synchronized_time = time_provider.time()
         seconds_difference_getting_time = 30 - 10
         seconds_difference_when_calculating_current_time = 31
         self.assertEqual(
-            now - seconds_difference_getting_time + seconds_difference_when_calculating_current_time,
-            synchronized_time)
+            now - seconds_difference_getting_time + seconds_difference_when_calculating_current_time, synchronized_time
+        )
 
     @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_seconds_counter")
     @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._time")
@@ -60,7 +61,8 @@ class TimeSynchronizerTests(TestCase):
             self.async_run_with_timeout(
                 time_provider.update_server_time_offset_with_time_provider(
                     time_provider=self.configurable_timestamp_provider(time * 1e3)
-                ))
+                )
+            )
         synchronized_time = time_provider.time()
         first_expected_offset = first_time - (4 + 2) / 2
         second_expected_offset = second_time - (10 + 6) / 2
@@ -70,8 +72,8 @@ class TimeSynchronizerTests(TestCase):
 
         calculated_median = numpy.median(expected_offsets)
         calculated_weighted_average = numpy.average(
-            expected_offsets,
-            weights=range(1, len(expected_offsets) * 2 + 1, 2))
+            expected_offsets, weights=range(1, len(expected_offsets) * 2 + 1, 2)
+        )
         calculated_offset = numpy.mean([calculated_median, calculated_weighted_average])
 
         self.assertEqual(calculated_offset + seconds_difference_when_calculating_current_time, synchronized_time)

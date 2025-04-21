@@ -6,9 +6,13 @@ from unittest.mock import MagicMock
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.spot_perpetual_arbitrage.arb_proposal import ArbProposal, ArbProposalSide
 
-import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
+import sys
 
-import logging; logging.basicConfig(level=logging.ERROR)
+sys.path.insert(0, realpath(join(__file__, "../../")))
+
+import logging
+
+logging.basicConfig(level=logging.ERROR)
 
 
 class TestSpotPerpetualArbitrage(unittest.TestCase):
@@ -22,36 +26,22 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         perp_connector = MagicMock()
         perp_connector.display_name = "Binance Perpetual"
         perp_market_info = MarketTradingPairTuple(perp_connector, self.trading_pair, self.base_token, self.quote_token)
-        spot_side = ArbProposalSide(
-            spot_market_info,
-            True,
-            Decimal(100)
-        )
-        perp_side = ArbProposalSide(
-            perp_market_info,
-            False,
-            Decimal(110)
-        )
+        spot_side = ArbProposalSide(spot_market_info, True, Decimal(100))
+        perp_side = ArbProposalSide(perp_market_info, False, Decimal(110))
         proposal = ArbProposal(spot_side, perp_side, Decimal("1"))
         self.assertEqual(Decimal("0.1"), proposal.profit_pct())
-        expected_str = "Spot: Binance: Buy BTC at 100 USDT.\n" \
-                       "Perpetual: Binance perpetual: Sell BTC at 110 USDT.\n" \
-                       "Order amount: 1\n" \
-                       "Profit: 10.00%"
-        self.assertEqual(expected_str, str(proposal))
-        perp_side = ArbProposalSide(
-            perp_market_info,
-            True,
-            Decimal(110)
+        expected_str = (
+            "Spot: Binance: Buy BTC at 100 USDT.\n"
+            "Perpetual: Binance perpetual: Sell BTC at 110 USDT.\n"
+            "Order amount: 1\n"
+            "Profit: 10.00%"
         )
+        self.assertEqual(expected_str, str(proposal))
+        perp_side = ArbProposalSide(perp_market_info, True, Decimal(110))
         with self.assertRaises(Exception) as context:
             proposal = ArbProposal(spot_side, perp_side, Decimal("1"))
-        self.assertEqual('Spot and perpetual arb proposal cannot be on the same side.', str(context.exception))
+        self.assertEqual("Spot and perpetual arb proposal cannot be on the same side.", str(context.exception))
 
-        unset_perp_side = ArbProposalSide(
-            perp_market_info,
-            False,
-            None
-        )
+        unset_perp_side = ArbProposalSide(perp_market_info, False, None)
         incomplete_proposal = ArbProposal(spot_side, unset_perp_side, Decimal("1"))
         self.assertEqual(Decimal("0"), incomplete_proposal.profit_pct())

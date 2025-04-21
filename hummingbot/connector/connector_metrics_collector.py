@@ -18,7 +18,7 @@ from hummingbot.logger.log_server_client import LogServerClient
 if TYPE_CHECKING:
     from hummingbot.connector.connector_base import ConnectorBase
 
-with open(realpath(join(dirname(__file__), '../VERSION'))) as version_file:
+with open(realpath(join(dirname(__file__), "../VERSION"))) as version_file:
     CLIENT_VERSION = version_file.read().strip()
 
 
@@ -60,12 +60,14 @@ class TradeVolumeMetricCollector(MetricsCollector):
 
     METRIC_NAME = "filled_usdt_volume"
 
-    def __init__(self,
-                 connector: 'ConnectorBase',
-                 activation_interval: Decimal,
-                 rate_provider: RateOracle,
-                 instance_id: str,
-                 valuation_token: str = "USDT"):
+    def __init__(
+        self,
+        connector: "ConnectorBase",
+        activation_interval: Decimal,
+        rate_provider: RateOracle,
+        instance_id: str,
+        valuation_token: str = "USDT",
+    ):
         super().__init__()
         self._connector = connector
         self._activation_interval = activation_interval
@@ -110,8 +112,7 @@ class TradeVolumeMetricCollector(MetricsCollector):
     def trigger_metrics_collection_process(self):
         events_to_process = self._collected_events
         self._collected_events = []
-        self._last_executed_collection_process = safe_ensure_future(
-            self.collect_metrics(events=events_to_process))
+        self._last_executed_collection_process = safe_ensure_future(self.collect_metrics(events=events_to_process))
 
     async def collect_metrics(self, events: List[OrderFilledEvent]):
         try:
@@ -130,8 +131,10 @@ class TradeVolumeMetricCollector(MetricsCollector):
                     if rate is not None:
                         total_volume += fill_event.amount * rate
                     else:
-                        self.logger().debug(f"Could not find a conversion rate rate using Rate Oracle for any of "
-                                            f"the pairs {from_quote_conversion_pair} or {from_base_conversion_pair}")
+                        self.logger().debug(
+                            f"Could not find a conversion rate rate using Rate Oracle for any of "
+                            f"the pairs {from_quote_conversion_pair} or {from_base_conversion_pair}"
+                        )
 
             if total_volume > Decimal("0"):
                 self._dispatch_trade_volume(total_volume)
@@ -145,22 +148,25 @@ class TradeVolumeMetricCollector(MetricsCollector):
             "url": f"{self._dispatcher.log_server_url}/client_metrics",
             "method": "POST",
             "request_obj": {
-                "headers": {
-                    'Content-Type': "application/json"
+                "headers": {"Content-Type": "application/json"},
+                "data": json.dumps(
+                    {
+                        "source": "hummingbot",
+                        "name": self.METRIC_NAME,
+                        "instance_id": self._instance_id,
+                        "exchange": self._connector.name,
+                        "version": self._client_version,
+                        "system": f"{platform.system()} {platform.release()}({platform.platform()})",
+                        "value": str(volume),
+                    }
+                ),
+                "params": {
+                    "ddtags": f"instance_id:{self._instance_id},"
+                    f"client_version:{self._client_version},"
+                    f"type:metrics",
+                    "ddsource": "hummingbot-client",
                 },
-                "data": json.dumps({
-                    "source": "hummingbot",
-                    "name": self.METRIC_NAME,
-                    "instance_id": self._instance_id,
-                    "exchange": self._connector.name,
-                    "version": self._client_version,
-                    "system": f"{platform.system()} {platform.release()}({platform.platform()})",
-                    "value": str(volume)}),
-                "params": {"ddtags": f"instance_id:{self._instance_id},"
-                                     f"client_version:{self._client_version},"
-                                     f"type:metrics",
-                           "ddsource": "hummingbot-client"}
-            }
+            },
         }
 
         self._dispatcher.request(metric_request)

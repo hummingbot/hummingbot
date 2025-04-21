@@ -18,14 +18,16 @@ class TegroRateSourceTest(IsolatedAsyncioWrapperTestCase):
         cls.chain_id = "base"
         cls.domain = "tegro"  # noqa: mock
         cls.chain = 8453
-        cls.tegro_api_key = "" # noqa: mock
+        cls.tegro_api_key = ""  # noqa: mock
         cls.tegro_pair = f"{cls.target_token}_{cls.global_token}"
         cls.trading_pair = combine_to_hb_trading_pair(base=cls.target_token, quote=cls.global_token)
         cls.tegro_ignored_pair = "SOMEPAIR"
         cls.ignored_trading_pair = combine_to_hb_trading_pair(base="SOME", quote="PAIR")
 
     def setup_tegro_responses(self, mock_api, expected_rate: Decimal):
-        url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_LIST_URL.format(self.chain), domain=self.domain)
+        url = web_utils.public_rest_url(
+            path_url=CONSTANTS.EXCHANGE_INFO_PATH_LIST_URL.format(self.chain), domain=self.domain
+        )
         pairs_url = f"{url}?page=1&sort_order=desc&sort_by=volume&page_size=20&verified=true"
         symbols_response = [
             {
@@ -49,8 +51,8 @@ class TegroRateSourceTest(IsolatedAsyncioWrapperTestCase):
                     "price_high_24h": 10,
                     "price_low_24h": 0.2806,
                     "ask_low": 0.2806,
-                    "bid_high": 10
-                }
+                    "bid_high": 10,
+                },
             },
             {
                 "id": "80002_0x6b94a36d6ff05886d44b3dafabdefe85f09563ba_0x7551122e441edbf3fffcbcf2f7fcc636b636482b",  # noqa: mock
@@ -73,12 +75,14 @@ class TegroRateSourceTest(IsolatedAsyncioWrapperTestCase):
                     "price_high_24h": 10,
                     "price_low_24h": 0.2806,
                     "ask_low": 0.2806,
-                    "bid_high": 10
-                }
+                    "bid_high": 10,
+                },
             },
         ]
 
-        urls = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_LIST_URL.format(self.chain), domain=self.domain)
+        urls = web_utils.public_rest_url(
+            path_url=CONSTANTS.EXCHANGE_INFO_PATH_LIST_URL.format(self.chain), domain=self.domain
+        )
         tegro_prices_global_url = f"{urls}?page=1&sort_order=desc&sort_by=volume&page_size=20&verified=true"
         tegro_prices_global_response = [
             {
@@ -102,8 +106,8 @@ class TegroRateSourceTest(IsolatedAsyncioWrapperTestCase):
                     "price_high_24h": 10,
                     "price_low_24h": 0.2806,
                     "ask_low": 0.2806,
-                    "bid_high": 10
-                }
+                    "bid_high": 10,
+                },
             },
             {
                 "id": "80002_0x6b94a36d6ff05886d44b3dafabdefe85f09563ba_0x7551122e441edbf3fffcbcf2f7fcc636b636482b",  # noqa: mock
@@ -126,8 +130,8 @@ class TegroRateSourceTest(IsolatedAsyncioWrapperTestCase):
                     "price_high_24h": 10,
                     "price_low_24h": 0.2806,
                     "ask_low": 0.2806,
-                    "bid_high": 10
-                }
+                    "bid_high": 10,
+                },
             },
         ]
         # mock_api.get(pairs_us_url, body=json.dumps(symbols_response))

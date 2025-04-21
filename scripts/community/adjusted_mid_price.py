@@ -24,12 +24,12 @@ class AdjustedMidPrice(ScriptStrategyBase):
     # The following strategy dictionary are parameters that the script operator can adjustS
     strategy = {
         "test_volume": 50,  # the amount in base currancy to make the hypothetical market buy and market sell.
-        "bid_spread": .1,   # how far away from the mid price do you want to place the first bid order (1 indicated 1%)
-        "ask_spread": .1,   # how far away from the mid price do you want to place the first bid order (1 indicated 1%)
-        "amount": .1,       # the amount in base currancy you want to buy or sell
+        "bid_spread": 0.1,  # how far away from the mid price do you want to place the first bid order (1 indicated 1%)
+        "ask_spread": 0.1,  # how far away from the mid price do you want to place the first bid order (1 indicated 1%)
+        "amount": 0.1,  # the amount in base currancy you want to buy or sell
         "order_refresh_time": 60,
         "market": "binance_paper_trade",
-        "pair": "BTC-USDT"
+        "pair": "BTC-USDT",
     }
 
     markets = {strategy["market"]: {strategy["pair"]}}
@@ -63,42 +63,56 @@ class AdjustedMidPrice(ScriptStrategyBase):
             proposal.append(self.create_order(True))
         if active_ask is None:
             proposal.append(self.create_order(False))
-        if (len(proposal) > 0):
+        if len(proposal) > 0:
             # we have proposed orders to place
             # the next line will set the amount to 0 if we do not have the budget for the order and will quantize the amount if we have the budget
-            adjusted_proposal: List(OrderCandidate) = self.connector.budget_checker.adjust_candidates(proposal, all_or_none=True)
+            adjusted_proposal: List(OrderCandidate) = self.connector.budget_checker.adjust_candidates(
+                proposal, all_or_none=True
+            )
             # we will set insufficient funds to true if any of the orders were set to zero
             insufficient_funds = False
             for order in adjusted_proposal:
-                if (order.amount == 0):
+                if order.amount == 0:
                     insufficient_funds = True
             # do not place any orders if we have any insufficient funds and notify user
-            if (insufficient_funds):
+            if insufficient_funds:
                 self.logger().info("Insufficient funds. No more orders will be placed")
             else:
                 # place orders
                 for order in adjusted_proposal:
                     if order.order_side == TradeType.BUY:
-                        self.buy(self.strategy["market"], order.trading_pair, Decimal(self.strategy['amount']), order.order_type, Decimal(order.price))
+                        self.buy(
+                            self.strategy["market"],
+                            order.trading_pair,
+                            Decimal(self.strategy["amount"]),
+                            order.order_type,
+                            Decimal(order.price),
+                        )
                     elif order.order_side == TradeType.SELL:
-                        self.sell(self.strategy["market"], order.trading_pair, Decimal(self.strategy['amount']), order.order_type, Decimal(order.price))
+                        self.sell(
+                            self.strategy["market"],
+                            order.trading_pair,
+                            Decimal(self.strategy["amount"]),
+                            order.order_type,
+                            Decimal(order.price),
+                        )
         ##
         # cancel order logic
         # (canceled orders will be refreshed next tick)
         ##
         for order in active_orders:
-            if (order.age() > self.strategy["order_refresh_time"]):
+            if order.age() > self.strategy["order_refresh_time"]:
                 self.cancel(self.strategy["market"], self.strategy["pair"], order.client_order_id)
 
     def create_order(self, is_bid: bool) -> OrderCandidate:
         """
-         Create a propsal for the current bid or ask using the adjusted mid price.
-         """
+        Create a propsal for the current bid or ask using the adjusted mid price.
+        """
         mid_price = Decimal(self.adjusted_mid_price())
         bid_spread = Decimal(self.strategy["bid_spread"])
         ask_spread = Decimal(self.strategy["ask_spread"])
-        bid_price = mid_price - mid_price * bid_spread * Decimal(.01)
-        ask_price = mid_price + mid_price * ask_spread * Decimal(.01)
+        bid_price = mid_price - mid_price * bid_spread * Decimal(0.01)
+        ask_price = mid_price + mid_price * ask_spread * Decimal(0.01)
         price = bid_price if is_bid else ask_price
         price = self.connector.quantize_order_price(self.strategy["pair"], Decimal(price))
         order = OrderCandidate(
@@ -107,15 +121,20 @@ class AdjustedMidPrice(ScriptStrategyBase):
             order_type=OrderType.LIMIT,
             order_side=TradeType.BUY if is_bid else TradeType.SELL,
             amount=Decimal(self.strategy["amount"]),
-            price=price)
+            price=price,
+        )
         return order
 
     def adjusted_mid_price(self):
         """
         Returns the  price of a hypothetical buy and sell or the base asset where the amount is {strategy.test_volume}
         """
-        ask_result = self.connector.get_quote_volume_for_base_amount(self.strategy["pair"], True, self.strategy["test_volume"])
-        bid_result = self.connector.get_quote_volume_for_base_amount(self.strategy["pair"], False, self.strategy["test_volume"])
+        ask_result = self.connector.get_quote_volume_for_base_amount(
+            self.strategy["pair"], True, self.strategy["test_volume"]
+        )
+        bid_result = self.connector.get_quote_volume_for_base_amount(
+            self.strategy["pair"], False, self.strategy["test_volume"]
+        )
         average_ask = ask_result.result_volume / ask_result.query_volume
         average_bid = bid_result.result_volume / bid_result.query_volume
         return average_bid + ((average_ask - average_bid) / 2)
@@ -132,7 +151,9 @@ class AdjustedMidPrice(ScriptStrategyBase):
         warning_lines.extend(self.network_warning(self.get_market_trading_pair_tuples()))
         actual_mid_price = self.connector.get_mid_price(self.strategy["pair"])
         adjusted_mid_price = self.adjusted_mid_price()
-        lines.extend(["", "  Adjusted mid price: " + str(adjusted_mid_price)] + ["  Actual mid price: " + str(actual_mid_price)])
+        lines.extend(
+            ["", "  Adjusted mid price: " + str(adjusted_mid_price)] + ["  Actual mid price: " + str(actual_mid_price)]
+        )
         balance_df = self.get_balance_df()
         lines.extend(["", "  Balances:"] + ["    " + line for line in balance_df.to_string(index=False).split("\n")])
         try:

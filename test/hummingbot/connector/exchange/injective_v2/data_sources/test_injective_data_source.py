@@ -100,8 +100,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
     def is_logged(self, log_level: str, message: Union[str, re.Pattern]) -> bool:
         expression = (
             re.compile(
-                f"^{message}$"
-                .replace(".", r"\.")
+                f"^{message}$".replace(".", r"\.")
                 .replace("?", r"\?")
                 .replace("/", r"\/")
                 .replace("(", r"\(")
@@ -125,9 +124,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
         for market in spot_markets_response.values():
             tokens[market.base_token.denom] = market.base_token
             tokens[market.quote_token.denom] = market.quote_token
-        self.query_executor._tokens_responses.put_nowait(
-            {token.symbol: token for token in tokens.values()}
-        )
+        self.query_executor._tokens_responses.put_nowait({token.symbol: token for token in tokens.values()})
 
         market_info = self._inj_usdt_market_info()
         inj_usdt_market: InjectiveSpotMarket = self.async_run_with_timeout(
@@ -362,7 +359,7 @@ class InjectiveVaultsDataSourceTests(TestCase):
                                 "binary_options_orders_to_cancel": [],
                                 "binary_options_orders_to_create": [],
                             }
-                        }
+                        },
                     }
                 }
             }
@@ -433,7 +430,7 @@ class InjectiveVaultsDataSourceTests(TestCase):
                                 "binary_options_orders_to_cancel": [],
                                 "binary_options_orders_to_create": [],
                             }
-                        }
+                        },
                     }
                 }
             }

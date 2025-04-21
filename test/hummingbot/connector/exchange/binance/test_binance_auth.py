@@ -43,9 +43,8 @@ class BinanceAuthTests(TestCase):
         full_params.update({"timestamp": 1234567890000})
         encoded_params = "&".join([f"{key}={value}" for key, value in full_params.items()])
         expected_signature = hmac.new(
-            self._secret.encode("utf-8"),
-            encoded_params.encode("utf-8"),
-            hashlib.sha256).hexdigest()
+            self._secret.encode("utf-8"), encoded_params.encode("utf-8"), hashlib.sha256
+        ).hexdigest()
         self.assertEqual(now * 1e3, configured_request.params["timestamp"])
         self.assertEqual(expected_signature, configured_request.params["signature"])
         self.assertEqual({"X-MBX-APIKEY": self._api_key}, configured_request.headers)

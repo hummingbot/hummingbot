@@ -13,11 +13,11 @@ class HedgeStartTest(unittest.TestCase):
         super().setUp()
         self.strategy = None
         self.client_config_map = ClientConfigAdapter(ClientConfigMap())
-        self.client_config_map.strategy_report_interval = 60.
+        self.client_config_map.strategy_report_interval = 60.0
         self.markets = {
             "binance": ExchangeBase(client_config_map=self.client_config_map),
             "kucoin": ExchangeBase(client_config_map=self.client_config_map),
-            "ascend_ex": ExchangeBase(client_config_map=self.client_config_map)
+            "ascend_ex": ExchangeBase(client_config_map=self.client_config_map),
         }
         self.notifications = []
         self.log_errors = []
@@ -46,7 +46,6 @@ class HedgeStartTest(unittest.TestCase):
             connector_2=EmptyMarketConfigMap(),
             connector_3=EmptyMarketConfigMap(),
             connector_4=EmptyMarketConfigMap(),
-
         )
         self.strategy_config_map = ClientConfigAdapter(config_map_raw)
 

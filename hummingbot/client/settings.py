@@ -96,9 +96,7 @@ class GatewayConnectionSetting:
         connector: Optional[Dict[str, str]] = None
         connector_config: List[Dict[str, str]] = GatewayConnectionSetting.load()
         for spec in connector_config:
-            if spec["connector"] == connector_name \
-               and spec["chain"] == chain \
-               and spec["network"] == network:
+            if spec["connector"] == connector_name and spec["chain"] == chain and spec["network"] == network:
                 connector = spec
 
         return connector
@@ -140,14 +138,18 @@ class GatewayConnectionSetting:
 
     @staticmethod
     def upsert_connector_spec_tokens(connector_chain_network: str, tokens: List[str]):
-        updated_connector: Optional[Dict[str, Any]] = GatewayConnectionSetting.get_connector_spec_from_market_name(connector_chain_network)
-        updated_connector['tokens'] = tokens
+        updated_connector: Optional[Dict[str, Any]] = GatewayConnectionSetting.get_connector_spec_from_market_name(
+            connector_chain_network
+        )
+        updated_connector["tokens"] = tokens
 
         connectors_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
         for i, c in enumerate(connectors_conf):
-            if c["connector"] == updated_connector['connector'] \
-               and c["chain"] == updated_connector['chain'] \
-               and c["network"] == updated_connector['network']:
+            if (
+                c["connector"] == updated_connector["connector"]
+                and c["chain"] == updated_connector["chain"]
+                and c["network"] == updated_connector["network"]
+            ):
                 connectors_conf[i] = updated_connector
                 break
 
@@ -177,6 +179,7 @@ class ConnectorSetting(NamedTuple):
 
     def connector_connected(self) -> str:
         from hummingbot.client.config.security import Security
+
         return True if Security.connector_config_file_exists(self.name) else False
 
     def uses_clob_connector(self) -> bool:
@@ -189,7 +192,9 @@ class ConnectorSetting(NamedTuple):
             connector_spec: Dict[str, str] = GatewayConnectionSetting.get_connector_spec_from_market_name(self.name)
             if connector_spec is None:
                 # Handle the case where connector_spec is None
-                raise ValueError(f"Cannot find connector specification for {self.name}. Please check your gateway connection settings.")
+                raise ValueError(
+                    f"Cannot find connector specification for {self.name}. Please check your gateway connection settings."
+                )
             return "gateway.gateway_swap"
         return f"{self.base_name()}_{self._get_module_package()}"
 
@@ -203,8 +208,8 @@ class ConnectorSetting(NamedTuple):
         # return connector class name, e.g. BinanceExchange
         if self.uses_gateway_generic_connector():
             module_name = self.module_name()
-            file_name = module_name.split('.')[-1]
-            splited_name = file_name.split('_')
+            file_name = module_name.split(".")[-1]
+            splited_name = file_name.split("_")
             for i in range(len(splited_name)):
                 # if splited_name[i] in ['amm']:
                 #     splited_name[i] = splited_name[i].upper()
@@ -267,10 +272,12 @@ class ConnectorSetting(NamedTuple):
         params["trading_pairs"] = trading_pairs
         params["trading_required"] = trading_required
         params["client_config_map"] = client_config_map
-        if (self.config_keys is not None
-                and type(self.config_keys) is not dict
-                and "receive_connector_configuration" in self.config_keys.__fields__
-                and self.config_keys.receive_connector_configuration):
+        if (
+            self.config_keys is not None
+            and type(self.config_keys) is not dict
+            and "receive_connector_configuration" in self.config_keys.__fields__
+            and self.config_keys.receive_connector_configuration
+        ):
             params["connector_configuration"] = self.config_keys
 
         return params
@@ -289,8 +296,8 @@ class ConnectorSetting(NamedTuple):
             return self.name
 
     def non_trading_connector_instance_with_default_configuration(
-            self,
-            trading_pairs: Optional[List[str]] = None) -> 'ConnectorBase':
+        self, trading_pairs: Optional[List[str]] = None
+    ) -> "ConnectorBase":
         from hummingbot.client.config.config_helpers import ClientConfigAdapter
         from hummingbot.client.hummingbot_application import HummingbotApplication
 
@@ -301,11 +308,12 @@ class ConnectorSetting(NamedTuple):
             kwargs = {key: (config.value or "") for key, config in self.config_keys.items()}  # legacy
         elif self.config_keys is not None:
             kwargs = {
-                traverse_item.attr: traverse_item.value.get_secret_value()
-                if isinstance(traverse_item.value, SecretStr)
-                else traverse_item.value or ""
-                for traverse_item
-                in ClientConfigAdapter(self.config_keys).traverse()
+                traverse_item.attr: (
+                    traverse_item.value.get_secret_value()
+                    if isinstance(traverse_item.value, SecretStr)
+                    else traverse_item.value or ""
+                )
+                for traverse_item in ClientConfigAdapter(self.config_keys).traverse()
                 if traverse_item.attr != "connector"
             }
         kwargs = self.conn_init_parameters(
@@ -337,15 +345,15 @@ class AllConnectorSettings:
         # connector_exceptions = ["mock_paper_exchange", "mock_pure_python_paper_exchange", "paper_trade", "injective_v2", "injective_v2_perpetual"]
 
         type_dirs: List[DirEntry] = [
-            cast(DirEntry, f) for f in scandir(f"{root_path() / 'hummingbot' / 'connector'}")
+            cast(DirEntry, f)
+            for f in scandir(f"{root_path() / 'hummingbot' / 'connector'}")
             if f.is_dir() and f.name not in CONNECTOR_SUBMODULES_THAT_ARE_NOT_CEX_TYPES
         ]
         for type_dir in type_dirs:
-            if type_dir.name == 'gateway':
+            if type_dir.name == "gateway":
                 continue
             connector_dirs: List[DirEntry] = [
-                cast(DirEntry, f) for f in scandir(type_dir.path)
-                if f.is_dir() and exists(join(f.path, "__init__.py"))
+                cast(DirEntry, f) for f in scandir(type_dir.path) if f.is_dir() and exists(join(f.path, "__init__.py"))
             ]
             for connector_dir in connector_dirs:
                 if connector_dir.name.startswith("_") or connector_dir.name in connector_exceptions:
@@ -353,8 +361,9 @@ class AllConnectorSettings:
                 if connector_dir.name in cls.all_connector_settings:
                     raise Exception(f"Multiple connectors with the same {connector_dir.name} name.")
                 try:
-                    util_module_path: str = f"hummingbot.connector.{type_dir.name}." \
-                                            f"{connector_dir.name}.{connector_dir.name}_utils"
+                    util_module_path: str = (
+                        f"hummingbot.connector.{type_dir.name}." f"{connector_dir.name}.{connector_dir.name}_utils"
+                    )
                     util_module = importlib.import_module(util_module_path)
                 except ModuleNotFoundError:
                     continue
@@ -453,9 +462,7 @@ class AllConnectorSettings:
     def reset_connector_config_keys(cls, connector: str):
         current_settings = cls.get_connector_settings()[connector]
         current_keys = current_settings.config_keys
-        new_keys = (
-            current_keys if current_keys is None else current_keys.__class__.model_construct()
-        )
+        new_keys = current_keys if current_keys is None else current_keys.__class__.model_construct()
         cls.update_connector_config_keys(new_keys)
 
     @classmethod
@@ -463,20 +470,23 @@ class AllConnectorSettings:
         current_settings = cls.get_connector_settings()[new_config_keys.connector]
         new_keys_settings_dict = current_settings._asdict()
         new_keys_settings_dict.update({"config_keys": new_config_keys})
-        cls.get_connector_settings()[new_config_keys.connector] = ConnectorSetting(
-            **new_keys_settings_dict
-        )
+        cls.get_connector_settings()[new_config_keys.connector] = ConnectorSetting(**new_keys_settings_dict)
 
     @classmethod
     def get_exchange_names(cls) -> Set[str]:
         return {
-            cs.name for cs in cls.get_connector_settings().values()
+            cs.name
+            for cs in cls.get_connector_settings().values()
             if cs.type in [ConnectorType.Exchange, ConnectorType.CLOB_SPOT, ConnectorType.CLOB_PERP]
         }.union(set(cls.paper_trade_connectors_names))
 
     @classmethod
     def get_derivative_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.all_connector_settings.values() if cs.type in [ConnectorType.Derivative, ConnectorType.CLOB_PERP]}
+        return {
+            cs.name
+            for cs in cls.all_connector_settings.values()
+            if cs.type in [ConnectorType.Derivative, ConnectorType.CLOB_PERP]
+        }
 
     @classmethod
     def get_other_connector_names(cls) -> Set[str]:
@@ -533,8 +543,7 @@ def gateway_connector_trading_pairs(connector: str) -> List[str]:
     """
     ret_val = []
     for conn, t_pair in requried_connector_trading_pairs.items():
-        if AllConnectorSettings.get_connector_settings()[conn].uses_gateway_generic_connector() and \
-           conn == connector:
+        if AllConnectorSettings.get_connector_settings()[conn].uses_gateway_generic_connector() and conn == connector:
             ret_val += t_pair
     return ret_val
 

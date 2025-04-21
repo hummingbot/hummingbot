@@ -48,7 +48,7 @@ class HyperliquidRateSource(RateSourceBase):
             self._exchange = self._build_hyperliquid_connector_without_private_keys()
 
     @staticmethod
-    def _build_hyperliquid_connector_without_private_keys() -> 'HyperliquidExchange':
+    def _build_hyperliquid_connector_without_private_keys() -> "HyperliquidExchange":
         from hummingbot.client.hummingbot_application import HummingbotApplication
         from hummingbot.connector.exchange.hyperliquid.hyperliquid_exchange import HyperliquidExchange
 
@@ -59,7 +59,7 @@ class HyperliquidRateSource(RateSourceBase):
             client_config_map=client_config_map,
             hyperliquid_api_secret="",
             trading_pairs=[],
-            use_vault = False,
+            use_vault=False,
             hyperliquid_api_key="",
             trading_required=False,
         )

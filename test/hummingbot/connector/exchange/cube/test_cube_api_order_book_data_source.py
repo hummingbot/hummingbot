@@ -63,49 +63,52 @@ class CubeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         self.resume_test_event = asyncio.Event()
 
-        exchange_market_info = {"result": {
-            "assets": [{
-                "assetId": 5,
-                "symbol": "SOL",
-                "decimals": 9,
-                "displayDecimals": 2,
-                "settles": "true",
-                "assetType": "Crypto",
-                "sourceId": 3,
-                "metadata": {},
-                "status": 1
-            }, {
-                "assetId": 7,
-                "symbol": "USDC",
-                "decimals": 6,
-                "displayDecimals": 2,
-                "settles": "true",
-                "assetType": "Crypto",
-                "sourceId": 3,
-                "metadata": {
-                    "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
-                },
-                "status": 1
-            }],
-            "markets": [
-                {
-                    "marketId": 100006,
-                    "symbol": "SOLUSDC",
-                    "baseAssetId": 5,
-                    "baseLotSize": "10000000",
-                    "quoteAssetId": 7,
-                    "quoteLotSize": "100",
-                    "priceDisplayDecimals": 2,
-                    "protectionPriceLevels": 1000,
-                    "priceBandBidPct": 25,
-                    "priceBandAskPct": 400,
-                    "priceTickSize": "0.01",
-                    "quantityTickSize": "0.01",
-                    "status": 1,
-                    "feeTableId": 2
-                }
-            ]
-        }}
+        exchange_market_info = {
+            "result": {
+                "assets": [
+                    {
+                        "assetId": 5,
+                        "symbol": "SOL",
+                        "decimals": 9,
+                        "displayDecimals": 2,
+                        "settles": "true",
+                        "assetType": "Crypto",
+                        "sourceId": 3,
+                        "metadata": {},
+                        "status": 1,
+                    },
+                    {
+                        "assetId": 7,
+                        "symbol": "USDC",
+                        "decimals": 6,
+                        "displayDecimals": 2,
+                        "settles": "true",
+                        "assetType": "Crypto",
+                        "sourceId": 3,
+                        "metadata": {"mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"},
+                        "status": 1,
+                    },
+                ],
+                "markets": [
+                    {
+                        "marketId": 100006,
+                        "symbol": "SOLUSDC",
+                        "baseAssetId": 5,
+                        "baseLotSize": "10000000",
+                        "quoteAssetId": 7,
+                        "quoteLotSize": "100",
+                        "priceDisplayDecimals": 2,
+                        "protectionPriceLevels": 1000,
+                        "priceBandBidPct": 25,
+                        "priceBandAskPct": 400,
+                        "priceTickSize": "0.01",
+                        "quantityTickSize": "0.01",
+                        "status": 1,
+                        "feeTableId": 2,
+                    }
+                ],
+            }
+        }
 
         self.connector._initialize_trading_pair_symbols_from_exchange_info(exchange_market_info)
 
@@ -113,8 +116,8 @@ class CubeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             self.trading_pair,
             min_order_size=Decimal("0.001"),
             min_price_increment=Decimal("0.01"),
-            min_base_amount_increment=Decimal("10000000") / (10 ** 9),
-            min_notional_size=Decimal("100") / (10 ** 6),
+            min_base_amount_increment=Decimal("10000000") / (10**9),
+            min_notional_size=Decimal("100") / (10**6),
         )
 
         self.connector._trading_rules[self.trading_pair] = trading_rule
@@ -142,7 +145,7 @@ class CubeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             resting_exchange_order_id=4642880746,
             fill_quantity=5,
             transact_time=1710913579056259412,
-            aggressing_exchange_order_id=4642881712
+            aggressing_exchange_order_id=4642881712,
         )
 
         trade_data = market_data_pb2.Trades(trades=[trade])
@@ -152,9 +155,7 @@ class CubeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
     def _order_diff_event(self):
         diff = market_data_pb2.MarketByPriceDiff.Diff(
-            price=16521,
-            quantity=53,
-            op=market_data_pb2.MarketByPriceDiff.DiffOp.REPLACE
+            price=16521, quantity=53, op=market_data_pb2.MarketByPriceDiff.DiffOp.REPLACE
         )
 
         diff_data = market_data_pb2.MarketByPriceDiff(diffs=[diff])
@@ -163,22 +164,38 @@ class CubeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         return resp
 
     def _snapshot_response(self):
-        resp = {'result': {
-            'levels': [{'price': 17695, 'quantity': 16, 'side': 0}, {'price': 17694, 'quantity': 42, 'side': 0},
-                       {'price': 17693, 'quantity': 55, 'side': 0}, {'price': 17692, 'quantity': 49, 'side': 0},
-                       {'price': 17691, 'quantity': 51, 'side': 0}, {'price': 17690, 'quantity': 82, 'side': 0},
-                       {'price': 17689, 'quantity': 141, 'side': 0}, {'price': 17688, 'quantity': 56, 'side': 0},
-                       {'price': 17698, 'quantity': 20, 'side': 1}, {'price': 17699, 'quantity': 29, 'side': 1},
-                       {'price': 17700, 'quantity': 3, 'side': 1}, {'price': 17701, 'quantity': 37, 'side': 1},
-                       {'price': 17702, 'quantity': 27, 'side': 1}, {'price': 17703, 'quantity': 13, 'side': 1},
-                       {'price': 17704, 'quantity': 4, 'side': 1}, {'price': 17705, 'quantity': 26, 'side': 1}],
-            'lastTransactTime': 1710840543845664276, 'lastTradePrice': 17695, 'marketState': 'normalOperation'}}
+        resp = {
+            "result": {
+                "levels": [
+                    {"price": 17695, "quantity": 16, "side": 0},
+                    {"price": 17694, "quantity": 42, "side": 0},
+                    {"price": 17693, "quantity": 55, "side": 0},
+                    {"price": 17692, "quantity": 49, "side": 0},
+                    {"price": 17691, "quantity": 51, "side": 0},
+                    {"price": 17690, "quantity": 82, "side": 0},
+                    {"price": 17689, "quantity": 141, "side": 0},
+                    {"price": 17688, "quantity": 56, "side": 0},
+                    {"price": 17698, "quantity": 20, "side": 1},
+                    {"price": 17699, "quantity": 29, "side": 1},
+                    {"price": 17700, "quantity": 3, "side": 1},
+                    {"price": 17701, "quantity": 37, "side": 1},
+                    {"price": 17702, "quantity": 27, "side": 1},
+                    {"price": 17703, "quantity": 13, "side": 1},
+                    {"price": 17704, "quantity": 4, "side": 1},
+                    {"price": 17705, "quantity": 26, "side": 1},
+                ],
+                "lastTransactTime": 1710840543845664276,
+                "lastTradePrice": 17695,
+                "marketState": "normalOperation",
+            }
+        }
         return resp
 
     @aioresponses()
     async def test_get_new_order_book_successful(self, mock_api):
-        url = web_utils.public_rest_url(path_url=CONSTANTS.MARKET_DATA_REQUEST_URL + "/book/100006/snapshot",
-                                        domain=self.domain)
+        url = web_utils.public_rest_url(
+            path_url=CONSTANTS.MARKET_DATA_REQUEST_URL + "/book/100006/snapshot", domain=self.domain
+        )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         resp = self._snapshot_response()
@@ -203,7 +220,9 @@ class CubeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
     @aioresponses()
     async def test_get_new_order_book_raises_exception(self, mock_api):
-        url = web_utils.public_rest_url(path_url=CONSTANTS.MARKET_DATA_REQUEST_URL + "/book/100006/snapshot", domain=self.domain)
+        url = web_utils.public_rest_url(
+            path_url=CONSTANTS.MARKET_DATA_REQUEST_URL + "/book/100006/snapshot", domain=self.domain
+        )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, status=400)
@@ -221,13 +240,11 @@ class CubeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             resting_exchange_order_id=4642880746,
             fill_quantity=5,
             transact_time=1710913579056259412,
-            aggressing_exchange_order_id=4642881712
+            aggressing_exchange_order_id=4642881712,
         )
         trade_data = market_data_pb2.Trades(trades=[trade])
         diff = market_data_pb2.MarketByPriceDiff.Diff(
-            price=16521,
-            quantity=53,
-            op=market_data_pb2.MarketByPriceDiff.DiffOp.REPLACE
+            price=16521, quantity=53, op=market_data_pb2.MarketByPriceDiff.DiffOp.REPLACE
         )
         diff_data = market_data_pb2.MarketByPriceDiff(diffs=[diff])
         trade_md_msg = market_data_pb2.MdMessage(
@@ -236,12 +253,12 @@ class CubeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         diff_md_msg = market_data_pb2.MdMessage(
             mbp_diff=diff_data,
         )
-        md_messages = market_data_pb2.MdMessages(
-            messages=[trade_md_msg, diff_md_msg]
-        )
+        md_messages = market_data_pb2.MdMessages(messages=[trade_md_msg, diff_md_msg])
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value, message=md_messages.SerializeToString(), message_type=aiohttp.WSMsgType.BINARY
+            websocket_mock=ws_connect_mock.return_value,
+            message=md_messages.SerializeToString(),
+            message_type=aiohttp.WSMsgType.BINARY,
         )
 
         self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_subscriptions())
@@ -268,7 +285,9 @@ class CubeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             self.assertEqual(53, diff.quantity)
             self.assertEqual(market_data_pb2.MarketByPriceDiff.DiffOp.REPLACE, diff.op)
 
-        self.assertTrue(self._is_logged("INFO", f"Subscribed to public order book for {self.trading_pair} and trade channels..."))
+        self.assertTrue(
+            self._is_logged("INFO", f"Subscribed to public order book for {self.trading_pair} and trade channels...")
+        )
 
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect")
@@ -330,7 +349,9 @@ class CubeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
-        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_trades(self.local_event_loop, msg_queue))
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_trades(self.local_event_loop, msg_queue)
+        )
 
         msg: OrderBookMessage = await msg_queue.get()
 
@@ -386,7 +407,9 @@ class CubeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
     @aioresponses()
     async def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
-        url = web_utils.public_rest_url(path_url=CONSTANTS.MARKET_DATA_REQUEST_URL + "/book/100006/snapshot", domain=self.domain)
+        url = web_utils.public_rest_url(
+            path_url=CONSTANTS.MARKET_DATA_REQUEST_URL + "/book/100006/snapshot", domain=self.domain
+        )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, exception=asyncio.CancelledError, repeat=True)
@@ -395,15 +418,14 @@ class CubeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             await self.data_source.listen_for_order_book_snapshots(self.local_event_loop, asyncio.Queue())
 
     @aioresponses()
-    @patch(
-        "hummingbot.connector.exchange.cube.cube_api_order_book_data_source"
-        ".CubeAPIOrderBookDataSource._sleep"
-    )
+    @patch("hummingbot.connector.exchange.cube.cube_api_order_book_data_source" ".CubeAPIOrderBookDataSource._sleep")
     async def test_listen_for_order_book_snapshots_log_exception(self, mock_api, sleep_mock):
         msg_queue: asyncio.Queue = asyncio.Queue()
         sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(asyncio.CancelledError())
 
-        url = web_utils.public_rest_url(path_url=CONSTANTS.MARKET_DATA_REQUEST_URL + "/book/100006/snapshot", domain=self.domain)
+        url = web_utils.public_rest_url(
+            path_url=CONSTANTS.MARKET_DATA_REQUEST_URL + "/book/100006/snapshot", domain=self.domain
+        )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, exception=Exception, repeat=True)
@@ -419,11 +441,13 @@ class CubeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
     @aioresponses()
     async def test_listen_for_order_book_snapshots_successful(
-            self,
-            mock_api,
+        self,
+        mock_api,
     ):
         msg_queue: asyncio.Queue = asyncio.Queue()
-        url = web_utils.public_rest_url(path_url=CONSTANTS.MARKET_DATA_REQUEST_URL + "/book/100006/snapshot", domain=self.domain)
+        url = web_utils.public_rest_url(
+            path_url=CONSTANTS.MARKET_DATA_REQUEST_URL + "/book/100006/snapshot", domain=self.domain
+        )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, body=json.dumps(self._snapshot_response()))

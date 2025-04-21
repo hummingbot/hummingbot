@@ -14,7 +14,7 @@ EXAMPLE_PAIR = "AURA-USDT"
 DEFAULT_FEES = TradeFeeSchema(
     maker_percent_fee_decimal=Decimal("0.001"),
     taker_percent_fee_decimal=Decimal("0.001"),
-    buy_percent_fee_deducted_from_returns=True
+    buy_percent_fee_deducted_from_returns=True,
 )
 
 
@@ -29,9 +29,9 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
 def decompress_ws_message(message):
     if isinstance(message, bytes):
-        compressed_data = gzip.GzipFile(fileobj=io.BytesIO(message), mode='rb')
+        compressed_data = gzip.GzipFile(fileobj=io.BytesIO(message), mode="rb")
         decompressed_data = compressed_data.read()
-        utf8_data = decompressed_data.decode('utf-8')
+        utf8_data = decompressed_data.decode("utf-8")
         return json.loads(utf8_data)
     else:
         return message
@@ -46,7 +46,7 @@ class BingXConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     bingx_api_secret: SecretStr = Field(
         default=...,
@@ -55,7 +55,7 @@ class BingXConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     model_config = ConfigDict(title="bing_x")
 

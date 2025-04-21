@@ -32,13 +32,13 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
         json_schema_extra={
             "prompt": lambda cm: f"Select the network ({'/'.join(list(NETWORK_MODES.keys()))})",
             "prompt_on_new": True,
-        }
+        },
     )
     account_type: Union[tuple(ACCOUNT_MODES.values())] = Field(
         default=InjectiveReadOnlyAccountMode(),
         json_schema_extra={
             "prompt": lambda cm: f"Select the type of account ({'/'.join(list(ACCOUNT_MODES.keys()))})",
-            "prompt_on_new": True
+            "prompt_on_new": True,
         },
     )
     fee_calculator: Union[tuple(FEE_CALCULATOR_MODES.values())] = Field(
@@ -46,7 +46,7 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
         json_schema_extra={
             "prompt": lambda cm: f"Select the fee calculator ({'/'.join(list(FEE_CALCULATOR_MODES.keys()))})",
             "prompt_on_new": True,
-        }
+        },
     )
     model_config = ConfigDict(title="injective_v2_perpetual")
 
@@ -56,9 +56,7 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
         if isinstance(v, tuple(NETWORK_MODES.values()) + (Dict,)):
             sub_model = v
         elif v not in NETWORK_MODES:
-            raise ValueError(
-                f"Invalid network, please choose a value from {list(NETWORK_MODES.keys())}."
-            )
+            raise ValueError(f"Invalid network, please choose a value from {list(NETWORK_MODES.keys())}.")
         else:
             sub_model = NETWORK_MODES[v].model_construct()
         return sub_model
@@ -69,9 +67,7 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
         if isinstance(v, tuple(ACCOUNT_MODES.values()) + (Dict,)):
             sub_model = v
         elif v not in ACCOUNT_MODES:
-            raise ValueError(
-                f"Invalid account type, please choose a value from {list(ACCOUNT_MODES.keys())}."
-            )
+            raise ValueError(f"Invalid account type, please choose a value from {list(ACCOUNT_MODES.keys())}.")
         else:
             sub_model = ACCOUNT_MODES[v].model_construct()
         return sub_model
@@ -82,9 +78,7 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
         if isinstance(v, tuple(FEE_CALCULATOR_MODES.values()) + (Dict,)):
             sub_model = v
         elif v not in FEE_CALCULATOR_MODES:
-            raise ValueError(
-                f"Invalid fee calculator, please choose a value from {list(FEE_CALCULATOR_MODES.keys())}."
-            )
+            raise ValueError(f"Invalid fee calculator, please choose a value from {list(FEE_CALCULATOR_MODES.keys())}.")
         else:
             sub_model = FEE_CALCULATOR_MODES[v].model_construct()
         return sub_model

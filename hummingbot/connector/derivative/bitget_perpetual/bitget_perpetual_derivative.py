@@ -73,7 +73,8 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
             api_key=self.bitget_perpetual_api_key,
             secret_key=self.bitget_perpetual_secret_key,
             passphrase=self.bitget_perpetual_passphrase,
-            time_provider=self._time_synchronizer)
+            time_provider=self._time_synchronizer,
+        )
 
     @property
     def rate_limits_rules(self) -> List[RateLimit]:
@@ -173,9 +174,9 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
 
         full_symbol = None
         for product_type in [CONSTANTS.USDT_PRODUCT_TYPE, CONSTANTS.USD_PRODUCT_TYPE, CONSTANTS.USDC_PRODUCT_TYPE]:
-            candidate_symbol = (f"{symbol_without_product_type}"
-                                f"{CONSTANTS.SYMBOL_AND_PRODUCT_TYPE_SEPARATOR}"
-                                f"{product_type}")
+            candidate_symbol = (
+                f"{symbol_without_product_type}" f"{CONSTANTS.SYMBOL_AND_PRODUCT_TYPE_SEPARATOR}" f"{product_type}"
+            )
             try:
                 full_symbol = await self.trading_pair_associated_to_exchange_symbol(symbol=candidate_symbol)
             except KeyError:
@@ -209,9 +210,7 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         error_description = str(request_exception)
         ts_error_target_str = "Request timestamp expired"
-        is_time_synchronizer_related = (
-            ts_error_target_str in error_description
-        )
+        is_time_synchronizer_related = ts_error_target_str in error_description
         return is_time_synchronizer_related
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
@@ -232,7 +231,7 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         data = {
             "symbol": await self.exchange_symbol_associated_to_pair(tracked_order.trading_pair),
             "marginCoin": self.get_buy_collateral_token(tracked_order.trading_pair),
-            "orderId": tracked_order.exchange_order_id
+            "orderId": tracked_order.exchange_order_id,
         }
         cancel_result = await self._api_post(
             path_url=CONSTANTS.CANCEL_ACTIVE_ORDER_PATH_URL,
@@ -264,9 +263,11 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
             contract = "long" if trade_type == TradeType.BUY else "short"
         else:
             contract = "short" if trade_type == TradeType.BUY else "long"
-        margin_coin = (self.get_buy_collateral_token(trading_pair)
-                       if trade_type == TradeType.BUY
-                       else self.get_sell_collateral_token(trading_pair))
+        margin_coin = (
+            self.get_buy_collateral_token(trading_pair)
+            if trade_type == TradeType.BUY
+            else self.get_sell_collateral_token(trading_pair)
+        )
         data = {
             "side": f"{position_action.name.lower()}_{contract}",
             "symbol": await self.exchange_symbol_associated_to_pair(trading_pair),
@@ -291,14 +292,16 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
 
         return str(resp["data"]["orderId"]), self.current_timestamp
 
-    def _get_fee(self,
-                 base_currency: str,
-                 quote_currency: str,
-                 order_type: OrderType,
-                 order_side: TradeType,
-                 amount: Decimal,
-                 price: Decimal = s_decimal_NaN,
-                 is_maker: Optional[bool] = None) -> TradeFeeBase:
+    def _get_fee(
+        self,
+        base_currency: str,
+        quote_currency: str,
+        order_type: OrderType,
+        order_side: TradeType,
+        amount: Decimal,
+        price: Decimal = s_decimal_NaN,
+        is_maker: Optional[bool] = None,
+    ) -> TradeFeeBase:
         is_maker = is_maker or (order_type is OrderType.LIMIT_MAKER)
         trading_pair = combine_to_hb_trading_pair(base=base_currency, quote=quote_currency)
         if trading_pair in self._trading_fees:
@@ -328,8 +331,8 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
 
         for product_type in product_types:
             exchange_info = await self._api_get(
-                path_url=self.trading_rules_request_path,
-                params={"productType": product_type.lower()})
+                path_url=self.trading_rules_request_path, params={"productType": product_type.lower()}
+            )
             symbol_data.extend(exchange_info["data"])
 
         for symbol_details in symbol_data:
@@ -337,7 +340,7 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
                 trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=symbol_details["symbol"])
                 self._trading_fees[trading_pair] = TradeFeeSchema(
                     maker_percent_fee_decimal=Decimal(symbol_details["makerFeeRate"]),
-                    taker_percent_fee_decimal=Decimal(symbol_details["takerFeeRate"])
+                    taker_percent_fee_decimal=Decimal(symbol_details["takerFeeRate"]),
                 )
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
@@ -369,8 +372,9 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         Calls REST API to update total and available balances
         """
         balances = {}
-        trading_pairs_product_types = set([await self.product_type_for_trading_pair(trading_pair=trading_pair)
-                                           for trading_pair in self.trading_pairs])
+        trading_pairs_product_types = set(
+            [await self.product_type_for_trading_pair(trading_pair=trading_pair) for trading_pair in self.trading_pairs]
+        )
         product_types = trading_pairs_product_types or CONSTANTS.ALL_PRODUCT_TYPES
 
         for product_type in product_types:
@@ -393,9 +397,11 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
             for balance_data in product_type_balances:
                 asset_name = balance_data["marginCoin"]
                 current_available = self._account_available_balances.get(asset_name, Decimal(0))
-                queried_available = (Decimal(str(balance_data["fixedMaxAvailable"]))
-                                     if self.position_mode is PositionMode.ONEWAY
-                                     else Decimal(str(balance_data["crossMaxAvailable"])))
+                queried_available = (
+                    Decimal(str(balance_data["fixedMaxAvailable"]))
+                    if self.position_mode is PositionMode.ONEWAY
+                    else Decimal(str(balance_data["crossMaxAvailable"]))
+                )
                 self._account_available_balances[asset_name] = current_available + queried_available
                 current_total = self._account_balances.get(asset_name, Decimal(0))
                 queried_total = Decimal(str(balance_data["equity"]))
@@ -502,10 +508,7 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _request_order_status_data(self, tracked_order: InFlightOrder) -> Dict:
         exchange_symbol = await self.exchange_symbol_associated_to_pair(tracked_order.trading_pair)
-        query_params = {
-            "symbol": exchange_symbol,
-            "clientOid": tracked_order.client_order_id
-        }
+        query_params = {"symbol": exchange_symbol, "clientOid": tracked_order.client_order_id}
         if tracked_order.exchange_order_id is not None:
             query_params["orderId"] = tracked_order.exchange_order_id
 
@@ -543,7 +546,7 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
             data = {
                 "symbol": exchange_symbol,
                 "marginMode": api_mode,
-                "marginCoin": self.get_buy_collateral_token(trading_pair)
+                "marginCoin": self.get_buy_collateral_token(trading_pair),
             }
 
             response = await self._api_post(
@@ -576,7 +579,7 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
             data = {
                 "symbol": exchange_symbol,
                 "marginCoin": self.get_buy_collateral_token(trading_pair),
-                "leverage": leverage
+                "leverage": leverage,
             }
 
             resp: Dict[str, Any] = await self._api_post(
@@ -612,8 +615,8 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         )
         data: Dict[str, Any] = raw_response["data"]["result"]
         settlement_fee: Optional[Dict[str, Any]] = next(
-            (fee_payment for fee_payment in data if "settle_fee" in fee_payment.get("business", "")),
-            None)
+            (fee_payment for fee_payment in data if "settle_fee" in fee_payment.get("business", "")), None
+        )
 
         if settlement_fee is None:
             # An empty funding fee/payment is retrieved.
@@ -681,8 +684,7 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
 
         # Bitget sends position events as snapshots. If a position is closed it is just not included in the snapshot
         position_keys = list(self.account_positions.keys())
-        positions_to_remove = (position_key for position_key in position_keys
-                               if position_key not in all_position_keys)
+        positions_to_remove = (position_key for position_key in position_keys if position_key not in all_position_keys)
         for position_key in positions_to_remove:
             self._perpetual_trading.remove_position(position_key)
 
@@ -720,9 +722,11 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         order_price = Decimal(order_msg["px"])
         margin_amount = (order_amount * order_price) / Decimal(order_msg["lever"])
 
-        if (collateral_token in self._account_available_balances
-                and order_status in states_to_consider
-                and (is_open_long or is_open_short)):
+        if (
+            collateral_token in self._account_available_balances
+            and order_status in states_to_consider
+            and (is_open_long or is_open_short)
+        ):
 
             multiplier = Decimal(-1) if order_status == OrderState.OPEN else Decimal(1)
             self._account_available_balances[collateral_token] += margin_amount * multiplier
@@ -751,10 +755,16 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
             fee_asset = trade_msg["fillFeeCcy"]
             fee_amount = Decimal(trade_msg["fillFee"])
             position_side = trade_msg["side"]
-            position_action = (PositionAction.OPEN
-                               if (tracked_order.trade_type is TradeType.BUY and position_side == "buy"
-                                   or tracked_order.trade_type is TradeType.SELL and position_side == "sell")
-                               else PositionAction.CLOSE)
+            position_action = (
+                PositionAction.OPEN
+                if (
+                    tracked_order.trade_type is TradeType.BUY
+                    and position_side == "buy"
+                    or tracked_order.trade_type is TradeType.SELL
+                    and position_side == "sell"
+                )
+                else PositionAction.CLOSE
+            )
 
             flat_fees = [] if fee_amount == Decimal("0") else [TokenAmount(amount=fee_amount, token=fee_asset)]
 
@@ -787,7 +797,7 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
 
         fee_asset = tracked_order.quote_asset
         fee_amount = Decimal(trade_msg["fee"])
-        position_action = (PositionAction.OPEN if "open" == trade_msg["side"] else PositionAction.CLOSE)
+        position_action = PositionAction.OPEN if "open" == trade_msg["side"] else PositionAction.CLOSE
 
         flat_fees = [] if fee_amount == Decimal("0") else [TokenAmount(amount=fee_amount, token=fee_asset)]
 
@@ -837,15 +847,15 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
 
         for product_type in product_types:
             exchange_info = await self._api_get(
-                path_url=self.trading_pairs_request_path,
-                params={"productType": product_type.lower()})
+                path_url=self.trading_pairs_request_path, params={"productType": product_type.lower()}
+            )
             all_exchange_info.extend(exchange_info["data"])
 
         # For USDC collateralized products we need to change the quote asset from USD to USDC, to avoid colitions
         # in the trading pairs with markets for product type DMCBL
         exchange_info = await self._api_get(
-            path_url=self.trading_pairs_request_path,
-            params={"productType": CONSTANTS.USDC_PRODUCT_TYPE.lower()})
+            path_url=self.trading_pairs_request_path, params={"productType": CONSTANTS.USDC_PRODUCT_TYPE.lower()}
+        )
         markets = exchange_info["data"]
         for market_info in markets:
             market_info["quoteCoin"] = market_info["supportMarginCoins"][0]
@@ -902,8 +912,9 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
                     trading_rules[trading_pair] = TradingRule(
                         trading_pair=trading_pair,
                         min_order_size=Decimal(str(instrument["minTradeNum"])),
-                        min_price_increment=(Decimal(str(instrument["priceEndStep"]))
-                                             * Decimal(f"1e-{instrument['pricePlace']}")),
+                        min_price_increment=(
+                            Decimal(str(instrument["priceEndStep"])) * Decimal(f"1e-{instrument['pricePlace']}")
+                        ),
                         min_base_amount_increment=Decimal(str(instrument["sizeMultiplier"])),
                         buy_order_collateral_token=collateral_token,
                         sell_order_collateral_token=collateral_token,

@@ -6,16 +6,9 @@ from commlib.serializer import JSONSerializer
 
 
 class FakeMQTTMessage(object):
-    def __init__(self,
-                 topic,
-                 payload):
+    def __init__(self, topic, payload):
         self.topic = topic
-        fake_payload = {
-            'header': {
-                'reply_to': f"test_reply/{topic}"
-            },
-            'data': payload
-        }
+        fake_payload = {"header": {"reply_to": f"test_reply/{topic}"}, "data": payload}
         self.payload = ujson.dumps(fake_payload)
 
 
@@ -31,9 +24,7 @@ class FakeMQTTBroker:
     def publish_to_subscription(self, topic, payload):
         callback = self._transport._subscriptions[topic]
         msg = FakeMQTTMessage(topic=topic, payload=payload)
-        callback(client=None,
-                 userdata=None,
-                 msg=msg)
+        callback(client=None, userdata=None, msg=msg)
 
     @property
     def subscriptions(self):
@@ -43,7 +34,7 @@ class FakeMQTTBroker:
     def received_msgs(self):
         return self._transport._received_msgs
 
-    def is_msg_received(self, topic, content=None, msg_key = 'msg'):
+    def is_msg_received(self, topic, content=None, msg_key="msg"):
         msg_found = False
         if topic in self.received_msgs:
             if not content:

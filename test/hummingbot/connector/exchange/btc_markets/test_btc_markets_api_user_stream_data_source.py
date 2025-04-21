@@ -45,10 +45,7 @@ class BtcMarketsAPIUserStreamDataSourceTest(IsolatedAsyncioWrapperTestCase):
         self.mock_time_provider = MagicMock()
         self.mock_time_provider.time.return_value = 1000
 
-        self.auth = BtcMarketsAuth(
-            self.api_key,
-            self.api_secret_key,
-            time_provider=self.mock_time_provider)
+        self.auth = BtcMarketsAuth(self.api_key, self.api_secret_key, time_provider=self.mock_time_provider)
 
         self.connector = BtcMarketsExchange(
             client_config_map=self.client_config_map,
@@ -64,13 +61,13 @@ class BtcMarketsAPIUserStreamDataSourceTest(IsolatedAsyncioWrapperTestCase):
             auth=self.auth,
             trading_pairs=[self.trading_pair],
             connector=self.connector,
-            api_factory=self.connector._web_assistants_factory)
+            api_factory=self.connector._web_assistants_factory,
+        )
 
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
-        self.connector._set_trading_pair_symbol_map(
-            bidict({self.ex_trading_pair: self.trading_pair}))
+        self.connector._set_trading_pair_symbol_map(bidict({self.ex_trading_pair: self.trading_pair}))
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
@@ -80,8 +77,7 @@ class BtcMarketsAPIUserStreamDataSourceTest(IsolatedAsyncioWrapperTestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message
-                   for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
     def _raise_exception(self, exception_class):
         raise exception_class
@@ -93,42 +89,38 @@ class BtcMarketsAPIUserStreamDataSourceTest(IsolatedAsyncioWrapperTestCase):
         erroneous_login_response = {"messageType": "error", "code": 1, "message": "authentication failed. invalid key"}
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(erroneous_login_response))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(erroneous_login_response)
+        )
 
         output_queue = asyncio.Queue()
 
-        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(output=output_queue)
+        )
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         self.assertEqual(0, output_queue.qsize())
 
-        self.assertTrue(self._is_logged(
-            "ERROR",
-            "Unexpected error while listening to user stream. Retrying after 5 seconds..."
-        ))
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error while listening to user stream. Retrying after 5 seconds...")
+        )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_user_stream_does_not_queue_invalid_payload(self, mock_ws):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
 
-        event_with_invalid_messageType = {
-            "messageType": "Invalid message type"
-        }
+        event_with_invalid_messageType = {"messageType": "Invalid message type"}
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=mock_ws.return_value,
-            message=json.dumps(event_with_invalid_messageType))
+            websocket_mock=mock_ws.return_value, message=json.dumps(event_with_invalid_messageType)
+        )
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_user_stream(msg_queue)
-        )
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
-        self.mocking_assistant.json_messages_sent_through_websocket(
-            websocket_mock=mock_ws.return_value)
+        self.mocking_assistant.json_messages_sent_through_websocket(websocket_mock=mock_ws.return_value)
 
         self.assertEqual(0, msg_queue.qsize())
 
@@ -144,31 +136,35 @@ class BtcMarketsAPIUserStreamDataSourceTest(IsolatedAsyncioWrapperTestCase):
         }
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(result_subscribe_orders))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe_orders)
+        )
 
         output_queue = asyncio.Queue()
 
-        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(output=output_queue)
+        )
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
-            websocket_mock=ws_connect_mock.return_value)
+            websocket_mock=ws_connect_mock.return_value
+        )
 
         self.assertEqual(1, len(sent_subscription_messages))
 
         now = int((self.mock_time_provider.time.return_value) * 1e3)
         strToSign = f"/users/self/subscribe\n{now}"
-        signature = base64.b64encode(hmac.new(
-            base64.b64decode(self.api_secret_key), strToSign.encode("utf8"), digestmod=hashlib.sha512).digest()).decode('utf8')
+        signature = base64.b64encode(
+            hmac.new(base64.b64decode(self.api_secret_key), strToSign.encode("utf8"), digestmod=hashlib.sha512).digest()
+        ).decode("utf8")
         auth_subscription = {
             "signature": signature,
             "key": self.api_key,
             "marketIds": [self.ex_trading_pair],
             "timestamp": str(now),
-            "messageType": 'subscribe',
-            "channels": [CONSTANTS.ORDER_CHANGE_EVENT_TYPE, CONSTANTS.FUND_CHANGE_EVENT_TYPE, CONSTANTS.HEARTBEAT]
+            "messageType": "subscribe",
+            "channels": [CONSTANTS.ORDER_CHANGE_EVENT_TYPE, CONSTANTS.FUND_CHANGE_EVENT_TYPE, CONSTANTS.HEARTBEAT],
         }
         self.assertEqual(auth_subscription, sent_subscription_messages[0])
 
@@ -177,16 +173,12 @@ class BtcMarketsAPIUserStreamDataSourceTest(IsolatedAsyncioWrapperTestCase):
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_user_stream_does_not_queue_heartbeat_payload(self, mock_ws):
 
-        mock_pong = {
-            "messageType": CONSTANTS.HEARTBEAT
-        }
+        mock_pong = {"messageType": CONSTANTS.HEARTBEAT}
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, json.dumps(mock_pong))
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_user_stream(msg_queue)
-        )
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
@@ -206,7 +198,7 @@ class BtcMarketsAPIUserStreamDataSourceTest(IsolatedAsyncioWrapperTestCase):
         except asyncio.CancelledError:
             pass
 
-    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listening_process_canceled_when_cancel_exception_during_initialization(self, ws_connect_mock):
         messages = asyncio.Queue()
         ws_connect_mock.side_effect = asyncio.CancelledError
@@ -214,7 +206,7 @@ class BtcMarketsAPIUserStreamDataSourceTest(IsolatedAsyncioWrapperTestCase):
         with self.assertRaises(asyncio.CancelledError):
             await self.data_source.listen_for_user_stream(messages)
 
-    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listening_process_canceled_when_cancel_exception_during_authentication(self, ws_connect_mock):
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
@@ -237,30 +229,32 @@ class BtcMarketsAPIUserStreamDataSourceTest(IsolatedAsyncioWrapperTestCase):
         subscription_result = {
             "messageType": "subscribe",
             "marketIds": [self.trading_pair],
-            "channels": [CONSTANTS.ORDER_CHANGE_EVENT_TYPE, CONSTANTS.FUND_CHANGE_EVENT_TYPE, CONSTANTS.HEARTBEAT]
+            "channels": [CONSTANTS.ORDER_CHANGE_EVENT_TYPE, CONSTANTS.FUND_CHANGE_EVENT_TYPE, CONSTANTS.HEARTBEAT],
         }
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(subscription_result))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(subscription_result)
+        )
 
-        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(asyncio.Queue()))
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(asyncio.Queue())
+        )
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
-            websocket_mock=ws_connect_mock.return_value)
+            websocket_mock=ws_connect_mock.return_value
+        )
 
         self.assertEqual(1, len(sent_subscription_messages))
         expected_order_change_subscription = {
             "messageType": "subscribe",
             "marketIds": [self.ex_trading_pair],
-            "channels": [CONSTANTS.ORDER_CHANGE_EVENT_TYPE, CONSTANTS.FUND_CHANGE_EVENT_TYPE, CONSTANTS.HEARTBEAT]
+            "channels": [CONSTANTS.ORDER_CHANGE_EVENT_TYPE, CONSTANTS.FUND_CHANGE_EVENT_TYPE, CONSTANTS.HEARTBEAT],
         }
         self.assertEqual(expected_order_change_subscription["channels"], sent_subscription_messages[0]["channels"])
 
-        self.assertTrue(
-            self._is_logged("INFO", "Subscribed to private account and orders channels..."))
+        self.assertTrue(self._is_logged("INFO", "Subscribed to private account and orders channels..."))
 
     @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect")
@@ -268,7 +262,9 @@ class BtcMarketsAPIUserStreamDataSourceTest(IsolatedAsyncioWrapperTestCase):
         mock_ws.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(asyncio.Queue()))
+            self.listening_task = self.local_event_loop.create_task(
+                self.data_source.listen_for_user_stream(asyncio.Queue())
+            )
             await self.listening_task
 
     @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
@@ -277,7 +273,9 @@ class BtcMarketsAPIUserStreamDataSourceTest(IsolatedAsyncioWrapperTestCase):
         mock_ws.side_effect = Exception("TEST ERROR.")
         sleep_mock.side_effect = asyncio.CancelledError
 
-        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(asyncio.Queue()))
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(asyncio.Queue())
+        )
 
         try:
             with self.assertRaises(Exception):
@@ -303,24 +301,22 @@ class BtcMarketsAPIUserStreamDataSourceTest(IsolatedAsyncioWrapperTestCase):
 
         order_event = {
             "orderId": 79003,
-            "marketId": 'BTC-AUD',
-            "side": 'Bid',
-            "type": 'Limit',
-            "openVolume": '1',
-            "status": 'Placed',
-            "triggerStatus": '',
+            "marketId": "BTC-AUD",
+            "side": "Bid",
+            "type": "Limit",
+            "openVolume": "1",
+            "status": "Placed",
+            "triggerStatus": "",
             "trades": [],
-            "timestamp": '2019-04-08T20:41:19.339Z',
-            "messageType": 'orderChange'
+            "timestamp": "2019-04-08T20:41:19.339Z",
+            "messageType": "orderChange",
         }
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=mock_ws.return_value,
-            message=json.dumps(order_event))
+            websocket_mock=mock_ws.return_value, message=json.dumps(order_event)
+        )
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_user_stream(msg_queue)
-        )
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
@@ -332,22 +328,18 @@ class BtcMarketsAPIUserStreamDataSourceTest(IsolatedAsyncioWrapperTestCase):
     async def test_listen_for_user_stream_logs_details_for_order_event_with_errors(self, mock_ws):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
 
-        order_event = {
-            "messageType": 'error',
-            "code": 3,
-            "message": 'invalid marketIds'
-        }
+        order_event = {"messageType": "error", "code": 3, "message": "invalid marketIds"}
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=mock_ws.return_value,
-            message=json.dumps(order_event))
+            websocket_mock=mock_ws.return_value, message=json.dumps(order_event)
+        )
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_user_stream(msg_queue)
-        )
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
         self.assertEqual(0, msg_queue.qsize())
 
-        self.assertTrue(self._is_logged("ERROR", "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error while listening to user stream. Retrying after 5 seconds...")
+        )

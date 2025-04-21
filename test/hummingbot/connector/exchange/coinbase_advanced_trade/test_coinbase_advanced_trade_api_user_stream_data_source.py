@@ -39,19 +39,19 @@ class MockWebAssistant:
         self.connect_called = None
 
     async def connect(
-            self,
-            ws_url: str,
-            *,
-            ping_timeout: float,
-            message_timeout: float | None = None,
-            ws_headers: Dict | None = None,
+        self,
+        ws_url: str,
+        *,
+        ping_timeout: float,
+        message_timeout: float | None = None,
+        ws_headers: Dict | None = None,
     ) -> None:
         self.connect_called = True
         self.connect_args = {
             "ws_url": ws_url,
             "ping_timeout": ping_timeout,
             "message_timeout": message_timeout,
-            "ws_headers": ws_headers
+            "ws_headers": ws_headers,
         }
         self.connect_count += 1
 
@@ -99,19 +99,20 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSourceTests(
         self.listening_task: asyncio.Task | None = None
 
         self.cumulative_update = CoinbaseAdvancedTradeCumulativeUpdate(
-            client_order_id='YYY',
-            exchange_order_id='XXX',
-            status='OPEN',
-            trading_pair='BTC-USD',
+            client_order_id="YYY",
+            exchange_order_id="XXX",
+            status="OPEN",
+            trading_pair="BTC-USD",
             fill_timestamp_s=1678900000,
-            average_price=Decimal('0'),
-            cumulative_base_amount=Decimal('0'),
-            remainder_base_amount=Decimal('0.000994'),
-            cumulative_fee=Decimal('0'),
+            average_price=Decimal("0"),
+            cumulative_base_amount=Decimal("0"),
+            remainder_base_amount=Decimal("0.000994"),
+            cumulative_fee=Decimal("0"),
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             creation_timestamp_s=1678900000,
-            is_taker=False)
+            is_taker=False,
+        )
 
         self.event_message = {
             "channel": "user",
@@ -132,11 +133,11 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSourceTests(
                             "product_id": "BTC-USD",
                             "creation_time": "2022-12-07T19:42:18.719312Z",
                             "order_side": "BUY",
-                            "order_type": "Limit"
+                            "order_type": "Limit",
                         },
-                    ]
+                    ],
                 }
-            ]
+            ],
         }
 
         self.api_factory = Mock(spec=WebAssistantsFactory)
@@ -212,7 +213,10 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSourceTests(
 
         result = self.data_source.last_recv_time
 
-        self.assertEqual(1234567890.0, result, )
+        self.assertEqual(
+            1234567890.0,
+            result,
+        )
 
     async def test_process_websocket_messages(self):
         queue = asyncio.Queue()
@@ -229,8 +233,8 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSourceTests(
                         },
                         {
                             "order_id": "order2",
-                        }
-                    ]
+                        },
+                    ],
                 },
                 {
                     "type": "update",
@@ -240,10 +244,10 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSourceTests(
                         },
                         {
                             "order_id": "order4",
-                        }
-                    ]
-                }
-            ]
+                        },
+                    ],
+                },
+            ],
         }
         response = Mock(spec=WSResponse)
         response.data = data
@@ -253,14 +257,8 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSourceTests(
 
         self.data_source._ws_assistant = ws_assistant
 
-        with patch.object(
-                CoinbaseAdvancedTradeAPIUserStreamDataSource,
-                "_decipher_message"
-        ) as mock_decipher_message:
-            await self.data_source._process_websocket_messages(
-                self.data_source._ws_assistant,  # type: ignore
-                queue
-            )
+        with patch.object(CoinbaseAdvancedTradeAPIUserStreamDataSource, "_decipher_message") as mock_decipher_message:
+            await self.data_source._process_websocket_messages(self.data_source._ws_assistant, queue)  # type: ignore
 
         self.assertEqual(1, ws_assistant.iter_messages_count)
         mock_decipher_message.assert_called_once_with(event_message=data)
@@ -270,9 +268,11 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSourceTests(
         self.data_source._connector = MagicMock()
         self.data_source._connector.trading_pair_associated_to_exchange_symbol = AsyncMock(return_value="BTC-USD")
 
-        with patch('hummingbot.connector.exchange.coinbase_advanced_trade'
-                   '.coinbase_advanced_trade_api_user_stream_data_source.get_timestamp_from_exchange_time',
-                   return_value=1678900000):
+        with patch(
+            "hummingbot.connector.exchange.coinbase_advanced_trade"
+            ".coinbase_advanced_trade_api_user_stream_data_source.get_timestamp_from_exchange_time",
+            return_value=1678900000,
+        ):
             async for cumulative_order in self.data_source._decipher_message(self.event_message):
                 self.assertIsInstance(cumulative_order, CoinbaseAdvancedTradeCumulativeUpdate)
                 self.assertEqual(cumulative_order, self.cumulative_update)
@@ -281,15 +281,16 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSourceTests(
 class TestMessageToCumulativeUpdate(IsolatedAsyncioWrapperTestCase):
 
     async def test_valid_message(self):
-        with patch('hummingbot.connector.exchange.coinbase_advanced_trade'
-                   '.coinbase_advanced_trade_api_user_stream_data_source.get_timestamp_from_exchange_time',
-                   return_value=1678900000):
+        with patch(
+            "hummingbot.connector.exchange.coinbase_advanced_trade"
+            ".coinbase_advanced_trade_api_user_stream_data_source.get_timestamp_from_exchange_time",
+            return_value=1678900000,
+        ):
             cb_user_data_stream = AsyncMock(spec=CoinbaseAdvancedTradeAPIUserStreamDataSource)
             cb_user_data_stream._connector = AsyncMock(spec=CoinbaseAdvancedTradeExchange)
             cb_user_data_stream._connector.trading_pair_associated_to_exchange_symbol.return_value = "BTC-USD"
             cb_user_data_stream._decipher_message = functools.partial(
-                CoinbaseAdvancedTradeAPIUserStreamDataSource._decipher_message,
-                cb_user_data_stream
+                CoinbaseAdvancedTradeAPIUserStreamDataSource._decipher_message, cb_user_data_stream
             )
             event_message: Dict[str, Any] = {
                 "channel": "user",
@@ -310,11 +311,11 @@ class TestMessageToCumulativeUpdate(IsolatedAsyncioWrapperTestCase):
                                 "product_id": "BTC-USD",
                                 "creation_time": "2022-12-07T19:42:18.719312Z",
                                 "order_side": "BUY",
-                                "order_type": "Limit"
+                                "order_type": "Limit",
                             }
-                        ]
+                        ],
                     }
-                ]
+                ],
             }
             async for cumulative_order in cb_user_data_stream._decipher_message(event_message):
                 self.assertIsInstance(cumulative_order, CoinbaseAdvancedTradeCumulativeUpdate)
@@ -329,14 +330,15 @@ class TestMessageToCumulativeUpdate(IsolatedAsyncioWrapperTestCase):
                 self.assertEqual(cumulative_order.cumulative_fee, Decimal("0"))
 
     async def test_invalid_message(self):
-        with patch('hummingbot.connector.exchange.coinbase_advanced_trade'
-                   '.coinbase_advanced_trade_api_user_stream_data_source.get_timestamp_from_exchange_time',
-                   return_value=1678900000):
+        with patch(
+            "hummingbot.connector.exchange.coinbase_advanced_trade"
+            ".coinbase_advanced_trade_api_user_stream_data_source.get_timestamp_from_exchange_time",
+            return_value=1678900000,
+        ):
             cb_user_data_stream = AsyncMock(spec=CoinbaseAdvancedTradeAPIUserStreamDataSource)
             cb_user_data_stream._connector = AsyncMock(spec=CoinbaseAdvancedTradeExchange)
             cb_user_data_stream._decipher_message = functools.partial(
-                CoinbaseAdvancedTradeAPIUserStreamDataSource._decipher_message,
-                cb_user_data_stream
+                CoinbaseAdvancedTradeAPIUserStreamDataSource._decipher_message, cb_user_data_stream
             )
 
             event_message: Dict[str, Any] = {
@@ -358,16 +360,16 @@ class TestMessageToCumulativeUpdate(IsolatedAsyncioWrapperTestCase):
                                 "product_id": "BTC-USD",
                                 "creation_time": "2022-12-07T19:42:18.719312Z",
                                 "order_side": "BUY",
-                                "order_type": "Limit"
+                                "order_type": "Limit",
                             }
-                        ]
+                        ],
                     }
-                ]
+                ],
             }
             with self.assertRaises(decimal.InvalidOperation):
                 async for _ in cb_user_data_stream._decipher_message(event_message):
                     pass
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

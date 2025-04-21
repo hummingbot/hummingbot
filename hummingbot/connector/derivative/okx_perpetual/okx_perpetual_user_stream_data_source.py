@@ -52,9 +52,7 @@ class OkxPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         try:
             tasks = []
             tasks.append(
-                self._listen_for_user_stream_on_url(
-                    url=web_utils.wss_linear_private_url(self._domain), output=output
-                )
+                self._listen_for_user_stream_on_url(url=web_utils.wss_linear_private_url(self._domain), output=output)
             )
             tasks_future = asyncio.gather(*tasks)
             await tasks_future
@@ -108,23 +106,13 @@ class OkxPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         try:
             positions_payload = {
                 "op": "subscribe",
-                "args": [
-                    {
-                        "channel": f"{CONSTANTS.WS_POSITIONS_CHANNEL}",
-                        "instType": "SWAP"
-                    }
-                ],
+                "args": [{"channel": f"{CONSTANTS.WS_POSITIONS_CHANNEL}", "instType": "SWAP"}],
             }
             subscribe_positions_request = WSJSONRequest(positions_payload)
 
             orders_payload = {
                 "op": "subscribe",
-                "args": [
-                    {
-                        "channel": f"{CONSTANTS.WS_ORDERS_CHANNEL}",
-                        "instType": "SWAP"
-                    }
-                ],
+                "args": [{"channel": f"{CONSTANTS.WS_ORDERS_CHANNEL}", "instType": "SWAP"}],
             }
             subscribe_orders_request = WSJSONRequest(orders_payload)
 
@@ -142,9 +130,7 @@ class OkxPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             await ws.send(subscribe_orders_request)
             await ws.send(subscribe_wallet_request)
 
-            self.logger().info(
-                f"Subscribed to private account and orders channels {url}..."
-            )
+            self.logger().info(f"Subscribed to private account and orders channels {url}...")
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -156,9 +142,7 @@ class OkxPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant, queue: asyncio.Queue):
         while True:
             try:
-                await super()._process_websocket_messages(
-                    websocket_assistant=websocket_assistant,
-                    queue=queue)
+                await super()._process_websocket_messages(websocket_assistant=websocket_assistant, queue=queue)
             except asyncio.TimeoutError:
                 ping_request = WSJSONRequest(payload={"ping"})
                 await websocket_assistant.send(ping_request)

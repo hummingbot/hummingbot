@@ -76,7 +76,7 @@ RATE_LIMITS = [
     RateLimit(limit_id=ORDERS_URL, limit=50, time_interval=10),
     RateLimit(limit_id=BATCH_ORDERS_URL, limit=50, time_interval=10),
     RateLimit(limit_id=TRADES_URL, limit=50, time_interval=10),
-    RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=50, time_interval=10)
+    RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=50, time_interval=10),
 ]
 """
 Rate Limits - https://api.btcmarkets.net/doc/v3#section/General-Notes

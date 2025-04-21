@@ -14,8 +14,10 @@ if TYPE_CHECKING:
 
 
 class ExportCommand:
-    def export(self,  # type: HummingbotApplication
-               option):
+    def export(
+        self,  # type: HummingbotApplication
+        option,
+    ):
         if option is None or option not in ("keys", "trades"):
             self.notify("Invalid export option.")
             return
@@ -24,8 +26,9 @@ class ExportCommand:
         elif option == "trades":
             safe_ensure_future(self.export_trades())
 
-    async def export_keys(self,  # type: HummingbotApplication
-                          ):
+    async def export_keys(
+        self,  # type: HummingbotApplication
+    ):
         await Security.wait_til_decryption_done()
         if not Security.any_secure_configs():
             self.notify("There are no keys to export.")
@@ -33,8 +36,10 @@ class ExportCommand:
         self.placeholder_mode = True
         self.app.hide_input = True
         if await self.check_password():
-            self.notify("\nWarning: Never disclose API keys or private keys. Anyone with your keys can steal any "
-                        "assets held in your account.")
+            self.notify(
+                "\nWarning: Never disclose API keys or private keys. Anyone with your keys can steal any "
+                "assets held in your account."
+            )
             self.notify("\nAPI keys:")
             for key, cm in Security.all_decrypted_values().items():
                 for el in cm.traverse(secure=False):
@@ -44,8 +49,10 @@ class ExportCommand:
         self.app.hide_input = False
         self.placeholder_mode = False
 
-    async def prompt_new_export_file_name(self,  # type: HummingbotApplication
-                                          path):
+    async def prompt_new_export_file_name(
+        self,  # type: HummingbotApplication
+        path,
+    ):
         input = await self.app.prompt(prompt="Enter a new csv file name >>> ")
         if input is None or input == "":
             self.notify("Value is required.")
@@ -61,12 +68,11 @@ class ExportCommand:
         else:
             return input
 
-    async def export_trades(self,  # type: HummingbotApplication
-                            ):
+    async def export_trades(
+        self,  # type: HummingbotApplication
+    ):
         with self.trade_fill_db.get_new_session() as session:
-            trades: List[TradeFill] = self._get_trades_from_session(
-                int(self.init_time * 1e3),
-                session=session)
+            trades: List[TradeFill] = self._get_trades_from_session(int(self.init_time * 1e3), session=session)
             if len(trades) == 0:
                 self.notify("No past trades to export.")
                 return
@@ -89,19 +95,18 @@ class ExportCommand:
             self.placeholder_mode = False
             self.app.hide_input = False
 
-    def _get_trades_from_session(self,  # type: HummingbotApplication
-                                 start_timestamp: int,
-                                 session: Session,
-                                 number_of_rows: Optional[int] = None,
-                                 config_file_path: str = None) -> List[TradeFill]:
+    def _get_trades_from_session(
+        self,  # type: HummingbotApplication
+        start_timestamp: int,
+        session: Session,
+        number_of_rows: Optional[int] = None,
+        config_file_path: str = None,
+    ) -> List[TradeFill]:
 
         filters = [TradeFill.timestamp >= start_timestamp]
         if config_file_path is not None:
             filters.append(TradeFill.config_file_path.like(f"%{config_file_path}%"))
-        query: Query = (session
-                        .query(TradeFill)
-                        .filter(*filters)
-                        .order_by(TradeFill.timestamp.desc()))
+        query: Query = session.query(TradeFill).filter(*filters).order_by(TradeFill.timestamp.desc())
         if number_of_rows is None:
             result: List[TradeFill] = query.all() or []
         else:

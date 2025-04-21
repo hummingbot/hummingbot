@@ -40,8 +40,7 @@ class PerpetualTest(unittest.TestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message
-                   for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
     async def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
@@ -114,9 +113,7 @@ class PerpetualTest(unittest.TestCase):
     def test_updating_funding_info_logs_exception(self):
         mock_queue = MagicMock()
         mock_queue.get.side_effect = [
-            self._create_exception_and_unlock_test_with_event(
-                RuntimeError("Some error")
-            ),
+            self._create_exception_and_unlock_test_with_event(RuntimeError("Some error")),
             asyncio.CancelledError(),
         ]
         self.perpetual_trading._funding_info_stream = mock_queue

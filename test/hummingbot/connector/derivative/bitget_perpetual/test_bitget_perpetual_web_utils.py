@@ -25,9 +25,7 @@ class BitgetPerpetualWebUtilsTest(unittest.TestCase):
     @aioresponses()
     def test_get_current_server_time(self, api_mock):
         url = web_utils.public_rest_url(path_url=CONSTANTS.SERVER_TIME_PATH_URL)
-        data = {
-            "flag": True,
-            "requestTime": 1640001112223}
+        data = {"flag": True, "requestTime": 1640001112223}
 
         api_mock.get(url=url, status=400, body=json.dumps(data))
 

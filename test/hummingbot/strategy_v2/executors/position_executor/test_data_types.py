@@ -40,7 +40,8 @@ class TestPositionExecutorDataTypes(TestCase):
             trade_type=TradeType.BUY,
             amount=Decimal("100"),
             creation_timestamp=12341451532,
-            price=Decimal("1"))
+            price=Decimal("1"),
+        )
         order = TrackedOrder()
         order.order = in_flight_order
         self.assertEqual(order.order, in_flight_order)
@@ -54,7 +55,7 @@ class TestPositionExecutorDataTypes(TestCase):
             open_order_type=OrderType.LIMIT,
             take_profit_order_type=OrderType.MARKET,
             stop_loss_order_type=OrderType.MARKET,
-            time_limit_order_type=OrderType.MARKET
+            time_limit_order_type=OrderType.MARKET,
         )
         triple_barrier_new = triple_barrier_base.new_instance_with_adjusted_volatility(1.5)
         self.assertEqual(triple_barrier_new.stop_loss, Decimal("0.15"))

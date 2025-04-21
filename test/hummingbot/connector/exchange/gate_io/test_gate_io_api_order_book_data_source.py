@@ -41,12 +41,14 @@ class TestGateIoAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
             gate_io_api_key="",
             gate_io_secret_key="",
             trading_pairs=[],
-            trading_required=False)
+            trading_required=False,
+        )
 
         self.data_source = GateIoAPIOrderBookDataSource(
             trading_pairs=[self.trading_pair],
             connector=self.connector,
-            api_factory=self.connector._web_assistants_factory)
+            api_factory=self.connector._web_assistants_factory,
+        )
 
         self._original_full_order_book_reset_time = self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS
         self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = -1
@@ -66,8 +68,7 @@ class TestGateIoAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message
-                   for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
     @staticmethod
     def get_order_book_data_mock() -> Dict:
@@ -75,12 +76,8 @@ class TestGateIoAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
             "id": 1890172054,
             "current": 1630644717528,
             "update": 1630644716786,
-            "asks": [
-                ["0.298705", "5020"]
-            ],
-            "bids": [
-                ["0.298642", "2703.17"]
-            ]
+            "asks": [["0.298705", "5020"]],
+            "bids": [["0.298642", "2703.17"]],
         }
         return order_book_data
 
@@ -96,8 +93,8 @@ class TestGateIoAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
                 "side": "sell",
                 "currency_pair": self.ex_trading_pair,
                 "amount": "16.4700000000",
-                "price": "0.4705000000"
-            }
+                "price": "0.4705000000",
+            },
         }
         return trade_data
 
@@ -114,18 +111,10 @@ class TestGateIoAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
                 "U": 48776301,
                 "u": 48776306,
                 "b": [
-                    [
-                        "19137.74",
-                        "0.0001"
-                    ],
+                    ["19137.74", "0.0001"],
                 ],
-                "a": [
-                    [
-                        "19137.75",
-                        "0.6135"
-                    ]
-                ]
-            }
+                "a": [["19137.75", "0.6135"]],
+            },
         }
         return ob_update
 
@@ -143,7 +132,7 @@ class TestGateIoAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
                 "u": 48791830,
                 "b": [bids],
                 "a": [asks],
-            }
+            },
         }
         return ob_snapshot
 
@@ -193,16 +182,16 @@ class TestGateIoAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
     async def test_listen_for_trades(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         resp = self.get_trade_data_mock()
-        self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value, json.dumps(resp)
-        )
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(resp))
         output_queue = asyncio.Queue()
 
         t = self.local_event_loop.create_task(self.data_source.listen_for_subscriptions())
         self.async_tasks.append(t)
         t = self.local_event_loop.create_task(self.data_source.listen_for_trades(self.local_event_loop, output_queue))
         self.async_tasks.append(t)
-        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(websocket_mock=ws_connect_mock.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(
+            websocket_mock=ws_connect_mock.return_value
+        )
 
         self.assertTrue(not output_queue.empty())
         self.assertTrue(isinstance(output_queue.get_nowait(), OrderBookMessage))
@@ -210,16 +199,20 @@ class TestGateIoAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_trades_skips_subscribe_unsubscribe_messages(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        resp1 = {"time": 1632223851, "channel": CONSTANTS.TRADES_ENDPOINT_NAME, "event": "subscribe", "result": {"status": "success"}}
-        self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value, json.dumps(resp1)
-        )
-        resp2 = {
-            "time": 1632223851, "channel": CONSTANTS.TRADES_ENDPOINT_NAME, "event": "unsubscribe", "result": {"status": "success"}
+        resp1 = {
+            "time": 1632223851,
+            "channel": CONSTANTS.TRADES_ENDPOINT_NAME,
+            "event": "subscribe",
+            "result": {"status": "success"},
         }
-        self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value, json.dumps(resp2)
-        )
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(resp1))
+        resp2 = {
+            "time": 1632223851,
+            "channel": CONSTANTS.TRADES_ENDPOINT_NAME,
+            "event": "unsubscribe",
+            "result": {"status": "success"},
+        }
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(resp2))
 
         output_queue = asyncio.Queue()
         t = self.local_event_loop.create_task(self.data_source.listen_for_subscriptions())
@@ -229,22 +222,13 @@ class TestGateIoAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         self.assertTrue(output_queue.empty())
-        self.assertFalse(
-            self._is_logged(
-                "ERROR",
-                f"Unexpected error while parsing ws trades message {resp1}."
-            )
-        )
-        self.assertFalse(
-            self._is_logged(
-                "ERROR",
-                f"Unexpected error while parsing ws trades message {resp2}."
-            )
-        )
+        self.assertFalse(self._is_logged("ERROR", f"Unexpected error while parsing ws trades message {resp1}."))
+        self.assertFalse(self._is_logged("ERROR", f"Unexpected error while parsing ws trades message {resp2}."))
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch(
-        "hummingbot.connector.exchange.gate_io.gate_io_api_order_book_data_source.GateIoAPIOrderBookDataSource._sleep")
+        "hummingbot.connector.exchange.gate_io.gate_io_api_order_book_data_source.GateIoAPIOrderBookDataSource._sleep"
+    )
     async def test_listen_for_trades_logs_error_when_exception_happens(self, _, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         incomplete_response = {
@@ -254,7 +238,7 @@ class TestGateIoAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
             "result": {
                 "id": 309143071,
                 "currency_pair": f"{self.base_asset}_{self.quote_asset}",
-            }
+            },
         }
 
         self.mocking_assistant.add_websocket_aiohttp_message(
@@ -266,28 +250,28 @@ class TestGateIoAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
         self.async_tasks.append(t)
         t = self.local_event_loop.create_task(self.data_source.listen_for_trades(self.local_event_loop, output_queue))
         self.async_tasks.append(t)
-        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(websocket_mock=ws_connect_mock.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(
+            websocket_mock=ws_connect_mock.return_value
+        )
 
-        self.assertTrue(
-            self._is_logged(
-                "ERROR",
-                "Unexpected error when processing public trade updates from exchange"
-            ))
+        self.assertTrue(self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_order_book_diffs_update(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         resp = self.get_order_book_update_mock()
-        self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value, json.dumps(resp)
-        )
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(resp))
         output_queue = asyncio.Queue()
 
         t = self.local_event_loop.create_task(self.data_source.listen_for_subscriptions())
         self.async_tasks.append(t)
-        t = self.local_event_loop.create_task(self.data_source.listen_for_order_book_diffs(self.local_event_loop, output_queue))
+        t = self.local_event_loop.create_task(
+            self.data_source.listen_for_order_book_diffs(self.local_event_loop, output_queue)
+        )
         self.async_tasks.append(t)
-        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(websocket_mock=ws_connect_mock.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(
+            websocket_mock=ws_connect_mock.return_value
+        )
 
         self.assertTrue(not output_queue.empty())
         self.assertTrue(isinstance(output_queue.get_nowait(), OrderBookMessage))
@@ -295,15 +279,11 @@ class TestGateIoAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch(
         "hummingbot.connector.exchange.gate_io.gate_io_api_order_book_data_source.GateIoAPIOrderBookDataSource._sleep",
-        new_callable=AsyncMock)
+        new_callable=AsyncMock,
+    )
     async def test_listen_for_order_book_diffs_update_logs_error_when_exception_happens(self, _, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        incomplete_response = {
-            "time": 1606294781,
-            "channel": "spot.order_book_update",
-            "event": "update",
-            "result": {}
-        }
+        incomplete_response = {"time": 1606294781, "channel": "spot.order_book_update", "event": "update", "result": {}}
         self.mocking_assistant.add_websocket_aiohttp_message(
             ws_connect_mock.return_value, json.dumps(incomplete_response)
         )
@@ -311,15 +291,17 @@ class TestGateIoAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
 
         t = self.local_event_loop.create_task(self.data_source.listen_for_subscriptions())
         self.async_tasks.append(t)
-        t = self.local_event_loop.create_task(self.data_source.listen_for_order_book_diffs(self.local_event_loop, output_queue))
+        t = self.local_event_loop.create_task(
+            self.data_source.listen_for_order_book_diffs(self.local_event_loop, output_queue)
+        )
         self.async_tasks.append(t)
-        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(websocket_mock=ws_connect_mock.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(
+            websocket_mock=ws_connect_mock.return_value
+        )
 
         self.assertTrue(
-            self._is_logged(
-                "ERROR",
-                "Unexpected error when processing public order book updates from exchange"
-            ))
+            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange")
+        )
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_order_book_diffs_snapshot(self, ws_connect_mock):
@@ -327,16 +309,18 @@ class TestGateIoAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
         asks = ["19080.24", "0.1638"]
         bids = ["19079.55", "0.0195"]
         resp = self.get_order_book_diff_mock(asks=asks, bids=bids)
-        self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value, json.dumps(resp)
-        )
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(resp))
         output_queue = asyncio.Queue()
 
         t = self.local_event_loop.create_task(self.data_source.listen_for_subscriptions())
         self.async_tasks.append(t)
-        t = self.local_event_loop.create_task(self.data_source.listen_for_order_book_diffs(self.local_event_loop, output_queue))
+        t = self.local_event_loop.create_task(
+            self.data_source.listen_for_order_book_diffs(self.local_event_loop, output_queue)
+        )
         self.async_tasks.append(t)
-        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(websocket_mock=ws_connect_mock.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(
+            websocket_mock=ws_connect_mock.return_value
+        )
 
         self.assertTrue(not output_queue.empty())
 
@@ -349,20 +333,21 @@ class TestGateIoAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
     async def test_listen_for_order_book_diffs_snapshot_skips_subscribe_unsubscribe_messages(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         resp = {"time": 1632223851, "channel": "spot.usertrades", "event": "subscribe", "result": {"status": "success"}}
-        self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value, json.dumps(resp)
-        )
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(resp))
         resp = {
-            "time": 1632223851, "channel": "spot.usertrades", "event": "unsubscribe", "result": {"status": "success"}
+            "time": 1632223851,
+            "channel": "spot.usertrades",
+            "event": "unsubscribe",
+            "result": {"status": "success"},
         }
-        self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value, json.dumps(resp)
-        )
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(resp))
 
         output_queue = asyncio.Queue()
         t = self.local_event_loop.create_task(self.data_source.listen_for_subscriptions())
         self.async_tasks.append(t)
-        t = self.local_event_loop.create_task(self.data_source.listen_for_order_book_diffs(self.local_event_loop, output_queue))
+        t = self.local_event_loop.create_task(
+            self.data_source.listen_for_order_book_diffs(self.local_event_loop, output_queue)
+        )
         self.async_tasks.append(t)
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
@@ -376,7 +361,9 @@ class TestGateIoAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
         mock_api.get(regex_url, body=json.dumps(resp))
         output_queue = asyncio.Queue()
 
-        t = self.local_event_loop.create_task(self.data_source.listen_for_order_book_snapshots(self.local_event_loop, output_queue))
+        t = self.local_event_loop.create_task(
+            self.data_source.listen_for_order_book_snapshots(self.local_event_loop, output_queue)
+        )
         self.async_tasks.append(t)
         ret = await output_queue.get()
 
@@ -385,18 +372,18 @@ class TestGateIoAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
     @aioresponses()
     @patch(
         "hummingbot.connector.exchange.gate_io.gate_io_api_order_book_data_source.GateIoAPIOrderBookDataSource._sleep",
-        new_callable=AsyncMock)
-    async def test_listen_for_order_book_snapshots_logs_error_when_exception_happens(
-            self,
-            mock_api,
-            sleep_mock):
+        new_callable=AsyncMock,
+    )
+    async def test_listen_for_order_book_snapshots_logs_error_when_exception_happens(self, mock_api, sleep_mock):
         url = f"{CONSTANTS.REST_URL}/{CONSTANTS.ORDER_BOOK_PATH_URL}"
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.get(regex_url, exception=Exception("Test Error"))
         output_queue = asyncio.Queue()
         sleep_mock.side_effect = asyncio.CancelledError
 
-        t = self.local_event_loop.create_task(self.data_source.listen_for_order_book_snapshots(self.local_event_loop, output_queue))
+        t = self.local_event_loop.create_task(
+            self.data_source.listen_for_order_book_snapshots(self.local_event_loop, output_queue)
+        )
         self.async_tasks.append(t)
 
         try:
@@ -406,16 +393,14 @@ class TestGateIoAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
             pass
 
         self.assertTrue(
-            self._is_logged(
-                "ERROR",
-                f"Unexpected error fetching order book snapshot for {self.trading_pair}."
-            )
+            self._is_logged("ERROR", f"Unexpected error fetching order book snapshot for {self.trading_pair}.")
         )
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch(
         "hummingbot.connector.exchange.gate_io.gate_io_api_order_book_data_source.GateIoAPIOrderBookDataSource._sleep",
-        new_callable=AsyncMock)
+        new_callable=AsyncMock,
+    )
     async def test_listen_for_subscriptions_logs_error_when_exception_happens(self, sleep_mock, ws_connect_mock):
         # ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         ws_connect_mock.side_effect = Exception("Test Error")
@@ -432,6 +417,6 @@ class TestGateIoAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
 
         self.assertTrue(
             self._is_logged(
-                "ERROR",
-                "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
-            ))
+                "ERROR", "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
+            )
+        )

@@ -119,7 +119,6 @@ class HyperliquidPerpetualAuth(AuthBase):
             "nonce": timestamp,
             "signature": signature,
             "vaultAddress": self._api_key if self._use_vault else None,
-
         }
         return payload
 
@@ -145,7 +144,6 @@ class HyperliquidPerpetualAuth(AuthBase):
             "nonce": timestamp,
             "signature": signature,
             "vaultAddress": self._api_key if self._use_vault else None,
-
         }
         return payload
 

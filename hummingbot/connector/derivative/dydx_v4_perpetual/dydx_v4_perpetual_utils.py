@@ -28,7 +28,7 @@ class DydxV4PerpetualConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     dydx_v4_perpetual_chain_address: SecretStr = Field(
         default=...,
@@ -37,7 +37,7 @@ class DydxV4PerpetualConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     model_config = ConfigDict(title="dydx_v4_perpetual")
 

@@ -136,8 +136,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
     def is_logged(self, log_level: str, message: Union[str, re.Pattern]) -> bool:
         expression = (
             re.compile(
-                f"^{message}$"
-                .replace(".", r"\.")
+                f"^{message}$".replace(".", r"\.")
                 .replace("?", r"\?")
                 .replace("/", r"\/")
                 .replace("(", r"\(")
@@ -165,12 +164,20 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         quote_decimals = market.quote_token.decimals
 
         order_book_snapshot = {
-            "buys": [(Decimal("9487") * Decimal(f"1e{quote_decimals-base_decimals}"),
-                      Decimal("336241") * Decimal(f"1e{base_decimals}"),
-                      1640001112223)],
-            "sells": [(Decimal("9487.5") * Decimal(f"1e{quote_decimals-base_decimals}"),
-                      Decimal("522147") * Decimal(f"1e{base_decimals}"),
-                      1640001112224)],
+            "buys": [
+                (
+                    Decimal("9487") * Decimal(f"1e{quote_decimals-base_decimals}"),
+                    Decimal("336241") * Decimal(f"1e{base_decimals}"),
+                    1640001112223,
+                )
+            ],
+            "sells": [
+                (
+                    Decimal("9487.5") * Decimal(f"1e{quote_decimals-base_decimals}"),
+                    Decimal("522147") * Decimal(f"1e{base_decimals}"),
+                    1640001112224,
+                )
+            ],
             "sequence": 512,
             "timestamp": 1650001112223,
         }
@@ -251,16 +258,16 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         self.create_task(self.data_source.listen_for_trades(self.async_loop, msg_queue))
         self.async_run_with_timeout(msg_queue.get())
 
-        self.assertTrue(
-            self.is_logged(
-                "WARNING", re.compile(r"^Invalid chain stream event format \(.*")
-            )
-        )
+        self.assertTrue(self.is_logged("WARNING", re.compile(r"^Invalid chain stream event format \(.*")))
 
-    @patch("hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source."
-           "InjectiveGranteeDataSource._initialize_timeout_height")
-    @patch("hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source."
-           "InjectiveGranteeDataSource._time")
+    @patch(
+        "hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source."
+        "InjectiveGranteeDataSource._initialize_timeout_height"
+    )
+    @patch(
+        "hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source."
+        "InjectiveGranteeDataSource._time"
+    )
     def test_listen_for_trades_successful(self, time_mock, _):
         time_mock.return_value = 1640001112.223
 
@@ -343,9 +350,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
             {token.symbol: token for token in [market.base_token, market.quote_token]}
         )
 
-        self.query_executor._chain_stream_events.put_nowait({
-            "spotOrderbookUpdates": [{}]
-        })
+        self.query_executor._chain_stream_events.put_nowait({"spotOrderbookUpdates": [{}]})
         order_book_data = {
             "blockHeight": "20583",
             "blockTime": "1640001112223",
@@ -356,22 +361,13 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
                     "orderbook": {
                         "marketId": self.market_id,
                         "buyLevels": [
-                            {
-                                "p": "7684000",
-                                "q": "4578787000000000000000000000000000000000"
-                            },
-                            {
-                                "p": "7685000",
-                                "q": "4412340000000000000000000000000000000000"
-                            },
+                            {"p": "7684000", "q": "4578787000000000000000000000000000000000"},
+                            {"p": "7685000", "q": "4412340000000000000000000000000000000000"},
                         ],
                         "sellLevels": [
-                            {
-                                "p": "7723000",
-                                "q": "3478787000000000000000000000000000000000"
-                            },
+                            {"p": "7723000", "q": "3478787000000000000000000000000000000000"},
                         ],
-                    }
+                    },
                 }
             ],
             "derivativeOrderbookUpdates": [],
@@ -392,16 +388,16 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
 
         self.async_run_with_timeout(msg_queue.get())
 
-        self.assertTrue(
-            self.is_logged(
-                "WARNING", re.compile(r"^Invalid chain stream event format \(.*")
-            )
-        )
+        self.assertTrue(self.is_logged("WARNING", re.compile(r"^Invalid chain stream event format \(.*")))
 
-    @patch("hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source."
-           "InjectiveGranteeDataSource._initialize_timeout_height")
-    @patch("hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source."
-           "InjectiveGranteeDataSource._time")
+    @patch(
+        "hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source."
+        "InjectiveGranteeDataSource._initialize_timeout_height"
+    )
+    @patch(
+        "hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source."
+        "InjectiveGranteeDataSource._time"
+    )
     def test_listen_for_order_book_diffs_successful(self, time_mock, _):
         time_mock.return_value = 1640001112.223
 
@@ -425,22 +421,13 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
                     "orderbook": {
                         "marketId": self.market_id,
                         "buyLevels": [
-                            {
-                                "p": "7684000",
-                                "q": "4578787000000000000000000000000000000000"
-                            },
-                            {
-                                "p": "7685000",
-                                "q": "4412340000000000000000000000000000000000"
-                            },
+                            {"p": "7684000", "q": "4578787000000000000000000000000000000000"},
+                            {"p": "7685000", "q": "4412340000000000000000000000000000000000"},
                         ],
                         "sellLevels": [
-                            {
-                                "p": "7723000",
-                                "q": "3478787000000000000000000000000000000000"
-                            },
+                            {"p": "7723000", "q": "3478787000000000000000000000000000000000"},
                         ],
-                    }
+                    },
                 }
             ],
             "derivativeOrderbookUpdates": [],
@@ -471,14 +458,22 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         asks = msg.asks
         self.assertEqual(2, len(bids))
 
-        first_bid_price = Decimal(order_book_data["spotOrderbookUpdates"][0]["orderbook"]["buyLevels"][1]["p"]) * Decimal(f"1e{base_decimals-quote_decimals-18}")
-        first_bid_quantity = Decimal(order_book_data["spotOrderbookUpdates"][0]["orderbook"]["buyLevels"][1]["q"]) * Decimal(f"1e{-base_decimals-18}")
+        first_bid_price = Decimal(
+            order_book_data["spotOrderbookUpdates"][0]["orderbook"]["buyLevels"][1]["p"]
+        ) * Decimal(f"1e{base_decimals-quote_decimals-18}")
+        first_bid_quantity = Decimal(
+            order_book_data["spotOrderbookUpdates"][0]["orderbook"]["buyLevels"][1]["q"]
+        ) * Decimal(f"1e{-base_decimals-18}")
         self.assertEqual(float(first_bid_price), bids[0].price)
         self.assertEqual(float(first_bid_quantity), bids[0].amount)
         self.assertEqual(expected_update_id, bids[0].update_id)
         self.assertEqual(1, len(asks))
-        first_ask_price = Decimal(order_book_data["spotOrderbookUpdates"][0]["orderbook"]["sellLevels"][0]["p"]) * Decimal(f"1e{base_decimals-quote_decimals-18}")
-        first_ask_quantity = Decimal(order_book_data["spotOrderbookUpdates"][0]["orderbook"]["sellLevels"][0]["q"]) * Decimal(f"1e{-base_decimals-18}")
+        first_ask_price = Decimal(
+            order_book_data["spotOrderbookUpdates"][0]["orderbook"]["sellLevels"][0]["p"]
+        ) * Decimal(f"1e{base_decimals-quote_decimals-18}")
+        first_ask_quantity = Decimal(
+            order_book_data["spotOrderbookUpdates"][0]["orderbook"]["sellLevels"][0]["q"]
+        ) * Decimal(f"1e{-base_decimals-18}")
         self.assertEqual(float(first_ask_price), asks[0].price)
         self.assertEqual(float(first_ask_quantity), asks[0].amount)
         self.assertEqual(expected_update_id, asks[0].update_id)

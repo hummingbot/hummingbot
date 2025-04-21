@@ -29,14 +29,16 @@ class OkxExchange(ExchangePyBase):
 
     web_utils = web_utils
 
-    def __init__(self,
-                 client_config_map: "ClientConfigAdapter",
-                 okx_api_key: str,
-                 okx_secret_key: str,
-                 okx_passphrase: str,
-                 trading_pairs: Optional[List[str]] = None,
-                 trading_required: bool = True,
-                 okx_registration_sub_domain: str = "www"):
+    def __init__(
+        self,
+        client_config_map: "ClientConfigAdapter",
+        okx_api_key: str,
+        okx_secret_key: str,
+        okx_passphrase: str,
+        trading_pairs: Optional[List[str]] = None,
+        trading_required: bool = True,
+        okx_registration_sub_domain: str = "www",
+    ):
         """
         :param okx_registration_sub_domain: The subdomain to use - options are "www" (default), "app" (US users), or "my" (EEA users)
                               See: https://github.com/ccxt/ccxt/issues/24601
@@ -55,7 +57,8 @@ class OkxExchange(ExchangePyBase):
             api_key=self.okx_api_key,
             secret_key=self.okx_secret_key,
             passphrase=self.okx_passphrase,
-            time_provider=self._time_synchronizer)
+            time_provider=self._time_synchronizer,
+        )
 
     @property
     def name(self) -> str:
@@ -126,31 +129,27 @@ class OkxExchange(ExchangePyBase):
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer,
-            auth=self._auth,
-            domain=self.domain)
+            throttler=self._throttler, time_synchronizer=self._time_synchronizer, auth=self._auth, domain=self.domain
+        )
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         return OkxAPIOrderBookDataSource(
-            trading_pairs=self.trading_pairs,
-            connector=self,
-            api_factory=self._web_assistants_factory)
+            trading_pairs=self.trading_pairs, connector=self, api_factory=self._web_assistants_factory
+        )
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
-        return OkxAPIUserStreamDataSource(
-            auth=self._auth,
-            connector=self,
-            api_factory=self._web_assistants_factory)
+        return OkxAPIUserStreamDataSource(auth=self._auth, connector=self, api_factory=self._web_assistants_factory)
 
-    def _get_fee(self,
-                 base_currency: str,
-                 quote_currency: str,
-                 order_type: OrderType,
-                 order_side: TradeType,
-                 amount: Decimal,
-                 price: Decimal = s_decimal_NaN,
-                 is_maker: Optional[bool] = None) -> TradeFeeBase:
+    def _get_fee(
+        self,
+        base_currency: str,
+        quote_currency: str,
+        order_type: OrderType,
+        order_side: TradeType,
+        amount: Decimal,
+        price: Decimal = s_decimal_NaN,
+        is_maker: Optional[bool] = None,
+    ) -> TradeFeeBase:
 
         is_maker = is_maker or (order_type is OrderType.LIMIT_MAKER)
         fee = build_trade_fee(
@@ -179,18 +178,21 @@ class OkxExchange(ExchangePyBase):
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
         for symbol_data in filter(okx_utils.is_exchange_information_valid, exchange_info["data"]):
-            mapping[symbol_data["instId"]] = combine_to_hb_trading_pair(base=symbol_data["baseCcy"],
-                                                                        quote=symbol_data["quoteCcy"])
+            mapping[symbol_data["instId"]] = combine_to_hb_trading_pair(
+                base=symbol_data["baseCcy"], quote=symbol_data["quoteCcy"]
+            )
         self._set_trading_pair_symbol_map(mapping)
 
-    async def _place_order(self,
-                           order_id: str,
-                           trading_pair: str,
-                           amount: Decimal,
-                           trade_type: TradeType,
-                           order_type: OrderType,
-                           price: Decimal,
-                           **kwargs) -> Tuple[str, float]:
+    async def _place_order(
+        self,
+        order_id: str,
+        trading_pair: str,
+        amount: Decimal,
+        trade_type: TradeType,
+        order_type: OrderType,
+        price: Decimal,
+        **kwargs,
+    ) -> Tuple[str, float]:
 
         data = {
             "clOrdId": order_id,
@@ -222,10 +224,7 @@ class OkxExchange(ExchangePyBase):
         """
         This implementation specific function is called by _cancel, and returns True if successful
         """
-        params = {
-            "clOrdId": order_id,
-            "instId": tracked_order.trading_pair
-        }
+        params = {"clOrdId": order_id, "instId": tracked_order.trading_pair}
         cancel_result = await self._api_post(
             path_url=CONSTANTS.OKX_ORDER_CANCEL_PATH,
             data=params,
@@ -269,14 +268,12 @@ class OkxExchange(ExchangePyBase):
         return float(ticker_data["last"])
 
     async def _update_balances(self):
-        msg = await self._api_request(
-            path_url=CONSTANTS.OKX_BALANCE_PATH,
-            is_auth_required=True)
+        msg = await self._api_request(path_url=CONSTANTS.OKX_BALANCE_PATH, is_auth_required=True)
 
-        if msg['code'] == '0':
-            balances = msg['data'][0]['details']
+        if msg["code"] == "0":
+            balances = msg["data"][0]["details"]
         else:
-            raise Exception(msg['msg'])
+            raise Exception(msg["msg"])
 
         self._account_available_balances.clear()
         self._account_balances.clear()
@@ -340,8 +337,10 @@ class OkxExchange(ExchangePyBase):
             path_url=CONSTANTS.OKX_ORDER_DETAILS_PATH,
             params={
                 "instId": await self.exchange_symbol_associated_to_pair(order.trading_pair),
-                "clOrdId": order.client_order_id},
-            is_auth_required=True)
+                "clOrdId": order.client_order_id,
+            },
+            is_auth_required=True,
+        )
 
     async def _request_order_fills(self, order: InFlightOrder) -> Dict[str, Any]:
         return await self._api_request(
@@ -350,8 +349,10 @@ class OkxExchange(ExchangePyBase):
             params={
                 "instType": "SPOT",
                 "instId": await self.exchange_symbol_associated_to_pair(order.trading_pair),
-                "ordId": await order.get_exchange_order_id()},
-            is_auth_required=True)
+                "ordId": await order.get_exchange_order_id(),
+            },
+            is_auth_required=True,
+        )
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         trade_updates = []
@@ -365,7 +366,7 @@ class OkxExchange(ExchangePyBase):
                     fee_schema=self.trade_fee_schema(),
                     trade_type=order.trade_type,
                     percent_token=fill_data["feeCcy"],
-                    flat_fees=[TokenAmount(amount=-Decimal(fill_data["fee"]), token=fill_data["feeCcy"])]
+                    flat_fees=[TokenAmount(amount=-Decimal(fill_data["fee"]), token=fill_data["feeCcy"])],
                 )
                 trade_update = TradeUpdate(
                     trade_id=str(fill_data["tradeId"]),
@@ -411,14 +412,16 @@ class OkxExchange(ExchangePyBase):
                         fillable_order = self._order_tracker.all_fillable_orders.get(client_order_id)
                         updatable_order = self._order_tracker.all_updatable_orders.get(client_order_id)
 
-                        if (fillable_order is not None
-                                and order_status in [OrderState.PARTIALLY_FILLED, OrderState.FILLED]
-                                and trade_id):
+                        if (
+                            fillable_order is not None
+                            and order_status in [OrderState.PARTIALLY_FILLED, OrderState.FILLED]
+                            and trade_id
+                        ):
                             fee = TradeFeeBase.new_spot_fee(
                                 fee_schema=self.trade_fee_schema(),
                                 trade_type=fillable_order.trade_type,
                                 percent_token=data["fillFeeCcy"],
-                                flat_fees=[TokenAmount(amount=-Decimal(data["fillFee"]), token=data["fillFeeCcy"])]
+                                flat_fees=[TokenAmount(amount=-Decimal(data["fillFee"]), token=data["fillFeeCcy"])],
                             )
                             trade_update = TradeUpdate(
                                 trade_id=str(trade_id),

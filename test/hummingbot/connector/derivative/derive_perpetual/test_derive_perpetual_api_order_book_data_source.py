@@ -61,8 +61,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
-        self.connector._set_trading_pair_symbol_map(
-            bidict({f"{self.base_asset}-PERP": self.trading_pair}))
+        self.connector._set_trading_pair_symbol_map(bidict({f"{self.base_asset}-PERP": self.trading_pair}))
 
     async def asyncSetUp(self):
         await super().asyncSetUp()
@@ -78,8 +77,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message
-                   for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
@@ -90,8 +88,10 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         return None
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.derive_perpetual.derive_perpetual_api_order_book_data_source"
-           ".DerivePerpetualAPIOrderBookDataSource._time")
+    @patch(
+        "hummingbot.connector.derivative.derive_perpetual.derive_perpetual_api_order_book_data_source"
+        ".DerivePerpetualAPIOrderBookDataSource._time"
+    )
     async def test_get_new_order_book_successful(self, mock_api, mock_time):
         mock_time.return_value = 1737885894
         order_book: OrderBook = await self.data_source.get_new_order_book(self.trading_pair)
@@ -105,111 +105,138 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(0, len(asks))
 
     def _trade_update_event(self):
-        resp = {"params": {
-            'channel': f'trades.{self.base_asset}-PERP',
-            'data': [
-                {
-                    'trade_id': '5f249af2-2a84-47b2-946e-2552f886f0a8',  # noqa: mock
-                    'instrument_name': f'{self.base_asset}-PERP', 'timestamp': 1737810932869,
-                    'trade_price': '1.6682', 'trade_amount': '20', 'mark_price': '1.667960602579197952',
-                    'index_price': '1.667960602579197952', 'direction': 'sell', 'quote_id': None
-                }
-            ]
-        }}
+        resp = {
+            "params": {
+                "channel": f"trades.{self.base_asset}-PERP",
+                "data": [
+                    {
+                        "trade_id": "5f249af2-2a84-47b2-946e-2552f886f0a8",  # noqa: mock
+                        "instrument_name": f"{self.base_asset}-PERP",
+                        "timestamp": 1737810932869,
+                        "trade_price": "1.6682",
+                        "trade_amount": "20",
+                        "mark_price": "1.667960602579197952",
+                        "index_price": "1.667960602579197952",
+                        "direction": "sell",
+                        "quote_id": None,
+                    }
+                ],
+            }
+        }
         return resp
 
     def get_ws_snapshot_msg(self) -> Dict:
-        return {"params": {
-            'channel': f'orderbook.{self.base_asset}-PERP.1.100',
-            'data': {
-                'timestamp': 1700687397643, 'instrument_name': f'{self.base_asset}-PERP', 'publish_id': 2865914,
-                'bids': [['1.6679', '2157.37'], ['1.6636', '2876.75'], ['1.51', '1']],
-                'asks': [['1.6693', '2157.56'], ['1.6736', '2876.32'], ['2.65', '8.93'], ['2.75', '8.97']]
-            }
-        }}
-
-    def get_ws_diff_msg(self) -> Dict:
-        return {"params": {
-            'channel': f'orderbook.{self.base_asset}-PERP.1.100',
-            'data': {
-                'timestamp': 1700687397643, 'instrument_name': f'{self.base_asset}-PERP', 'publish_id': 2865914,
-                'bids': [['1.6679', '2157.37'], ['1.6636', '2876.75'], ['1.51', '1']],
-                'asks': [['1.6693', '2157.56'], ['1.6736', '2876.32'], ['2.65', '8.93'], ['2.75', '8.97']]
-            }
-        }}
-
-    def get_ws_diff_msg_2(self) -> Dict:
         return {
-            'channel': f'orderbook.{self.base_asset}-PERP.1.100',
-            'data': {
-                'timestamp': 1700687397643, 'instrument_name': f'{self.base_asset}-PERP', 'publish_id': 2865914,
-                'bids': [['1.6679', '2157.37'], ['1.6636', '2876.75'], ['1.51', '1']],
-                'asks': [['1.6693', '2157.56'], ['1.6736', '2876.32'], ['2.65', '8.93'], ['2.75', '8.97']]
+            "params": {
+                "channel": f"orderbook.{self.base_asset}-PERP.1.100",
+                "data": {
+                    "timestamp": 1700687397643,
+                    "instrument_name": f"{self.base_asset}-PERP",
+                    "publish_id": 2865914,
+                    "bids": [["1.6679", "2157.37"], ["1.6636", "2876.75"], ["1.51", "1"]],
+                    "asks": [["1.6693", "2157.56"], ["1.6736", "2876.32"], ["2.65", "8.93"], ["2.75", "8.97"]],
+                },
             }
         }
 
+    def get_ws_diff_msg(self) -> Dict:
+        return {
+            "params": {
+                "channel": f"orderbook.{self.base_asset}-PERP.1.100",
+                "data": {
+                    "timestamp": 1700687397643,
+                    "instrument_name": f"{self.base_asset}-PERP",
+                    "publish_id": 2865914,
+                    "bids": [["1.6679", "2157.37"], ["1.6636", "2876.75"], ["1.51", "1"]],
+                    "asks": [["1.6693", "2157.56"], ["1.6736", "2876.32"], ["2.65", "8.93"], ["2.75", "8.97"]],
+                },
+            }
+        }
+
+    def get_ws_diff_msg_2(self) -> Dict:
+        return {
+            "channel": f"orderbook.{self.base_asset}-PERP.1.100",
+            "data": {
+                "timestamp": 1700687397643,
+                "instrument_name": f"{self.base_asset}-PERP",
+                "publish_id": 2865914,
+                "bids": [["1.6679", "2157.37"], ["1.6636", "2876.75"], ["1.51", "1"]],
+                "asks": [["1.6693", "2157.56"], ["1.6736", "2876.32"], ["2.65", "8.93"], ["2.75", "8.97"]],
+            },
+        }
+
     def get_funding_info_rest_msg(self):
-        return {"result":
-                {
-                    'instrument_type': 'perp',
-                    'instrument_name': f'{self.base_asset}-PERP',
-                    'scheduled_activation': 1728508925,
-                    'scheduled_deactivation': 9223372036854775807,
-                    'is_active': True,
-                    'tick_size': '0.01',
-                    'minimum_amount': '0.1',
-                    'maximum_amount': '1000',
-                    'index_price': '36717.0',
-                    'mark_price': '36733.0',
-                    'amount_step': '0.01',
-                    'mark_price_fee_rate_cap': '0',
-                    'maker_fee_rate': '0.0015',
-                    'taker_fee_rate': '0.0015',
-                    'base_fee': '0.1',
-                    'base_currency': self.base_asset,
-                    'quote_currency': self.quote_asset,
-                    'option_details': None,
-                    "perp_details": {
-                        "index": "BTC-USDC",
-                        "max_rate_per_hour": "0.004",
-                        "min_rate_per_hour": "-0.004",
-                        "static_interest_rate": "0.0000125",
-                        "aggregate_funding": "738.587599416709606114",
-                        "funding_rate": "0.00001793"
-                    },
-                    'erc20_details': None,
-                    'base_asset_address': '0xE201fCEfD4852f96810C069f66560dc25B2C7A55', 'base_asset_sub_id': '0', 'pro_rata_fraction': '0', 'fifo_min_allocation': '0', 'pro_rata_amount_step': '1'}
-                }
+        return {
+            "result": {
+                "instrument_type": "perp",
+                "instrument_name": f"{self.base_asset}-PERP",
+                "scheduled_activation": 1728508925,
+                "scheduled_deactivation": 9223372036854775807,
+                "is_active": True,
+                "tick_size": "0.01",
+                "minimum_amount": "0.1",
+                "maximum_amount": "1000",
+                "index_price": "36717.0",
+                "mark_price": "36733.0",
+                "amount_step": "0.01",
+                "mark_price_fee_rate_cap": "0",
+                "maker_fee_rate": "0.0015",
+                "taker_fee_rate": "0.0015",
+                "base_fee": "0.1",
+                "base_currency": self.base_asset,
+                "quote_currency": self.quote_asset,
+                "option_details": None,
+                "perp_details": {
+                    "index": "BTC-USDC",
+                    "max_rate_per_hour": "0.004",
+                    "min_rate_per_hour": "-0.004",
+                    "static_interest_rate": "0.0000125",
+                    "aggregate_funding": "738.587599416709606114",
+                    "funding_rate": "0.00001793",
+                },
+                "erc20_details": None,
+                "base_asset_address": "0xE201fCEfD4852f96810C069f66560dc25B2C7A55",
+                "base_asset_sub_id": "0",
+                "pro_rata_fraction": "0",
+                "fifo_min_allocation": "0",
+                "pro_rata_amount_step": "1",
+            }
+        }
 
     def get_trading_rule_rest_msg(self):
         return [
             {
-                'instrument_type': 'perp',
-                'instrument_name': f'{self.base_asset}-PERP',
-                'scheduled_activation': 1728508925,
-                'scheduled_deactivation': 9223372036854775807,
-                'is_active': True,
-                'tick_size': '0.01',
-                'minimum_amount': '0.1',
-                'maximum_amount': '1000',
-                'amount_step': '0.01',
-                'mark_price_fee_rate_cap': '0',
-                'maker_fee_rate': '0.0015',
-                'taker_fee_rate': '0.0015',
-                'base_fee': '0.1',
-                'base_currency': self.base_asset,
-                'quote_currency': self.quote_asset,
-                'option_details': None,
+                "instrument_type": "perp",
+                "instrument_name": f"{self.base_asset}-PERP",
+                "scheduled_activation": 1728508925,
+                "scheduled_deactivation": 9223372036854775807,
+                "is_active": True,
+                "tick_size": "0.01",
+                "minimum_amount": "0.1",
+                "maximum_amount": "1000",
+                "amount_step": "0.01",
+                "mark_price_fee_rate_cap": "0",
+                "maker_fee_rate": "0.0015",
+                "taker_fee_rate": "0.0015",
+                "base_fee": "0.1",
+                "base_currency": self.base_asset,
+                "quote_currency": self.quote_asset,
+                "option_details": None,
                 "perp_details": {
                     "index": "BTC-USD",
                     "max_rate_per_hour": "0.004",
                     "min_rate_per_hour": "-0.004",
                     "static_interest_rate": "0.0000125",
                     "aggregate_funding": "738.587599416709606114",
-                    "funding_rate": "-0.000033660522457857"
+                    "funding_rate": "-0.000033660522457857",
                 },
-                'erc20_details': None,
-                'base_asset_address': '0xE201fCEfD4852f96810C069f66560dc25B2C7A55', 'base_asset_sub_id': '0', 'pro_rata_fraction': '0', 'fifo_min_allocation': '0', 'pro_rata_amount_step': '1'}
+                "erc20_details": None,
+                "base_asset_address": "0xE201fCEfD4852f96810C069f66560dc25B2C7A55",
+                "base_asset_sub_id": "0",
+                "pro_rata_fraction": "0",
+                "fifo_min_allocation": "0",
+                "pro_rata_amount_step": "1",
+            }
         ]
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -231,13 +258,13 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         )
         self.assertEqual(1, len(sent_subscription_messages))
         expected_subscription_channel = "subscribe"
-        expected_subscription_payload = {"channels": [f"trades.{self.ex_trading_pair.upper()}", f"orderbook.{self.ex_trading_pair.upper()}.1.100"]}
+        expected_subscription_payload = {
+            "channels": [f"trades.{self.ex_trading_pair.upper()}", f"orderbook.{self.ex_trading_pair.upper()}.1.100"]
+        }
         self.assertEqual(expected_subscription_channel, sent_subscription_messages[0]["method"])
         self.assertEqual(expected_subscription_payload, sent_subscription_messages[0]["params"])
 
-        self.assertTrue(
-            self._is_logged("INFO", "Subscribed to public order book, trade channels...")
-        )
+        self.assertTrue(self._is_logged("INFO", "Subscribed to public order book, trade channels..."))
 
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect")
@@ -259,8 +286,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         self.assertTrue(
             self._is_logged(
-                "ERROR",
-                "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
+                "ERROR", "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
             )
         )
 
@@ -279,9 +305,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         with self.assertRaises(Exception):
             await self.data_source._subscribe_channels(mock_ws)
 
-        self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error occurred subscribing to order book data streams.")
-        )
+        self.assertTrue(self._is_logged("ERROR", "Unexpected error occurred subscribing to order book data streams."))
 
     async def test_listen_for_trades_cancelled_when_listening(self):
         mock_queue = MagicMock()
@@ -307,7 +331,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                     "sigma": "0.00000000",
                     "index_price": "2447.79750000",
                     "underlying_price": "0.00000000",
-                    "is_block_trade": False
+                    "is_block_trade": False,
                 },
                 {
                     "created_at": 1642994704241,
@@ -318,9 +342,9 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                     "sigma": "0.00000000",
                     "index_price": "2447.79750000",
                     "underlying_price": "0.00000000",
-                    "is_block_trade": False
-                }
-            ]
+                    "is_block_trade": False,
+                },
+            ],
         }
 
         mock_queue = AsyncMock()
@@ -334,8 +358,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         except asyncio.CancelledError:
             pass
 
-        self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
+        self.assertTrue(self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
 
     async def test_listen_for_trades_successful(self):
         await self._simulate_trading_rules_initialized()
@@ -347,9 +370,10 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_trades(self.local_event_loop, msg_queue))
+            self.data_source.listen_for_trades(self.local_event_loop, msg_queue)
+        )
 
-        msg: OrderBookMessage = await (msg_queue.get())
+        msg: OrderBookMessage = await msg_queue.get()
 
         self.assertEqual("5f249af2-2a84-47b2-946e-2552f886f0a8", msg.trade_id)
 
@@ -415,11 +439,13 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         await self.resume_test_event.wait()
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public funding info updates from exchange"))
+            self._is_logged("ERROR", "Unexpected error when processing public funding info updates from exchange")
+        )
 
     @patch(
         "hummingbot.connector.derivative.derive_perpetual.derive_perpetual_api_order_book_data_source."
-        "DerivePerpetualAPIOrderBookDataSource._next_funding_time")
+        "DerivePerpetualAPIOrderBookDataSource._next_funding_time"
+    )
     @aioresponses()
     async def test_listen_for_funding_info_successful(self, next_funding_time_mock, mock_api):
         next_funding_time_mock.return_value = 1713272400
@@ -436,11 +462,11 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         msg: FundingInfoUpdate = await msg_queue.get()
 
         self.assertEqual(self.trading_pair, msg.trading_pair)
-        expected_index_price = Decimal('36717.0')
+        expected_index_price = Decimal("36717.0")
         self.assertEqual(expected_index_price, msg.index_price)
-        expected_mark_price = Decimal('36733.0')
+        expected_mark_price = Decimal("36733.0")
         self.assertEqual(expected_mark_price, msg.mark_price)
         expected_funding_time = next_funding_time_mock.return_value
         self.assertEqual(expected_funding_time, msg.next_funding_utc_timestamp)
-        expected_rate = Decimal('0.00001793')
+        expected_rate = Decimal("0.00001793")
         self.assertEqual(expected_rate, msg.rate)

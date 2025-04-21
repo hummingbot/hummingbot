@@ -13,22 +13,37 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 class DEXTradeConfig(BaseClientModel):
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
-    connector: str = Field("jupiter", json_schema_extra={
-        "prompt": "Connector name (e.g. jupiter, uniswap)", "prompt_on_new": True})
-    chain: str = Field("solana", json_schema_extra={
-        "prompt": "Chain (e.g. solana, ethereum)", "prompt_on_new": True})
-    network: str = Field("mainnet-beta", json_schema_extra={
-        "prompt": "Network (e.g. mainnet-beta (solana), base (ethereum))", "prompt_on_new": True})
-    trading_pair: str = Field("SOL-USDC", json_schema_extra={
-        "prompt": "Trading pair (e.g. SOL-USDC)", "prompt_on_new": True})
-    target_price: Decimal = Field(Decimal("142"), json_schema_extra={
-        "prompt": "Target price to trigger trade", "prompt_on_new": True})
-    trigger_above: bool = Field(False, json_schema_extra={
-        "prompt": "Trigger when price rises above target? (True for above/False for below)", "prompt_on_new": True})
-    is_buy: bool = Field(True, json_schema_extra={
-        "prompt": "Buying or selling the base asset? (True for buy, False for sell)", "prompt_on_new": True})
-    amount: Decimal = Field(Decimal("0.01"), json_schema_extra={
-        "prompt": "Order amount (in base token)", "prompt_on_new": True})
+    connector: str = Field(
+        "jupiter", json_schema_extra={"prompt": "Connector name (e.g. jupiter, uniswap)", "prompt_on_new": True}
+    )
+    chain: str = Field("solana", json_schema_extra={"prompt": "Chain (e.g. solana, ethereum)", "prompt_on_new": True})
+    network: str = Field(
+        "mainnet-beta",
+        json_schema_extra={"prompt": "Network (e.g. mainnet-beta (solana), base (ethereum))", "prompt_on_new": True},
+    )
+    trading_pair: str = Field(
+        "SOL-USDC", json_schema_extra={"prompt": "Trading pair (e.g. SOL-USDC)", "prompt_on_new": True}
+    )
+    target_price: Decimal = Field(
+        Decimal("142"), json_schema_extra={"prompt": "Target price to trigger trade", "prompt_on_new": True}
+    )
+    trigger_above: bool = Field(
+        False,
+        json_schema_extra={
+            "prompt": "Trigger when price rises above target? (True for above/False for below)",
+            "prompt_on_new": True,
+        },
+    )
+    is_buy: bool = Field(
+        True,
+        json_schema_extra={
+            "prompt": "Buying or selling the base asset? (True for buy, False for sell)",
+            "prompt_on_new": True,
+        },
+    )
+    amount: Decimal = Field(
+        Decimal("0.01"), json_schema_extra={"prompt": "Order amount (in base token)", "prompt_on_new": True}
+    )
 
 
 class DEXTrade(ScriptStrategyBase):
@@ -54,7 +69,10 @@ class DEXTrade(ScriptStrategyBase):
         # Log trade information
         condition = "rises above" if self.config.trigger_above else "falls below"
         side = "BUY" if self.config.is_buy else "SELL"
-        self.log_with_clock(logging.INFO, f"Will {side} {self.config.amount} {self.base} for {self.quote} on {self.exchange} when price {condition} {self.config.target_price}")
+        self.log_with_clock(
+            logging.INFO,
+            f"Will {side} {self.config.amount} {self.base} for {self.quote} on {self.exchange} when price {condition} {self.config.target_price}",
+        )
 
     def on_tick(self):
         # Don't check price if trade already executed or in progress
@@ -73,10 +91,12 @@ class DEXTrade(ScriptStrategyBase):
         current_price = None  # Initialize current_price
 
         side = "buy" if self.config.is_buy else "sell"
-        msg = (f"Getting quote on {self.config.connector} "
-               f"({self.config.chain}/{self.config.network}) "
-               f"to {side} {self.config.amount} {self.base} "
-               f"for {self.quote}")
+        msg = (
+            f"Getting quote on {self.config.connector} "
+            f"({self.config.chain}/{self.config.network}) "
+            f"to {side} {self.config.amount} {self.base} "
+            f"for {self.quote}"
+        )
 
         try:
             self.log_with_clock(logging.INFO, msg)
@@ -97,10 +117,14 @@ class DEXTrade(ScriptStrategyBase):
             condition_met = False
             if self.config.trigger_above and current_price > self.config.target_price:
                 condition_met = True
-                self.log_with_clock(logging.INFO, f"Price rose above target: {current_price} > {self.config.target_price}")
+                self.log_with_clock(
+                    logging.INFO, f"Price rose above target: {current_price} > {self.config.target_price}"
+                )
             elif not self.config.trigger_above and current_price < self.config.target_price:
                 condition_met = True
-                self.log_with_clock(logging.INFO, f"Price fell below target: {current_price} < {self.config.target_price}")
+                self.log_with_clock(
+                    logging.INFO, f"Price fell below target: {current_price} < {self.config.target_price}"
+                )
 
             if condition_met:
                 try:

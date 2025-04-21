@@ -43,9 +43,7 @@ class TestGateIoPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
         self.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         self.mock_time_provider = MagicMock()
         self.mock_time_provider.time.return_value = 1000
-        self.auth = GateIoPerpetualAuth(
-            api_key=self.api_key,
-            secret_key=self.api_secret_key)
+        self.auth = GateIoPerpetualAuth(api_key=self.api_key, secret_key=self.api_secret_key)
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
 
@@ -55,7 +53,8 @@ class TestGateIoPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
             gate_io_perpetual_api_key="",
             gate_io_perpetual_secret_key="",
             gate_io_perpetual_user_id="",
-            trading_pairs=[])
+            trading_pairs=[],
+        )
         self.connector._web_assistants_factory._auth = self.auth
 
         self.data_source = GateIoPerpetualAPIUserStreamDataSource(
@@ -63,7 +62,8 @@ class TestGateIoPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
             trading_pairs=[self.trading_pair],
             connector=self.connector,
             user_id=self.user_id,
-            api_factory=self.connector._web_assistants_factory)
+            api_factory=self.connector._web_assistants_factory,
+        )
 
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
@@ -83,13 +83,13 @@ class TestGateIoPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message
-                   for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch(
         "hummingbot.connector.derivative.gate_io_perpetual.gate_io_perpetual_user_stream_data_source.GateIoPerpetualAPIUserStreamDataSource"
-        "._time")
+        "._time"
+    )
     async def test_listen_for_user_stream_subscribes_to_orders_and_balances_events(self, time_mock, ws_connect_mock):
         time_mock.return_value = 1000
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
@@ -99,47 +99,44 @@ class TestGateIoPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
             "channel": CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
             "event": "subscribe",
             "error": None,
-            "result": {
-                "status": "success"
-            }
+            "result": {"status": "success"},
         }
         result_subscribe_trades = {
             "time": 1611541000,
             "channel": CONSTANTS.USER_TRADES_ENDPOINT_NAME,
             "event": "subscribe",
             "error": None,
-            "result": {
-                "status": "success"
-            }
+            "result": {"status": "success"},
         }
         result_subscribe_positions = {
             "time": 1611541000,
             "channel": CONSTANTS.USER_POSITIONS_ENDPOINT_NAME,
             "event": "subscribe",
             "error": None,
-            "result": {
-                "status": "success"
-            }
+            "result": {"status": "success"},
         }
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(result_subscribe_orders))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe_orders)
+        )
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(result_subscribe_trades))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe_trades)
+        )
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(result_subscribe_positions))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe_positions)
+        )
 
         output_queue = asyncio.Queue()
 
-        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(output=output_queue)
+        )
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
-            websocket_mock=ws_connect_mock.return_value)
+            websocket_mock=ws_connect_mock.return_value
+        )
 
         self.assertEqual(3, len(sent_subscription_messages))
         expected_orders_subscription = {
@@ -149,8 +146,9 @@ class TestGateIoPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
             "payload": [self.user_id, "!all"],
             "auth": {
                 "KEY": self.api_key,
-                "SIGN": '0fb3b313fe07c7d23164a4ae86adf306a48f5787c54b9a7595f0a50a164c01eb54d8de5d5ad65fbc3ea94e60e73446d999d23424e52f715713ee6cb32a7d0df1',# noqa: mock
-                "method": "api_key"},
+                "SIGN": "0fb3b313fe07c7d23164a4ae86adf306a48f5787c54b9a7595f0a50a164c01eb54d8de5d5ad65fbc3ea94e60e73446d999d23424e52f715713ee6cb32a7d0df1",  # noqa: mock
+                "method": "api_key",
+            },
         }
         self.assertEqual(expected_orders_subscription, sent_subscription_messages[0])
         expected_trades_subscription = {
@@ -160,20 +158,19 @@ class TestGateIoPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
             "payload": [self.user_id, "!all"],
             "auth": {
                 "KEY": self.api_key,
-                "SIGN": 'a7681c836307cbb57c7ba7a66862120770c019955953e5ec043fd00e93722d478096f0a8238e3f893dcb3e0f084dc67a2a7ff6e6e08bc1bf0ad80fee57fff113',# noqa: mock
-                "method": "api_key"}
+                "SIGN": "a7681c836307cbb57c7ba7a66862120770c019955953e5ec043fd00e93722d478096f0a8238e3f893dcb3e0f084dc67a2a7ff6e6e08bc1bf0ad80fee57fff113",  # noqa: mock
+                "method": "api_key",
+            },
         }
         self.assertEqual(expected_trades_subscription, sent_subscription_messages[1])
 
-        self.assertTrue(self._is_logged(
-            "INFO",
-            "Subscribed to private order changes channels..."
-        ))
+        self.assertTrue(self._is_logged("INFO", "Subscribed to private order changes channels..."))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch(
         "hummingbot.connector.derivative.gate_io_perpetual.gate_io_perpetual_user_stream_data_source.GateIoPerpetualAPIUserStreamDataSource"
-        "._time")
+        "._time"
+    )
     async def test_listen_for_user_stream_skips_subscribe_unsubscribe_messages(self, time_mock, ws_connect_mock):
         time_mock.return_value = 1000
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
@@ -183,30 +180,28 @@ class TestGateIoPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
             "channel": CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
             "event": "subscribe",
             "error": None,
-            "result": {
-                "status": "success"
-            }
+            "result": {"status": "success"},
         }
         result_subscribe_trades = {
             "time": 1611541000,
             "channel": CONSTANTS.USER_TRADES_ENDPOINT_NAME,
             "event": "subscribe",
             "error": None,
-            "result": {
-                "status": "success"
-            }
+            "result": {"status": "success"},
         }
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(result_subscribe_orders))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe_orders)
+        )
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(result_subscribe_trades))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe_trades)
+        )
 
         output_queue = asyncio.Queue()
 
-        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(output=output_queue)
+        )
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
@@ -219,16 +214,14 @@ class TestGateIoPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
             "channel": CONSTANTS.PONG_CHANNEL_NAME,
             "event": "",
             "error": None,
-            "result": None
+            "result": None,
         }
 
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, json.dumps(mock_pong))
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_user_stream(msg_queue)
-        )
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
@@ -247,8 +240,8 @@ class TestGateIoPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
             pass
 
         self.assertTrue(
-            self._is_logged("ERROR",
-                            "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
+            self._is_logged("ERROR", "Unexpected error while listening to user stream. Retrying after 5 seconds...")
+        )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
@@ -264,6 +257,5 @@ class TestGateIoPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
             pass
 
         self.assertTrue(
-            self._is_logged(
-                "ERROR",
-                "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
+            self._is_logged("ERROR", "Unexpected error while listening to user stream. Retrying after 5 seconds...")
+        )

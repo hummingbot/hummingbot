@@ -25,7 +25,7 @@ class ConfigEncoderDecoder:
     def recursive_decode(self, value):
         if isinstance(value, dict):
             if value.get("__enum__"):
-                enum_class = self.enum_classes.get(value['class'])
+                enum_class = self.enum_classes.get(value["class"])
                 if enum_class:
                     return enum_class[value["value"]]
             elif value.get("__decimal__"):
@@ -44,9 +44,9 @@ class ConfigEncoderDecoder:
         return self.recursive_decode(json.loads(s))
 
     def yaml_dump(self, d, file_path):
-        with open(file_path, 'w') as file:
+        with open(file_path, "w") as file:
             yaml.dump(self.recursive_encode(d), file)
 
     def yaml_load(self, file_path):
-        with open(file_path, 'r') as file:
+        with open(file_path, "r") as file:
             return self.recursive_decode(yaml.safe_load(file))

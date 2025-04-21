@@ -31,15 +31,9 @@ class TestEIP712(unittest.TestCase):
         }
 
         self.sample_data = {
-            "from": {
-                "name": "Alice",
-                "wallet": "0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826"  # noqa: mock
-            },
-            "to": {
-                "name": "Bob",
-                "wallet": "0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"  # noqa: mock
-            },
-            "contents": "Hello, Bob!"
+            "from": {"name": "Alice", "wallet": "0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826"},  # noqa: mock
+            "to": {"name": "Bob", "wallet": "0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"},  # noqa: mock
+            "contents": "Hello, Bob!",
         }
 
     def test_get_primary_type(self):
@@ -114,7 +108,7 @@ class TestEIP712(unittest.TestCase):
             "version": "1",
             "chainId": 1,
             "verifyingContract": "0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC",  # noqa: mock
-            "salt": "0xdecafbaddecafbaddecafbaddecafbaddecafbaddecafbaddecafbaddecafbad"  # noqa: mock
+            "salt": "0xdecafbaddecafbaddecafbaddecafbaddecafbaddecafbaddecafbaddecafbad",  # noqa: mock
         }
         hashed_domain = hash_domain(domain_data)
         self.assertTrue(isinstance(hashed_domain, bytes))

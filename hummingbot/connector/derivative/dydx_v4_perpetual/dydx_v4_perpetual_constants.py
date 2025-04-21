@@ -24,9 +24,9 @@ MAX_ID_BIT_COUNT = 31
 
 # data_source grpc
 DYDX_V4_AERIAL_GRPC_OR_REST_PREFIX = "grpc"
-DYDX_V4_AERIAL_CONFIG_URL = 'dydx-grpc.publicnode.com:443'
-DYDX_V4_QUERY_AERIAL_CONFIG_URL = 'dydx-grpc.publicnode.com:443'
-CHAIN_ID = 'dydx-mainnet-1'
+DYDX_V4_AERIAL_CONFIG_URL = "dydx-grpc.publicnode.com:443"
+DYDX_V4_QUERY_AERIAL_CONFIG_URL = "dydx-grpc.publicnode.com:443"
+CHAIN_ID = "dydx-mainnet-1"
 FEE_DENOMINATION = "afet"
 TX_FEE = 0
 TX_GAS_LIMIT = 0
@@ -198,7 +198,6 @@ RATE_LIMITS = [
         limit_id=LIMIT_ID_ORDER_CANCEL,
         limit=NO_LIMIT,
         time_interval=ONE_SECOND,
-
     ),
 ]
 

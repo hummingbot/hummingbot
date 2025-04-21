@@ -15,7 +15,7 @@ from hummingbot.client.settings import CONF_DIR_PATH
 sys.path.insert(0, str(root_path()))
 
 
-with open(realpath(join(dirname(__file__), '../../VERSION'))) as version_file:
+with open(realpath(join(dirname(__file__), "../../VERSION"))) as version_file:
     version = version_file.read().strip()
 
 
@@ -35,17 +35,16 @@ def login_prompt(secrets_manager_cls: Type[BaseSecretsManager], style: Style):
 
         Enter your new password:""",
                 password=True,
-                style=style).run()
+                style=style,
+            ).run()
             if password is None:
                 return None
             if password == str():
                 err_msg = "The password must not be empty."
             else:
                 re_password = input_dialog(
-                    title="Set Password",
-                    text="Please re-enter your password:",
-                    password=True,
-                    style=style).run()
+                    title="Set Password", text="Please re-enter your password:", password=True, style=style
+                ).run()
                 if re_password is None:
                     return None
                 if password != re_password:
@@ -55,20 +54,15 @@ def login_prompt(secrets_manager_cls: Type[BaseSecretsManager], style: Style):
                     store_password_verification(secrets_manager)
     else:
         password = input_dialog(
-            title="Welcome back to Hummingbot",
-            text="Enter your password:",
-            password=True,
-            style=style).run()
+            title="Welcome back to Hummingbot", text="Enter your password:", password=True, style=style
+        ).run()
         if password is None:
             return None
         secrets_manager = secrets_manager_cls(password)
     if err_msg is None and not Security.login(secrets_manager):
         err_msg = "Invalid password - please try again."
     if err_msg is not None:
-        message_dialog(
-            title='Error',
-            text=err_msg,
-            style=style).run()
+        message_dialog(title="Error", text=err_msg, style=style).run()
         return login_prompt(secrets_manager_cls, style)
     return secrets_manager
 
@@ -87,7 +81,7 @@ def legacy_confs_exist() -> bool:
 
 def migrate_configs_prompt(secrets_manager_cls: Type[BaseSecretsManager], style: Style) -> BaseSecretsManager:
     message_dialog(
-        title='Configs Migration',
+        title="Configs Migration",
         text="""
 
 
@@ -98,12 +92,11 @@ def migrate_configs_prompt(secrets_manager_cls: Type[BaseSecretsManager], style:
             please enter your password on the following screen.
 
                 """,
-        style=style).run()
+        style=style,
+    ).run()
     password = input_dialog(
-        title="Input Password",
-        text="\n\nEnter your previous password:",
-        password=True,
-        style=style).run()
+        title="Input Password", text="\n\nEnter your previous password:", password=True, style=style
+    ).run()
     if password is None:
         raise ValueError("Wrong password.")
     secrets_manager = secrets_manager_cls(password)
@@ -112,7 +105,7 @@ def migrate_configs_prompt(secrets_manager_cls: Type[BaseSecretsManager], style:
         _migration_errors_dialog(errors, style)
     else:
         message_dialog(
-            title='Configs Migration Success',
+            title="Configs Migration Success",
             text="""
 
 
@@ -121,13 +114,14 @@ def migrate_configs_prompt(secrets_manager_cls: Type[BaseSecretsManager], style:
                             The migration process was completed successfully.
 
                                 """,
-            style=style).run()
+            style=style,
+        ).run()
     return secrets_manager
 
 
 def migrate_non_secure_only_prompt(style: Style):
     message_dialog(
-        title='Configs Migration',
+        title="Configs Migration",
         text="""
 
 
@@ -137,13 +131,14 @@ def migrate_non_secure_only_prompt(style: Style):
                 We will now attempt to migrate any legacy config files to the new format.
 
                     """,
-        style=style).run()
+        style=style,
+    ).run()
     errors = migrate_non_secure_configs_only()
     if len(errors) != 0:
         _migration_errors_dialog(errors, style)
     else:
         message_dialog(
-            title='Configs Migration Success',
+            title="Configs Migration Success",
             text="""
 
 
@@ -152,14 +147,15 @@ def migrate_non_secure_only_prompt(style: Style):
                             The migration process was completed successfully.
 
                                 """,
-            style=style).run()
+            style=style,
+        ).run()
 
 
 def _migration_errors_dialog(errors, style: Style):
     padding = "\n                    "
     errors_str = padding + padding.join(errors)
     message_dialog(
-        title='Configs Migration Errors',
+        title="Configs Migration Errors",
         text=f"""
 
 
@@ -168,12 +164,13 @@ def _migration_errors_dialog(errors, style: Style):
                 {errors_str}
 
                     """,
-        style=style).run()
+        style=style,
+    ).run()
 
 
 def show_welcome(style: Style):
     message_dialog(
-        title='Welcome to Hummingbot',
+        title="Welcome to Hummingbot",
         text="""
 
     ██╗  ██╗██╗   ██╗███╗   ███╗███╗   ███╗██╗███╗   ██╗ ██████╗ ██████╗  ██████╗ ████████╗
@@ -189,10 +186,13 @@ def show_welcome(style: Style):
     Codebase: https://github.com/hummingbot/hummingbot
 
 
-        """.format(version=version),
-        style=style).run()
+        """.format(
+            version=version
+        ),
+        style=style,
+    ).run()
     message_dialog(
-        title='Important Warning',
+        title="Important Warning",
         text="""
 
 
@@ -207,9 +207,10 @@ def show_welcome(style: Style):
     You are solely responsible for the trades that you perform using Hummingbot.
 
         """,
-        style=style).run()
+        style=style,
+    ).run()
     message_dialog(
-        title='Important Warning',
+        title="Important Warning",
         text="""
 
 
@@ -223,4 +224,5 @@ def show_welcome(style: Style):
     data. Please store this password safely since there is no way to reset it.
 
         """,
-        style=style).run()
+        style=style,
+    ).run()

@@ -27,9 +27,9 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     def __init__(
         self,
         trading_pairs: List[str],
-        connector: 'BitgetPerpetualDerivative',
+        connector: "BitgetPerpetualDerivative",
         api_factory: WebAssistantsFactory,
-        domain: str = ""
+        domain: str = "",
     ):
         super().__init__(trading_pairs)
         self._connector = connector
@@ -59,7 +59,8 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             try:
                 await asyncio.wait_for(
                     super()._process_websocket_messages(websocket_assistant=websocket_assistant),
-                    timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE)
+                    timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE,
+                )
             except asyncio.TimeoutError:
                 if self._pong_response_event and not self._pong_response_event.is_set():
                     # The PONG response for the previous PING request was never received
@@ -97,9 +98,7 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 "asks": book["asks"],
             }
             diff_message = OrderBookMessage(
-                message_type=OrderBookMessageType.DIFF,
-                content=order_book_message_content,
-                timestamp=timestamp
+                message_type=OrderBookMessageType.DIFF, content=order_book_message_content, timestamp=timestamp
             )
 
             message_queue.put_nowait(diff_message)
@@ -120,9 +119,7 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 "asks": book["asks"],
             }
             snapshot_msg: OrderBookMessage = OrderBookMessage(
-                message_type=OrderBookMessageType.SNAPSHOT,
-                content=order_book_message_content,
-                timestamp=timestamp
+                message_type=OrderBookMessageType.SNAPSHOT, content=order_book_message_content, timestamp=timestamp
             )
             message_queue.put_nowait(snapshot_msg)
 
@@ -171,16 +168,18 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL,
             CONSTANTS.OPEN_INTEREST_PATH_URL,
             CONSTANTS.MARK_PRICE_PATH_URL,
-            CONSTANTS.FUNDING_SETTLEMENT_TIME_PATH_URL
+            CONSTANTS.FUNDING_SETTLEMENT_TIME_PATH_URL,
         ]
         tasks = []
         for endpoint in endpoints:
-            tasks.append(rest_assistant.execute_request(
-                url=web_utils.get_rest_url_for_endpoint(endpoint=endpoint),
-                throttler_limit_id=endpoint,
-                params=params,
-                method=RESTMethod.GET,
-            ))
+            tasks.append(
+                rest_assistant.execute_request(
+                    url=web_utils.get_rest_url_for_endpoint(endpoint=endpoint),
+                    throttler_limit_id=endpoint,
+                    params=params,
+                    method=RESTMethod.GET,
+                )
+            )
         results = await safe_gather(*tasks)
         funding_info = {}
         for result in results:
@@ -189,9 +188,7 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        await ws.connect(
-            ws_url=CONSTANTS.WSS_URL, message_timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE
-        )
+        await ws.connect(ws_url=CONSTANTS.WSS_URL, message_timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE)
         return ws
 
     async def _subscribe_channels(self, ws: WSAssistant):
@@ -208,11 +205,7 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                     self._trade_messages_queue_key,
                     self._funding_info_messages_queue_key,
                 ]:
-                    payloads.append({
-                        "instType": "mc",
-                        "channel": channel,
-                        "instId": symbol
-                    })
+                    payloads.append({"instType": "mc", "channel": channel, "instId": symbol})
             final_payload = {
                 "op": "subscribe",
                 "args": payloads,
@@ -263,9 +256,8 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             "asks": [(price, amount) for price, amount in snapshot_data.get("asks", [])],
         }
         snapshot_msg: OrderBookMessage = OrderBookMessage(
-            OrderBookMessageType.SNAPSHOT,
-            order_book_message_content,
-            snapshot_timestamp)
+            OrderBookMessageType.SNAPSHOT, order_book_message_content, snapshot_timestamp
+        )
 
         return snapshot_msg
 

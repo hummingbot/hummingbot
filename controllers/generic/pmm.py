@@ -19,6 +19,7 @@ class PMMConfig(ControllerConfigBase):
     """
     This class represents the base configuration for a market making controller.
     """
+
     controller_type: str = "generic"
     controller_name: str = "pmm"
     candles_config: List[CandlesConfig] = []
@@ -27,113 +28,124 @@ class PMMConfig(ControllerConfigBase):
         json_schema_extra={
             "prompt_on_new": True,
             "prompt": "Enter the name of the connector to use (e.g., binance):",
-        }
+        },
     )
     trading_pair: str = Field(
         default="BTC-FDUSD",
         json_schema_extra={
             "prompt_on_new": True,
             "prompt": "Enter the trading pair to trade on (e.g., BTC-FDUSD):",
-        }
+        },
     )
     portfolio_allocation: Decimal = Field(
         default=Decimal("0.05"),
         json_schema_extra={
             "prompt_on_new": True,
             "prompt": "Enter the portfolio allocation (e.g., 0.05 for 5%):",
-        }
+        },
     )
     target_base_pct: Decimal = Field(
         default=Decimal("0.2"),
         json_schema_extra={
             "prompt_on_new": True,
             "prompt": "Enter the target base percentage (e.g., 0.2 for 20%):",
-        }
+        },
     )
     min_base_pct: Decimal = Field(
         default=Decimal("0.1"),
         json_schema_extra={
             "prompt_on_new": True,
             "prompt": "Enter the minimum base percentage (e.g., 0.1 for 10%):",
-        }
+        },
     )
     max_base_pct: Decimal = Field(
         default=Decimal("0.4"),
         json_schema_extra={
             "prompt_on_new": True,
             "prompt": "Enter the maximum base percentage (e.g., 0.4 for 40%):",
-        }
+        },
     )
     buy_spreads: List[float] = Field(
         default="0.01,0.02",
         json_schema_extra={
-            "prompt_on_new": True, "is_updatable": True,
+            "prompt_on_new": True,
+            "is_updatable": True,
             "prompt": "Enter a comma-separated list of buy spreads (e.g., '0.01, 0.02'):",
-        }
+        },
     )
     sell_spreads: List[float] = Field(
         default="0.01,0.02",
         json_schema_extra={
-            "prompt_on_new": True, "is_updatable": True,
+            "prompt_on_new": True,
+            "is_updatable": True,
             "prompt": "Enter a comma-separated list of sell spreads (e.g., '0.01, 0.02'):",
-        }
+        },
     )
     buy_amounts_pct: Union[List[Decimal], None] = Field(
         default=None,
         json_schema_extra={
-            "prompt_on_new": True, "is_updatable": True,
+            "prompt_on_new": True,
+            "is_updatable": True,
             "prompt": "Enter a comma-separated list of buy amounts as percentages (e.g., '50, 50'), or leave blank to distribute equally:",
-        }
+        },
     )
     sell_amounts_pct: Union[List[Decimal], None] = Field(
         default=None,
         json_schema_extra={
-            "prompt_on_new": True, "is_updatable": True,
+            "prompt_on_new": True,
+            "is_updatable": True,
             "prompt": "Enter a comma-separated list of sell amounts as percentages (e.g., '50, 50'), or leave blank to distribute equally:",
-        }
+        },
     )
     executor_refresh_time: int = Field(
         default=60 * 5,
         json_schema_extra={
-            "prompt_on_new": True, "is_updatable": True,
+            "prompt_on_new": True,
+            "is_updatable": True,
             "prompt": "Enter the refresh time in seconds for executors (e.g., 300 for 5 minutes):",
-        }
+        },
     )
     cooldown_time: int = Field(
         default=15,
         json_schema_extra={
-            "prompt_on_new": True, "is_updatable": True,
+            "prompt_on_new": True,
+            "is_updatable": True,
             "prompt": "Enter the cooldown time in seconds between after replacing an executor that traded (e.g., 15):",
-        }
+        },
     )
     leverage: int = Field(
         default=20,
         json_schema_extra={
-            "prompt_on_new": True, "is_updatable": True,
+            "prompt_on_new": True,
+            "is_updatable": True,
             "prompt": "Enter the leverage to use for trading (e.g., 20 for 20x leverage). Set it to 1 for spot trading:",
-        }
+        },
     )
     position_mode: PositionMode = Field(default="HEDGE")
     take_profit: Optional[Decimal] = Field(
-        default=Decimal("0.02"), gt=0,
+        default=Decimal("0.02"),
+        gt=0,
         json_schema_extra={
-            "prompt_on_new": True, "is_updatable": True,
+            "prompt_on_new": True,
+            "is_updatable": True,
             "prompt": "Enter the take profit as a decimal (e.g., 0.02 for 2%):",
-        }
+        },
     )
     take_profit_order_type: Optional[OrderType] = Field(
         default="LIMIT_MAKER",
         json_schema_extra={
-            "prompt_on_new": True, "is_updatable": True,
+            "prompt_on_new": True,
+            "is_updatable": True,
             "prompt": "Enter the order type for take profit (e.g., LIMIT_MAKER):",
-        }
+        },
     )
     max_skew: Decimal = Field(
         default=Decimal("1.0"),
         json_schema_extra={
-            "prompt_on_new": True, "is_updatable": True,
+            "prompt_on_new": True,
+            "is_updatable": True,
             "prompt": "Enter the maximum skew factor (e.g., 1.0):",
-        }
+        },
     )
     global_take_profit: Decimal = Decimal("0.02")
 
@@ -146,7 +158,7 @@ class PMMConfig(ControllerConfigBase):
             return Decimal(v)
         return v
 
-    @field_validator('take_profit_order_type', mode="before")
+    @field_validator("take_profit_order_type", mode="before")
     @classmethod
     def validate_order_type(cls, v) -> OrderType:
         if isinstance(v, OrderType):
@@ -163,7 +175,7 @@ class PMMConfig(ControllerConfigBase):
                 pass
         raise ValueError(f"Invalid order type: {v}. Valid options are: {', '.join(OrderType.__members__)}")
 
-    @field_validator('buy_spreads', 'sell_spreads', mode="before")
+    @field_validator("buy_spreads", "sell_spreads", mode="before")
     @classmethod
     def parse_spreads(cls, v):
         if v is None:
@@ -171,24 +183,25 @@ class PMMConfig(ControllerConfigBase):
         if isinstance(v, str):
             if v == "":
                 return []
-            return [float(x.strip()) for x in v.split(',')]
+            return [float(x.strip()) for x in v.split(",")]
         return v
 
-    @field_validator('buy_amounts_pct', 'sell_amounts_pct', mode="before")
+    @field_validator("buy_amounts_pct", "sell_amounts_pct", mode="before")
     @classmethod
     def parse_and_validate_amounts(cls, v, validation_info: ValidationInfo):
         field_name = validation_info.field_name
         if v is None or v == "":
-            spread_field = field_name.replace('amounts_pct', 'spreads')
+            spread_field = field_name.replace("amounts_pct", "spreads")
             return [1 for _ in validation_info.data[spread_field]]
         if isinstance(v, str):
-            return [float(x.strip()) for x in v.split(',')]
-        elif isinstance(v, list) and len(v) != len(validation_info.data[field_name.replace('amounts_pct', 'spreads')]):
+            return [float(x.strip()) for x in v.split(",")]
+        elif isinstance(v, list) and len(v) != len(validation_info.data[field_name.replace("amounts_pct", "spreads")]):
             raise ValueError(
-                f"The number of {field_name} must match the number of {field_name.replace('amounts_pct', 'spreads')}.")
+                f"The number of {field_name} must match the number of {field_name.replace('amounts_pct', 'spreads')}."
+            )
         return v
 
-    @field_validator('position_mode', mode="before")
+    @field_validator("position_mode", mode="before")
     @classmethod
     def validate_position_mode(cls, v) -> PositionMode:
         if isinstance(v, str):
@@ -205,22 +218,31 @@ class PMMConfig(ControllerConfigBase):
             open_order_type=OrderType.LIMIT_MAKER,  # Defaulting to LIMIT as is a Maker Controller
             take_profit_order_type=self.take_profit_order_type,
             stop_loss_order_type=OrderType.MARKET,  # Defaulting to MARKET as per requirement
-            time_limit_order_type=OrderType.MARKET  # Defaulting to MARKET as per requirement
+            time_limit_order_type=OrderType.MARKET,  # Defaulting to MARKET as per requirement
         )
 
-    def update_parameters(self, trade_type: TradeType, new_spreads: Union[List[float], str], new_amounts_pct: Optional[Union[List[int], str]] = None):
-        spreads_field = 'buy_spreads' if trade_type == TradeType.BUY else 'sell_spreads'
-        amounts_pct_field = 'buy_amounts_pct' if trade_type == TradeType.BUY else 'sell_amounts_pct'
+    def update_parameters(
+        self,
+        trade_type: TradeType,
+        new_spreads: Union[List[float], str],
+        new_amounts_pct: Optional[Union[List[int], str]] = None,
+    ):
+        spreads_field = "buy_spreads" if trade_type == TradeType.BUY else "sell_spreads"
+        amounts_pct_field = "buy_amounts_pct" if trade_type == TradeType.BUY else "sell_amounts_pct"
 
         setattr(self, spreads_field, self.parse_spreads(new_spreads))
         if new_amounts_pct is not None:
-            setattr(self, amounts_pct_field, self.parse_and_validate_amounts(new_amounts_pct, self.__dict__, self.__fields__[amounts_pct_field]))
+            setattr(
+                self,
+                amounts_pct_field,
+                self.parse_and_validate_amounts(new_amounts_pct, self.__dict__, self.__fields__[amounts_pct_field]),
+            )
         else:
             setattr(self, amounts_pct_field, [1 for _ in getattr(self, spreads_field)])
 
     def get_spreads_and_amounts_in_quote(self, trade_type: TradeType) -> Tuple[List[float], List[float]]:
-        buy_amounts_pct = getattr(self, 'buy_amounts_pct')
-        sell_amounts_pct = getattr(self, 'sell_amounts_pct')
+        buy_amounts_pct = getattr(self, "buy_amounts_pct")
+        sell_amounts_pct = getattr(self, "sell_amounts_pct")
 
         # Calculate total percentages across buys and sells
         total_pct = sum(buy_amounts_pct) + sum(sell_amounts_pct)
@@ -231,8 +253,10 @@ class PMMConfig(ControllerConfigBase):
         else:  # TradeType.SELL
             normalized_amounts_pct = [amt_pct / total_pct for amt_pct in sell_amounts_pct]
 
-        spreads = getattr(self, f'{trade_type.name.lower()}_spreads')
-        return spreads, [amt_pct * self.total_amount_quote * self.portfolio_allocation for amt_pct in normalized_amounts_pct]
+        spreads = getattr(self, f"{trade_type.name.lower()}_spreads")
+        return spreads, [
+            amt_pct * self.total_amount_quote * self.portfolio_allocation for amt_pct in normalized_amounts_pct
+        ]
 
     def update_markets(self, markets: Dict[str, Set[str]]) -> Dict[str, Set[str]]:
         if self.connector_name not in markets:
@@ -249,8 +273,9 @@ class PMM(ControllerBase):
     def __init__(self, config: PMMConfig, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
         self.config = config
-        self.market_data_provider.initialize_rate_sources([ConnectorPair(
-            connector_name=config.connector_name, trading_pair=config.trading_pair)])
+        self.market_data_provider.initialize_rate_sources(
+            [ConnectorPair(connector_name=config.connector_name, trading_pair=config.trading_pair)]
+        )
 
     def determine_executor_actions(self) -> List[ExecutorAction]:
         """
@@ -266,20 +291,25 @@ class PMM(ControllerBase):
         Create actions proposal based on the current state of the controller.
         """
         create_actions = []
-        if self.processed_data["current_base_pct"] > self.config.target_base_pct and self.processed_data["unrealized_pnl_pct"] > self.config.global_take_profit:
+        if (
+            self.processed_data["current_base_pct"] > self.config.target_base_pct
+            and self.processed_data["unrealized_pnl_pct"] > self.config.global_take_profit
+        ):
             # Create a global take profit executor
-            create_actions.append(CreateExecutorAction(
-                controller_id=self.config.id,
-                executor_config=OrderExecutorConfig(
-                    timestamp=self.market_data_provider.time(),
-                    connector_name=self.config.connector_name,
-                    trading_pair=self.config.trading_pair,
-                    side=TradeType.SELL,
-                    amount=self.processed_data["position_amount"],
-                    execution_strategy=ExecutionStrategy.MARKET,
-                    price=self.processed_data["reference_price"],
+            create_actions.append(
+                CreateExecutorAction(
+                    controller_id=self.config.id,
+                    executor_config=OrderExecutorConfig(
+                        timestamp=self.market_data_provider.time(),
+                        connector_name=self.config.connector_name,
+                        trading_pair=self.config.trading_pair,
+                        side=TradeType.SELL,
+                        amount=self.processed_data["position_amount"],
+                        execution_strategy=ExecutionStrategy.MARKET,
+                        price=self.processed_data["reference_price"],
+                    ),
                 )
-            ))
+            )
             return create_actions
         levels_to_execute = self.get_levels_to_execute()
         # Pre-calculate all spreads and amounts for buy and sell sides
@@ -317,23 +347,26 @@ class PMM(ControllerBase):
             side_multiplier = Decimal("-1") if trade_type == TradeType.BUY else Decimal("1")
             price = reference_price * (Decimal("1") + side_multiplier * spread_in_pct)
             # Calculate amount with skew applied
-            amount = self.market_data_provider.quantize_order_amount(self.config.connector_name,
-                                                                     self.config.trading_pair,
-                                                                     (amount_quote / price) * skew)
+            amount = self.market_data_provider.quantize_order_amount(
+                self.config.connector_name, self.config.trading_pair, (amount_quote / price) * skew
+            )
             if amount == Decimal("0"):
                 self.logger().warning(f"The amount of the level {level_id} is 0. Skipping.")
             executor_config = self.get_executor_config(level_id, price, amount)
             if executor_config is not None:
-                create_actions.append(CreateExecutorAction(
-                    controller_id=self.config.id,
-                    executor_config=executor_config
-                ))
+                create_actions.append(
+                    CreateExecutorAction(controller_id=self.config.id, executor_config=executor_config)
+                )
         return create_actions
 
     def get_levels_to_execute(self) -> List[str]:
         working_levels = self.filter_executors(
             executors=self.executors_info,
-            filter_func=lambda x: x.is_active or (x.close_type == CloseType.STOP_LOSS and self.market_data_provider.time() - x.close_timestamp < self.config.cooldown_time)
+            filter_func=lambda x: x.is_active
+            or (
+                x.close_type == CloseType.STOP_LOSS
+                and self.market_data_provider.time() - x.close_timestamp < self.config.cooldown_time
+            ),
         )
         working_levels_ids = [executor.custom_info["level_id"] for executor in working_levels]
         return self.get_not_active_levels_ids(working_levels_ids)
@@ -350,11 +383,14 @@ class PMM(ControllerBase):
     def executors_to_refresh(self) -> List[ExecutorAction]:
         executors_to_refresh = self.filter_executors(
             executors=self.executors_info,
-            filter_func=lambda x: not x.is_trading and x.is_active and self.market_data_provider.time() - x.timestamp > self.config.executor_refresh_time)
-        return [StopExecutorAction(
-            controller_id=self.config.id,
-            keep_position=True,
-            executor_id=executor.id) for executor in executors_to_refresh]
+            filter_func=lambda x: not x.is_trading
+            and x.is_active
+            and self.market_data_provider.time() - x.timestamp > self.config.executor_refresh_time,
+        )
+        return [
+            StopExecutorAction(controller_id=self.config.id, keep_position=True, executor_id=executor.id)
+            for executor in executors_to_refresh
+        ]
 
     def executors_to_early_stop(self) -> List[ExecutorAction]:
         """
@@ -363,11 +399,14 @@ class PMM(ControllerBase):
         """
         executors_to_early_stop = self.filter_executors(
             executors=self.executors_info,
-            filter_func=lambda x: x.is_active and x.is_trading and self.market_data_provider.time() - x.custom_info["open_order_last_update"] > self.config.cooldown_time)
-        return [StopExecutorAction(
-            controller_id=self.config.id,
-            keep_position=True,
-            executor_id=executor.id) for executor in executors_to_early_stop]
+            filter_func=lambda x: x.is_active
+            and x.is_trading
+            and self.market_data_provider.time() - x.custom_info["open_order_last_update"] > self.config.cooldown_time,
+        )
+        return [
+            StopExecutorAction(controller_id=self.config.id, keep_position=True, executor_id=executor.id)
+            for executor in executors_to_early_stop
+        ]
 
     async def update_processed_data(self):
         """
@@ -375,26 +414,42 @@ class PMM(ControllerBase):
         and spread multiplier based on the market data. By default, it will update the reference price as mid price and
         the spread multiplier as 1.
         """
-        reference_price = self.market_data_provider.get_price_by_type(self.config.connector_name,
-                                                                      self.config.trading_pair, PriceType.MidPrice)
-        position_held = next((position for position in self.positions_held if
-                              (position.trading_pair == self.config.trading_pair) &
-                              (position.connector_name == self.config.connector_name)), None)
+        reference_price = self.market_data_provider.get_price_by_type(
+            self.config.connector_name, self.config.trading_pair, PriceType.MidPrice
+        )
+        position_held = next(
+            (
+                position
+                for position in self.positions_held
+                if (position.trading_pair == self.config.trading_pair)
+                & (position.connector_name == self.config.connector_name)
+            ),
+            None,
+        )
         target_position = self.config.total_amount_quote * self.config.target_base_pct
         if position_held is not None:
             position_amount = position_held.amount
             current_base_pct = position_held.amount_quote / self.config.total_amount_quote
             deviation = (target_position - position_held.amount_quote) / target_position
-            unrealized_pnl_pct = position_held.unrealized_pnl_quote / position_held.amount_quote if position_held.amount_quote != 0 else Decimal("0")
+            unrealized_pnl_pct = (
+                position_held.unrealized_pnl_quote / position_held.amount_quote
+                if position_held.amount_quote != 0
+                else Decimal("0")
+            )
         else:
             position_amount = 0
             current_base_pct = 0
             deviation = 1
             unrealized_pnl_pct = 0
 
-        self.processed_data = {"reference_price": Decimal(reference_price), "spread_multiplier": Decimal("1"),
-                               "deviation": deviation, "current_base_pct": current_base_pct,
-                               "unrealized_pnl_pct": unrealized_pnl_pct, "position_amount": position_amount}
+        self.processed_data = {
+            "reference_price": Decimal(reference_price),
+            "spread_multiplier": Decimal("1"),
+            "deviation": deviation,
+            "current_base_pct": current_base_pct,
+            "unrealized_pnl_pct": unrealized_pnl_pct,
+            "position_amount": position_amount,
+        }
 
     def get_executor_config(self, level_id: str, price: Decimal, amount: Decimal):
         """
@@ -409,7 +464,9 @@ class PMM(ControllerBase):
             trading_pair=self.config.trading_pair,
             entry_price=price,
             amount=amount,
-            triple_barrier_config=self.config.triple_barrier_config.new_instance_with_adjusted_volatility(level_multiplier),
+            triple_barrier_config=self.config.triple_barrier_config.new_instance_with_adjusted_volatility(
+                level_multiplier
+            ),
             leverage=self.config.leverage,
             side=trade_type,
         )
@@ -424,16 +481,22 @@ class PMM(ControllerBase):
         return TradeType.BUY if level_id.startswith("buy") else TradeType.SELL
 
     def get_level_from_level_id(self, level_id: str) -> int:
-        return int(level_id.split('_')[1])
+        return int(level_id.split("_")[1])
 
     def get_not_active_levels_ids(self, active_levels_ids: List[str]) -> List[str]:
         """
         Get the levels to execute based on the current state of the controller.
         """
-        buy_ids_missing = [self.get_level_id_from_side(TradeType.BUY, level) for level in range(len(self.config.buy_spreads))
-                           if self.get_level_id_from_side(TradeType.BUY, level) not in active_levels_ids]
-        sell_ids_missing = [self.get_level_id_from_side(TradeType.SELL, level) for level in range(len(self.config.sell_spreads))
-                            if self.get_level_id_from_side(TradeType.SELL, level) not in active_levels_ids]
+        buy_ids_missing = [
+            self.get_level_id_from_side(TradeType.BUY, level)
+            for level in range(len(self.config.buy_spreads))
+            if self.get_level_id_from_side(TradeType.BUY, level) not in active_levels_ids
+        ]
+        sell_ids_missing = [
+            self.get_level_id_from_side(TradeType.SELL, level)
+            for level in range(len(self.config.sell_spreads))
+            if self.get_level_id_from_side(TradeType.SELL, level) not in active_levels_ids
+        ]
         if self.processed_data["current_base_pct"] < self.config.min_base_pct:
             return buy_ids_missing
         elif self.processed_data["current_base_pct"] > self.config.max_base_pct:
@@ -447,8 +510,10 @@ class PMM(ControllerBase):
         base_asset, quote_asset = self.config.trading_pair.split("-")
         _, amounts_quote = self.config.get_spreads_and_amounts_in_quote(TradeType.BUY)
         _, amounts_base = self.config.get_spreads_and_amounts_in_quote(TradeType.SELL)
-        return [TokenAmount(base_asset, Decimal(sum(amounts_base) / self.processed_data["reference_price"])),
-                TokenAmount(quote_asset, Decimal(sum(amounts_quote)))]
+        return [
+            TokenAmount(base_asset, Decimal(sum(amounts_base) / self.processed_data["reference_price"])),
+            TokenAmount(quote_asset, Decimal(sum(amounts_quote))),
+        ]
 
     def to_format_status(self) -> List[str]:
         """
@@ -463,7 +528,7 @@ class PMM(ControllerBase):
         status.append(f"Spread Multiplier: {self.processed_data['spread_multiplier']}")
 
         # Base percentage visualization
-        base_pct = self.processed_data['current_base_pct']
+        base_pct = self.processed_data["current_base_pct"]
         min_pct = self.config.min_base_pct
         max_pct = self.config.max_base_pct
         target_pct = self.config.target_base_pct
@@ -492,8 +557,8 @@ class PMM(ControllerBase):
         status.append(f"Min: {min_pct:.2%} | Target: {target_pct:.2%} | Max: {max_pct:.2%}")
         # Skew visualization
         skew = base_pct - target_pct
-        skew_pct = skew / target_pct if target_pct != 0 else Decimal('0')
-        max_skew = getattr(self.config, 'max_skew', Decimal('0.0'))
+        skew_pct = skew / target_pct if target_pct != 0 else Decimal("0")
+        max_skew = getattr(self.config, "max_skew", Decimal("0.0"))
         skew_bar_width = 30
         skew_bar = "Skew:    "
         center = skew_bar_width // 2
@@ -510,11 +575,19 @@ class PMM(ControllerBase):
         status.append(skew_bar)
         # Active executors summary
         status.append("\nActive Executors:")
-        active_buy = sum(1 for info in self.executors_info if self.get_trade_type_from_level_id(info.custom_info["level_id"]) == TradeType.BUY)
-        active_sell = sum(1 for info in self.executors_info if self.get_trade_type_from_level_id(info.custom_info["level_id"]) == TradeType.SELL)
+        active_buy = sum(
+            1
+            for info in self.executors_info
+            if self.get_trade_type_from_level_id(info.custom_info["level_id"]) == TradeType.BUY
+        )
+        active_sell = sum(
+            1
+            for info in self.executors_info
+            if self.get_trade_type_from_level_id(info.custom_info["level_id"]) == TradeType.SELL
+        )
         status.append(f"Total: {len(self.executors_info)} (Buy: {active_buy}, Sell: {active_sell})")
         # Deviation info
-        if 'deviation' in self.processed_data:
-            deviation = self.processed_data['deviation']
+        if "deviation" in self.processed_data:
+            deviation = self.processed_data["deviation"]
             status.append(f"Deviation: {deviation:.4f}")
         return status

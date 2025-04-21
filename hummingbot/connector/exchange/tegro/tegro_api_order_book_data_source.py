@@ -24,11 +24,13 @@ class TegroAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(self,
-                 trading_pairs: List[str],
-                 connector: 'TegroExchange',
-                 api_factory: WebAssistantsFactory,
-                 domain: Optional[str] = CONSTANTS.DOMAIN):
+    def __init__(
+        self,
+        trading_pairs: List[str],
+        connector: "TegroExchange",
+        api_factory: WebAssistantsFactory,
+        domain: Optional[str] = CONSTANTS.DOMAIN,
+    ):
         super().__init__(trading_pairs)
         self._connector = connector
         self.trading_pairs = trading_pairs
@@ -52,9 +54,7 @@ class TegroAPIOrderBookDataSource(OrderBookTrackerDataSource):
             chain = CONSTANTS.MAINNET_CHAIN_IDS[chain_id]
         return chain
 
-    async def get_last_traded_prices(self,
-                                     trading_pairs: List[str],
-                                     domain: Optional[str] = None) -> Dict[str, float]:
+    async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
@@ -90,26 +90,22 @@ class TegroAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 id.append(market)
         rest_assistant = await self._api_factory.get_rest_assistant()
         return await rest_assistant.execute_request(
-            url = tegro_web_utils.public_rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL.format(
-                self.chain, id[0]["id"]), self._domain),
+            url=tegro_web_utils.public_rest_url(
+                CONSTANTS.EXCHANGE_INFO_PATH_URL.format(self.chain, id[0]["id"]), self._domain
+            ),
             method=RESTMethod.GET,
-            is_auth_required = False,
-            throttler_limit_id = CONSTANTS.EXCHANGE_INFO_PATH_URL,
+            is_auth_required=False,
+            throttler_limit_id=CONSTANTS.EXCHANGE_INFO_PATH_URL,
         )
 
     async def initialize_market_list(self):
         rest_assistant = await self._api_factory.get_rest_assistant()
         return await rest_assistant.execute_request(
             method=RESTMethod.GET,
-            params={
-                "page": 1,
-                "sort_order": "desc",
-                "page_size": 20,
-                "verified": "true"
-            },
-            url = tegro_web_utils.public_rest_url(CONSTANTS.MARKET_LIST_PATH_URL.format(self.chain), self._domain),
-            is_auth_required = False,
-            throttler_limit_id = CONSTANTS.MARKET_LIST_PATH_URL,
+            params={"page": 1, "sort_order": "desc", "page_size": 20, "verified": "true"},
+            url=tegro_web_utils.public_rest_url(CONSTANTS.MARKET_LIST_PATH_URL.format(self.chain), self._domain),
+            is_auth_required=False,
+            throttler_limit_id=CONSTANTS.MARKET_LIST_PATH_URL,
         )
 
     async def _subscribe_channels(self, ws: WSAssistant):
@@ -121,10 +117,7 @@ class TegroAPIOrderBookDataSource(OrderBookTrackerDataSource):
             market_data = await self.initialize_market_list()
             param: str = self._process_market_data(market_data)
 
-            payload = {
-                "action": "subscribe",
-                "channelId": param
-            }
+            payload = {"action": "subscribe", "channelId": param}
             subscribe_request: WSJSONRequest = WSJSONRequest(payload=payload)
             await ws.send(subscribe_request)
 
@@ -133,8 +126,7 @@ class TegroAPIOrderBookDataSource(OrderBookTrackerDataSource):
             raise
         except Exception:
             self.logger().error(
-                "Unexpected error occurred subscribing to order book trading and delta streams...",
-                exc_info=True
+                "Unexpected error occurred subscribing to order book trading and delta streams...", exc_info=True
             )
             raise
 
@@ -152,32 +144,38 @@ class TegroAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        await ws.connect(ws_url=tegro_web_utils.wss_url(CONSTANTS.PUBLIC_WS_ENDPOINT, self._domain),
-                         ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+        await ws.connect(
+            ws_url=tegro_web_utils.wss_url(CONSTANTS.PUBLIC_WS_ENDPOINT, self._domain),
+            ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL,
+        )
         return ws
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
         snapshot_timestamp: float = time.time()
         snapshot_msg: OrderBookMessage = TegroOrderBook.snapshot_message_from_exchange(
-            snapshot,
-            snapshot_timestamp,
-            metadata={"trading_pair": trading_pair}
+            snapshot, snapshot_timestamp, metadata={"trading_pair": trading_pair}
         )
         return snapshot_msg
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         if "result" not in raw_message:
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["data"]["symbol"])
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
+                symbol=raw_message["data"]["symbol"]
+            )
             trade_message = TegroOrderBook.trade_message_from_exchange(
-                raw_message, time.time(), {"trading_pair": trading_pair})
+                raw_message, time.time(), {"trading_pair": trading_pair}
+            )
             message_queue.put_nowait(trade_message)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         if "result" not in raw_message:
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["data"]["symbol"])
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
+                symbol=raw_message["data"]["symbol"]
+            )
             order_book_message: OrderBookMessage = TegroOrderBook.diff_message_from_exchange(
-                raw_message, time.time(), {"trading_pair": trading_pair})
+                raw_message, time.time(), {"trading_pair": trading_pair}
+            )
             message_queue.put_nowait(order_book_message)
         return
 

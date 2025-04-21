@@ -21,8 +21,8 @@ class BtcMarketsAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self,
         auth: BtcMarketsAuth,
         trading_pairs: List[str],
-        connector: 'BtcMarketsExchange',
-        api_factory: WebAssistantsFactory
+        connector: "BtcMarketsExchange",
+        api_factory: WebAssistantsFactory,
     ):
         super().__init__()
         self._auth: BtcMarketsAuth = auth
@@ -42,8 +42,8 @@ class BtcMarketsAPIUserStreamDataSource(UserStreamTrackerDataSource):
             self._ws_assistant = await self._api_factory.get_ws_assistant()
 
         await self._ws_assistant.connect(
-            ws_url=CONSTANTS.WSS_PRIVATE_URL[self._domain],
-            ping_timeout=CONSTANTS.WS_PING_TIMEOUT)
+            ws_url=CONSTANTS.WSS_PRIVATE_URL[self._domain], ping_timeout=CONSTANTS.WS_PING_TIMEOUT
+        )
 
         return self._ws_assistant
 
@@ -60,12 +60,16 @@ class BtcMarketsAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 marketIds.append(symbol)
 
             payload = self._auth.generate_ws_authentication_message()
-            payload["channels"] = [CONSTANTS.ORDER_CHANGE_EVENT_TYPE, CONSTANTS.FUND_CHANGE_EVENT_TYPE, CONSTANTS.HEARTBEAT]
+            payload["channels"] = [
+                CONSTANTS.ORDER_CHANGE_EVENT_TYPE,
+                CONSTANTS.FUND_CHANGE_EVENT_TYPE,
+                CONSTANTS.HEARTBEAT,
+            ]
             payload["marketIds"] = marketIds
 
             subscribe_request: WSJSONRequest = WSJSONRequest(payload)
 
-            async with self._api_factory.throttler.execute_task(limit_id = CONSTANTS.WS_SUBSCRIPTION_LIMIT_ID):
+            async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_SUBSCRIPTION_LIMIT_ID):
                 await websocket_assistant.send(subscribe_request)
 
             self.logger().info("Subscribed to private account and orders channels...")

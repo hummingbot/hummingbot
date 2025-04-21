@@ -26,15 +26,17 @@ if TYPE_CHECKING:
 
 
 class StatusCommand:
-    def _expire_old_application_warnings(self,  # type: HummingbotApplication
-                                         ):
+    def _expire_old_application_warnings(
+        self,  # type: HummingbotApplication
+    ):
         now: float = time.time()
         expiry_threshold: float = now - self.APP_WARNING_EXPIRY_DURATION
         while len(self._app_warnings) > 0 and self._app_warnings[0].timestamp < expiry_threshold:
             self._app_warnings.popleft()
 
-    def _format_application_warnings(self,  # type: HummingbotApplication
-                                     ) -> str:
+    def _format_application_warnings(
+        self,  # type: HummingbotApplication
+    ) -> str:
         lines: List[str] = []
         if len(self._app_warnings) < 1:
             return ""
@@ -43,8 +45,10 @@ class StatusCommand:
 
         if len(self._app_warnings) < self.APP_WARNING_STATUS_LIMIT:
             for app_warning in reversed(self._app_warnings):
-                lines.append(f"    * {pd.Timestamp(app_warning.timestamp, unit='s')} - "
-                             f"({app_warning.logger_name}) - {app_warning.warning_msg}")
+                lines.append(
+                    f"    * {pd.Timestamp(app_warning.timestamp, unit='s')} - "
+                    f"({app_warning.logger_name}) - {app_warning.warning_msg}"
+                )
         else:
             module_based_warnings: OrderedDict = OrderedDict()
             for app_warning in reversed(self._app_warnings):
@@ -61,17 +65,22 @@ class StatusCommand:
                     warning_item: ApplicationWarning = module_based_warnings[key].popleft()
                     if len(module_based_warnings[key]) < 1:
                         del module_based_warnings[key]
-                    warning_lines.append(f"    * {pd.Timestamp(warning_item.timestamp, unit='s')} - "
-                                         f"({key}) - {warning_item.warning_msg}")
-            lines.extend(warning_lines[:self.APP_WARNING_STATUS_LIMIT])
+                    warning_lines.append(
+                        f"    * {pd.Timestamp(warning_item.timestamp, unit='s')} - "
+                        f"({key}) - {warning_item.warning_msg}"
+                    )
+            lines.extend(warning_lines[: self.APP_WARNING_STATUS_LIMIT])
 
         return "\n".join(lines)
 
     async def strategy_status(self, live: bool = False):
         active_paper_exchanges = [exchange for exchange in self.markets.keys() if exchange.endswith("paper_trade")]
 
-        paper_trade = "\n  Paper Trading Active: All orders are simulated, and no real orders are placed." if len(active_paper_exchanges) > 0 \
+        paper_trade = (
+            "\n  Paper Trading Active: All orders are simulated, and no real orders are placed."
+            if len(active_paper_exchanges) > 0
             else ""
+        )
         if asyncio.iscoroutinefunction(self.strategy.format_status):
             st_status = await self.strategy.format_status()
         else:
@@ -88,16 +97,21 @@ class StatusCommand:
             return app_warning
 
     async def validate_required_connections(
-        self  # type: HummingbotApplication
+        self,  # type: HummingbotApplication
     ) -> Dict[str, str]:
         invalid_conns = {}
         if not any([str(exchange).endswith("paper_trade") for exchange in required_exchanges]):
             if any([UserBalances.instance().is_gateway_market(exchange) for exchange in required_exchanges]):
-                connections = await GatewayCommand.update_exchange(self, self.client_config_map, exchanges=required_exchanges)
+                connections = await GatewayCommand.update_exchange(
+                    self, self.client_config_map, exchanges=required_exchanges
+                )
             else:
-                connections = await UserBalances.instance().update_exchanges(self.client_config_map, exchanges=required_exchanges)
-            invalid_conns.update({ex: err_msg for ex, err_msg in connections.items()
-                                  if ex in required_exchanges and err_msg is not None})
+                connections = await UserBalances.instance().update_exchanges(
+                    self.client_config_map, exchanges=required_exchanges
+                )
+            invalid_conns.update(
+                {ex: err_msg for ex, err_msg in connections.items() if ex in required_exchanges and err_msg is not None}
+            )
         return invalid_conns
 
     def missing_configurations_legacy(
@@ -106,22 +120,24 @@ class StatusCommand:
         config_map = self.strategy_config_map
         missing_configs = []
         if not isinstance(config_map, ClientConfigAdapter):
-            missing_configs = missing_required_configs_legacy(
-                get_strategy_config_map(self.strategy_name)
-            )
+            missing_configs = missing_required_configs_legacy(get_strategy_config_map(self.strategy_name))
         return missing_configs
 
-    def status(self,  # type: HummingbotApplication
-               live: bool = False):
+    def status(
+        self,  # type: HummingbotApplication
+        live: bool = False,
+    ):
         if threading.current_thread() != threading.main_thread():
             self.ev_loop.call_soon_threadsafe(self.status, live)
             return
 
         safe_ensure_future(self.status_check_all(live=live), loop=self.ev_loop)
 
-    async def status_check_all(self,  # type: HummingbotApplication
-                               notify_success=True,
-                               live=False) -> bool:
+    async def status_check_all(
+        self,  # type: HummingbotApplication
+        notify_success=True,
+        live=False,
+    ) -> bool:
 
         if self.strategy is not None:
             if live:
@@ -140,11 +156,11 @@ class StatusCommand:
         # Preliminary checks.
         self.notify("\nPreliminary checks:")
         if self.strategy_name is None or self.strategy_file_name is None:
-            self.notify('  - Strategy check: Please import or create a strategy.')
+            self.notify("  - Strategy check: Please import or create a strategy.")
             return False
 
         if not Security.is_decryption_done():
-            self.notify('  - Security check: Encrypted files are being processed. Please wait and try again later.')
+            self.notify("  - Security check: Encrypted files are being processed. Please wait and try again later.")
             return False
 
         missing_configs = self.missing_configurations_legacy()
@@ -153,7 +169,7 @@ class StatusCommand:
             for config in missing_configs:
                 self.notify(f"    {config.key}")
         elif notify_success:
-            self.notify('  - Strategy check: All required parameters confirmed.')
+            self.notify("  - Strategy check: All required parameters confirmed.")
 
         network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
         try:
@@ -162,11 +178,11 @@ class StatusCommand:
             self.notify("\nA network error prevented the connection check to complete. See logs for more details.")
             raise
         if invalid_conns:
-            self.notify('  - Exchange check: Invalid connections:')
+            self.notify("  - Exchange check: Invalid connections:")
             for ex, err_msg in invalid_conns.items():
                 self.notify(f"    {ex}: {err_msg}")
         elif notify_success:
-            self.notify('  - Exchange check: All connections confirmed.')
+            self.notify("  - Exchange check: All connections confirmed.")
 
         if invalid_conns or missing_configs:
             return False
@@ -177,25 +193,33 @@ class StatusCommand:
                 loading_markets.append(market)
 
         if len(loading_markets) > 0:
-            self.notify("  - Connectors check:  Waiting for connectors "
-                        f"{','.join([m.name.capitalize() for m in loading_markets])}"
-                        " to get ready for trading. \n"
-                        "                    Please keep the bot running and try to start again in a few minutes. \n")
+            self.notify(
+                "  - Connectors check:  Waiting for connectors "
+                f"{','.join([m.name.capitalize() for m in loading_markets])}"
+                " to get ready for trading. \n"
+                "                    Please keep the bot running and try to start again in a few minutes. \n"
+            )
 
             for market in loading_markets:
                 market_status_df = pd.DataFrame(data=market.status_dict.items(), columns=["description", "status"])
                 self.notify(
-                    f"  - {market.display_name.capitalize()} connector status:\n" +
-                    "\n".join(["     " + line for line in market_status_df.to_string(index=False,).split("\n")]) +
-                    "\n"
+                    f"  - {market.display_name.capitalize()} connector status:\n"
+                    + "\n".join(
+                        [
+                            "     " + line
+                            for line in market_status_df.to_string(
+                                index=False,
+                            ).split("\n")
+                        ]
+                    )
+                    + "\n"
                 )
             return False
 
         elif not all([market.network_status is NetworkStatus.CONNECTED for market in self.markets.values()]):
             offline_markets: List[str] = [
                 market_name
-                for market_name, market
-                in self.markets.items()
+                for market_name, market in self.markets.items()
                 if market.network_status is not NetworkStatus.CONNECTED
             ]
             for offline_market in offline_markets:

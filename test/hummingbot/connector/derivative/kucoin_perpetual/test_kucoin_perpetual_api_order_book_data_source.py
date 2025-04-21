@@ -26,7 +26,7 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
-os.environ['PYTHONASYNCIODEBUG'] = '1'
+os.environ["PYTHONASYNCIODEBUG"] = "1"
 
 
 class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
@@ -69,13 +69,12 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
-        self.connector._set_trading_pair_symbol_map(
-            bidict({self.ex_trading_pair: self.trading_pair}))
+        self.connector._set_trading_pair_symbol_map(bidict({self.ex_trading_pair: self.trading_pair}))
 
     async def asyncTearDown(self) -> None:
-        if hasattr(self, '_ws_session'):
+        if hasattr(self, "_ws_session"):
             await ConnectionsFactory().ws_independent_session().__aexit__(None, None, None)
-        if hasattr(self, '_shared_session'):
+        if hasattr(self, "_shared_session"):
             await ConnectionsFactory().shared_client().__aexit__(None, None, None)
         await super().asyncTearDown()
 
@@ -88,8 +87,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message
-                   for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
     def get_rest_snapshot_msg(self) -> Dict:
         return {
@@ -97,16 +95,10 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
             "data": {
                 "symbol": "XBTUSDM",
                 "sequence": 100,
-                "asks": [
-                    ["5000.0", 1000],
-                    ["6000.0", 1983]
-                ],
-                "bids": [
-                    ["3200.0", 800],
-                    ["3100.0", 100]
-                ],
-                "ts": 1604643655040584408
-            }
+                "asks": [["5000.0", 1000], ["6000.0", 1983]],
+                "bids": [["3200.0", 800], ["3100.0", 100]],
+                "ts": 1604643655040584408,
+            },
         }
 
     @aioresponses()
@@ -117,23 +109,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        resp = {
-            "code": "200000",
-            "data": {
-                "asks": [
-                    [
-                        4114.25,
-                        6.263
-                    ]
-                ],
-                "bids": [
-                    [
-                        4112.25,
-                        49.29
-                    ]
-                ]
-            }
-        }
+        resp = {"code": "200000", "data": {"asks": [[4114.25, 6.263]], "bids": [[4112.25, 49.29]]}}
 
         mock_api.get(regex_url, body=json.dumps(resp))
 
@@ -151,7 +127,8 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
     @aioresponses()
     async def test_get_new_order_book_raises_exception(self, mock_api):
         url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.ORDER_BOOK_ENDPOINT.format(symbol=self.trading_pair))
+            endpoint=CONSTANTS.ORDER_BOOK_ENDPOINT.format(symbol=self.trading_pair)
+        )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, status=400)
@@ -161,8 +138,9 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.derivative.kucoin_perpetual.kucoin_perpetual_web_utils.next_message_id")
-    async def test_listen_for_subscriptions_subscribes_to_trades_order_diffs_and_instruments(self, mock_api, id_mock,
-                                                                                             mock_ws):
+    async def test_listen_for_subscriptions_subscribes_to_trades_order_diffs_and_instruments(
+        self, mock_api, id_mock, mock_ws
+    ):
         id_mock.side_effect = [1, 2, 3]
         url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.PUBLIC_WS_DATA_PATH_URL)
 
@@ -175,45 +153,37 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
                         "protocol": "websocket",
                         "encrypt": True,
                         "pingInterval": 50000,
-                        "pingTimeout": 10000
+                        "pingTimeout": 10000,
                     }
                 ],
-                "token": "testToken"
-            }
+                "token": "testToken",
+            },
         }
         mock_api.post(url, body=json.dumps(resp))
 
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
 
-        result_subscribe_trades = {
-            "type": "ack",
-            "id": 1
-        }
-        result_subscribe_diffs = {
-            "type": "ack",
-            "id": 2
-        }
-        result_subscribe_instruments = {
-            "type": "ack",
-            "id": 3
-        }
+        result_subscribe_trades = {"type": "ack", "id": 1}
+        result_subscribe_diffs = {"type": "ack", "id": 2}
+        result_subscribe_instruments = {"type": "ack", "id": 3}
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=mock_ws.return_value,
-            message=json.dumps(result_subscribe_trades))
+            websocket_mock=mock_ws.return_value, message=json.dumps(result_subscribe_trades)
+        )
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=mock_ws.return_value,
-            message=json.dumps(result_subscribe_diffs))
+            websocket_mock=mock_ws.return_value, message=json.dumps(result_subscribe_diffs)
+        )
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=mock_ws.return_value,
-            message=json.dumps(result_subscribe_instruments))
+            websocket_mock=mock_ws.return_value, message=json.dumps(result_subscribe_instruments)
+        )
 
         self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_subscriptions())
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
-            websocket_mock=mock_ws.return_value)
+            websocket_mock=mock_ws.return_value
+        )
 
         self.assertEqual(3, len(sent_subscription_messages))
         expected_trade_subscription = {
@@ -221,7 +191,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
             "type": "subscribe",
             "topic": f"/contractMarket/ticker:{self.trading_pair}",
             "privateChannel": False,
-            "response": False
+            "response": False,
         }
         self.assertEqual(expected_trade_subscription, sent_subscription_messages[0])
         expected_diff_subscription = {
@@ -229,14 +199,11 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
             "type": "subscribe",
             "topic": f"/contractMarket/level2:{self.trading_pair}",
             "privateChannel": False,
-            "response": False
+            "response": False,
         }
         self.assertEqual(expected_diff_subscription, sent_subscription_messages[1])
 
-        self.assertTrue(self._is_logged(
-            "INFO",
-            "Subscribed to public order book, trade and funding info channels..."
-        ))
+        self.assertTrue(self._is_logged("INFO", "Subscribed to public order book, trade and funding info channels..."))
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -253,11 +220,11 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
                         "protocol": "websocket",
                         "encrypt": True,
                         "pingInterval": 50000,
-                        "pingTimeout": 10000
+                        "pingTimeout": 10000,
                     }
                 ],
-                "token": "testToken"
-            }
+                "token": "testToken",
+            },
         }
         mock_api.post(url, body=json.dumps(resp))
 
@@ -281,11 +248,11 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
                         "protocol": "websocket",
                         "encrypt": True,
                         "pingInterval": 50000,
-                        "pingTimeout": 10000
+                        "pingTimeout": 10000,
                     }
                 ],
-                "token": "testToken"
-            }
+                "token": "testToken",
+            },
         }
         mock_api.post(url, body=json.dumps(resp))
 
@@ -313,7 +280,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
                 {
                     "price": 10000,
                 }
-            ]
+            ],
         }
 
         mock_queue = AsyncMock()
@@ -327,8 +294,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         except asyncio.CancelledError:
             pass
 
-        self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
+        self.assertTrue(self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
 
     async def test_listen_for_trades_successful(self):
         self._simulate_trading_rules_initialized()
@@ -347,8 +313,8 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
                 "tradeId": "5c24c5da03aa673885cd67aa",
                 "takerOrderId": "5c24c5d903aa6772d55b371e",
                 "makerOrderId": "5c2187d003aa677bd09d5c93",
-                "time": "1545913818099033203"
-            }
+                "time": "1545913818099033203",
+            },
         }
 
         mock_queue.get.side_effect = [trade_event, asyncio.CancelledError()]
@@ -357,7 +323,8 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_trades(self.local_event_loop, msg_queue))
+            self.data_source.listen_for_trades(self.local_event_loop, msg_queue)
+        )
 
         msg: OrderBookMessage = await msg_queue.get()
 
@@ -392,7 +359,8 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
             pass
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange"))
+            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange")
+        )
 
     async def test_listen_for_order_book_diffs_successful(self):
         self._simulate_trading_rules_initialized()
@@ -405,7 +373,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
                 "sequence": 18,
                 "change": "5000.0,sell,83",
                 "timestamp": 1551770400000,
-            }
+            },
         }
 
         mock_queue.get.side_effect = [diff_event, asyncio.CancelledError()]
@@ -414,7 +382,8 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue))
+            self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue)
+        )
 
         msg: OrderBookMessage = await msg_queue.get()
 
@@ -435,9 +404,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
     @aioresponses()
     async def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
         endpoint = CONSTANTS.ORDER_BOOK_ENDPOINT.format(symbol=self.trading_pair)
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=endpoint
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=endpoint)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, exception=asyncio.CancelledError)
@@ -446,8 +413,10 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
             await self.data_source.listen_for_order_book_snapshots(self.local_event_loop, asyncio.Queue())
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.kucoin_perpetual.kucoin_perpetual_api_order_book_data_source"
-           ".KucoinPerpetualAPIOrderBookDataSource._sleep")
+    @patch(
+        "hummingbot.connector.derivative.kucoin_perpetual.kucoin_perpetual_api_order_book_data_source"
+        ".KucoinPerpetualAPIOrderBookDataSource._sleep"
+    )
     async def test_listen_for_order_book_snapshots_log_exception(self, mock_api, sleep_mock):
         msg_queue: asyncio.Queue = asyncio.Queue()
         sleep_mock.side_effect = asyncio.CancelledError
@@ -463,7 +432,8 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
             pass
 
         self.assertTrue(
-            self._is_logged("ERROR", f"Unexpected error fetching order book snapshot for {self.trading_pair}."))
+            self._is_logged("ERROR", f"Unexpected error fetching order book snapshot for {self.trading_pair}.")
+        )
 
     @aioresponses()
     async def test_listen_for_order_book_snapshots_successful(self, mock_api):
@@ -471,7 +441,8 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         logging.getLogger("asyncio").setLevel(logging.WARNING)
         msg_queue: asyncio.Queue = asyncio.Queue()
         url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.ORDER_BOOK_ENDPOINT.format(symbol=self.trading_pair))
+            endpoint=CONSTANTS.ORDER_BOOK_ENDPOINT.format(symbol=self.trading_pair)
+        )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         snapshot_data = {
@@ -479,11 +450,9 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
             "data": {
                 "sequence": "3262786978",
                 "time": 1550653727731,
-                "bids": [["6500.12", "0.45054140"],
-                         ["6500.11", "0.45054140"]],
-                "asks": [["6500.16", "0.57753524"],
-                         ["6500.15", "0.57753524"]]
-            }
+                "bids": [["6500.12", "0.45054140"], ["6500.11", "0.45054140"]],
+                "asks": [["6500.16", "0.57753524"], ["6500.15", "0.57753524"]],
+            },
         }
 
         mock_api.get(regex_url, body=json.dumps(snapshot_data))
@@ -542,7 +511,8 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
             pass
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public funding info updates from exchange"))
+            self._is_logged("ERROR", "Unexpected error when processing public funding info updates from exchange")
+        )
 
     async def test_listen_for_funding_info_successful(self):
         # KuCoin doesn't have ws updates for funding info
@@ -614,8 +584,8 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
                 "lowPrice": 88.88,
                 "highPrice": 102.21,
                 "priceChgPct": 0.1401,
-                "priceChg": 12.48
-            }
+                "priceChg": 12.48,
+            },
         }
         mock_api.get(future_info_regex_url, body=json.dumps(future_info_response))
 

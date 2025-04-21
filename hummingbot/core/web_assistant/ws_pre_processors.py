@@ -11,5 +11,4 @@ class WSPreProcessorBase(abc.ABC):
     """
 
     @abc.abstractmethod
-    async def pre_process(self, request: WSRequest) -> WSRequest:
-        ...
+    async def pre_process(self, request: WSRequest) -> WSRequest: ...

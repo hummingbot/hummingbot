@@ -8,17 +8,9 @@ class KrakenOrderBookTests(TestCase):
 
     def test_snapshot_message_from_exchange(self):
         snapshot_message = KrakenOrderBook.snapshot_message_from_exchange(
-            msg={
-                "latest_update": 1,
-                "bids": [
-                    ["4.00000000", "431.00000000"]
-                ],
-                "asks": [
-                    ["4.00000200", "12.00000000"]
-                ]
-            },
+            msg={"latest_update": 1, "bids": [["4.00000000", "431.00000000"]], "asks": [["4.00000200", "12.00000000"]]},
             timestamp=1640000000.0,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
+            metadata={"trading_pair": "COINALPHA-HBOT"},
         )
 
         self.assertEqual("COINALPHA-HBOT", snapshot_message.trading_pair)
@@ -40,20 +32,12 @@ class KrakenOrderBookTests(TestCase):
             msg={
                 "trading_pair": "COINALPHA-HBOT",
                 "asks": [
-                    [
-                        "5541.30000",
-                        "2.50700000",
-                        "1534614248.123678"
-                    ],
+                    ["5541.30000", "2.50700000", "1534614248.123678"],
                 ],
                 "bids": [
-                    [
-                        "5541.20000",
-                        "1.52900000",
-                        "1534614248.765567"
-                    ],
+                    ["5541.20000", "1.52900000", "1534614248.765567"],
                 ],
-                "update_id": 3407459756
+                "update_id": 3407459756,
             },
             timestamp=1640000000,
         )
@@ -73,14 +57,7 @@ class KrakenOrderBookTests(TestCase):
     def test_trade_message_from_exchange(self):
         trade_update = {
             "pair": "COINALPHA-HBOT",
-            "trade": [
-                "5541.20000",
-                "0.15850568",
-                "1534614057.321597",
-                "s",
-                "l",
-                ""
-            ]
+            "trade": ["5541.20000", "0.15850568", "1534614057.321597", "s", "l", ""],
         }
 
         trade_message = KrakenOrderBook.trade_message_from_exchange(

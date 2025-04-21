@@ -21,14 +21,20 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
         self.provider = MarketDataProvider(self.connectors)
 
     def test_initialize_candles_feed(self):
-        with patch('hummingbot.data_feed.candles_feed.candles_factory.CandlesFactory.get_candle', return_value=MagicMock()):
+        with patch(
+            "hummingbot.data_feed.candles_feed.candles_factory.CandlesFactory.get_candle", return_value=MagicMock()
+        ):
             config = CandlesConfig(connector="mock_connector", trading_pair="BTC-USDT", interval="1m", max_records=100)
             self.provider.initialize_candles_feed(config)
             self.assertTrue("mock_connector_BTC-USDT_1m" in self.provider.candles_feeds)
 
     def test_initialize_candles_feed_list(self):
-        with patch('hummingbot.data_feed.candles_feed.candles_factory.CandlesFactory.get_candle', return_value=MagicMock()):
-            config = [CandlesConfig(connector="mock_connector", trading_pair="BTC-USDT", interval="1m", max_records=100)]
+        with patch(
+            "hummingbot.data_feed.candles_feed.candles_factory.CandlesFactory.get_candle", return_value=MagicMock()
+        ):
+            config = [
+                CandlesConfig(connector="mock_connector", trading_pair="BTC-USDT", interval="1m", max_records=100)
+            ]
             self.provider.initialize_candles_feed_list(config)
             self.assertTrue("mock_connector_BTC-USDT_1m" in self.provider.candles_feeds)
 
@@ -58,7 +64,8 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
     @patch.object(CandlesBase, "start", MagicMock())
     def test_get_candles_df(self):
         self.provider.initialize_candles_feed(
-            CandlesConfig(connector="binance", trading_pair="BTC-USDT", interval="1m", max_records=100))
+            CandlesConfig(connector="binance", trading_pair="BTC-USDT", interval="1m", max_records=100)
+        )
         result = self.provider.get_candles_df("binance", "BTC-USDT", "1m", 100)
         self.assertIsInstance(result, pd.DataFrame)
 
@@ -69,7 +76,8 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
 
     def test_get_price_for_volume(self):
         self.mock_connector.get_order_book.return_value = MagicMock(
-            get_price_for_volume=MagicMock(return_value=OrderBookQueryResult(100, 2, 100, 2)))
+            get_price_for_volume=MagicMock(return_value=OrderBookQueryResult(100, 2, 100, 2))
+        )
         result = self.provider.get_price_for_volume("mock_connector", "BTC-USDT", 1, True)
         self.assertIsInstance(result, OrderBookQueryResult)
 
@@ -84,25 +92,29 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
 
     def test_get_price_for_quote_volume(self):
         self.mock_connector.get_order_book.return_value = MagicMock(
-            get_price_for_quote_volume=MagicMock(return_value=OrderBookQueryResult(100, 2, 100, 2)))
+            get_price_for_quote_volume=MagicMock(return_value=OrderBookQueryResult(100, 2, 100, 2))
+        )
         result = self.provider.get_price_for_quote_volume("mock_connector", "BTC-USDT", 1, True)
         self.assertIsInstance(result, OrderBookQueryResult)
 
     def test_get_volume_for_price(self):
         self.mock_connector.get_order_book.return_value = MagicMock(
-            get_volume_for_price=MagicMock(return_value=OrderBookQueryResult(100, 2, 100, 2)))
+            get_volume_for_price=MagicMock(return_value=OrderBookQueryResult(100, 2, 100, 2))
+        )
         result = self.provider.get_volume_for_price("mock_connector", "BTC-USDT", 100, True)
         self.assertIsInstance(result, OrderBookQueryResult)
 
     def test_get_quote_volume_for_price(self):
         self.mock_connector.get_order_book.return_value = MagicMock(
-            get_quote_volume_for_price=MagicMock(return_value=OrderBookQueryResult(100, 2, 100, 2)))
+            get_quote_volume_for_price=MagicMock(return_value=OrderBookQueryResult(100, 2, 100, 2))
+        )
         result = self.provider.get_quote_volume_for_price("mock_connector", "BTC-USDT", 100, True)
         self.assertIsInstance(result, OrderBookQueryResult)
 
     def test_get_vwap_for_volume(self):
         self.mock_connector.get_order_book.return_value = MagicMock(
-            get_vwap_for_volume=MagicMock(return_value=OrderBookQueryResult(100, 2, 100, 2)))
+            get_vwap_for_volume=MagicMock(return_value=OrderBookQueryResult(100, 2, 100, 2))
+        )
         result = self.provider.get_vwap_for_volume("mock_connector", "BTC-USDT", 1, True)
         self.assertIsInstance(result, OrderBookQueryResult)
 

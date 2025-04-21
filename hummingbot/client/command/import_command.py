@@ -19,8 +19,10 @@ if TYPE_CHECKING:
 
 class ImportCommand:
 
-    def import_command(self,  # type: HummingbotApplication
-                       file_name):
+    def import_command(
+        self,  # type: HummingbotApplication
+        file_name,
+    ):
         if file_name is not None:
             file_name = format_config_file_name(file_name)
 
@@ -29,8 +31,10 @@ class ImportCommand:
             return
         safe_ensure_future(self.import_config_file(file_name))
 
-    async def import_config_file(self,  # type: HummingbotApplication
-                                 file_name):
+    async def import_config_file(
+        self,  # type: HummingbotApplication
+        file_name,
+    ):
         self.app.clear_input()
         self.placeholder_mode = True
         self.app.hide_input = True
@@ -46,7 +50,7 @@ class ImportCommand:
         try:
             config_map = await load_strategy_config_map_from_file(strategy_path)
         except Exception as e:
-            self.notify(f'Strategy import error: {str(e)}')
+            self.notify(f"Strategy import error: {str(e)}")
             # Reset prompt settings
             self.placeholder_mode = False
             self.app.hide_input = False
@@ -54,9 +58,7 @@ class ImportCommand:
             raise
         self.strategy_file_name = file_name
         self.strategy_name = (
-            config_map.strategy
-            if not isinstance(config_map, dict)
-            else config_map.get("strategy").value  # legacy
+            config_map.strategy if not isinstance(config_map, dict) else config_map.get("strategy").value  # legacy
         )
         self.strategy_config_map = config_map
         self.notify(f"Configuration from {self.strategy_file_name} file is imported.")
@@ -71,13 +73,14 @@ class ImportCommand:
             self.strategy_config_map = None
             raise
         if all_status_go:
-            self.notify("\nEnter \"start\" to start market making.")
+            self.notify('\nEnter "start" to start market making.')
             autofill_import = self.client_config_map.autofill_import
             if autofill_import != AutofillImportEnum.disabled:
                 self.app.set_text(autofill_import)
 
-    async def prompt_a_file_name(self  # type: HummingbotApplication
-                                 ):
+    async def prompt_a_file_name(
+        self,  # type: HummingbotApplication
+    ):
         example = f"{CONF_PREFIX}{short_strategy_name('pure_market_making')}_{1}.yml"
         file_name = await self.app.prompt(prompt=f'Enter path to your strategy file (e.g. "{example}") >>> ')
         if self.app.to_stop_config:

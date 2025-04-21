@@ -6,13 +6,7 @@ from aiohttp.test_utils import TestClient
 import logging
 import pandas as pd
 import time
-from typing import (
-    Any,
-    AsyncIterable,
-    Dict,
-    List,
-    Optional
-)
+from typing import Any, AsyncIterable, Dict, List, Optional
 import websockets
 from websockets.exceptions import ConnectionClosed
 
@@ -53,7 +47,7 @@ class MockAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().network(
                     "Error getting active exchange information.",
                     exc_info=True,
-                    app_warning_msg="Error getting active exchange information. Check network connection."
+                    app_warning_msg="Error getting active exchange information. Check network connection.",
                 )
         return self._trading_pairs
 
@@ -67,8 +61,9 @@ class MockAPIOrderBookDataSource(OrderBookTrackerDataSource):
         async with client.get("/mockSnapshot") as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
-                raise IOError(f"Error fetching market snapshot for {trading_pair}. "
-                              f"HTTP status is {response.status}.")
+                raise IOError(
+                    f"Error fetching market snapshot for {trading_pair}. " f"HTTP status is {response.status}."
+                )
             parsed_response = await response.json()
             return parsed_response
 
@@ -82,22 +77,21 @@ class MockAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 snapshot: Dict[str, Any] = await self.get_snapshot(self._client, trading_pair)
                 snapshot_msg: OrderBookMessage = self._order_book_class.snapshot_message_from_exchange(
-                    snapshot,
-                    metadata={"trading_pair": trading_pair}
+                    snapshot, metadata={"trading_pair": trading_pair}
                 )
                 order_book: OrderBook = self.order_book_create_function()
                 order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
                 retval[trading_pair] = OrderBookTrackerEntry(trading_pair, snapshot_msg.timestamp, order_book)
-                self.logger().info(f"Initialized order book for {trading_pair}. "
-                                   f"{index + 1}/{number_of_pairs} completed.")
+                self.logger().info(
+                    f"Initialized order book for {trading_pair}. " f"{index + 1}/{number_of_pairs} completed."
+                )
                 await asyncio.sleep(0.1)
             except Exception:
                 self.logger().error(f"Error getting snapshot for {trading_pair}. ", exc_info=True)
                 await asyncio.sleep(5)
         return retval
 
-    async def _inner_messages(self,
-                              ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
+    async def _inner_messages(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
         # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
         try:
             while True:
@@ -138,8 +132,7 @@ class MockAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     try:
                         snapshot: Dict[str, Any] = await self.get_snapshot(self._client, trading_pair)
                         snapshot_message: OrderBookMessage = self._order_book_class.snapshot_message_from_exchange(
-                            snapshot,
-                            metadata={"trading_pair": trading_pair}
+                            snapshot, metadata={"trading_pair": trading_pair}
                         )
                         output.put_nowait(snapshot_message)
                         self.logger().debug(f"Saved order book snapshot for {trading_pair}")

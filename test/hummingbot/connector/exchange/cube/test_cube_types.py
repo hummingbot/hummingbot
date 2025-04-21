@@ -7,23 +7,12 @@ class CubeTypesTestCases(unittest.TestCase):
 
     def test_bootstrap_message(self):
         position = trade_pb2.AssetPosition(
-            subaccount_id=1,
-            asset_id=2,
-            total=trade_pb2.RawUnits(
-                word0=1000
-            ),
-            available=trade_pb2.RawUnits(
-                word0=500
-            )
+            subaccount_id=1, asset_id=2, total=trade_pb2.RawUnits(word0=1000), available=trade_pb2.RawUnits(word0=500)
         )
 
-        positions = trade_pb2.AssetPositions(
-            positions=[position]
-        )
+        positions = trade_pb2.AssetPositions(positions=[position])
 
-        bootstrap_message = trade_pb2.Bootstrap(
-            position=positions
-        ).SerializeToString()
+        bootstrap_message = trade_pb2.Bootstrap(position=positions).SerializeToString()
 
         # Check if bootstrap_message is of type bytes
         self.assertIsInstance(bootstrap_message, bytes)
@@ -39,14 +28,9 @@ class CubeTypesTestCases(unittest.TestCase):
             self.assertEqual(position.total.word0, 1000)
             self.assertEqual(position.available.word0, 500)
 
-        done = trade_pb2.Done(
-            latest_transact_time=12345,
-            read_only=True
-        )
+        done = trade_pb2.Done(latest_transact_time=12345, read_only=True)
 
-        done_bootstrap_message = trade_pb2.Bootstrap(
-            done=done
-        ).SerializeToString()
+        done_bootstrap_message = trade_pb2.Bootstrap(done=done).SerializeToString()
 
         self.assertIsInstance(done_bootstrap_message, bytes)
         self.assertTrue(done_bootstrap_message)
@@ -70,18 +54,17 @@ class CubeTypesTestCases(unittest.TestCase):
             order_type=trade_pb2.OrderType.LIMIT,
             transact_time=8,
             subaccount_id=9,
-            cancel_on_disconnect=True
+            cancel_on_disconnect=True,
         )
 
-        order_response_message: trade_pb2.OrderResponse = trade_pb2.OrderResponse(
-            new_ack=new_ack
-        ).SerializeToString()
+        order_response_message: trade_pb2.OrderResponse = trade_pb2.OrderResponse(new_ack=new_ack).SerializeToString()
 
         self.assertIsInstance(order_response_message, bytes)
         self.assertTrue(order_response_message)
 
         decoded_order_response_message: trade_pb2.OrderResponse = trade_pb2.OrderResponse().FromString(
-            order_response_message)
+            order_response_message
+        )
         self.assertTrue(decoded_order_response_message.HasField("new_ack"))
         self.assertEqual(decoded_order_response_message.new_ack.msg_seq_num, 1)
         self.assertEqual(decoded_order_response_message.new_ack.client_order_id, 2)
@@ -106,7 +89,7 @@ class CubeTypesTestCases(unittest.TestCase):
             subaccount_id=5,
             reason=trade_pb2.CancelOrderAck.Reason.REQUESTED,
             market_id=6,
-            exchange_order_id=7
+            exchange_order_id=7,
         )
 
         order_response_message: trade_pb2.OrderResponse = trade_pb2.OrderResponse(
@@ -117,7 +100,8 @@ class CubeTypesTestCases(unittest.TestCase):
         self.assertTrue(order_response_message)
 
         decoded_order_response_message: trade_pb2.OrderResponse = trade_pb2.OrderResponse().FromString(
-            order_response_message)
+            order_response_message
+        )
         self.assertTrue(decoded_order_response_message.HasField("cancel_ack"))
         self.assertEqual(decoded_order_response_message.cancel_ack.msg_seq_num, 1)
         self.assertEqual(decoded_order_response_message.cancel_ack.client_order_id, 2)
@@ -141,7 +125,7 @@ class CubeTypesTestCases(unittest.TestCase):
             quantity=8,
             side=trade_pb2.Side.BID,
             time_in_force=trade_pb2.TimeInForce.GOOD_FOR_SESSION,
-            order_type=trade_pb2.OrderType.LIMIT
+            order_type=trade_pb2.OrderType.LIMIT,
         )
 
         order_response_message: trade_pb2.OrderResponse = trade_pb2.OrderResponse(
@@ -152,44 +136,39 @@ class CubeTypesTestCases(unittest.TestCase):
         self.assertTrue(order_response_message)
 
         decoded_order_response_message: trade_pb2.OrderResponse = trade_pb2.OrderResponse().FromString(
-            order_response_message)
+            order_response_message
+        )
         self.assertTrue(decoded_order_response_message.HasField("new_reject"))
         self.assertEqual(decoded_order_response_message.new_reject.msg_seq_num, 1)
         self.assertEqual(decoded_order_response_message.new_reject.client_order_id, 2)
         self.assertEqual(decoded_order_response_message.new_reject.request_id, 3)
         self.assertEqual(decoded_order_response_message.new_reject.transact_time, 4)
         self.assertEqual(decoded_order_response_message.new_reject.subaccount_id, 5)
-        self.assertEqual(decoded_order_response_message.new_reject.reason,
-                         trade_pb2.NewOrderReject.Reason.DUPLICATE_ORDER_ID)
+        self.assertEqual(
+            decoded_order_response_message.new_reject.reason, trade_pb2.NewOrderReject.Reason.DUPLICATE_ORDER_ID
+        )
         self.assertEqual(decoded_order_response_message.new_reject.market_id, 6)
         self.assertEqual(decoded_order_response_message.new_reject.price, 7)
         self.assertEqual(decoded_order_response_message.new_reject.quantity, 8)
         self.assertEqual(decoded_order_response_message.new_reject.side, trade_pb2.Side.BID)
-        self.assertEqual(decoded_order_response_message.new_reject.time_in_force,
-                         trade_pb2.TimeInForce.GOOD_FOR_SESSION)
+        self.assertEqual(
+            decoded_order_response_message.new_reject.time_in_force, trade_pb2.TimeInForce.GOOD_FOR_SESSION
+        )
         self.assertEqual(decoded_order_response_message.new_reject.order_type, trade_pb2.OrderType.LIMIT)
 
     def test_order_response_position(self):
         position = trade_pb2.AssetPosition(
-            subaccount_id=1,
-            asset_id=2,
-            total=trade_pb2.RawUnits(
-                word0=1000
-            ),
-            available=trade_pb2.RawUnits(
-                word0=500
-            )
+            subaccount_id=1, asset_id=2, total=trade_pb2.RawUnits(word0=1000), available=trade_pb2.RawUnits(word0=500)
         )
 
-        order_response_message: trade_pb2.OrderResponse = trade_pb2.OrderResponse(
-            position=position
-        ).SerializeToString()
+        order_response_message: trade_pb2.OrderResponse = trade_pb2.OrderResponse(position=position).SerializeToString()
 
         self.assertIsInstance(order_response_message, bytes)
         self.assertTrue(order_response_message)
 
         decoded_order_response_message: trade_pb2.OrderResponse = trade_pb2.OrderResponse().FromString(
-            order_response_message)
+            order_response_message
+        )
         self.assertTrue(decoded_order_response_message.HasField("position"))
 
         self.assertEqual(decoded_order_response_message.position.subaccount_id, 1)
@@ -211,22 +190,18 @@ class CubeTypesTestCases(unittest.TestCase):
             cumulative_quantity=10,
             side=trade_pb2.Side.BID,
             aggressor_indicator=True,
-            fee_ratio=trade_pb2.FixedPointDecimal(
-                mantissa=4,
-                exponent=5
-            ),
-            trade_id=12
+            fee_ratio=trade_pb2.FixedPointDecimal(mantissa=4, exponent=5),
+            trade_id=12,
         )
 
-        order_response_message: trade_pb2.OrderResponse = trade_pb2.OrderResponse(
-            fill=fill
-        ).SerializeToString()
+        order_response_message: trade_pb2.OrderResponse = trade_pb2.OrderResponse(fill=fill).SerializeToString()
 
         self.assertIsInstance(order_response_message, bytes)
         self.assertTrue(order_response_message)
 
         decoded_order_response_message: trade_pb2.OrderResponse = trade_pb2.OrderResponse().FromString(
-            order_response_message)
+            order_response_message
+        )
         self.assertTrue(decoded_order_response_message.HasField("fill"))
 
         self.assertEqual(decoded_order_response_message.fill.msg_seq_num, 1)
@@ -253,12 +228,10 @@ class CubeTypesTestCases(unittest.TestCase):
             resting_exchange_order_id=3,
             fill_quantity=4,
             transact_time=5,
-            aggressing_exchange_order_id=6
+            aggressing_exchange_order_id=6,
         )
 
-        trades_message = market_data_pb2.Trades(
-            trades=[trade]
-        )
+        trades_message = market_data_pb2.Trades(trades=[trade])
 
         market_data_message: market_data_pb2.MdMessage = market_data_pb2.MdMessage(
             trades=trades_message
@@ -267,8 +240,10 @@ class CubeTypesTestCases(unittest.TestCase):
         self.assertIsInstance(market_data_message, bytes)
         self.assertTrue(market_data_message)
 
-        decoded_market_data_message: market_data_pb2.MdMessage = market_data_pb2.MdMessage().FromString(market_data_message)
-        field = decoded_market_data_message.WhichOneof('inner')
+        decoded_market_data_message: market_data_pb2.MdMessage = market_data_pb2.MdMessage().FromString(
+            market_data_message
+        )
+        field = decoded_market_data_message.WhichOneof("inner")
 
         self.assertEqual(field, "trades")
 
@@ -286,20 +261,13 @@ class CubeTypesTestCases(unittest.TestCase):
 
     def test_diff_message(self):
         diff = market_data_pb2.MarketByPriceDiff.Diff(
-            price=3,
-            quantity=4,
-            side=market_data_pb2.Side.BID,
-            op=market_data_pb2.MarketByPriceDiff.DiffOp.REPLACE
+            price=3, quantity=4, side=market_data_pb2.Side.BID, op=market_data_pb2.MarketByPriceDiff.DiffOp.REPLACE
         )
 
         # diffs: _containers.RepeatedCompositeFieldContainer[MarketByPriceDiff.Diff]
         # total_bid_levels: int
         # total_ask_levels: int
-        mbp_diff = market_data_pb2.MarketByPriceDiff(
-            diffs=[diff],
-            total_bid_levels=1,
-            total_ask_levels=1
-        )
+        mbp_diff = market_data_pb2.MarketByPriceDiff(diffs=[diff], total_bid_levels=1, total_ask_levels=1)
 
         market_data_message: market_data_pb2.MdMessage = market_data_pb2.MdMessage(
             mbp_diff=mbp_diff
@@ -309,7 +277,7 @@ class CubeTypesTestCases(unittest.TestCase):
         self.assertTrue(market_data_message)
 
         decoded_diff_message: market_data_pb2.MdMessage = market_data_pb2.MdMessage().FromString(market_data_message)
-        field = decoded_diff_message.WhichOneof('inner')
+        field = decoded_diff_message.WhichOneof("inner")
 
         self.assertEqual(field, "mbp_diff")
 

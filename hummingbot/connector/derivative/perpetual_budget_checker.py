@@ -20,6 +20,7 @@ class PerpetualBudgetChecker(BudgetChecker):
 
     def _validate_perpetual_connector(self):
         from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativePyBase
+
         if not isinstance(self._exchange, (PerpetualTrading, PerpetualDerivativePyBase)):
             raise TypeError(
                 f"{self.__class__} must be passed an exchange implementing the {PerpetualTrading} interface."

@@ -119,9 +119,7 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
         with self.assertRaises(ConfigValidationError) as e:
             self.config_map.execution_timeframe_mode = "XXX"
 
-        error_msg = (
-            "Value error, Invalid timeframe, please choose value from ['infinite', 'from_date_to_date', 'daily_between_times']"
-        )
+        error_msg = "Value error, Invalid timeframe, please choose value from ['infinite', 'from_date_to_date', 'daily_between_times']"
         self.assertEqual(error_msg, str(e.exception))
 
         self.config_map.execution_timeframe_mode = "from_date_to_date"

@@ -22,8 +22,7 @@ class TradeFeeSchemaLoader:
     @classmethod
     def _superimpose_overrides(cls, exchange: str, trade_fee_schema: TradeFeeSchema):
         trade_fee_schema.percent_fee_token = (
-            fee_overrides_config_map.get(f"{exchange}_percent_fee_token").value
-            or trade_fee_schema.percent_fee_token
+            fee_overrides_config_map.get(f"{exchange}_percent_fee_token").value or trade_fee_schema.percent_fee_token
         )
         trade_fee_schema.maker_percent_fee_decimal = (
             fee_overrides_config_map.get(f"{exchange}_maker_percent_fee").value / Decimal("100")
@@ -41,20 +40,16 @@ class TradeFeeSchemaLoader:
             else trade_fee_schema.buy_percent_fee_deducted_from_returns
         )
         trade_fee_schema.maker_fixed_fees = (
-            fee_overrides_config_map.get(f"{exchange}_maker_fixed_fees").value
-            or trade_fee_schema.maker_fixed_fees
+            fee_overrides_config_map.get(f"{exchange}_maker_fixed_fees").value or trade_fee_schema.maker_fixed_fees
         )
         trade_fee_schema.maker_fixed_fees = [
-            TokenAmount(*maker_fixed_fee)
-            for maker_fixed_fee in trade_fee_schema.maker_fixed_fees
+            TokenAmount(*maker_fixed_fee) for maker_fixed_fee in trade_fee_schema.maker_fixed_fees
         ]
         trade_fee_schema.taker_fixed_fees = (
-            fee_overrides_config_map.get(f"{exchange}_taker_fixed_fees").value
-            or trade_fee_schema.taker_fixed_fees
+            fee_overrides_config_map.get(f"{exchange}_taker_fixed_fees").value or trade_fee_schema.taker_fixed_fees
         )
         trade_fee_schema.taker_fixed_fees = [
-            TokenAmount(*taker_fixed_fee)
-            for taker_fixed_fee in trade_fee_schema.taker_fixed_fees
+            TokenAmount(*taker_fixed_fee) for taker_fixed_fee in trade_fee_schema.taker_fixed_fees
         ]
         trade_fee_schema.validate_schema()
         return trade_fee_schema

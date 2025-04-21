@@ -30,26 +30,26 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     def base_config_long(self) -> XEMMExecutorConfig:
         return XEMMExecutorConfig(
             timestamp=1234,
-            buying_market=ConnectorPair(connector_name='binance', trading_pair='ETH-USDT'),
-            selling_market=ConnectorPair(connector_name='kucoin', trading_pair='ETH-USDT'),
+            buying_market=ConnectorPair(connector_name="binance", trading_pair="ETH-USDT"),
+            selling_market=ConnectorPair(connector_name="kucoin", trading_pair="ETH-USDT"),
             maker_side=TradeType.BUY,
-            order_amount=Decimal('100'),
-            min_profitability=Decimal('0.01'),
-            target_profitability=Decimal('0.015'),
-            max_profitability=Decimal('0.02'),
+            order_amount=Decimal("100"),
+            min_profitability=Decimal("0.01"),
+            target_profitability=Decimal("0.015"),
+            max_profitability=Decimal("0.02"),
         )
 
     @property
     def base_config_short(self) -> XEMMExecutorConfig:
         return XEMMExecutorConfig(
             timestamp=1234,
-            buying_market=ConnectorPair(connector_name='binance', trading_pair='ETH-USDT'),
-            selling_market=ConnectorPair(connector_name='kucoin', trading_pair='ETH-USDT'),
+            buying_market=ConnectorPair(connector_name="binance", trading_pair="ETH-USDT"),
+            selling_market=ConnectorPair(connector_name="kucoin", trading_pair="ETH-USDT"),
             maker_side=TradeType.SELL,
-            order_amount=Decimal('100'),
-            min_profitability=Decimal('0.01'),
-            target_profitability=Decimal('0.015'),
-            max_profitability=Decimal('0.02'),
+            order_amount=Decimal("100"),
+            min_profitability=Decimal("0.01"),
+            target_profitability=Decimal("0.015"),
+            max_profitability=Decimal("0.02"),
         )
 
     @staticmethod
@@ -75,45 +75,49 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         return strategy
 
     def test_is_arbitrage_valid(self):
-        self.assertTrue(self.executor.is_arbitrage_valid('ETH-USDT', 'ETH-USDT'))
-        self.assertTrue(self.executor.is_arbitrage_valid('ETH-BUSD', 'ETH-USDT'))
-        self.assertTrue(self.executor.is_arbitrage_valid('ETH-USDT', 'WETH-USDT'))
-        self.assertFalse(self.executor.is_arbitrage_valid('ETH-USDT', 'BTC-USDT'))
-        self.assertTrue(self.executor.is_arbitrage_valid('ETH-USDT', 'ETH-BTC'))
+        self.assertTrue(self.executor.is_arbitrage_valid("ETH-USDT", "ETH-USDT"))
+        self.assertTrue(self.executor.is_arbitrage_valid("ETH-BUSD", "ETH-USDT"))
+        self.assertTrue(self.executor.is_arbitrage_valid("ETH-USDT", "WETH-USDT"))
+        self.assertFalse(self.executor.is_arbitrage_valid("ETH-USDT", "BTC-USDT"))
+        self.assertTrue(self.executor.is_arbitrage_valid("ETH-USDT", "ETH-BTC"))
 
     def test_net_pnl_long(self):
         self.executor._status = RunnableStatus.TERMINATED
         self.executor.maker_order = Mock(spec=TrackedOrder)
         self.executor.taker_order = Mock(spec=TrackedOrder)
-        self.executor.maker_order.executed_amount_base = Decimal('1')
-        self.executor.taker_order.executed_amount_base = Decimal('1')
-        self.executor.maker_order.average_executed_price = Decimal('100')
-        self.executor.taker_order.average_executed_price = Decimal('200')
-        self.executor.maker_order.cum_fees_quote = Decimal('1')
-        self.executor.taker_order.cum_fees_quote = Decimal('1')
-        self.assertEqual(self.executor.net_pnl_quote, Decimal('98'))
-        self.assertEqual(self.executor.net_pnl_pct, Decimal('0.98'))
+        self.executor.maker_order.executed_amount_base = Decimal("1")
+        self.executor.taker_order.executed_amount_base = Decimal("1")
+        self.executor.maker_order.average_executed_price = Decimal("100")
+        self.executor.taker_order.average_executed_price = Decimal("200")
+        self.executor.maker_order.cum_fees_quote = Decimal("1")
+        self.executor.taker_order.cum_fees_quote = Decimal("1")
+        self.assertEqual(self.executor.net_pnl_quote, Decimal("98"))
+        self.assertEqual(self.executor.net_pnl_pct, Decimal("0.98"))
 
     def test_net_pnl_short(self):
         executor = XEMMExecutor(self.strategy, self.base_config_short, self.update_interval)
         executor._status = RunnableStatus.TERMINATED
         executor.maker_order = Mock(spec=TrackedOrder)
         executor.taker_order = Mock(spec=TrackedOrder)
-        executor.maker_order.executed_amount_base = Decimal('1')
-        executor.taker_order.executed_amount_base = Decimal('1')
-        executor.maker_order.average_executed_price = Decimal('100')
-        executor.taker_order.average_executed_price = Decimal('200')
-        executor.maker_order.cum_fees_quote = Decimal('1')
-        executor.taker_order.cum_fees_quote = Decimal('1')
-        self.assertEqual(executor.net_pnl_quote, Decimal('98'))
-        self.assertEqual(executor.net_pnl_pct, Decimal('0.98'))
+        executor.maker_order.executed_amount_base = Decimal("1")
+        executor.taker_order.executed_amount_base = Decimal("1")
+        executor.maker_order.average_executed_price = Decimal("100")
+        executor.taker_order.average_executed_price = Decimal("200")
+        executor.maker_order.cum_fees_quote = Decimal("1")
+        executor.taker_order.cum_fees_quote = Decimal("1")
+        self.assertEqual(executor.net_pnl_quote, Decimal("98"))
+        self.assertEqual(executor.net_pnl_pct, Decimal("0.98"))
 
-    @patch.object(XEMMExecutor, 'get_trading_rules')
-    @patch.object(XEMMExecutor, 'adjust_order_candidates')
+    @patch.object(XEMMExecutor, "get_trading_rules")
+    @patch.object(XEMMExecutor, "adjust_order_candidates")
     async def test_validate_sufficient_balance(self, mock_adjust_order_candidates, mock_get_trading_rules):
         # Mock trading rules
-        trading_rules = TradingRule(trading_pair="ETH-USDT", min_order_size=Decimal("0.1"),
-                                    min_price_increment=Decimal("0.1"), min_base_amount_increment=Decimal("0.1"))
+        trading_rules = TradingRule(
+            trading_pair="ETH-USDT",
+            min_order_size=Decimal("0.1"),
+            min_price_increment=Decimal("0.1"),
+            min_base_amount_increment=Decimal("0.1"),
+        )
         mock_get_trading_rules.return_value = trading_rules
         order_candidate = OrderCandidate(
             trading_pair="ETH-USDT",
@@ -121,7 +125,7 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             order_type=OrderType.LIMIT,
             order_side=TradeType.BUY,
             amount=Decimal("1"),
-            price=Decimal("100")
+            price=Decimal("100"),
         )
         # Test for sufficient balance
         mock_adjust_order_candidates.return_value = [order_candidate]
@@ -138,7 +142,7 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     @patch.object(XEMMExecutor, "get_resulting_price_for_amount")
     @patch.object(XEMMExecutor, "get_tx_cost_in_asset")
     async def test_control_task_running_order_not_placed(self, tx_cost_mock, resulting_price_mock):
-        tx_cost_mock.return_value = Decimal('0.01')
+        tx_cost_mock.return_value = Decimal("0.01")
         resulting_price_mock.return_value = Decimal("100")
         self.executor._status = RunnableStatus.RUNNING
         await self.executor.control_task()
@@ -148,9 +152,10 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
     @patch.object(XEMMExecutor, "get_resulting_price_for_amount")
     @patch.object(XEMMExecutor, "get_tx_cost_in_asset")
-    async def test_control_task_running_order_placed_refresh_condition_min_profitability(self, tx_cost_mock,
-                                                                                         resulting_price_mock):
-        tx_cost_mock.return_value = Decimal('0.01')
+    async def test_control_task_running_order_placed_refresh_condition_min_profitability(
+        self, tx_cost_mock, resulting_price_mock
+    ):
+        tx_cost_mock.return_value = Decimal("0.01")
         resulting_price_mock.return_value = Decimal("100")
         self.executor._status = RunnableStatus.RUNNING
         self.executor.maker_order = Mock(spec=TrackedOrder)
@@ -171,9 +176,10 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
     @patch.object(XEMMExecutor, "get_resulting_price_for_amount")
     @patch.object(XEMMExecutor, "get_tx_cost_in_asset")
-    async def test_control_task_running_order_placed_refresh_condition_max_profitability(self, tx_cost_mock,
-                                                                                         resulting_price_mock):
-        tx_cost_mock.return_value = Decimal('0.01')
+    async def test_control_task_running_order_placed_refresh_condition_max_profitability(
+        self, tx_cost_mock, resulting_price_mock
+    ):
+        tx_cost_mock.return_value = Decimal("0.01")
         resulting_price_mock.return_value = Decimal("103")
         self.executor._status = RunnableStatus.RUNNING
         self.executor.maker_order = Mock(spec=TrackedOrder)
@@ -222,7 +228,7 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
                 trade_type=TradeType.SELL,
                 amount=Decimal("100"),
                 price=Decimal("100"),
-            )
+            ),
         ]
 
         self.executor.maker_order = TrackedOrder(order_id="OID-BUY-1")
@@ -289,21 +295,26 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(self.executor.taker_order.order_id, "OID-SELL-1")
 
     def test_get_custom_info(self):
-        self.assertEqual(self.executor.get_custom_info(), {'maker_connector': 'binance',
-                                                           'maker_target_price': Decimal('1'),
-                                                           'maker_trading_pair': 'ETH-USDT',
-                                                           'max_profitability': Decimal('0.02'),
-                                                           'min_profitability': Decimal('0.01'),
-                                                           'net_profitability': Decimal('-1'),
-                                                           'order_amount': Decimal('100'),
-                                                           'side': TradeType.BUY,
-                                                           'taker_connector': 'kucoin',
-                                                           'taker_price': Decimal('1'),
-                                                           'taker_trading_pair': 'ETH-USDT',
-                                                           'target_profitability_pct': Decimal('0.015'),
-                                                           'trade_profitability': Decimal('0'),
-                                                           'tx_cost': Decimal('1'),
-                                                           'tx_cost_pct': Decimal('1')})
+        self.assertEqual(
+            self.executor.get_custom_info(),
+            {
+                "maker_connector": "binance",
+                "maker_target_price": Decimal("1"),
+                "maker_trading_pair": "ETH-USDT",
+                "max_profitability": Decimal("0.02"),
+                "min_profitability": Decimal("0.01"),
+                "net_profitability": Decimal("-1"),
+                "order_amount": Decimal("100"),
+                "side": TradeType.BUY,
+                "taker_connector": "kucoin",
+                "taker_price": Decimal("1"),
+                "taker_trading_pair": "ETH-USDT",
+                "target_profitability_pct": Decimal("0.015"),
+                "trade_profitability": Decimal("0"),
+                "tx_cost": Decimal("1"),
+                "tx_cost_pct": Decimal("1"),
+            },
+        )
 
     def test_to_format_status(self):
         self.assertIn("Maker Side: TradeType.BUY", self.executor.to_format_status())
@@ -316,16 +327,16 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(self.executor._status, RunnableStatus.TERMINATED)
 
     def test_get_cum_fees_quote_not_executed(self):
-        self.assertEqual(self.executor.get_cum_fees_quote(), Decimal('0'))
+        self.assertEqual(self.executor.get_cum_fees_quote(), Decimal("0"))
 
-    @patch.object(XEMMExecutor, 'rate_oracle', create=True)
+    @patch.object(XEMMExecutor, "rate_oracle", create=True)
     async def test_get_quote_asset_conversion_rate_none(self, mock_rate_oracle):
         mock_rate_oracle.get_pair_rate.return_value = None
         self.executor.quote_conversion_pair = "USDC-USDT"
         with self.assertRaises(ValueError):
             await self.executor.get_quote_asset_conversion_rate()
 
-    @patch.object(XEMMExecutor, 'rate_oracle', create=True)
+    @patch.object(XEMMExecutor, "rate_oracle", create=True)
     async def test_get_quote_asset_conversion_rate_exception(self, mock_rate_oracle):
         mock_rate_oracle.get_pair_rate.side_effect = Exception("Test exception")
         self.executor.quote_conversion_pair = "USDC-USDT"

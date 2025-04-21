@@ -81,34 +81,96 @@ RATE_LIMITS = {
     RateLimit(limit_id=REQUEST_POST_BURST, limit=MAX_REQUEST_POST_BURST, time_interval=ONE_SECOND),
     RateLimit(limit_id=REQUEST_POST_MIXED, limit=MAX_REQUEST_POST_MIXED, time_interval=SIX_SECONDS),
     # Linked limits
-    RateLimit(limit_id=LAST_TRADED_PRICE_PATH, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_GET, 1), LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
-                             LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)]),
-    RateLimit(limit_id=USER_STREAM_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_GET, 1), LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
-                             LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)]),
-    RateLimit(limit_id=EXCHANGE_INFO_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_GET, 1), LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
-                             LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)]),
-    RateLimit(limit_id=SNAPSHOT_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_GET, 1), LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
-                             LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)]),
-    RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=MAX_REQUEST_GET, time_interval=ONE_SECOND,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_GET, 1), LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
-                             LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)]),
-    RateLimit(limit_id=ORDER_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_POST, 1), LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
-                             LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)]),
-    RateLimit(limit_id=CANCEL_ORDER_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_POST, 1), LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
-                             LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)]),
-    RateLimit(limit_id=ACCOUNTS_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_POST, 1), LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
-                             LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)]),
-    RateLimit(limit_id=MY_TRADES_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_POST, 1), LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
-                             LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)]),
-
+    RateLimit(
+        limit_id=LAST_TRADED_PRICE_PATH,
+        limit=MAX_REQUEST_GET,
+        time_interval=TWO_MINUTES,
+        linked_limits=[
+            LinkedLimitWeightPair(REQUEST_GET, 1),
+            LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
+            LinkedLimitWeightPair(REQUEST_GET_MIXED, 1),
+        ],
+    ),
+    RateLimit(
+        limit_id=USER_STREAM_PATH_URL,
+        limit=MAX_REQUEST_GET,
+        time_interval=TWO_MINUTES,
+        linked_limits=[
+            LinkedLimitWeightPair(REQUEST_GET, 1),
+            LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
+            LinkedLimitWeightPair(REQUEST_GET_MIXED, 1),
+        ],
+    ),
+    RateLimit(
+        limit_id=EXCHANGE_INFO_PATH_URL,
+        limit=MAX_REQUEST_GET,
+        time_interval=TWO_MINUTES,
+        linked_limits=[
+            LinkedLimitWeightPair(REQUEST_GET, 1),
+            LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
+            LinkedLimitWeightPair(REQUEST_GET_MIXED, 1),
+        ],
+    ),
+    RateLimit(
+        limit_id=SNAPSHOT_PATH_URL,
+        limit=MAX_REQUEST_GET,
+        time_interval=TWO_MINUTES,
+        linked_limits=[
+            LinkedLimitWeightPair(REQUEST_GET, 1),
+            LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
+            LinkedLimitWeightPair(REQUEST_GET_MIXED, 1),
+        ],
+    ),
+    RateLimit(
+        limit_id=SERVER_TIME_PATH_URL,
+        limit=MAX_REQUEST_GET,
+        time_interval=ONE_SECOND,
+        linked_limits=[
+            LinkedLimitWeightPair(REQUEST_GET, 1),
+            LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
+            LinkedLimitWeightPair(REQUEST_GET_MIXED, 1),
+        ],
+    ),
+    RateLimit(
+        limit_id=ORDER_PATH_URL,
+        limit=MAX_REQUEST_GET,
+        time_interval=TWO_MINUTES,
+        linked_limits=[
+            LinkedLimitWeightPair(REQUEST_POST, 1),
+            LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
+            LinkedLimitWeightPair(REQUEST_POST_MIXED, 1),
+        ],
+    ),
+    RateLimit(
+        limit_id=CANCEL_ORDER_PATH_URL,
+        limit=MAX_REQUEST_GET,
+        time_interval=TWO_MINUTES,
+        linked_limits=[
+            LinkedLimitWeightPair(REQUEST_POST, 1),
+            LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
+            LinkedLimitWeightPair(REQUEST_POST_MIXED, 1),
+        ],
+    ),
+    RateLimit(
+        limit_id=ACCOUNTS_PATH_URL,
+        limit=MAX_REQUEST_GET,
+        time_interval=TWO_MINUTES,
+        linked_limits=[
+            LinkedLimitWeightPair(REQUEST_POST, 1),
+            LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
+            LinkedLimitWeightPair(REQUEST_POST_MIXED, 1),
+        ],
+    ),
+    RateLimit(
+        limit_id=MY_TRADES_PATH_URL,
+        limit=MAX_REQUEST_GET,
+        time_interval=TWO_MINUTES,
+        linked_limits=[
+            LinkedLimitWeightPair(REQUEST_POST, 1),
+            LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
+            LinkedLimitWeightPair(REQUEST_POST_MIXED, 1),
+        ],
+    ),
 }
 
 
@@ -125,4 +187,4 @@ TRADE_EVENT_TYPE = "trade"
 DIFF_EVENT_TYPE = "depth"
 
 BINGX_USER_STREAM_PATH_URL = "/user/auth/userDataStream"
-SOURCE_KEY = 'Hummingbot'
+SOURCE_KEY = "Hummingbot"

@@ -78,9 +78,11 @@ class RunInTimeConditionalExecutionState(ConditionalExecutionState):
                 return f"run daily between {self._start_timestamp} and {self._end_timestamp}"
 
     def __eq__(self, other):
-        return type(self) == type(other) and \
-            self._start_timestamp == other._start_timestamp and \
-            self._end_timestamp == other._end_timestamp
+        return (
+            type(self) == type(other)
+            and self._start_timestamp == other._start_timestamp
+            and self._end_timestamp == other._end_timestamp
+        )
 
     def process_tick(self, timestamp: float, strategy: StrategyBase):
         if isinstance(self._start_timestamp, datetime):
@@ -96,9 +98,11 @@ class RunInTimeConditionalExecutionState(ConditionalExecutionState):
                 else:
                     self._time_left = 0
                     strategy.cancel_active_orders()
-                    strategy.logger().debug("Time span execution: tick will not be processed "
-                                            f"(executing between {self._start_timestamp.isoformat(sep=' ')} "
-                                            f"and {self._end_timestamp.isoformat(sep=' ')})")
+                    strategy.logger().debug(
+                        "Time span execution: tick will not be processed "
+                        f"(executing between {self._start_timestamp.isoformat(sep=' ')} "
+                        f"and {self._end_timestamp.isoformat(sep=' ')})"
+                    )
             else:
                 self._closing_time = None
                 self._time_left = None
@@ -106,21 +110,35 @@ class RunInTimeConditionalExecutionState(ConditionalExecutionState):
                     strategy.process_tick(timestamp)
                 else:
                     strategy.cancel_active_orders()
-                    strategy.logger().debug("Delayed start execution: tick will not be processed "
-                                            f"(executing from {self._start_timestamp.isoformat(sep=' ')})")
+                    strategy.logger().debug(
+                        "Delayed start execution: tick will not be processed "
+                        f"(executing from {self._start_timestamp.isoformat(sep=' ')})"
+                    )
         if isinstance(self._start_timestamp, time):
             # Daily between times
             if self._end_timestamp is not None:
 
-                self._closing_time = (datetime.combine(datetime.today(), self._end_timestamp) - datetime.combine(datetime.today(), self._start_timestamp)).total_seconds() * 1000
+                self._closing_time = (
+                    datetime.combine(datetime.today(), self._end_timestamp)
+                    - datetime.combine(datetime.today(), self._start_timestamp)
+                ).total_seconds() * 1000
                 current_time = datetime.fromtimestamp(timestamp).time()
 
                 if self._start_timestamp <= current_time < self._end_timestamp:
-                    self._time_left = max((datetime.combine(datetime.today(), self._end_timestamp) - datetime.combine(datetime.today(), current_time)).total_seconds() * 1000, 0)
+                    self._time_left = max(
+                        (
+                            datetime.combine(datetime.today(), self._end_timestamp)
+                            - datetime.combine(datetime.today(), current_time)
+                        ).total_seconds()
+                        * 1000,
+                        0,
+                    )
                     strategy.process_tick(timestamp)
                 else:
                     self._time_left = 0
                     strategy.cancel_active_orders()
-                    strategy.logger().debug("Time span execution: tick will not be processed "
-                                            f"(executing between {self._start_timestamp} "
-                                            f"and {self._end_timestamp})")
+                    strategy.logger().debug(
+                        "Time span execution: tick will not be processed "
+                        f"(executing between {self._start_timestamp} "
+                        f"and {self._end_timestamp})"
+                    )

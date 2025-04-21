@@ -48,9 +48,8 @@ class CoinbaseAdvancedTradeRateSource(RateSourceBase):
             self._coinbase_exchange = self._build_coinbase_connector_without_private_keys(domain="com")
 
     async def _get_coinbase_prices(
-            self,
-            exchange: 'CoinbaseAdvancedTradeExchange',
-            quote_token: str = None) -> Dict[str, Decimal]:
+        self, exchange: "CoinbaseAdvancedTradeExchange", quote_token: str = None
+    ) -> Dict[str, Decimal]:
         """
         Fetches coinbase prices
 
@@ -64,7 +63,7 @@ class CoinbaseAdvancedTradeRateSource(RateSourceBase):
         return {token: Decimal(1.0) / Decimal(price) for token, price in token_price.items() if Decimal(price) != 0}
 
     @staticmethod
-    def _build_coinbase_connector_without_private_keys(domain: str = DEFAULT_DOMAIN) -> 'CoinbaseAdvancedTradeExchange':
+    def _build_coinbase_connector_without_private_keys(domain: str = DEFAULT_DOMAIN) -> "CoinbaseAdvancedTradeExchange":
         from hummingbot.client.hummingbot_application import HummingbotApplication
         from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_exchange import (
             CoinbaseAdvancedTradeExchange,

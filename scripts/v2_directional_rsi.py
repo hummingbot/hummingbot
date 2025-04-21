@@ -45,10 +45,10 @@ class SimpleDirectionalRSIConfig(StrategyV2ConfigBase):
             open_order_type=OrderType.MARKET,
             take_profit_order_type=OrderType.LIMIT,
             stop_loss_order_type=OrderType.MARKET,  # Defaulting to MARKET as per requirement
-            time_limit_order_type=OrderType.MARKET  # Defaulting to MARKET as per requirement
+            time_limit_order_type=OrderType.MARKET,  # Defaulting to MARKET as per requirement
         )
 
-    @field_validator('position_mode', mode="before")
+    @field_validator("position_mode", mode="before")
     @classmethod
     def validate_position_mode(cls, v: str) -> PositionMode:
         if v.upper() in PositionMode.__members__:
@@ -70,12 +70,14 @@ class SimpleDirectionalRSI(StrategyV2Base):
 
     def __init__(self, connectors: Dict[str, ConnectorBase], config: SimpleDirectionalRSIConfig):
         if len(config.candles_config) == 0:
-            config.candles_config.append(CandlesConfig(
-                connector=config.candles_exchange,
-                trading_pair=config.candles_pair,
-                interval=config.candles_interval,
-                max_records=config.candles_length + 10
-            ))
+            config.candles_config.append(
+                CandlesConfig(
+                    connector=config.candles_exchange,
+                    trading_pair=config.candles_pair,
+                    interval=config.candles_interval,
+                    max_records=config.candles_length + 10,
+                )
+            )
         super().__init__(connectors, config)
         self.config = config
         self.current_rsi = None
@@ -93,43 +95,47 @@ class SimpleDirectionalRSI(StrategyV2Base):
     def create_actions_proposal(self) -> List[CreateExecutorAction]:
         create_actions = []
         signal = self.get_signal(self.config.candles_exchange, self.config.candles_pair)
-        active_longs, active_shorts = self.get_active_executors_by_side(self.config.exchange,
-                                                                        self.config.trading_pair)
+        active_longs, active_shorts = self.get_active_executors_by_side(self.config.exchange, self.config.trading_pair)
         if signal is not None:
-            mid_price = self.market_data_provider.get_price_by_type(self.config.exchange,
-                                                                    self.config.trading_pair,
-                                                                    PriceType.MidPrice)
+            mid_price = self.market_data_provider.get_price_by_type(
+                self.config.exchange, self.config.trading_pair, PriceType.MidPrice
+            )
             if signal == 1 and len(active_longs) == 0:
-                create_actions.append(CreateExecutorAction(
-                    executor_config=PositionExecutorConfig(
-                        timestamp=self.current_timestamp,
-                        connector_name=self.config.exchange,
-                        trading_pair=self.config.trading_pair,
-                        side=TradeType.BUY,
-                        entry_price=mid_price,
-                        amount=self.config.order_amount_quote / mid_price,
-                        triple_barrier_config=self.config.triple_barrier_config,
-                        leverage=self.config.leverage
-                    )))
+                create_actions.append(
+                    CreateExecutorAction(
+                        executor_config=PositionExecutorConfig(
+                            timestamp=self.current_timestamp,
+                            connector_name=self.config.exchange,
+                            trading_pair=self.config.trading_pair,
+                            side=TradeType.BUY,
+                            entry_price=mid_price,
+                            amount=self.config.order_amount_quote / mid_price,
+                            triple_barrier_config=self.config.triple_barrier_config,
+                            leverage=self.config.leverage,
+                        )
+                    )
+                )
             elif signal == -1 and len(active_shorts) == 0:
-                create_actions.append(CreateExecutorAction(
-                    executor_config=PositionExecutorConfig(
-                        timestamp=self.current_timestamp,
-                        connector_name=self.config.exchange,
-                        trading_pair=self.config.trading_pair,
-                        side=TradeType.SELL,
-                        entry_price=mid_price,
-                        amount=self.config.order_amount_quote / mid_price,
-                        triple_barrier_config=self.config.triple_barrier_config,
-                        leverage=self.config.leverage
-                    )))
+                create_actions.append(
+                    CreateExecutorAction(
+                        executor_config=PositionExecutorConfig(
+                            timestamp=self.current_timestamp,
+                            connector_name=self.config.exchange,
+                            trading_pair=self.config.trading_pair,
+                            side=TradeType.SELL,
+                            entry_price=mid_price,
+                            amount=self.config.order_amount_quote / mid_price,
+                            triple_barrier_config=self.config.triple_barrier_config,
+                            leverage=self.config.leverage,
+                        )
+                    )
+                )
         return create_actions
 
     def stop_actions_proposal(self) -> List[StopExecutorAction]:
         stop_actions = []
         signal = self.get_signal(self.config.candles_exchange, self.config.candles_pair)
-        active_longs, active_shorts = self.get_active_executors_by_side(self.config.exchange,
-                                                                        self.config.trading_pair)
+        active_longs, active_shorts = self.get_active_executors_by_side(self.config.exchange, self.config.trading_pair)
         if signal is not None:
             if signal == -1 and len(active_longs) > 0:
                 stop_actions.extend([StopExecutorAction(executor_id=e.id) for e in active_longs])
@@ -140,17 +146,16 @@ class SimpleDirectionalRSI(StrategyV2Base):
     def get_active_executors_by_side(self, connector_name: str, trading_pair: str):
         active_executors_by_connector_pair = self.filter_executors(
             executors=self.get_all_executors(),
-            filter_func=lambda e: e.connector_name == connector_name and e.trading_pair == trading_pair and e.is_active
+            filter_func=lambda e: e.connector_name == connector_name and e.trading_pair == trading_pair and e.is_active,
         )
         active_longs = [e for e in active_executors_by_connector_pair if e.side == TradeType.BUY]
         active_shorts = [e for e in active_executors_by_connector_pair if e.side == TradeType.SELL]
         return active_longs, active_shorts
 
     def get_signal(self, connector_name: str, trading_pair: str) -> Optional[float]:
-        candles = self.market_data_provider.get_candles_df(connector_name,
-                                                           trading_pair,
-                                                           self.config.candles_interval,
-                                                           self.config.candles_length + 10)
+        candles = self.market_data_provider.get_candles_df(
+            connector_name, trading_pair, self.config.candles_interval, self.config.candles_length + 10
+        )
         candles.ta.rsi(length=self.config.candles_length, append=True)
         candles["signal"] = 0
         self.current_rsi = candles.iloc[-1][f"RSI_{self.config.candles_length}"]
@@ -193,15 +198,19 @@ class SimpleDirectionalRSI(StrategyV2Base):
                 progress_bar[rsi_position] = "●"
 
             progress_bar = "".join(progress_bar)
-            lines.extend([
-                "",
-                f"  RSI: {self.current_rsi:.2f}  (Long ≤ {self.config.rsi_low}, Short ≥ {self.config.rsi_high})",
-                f"  0 {progress_bar} 100",
-            ])
+            lines.extend(
+                [
+                    "",
+                    f"  RSI: {self.current_rsi:.2f}  (Long ≤ {self.config.rsi_low}, Short ≥ {self.config.rsi_high})",
+                    f"  0 {progress_bar} 100",
+                ]
+            )
 
         try:
             orders_df = self.active_orders_df()
-            lines.extend(["", "  Active Orders:"] + ["    " + line for line in orders_df.to_string(index=False).split("\n")])
+            lines.extend(
+                ["", "  Active Orders:"] + ["    " + line for line in orders_df.to_string(index=False).split("\n")]
+            )
         except ValueError:
             lines.extend(["", "  No active maker orders."])
 

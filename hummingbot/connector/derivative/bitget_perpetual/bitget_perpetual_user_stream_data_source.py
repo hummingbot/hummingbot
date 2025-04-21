@@ -20,7 +20,7 @@ class BitgetPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         self,
         auth: BitgetPerpetualAuth,
         trading_pairs: List[str],
-        connector: 'BitgetPerpetualDerivative',
+        connector: "BitgetPerpetualDerivative",
         api_factory: WebAssistantsFactory,
         domain: str = None,
     ):
@@ -43,10 +43,7 @@ class BitgetPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         response: WSResponse = await ws.receive()
         message = response.data
 
-        if (
-            message["event"] != "login"
-            and message["code"] != "0"
-        ):
+        if message["event"] != "login" and message["code"] != "0":
             self.logger().error("Error authenticating the private websocket connection")
             raise IOError("Private websocket connection authentication failed")
 
@@ -55,7 +52,8 @@ class BitgetPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             try:
                 await asyncio.wait_for(
                     super()._process_websocket_messages(websocket_assistant=websocket_assistant, queue=queue),
-                    timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE)
+                    timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE,
+                )
             except asyncio.TimeoutError:
                 if self._pong_response_event and not self._pong_response_event.is_set():
                     # The PONG response for the previous PING request was never received
@@ -78,8 +76,12 @@ class BitgetPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         try:
-            product_types = set([await self._connector.product_type_for_trading_pair(trading_pair=trading_pair)
-                                 for trading_pair in self._trading_pairs])
+            product_types = set(
+                [
+                    await self._connector.product_type_for_trading_pair(trading_pair=trading_pair)
+                    for trading_pair in self._trading_pairs
+                ]
+            )
             subscription_payloads = []
 
             for product_type in product_types:
@@ -87,28 +89,25 @@ class BitgetPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                     {
                         "instType": product_type.upper(),
                         "channel": CONSTANTS.WS_SUBSCRIPTION_WALLET_ENDPOINT_NAME,
-                        "instId": "default"
+                        "instId": "default",
                     }
                 )
                 subscription_payloads.append(
                     {
                         "instType": product_type.upper(),
                         "channel": CONSTANTS.WS_SUBSCRIPTION_POSITIONS_ENDPOINT_NAME,
-                        "instId": "default"
+                        "instId": "default",
                     }
                 )
                 subscription_payloads.append(
                     {
                         "instType": product_type.upper(),
                         "channel": CONSTANTS.WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME,
-                        "instId": "default"
+                        "instId": "default",
                     }
                 )
 
-            payload = {
-                "op": "subscribe",
-                "args": subscription_payloads
-            }
+            payload = {"op": "subscribe", "args": subscription_payloads}
             subscription_request = WSJSONRequest(payload)
 
             await websocket_assistant.send(subscription_request)
@@ -117,15 +116,11 @@ class BitgetPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().exception(
-                "Unexpected error occurred subscribing to account, position and orders channels..."
-            )
+            self.logger().exception("Unexpected error occurred subscribing to account, position and orders channels...")
             raise
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        await ws.connect(
-            ws_url=CONSTANTS.WSS_URL,
-            message_timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE)
+        await ws.connect(ws_url=CONSTANTS.WSS_URL, message_timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE)
         await self._authenticate(ws)
         return ws

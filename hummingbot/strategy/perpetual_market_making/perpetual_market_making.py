@@ -40,7 +40,7 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
     OPTION_LOG_CREATE_ORDER = 1 << 3
     OPTION_LOG_MAKER_ORDER_FILLED = 1 << 4
     OPTION_LOG_STATUS_REPORT = 1 << 5
-    OPTION_LOG_ALL = 0x7fffffffffffffff
+    OPTION_LOG_ALL = 0x7FFFFFFFFFFFFFFF
     _logger = None
 
     @classmethod
@@ -49,37 +49,38 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def init_params(self,
-                    market_info: MarketTradingPairTuple,
-                    leverage: int,
-                    position_mode: str,
-                    bid_spread: Decimal,
-                    ask_spread: Decimal,
-                    order_amount: Decimal,
-                    long_profit_taking_spread: Decimal,
-                    short_profit_taking_spread: Decimal,
-                    stop_loss_spread: Decimal,
-                    time_between_stop_loss_orders: float,
-                    stop_loss_slippage_buffer: Decimal,
-                    order_levels: int = 1,
-                    order_level_spread: Decimal = s_decimal_zero,
-                    order_level_amount: Decimal = s_decimal_zero,
-                    order_refresh_time: float = 30.0,
-                    order_refresh_tolerance_pct: Decimal = s_decimal_neg_one,
-                    filled_order_delay: float = 60.0,
-                    order_optimization_enabled: bool = False,
-                    ask_order_optimization_depth: Decimal = s_decimal_zero,
-                    bid_order_optimization_depth: Decimal = s_decimal_zero,
-                    asset_price_delegate: AssetPriceDelegate = None,
-                    price_type: str = "mid_price",
-                    price_ceiling: Decimal = s_decimal_neg_one,
-                    price_floor: Decimal = s_decimal_neg_one,
-                    logging_options: int = OPTION_LOG_ALL,
-                    status_report_interval: float = 900,
-                    minimum_spread: Decimal = Decimal(0),
-                    hb_app_notification: bool = False,
-                    order_override: Dict[str, List[str]] = {},
-                    ):
+    def init_params(
+        self,
+        market_info: MarketTradingPairTuple,
+        leverage: int,
+        position_mode: str,
+        bid_spread: Decimal,
+        ask_spread: Decimal,
+        order_amount: Decimal,
+        long_profit_taking_spread: Decimal,
+        short_profit_taking_spread: Decimal,
+        stop_loss_spread: Decimal,
+        time_between_stop_loss_orders: float,
+        stop_loss_slippage_buffer: Decimal,
+        order_levels: int = 1,
+        order_level_spread: Decimal = s_decimal_zero,
+        order_level_amount: Decimal = s_decimal_zero,
+        order_refresh_time: float = 30.0,
+        order_refresh_tolerance_pct: Decimal = s_decimal_neg_one,
+        filled_order_delay: float = 60.0,
+        order_optimization_enabled: bool = False,
+        ask_order_optimization_depth: Decimal = s_decimal_zero,
+        bid_order_optimization_depth: Decimal = s_decimal_zero,
+        asset_price_delegate: AssetPriceDelegate = None,
+        price_type: str = "mid_price",
+        price_ceiling: Decimal = s_decimal_neg_one,
+        price_floor: Decimal = s_decimal_neg_one,
+        logging_options: int = OPTION_LOG_ALL,
+        status_report_interval: float = 900,
+        minimum_spread: Decimal = Decimal(0),
+        hb_app_notification: bool = False,
+        order_override: Dict[str, List[str]] = {},
+    ):
 
         if price_ceiling != s_decimal_neg_one and price_ceiling < price_floor:
             raise ValueError("Parameter price_ceiling cannot be lower than price_floor.")
@@ -119,9 +120,9 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
         self._logging_options = logging_options
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
-        self._last_own_trade_price = Decimal('nan')
-        self._ts_peak_bid_price = Decimal('0')
-        self._ts_peak_ask_price = Decimal('0')
+        self._last_own_trade_price = Decimal("nan")
+        self._ts_peak_bid_price = Decimal("0")
+        self._ts_peak_ask_price = Decimal("0")
         self._exit_orders = dict()
         self._next_buy_exit_order_timestamp = 0
         self._next_sell_exit_order_timestamp = 0
@@ -329,7 +330,7 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
         data = [
             ["", quote_asset],
             ["Total Balance", round(quote_balance, 4)],
-            ["Available Balance", round(available_quote_balance, 4)]
+            ["Available Balance", round(available_quote_balance, 4)],
         ]
         df = pd.DataFrame(data=data)
         return df
@@ -352,18 +353,20 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
                 level = no_sells - lvl_sell
                 lvl_sell += 1
             spread = 0 if price == 0 else abs(order.price - price) / price
-            age = pd.Timestamp(order_age(order, self.current_timestamp), unit='s').strftime('%H:%M:%S')
+            age = pd.Timestamp(order_age(order, self.current_timestamp), unit="s").strftime("%H:%M:%S")
 
             amount_orig = "" if level is None else self._order_amount + ((level - 1) * self._order_level_amount)
-            data.append([
-                level,
-                "buy" if order.is_buy else "sell",
-                float(order.price),
-                f"{spread:.2%}",
-                amount_orig,
-                float(order.quantity),
-                age
-            ])
+            data.append(
+                [
+                    level,
+                    "buy" if order.is_buy else "sell",
+                    float(order.price),
+                    f"{spread:.2%}",
+                    amount_orig,
+                    float(order.quantity),
+                    age,
+                ]
+            )
 
         return pd.DataFrame(data=data, columns=columns)
 
@@ -373,15 +376,10 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
         market, trading_pair = self._market_info.market, self._market_info.trading_pair
         for idx in self.active_positions.values():
             is_buy = True if idx.amount > 0 else False
-            unrealized_profit = ((market.get_price(trading_pair, is_buy) - idx.entry_price) * idx.amount)
-            data.append([
-                idx.trading_pair,
-                idx.position_side.name,
-                idx.entry_price,
-                idx.amount,
-                idx.leverage,
-                unrealized_profit
-            ])
+            unrealized_profit = (market.get_price(trading_pair, is_buy) - idx.entry_price) * idx.amount
+            data.append(
+                [idx.trading_pair, idx.position_side.name, idx.entry_price, idx.amount, idx.leverage, unrealized_profit]
+            )
 
         return pd.DataFrame(data=data, columns=columns)
 
@@ -401,14 +399,10 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
                 ref_price = self.get_price()
             elif market == self._asset_price_delegate.market and self._price_type is not PriceType.LastOwnTrade:
                 ref_price = self._asset_price_delegate.get_price_by_type(self._price_type)
-            markets_data.append([
-                market.display_name,
-                trading_pair,
-                float(bid_price),
-                float(ask_price),
-                float(ref_price)
-            ])
-        return pd.DataFrame(data=markets_data, columns=markets_columns).replace(np.nan, '', regex=True)
+            markets_data.append(
+                [market.display_name, trading_pair, float(bid_price), float(ask_price), float(ref_price)]
+            )
+        return pd.DataFrame(data=markets_data, columns=markets_columns).replace(np.nan, "", regex=True)
 
     def format_status(self) -> str:
         if not self._all_markets_ready:
@@ -422,8 +416,9 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
         assets_df = map_df_to_str(self.perpetual_mm_assets_df())
 
         first_col_length = max(*assets_df[0].apply(len))
-        df_lines = assets_df.to_string(index=False, header=False,
-                                       formatters={0: ("{:<" + str(first_col_length) + "}").format}).split("\n")
+        df_lines = assets_df.to_string(
+            index=False, header=False, formatters={0: ("{:<" + str(first_col_length) + "}").format}
+        ).split("\n")
         lines.extend(["", "  Assets:"] + ["    " + line for line in df_lines])
 
         # See if there're any open orders.
@@ -464,8 +459,7 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
         session_positions = [s for s in self.active_positions.values() if s.trading_pair == self.trading_pair]
         current_tick = timestamp // self._status_report_interval
         last_tick = self._last_timestamp // self._status_report_interval
-        should_report_warnings = ((current_tick > last_tick) and
-                                  (self._logging_options & self.OPTION_LOG_STATUS_REPORT))
+        should_report_warnings = (current_tick > last_tick) and (self._logging_options & self.OPTION_LOG_STATUS_REPORT)
         try:
             if not self._all_markets_ready:
                 self._all_markets_ready = all([market.ready for market in self.active_markets])
@@ -479,8 +473,10 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
 
             if should_report_warnings:
                 if not all([market.network_status is NetworkStatus.CONNECTED for market in self.active_markets]):
-                    self.logger().warning("WARNING: Some markets are not connected or are down at the moment. Market "
-                                          "making may be dangerous when markets or networks are unstable.")
+                    self.logger().warning(
+                        "WARNING: Some markets are not connected or are down at the moment. Market "
+                        "making may be dangerous when markets or networks are unstable."
+                    )
 
             if len(session_positions) == 0:
                 self._exit_orders = dict()  # Empty list of exit order at this point to reduce size
@@ -529,8 +525,7 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
     def profit_taking_proposal(self, mode: PositionMode, active_positions: List) -> Proposal:
 
         market: DerivativeBase = self._market_info.market
-        unwanted_exit_orders = [o for o in self.active_orders
-                                if o.client_order_id not in self._exit_orders.keys()]
+        unwanted_exit_orders = [o for o in self.active_orders if o.client_order_id not in self._exit_orders.keys()]
         ask_price = market.get_price(self.trading_pair, True)
         bid_price = market.get_price(self.trading_pair, False)
         buys = []
@@ -539,36 +534,52 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
         if mode == PositionMode.ONEWAY:
             # in one-way mode, only one active position is expected per time
             if len(active_positions) > 1:
-                self.logger().error(f"More than one open position in {mode.name} position mode. "
-                                    "Kindly ensure you do not interact with the exchange through "
-                                    "other platforms and restart this strategy.")
+                self.logger().error(
+                    f"More than one open position in {mode.name} position mode. "
+                    "Kindly ensure you do not interact with the exchange through "
+                    "other platforms and restart this strategy."
+                )
             else:
                 # Cancel open order that could potentially close position before reaching take_profit_limit
                 for order in unwanted_exit_orders:
-                    if ((active_positions[0].amount < 0 and order.is_buy)
-                            or (active_positions[0].amount > 0 and not order.is_buy)):
+                    if (active_positions[0].amount < 0 and order.is_buy) or (
+                        active_positions[0].amount > 0 and not order.is_buy
+                    ):
                         self.cancel_order(self._market_info, order.client_order_id)
-                        self.logger().info(f"Initiated cancelation of {'buy' if order.is_buy else 'sell'} order "
-                                           f"{order.client_order_id} in favour of take profit order.")
+                        self.logger().info(
+                            f"Initiated cancelation of {'buy' if order.is_buy else 'sell'} order "
+                            f"{order.client_order_id} in favour of take profit order."
+                        )
 
         for position in active_positions:
             if (ask_price > position.entry_price and position.amount > 0) or (
-                    bid_price < position.entry_price and position.amount < 0):
+                bid_price < position.entry_price and position.amount < 0
+            ):
                 # check if there is an active order to take profit, and create if none exists
-                profit_spread = self._long_profit_taking_spread if position.amount > 0 else self._short_profit_taking_spread
-                take_profit_price = position.entry_price * (Decimal("1") + profit_spread) if position.amount > 0 \
+                profit_spread = (
+                    self._long_profit_taking_spread if position.amount > 0 else self._short_profit_taking_spread
+                )
+                take_profit_price = (
+                    position.entry_price * (Decimal("1") + profit_spread)
+                    if position.amount > 0
                     else position.entry_price * (Decimal("1") - profit_spread)
+                )
                 price = market.quantize_order_price(self.trading_pair, take_profit_price)
                 size = market.quantize_order_amount(self.trading_pair, abs(position.amount))
                 old_exit_orders = [
-                    o for o in self.active_orders
-                    if ((o.price != price or o.quantity != size)
+                    o
+                    for o in self.active_orders
+                    if (
+                        (o.price != price or o.quantity != size)
                         and o.client_order_id in self._exit_orders.keys()
-                        and ((position.amount < 0 and o.is_buy) or (position.amount > 0 and not o.is_buy)))]
+                        and ((position.amount < 0 and o.is_buy) or (position.amount > 0 and not o.is_buy))
+                    )
+                ]
                 for old_order in old_exit_orders:
                     self.cancel_order(self._market_info, old_order.client_order_id)
                     self.logger().info(
-                        f"Initiated cancelation of previous take profit order {old_order.client_order_id} in favour of new take profit order.")
+                        f"Initiated cancelation of previous take profit order {old_order.client_order_id} in favour of new take profit order."
+                    )
                 exit_order_exists = [o for o in self.active_orders if o.price == price]
                 if len(exit_order_exists) == 0:
                     if size > 0 and price > 0:
@@ -592,27 +603,33 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
 
         for position in active_positions:
             # check if stop loss order needs to be placed
-            stop_loss_price = position.entry_price * (Decimal("1") + self._stop_loss_spread) if position.amount < 0 \
+            stop_loss_price = (
+                position.entry_price * (Decimal("1") + self._stop_loss_spread)
+                if position.amount < 0
                 else position.entry_price * (Decimal("1") - self._stop_loss_spread)
-            existent_stop_loss_orders = [order for order in self.active_orders
-                                         if order.client_order_id in self._exit_orders.keys()
-                                         and ((position.amount > 0 and not order.is_buy)
-                                              or (position.amount < 0 and order.is_buy))]
-            if (not existent_stop_loss_orders
-                    or (self._should_renew_stop_loss(existent_stop_loss_orders[0]))):
+            )
+            existent_stop_loss_orders = [
+                order
+                for order in self.active_orders
+                if order.client_order_id in self._exit_orders.keys()
+                and ((position.amount > 0 and not order.is_buy) or (position.amount < 0 and order.is_buy))
+            ]
+            if not existent_stop_loss_orders or (self._should_renew_stop_loss(existent_stop_loss_orders[0])):
                 previous_stop_loss_price = None
                 for order in existent_stop_loss_orders:
                     previous_stop_loss_price = order.price
                     self.cancel_order(self._market_info, order.client_order_id)
                     self.logger().info(f"Canceling the limit order {order.client_order_id} to renew stop loss.")
                 new_price = previous_stop_loss_price or stop_loss_price
-                if (top_ask <= stop_loss_price and position.amount > 0):
+                if top_ask <= stop_loss_price and position.amount > 0:
                     price = market.quantize_order_price(
-                        self.trading_pair,
-                        new_price * (Decimal(1) - self._stop_loss_slippage_buffer))
-                    take_profit_orders = [o for o in self.active_orders
-                                          if (not o.is_buy and o.price > price
-                                              and o.client_order_id in self._exit_orders.keys())]
+                        self.trading_pair, new_price * (Decimal(1) - self._stop_loss_slippage_buffer)
+                    )
+                    take_profit_orders = [
+                        o
+                        for o in self.active_orders
+                        if (not o.is_buy and o.price > price and o.client_order_id in self._exit_orders.keys())
+                    ]
                     # cancel take profit orders if they exist
                     for old_order in take_profit_orders:
                         self.cancel_order(self._market_info, old_order.client_order_id)
@@ -623,13 +640,15 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
                     if size > 0 and price > 0:
                         self.logger().info("Creating stop loss sell order to close long position.")
                         sells.append(PriceSize(price, size))
-                elif (top_bid >= stop_loss_price and position.amount < 0):
+                elif top_bid >= stop_loss_price and position.amount < 0:
                     price = market.quantize_order_price(
-                        self.trading_pair,
-                        new_price * (Decimal(1) + self._stop_loss_slippage_buffer))
-                    take_profit_orders = [o for o in self.active_orders
-                                          if (o.is_buy and o.price < price
-                                              and o.client_order_id in self._exit_orders.keys())]
+                        self.trading_pair, new_price * (Decimal(1) + self._stop_loss_slippage_buffer)
+                    )
+                    take_profit_orders = [
+                        o
+                        for o in self.active_orders
+                        if (o.is_buy and o.price < price and o.client_order_id in self._exit_orders.keys())
+                    ]
                     # cancel take profit orders if they exist
                     for old_order in take_profit_orders:
                         self.cancel_order(self._market_info, old_order.client_order_id)
@@ -739,9 +758,9 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
         )
         return order_candidates
 
-    def apply_adjusted_order_candidates_to_proposal(self,
-                                                    adjusted_candidates: List[PerpetualOrderCandidate],
-                                                    proposal: Proposal):
+    def apply_adjusted_order_candidates_to_proposal(
+        self, adjusted_candidates: List[PerpetualOrderCandidate], proposal: Proposal
+    ):
         for order in chain(proposal.buys, proposal.sells):
             adjusted_candidate = adjusted_candidates.pop(0)
             if adjusted_candidate.amount == s_decimal_zero:
@@ -750,7 +769,8 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
                     f" size: {order.size}) is omitted."
                 )
                 self.logger().warning(
-                    "You are also at a possible risk of being liquidated if there happens to be an open loss.")
+                    "You are also at a possible risk of being liquidated if there happens to be an open loss."
+                )
                 order.size = s_decimal_zero
         proposal.buys = [o for o in proposal.buys if o.size > 0]
         proposal.sells = [o for o in proposal.sells if o.size > 0]
@@ -783,11 +803,9 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
         if len(proposal.buys) == 1:
             # Get the top bid price in the market using order_optimization_depth and your buy order volume
             top_bid_price = self._market_info.get_price_for_volume(
-                False, self._bid_order_optimization_depth + own_buy_size).result_price
-            price_quantum = market.get_order_price_quantum(
-                self.trading_pair,
-                top_bid_price
-            )
+                False, self._bid_order_optimization_depth + own_buy_size
+            ).result_price
+            price_quantum = market.get_order_price_quantum(self.trading_pair, top_bid_price)
             # Get the price above the top bid
             price_above_bid = (ceil(top_bid_price / price_quantum) + 1) * price_quantum
 
@@ -799,11 +817,9 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
         if len(proposal.sells) == 1:
             # Get the top ask price in the market using order_optimization_depth and your sell order volume
             top_ask_price = self._market_info.get_price_for_volume(
-                True, self._ask_order_optimization_depth + own_sell_size).result_price
-            price_quantum = market.get_order_price_quantum(
-                self.trading_pair,
-                top_ask_price
-            )
+                True, self._ask_order_optimization_depth + own_sell_size
+            ).result_price
+            price_quantum = market.get_order_price_quantum(self.trading_pair, top_ask_price)
             # Get the price below the top ask
             price_below_ask = (floor(top_ask_price / price_quantum) - 1) * price_quantum
 
@@ -822,7 +838,7 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
                     logging.INFO,
                     f"({market_info.trading_pair}) Maker "
                     f"{'buy' if order_filled_event.trade_type is TradeType.BUY else 'sell'} order of "
-                    f"{order_filled_event.amount} {market_info.base_asset} filled."
+                    f"{order_filled_event.amount} {market_info.base_asset} filled.",
                 )
 
     def did_complete_buy_order(self, order_completed_event: BuyOrderCompletedEvent):
@@ -841,7 +857,7 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
             logging.INFO,
             f"({self.trading_pair}) Maker buy order {order_id} "
             f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
-            f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
+            f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled.",
         )
         self.notify_hb_app_with_timestamp(
             f"Maker BUY order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
@@ -864,7 +880,7 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
             logging.INFO,
             f"({self.trading_pair}) Maker sell order {order_id} "
             f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
-            f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
+            f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled.",
         )
         self.notify_hb_app_with_timestamp(
             f"Maker SELL order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
@@ -873,18 +889,17 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
 
     def did_change_position_mode_succeed(self, position_mode_changed_event: PositionModeChangeEvent):
         if self._position_mode is position_mode_changed_event.position_mode:
-            self.logger().info(
-                f"Changing position mode to {self._position_mode.name} succeeded.")
+            self.logger().info(f"Changing position mode to {self._position_mode.name} succeeded.")
             self._position_mode_ready = True
         else:
-            self.logger().warning(
-                f"Changing position mode to {self._position_mode.name} did not succeed.")
+            self.logger().warning(f"Changing position mode to {self._position_mode.name} did not succeed.")
             self._position_mode_ready = False
 
     def did_change_position_mode_fail(self, position_mode_changed_event: PositionModeChangeEvent):
         self.logger().error(
             f"Changing position mode to {self._position_mode.name} failed. "
-            f"Reason: {position_mode_changed_event.message}.")
+            f"Reason: {position_mode_changed_event.message}."
+        )
         self._position_mode_ready = False
         self.logger().warning("Cannot continue. Please resolve the issue in the account.")
 
@@ -913,8 +928,9 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
             active_sell_prices = [Decimal(str(o.price)) for o in self.active_orders if not o.is_buy]
             proposal_buys = [buy.price for buy in proposal.buys]
             proposal_sells = [sell.price for sell in proposal.sells]
-            if self.is_within_tolerance(active_buy_prices, proposal_buys) and \
-                    self.is_within_tolerance(active_sell_prices, proposal_sells):
+            if self.is_within_tolerance(active_buy_prices, proposal_buys) and self.is_within_tolerance(
+                active_sell_prices, proposal_sells
+            ):
                 to_defer_canceling = True
 
         if not to_defer_canceling:
@@ -922,9 +938,11 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
                 self.cancel_order(self._market_info, order.client_order_id)
                 self.logger().info(f"Canceling active order {order.client_order_id}.")
         else:
-            self.logger().info(f"Not canceling active orders since difference between new order prices "
-                               f"and current order prices is within "
-                               f"{self._order_refresh_tolerance_pct:.2%} order_refresh_tolerance_pct")
+            self.logger().info(
+                f"Not canceling active orders since difference between new order prices "
+                f"and current order prices is within "
+                f"{self._order_refresh_tolerance_pct:.2%} order_refresh_tolerance_pct"
+            )
             self.set_timers()
 
     def cancel_orders_below_min_spread(self):
@@ -932,16 +950,16 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
         for order in self.active_orders:
             negation = -1 if order.is_buy else 1
             if (negation * (order.price - price) / price) < self._minimum_spread:
-                self.logger().info(f"Order is below minimum spread ({self._minimum_spread})."
-                                   f" Canceling Order: ({'Buy' if order.is_buy else 'Sell'}) "
-                                   f"ID - {order.client_order_id}")
+                self.logger().info(
+                    f"Order is below minimum spread ({self._minimum_spread})."
+                    f" Canceling Order: ({'Buy' if order.is_buy else 'Sell'}) "
+                    f"ID - {order.client_order_id}"
+                )
                 self.cancel_order(self._market_info, order.client_order_id)
                 self.logger().info(f"Canceling order {order.client_order_id} below min spread.")
 
     def to_create_orders(self, proposal: Proposal) -> bool:
-        return (self._create_timestamp < self.current_timestamp and
-                proposal is not None and
-                len(self.active_orders) == 0)
+        return self._create_timestamp < self.current_timestamp and proposal is not None and len(self.active_orders) == 0
 
     def execute_orders_proposal(self, proposal: Proposal, position_action: PositionAction):
         orders_created = False
@@ -953,9 +971,10 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
                 else:
                     self._next_buy_exit_order_timestamp = self.current_timestamp + self.filled_order_delay
             if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
-                price_quote_str = [f"{buy.size.normalize()} {self.base_asset}, "
-                                   f"{buy.price.normalize()} {self.quote_asset}"
-                                   for buy in proposal.buys]
+                price_quote_str = [
+                    f"{buy.size.normalize()} {self.base_asset}, " f"{buy.price.normalize()} {self.quote_asset}"
+                    for buy in proposal.buys
+                ]
                 self.logger().info(
                     f"({self.trading_pair}) Creating {len(proposal.buys)} {self._close_order_type.name} bid orders "
                     f"at (Size, Price): {price_quote_str} to {position_action.name} position."
@@ -966,7 +985,7 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
                     buy.size,
                     order_type=self._close_order_type,
                     price=buy.price,
-                    position_action=position_action
+                    position_action=position_action,
                 )
                 if position_action == PositionAction.CLOSE:
                     self._exit_orders[bid_order_id] = self.current_timestamp
@@ -978,9 +997,10 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
                 else:
                     self._next_sell_exit_order_timestamp = self.current_timestamp + self.filled_order_delay
             if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
-                price_quote_str = [f"{sell.size.normalize()} {self.base_asset}, "
-                                   f"{sell.price.normalize()} {self.quote_asset}"
-                                   for sell in proposal.sells]
+                price_quote_str = [
+                    f"{sell.size.normalize()} {self.base_asset}, " f"{sell.price.normalize()} {self.quote_asset}"
+                    for sell in proposal.sells
+                ]
                 self.logger().info(
                     f"({self.trading_pair}) Creating {len(proposal.sells)}  {self._close_order_type.name} ask "
                     f"orders at (Size, Price): {price_quote_str} to {position_action.name} position."
@@ -991,7 +1011,7 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
                     sell.size,
                     order_type=self._close_order_type,
                     price=sell.price,
-                    position_action=position_action
+                    position_action=position_action,
                 )
                 if position_action == PositionAction.CLOSE:
                     self._exit_orders[ask_order_id] = self.current_timestamp
@@ -1019,7 +1039,7 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
             return PriceType.BestAsk
         elif price_type_str == "last_price":
             return PriceType.LastTrade
-        elif price_type_str == 'last_own_trade_price':
+        elif price_type_str == "last_own_trade_price":
             return PriceType.LastOwnTrade
         elif price_type_str == "custom":
             return PriceType.Custom

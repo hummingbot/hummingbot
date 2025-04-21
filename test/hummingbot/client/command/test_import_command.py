@@ -66,8 +66,7 @@ class ImportCommandTest(unittest.TestCase):
 
         class DoubleNestedModel(BaseClientModel):
             double_nested_attr: datetime = Field(
-                default=datetime(2022, 1, 1, 10, 30),
-                description="Double nested attr description"
+                default=datetime(2022, 1, 1, 10, 30), description="Double nested attr description"
             )
 
         class NestedModel(BaseClientModel):
@@ -95,7 +94,9 @@ class ImportCommandTest(unittest.TestCase):
                 default=Decimal("1.0"),
                 description="Some other\nmultiline description",
             )
-            non_nested_no_description: time = Field(default=time(10, 30),)
+            non_nested_no_description: time = Field(
+                default=time(10, 30),
+            )
             date_attr: date = Field(default=date(2022, 1, 2))
             no_default: str = Field(default=...)
 
@@ -119,9 +120,7 @@ class ImportCommandTest(unittest.TestCase):
         self.async_run_with_timeout(self.app.import_config_file(strategy_file_name))
         self.assertEqual(strategy_file_name, self.app.strategy_file_name)
         self.assertEqual(strategy_name, self.app.strategy_name)
-        self.assertTrue(
-            self.cli_mock_assistant.check_log_called_with("\nEnter \"start\" to start market making.")
-        )
+        self.assertTrue(self.cli_mock_assistant.check_log_called_with('\nEnter "start" to start market making.'))
 
     @patch("hummingbot.client.command.import_command.load_strategy_config_map_from_file")
     @patch("hummingbot.client.command.status_command.StatusCommand.status_check_all")
@@ -136,9 +135,7 @@ class ImportCommandTest(unittest.TestCase):
         load_strategy_config_map_from_file.return_value = {"strategy": strategy_conf_var}
 
         with self.assertRaises(asyncio.TimeoutError):
-            self.async_run_with_timeout_coroutine_must_raise_timeout(
-                self.app.import_config_file(strategy_file_name)
-            )
+            self.async_run_with_timeout_coroutine_must_raise_timeout(self.app.import_config_file(strategy_file_name))
         self.assertEqual(None, self.app.strategy_file_name)
         self.assertEqual(None, self.app.strategy_name)
 
@@ -163,9 +160,7 @@ class ImportCommandTest(unittest.TestCase):
 
         self.assertEqual(strategy_file_name, self.app.strategy_file_name)
         self.assertEqual(strategy_name, self.app.strategy_name)
-        self.assertTrue(
-            self.cli_mock_assistant.check_log_called_with("\nEnter \"start\" to start market making.")
-        )
+        self.assertTrue(self.cli_mock_assistant.check_log_called_with('\nEnter "start" to start market making.'))
         self.assertEqual(cm, self.app.strategy_config_map)
 
     @patch("hummingbot.client.config.config_helpers.get_strategy_pydantic_config_cls")
@@ -187,8 +182,7 @@ class ImportCommandTest(unittest.TestCase):
             temp_file_name = d / strategy_file_name
             save_to_yml(temp_file_name, cm)
             try:
-                self.async_run_with_timeout(
-                    self.app.import_config_file(wrong_strategy_file_name))
+                self.async_run_with_timeout(self.app.import_config_file(wrong_strategy_file_name))
             except FileNotFoundError:
                 self.assertNotEqual(strategy_file_name, self.app.strategy_file_name)
                 self.assertNotEqual(strategy_name, self.app.strategy_name)

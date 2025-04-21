@@ -201,9 +201,7 @@ class CreateCommandTest(unittest.TestCase):
         self.cli_mock_assistant.queue_prompt_reply(strategy_file_name)
 
         with self.assertRaises(asyncio.TimeoutError):
-            self.async_run_with_timeout_coroutine_must_raise_timeout(
-                self.app.prompt_for_configuration()
-            )
+            self.async_run_with_timeout_coroutine_must_raise_timeout(self.app.prompt_for_configuration())
         self.assertEqual(None, self.app.strategy_file_name)
         self.assertEqual(None, self.app.strategy_name)
         self.assertTrue(

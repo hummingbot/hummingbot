@@ -1,4 +1,3 @@
-
 from typing import Any, Dict, NamedTuple
 
 from eth_utils.curried import ValidationError, text_if_str, to_bytes
@@ -66,11 +65,7 @@ def encode_typed_data(
     :returns: a ``SignableMessage``, an encoded message ready to be signed
     """
     if full_message is not None:
-        if (
-            domain_data is not None
-            or message_types is not None
-            or message_data is not None
-        ):
+        if domain_data is not None or message_types is not None or message_data is not None:
             raise ValueError(
                 "You may supply either `full_message` as a single argument or "
                 "`domain_data`, `message_types`, and `message_data` as three arguments,"
@@ -83,9 +78,7 @@ def encode_typed_data(
         # If EIP712Domain types were provided, check that they match the domain data
         if "EIP712Domain" in full_message_types:
             domain_data_keys = list(full_message_domain.keys())
-            domain_types_keys = [
-                field["name"] for field in full_message_types["EIP712Domain"]
-            ]
+            domain_types_keys = [field["name"] for field in full_message_types["EIP712Domain"]]
 
             if set(domain_data_keys) != (set(domain_types_keys)):
                 raise ValidationError(

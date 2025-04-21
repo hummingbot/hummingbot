@@ -23,8 +23,10 @@ class DydxV4PerpetualWebUtilsTest(unittest.TestCase):
         url = web_utils.public_rest_url(CONSTANTS.PATH_MARKETS)
         self.assertEqual("https://indexer.dydx.trade/v4/perpetualMarkets", url)
 
-    @patch("hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_web_utils"
-           ".create_throttler", return_value=Mock())
+    @patch(
+        "hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_web_utils" ".create_throttler",
+        return_value=Mock(),
+    )
     def test_build_api_factory(self, mock_create_throttler):
         throttler = web_utils.create_throttler()
         api_factory = web_utils.build_api_factory(throttler)
@@ -43,7 +45,7 @@ class DydxV4PerpetualWebUtilsTest(unittest.TestCase):
     def test_get_current_server_time(self, api_mock):
         throttler = web_utils.create_throttler()
         url = web_utils.public_rest_url(path_url=CONSTANTS.PATH_TIME)
-        data = {'iso': '2024-05-15T10:38:19.795Z', 'epoch': 1715769499.795}
+        data = {"iso": "2024-05-15T10:38:19.795Z", "epoch": 1715769499.795}
 
         api_mock.get(url=url, body=json.dumps(data))
 

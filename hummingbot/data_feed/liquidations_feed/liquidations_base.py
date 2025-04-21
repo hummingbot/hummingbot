@@ -21,7 +21,7 @@ class LiquidationSide(Enum):
     LONG = "LONG"  # Long position got liquidated (=> price went short)
 
     def __str__(self):
-        return '%s' % self.value
+        return "%s" % self.value
 
 
 @dataclass
@@ -29,6 +29,7 @@ class Liquidation:
     """
     Represents the information of a single liquidation
     """
+
     timestamp: int
     trading_pair: str
     quantity: float
@@ -63,8 +64,11 @@ class LiquidationsBase(NetworkBase):
         await self._fetch_and_map_trading_pairs()
         self._listen_liquidations_task = safe_ensure_future(self.listen_for_subscriptions())
         self._cleanup_task = safe_ensure_future(self._cleanup_old_liquidations_loop())
-        self.logger().info("Liquidations feed ({}) started, keeping the last {}s of data".format(self.name,
-                                                                                                 self._max_retention_seconds))
+        self.logger().info(
+            "Liquidations feed ({}) started, keeping the last {}s of data".format(
+                self.name, self._max_retention_seconds
+            )
+        )
         self._subscribed_to_channels = True
 
     async def stop_network(self):
@@ -120,8 +124,9 @@ class LiquidationsBase(NetworkBase):
             if self._liquidations:
                 for trading_pair, liquidations in list(self._liquidations.items()):
                     self._liquidations[trading_pair] = [
-                        liq for liq in liquidations if
-                        current_time_ms - liq.timestamp < self._max_retention_seconds * 1000
+                        liq
+                        for liq in liquidations
+                        if current_time_ms - liq.timestamp < self._max_retention_seconds * 1000
                     ]
         except Exception:
             self.logger().exception(
@@ -186,8 +191,7 @@ class LiquidationsBase(NetworkBase):
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        await ws.connect(ws_url=self.wss_url,
-                         ping_timeout=30)
+        await ws.connect(ws_url=self.wss_url, ping_timeout=30)
         return ws
 
     async def _subscribe_channels(self, ws: WSAssistant):

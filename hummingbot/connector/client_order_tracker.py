@@ -192,8 +192,8 @@ class ClientOrderTracker:
             found_order = self._lost_orders[client_order_id]
         elif exchange_order_id is not None:
             found_order = next(
-                (order for order in self._lost_orders.values() if order.exchange_order_id == exchange_order_id),
-                None)
+                (order for order in self._lost_orders.values() if order.exchange_order_id == exchange_order_id), None
+            )
 
         return found_order
 
@@ -390,20 +390,24 @@ class ClientOrderTracker:
         )
 
     def _trigger_order_creation(self, tracked_order: InFlightOrder, previous_state: OrderState, new_state: OrderState):
-        if (previous_state == OrderState.PENDING_CREATE and
-                previous_state != new_state and
-                new_state not in [OrderState.CANCELED, OrderState.FAILED, OrderState.PENDING_CANCEL]):
+        if (
+            previous_state == OrderState.PENDING_CREATE
+            and previous_state != new_state
+            and new_state not in [OrderState.CANCELED, OrderState.FAILED, OrderState.PENDING_CANCEL]
+        ):
             self.logger().info(tracked_order.build_order_created_message())
             self._trigger_created_event(tracked_order)
 
-    def _trigger_order_fills(self,
-                             tracked_order: InFlightOrder,
-                             prev_executed_amount_base: Decimal,
-                             fill_amount: Decimal,
-                             fill_price: Decimal,
-                             fill_fee: TradeFeeBase,
-                             trade_id: str,
-                             exchange_order_id: str):
+    def _trigger_order_fills(
+        self,
+        tracked_order: InFlightOrder,
+        prev_executed_amount_base: Decimal,
+        fill_amount: Decimal,
+        fill_price: Decimal,
+        fill_fee: TradeFeeBase,
+        trade_id: str,
+        exchange_order_id: str,
+    ):
         if prev_executed_amount_base < tracked_order.executed_amount_base:
             self.logger().info(
                 f"The {tracked_order.trade_type.name.upper()} order {tracked_order.client_order_id} "

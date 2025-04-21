@@ -69,9 +69,7 @@ def create_throttler() -> AsyncThrottler:
     return AsyncThrottler(CONSTANTS.RATE_LIMITS)
 
 
-async def get_current_server_time(
-    throttler: Optional[AsyncThrottler] = None, domain: str = ""
-) -> float:
+async def get_current_server_time(throttler: Optional[AsyncThrottler] = None, domain: str = "") -> float:
     return _time() * 1e3
 
 

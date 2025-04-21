@@ -49,18 +49,21 @@ class BitmartPerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCa
             bitmart_perpetual_api_key="",
             bitmart_perpetual_api_secret="",
             domain=self.domain,
-            trading_pairs=[])
+            trading_pairs=[],
+        )
 
-        self.auth = BitmartPerpetualAuth(api_key=self.api_key,
-                                         api_secret=self.secret_key,
-                                         memo=self.memo,
-                                         time_provider=self)
+        self.auth = BitmartPerpetualAuth(
+            api_key=self.api_key, api_secret=self.secret_key, memo=self.memo, time_provider=self
+        )
         self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
         api_factory = web_utils.build_api_factory(auth=self.auth)
         self.data_source = BitmartPerpetualUserStreamDataSource(
-            auth=self.auth, domain=self.domain, api_factory=api_factory, connector=self.connector,
+            auth=self.auth,
+            domain=self.domain,
+            api_factory=api_factory,
+            connector=self.connector,
         )
 
         self.data_source.logger().setLevel(1)
@@ -126,39 +129,33 @@ class BitmartPerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCa
                             "fillQty": "1",
                             "fillPrice": "25667.2",
                             "fee": "-0.00027",
-                            "feeCcy": "USDT"
+                            "feeCcy": "USDT",
                         },
                         "trigger_price": "-",
                         "trigger_price_type": "-",
                         "execution_price": "-",
                         "activation_price_type": "-",
                         "activation_price": "-",
-                        "callback_rate": "-"
-                    }
+                        "callback_rate": "-",
+                    },
                 }
-            ]
+            ],
         }
         return json.dumps(resp)
 
     @staticmethod
     def _subscription_response(channel: str):
         message = {
-            'action': 'subscribe',
-            'group': channel,
-            'request': {
-                'action': 'subscribe',
-                'args': [channel]
-            },
-            'success': True
+            "action": "subscribe",
+            "group": channel,
+            "request": {"action": "subscribe", "args": [channel]},
+            "success": True,
         }
         return json.dumps(message)
 
     @staticmethod
     def _authentication_response(success: bool):
-        message = {
-            "action": "access",
-            "success": success
-        }
+        message = {"action": "access", "success": success}
         return json.dumps(message)
 
     def time(self):
@@ -177,45 +174,41 @@ class BitmartPerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCa
         url = web_utils.wss_url(CONSTANTS.PRIVATE_WS_ENDPOINT, self.domain)
 
         # Add the authentication response for the websocket
-        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, self._authentication_response(True))
         self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value,
-            self._subscription_response(CONSTANTS.WS_POSITIONS_CHANNEL))
-        self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value,
-            self._subscription_response(CONSTANTS.WS_ORDERS_CHANNEL))
-        self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value,
-            self._subscription_response(CONSTANTS.WS_ACCOUNT_CHANNEL))
-
-        self.listening_task = asyncio.get_event_loop().create_task(
-            self.data_source.listen_for_user_stream(messages)
+            ws_connect_mock.return_value, self._authentication_response(True)
         )
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            ws_connect_mock.return_value, self._subscription_response(CONSTANTS.WS_POSITIONS_CHANNEL)
+        )
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            ws_connect_mock.return_value, self._subscription_response(CONSTANTS.WS_ORDERS_CHANNEL)
+        )
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            ws_connect_mock.return_value, self._subscription_response(CONSTANTS.WS_ACCOUNT_CHANNEL)
+        )
+
+        self.listening_task = asyncio.get_event_loop().create_task(self.data_source.listen_for_user_stream(messages))
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
-        self.assertTrue(
-            self._is_logged("INFO",
-                            f"Subscribed to private account and orders channels {url}...")
-        )
+        self.assertTrue(self._is_logged("INFO", f"Subscribed to private account and orders channels {url}..."))
 
         sent_messages = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
         self.assertEqual(4, len(sent_messages))
         expected_authentication_payload = {
-            'action': 'access',
-            'args': [
-                'TEST_API_KEY',
-                '1640001112223',
-                '3718d08b91b979cf8b0e4b300734f4edbe42fd91dbca8db2c8f1639a546c37b2',  # noqa: mock
-                'web'
-            ]
+            "action": "access",
+            "args": [
+                "TEST_API_KEY",
+                "1640001112223",
+                "3718d08b91b979cf8b0e4b300734f4edbe42fd91dbca8db2c8f1639a546c37b2",  # noqa: mock
+                "web",
+            ],
         }
         authentication_request = sent_messages[0]
         self.assertEqual(expected_authentication_payload, authentication_request)
-        for i, channel in enumerate([CONSTANTS.WS_POSITIONS_CHANNEL, CONSTANTS.WS_ORDERS_CHANNEL, CONSTANTS.WS_ACCOUNT_CHANNEL], start=1):
-            expected_payload = {
-                "action": "subscribe",
-                "args": [channel]
-            }
+        for i, channel in enumerate(
+            [CONSTANTS.WS_POSITIONS_CHANNEL, CONSTANTS.WS_ORDERS_CHANNEL, CONSTANTS.WS_ACCOUNT_CHANNEL], start=1
+        ):
+            expected_payload = {"action": "subscribe", "args": [channel]}
             self.assertEqual(expected_payload, sent_messages[i])
 
         self.assertGreater(self.data_source.last_recv_time, initial_last_recv_time)
@@ -225,34 +218,28 @@ class BitmartPerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCa
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         url = web_utils.wss_url(CONSTANTS.PRIVATE_WS_ENDPOINT, self.domain)
-        self.listening_task = asyncio.get_event_loop().create_task(
-            self.data_source.listen_for_user_stream(messages))
+        self.listening_task = asyncio.get_event_loop().create_task(self.data_source.listen_for_user_stream(messages))
         self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value,
-            self._authentication_response(False))
+            ws_connect_mock.return_value, self._authentication_response(False)
+        )
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         self.assertTrue(self._is_logged("ERROR", "Error authenticating the private websocket connection"))
         self.assertTrue(
             self._is_logged(
-                "ERROR",
-                f"Unexpected error while listening to user stream {url}. Retrying after 5 seconds..."
+                "ERROR", f"Unexpected error while listening to user stream {url}. Retrying after 5 seconds..."
             )
         )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_user_stream_does_not_queue_empty_payload(self, mock_ws):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
-        self.mocking_assistant.add_websocket_aiohttp_message(
-            mock_ws.return_value, self._authentication_response(True)
-        )
+        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, self._authentication_response(True))
         self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, "")
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_user_stream(msg_queue)
-        )
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
@@ -261,19 +248,17 @@ class BitmartPerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCa
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_user_stream_connection_failed(self, mock_ws):
         mock_ws.side_effect = lambda *arg, **kwars: self._create_exception_and_unlock_test_with_event(
-            Exception("TEST ERROR."))
+            Exception("TEST ERROR.")
+        )
         url = web_utils.wss_url(CONSTANTS.PRIVATE_WS_ENDPOINT, self.domain)
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_user_stream(msg_queue)
-        )
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
         await self.resume_test_event.wait()
 
         self.assertTrue(
             self._is_logged(
-                "ERROR",
-                f"Unexpected error while listening to user stream {url}. Retrying after 5 seconds..."
+                "ERROR", f"Unexpected error while listening to user stream {url}. Retrying after 5 seconds..."
             )
         )
 

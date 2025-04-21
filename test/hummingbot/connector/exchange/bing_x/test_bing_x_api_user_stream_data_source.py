@@ -42,19 +42,13 @@ class TestBingXAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
         self.mock_time_provider.time.return_value = 1000
         # self.time_synchronizer = TimeSynchronizer()
         # self.time_synchronizer.add_time_offset_ms_sample(0)
-        self.auth = BingXAuth(
-            self.api_key,
-            self.api_secret_key)
+        self.auth = BingXAuth(self.api_key, self.api_secret_key)
 
-        self.api_factory = web_utils.build_api_factory(
-            throttler=self.throttler,
-            auth=self.auth)
+        self.api_factory = web_utils.build_api_factory(throttler=self.throttler, auth=self.auth)
 
         self.data_source = BingXAPIUserStreamDataSource(
-            auth=self.auth,
-            domain=self.domain,
-            api_factory=self.api_factory,
-            throttler=self.throttler)
+            auth=self.auth, domain=self.domain, api_factory=self.api_factory, throttler=self.throttler
+        )
 
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
@@ -73,14 +67,13 @@ class TestBingXAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message
-                   for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
     async def test_last_recv_time(self):
         # Initial last_recv_time
         self.assertEqual(0, self.data_source.last_recv_time)
 
-        ws_assistant = await (self.data_source._get_ws_assistant())
+        ws_assistant = await self.data_source._get_ws_assistant()
         ws_assistant._connection._last_recv_time = 1000
         self.assertEqual(1000, self.data_source.last_recv_time)
 
@@ -92,19 +85,17 @@ class TestBingXAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
         mock_api.post(regex_url, status=400, body=json.dumps(self._error_response()))
 
         with self.assertRaises(IOError):
-            await (self.data_source._get_listen_key())
+            await self.data_source._get_listen_key()
 
     @aioresponses()
     async def test_get_listen_key_successful(self, mock_api):
         url = web_utils.rest_url(path_url=CONSTANTS.USER_STREAM_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        mock_response = {
-            "listenKey": self.listen_key
-        }
+        mock_response = {"listenKey": self.listen_key}
         mock_api.post(regex_url, body=json.dumps(mock_response))
 
-        result: str = await (self.data_source._get_listen_key())
+        result: str = await self.data_source._get_listen_key()
 
         self.assertEqual(self.listen_key, result)
 
@@ -115,15 +106,18 @@ class TestBingXAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
         mock_api.put(regex_url, body=json.dumps({}))
 
         self.data_source._current_listen_key = self.listen_key
-        result: bool = await (self.data_source._ping_listen_key())
+        result: bool = await self.data_source._ping_listen_key()
         self.assertTrue(result)
 
-    @patch("hummingbot.connector.exchange.bing_x.bing_x_api_user_stream_data_source.BingXAPIUserStreamDataSource"
-           "._ping_listen_key",
-           new_callable=AsyncMock)
+    @patch(
+        "hummingbot.connector.exchange.bing_x.bing_x_api_user_stream_data_source.BingXAPIUserStreamDataSource"
+        "._ping_listen_key",
+        new_callable=AsyncMock,
+    )
     async def test_manage_listen_key_task_loop_keep_alive_failed(self, mock_ping_listen_key):
-        mock_ping_listen_key.side_effect = (lambda *args, **kwargs:
-                                            self._create_return_value_and_unlock_test_with_event(False))
+        mock_ping_listen_key.side_effect = lambda *args, **kwargs: self._create_return_value_and_unlock_test_with_event(
+            False
+        )
 
         self.data_source._current_listen_key = self.listen_key
 
@@ -132,18 +126,21 @@ class TestBingXAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
 
         self.listening_task = asyncio.create_task(self.data_source._manage_listen_key_task_loop())
 
-        await (self.resume_test_event.wait())
+        await self.resume_test_event.wait()
 
         self.assertTrue(self._is_logged("ERROR", "Error occurred renewing listen key ..."))
         self.assertIsNone(self.data_source._current_listen_key)
         self.assertFalse(self.data_source._listen_key_initialized_event.is_set())
 
-    @patch("hummingbot.connector.exchange.bing_x.bing_x_api_user_stream_data_source.BingXAPIUserStreamDataSource."
-           "_ping_listen_key",
-           new_callable=AsyncMock)
+    @patch(
+        "hummingbot.connector.exchange.bing_x.bing_x_api_user_stream_data_source.BingXAPIUserStreamDataSource."
+        "_ping_listen_key",
+        new_callable=AsyncMock,
+    )
     async def test_manage_listen_key_task_loop_keep_alive_successful(self, mock_ping_listen_key):
-        mock_ping_listen_key.side_effect = (lambda *args, **kwargs:
-                                            self._create_return_value_and_unlock_test_with_event(True))
+        mock_ping_listen_key.side_effect = lambda *args, **kwargs: self._create_return_value_and_unlock_test_with_event(
+            True
+        )
 
         # Simulate LISTEN_KEY_KEEP_ALIVE_INTERVAL reached
         self.data_source._current_listen_key = self.listen_key
@@ -152,7 +149,7 @@ class TestBingXAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
 
         self.listening_task = asyncio.create_task(self.data_source._manage_listen_key_task_loop())
 
-        await (self.resume_test_event.wait())
+        await self.resume_test_event.wait()
 
         self.assertTrue(self._is_logged("INFO", f"Refreshed listen key {self.listen_key}."))
         self.assertGreater(self.data_source._last_listen_key_ping_ts, 0)
@@ -163,34 +160,26 @@ class TestBingXAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
         url = web_utils.rest_url(path_url=CONSTANTS.USER_STREAM_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        mock_response = {
-            "listenKey": self.listen_key
-        }
+        mock_response = {"listenKey": self.listen_key}
         mock_api.post(regex_url, body=json.dumps(mock_response))
 
         msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
-        mock_ws.return_value.receive.side_effect = (lambda *args, **kwargs:
-                                                    self._create_exception_and_unlock_test_with_event(
-                                                        Exception("TEST ERROR")))
+        mock_ws.return_value.receive.side_effect = (
+            lambda *args, **kwargs: self._create_exception_and_unlock_test_with_event(Exception("TEST ERROR"))
+        )
         mock_ws.close.return_value = None
 
-        self.listening_task = asyncio.create_task(
-            self.data_source.listen_for_user_stream(msg_queue)
-        )
+        self.listening_task = asyncio.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
-        await (self.resume_test_event.wait())
+        await self.resume_test_event.wait()
 
         self.assertTrue(
-            self._is_logged(
-                "ERROR",
-                "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
+            self._is_logged("ERROR", "Unexpected error while listening to user stream. Retrying after 5 seconds...")
+        )
 
     def _error_response(self) -> Dict[str, Any]:
-        resp = {
-            "code": "ERROR CODE",
-            "msg": "ERROR MESSAGE"
-        }
+        resp = {"code": "ERROR CODE", "msg": "ERROR MESSAGE"}
 
         return resp
 
@@ -204,11 +193,5 @@ class TestBingXAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
 
     def _user_update_event(self):
         # Balance Update
-        resp = {
-            "e": "balanceUpdate",
-            "E": 1573200697110,
-            "a": "BTC",
-            "d": "100.00000000",
-            "T": 1573200697068
-        }
+        resp = {"e": "balanceUpdate", "E": 1573200697110, "a": "BTC", "d": "100.00000000", "T": 1573200697068}
         return json.dumps(resp)

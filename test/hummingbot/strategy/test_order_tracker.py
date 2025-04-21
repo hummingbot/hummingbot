@@ -29,32 +29,32 @@ class OrderTrackerUnitTests(unittest.TestCase):
         cls.trading_pair = "COINALPHA-HBOT"
 
         cls.limit_orders: List[LimitOrder] = [
-            LimitOrder(client_order_id=f"LIMIT//-{i}-{int(time.time()*1e6)}",
-                       trading_pair=cls.trading_pair,
-                       is_buy=True if i % 2 == 0 else False,
-                       base_currency=cls.trading_pair.split("-")[0],
-                       quote_currency=cls.trading_pair.split("-")[1],
-                       price=Decimal(f"{100 - i}") if i % 2 == 0 else Decimal(f"{100 + i}"),
-                       quantity=Decimal(f"{10 * (i + 1)}"),
-                       creation_timestamp=int(time.time() * 1e6)
-                       )
+            LimitOrder(
+                client_order_id=f"LIMIT//-{i}-{int(time.time()*1e6)}",
+                trading_pair=cls.trading_pair,
+                is_buy=True if i % 2 == 0 else False,
+                base_currency=cls.trading_pair.split("-")[0],
+                quote_currency=cls.trading_pair.split("-")[1],
+                price=Decimal(f"{100 - i}") if i % 2 == 0 else Decimal(f"{100 + i}"),
+                quantity=Decimal(f"{10 * (i + 1)}"),
+                creation_timestamp=int(time.time() * 1e6),
+            )
             for i in range(20)
         ]
         cls.market_orders: List[MarketOrder] = [
-            MarketOrder(order_id=f"MARKET//-{i}-{int(time.time()*1e3)}",
-                        trading_pair=cls.trading_pair,
-                        is_buy=True if i % 2 == 0 else False,
-                        base_asset=cls.trading_pair.split("-")[0],
-                        quote_asset=cls.trading_pair.split("-")[1],
-                        amount=float(f"{10 * (i + 1)}"),
-                        timestamp=time.time()
-                        )
+            MarketOrder(
+                order_id=f"MARKET//-{i}-{int(time.time()*1e3)}",
+                trading_pair=cls.trading_pair,
+                is_buy=True if i % 2 == 0 else False,
+                base_asset=cls.trading_pair.split("-")[0],
+                quote_asset=cls.trading_pair.split("-")[1],
+                amount=float(f"{10 * (i + 1)}"),
+                timestamp=time.time(),
+            )
             for i in range(20)
         ]
 
-        cls.market: MockPaperExchange = MockPaperExchange(
-            client_config_map=ClientConfigAdapter(ClientConfigMap())
-        )
+        cls.market: MockPaperExchange = MockPaperExchange(client_config_map=ClientConfigAdapter(ClientConfigMap()))
         cls.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             cls.market, cls.trading_pair, *cls.trading_pair.split("-")
         )
@@ -66,25 +66,26 @@ class OrderTrackerUnitTests(unittest.TestCase):
         self.clock.backtest_til(self.start_timestamp)
 
     @staticmethod
-    def simulate_place_order(order_tracker: OrderTracker, order: Union[LimitOrder, MarketOrder], market_info: MarketTradingPairTuple):
+    def simulate_place_order(
+        order_tracker: OrderTracker, order: Union[LimitOrder, MarketOrder], market_info: MarketTradingPairTuple
+    ):
         """
         Simulates an order being successfully placed.
         """
         if isinstance(order, LimitOrder):
             order_tracker.add_create_order_pending(order.client_order_id)
-            order_tracker.start_tracking_limit_order(market_pair=market_info,
-                                                     order_id=order.client_order_id,
-                                                     is_buy=order.is_buy,
-                                                     price=order.price,
-                                                     quantity=order.quantity
-                                                     )
+            order_tracker.start_tracking_limit_order(
+                market_pair=market_info,
+                order_id=order.client_order_id,
+                is_buy=order.is_buy,
+                price=order.price,
+                quantity=order.quantity,
+            )
         else:
             order_tracker.add_create_order_pending(order.order_id)
-            order_tracker.start_tracking_market_order(market_pair=market_info,
-                                                      order_id=order.order_id,
-                                                      is_buy=order.is_buy,
-                                                      quantity=order.amount
-                                                      )
+            order_tracker.start_tracking_market_order(
+                market_pair=market_info, order_id=order.order_id, is_buy=order.is_buy, quantity=order.amount
+            )
 
     @staticmethod
     def simulate_order_created(order_tracker: OrderTracker, order: Union[LimitOrder, MarketOrder]):
@@ -92,18 +93,19 @@ class OrderTrackerUnitTests(unittest.TestCase):
         order_tracker.remove_create_order_pending(order_id)
 
     @staticmethod
-    def simulate_stop_tracking_order(order_tracker: OrderTracker, order: Union[LimitOrder, MarketOrder], market_info: MarketTradingPairTuple):
+    def simulate_stop_tracking_order(
+        order_tracker: OrderTracker, order: Union[LimitOrder, MarketOrder], market_info: MarketTradingPairTuple
+    ):
         """
         Simulates an order being cancelled or filled completely.
         """
         if isinstance(order, LimitOrder):
-            order_tracker.stop_tracking_limit_order(market_pair=market_info,
-                                                    order_id=order.client_order_id,
-                                                    )
+            order_tracker.stop_tracking_limit_order(
+                market_pair=market_info,
+                order_id=order.client_order_id,
+            )
         else:
-            order_tracker.stop_tracking_market_order(market_pair=market_info,
-                                                     order_id=order.order_id
-                                                     )
+            order_tracker.stop_tracking_market_order(market_pair=market_info, order_id=order.order_id)
 
     @staticmethod
     def simulate_cancel_order(order_tracker: OrderTracker, order: Union[LimitOrder, MarketOrder]):
@@ -157,7 +159,9 @@ class OrderTrackerUnitTests(unittest.TestCase):
             self.simulate_place_order(self.order_tracker, order, self.market_info)
             self.simulate_order_created(self.order_tracker, order)
 
-        self.assertTrue(len(self.order_tracker.market_pair_to_active_orders[self.market_info]) == len(self.limit_orders))
+        self.assertTrue(
+            len(self.order_tracker.market_pair_to_active_orders[self.market_info]) == len(self.limit_orders)
+        )
 
     def test_active_bids(self):
         # Check initial output
@@ -389,11 +393,15 @@ class OrderTrackerUnitTests(unittest.TestCase):
     def test_get_shadow_market_pair_from_order_id(self):
         # Simulate order being placed and tracked
         order: LimitOrder = self.limit_orders[0]
-        self.assertNotEqual(self.market_info, self.order_tracker.get_shadow_market_pair_from_order_id(order.client_order_id))
+        self.assertNotEqual(
+            self.market_info, self.order_tracker.get_shadow_market_pair_from_order_id(order.client_order_id)
+        )
 
         self.simulate_place_order(self.order_tracker, order, self.market_info)
 
-        self.assertEqual(self.market_info, self.order_tracker.get_shadow_market_pair_from_order_id(order.client_order_id))
+        self.assertEqual(
+            self.market_info, self.order_tracker.get_shadow_market_pair_from_order_id(order.client_order_id)
+        )
 
     def test_get_limit_order(self):
         # Initial validation
@@ -417,14 +425,15 @@ class OrderTrackerUnitTests(unittest.TestCase):
 
     def test_get_market_order(self):
         # Initial validation
-        order: MarketOrder = MarketOrder(order_id=f"MARKET//-{self.clock.current_timestamp}",
-                                         trading_pair=self.trading_pair,
-                                         is_buy=True,
-                                         base_asset=self.trading_pair.split("-")[0],
-                                         quote_asset=self.trading_pair.split("-")[1],
-                                         amount=float(10),
-                                         timestamp=self.clock.current_timestamp
-                                         )
+        order: MarketOrder = MarketOrder(
+            order_id=f"MARKET//-{self.clock.current_timestamp}",
+            trading_pair=self.trading_pair,
+            is_buy=True,
+            base_asset=self.trading_pair.split("-")[0],
+            quote_asset=self.trading_pair.split("-")[1],
+            amount=float(10),
+            timestamp=self.clock.current_timestamp,
+        )
 
         # Order not yet placed
         self.assertNotEqual(order, self.order_tracker.get_market_order(self.market_info, order.order_id))

@@ -21,12 +21,14 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     _bausds_logger: Optional[HummingbotLogger] = None
 
-    def __init__(self,
-                 auth: BybitAuth,
-                 domain: str = CONSTANTS.DEFAULT_DOMAIN,
-                 api_factory: Optional[WebAssistantsFactory] = None,
-                 throttler: Optional[AsyncThrottler] = None,
-                 time_synchronizer: Optional[TimeSynchronizer] = None):
+    def __init__(
+        self,
+        auth: BybitAuth,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+        api_factory: Optional[WebAssistantsFactory] = None,
+        throttler: Optional[AsyncThrottler] = None,
+        time_synchronizer: Optional[TimeSynchronizer] = None,
+    ):
         super().__init__()
         self._auth: BybitAuth = auth
         self._time_synchronizer = time_synchronizer
@@ -34,10 +36,8 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._domain = domain
         self._throttler = throttler
         self._api_factory = api_factory or web_utils.build_api_factory(
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer,
-            domain=self._domain,
-            auth=self._auth)
+            throttler=self._throttler, time_synchronizer=self._time_synchronizer, domain=self._domain, auth=self._auth
+        )
         self._ws_assistant: Optional[WSAssistant] = None
         self._last_ws_message_sent_timestamp = 0
 
@@ -71,12 +71,12 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 self._last_ws_message_sent_timestamp = self._time()
                 while True:
                     try:
-                        seconds_until_next_ping = (
-                            CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL -
-                            (self._time() - self._last_ws_message_sent_timestamp)
+                        seconds_until_next_ping = CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL - (
+                            self._time() - self._last_ws_message_sent_timestamp
                         )
                         await asyncio.wait_for(
-                            self._process_ws_messages(ws=ws, output=output), timeout=seconds_until_next_ping)
+                            self._process_ws_messages(ws=ws, output=output), timeout=seconds_until_next_ping
+                        )
                     except asyncio.TimeoutError:
                         await self._ping_server(ws)
             except asyncio.CancelledError:
@@ -90,10 +90,7 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _ping_server(self, ws: WSAssistant):
         ping_time = self._time()
-        payload = {
-            "op": "ping",
-            "args": int(ping_time * 1e3)
-        }
+        payload = {"op": "ping", "args": int(ping_time * 1e3)}
         ping_request = WSJSONRequest(payload=payload)
         await ws.send(request=ping_request)
         self._last_ws_message_sent_timestamp = ping_time
@@ -128,10 +125,7 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().error(
-                "Unexpected error occurred subscribing to private channels...",
-                exc_info=True
-            )
+            self.logger().error("Unexpected error occurred subscribing to private channels...", exc_info=True)
             raise
 
     async def _authenticate_connection(self, ws: WSAssistant):
@@ -139,9 +133,7 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
         Sends the authentication message.
         :param ws: the websocket assistant used to connect to the exchange
         """
-        request: WSJSONRequest = WSJSONRequest(
-            payload=self._auth.generate_ws_auth_message()
-        )
+        request: WSJSONRequest = WSJSONRequest(payload=self._auth.generate_ws_auth_message())
         await ws.send(request)
 
     async def _process_ws_messages(self, ws: WSAssistant, output: asyncio.Queue):
@@ -153,8 +145,7 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 elif data.get("op") == "subscribe":
                     if data.get("success") is False:
                         self.logger().error(
-                            "Unexpected error occurred subscribing to private channels...",
-                            exc_info=True
+                            "Unexpected error occurred subscribing to private channels...", exc_info=True
                         )
                 continue
             topic = data.get("topic")
@@ -184,10 +175,7 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _connected_websocket_assistant(self, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> WSAssistant:
         ws: WSAssistant = await self._get_ws_assistant()
-        await ws.connect(
-            ws_url=CONSTANTS.WSS_PRIVATE_URL[domain],
-            ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL
-        )
+        await ws.connect(ws_url=CONSTANTS.WSS_PRIVATE_URL[domain], ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
         await self._authenticate_connection(ws)
         return ws
 

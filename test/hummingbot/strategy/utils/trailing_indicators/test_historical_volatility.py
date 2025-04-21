@@ -62,7 +62,7 @@ class HistoricalVolatilityTest(unittest.TestCase):
         # How do we do this? By measuring the energy of the first derivative of each output.
         # Energy(diff) = Sum(diff(output)**2)
 
-        energy_normal = sum(x ** 2 for x in np.diff(output_normal))
-        energy_smoothed = sum(x ** 2 for x in np.diff(output_smoothed))
+        energy_normal = sum(x**2 for x in np.diff(output_normal))
+        energy_smoothed = sum(x**2 for x in np.diff(output_smoothed))
 
         self.assertGreater(energy_normal, energy_smoothed)

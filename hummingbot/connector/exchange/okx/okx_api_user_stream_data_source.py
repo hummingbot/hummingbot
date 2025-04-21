@@ -17,11 +17,7 @@ class OkxAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(
-            self,
-            auth: OkxAuth,
-            connector: 'OkxExchange',
-            api_factory: WebAssistantsFactory):
+    def __init__(self, auth: OkxAuth, connector: "OkxExchange", api_factory: WebAssistantsFactory):
         super().__init__()
         self._auth: OkxAuth = auth
         self._connector = connector
@@ -36,12 +32,10 @@ class OkxAPIUserStreamDataSource(UserStreamTrackerDataSource):
         async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_CONNECTION_LIMIT_ID):
             await ws.connect(
                 ws_url=CONSTANTS.get_okx_ws_uri_private(self._connector.okx_registration_sub_domain),
-                message_timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE)
+                message_timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE,
+            )
 
-        payload = {
-            "op": "login",
-            "args": [self._auth.websocket_login_parameters()]
-        }
+        payload = {"op": "login", "args": [self._auth.websocket_login_parameters()]}
 
         login_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
@@ -71,7 +65,7 @@ class OkxAPIUserStreamDataSource(UserStreamTrackerDataSource):
                         "channel": "orders",
                         "instType": "SPOT",
                     }
-                ]
+                ],
             }
             subscribe_orders_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
@@ -89,9 +83,7 @@ class OkxAPIUserStreamDataSource(UserStreamTrackerDataSource):
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant, queue: asyncio.Queue):
         while True:
             try:
-                await super()._process_websocket_messages(
-                    websocket_assistant=websocket_assistant,
-                    queue=queue)
+                await super()._process_websocket_messages(websocket_assistant=websocket_assistant, queue=queue)
             except asyncio.TimeoutError:
                 ping_request = WSPlainTextRequest(payload="ping")
                 await websocket_assistant.send(request=ping_request)

@@ -2,6 +2,7 @@ import asyncio
 import pandas as pd
 
 from typing import TYPE_CHECKING, Dict, Any
+
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
@@ -21,20 +22,22 @@ class OrderBookTab(TabBase):
     @classmethod
     def get_command_arguments(cls) -> Dict[str, Dict[str, Any]]:
         return {
-            "--lines": {'type': int, 'default': 5, 'dest': "lines", 'help': "Number of lines to display"},
-            "--exchange": {'type': str, 'dest': "exchange", 'help': "The exchange of the market"},
-            "--market": {'type': str, 'dest': "market", 'help': "The market (trading pair) of the order book"},
-            "--live": {'default': False, 'action': "store_true", 'dest': "live", 'help': "Show order book updates"}
+            "--lines": {"type": int, "default": 5, "dest": "lines", "help": "Number of lines to display"},
+            "--exchange": {"type": str, "dest": "exchange", "help": "The exchange of the market"},
+            "--market": {"type": str, "dest": "market", "help": "The market (trading pair) of the order book"},
+            "--live": {"default": False, "action": "store_true", "dest": "live", "help": "Show order book updates"},
         }
 
     @classmethod
-    async def display(cls,
-                      output_field: CustomTextArea,
-                      hummingbot: "HummingbotApplication",
-                      lines: int = 5,
-                      exchange: str = None,
-                      market: str = None,
-                      live: bool = False):
+    async def display(
+        cls,
+        output_field: CustomTextArea,
+        hummingbot: "HummingbotApplication",
+        lines: int = 5,
+        exchange: str = None,
+        market: str = None,
+        live: bool = False,
+    ):
         if len(hummingbot.markets.keys()) == 0:
             output_field.log("There is currently no active market.")
             return
@@ -55,10 +58,10 @@ class OrderBookTab(TabBase):
             trading_pair, order_book = next(iter(market_connector.order_books.items()))
 
         def get_order_book_text(no_lines: int):
-            bids = order_book.snapshot[0][['price', 'amount']].head(no_lines)
-            bids.rename(columns={'price': 'bid_price', 'amount': 'bid_volume'}, inplace=True)
-            asks = order_book.snapshot[1][['price', 'amount']].head(no_lines)
-            asks.rename(columns={'price': 'ask_price', 'amount': 'ask_volume'}, inplace=True)
+            bids = order_book.snapshot[0][["price", "amount"]].head(no_lines)
+            bids.rename(columns={"price": "bid_price", "amount": "bid_volume"}, inplace=True)
+            asks = order_book.snapshot[1][["price", "amount"]].head(no_lines)
+            asks.rename(columns={"price": "ask_price", "amount": "ask_volume"}, inplace=True)
             joined_df = pd.concat([bids, asks], axis=1)
             text_lines = ["" + line for line in joined_df.to_string(index=False).split("\n")]
             header = f"market: {market_connector.name} {trading_pair}\n"

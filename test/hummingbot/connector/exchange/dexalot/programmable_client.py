@@ -1,7 +1,7 @@
 import asyncio
 
 
-class ProgrammableClient():
+class ProgrammableClient:
     def __init__(self):
         self._cancel_order_responses = asyncio.Queue()
         self._place_order_responses = asyncio.Queue()

@@ -29,7 +29,8 @@ class GateIoPerpetualAuthTests(TestCase):
         return str(int(time.time() + 1 * 1e3))
 
     @patch(
-        "hummingbot.connector.derivative.gate_io_perpetual.gate_io_perpetual_auth.GateIoPerpetualAuth._get_timestamp")
+        "hummingbot.connector.derivative.gate_io_perpetual.gate_io_perpetual_auth.GateIoPerpetualAuth._get_timestamp"
+    )
     def test_add_auth_to_rest_request(self, ts_mock: MagicMock):
         params = {"one": "1"}
         request = RESTRequest(
@@ -46,10 +47,10 @@ class GateIoPerpetualAuthTests(TestCase):
         body_hash = m.hexdigest()
 
         # raw_signature = "api_key=" + self.api_key + "&one=1" + "&timestamp=" + timestamp
-        raw_signature = f'GET\n/api/v4/futures/orders\none=1\n{body_hash}\n{timestamp}'
-        expected_signature = hmac.new(self.secret_key.encode("utf-8"),
-                                      raw_signature.encode("utf-8"),
-                                      hashlib.sha512).hexdigest()
+        raw_signature = f"GET\n/api/v4/futures/orders\none=1\n{body_hash}\n{timestamp}"
+        expected_signature = hmac.new(
+            self.secret_key.encode("utf-8"), raw_signature.encode("utf-8"), hashlib.sha512
+        ).hexdigest()
         params = request.params
         headers = request.headers
 
@@ -64,9 +65,7 @@ class GateIoPerpetualAuthTests(TestCase):
             "channel": 1,
             "event": "subscribe",
             "error": None,
-            "result": {
-                "status": "success"
-            }
+            "result": {"status": "success"},
         }
         request = WSJSONRequest(payload=payload, is_auth_required=False)
         self.assertNotIn("auth", request.payload)
@@ -78,10 +77,9 @@ class GateIoPerpetualAuthTests(TestCase):
                 "channel": 1,
                 "event": "subscribe",
                 "error": None,
-                "result": {
-                    "status": "success"
-                }
-            }, is_auth_required=True
+                "result": {"status": "success"},
+            },
+            is_auth_required=True,
         )
 
         signed_request: WSJSONRequest = self.async_run_with_timeout(self.auth.ws_authenticate(request))

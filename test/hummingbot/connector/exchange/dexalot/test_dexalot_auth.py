@@ -23,7 +23,7 @@ class DexalotAuthTests(IsolatedAsyncioWrapperTestCase):
 
         auth = DexalotAuth(api_key=self._api_key, secret_key=self._secret, time_provider=mock_time_provider)
         request = RESTRequest(method=RESTMethod.GET, params={}, is_auth_required=True)
-        configured_request = await (auth.rest_authenticate(request))
+        configured_request = await auth.rest_authenticate(request)
 
         message = encode_defunct(text="dexalot")
         signed_message = to_0x_hex(self.wallet.sign_message(signable_message=message).signature)
@@ -47,7 +47,7 @@ class DexalotAuthTests(IsolatedAsyncioWrapperTestCase):
         signed_message = to_0x_hex(self.wallet.sign_message(signable_message=message).signature)
         content = f"{self.wallet.address}:{signed_message}"
 
-        signed_request: WSJSONRequest = await (auth.ws_authenticate(request))
+        signed_request: WSJSONRequest = await auth.ws_authenticate(request)
 
         self.assertIn("signature", signed_request.payload)
         self.assertEqual(content, signed_request.payload["signature"])

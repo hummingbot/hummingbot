@@ -25,7 +25,7 @@ class OKXConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     okx_secret_key: SecretStr = Field(
         default=...,
@@ -34,7 +34,7 @@ class OKXConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     okx_passphrase: SecretStr = Field(
         default=...,
@@ -43,7 +43,7 @@ class OKXConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     okx_registration_sub_domain: Literal["www", "app", "my"] = Field(
         default="www",
@@ -51,7 +51,7 @@ class OKXConfigMap(BaseConnectorConfigMap):
             "prompt": "Which OKX subdomain did you register the key at? (www/app/my) - Generally www for most users, app for US users, my for EEA users.",
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
 
 

@@ -67,9 +67,11 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.clock: Clock = Clock(ClockMode.BACKTEST, 1.0, self.start_timestamp, self.end_timestamp)
         self.min_profitability = Decimal("0.5")
         self.maker_market: MockPaperExchange = MockPaperExchange(
-            client_config_map=ClientConfigAdapter(ClientConfigMap()))
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
+        )
         self.taker_market: MockPaperExchange = MockPaperExchange(
-            client_config_map=ClientConfigAdapter(ClientConfigMap()))
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
+        )
         self.maker_market.set_balanced_order_book(self.trading_pairs_maker[0], 1.0, 0.5, 1.5, 0.01, 10)
         self.taker_market.set_balanced_order_book(self.trading_pairs_taker[0], 1.0, 0.5, 1.5, 0.001, 4)
         self.maker_market.set_balance("COINALPHA", 5)
@@ -110,9 +112,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.config_map = ClientConfigAdapter(self.config_map_raw)
         config_map_with_top_depth_tolerance_raw = deepcopy(self.config_map_raw)
         config_map_with_top_depth_tolerance_raw.top_depth_tolerance = Decimal("1")
-        config_map_with_top_depth_tolerance = ClientConfigAdapter(
-            config_map_with_top_depth_tolerance_raw
-        )
+        config_map_with_top_depth_tolerance = ClientConfigAdapter(config_map_with_top_depth_tolerance_raw)
 
         logging_options = (
             LogOption.NULL_ORDER_SIZE,
@@ -121,7 +121,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             LogOption.CREATE_ORDER,
             LogOption.MAKER_ORDER_FILLED,
             LogOption.STATUS_REPORT,
-            LogOption.MAKER_ORDER_HEDGED
+            LogOption.MAKER_ORDER_HEDGED,
         )
         self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy()
         self.strategy.init_params(
@@ -164,33 +164,33 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
 
     def get_mock_connector_settings(self):
 
-        conf_var_connector_maker = ConfigVar(key='mock_paper_exchange', prompt="")
-        conf_var_connector_maker.value = 'mock_paper_exchange'
+        conf_var_connector_maker = ConfigVar(key="mock_paper_exchange", prompt="")
+        conf_var_connector_maker.value = "mock_paper_exchange"
 
-        conf_var_connector_taker = ConfigVar(key='mock_paper_exchange', prompt="")
-        conf_var_connector_taker.value = 'mock_paper_exchange'
+        conf_var_connector_taker = ConfigVar(key="mock_paper_exchange", prompt="")
+        conf_var_connector_taker.value = "mock_paper_exchange"
 
         settings = {
             "mock_paper_exchange": ConnectorSetting(
-                name='mock_paper_exchange',
+                name="mock_paper_exchange",
                 type=ConnectorType.Exchange,
-                example_pair='ZRX-ETH',
+                example_pair="ZRX-ETH",
                 centralised=True,
                 use_ethereum_wallet=False,
                 trade_fee_schema=TradeFeeSchema(
                     percent_fee_token=None,
-                    maker_percent_fee_decimal=Decimal('0.001'),
-                    taker_percent_fee_decimal=Decimal('0.001'),
+                    maker_percent_fee_decimal=Decimal("0.001"),
+                    taker_percent_fee_decimal=Decimal("0.001"),
                     buy_percent_fee_deducted_from_returns=False,
                     maker_fixed_fees=[],
-                    taker_fixed_fees=[]),
-                config_keys={
-                    'connector': conf_var_connector_maker
-                },
+                    taker_fixed_fees=[],
+                ),
+                config_keys={"connector": conf_var_connector_maker},
                 is_sub_domain=False,
                 parent_name=None,
                 domain_parameter=None,
-                use_eth_gas_lookup=False)
+                use_eth_gas_lookup=False,
+            )
         }
 
         return settings
@@ -199,7 +199,11 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         maker_trading_pair: str = self.trading_pairs_maker[0]
         order_book: OrderBook = self.maker_market.get_order_book(maker_trading_pair)
         trade_event: OrderBookTradeEvent = OrderBookTradeEvent(
-            maker_trading_pair, self.clock.current_timestamp, TradeType.BUY if is_buy else TradeType.SELL, price, quantity
+            maker_trading_pair,
+            self.clock.current_timestamp,
+            TradeType.BUY if is_buy else TradeType.SELL,
+            price,
+            quantity,
         )
         order_book.apply_trade(trade_event)
 
@@ -239,8 +243,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                     limit_order.quantity,
                     limit_order.price,
                     limit_order.client_order_id,
-                    limit_order.creation_timestamp * 1e-6
-                )
+                    limit_order.creation_timestamp * 1e-6,
+                ),
             )
             market.trigger_event(
                 MarketEvent.OrderFilled,
@@ -253,7 +257,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                     limit_order.price,
                     limit_order.quantity,
                     AddedToCostTradeFee(Decimal(0)),
-                    "exchid_" + limit_order.client_order_id
+                    "exchid_" + limit_order.client_order_id,
                 ),
             )
             market.trigger_event(
@@ -281,7 +285,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                     limit_order.price,
                     limit_order.client_order_id,
                     limit_order.creation_timestamp * 1e-6,
-                )
+                ),
             )
             market.trigger_event(
                 MarketEvent.OrderFilled,
@@ -294,7 +298,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                     limit_order.price,
                     limit_order.quantity,
                     AddedToCostTradeFee(Decimal(0)),
-                    "exchid_" + limit_order.client_order_id
+                    "exchid_" + limit_order.client_order_id,
                 ),
             )
             market.trigger_event(
@@ -323,18 +327,19 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 order.quantity,
                 order.price,
                 order.client_order_id,
-                order.creation_timestamp * 1e-6
-            )
+                order.creation_timestamp * 1e-6,
+            ),
         )
 
     @patch("hummingbot.client.settings.AllConnectorSettings.get_exchange_names")
     @patch("hummingbot.client.settings.AllConnectorSettings.get_connector_settings")
-    @patch('hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making.'
-           'CrossExchangeMarketMakingStrategy.is_gateway_market')
-    def test_both_sides_profitable(self,
-                                   is_gateway_mock: unittest.mock.Mock,
-                                   get_connector_settings_mock,
-                                   get_exchange_names_mock):
+    @patch(
+        "hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making."
+        "CrossExchangeMarketMakingStrategy.is_gateway_market"
+    )
+    def test_both_sides_profitable(
+        self, is_gateway_mock: unittest.mock.Mock, get_connector_settings_mock, get_exchange_names_mock
+    ):
         is_gateway_mock.return_value = False
 
         get_exchange_names_mock.return_value = set(self.get_mock_connector_settings().keys())
@@ -397,7 +402,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 bid_order.price,
                 bid_order.client_order_id,
                 bid_order.creation_timestamp * 1e-6,
-            )
+            ),
         )
 
         self.taker_market.trigger_event(
@@ -410,7 +415,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 ask_order.price,
                 ask_order.client_order_id,
                 ask_order.creation_timestamp * 1e-6,
-            )
+            ),
         )
 
         self.assertEqual(Decimal("0.99452"), bid_order.price)
@@ -459,7 +464,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 bid_order.price,
                 bid_order.client_order_id,
                 bid_order.creation_timestamp * 1e-6,
-            )
+            ),
         )
 
         self.taker_market.trigger_event(
@@ -472,7 +477,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 ask_order.price,
                 ask_order.client_order_id,
                 bid_order.creation_timestamp * 1e-6,
-            )
+            ),
         )
 
         prev_maker_orders_created_len = len(self.maker_order_created_logger.event_log)
@@ -506,7 +511,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("3.0"), ask_order.quantity)
 
         self.maker_market.order_books[self.trading_pairs_maker[0]].apply_diffs(
-            [OrderBookRow(0.996, 30, 2)], [OrderBookRow(1.004, 30, 2)], 2)
+            [OrderBookRow(0.996, 30, 2)], [OrderBookRow(1.004, 30, 2)], 2
+        )
 
         self.clock.backtest_til(self.start_timestamp + 10)
 
@@ -542,7 +548,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 bid_order.price,
                 bid_order.client_order_id,
                 bid_order.creation_timestamp * 1e-6,
-            )
+            ),
         )
 
         self.taker_market.trigger_event(
@@ -555,7 +561,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 ask_order.price,
                 ask_order.client_order_id,
                 ask_order.creation_timestamp * 1e-6,
-            )
+            ),
         )
 
         self.simulate_order_book_widening(self.taker_market.order_books[self.trading_pairs_taker[0]], 0.99, 1.01)
@@ -604,7 +610,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(1, len(bid_hedges))
         self.assertEqual(1, len(ask_hedges))
         self.assertGreater(
-            self.maker_market.get_balance(self.trading_pairs_maker[2]) + self.taker_market.get_balance(self.trading_pairs_taker[2]),
+            self.maker_market.get_balance(self.trading_pairs_maker[2])
+            + self.taker_market.get_balance(self.trading_pairs_taker[2]),
             Decimal("10"),
         )
         self.assertEqual(2, len(self.taker_order_fill_logger.event_log))
@@ -632,7 +639,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 maker_market_trading_pair=self.trading_pairs_maker[0],
                 taker_market_trading_pair=self.trading_pairs_taker[0],
                 min_profitability=Decimal("1"),
-                order_amount = Decimal("1"),
+                order_amount=Decimal("1"),
             )
         )
 
@@ -660,9 +667,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         config_map_raw.min_profitability = Decimal("1")
         config_map_raw.order_size_portfolio_ratio_limit = Decimal("30")
         config_map_raw.conversion_rate_mode.taker_to_maker_base_conversion_rate = Decimal("0.95")
-        config_map = ClientConfigAdapter(
-            config_map_raw
-        )
+        config_map = ClientConfigAdapter(config_map_raw)
 
         self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy()
         self.strategy.init_params(
@@ -699,7 +704,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         bid_maker_price = (floor(bid_maker_price / price_quantum)) * price_quantum
         ask_maker_price = buy_taker_price * (1 + self.min_profitability / Decimal("100"))
         price_quantum = self.maker_market.get_order_price_quantum(self.trading_pairs_maker[0], ask_maker_price)
-        ask_maker_price = (ceil(ask_maker_price / price_quantum) * price_quantum)
+        ask_maker_price = ceil(ask_maker_price / price_quantum) * price_quantum
         self.assertEqual(round(bid_maker_price, 4), round(bid_order.price, 4))
         self.assertEqual(round(ask_maker_price, 4), round(ask_order.price, 4))
         self.assertEqual(Decimal("3.0"), bid_order.quantity)
@@ -721,9 +726,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         config_map_raw.order_size_portfolio_ratio_limit = Decimal("30")
         config_map_raw.min_profitability = Decimal("0.5")
         config_map_raw.adjust_order_enabled = True
-        config_map = ClientConfigAdapter(
-            config_map_raw
-        )
+        config_map = ClientConfigAdapter(config_map_raw)
 
         self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy()
         self.strategy.init_params(
@@ -768,9 +771,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         config_map_raw.order_size_portfolio_ratio_limit = Decimal("30")
         config_map_raw.min_profitability = Decimal("0.5")
         config_map_raw.adjust_order_enabled = False
-        config_map = ClientConfigAdapter(
-            config_map_raw
-        )
+        config_map = ClientConfigAdapter(config_map_raw)
 
         self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy()
         self.strategy.init_params(
@@ -815,9 +816,9 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
 
     @patch("hummingbot.client.settings.AllConnectorSettings.get_exchange_names")
     @patch("hummingbot.client.settings.AllConnectorSettings.get_connector_settings")
-    def test_price_and_size_limit_calculation_with_slippage_buffer(self,
-                                                                   get_connector_settings_mock,
-                                                                   get_exchange_names_mock):
+    def test_price_and_size_limit_calculation_with_slippage_buffer(
+        self, get_connector_settings_mock, get_exchange_names_mock
+    ):
         self.taker_market.set_balance("ETH", 3)
         self.taker_market.set_balanced_order_book(
             self.trading_pairs_taker[0],
@@ -835,9 +836,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         config_map_raw.min_profitability = Decimal("25")
         config_map_raw.slippage_buffer = Decimal("0")
         config_map_raw.order_amount = Decimal("4")
-        config_map = ClientConfigAdapter(
-            config_map_raw
-        )
+        config_map = ClientConfigAdapter(config_map_raw)
 
         self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy()
         self.strategy.init_params(
@@ -885,17 +884,17 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         task = self.ev_loop.create_task(strategy_with_slippage_buffer.get_market_making_size(self.market_pair, True))
         slippage_bid_size: Decimal = self.ev_loop.run_until_complete(task)
 
-        task = self.ev_loop.create_task(strategy_with_slippage_buffer.get_market_making_price(
-            self.market_pair, True, slippage_bid_size
-        ))
+        task = self.ev_loop.create_task(
+            strategy_with_slippage_buffer.get_market_making_price(self.market_pair, True, slippage_bid_size)
+        )
         slippage_bid_price: Decimal = self.ev_loop.run_until_complete(task)
 
         task = self.ev_loop.create_task(strategy_with_slippage_buffer.get_market_making_size(self.market_pair, False))
         slippage_ask_size: Decimal = self.ev_loop.run_until_complete(task)
 
-        task = self.ev_loop.create_task(strategy_with_slippage_buffer.get_market_making_price(
-            self.market_pair, False, slippage_ask_size
-        ))
+        task = self.ev_loop.create_task(
+            strategy_with_slippage_buffer.get_market_making_price(self.market_pair, False, slippage_ask_size)
+        )
         slippage_ask_price: Decimal = self.ev_loop.run_until_complete(task)
 
         self.assertEqual(Decimal("4"), bid_size)  # the user size
@@ -904,8 +903,12 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("1.3125"), ask_price)  # price = ask_VWAP(2.8571) * profitability = 1.05 * 1.25
         self.assertEqual(Decimal("4"), slippage_bid_size)  # the user size
         self.assertEqual(Decimal("0.76"), slippage_bid_price)  # price = bid_VWAP(4) / profitability = 0.9 / 1.25
-        self.assertEqual(Decimal("2.2857"), slippage_ask_size)  # size = balance / (ask_VWAP(3) * slippage) = 3 / (1.05 * 1.25)
-        self.assertEqual(Decimal("1.3125"), slippage_ask_price)  # price = ask_VWAP(2.2857) * profitability = 1.05 * 1.25
+        self.assertEqual(
+            Decimal("2.2857"), slippage_ask_size
+        )  # size = balance / (ask_VWAP(3) * slippage) = 3 / (1.05 * 1.25)
+        self.assertEqual(
+            Decimal("1.3125"), slippage_ask_price
+        )  # price = ask_VWAP(2.2857) * profitability = 1.05 * 1.25
 
     def test_check_if_sufficient_balance_adjusts_including_slippage(self):
         self.taker_market.set_balance("COINALPHA", 4)
@@ -927,9 +930,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         config_map_raw.slippage_buffer = Decimal("25")
         config_map_raw.order_amount = Decimal("4")
 
-        config_map = ClientConfigAdapter(
-            config_map_raw
-        )
+        config_map = ClientConfigAdapter(config_map_raw)
 
         strategy_with_slippage_buffer: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy()
         strategy_with_slippage_buffer.init_params(
@@ -967,12 +968,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
 
         active_bid = active_maker_bids[0][1]
         active_ask = active_maker_asks[0][1]
-        bids_quantum = self.taker_market.get_order_size_quantum(
-            self.trading_pairs_taker[0], active_bid.quantity
-        )
-        asks_quantum = self.taker_market.get_order_size_quantum(
-            self.trading_pairs_taker[0], active_ask.quantity
-        )
+        bids_quantum = self.taker_market.get_order_size_quantum(self.trading_pairs_taker[0], active_bid.quantity)
+        asks_quantum = self.taker_market.get_order_size_quantum(self.trading_pairs_taker[0], active_ask.quantity)
 
         self.taker_market.set_balance("COINALPHA", Decimal("4") - bids_quantum)
         self.taker_market.set_balance("ETH", Decimal("3") - asks_quantum * 1)
@@ -1024,9 +1021,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         config_map_raw.adjust_order_enabled = False
         config_map_raw.order_amount = Decimal("1")
 
-        config_map = ClientConfigAdapter(
-            config_map_raw
-        )
+        config_map = ClientConfigAdapter(config_map_raw)
 
         self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy()
         self.strategy.init_params(

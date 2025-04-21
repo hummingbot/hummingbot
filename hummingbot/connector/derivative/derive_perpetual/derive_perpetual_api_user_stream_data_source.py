@@ -26,12 +26,12 @@ class DerivePerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
     _logger: Optional[HummingbotLogger] = None
 
     def __init__(
-            self,
-            auth: DerivePerpetualAuth,
-            trading_pairs: List[str],
-            connector: 'DerivePerpetualDerivative',
-            api_factory: WebAssistantsFactory,
-            domain: str = CONSTANTS.DEFAULT_DOMAIN,
+        self,
+        auth: DerivePerpetualAuth,
+        trading_pairs: List[str],
+        connector: "DerivePerpetualDerivative",
+        api_factory: WebAssistantsFactory,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
 
         super().__init__()
@@ -93,26 +93,24 @@ class DerivePerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
             # Define all subscription payloads
             subscription_payloads = [
-                {
-                    "method": channel,
-                    "params": {"subaccount_id": int(subaccount_id)}
-                }
+                {"method": channel, "params": {"subaccount_id": int(subaccount_id)}}
                 for channel in [CONSTANTS.WS_ACCOUNT_CHANNEL, CONSTANTS.WS_POSITIONS_CHANNEL]
             ] + [
                 {
                     "method": "subscribe",
-                    "params": {"channels": [
-                        CONSTANTS.WS_ORDERS_CHANNEL.format(subaccount_id=subaccount_id),
-                        CONSTANTS.WS_TRADES_CHANNEL.format(subaccount_id=subaccount_id)
-                    ]}
+                    "params": {
+                        "channels": [
+                            CONSTANTS.WS_ORDERS_CHANNEL.format(subaccount_id=subaccount_id),
+                            CONSTANTS.WS_TRADES_CHANNEL.format(subaccount_id=subaccount_id),
+                        ]
+                    },
                 }
             ]
 
             # Send all subscription requests in parallel
-            await asyncio.gather(*[
-                websocket_assistant.send(WSJSONRequest(payload))
-                for payload in subscription_payloads
-            ])
+            await asyncio.gather(
+                *[websocket_assistant.send(WSJSONRequest(payload)) for payload in subscription_payloads]
+            )
             self.logger().info("Subscribed to private account, position and orders channels...")
         except asyncio.CancelledError:
             raise
@@ -123,10 +121,7 @@ class DerivePerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
     async def _process_event_message(self, event_message: Dict[str, Any], queue: asyncio.Queue):
         if event_message.get("error") is not None:
             err_msg = event_message["error"]["message"]
-            raise IOError({
-                "label": "WSS_ERROR",
-                "message": f"Error received via websocket - {err_msg}."
-            })
+            raise IOError({"label": "WSS_ERROR", "message": f"Error received via websocket - {err_msg}."})
         elif "params" in event_message or "result" in event_message:
             if "result" in event_message:
                 if "status" in event_message["result"]:
@@ -135,11 +130,16 @@ class DerivePerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     return
                 queue.put_nowait(event_message)
             elif "params" in event_message and "channel" in event_message["params"]:
-                if CONSTANTS.USER_ORDERS_ENDPOINT_NAME in event_message["params"]["channel"] or \
-                        CONSTANTS.USEREVENT_ENDPOINT_NAME in event_message["params"]["channel"]:
+                if (
+                    CONSTANTS.USER_ORDERS_ENDPOINT_NAME in event_message["params"]["channel"]
+                    or CONSTANTS.USEREVENT_ENDPOINT_NAME in event_message["params"]["channel"]
+                ):
                     queue.put_nowait(event_message["params"])
 
-    async def _ping_thread(self, websocket_assistant: WSAssistant,):
+    async def _ping_thread(
+        self,
+        websocket_assistant: WSAssistant,
+    ):
         try:
             while True:
                 ping_request = WSJSONRequest(payload={"method": "ping"})
@@ -147,14 +147,12 @@ class DerivePerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 await self._authenticate(websocket_assistant)
                 await websocket_assistant.send(ping_request)
         except Exception as e:
-            self.logger().debug(f'ping error {e}')
+            self.logger().debug(f"ping error {e}")
 
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant, queue: asyncio.Queue):
         while True:
             try:
-                await super()._process_websocket_messages(
-                    websocket_assistant=websocket_assistant,
-                    queue=queue)
+                await super()._process_websocket_messages(websocket_assistant=websocket_assistant, queue=queue)
             except asyncio.TimeoutError:
                 ping_request = WSJSONRequest(payload={"method": "ping"})
                 await websocket_assistant.send(ping_request)

@@ -26,8 +26,7 @@ class BitstampUtilsTests(TestCase):
 
     def test_bitstamp_config_map(self):
         config_map = BitstampConfigMap(
-            bitstamp_api_key=SecretStr("test_key"),
-            bitstamp_api_secret=SecretStr("test_secret")
+            bitstamp_api_key=SecretStr("test_key"), bitstamp_api_secret=SecretStr("test_secret")
         )
         self.assertEqual(config_map.connector, "bitstamp")
         self.assertEqual(config_map.bitstamp_api_key, SecretStr("test_key"))

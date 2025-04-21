@@ -10,12 +10,10 @@ from hummingbot.logger import HummingbotLogger
 
 class KillSwitch(ABC):
     @abstractmethod
-    def start(self):
-        ...
+    def start(self): ...
 
     @abstractmethod
-    def stop(self):
-        ...
+    def stop(self): ...
 
 
 class ActiveKillSwitch(KillSwitch):
@@ -27,9 +25,7 @@ class ActiveKillSwitch(KillSwitch):
             cls.ks_logger = logging.getLogger(__name__)
         return cls.ks_logger
 
-    def __init__(self,
-                 kill_switch_rate: Decimal,
-                 hummingbot_application: "HummingbotApplication"):  # noqa F821
+    def __init__(self, kill_switch_rate: Decimal, hummingbot_application: "HummingbotApplication"):  # noqa F821
         self._hummingbot_application = hummingbot_application
 
         self._kill_switch_rate: Decimal = kill_switch_rate / Decimal(100)
@@ -44,12 +40,15 @@ class ActiveKillSwitch(KillSwitch):
                 self._profitability: Decimal = await self._hummingbot_application.calculate_profitability()
 
                 # Stop the bot if losing too much money, or if gained a certain amount of profit
-                if (self._profitability <= self._kill_switch_rate < Decimal("0.0")) or \
-                        (self._profitability >= self._kill_switch_rate > Decimal("0.0")):
+                if (self._profitability <= self._kill_switch_rate < Decimal("0.0")) or (
+                    self._profitability >= self._kill_switch_rate > Decimal("0.0")
+                ):
                     self.logger().info("Kill switch threshold reached. Stopping the bot...")
-                    self._hummingbot_application.notify(f"\n[Kill switch triggered]\n"
-                                                        f"Current profitability "
-                                                        f"is {self._profitability}. Stopping the bot...")
+                    self._hummingbot_application.notify(
+                        f"\n[Kill switch triggered]\n"
+                        f"Current profitability "
+                        f"is {self._profitability}. Stopping the bot..."
+                    )
                     self._hummingbot_application.stop()
                     break
 

@@ -51,5 +51,7 @@ class Proposal:
         self.sells: List[PriceSize] = sells
 
     def __repr__(self):
-        return f"{len(self.buys)} buys: {', '.join([str(o) for o in self.buys])} " \
-               f"{len(self.sells)} sells: {', '.join([str(o) for o in self.sells])}"
+        return (
+            f"{len(self.buys)} buys: {', '.join([str(o) for o in self.buys])} "
+            f"{len(self.sells)} sells: {', '.join([str(o) for o in self.sells])}"
+        )

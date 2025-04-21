@@ -8,9 +8,7 @@ from hummingbot.model.decimal_type_decorator import SqliteDecimal
 
 class MarketData(HummingbotBase):
     __tablename__ = "MarketData"
-    __table_args__ = (
-        Index("timestamp", "exchange", "trading_pair"),
-    )
+    __table_args__ = (Index("timestamp", "exchange", "trading_pair"),)
 
     timestamp = Column(SqliteDecimal(6), primary_key=True, nullable=False)
     exchange = Column(Text, nullable=False)
@@ -22,4 +20,4 @@ class MarketData(HummingbotBase):
 
     def __repr__(self) -> str:
         list_of_fields = [f"{name}: {value}" for name, value in inspect.getmembers(self) if isinstance(value, Column)]
-        return ','.join(list_of_fields)
+        return ",".join(list_of_fields)

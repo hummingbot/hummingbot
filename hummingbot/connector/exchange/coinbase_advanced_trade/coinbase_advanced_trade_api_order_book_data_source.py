@@ -14,7 +14,9 @@ from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
 if TYPE_CHECKING:
-    from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_exchange import CoinbaseAdvancedTradeExchange
+    from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_exchange import (
+        CoinbaseAdvancedTradeExchange,
+    )
 
 from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_order_book import (
     CoinbaseAdvancedTradeOrderBook,
@@ -36,11 +38,13 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._logger = logging.getLogger(name)
         return cls._logger
 
-    def __init__(self,
-                 trading_pairs: List[str],
-                 connector: 'CoinbaseAdvancedTradeExchange',
-                 api_factory: WebAssistantsFactory,
-                 domain: str = constants.DEFAULT_DOMAIN):
+    def __init__(
+        self,
+        trading_pairs: List[str],
+        connector: "CoinbaseAdvancedTradeExchange",
+        api_factory: WebAssistantsFactory,
+        domain: str = constants.DEFAULT_DOMAIN,
+    ):
         """
         Initialize the CoinbaseAdvancedTradeAPIUserStreamDataSource.
 
@@ -52,7 +56,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
         super().__init__(trading_pairs)
         self._domain: str = domain
         self._api_factory: WebAssistantsFactory = api_factory
-        self._connector: 'CoinbaseAdvancedTradeExchange' = connector
+        self._connector: "CoinbaseAdvancedTradeExchange" = connector
 
         self._subscription_lock: Optional[asyncio.Lock] = None
         self._ws_assistant: Optional[WSAssistant] = None
@@ -62,18 +66,14 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._diff_messages_queue_key = constants.WS_ORDER_SUBSCRIPTION_CHANNELS.inverse["order_book_diff"]
         self._trade_messages_queue_key = constants.WS_ORDER_SUBSCRIPTION_CHANNELS.inverse["trade"]
 
-    async def get_last_traded_prices(self,
-                                     trading_pairs: List[str],
-                                     domain: Optional[str] = None) -> Dict[str, float]:
+    async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         # await asyncio.sleep(0)
         return {trading_pair: self._last_traded_prices[trading_pair] or 0.0 for trading_pair in trading_pairs}
 
     # Implemented methods
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
-        params = {
-            "product_id": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        }
+        params = {"product_id": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)}
 
         rest_assistant = await self._api_factory.get_rest_assistant()
         snapshot: Dict[str, Any] = await rest_assistant.execute_request(
@@ -125,15 +125,16 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
             raise
         except Exception as e:
             self.logger().error(
-                "Unexpected error occurred subscribing to order book trading and delta streams...",
-                exc_info=True
+                "Unexpected error occurred subscribing to order book trading and delta streams...", exc_info=True
             )
             self.logger().debug(f"Error: {e}")
             raise
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         self._ws_assistant: WSAssistant = await self._api_factory.get_ws_assistant()
-        await self._ws_assistant.connect(ws_url=constants.WSS_URL.format(domain=self._domain), max_msg_size=constants.WS_MAX_MSG_SIZE)
+        await self._ws_assistant.connect(
+            ws_url=constants.WSS_URL.format(domain=self._domain), max_msg_size=constants.WS_MAX_MSG_SIZE
+        )
         return self._ws_assistant
 
     # --- Implementation of abstract methods from the Base class ---
@@ -142,9 +143,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
         snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
         snapshot_timestamp: float = time.time()
         snapshot_msg: OrderBookMessage = CoinbaseAdvancedTradeOrderBook.snapshot_message_from_exchange(
-            snapshot,
-            snapshot_timestamp,
-            metadata={"trading_pair": trading_pair}
+            snapshot, snapshot_timestamp, metadata={"trading_pair": trading_pair}
         )
         return snapshot_msg
 
@@ -157,7 +156,8 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 # TODO: This code needs to be removed when Coinbase DIFF channel is fixed for USDC
                 pair = await self.filter_pair(trading_pair)
                 trade_message: OrderBookMessage = CoinbaseAdvancedTradeOrderBook.trade_message_from_exchange(
-                    raw_message, {"trading_pair": pair})
+                    raw_message, {"trading_pair": pair}
+                )
                 self.logger().debug(f"Order book message: {trade_message}")
                 message_queue.put_nowait(trade_message)
 
@@ -169,7 +169,8 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 # TODO: This code needs to be removed when Coinbase DIFF channel is fixed for USDC
                 pair = await self.filter_pair(trading_pair)
                 order_book_message: OrderBookMessage = CoinbaseAdvancedTradeOrderBook.diff_message_from_exchange(
-                    raw_message, time.time(), {"trading_pair": pair})
+                    raw_message, time.time(), {"trading_pair": pair}
+                )
                 self.logger().debug(f"Order book message: {order_book_message}")
                 message_queue.put_nowait(order_book_message)
 
@@ -203,6 +204,9 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
             if "events" in event_message:
                 event_type = event_message.get("channel")
                 if event_type in ["l2_data", "market_trades"]:
-                    channel = (self._diff_messages_queue_key if event_type == constants.WS_ORDER_SUBSCRIPTION_CHANNELS.inverse["order_book_diff"]
-                               else self._trade_messages_queue_key)
+                    channel = (
+                        self._diff_messages_queue_key
+                        if event_type == constants.WS_ORDER_SUBSCRIPTION_CHANNELS.inverse["order_book_diff"]
+                        else self._trade_messages_queue_key
+                    )
                 return channel

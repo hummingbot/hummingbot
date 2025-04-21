@@ -259,7 +259,7 @@ class TestXRPLUtils(IsolatedAsyncioWrapperTestCase):
         client = AsyncMock()
 
         request = OfferCancel(
-            account="rsoLoDTcxn9wCEHHBR7enMhzQMThkB2w28", # noqa: mock
+            account="rsoLoDTcxn9wCEHHBR7enMhzQMThkB2w28",  # noqa: mock
             offer_sequence=69870875,
         )
 

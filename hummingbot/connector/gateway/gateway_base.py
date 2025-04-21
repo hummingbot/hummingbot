@@ -62,15 +62,16 @@ class GatewayBase(ConnectorBase):
     _allowances: Dict[str, Decimal]
     _get_allowances_task: Optional[asyncio.Task]
 
-    def __init__(self,
-                 client_config_map: "ClientConfigAdapter",
-                 connector_name: str,
-                 chain: str,
-                 network: str,
-                 address: str,
-                 trading_pairs: List[str] = [],
-                 trading_required: bool = True
-                 ):
+    def __init__(
+        self,
+        client_config_map: "ClientConfigAdapter",
+        connector_name: str,
+        chain: str,
+        network: str,
+        address: str,
+        trading_pairs: List[str] = [],
+        trading_required: bool = True,
+    ):
         """
         :param connector_name: name of connector on gateway
         :param chain: refers to a block chain, e.g. solana
@@ -152,17 +153,12 @@ class GatewayBase(ConnectorBase):
     @property
     def gateway_orders(self) -> List[GatewayInFlightOrder]:
         return [
-            in_flight_order
-            for in_flight_order in self._order_tracker.active_orders.values()
-            if in_flight_order.is_open
+            in_flight_order for in_flight_order in self._order_tracker.active_orders.values() if in_flight_order.is_open
         ]
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
-        return [
-            in_flight_order.to_limit_order()
-            for in_flight_order in self.gateway_orders
-        ]
+        return [in_flight_order.to_limit_order() for in_flight_order in self.gateway_orders]
 
     @property
     def network_transaction_fee(self) -> TokenAmount:
@@ -178,16 +174,12 @@ class GatewayBase(ConnectorBase):
 
     @property
     def tracking_states(self) -> Dict[str, Any]:
-        return {
-            key: value.to_json()
-            for key, value in self.in_flight_orders.items()
-        }
+        return {key: value.to_json() for key, value in self.in_flight_orders.items()}
 
     def restore_tracking_states(self, saved_states: Dict[str, any]):
-        self._order_tracker._in_flight_orders.update({
-            key: GatewayInFlightOrder.from_json(value)
-            for key, value in saved_states.items()
-        })
+        self._order_tracker._in_flight_orders.update(
+            {key: GatewayInFlightOrder.from_json(value) for key, value in saved_states.items()}
+        )
 
     @staticmethod
     def create_market_order_id(side: TradeType, trading_pair: str) -> str:
@@ -221,10 +213,7 @@ class GatewayBase(ConnectorBase):
             try:
                 self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
-                await safe_gather(
-                    self.update_balances(on_interval=True),
-                    self.update_order_status(self.gateway_orders)
-                )
+                await safe_gather(self.update_balances(on_interval=True), self.update_order_status(self.gateway_orders))
                 self._last_poll_timestamp = self.current_timestamp
             except asyncio.CancelledError:
                 raise
@@ -259,11 +248,7 @@ class GatewayBase(ConnectorBase):
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            self.logger().network(
-                "Error fetching chain info",
-                exc_info=True,
-                app_warning_msg=str(e)
-            )
+            self.logger().network("Error fetching chain info", exc_info=True, app_warning_msg=str(e))
 
     async def get_gas_estimate(self):
         """
@@ -273,16 +258,14 @@ class GatewayBase(ConnectorBase):
             response: Dict[Any] = await self._get_gateway_instance().estimate_gas(
                 chain=self.chain, network=self.network
             )
-            self.network_transaction_fee = TokenAmount(
-                response.get("gasPriceToken"), Decimal(response.get("gasCost"))
-            )
+            self.network_transaction_fee = TokenAmount(response.get("gasPriceToken"), Decimal(response.get("gasCost")))
         except asyncio.CancelledError:
             raise
         except Exception as e:
             self.logger().network(
                 f"Error getting gas price estimates for {self.connector_name} on {self.network}.",
                 exc_info=True,
-                app_warning_msg=str(e)
+                app_warning_msg=str(e),
             )
 
     @property
@@ -326,7 +309,9 @@ class GatewayBase(ConnectorBase):
         """
         if self._native_currency is None:
             await self.get_chain_info()
-        connector_tokens = GatewayConnectionSetting.get_connector_spec_from_market_name(self._name).get("tokens", "").split(",")
+        connector_tokens = (
+            GatewayConnectionSetting.get_connector_spec_from_market_name(self._name).get("tokens", "").split(",")
+        )
         last_tick = self._last_balance_poll_timestamp
         current_tick = self.current_timestamp
         if not on_interval or (current_tick - last_tick) > self.UPDATE_BALANCE_INTERVAL:
@@ -335,10 +320,7 @@ class GatewayBase(ConnectorBase):
             remote_asset_names = set()
             token_list = list(self._tokens) + [self._native_currency] + connector_tokens
             resp_json: Dict[str, Any] = await self._get_gateway_instance().get_balances(
-                chain=self.chain,
-                network=self.network,
-                address=self.address,
-                token_symbols=token_list
+                chain=self.chain, network=self.network, address=self.address, token_symbols=token_list
             )
             for token, bal in resp_json["balances"].items():
                 self._account_available_balances[token] = Decimal(str(bal))
@@ -371,15 +353,17 @@ class GatewayBase(ConnectorBase):
         gateway_instance = GatewayHttpClient.get_instance(self._client_config)
         return gateway_instance
 
-    def start_tracking_order(self,
-                             order_id: str,
-                             exchange_order_id: Optional[str] = None,
-                             trading_pair: str = "",
-                             trade_type: TradeType = TradeType.BUY,
-                             price: Decimal = s_decimal_0,
-                             amount: Decimal = s_decimal_0,
-                             gas_price: Decimal = s_decimal_0,
-                             is_approval: bool = False):
+    def start_tracking_order(
+        self,
+        order_id: str,
+        exchange_order_id: Optional[str] = None,
+        trading_pair: str = "",
+        trade_type: TradeType = TradeType.BUY,
+        price: Decimal = s_decimal_0,
+        amount: Decimal = s_decimal_0,
+        gas_price: Decimal = s_decimal_0,
+        is_approval: bool = False,
+    ):
         """
         Starts tracking an order by simply adding it into _in_flight_orders dictionary in ClientOrderTracker.
         """
@@ -394,7 +378,7 @@ class GatewayBase(ConnectorBase):
                 amount=amount,
                 gas_price=gas_price,
                 creation_timestamp=self.current_timestamp,
-                initial_state=OrderState.PENDING_APPROVAL if is_approval else OrderState.PENDING_CREATE
+                initial_state=OrderState.PENDING_APPROVAL if is_approval else OrderState.PENDING_CREATE,
             )
         )
 
@@ -416,19 +400,16 @@ class GatewayBase(ConnectorBase):
         )
 
         self.logger().info(
-            "Polling for order status updates of %d orders. Transaction hashes: %s",
-            len(tracked_orders),
-            tx_hash_list
+            "Polling for order status updates of %d orders. Transaction hashes: %s", len(tracked_orders), tx_hash_list
         )
 
-        update_results: List[Union[Dict[str, Any], Exception]] = await safe_gather(*[
-            self._get_gateway_instance().get_transaction_status(
-                self.chain,
-                self.network,
-                tx_hash
-            )
-            for tx_hash in tx_hash_list
-        ], return_exceptions=True)
+        update_results: List[Union[Dict[str, Any], Exception]] = await safe_gather(
+            *[
+                self._get_gateway_instance().get_transaction_status(self.chain, self.network, tx_hash)
+                for tx_hash in tx_hash_list
+            ],
+            return_exceptions=True,
+        )
 
         for tracked_order, tx_details in zip(tracked_orders, update_results):
             if isinstance(tx_details, Exception):
@@ -436,8 +417,9 @@ class GatewayBase(ConnectorBase):
                 continue
 
             if "txHash" not in tx_details:
-                self.logger().error(f"No txHash field for transaction status of {tracked_order.client_order_id}: "
-                                    f"{tx_details}.")
+                self.logger().error(
+                    f"No txHash field for transaction status of {tracked_order.client_order_id}: " f"{tx_details}."
+                )
                 continue
 
             tx_status: int = tx_details["txStatus"]
@@ -468,7 +450,7 @@ class GatewayBase(ConnectorBase):
             elif self._is_transaction_failed(tx_status, tx_receipt):
                 self.logger().network(
                     f"Error fetching transaction status for the order {tracked_order.client_order_id}: {tx_details}.",
-                    app_warning_msg=f"Failed to fetch transaction status for the order {tracked_order.client_order_id}."
+                    app_warning_msg=f"Failed to fetch transaction status for the order {tracked_order.client_order_id}.",
                 )
                 await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
 

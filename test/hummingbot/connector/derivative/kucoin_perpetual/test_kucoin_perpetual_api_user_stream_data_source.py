@@ -49,10 +49,8 @@ class KucoinPerpetualAPIUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTest
 
         self.emulated_time = 1640001112.223
         self.auth = KucoinPerpetualAuth(
-            api_key="TEST_API_KEY",
-            passphrase="TEST_PASSPHRASE",
-            secret_key="TEST_SECRET",
-            time_provider=self)
+            api_key="TEST_API_KEY", passphrase="TEST_PASSPHRASE", secret_key="TEST_SECRET", time_provider=self
+        )
         self.connector = KucoinPerpetualDerivative(
             client_config_map,
             kucoin_perpetual_api_key="",
@@ -65,7 +63,11 @@ class KucoinPerpetualAPIUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTest
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
         self.data_source = KucoinPerpetualAPIUserStreamDataSource(
-            trading_pairs=[self.trading_pair], connector=self.connector, auth=self.auth, api_factory=self.connector._web_assistants_factory, domain=self.domain
+            trading_pairs=[self.trading_pair],
+            connector=self.connector,
+            auth=self.auth,
+            api_factory=self.connector._web_assistants_factory,
+            domain=self.domain,
         )
 
         self.data_source.logger().setLevel(1)
@@ -163,9 +165,9 @@ class KucoinPerpetualAPIUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTest
                     "lowPrice": 38040,
                     "highPrice": 44948,
                     "priceChgPct": 0.1702,
-                    "priceChg": 6476
+                    "priceChg": 6476,
                 }
-            ]
+            ],
         }
         return ujson.dumps(mock_response)
 
@@ -182,8 +184,8 @@ class KucoinPerpetualAPIUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTest
                         "pingInterval": 18000,
                         "pingTimeout": 10000,
                     }
-                ]
-            }
+                ],
+            },
         }
         return ujson.dumps(resp)
 
@@ -218,8 +220,8 @@ class KucoinPerpetualAPIUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTest
                 "orderTime": 1545914149935808589,  # Order Time
                 "oldSize ": "15000",  # Size Before Update (when the type is "update")
                 "liquidity": "maker",  # Trading direction, buy or sell in taker
-                "ts": 1545914149935808589  # Timestamp
-            }
+                "ts": 1545914149935808589,  # Timestamp
+            },
         }
         return ujson.dumps(resp)
 

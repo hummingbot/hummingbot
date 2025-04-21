@@ -42,7 +42,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         cls.base_asset = "BTC"
         cls.quote_asset = "USD"  # linear
         cls.trading_pair = combine_to_hb_trading_pair(cls.base_asset, cls.quote_asset)
-        cls.client_order_id_prefix = "0x48424f5442454855443630616330301" # noqa: mock
+        cls.client_order_id_prefix = "0x48424f5442454855443630616330301"  # noqa: mock
 
     @property
     def all_symbols_url(self):
@@ -52,9 +52,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     @property
     def latest_prices_url(self):
-        url = web_utils.public_rest_url(
-            CONSTANTS.TICKER_PRICE_CHANGE_URL
-        )
+        url = web_utils.public_rest_url(CONSTANTS.TICKER_PRICE_CHANGE_URL)
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
@@ -72,9 +70,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     @property
     def order_creation_url(self):
-        url = web_utils.public_rest_url(
-            CONSTANTS.CREATE_ORDER_URL
-        )
+        url = web_utils.public_rest_url(CONSTANTS.CREATE_ORDER_URL)
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
@@ -85,9 +81,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     @property
     def funding_info_url(self):
-        url = web_utils.public_rest_url(
-            CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL
-        )
+        url = web_utils.public_rest_url(CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL)
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
@@ -102,37 +96,72 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
     @property
     def all_symbols_request_mock_response(self):
         mock_response = [
-            {'universe': [{'maxLeverage': 50, 'name': 'BTC', 'onlyIsolated': False, 'szDecimals': 5},
-                          {'maxLeverage': 50, 'name': 'ETH', 'onlyIsolated': False, 'szDecimals': 4}]}, [
-                {'dayNtlVlm': '27009889.88843001', 'funding': '0.00001793',
-                 'impactPxs': ['36724.0', '36736.9'],
-                 'markPx': '36733.0', 'midPx': '36730.0', 'openInterest': '34.37756',
-                 'oraclePx': '36717.0',
-                 'premium': '0.00036632', 'prevDayPx': '35242.0'},
-                {'dayNtlVlm': '8781185.14306', 'funding': '0.00005324', 'impactPxs': ['1922.9', '1923.1'],
-                 'markPx': '1923.1',
-                 'midPx': '1923.05', 'openInterest': '638.89157', 'oraclePx': '1921.7',
-                 'premium': '0.00067648',
-                 'prevDayPx': '1877.1'
-                 }]
+            {
+                "universe": [
+                    {"maxLeverage": 50, "name": "BTC", "onlyIsolated": False, "szDecimals": 5},
+                    {"maxLeverage": 50, "name": "ETH", "onlyIsolated": False, "szDecimals": 4},
+                ]
+            },
+            [
+                {
+                    "dayNtlVlm": "27009889.88843001",
+                    "funding": "0.00001793",
+                    "impactPxs": ["36724.0", "36736.9"],
+                    "markPx": "36733.0",
+                    "midPx": "36730.0",
+                    "openInterest": "34.37756",
+                    "oraclePx": "36717.0",
+                    "premium": "0.00036632",
+                    "prevDayPx": "35242.0",
+                },
+                {
+                    "dayNtlVlm": "8781185.14306",
+                    "funding": "0.00005324",
+                    "impactPxs": ["1922.9", "1923.1"],
+                    "markPx": "1923.1",
+                    "midPx": "1923.05",
+                    "openInterest": "638.89157",
+                    "oraclePx": "1921.7",
+                    "premium": "0.00067648",
+                    "prevDayPx": "1877.1",
+                },
+            ],
         ]
         return mock_response
 
     @property
     def latest_prices_request_mock_response(self):
         mock_response = [
-            {'universe': [{'maxLeverage': 50, 'name': 'BTC', 'onlyIsolated': False, 'szDecimals': 5},
-                          {'maxLeverage': 50, 'name': 'ETH', 'onlyIsolated': False, 'szDecimals': 4}]}, [
-                {'dayNtlVlm': '27009889.88843001', 'funding': '0.00001793',
-                 'impactPxs': ['36724.0', '36736.9'],
-                 'markPx': str(self.expected_latest_price), 'midPx': '36730.0', 'openInterest': '34.37756',
-                 'oraclePx': '36717.0',
-                 'premium': '0.00036632', 'prevDayPx': '35242.0'},
-                {'dayNtlVlm': '8781185.14306', 'funding': '0.00005324', 'impactPxs': ['1922.9', '1923.1'],
-                 'markPx': str(self.expected_latest_price),
-                 'midPx': '1923.05', 'openInterest': '638.8957', 'oraclePx': '1921.7',
-                 'premium': '0.00067648',
-                 'prevDayPx': '1877.1'}]
+            {
+                "universe": [
+                    {"maxLeverage": 50, "name": "BTC", "onlyIsolated": False, "szDecimals": 5},
+                    {"maxLeverage": 50, "name": "ETH", "onlyIsolated": False, "szDecimals": 4},
+                ]
+            },
+            [
+                {
+                    "dayNtlVlm": "27009889.88843001",
+                    "funding": "0.00001793",
+                    "impactPxs": ["36724.0", "36736.9"],
+                    "markPx": str(self.expected_latest_price),
+                    "midPx": "36730.0",
+                    "openInterest": "34.37756",
+                    "oraclePx": "36717.0",
+                    "premium": "0.00036632",
+                    "prevDayPx": "35242.0",
+                },
+                {
+                    "dayNtlVlm": "8781185.14306",
+                    "funding": "0.00005324",
+                    "impactPxs": ["1922.9", "1923.1"],
+                    "markPx": str(self.expected_latest_price),
+                    "midPx": "1923.05",
+                    "openInterest": "638.8957",
+                    "oraclePx": "1921.7",
+                    "premium": "0.00067648",
+                    "prevDayPx": "1877.1",
+                },
+            ],
         ]
 
         return mock_response
@@ -140,18 +169,37 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
     @property
     def all_symbols_including_invalid_pair_mock_response(self):
         mock_response = [
-            {'universe': [{'maxLeverage': 50, 'name': self.base_asset, 'onlyIsolated': False, 'szDecimals': 5},
-                          {'maxLeverage': 50, 'name': 'ETH', 'onlyIsolated': False, 'szDecimals': 4}]}, [
-                {'dayNtlVlm': '27009889.88843001', 'funding': '0.00001793',
-                 'impactPxs': ['36724.0', '36736.9'],
-                 'markPx': '36733.0', 'midPx': '36730.0', 'openInterest': '34.37756',
-                 'oraclePx': '36717.0',
-                 'premium': '0.00036632', 'prevDayPx': '35242.0'},
-                {'dayNtlVlm': '8781185.14306', 'funding': '0.00005324', 'impactPxs': ['1922.9', '1923.1'],
-                 'markPx': '1923.1',
-                 'midPx': '1923.05', 'openInterest': '638.8957', 'oraclePx': '1921.7',
-                 'premium': '0.00067648',
-                 'prevDayPx': '1877.1'}]]
+            {
+                "universe": [
+                    {"maxLeverage": 50, "name": self.base_asset, "onlyIsolated": False, "szDecimals": 5},
+                    {"maxLeverage": 50, "name": "ETH", "onlyIsolated": False, "szDecimals": 4},
+                ]
+            },
+            [
+                {
+                    "dayNtlVlm": "27009889.88843001",
+                    "funding": "0.00001793",
+                    "impactPxs": ["36724.0", "36736.9"],
+                    "markPx": "36733.0",
+                    "midPx": "36730.0",
+                    "openInterest": "34.37756",
+                    "oraclePx": "36717.0",
+                    "premium": "0.00036632",
+                    "prevDayPx": "35242.0",
+                },
+                {
+                    "dayNtlVlm": "8781185.14306",
+                    "funding": "0.00005324",
+                    "impactPxs": ["1922.9", "1923.1"],
+                    "markPx": "1923.1",
+                    "midPx": "1923.05",
+                    "openInterest": "638.8957",
+                    "oraclePx": "1921.7",
+                    "premium": "0.00067648",
+                    "prevDayPx": "1877.1",
+                },
+            ],
+        ]
         return "INVALID-PAIR", mock_response
 
     def empty_funding_payment_mock_response(self):
@@ -163,11 +211,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     @property
     def network_status_request_successful_mock_response(self):
-        mock_response = {
-            "code": 0,
-            "message": "",
-            "data": 1587884283175
-        }
+        mock_response = {"code": 0, "message": "", "data": 1587884283175}
         return mock_response
 
     @property
@@ -177,44 +221,86 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
     @property
     def trading_rules_request_erroneous_mock_response(self):
         mock_response = [
-            {'universe': [{'maxLeverage': 50, 'name': self.base_asset, 'onlyIsolated': False},
-                          {'maxLeverage': 50, 'name': 'ETH', 'onlyIsolated': False}]}, [
-                {'dayNtlVlm': '27009889.88843001', 'funding': '0.00001793',
-                 'impactPxs': ['36724.0', '36736.9'],
-                 'markPx': '36733.0', 'midPx': '36730.0', 'openInterest': '34.37756',
-                 'oraclePx': '36717.0',
-                 'premium': '0.00036632', 'prevDayPx': '35242.0'},
-                {'dayNtlVlm': '8781185.14306', 'funding': '0.00005324', 'impactPxs': ['1922.9', '1923.1'],
-                 'markPx': '1923.1',
-                 'midPx': '1923.05', 'openInterest': '638.8957', 'oraclePx': '1921.7',
-                 'premium': '0.00067648',
-                 'prevDayPx': '1877.1'}]
+            {
+                "universe": [
+                    {"maxLeverage": 50, "name": self.base_asset, "onlyIsolated": False},
+                    {"maxLeverage": 50, "name": "ETH", "onlyIsolated": False},
+                ]
+            },
+            [
+                {
+                    "dayNtlVlm": "27009889.88843001",
+                    "funding": "0.00001793",
+                    "impactPxs": ["36724.0", "36736.9"],
+                    "markPx": "36733.0",
+                    "midPx": "36730.0",
+                    "openInterest": "34.37756",
+                    "oraclePx": "36717.0",
+                    "premium": "0.00036632",
+                    "prevDayPx": "35242.0",
+                },
+                {
+                    "dayNtlVlm": "8781185.14306",
+                    "funding": "0.00005324",
+                    "impactPxs": ["1922.9", "1923.1"],
+                    "markPx": "1923.1",
+                    "midPx": "1923.05",
+                    "openInterest": "638.8957",
+                    "oraclePx": "1921.7",
+                    "premium": "0.00067648",
+                    "prevDayPx": "1877.1",
+                },
+            ],
         ]
         return mock_response
 
     @property
     def order_creation_request_successful_mock_response(self):
-        mock_response = {'status': 'ok', 'response': {'type': 'order', 'data': {
-            'statuses': [{'resting': {'oid': self.expected_exchange_order_id}}]}}}
+        mock_response = {
+            "status": "ok",
+            "response": {
+                "type": "order",
+                "data": {"statuses": [{"resting": {"oid": self.expected_exchange_order_id}}]},
+            },
+        }
         return mock_response
 
     @property
     def balance_request_mock_response_for_base_and_quote(self):
-        mock_response = {'assetPositions': [{'position': {'coin': 'ETH', 'cumFunding': {'allTime': '-0.442044',
-                                                                                        'sinceChange': '0.036699',
-                                                                                        'sinceOpen': '0.036699'},
-                                                          'entryPx': '2059.6',
-                                                          'leverage': {'type': 'cross', 'value': 21},
-                                                          'liquidationPx': None, 'marginUsed': '0.990428',
-                                                          'maxLeverage': 50, 'positionValue': '20.797',
-                                                          'returnOnEquity': '0.20294257', 'szi': '0.01',
-                                                          'unrealizedPnl': '0.201'}, 'type': 'oneWay'}],
-                         'crossMaintenanceMarginUsed': '0.20799',
-                         'crossMarginSummary': {'accountValue': '2000', 'totalMarginUsed': '0.990428',
-                                                'totalNtlPos': '20.799', 'totalRawUsd': '63.442322'},
-                         'marginSummary': {'accountValue': '84.241322', 'totalMarginUsed': '0.990428',
-                                           'totalNtlPos': '20.799', 'totalRawUsd': '63.442322'},
-                         'withdrawable': '2000'}
+        mock_response = {
+            "assetPositions": [
+                {
+                    "position": {
+                        "coin": "ETH",
+                        "cumFunding": {"allTime": "-0.442044", "sinceChange": "0.036699", "sinceOpen": "0.036699"},
+                        "entryPx": "2059.6",
+                        "leverage": {"type": "cross", "value": 21},
+                        "liquidationPx": None,
+                        "marginUsed": "0.990428",
+                        "maxLeverage": 50,
+                        "positionValue": "20.797",
+                        "returnOnEquity": "0.20294257",
+                        "szi": "0.01",
+                        "unrealizedPnl": "0.201",
+                    },
+                    "type": "oneWay",
+                }
+            ],
+            "crossMaintenanceMarginUsed": "0.20799",
+            "crossMarginSummary": {
+                "accountValue": "2000",
+                "totalMarginUsed": "0.990428",
+                "totalNtlPos": "20.799",
+                "totalRawUsd": "63.442322",
+            },
+            "marginSummary": {
+                "accountValue": "84.241322",
+                "totalMarginUsed": "0.990428",
+                "totalNtlPos": "20.799",
+                "totalRawUsd": "63.442322",
+            },
+            "withdrawable": "2000",
+        }
 
         return mock_response
 
@@ -232,18 +318,18 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.assertEqual(Decimal("2000"), total_balances[self.quote_asset])
 
     def configure_failed_set_position_mode(
-            self,
-            position_mode: PositionMode,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self,
+        position_mode: PositionMode,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ):
         pass
 
     def configure_successful_set_position_mode(
-            self,
-            position_mode: PositionMode,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self,
+        position_mode: PositionMode,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ):
         pass
 
@@ -252,8 +338,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.exchange.set_position_mode(PositionMode.HEDGE)
         self.assertTrue(
             self.is_logged(
-                log_level="ERROR",
-                message="Position mode PositionMode.HEDGE is not supported. Mode not set."
+                log_level="ERROR", message="Position mode PositionMode.HEDGE is not supported. Mode not set."
             )
         )
 
@@ -285,26 +370,25 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     @property
     def target_funding_info_next_funding_utc_str(self):
-        datetime_str = str(
-            pd.Timestamp.utcfromtimestamp(
-                self.target_funding_info_next_funding_utc_timestamp)
-        ).replace(" ", "T") + "Z"
+        datetime_str = (
+            str(pd.Timestamp.utcfromtimestamp(self.target_funding_info_next_funding_utc_timestamp)).replace(" ", "T")
+            + "Z"
+        )
         return datetime_str
 
     @property
     def target_funding_info_next_funding_utc_str_ws_updated(self):
-        datetime_str = str(
-            pd.Timestamp.utcfromtimestamp(
-                self.target_funding_info_next_funding_utc_timestamp_ws_updated)
-        ).replace(" ", "T") + "Z"
+        datetime_str = (
+            str(pd.Timestamp.utcfromtimestamp(self.target_funding_info_next_funding_utc_timestamp_ws_updated)).replace(
+                " ", "T"
+            )
+            + "Z"
+        )
         return datetime_str
 
     @property
     def target_funding_payment_timestamp_str(self):
-        datetime_str = str(
-            pd.Timestamp.utcfromtimestamp(
-                self.target_funding_payment_timestamp)
-        ).replace(" ", "T") + "Z"
+        datetime_str = str(pd.Timestamp.utcfromtimestamp(self.target_funding_payment_timestamp)).replace(" ", "T") + "Z"
         return datetime_str
 
     @property
@@ -327,16 +411,17 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         collateral_token = self.quote_asset
 
         step_size = Decimal(str(10 ** -coin_info.get("szDecimals")))
-        price_size = Decimal(str(10 ** -len(price_info.get("markPx").split('.')[1])))
-        _min_order_size = Decimal(str(10 ** -len(price_info.get("openInterest").split('.')[1])))
+        price_size = Decimal(str(10 ** -len(price_info.get("markPx").split(".")[1])))
+        _min_order_size = Decimal(str(10 ** -len(price_info.get("openInterest").split(".")[1])))
 
-        return TradingRule(self.trading_pair,
-                           min_base_amount_increment=step_size,
-                           min_price_increment=price_size,
-                           min_order_size=_min_order_size,
-                           buy_order_collateral_token=collateral_token,
-                           sell_order_collateral_token=collateral_token,
-                           )
+        return TradingRule(
+            self.trading_pair,
+            min_base_amount_increment=step_size,
+            min_price_increment=price_size,
+            min_order_size=_min_order_size,
+            buy_order_collateral_token=collateral_token,
+            sell_order_collateral_token=collateral_token,
+        )
 
     @property
     def expected_logged_error_for_erroneous_trading_rule(self):
@@ -399,8 +484,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = json.loads(request_call.kwargs["data"])
-        self.assertEqual(True if order.trade_type is TradeType.BUY else False,
-                         request_data["action"]["orders"][0]["b"])
+        self.assertEqual(True if order.trade_type is TradeType.BUY else False, request_data["action"]["orders"][0]["b"])
         self.assertEqual(order.amount, abs(Decimal(str(request_data["action"]["orders"][0]["s"]))))
         self.assertEqual(order.client_order_id, request_data["action"]["orders"][0]["c"])
 
@@ -417,40 +501,36 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.assertEqual(self.api_key, request_params["user"])
 
     def configure_successful_cancelation_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        order: InFlightOrder,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         """
         :return: the URL configured for the cancelation
         """
-        url = web_utils.public_rest_url(
-            CONSTANTS.CANCEL_ORDER_URL
-        )
+        url = web_utils.public_rest_url(CONSTANTS.CANCEL_ORDER_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         response = self._order_cancelation_request_successful_mock_response(order=order)
         mock_api.post(regex_url, body=json.dumps(response), callback=callback)
         return url
 
     def configure_erroneous_cancelation_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        order: InFlightOrder,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
-        url = web_utils.public_rest_url(
-            CONSTANTS.CANCEL_ORDER_URL
-        )
+        url = web_utils.public_rest_url(CONSTANTS.CANCEL_ORDER_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         mock_api.post(regex_url, status=400, callback=callback)
         return url
 
     def configure_one_successful_one_erroneous_cancel_all_response(
-            self,
-            successful_order: InFlightOrder,
-            erroneous_order: InFlightOrder,
-            mock_api: aioresponses,
+        self,
+        successful_order: InFlightOrder,
+        erroneous_order: InFlightOrder,
+        mock_api: aioresponses,
     ) -> List[str]:
         """
         :return: a list of all configured URLs for the cancelations
@@ -463,19 +543,15 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         return all_urls
 
     def configure_order_not_found_error_cancelation_response(
-            self, order: InFlightOrder, mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         # Implement the expected not found response when enabling test_cancel_order_not_found_in_the_exchange
         raise NotImplementedError
 
     def configure_order_not_found_error_order_status_response(
-            self, order: InFlightOrder, mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ):
-        url_order_status = web_utils.public_rest_url(
-            CONSTANTS.ORDER_URL
-        )
+        url_order_status = web_utils.public_rest_url(CONSTANTS.ORDER_URL)
 
         regex_url = re.compile(f"^{url_order_status}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
@@ -484,29 +560,21 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         return url_order_status
 
     def configure_order_not_found_unknow_error_order_status_response(
-            self, order: InFlightOrder, mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ):
-        url_order_status = web_utils.public_rest_url(
-            CONSTANTS.ORDER_URL
-        )
+        url_order_status = web_utils.public_rest_url(CONSTANTS.ORDER_URL)
 
         regex_url = re.compile(f"^{url_order_status}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
-        response = {'status': 'unknownOid'}
+        response = {"status": "unknownOid"}
         mock_api.post(regex_url, body=json.dumps(response), callback=callback)
         return url_order_status
 
     def configure_completely_filled_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ):
 
-        url_order_status = web_utils.public_rest_url(
-            CONSTANTS.ORDER_URL
-        )
+        url_order_status = web_utils.public_rest_url(CONSTANTS.ORDER_URL)
 
         regex_url = re.compile(f"^{url_order_status}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
@@ -515,15 +583,13 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         return url_order_status
 
     def configure_canceled_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        order: InFlightOrder,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ):
 
-        url_order_status = web_utils.public_rest_url(
-            CONSTANTS.ORDER_URL
-        )
+        url_order_status = web_utils.public_rest_url(CONSTANTS.ORDER_URL)
 
         regex_url = re.compile(f"^{url_order_status}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
@@ -533,14 +599,12 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         return url_order_status
 
     def configure_open_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        order: InFlightOrder,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
-        url = web_utils.public_rest_url(
-            CONSTANTS.ORDER_URL
-        )
+        url = web_utils.public_rest_url(CONSTANTS.ORDER_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
         response = self._order_status_request_open_mock_response(order=order)
@@ -548,28 +612,24 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         return url
 
     def configure_http_error_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        order: InFlightOrder,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
-        url = web_utils.public_rest_url(
-            CONSTANTS.ORDER_URL
-        )
+        url = web_utils.public_rest_url(CONSTANTS.ORDER_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
         mock_api.post(regex_url, status=404, callback=callback)
         return url
 
     def configure_partially_filled_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        order: InFlightOrder,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
-        url = web_utils.public_rest_url(
-            CONSTANTS.ORDER_URL
-        )
+        url = web_utils.public_rest_url(CONSTANTS.ORDER_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
         response = self._order_status_request_partially_filled_mock_response(order=order)
@@ -577,14 +637,12 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         return url
 
     def configure_partial_fill_trade_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        order: InFlightOrder,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
-        url = web_utils.public_rest_url(
-            CONSTANTS.ORDER_URL
-        )
+        url = web_utils.public_rest_url(CONSTANTS.ORDER_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
         response = self._order_fills_request_partial_fill_mock_response(order=order)
@@ -592,10 +650,10 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         return url
 
     def configure_full_fill_trade_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        order: InFlightOrder,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.public_rest_url(
             CONSTANTS.ACCOUNT_TRADE_LIST_URL,
@@ -607,29 +665,25 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         return url
 
     def configure_erroneous_http_fill_trade_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        order: InFlightOrder,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
-        url = web_utils.public_rest_url(
-            CONSTANTS.ACCOUNT_TRADE_LIST_URL
-        )
+        url = web_utils.public_rest_url(CONSTANTS.ACCOUNT_TRADE_LIST_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
         mock_api.post(regex_url, status=400, callback=callback)
         return url
 
     def configure_failed_set_leverage(
-            self,
-            leverage: PositionMode,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        leverage: PositionMode,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> Tuple[str, str]:
         endpoint = CONSTANTS.SET_LEVERAGE_URL
-        url = web_utils.public_rest_url(
-            endpoint
-        )
+        url = web_utils.public_rest_url(endpoint)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
         err_msg = "Unable to set leverage"
@@ -637,34 +691,26 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             "status": "error",
             "code": 0,
             "message": "",
-            "data": {
-                "pair": "BTC-USD",
-                "leverage_ratio": "60.00000000"
-            }
+            "data": {"pair": "BTC-USD", "leverage_ratio": "60.00000000"},
         }
         mock_api.post(regex_url, body=json.dumps(mock_response), callback=callback)
         return url, err_msg
 
     def configure_successful_set_leverage(
-            self,
-            leverage: int,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        leverage: int,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ):
         endpoint = CONSTANTS.SET_LEVERAGE_URL
-        url = web_utils.public_rest_url(
-            endpoint
-        )
+        url = web_utils.public_rest_url(endpoint)
         regex_url = re.compile(f"^{url}")
 
         mock_response = {
             "status": "ok",
             "code": 0,
             "message": "",
-            "data": {
-                "pair": "BTC-USD",
-                "leverage_ratio": str(leverage)
-            }
+            "data": {"pair": "BTC-USD", "leverage_ratio": str(leverage)},
         }
 
         mock_api.post(regex_url, body=json.dumps(mock_response), callback=callback)
@@ -673,56 +719,128 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     def get_trading_rule_rest_msg(self):
         return [
-            {'universe': [{'maxLeverage': 50, 'name': self.base_asset, 'onlyIsolated': False},
-                          {'maxLeverage': 50, 'name': 'ETH', 'onlyIsolated': False}]}, [
-                {'dayNtlVlm': '27009889.88843001', 'funding': '0.00001793',
-                 'impactPxs': ['36724.0', '36736.9'],
-                 'markPx': '36733.0', 'midPx': '36730.0', 'openInterest': '34.37756',
-                 'oraclePx': '36717.0',
-                 'premium': '0.00036632', 'prevDayPx': '35242.0'},
-                {'dayNtlVlm': '8781185.14306', 'funding': '0.00005324', 'impactPxs': ['1922.9', '1923.1'],
-                 'markPx': '1923.1',
-                 'midPx': '1923.05', 'openInterest': '638.8957', 'oraclePx': '1921.7',
-                 'premium': '0.00067648',
-                 'prevDayPx': '1877.1'}]
+            {
+                "universe": [
+                    {"maxLeverage": 50, "name": self.base_asset, "onlyIsolated": False},
+                    {"maxLeverage": 50, "name": "ETH", "onlyIsolated": False},
+                ]
+            },
+            [
+                {
+                    "dayNtlVlm": "27009889.88843001",
+                    "funding": "0.00001793",
+                    "impactPxs": ["36724.0", "36736.9"],
+                    "markPx": "36733.0",
+                    "midPx": "36730.0",
+                    "openInterest": "34.37756",
+                    "oraclePx": "36717.0",
+                    "premium": "0.00036632",
+                    "prevDayPx": "35242.0",
+                },
+                {
+                    "dayNtlVlm": "8781185.14306",
+                    "funding": "0.00005324",
+                    "impactPxs": ["1922.9", "1923.1"],
+                    "markPx": "1923.1",
+                    "midPx": "1923.05",
+                    "openInterest": "638.8957",
+                    "oraclePx": "1921.7",
+                    "premium": "0.00067648",
+                    "prevDayPx": "1877.1",
+                },
+            ],
         ]
 
     def order_event_for_new_order_websocket_update(self, order: InFlightOrder):
-        return {'channel': 'orderUpdates', 'data': [{'order': {'coin': 'BTC', 'side': 'B', 'limitPx': order.price,
-                                                               'sz': float(order.amount),
-                                                               'oid': order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
-                                                               'timestamp': 1700818402905, 'origSz': '0.01',
-                                                               'cloid': order.client_order_id or ""},
-                                                     'status': 'open', 'statusTimestamp': 1700818867334}]}
+        return {
+            "channel": "orderUpdates",
+            "data": [
+                {
+                    "order": {
+                        "coin": "BTC",
+                        "side": "B",
+                        "limitPx": order.price,
+                        "sz": float(order.amount),
+                        "oid": order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
+                        "timestamp": 1700818402905,
+                        "origSz": "0.01",
+                        "cloid": order.client_order_id or "",
+                    },
+                    "status": "open",
+                    "statusTimestamp": 1700818867334,
+                }
+            ],
+        }
 
     def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
-        return {'channel': 'orderUpdates', 'data': [{'order': {'coin': 'BTC', 'side': 'B', 'limitPx': order.price,
-                                                               'sz': float(order.amount),
-                                                               'oid': order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
-                                                               'timestamp': 1700818402905, 'origSz': '0.01',
-                                                               'cloid': order.client_order_id or ""},
-                                                     'status': 'canceled', 'statusTimestamp': 1700818867334}]}
+        return {
+            "channel": "orderUpdates",
+            "data": [
+                {
+                    "order": {
+                        "coin": "BTC",
+                        "side": "B",
+                        "limitPx": order.price,
+                        "sz": float(order.amount),
+                        "oid": order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
+                        "timestamp": 1700818402905,
+                        "origSz": "0.01",
+                        "cloid": order.client_order_id or "",
+                    },
+                    "status": "canceled",
+                    "statusTimestamp": 1700818867334,
+                }
+            ],
+        }
 
     def order_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         self._simulate_trading_rules_initialized()
-        return {'channel': 'orderUpdates', 'data': [{'order': {'coin': 'BTC', 'side': 'B', 'limitPx': order.price,
-                                                               'sz': float(order.amount),
-                                                               'oid': order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
-                                                               'timestamp': 1700818402905, 'origSz': '0.01',
-                                                               'cloid': order.client_order_id or ""},
-                                                     'status': 'filled', 'statusTimestamp': 1700818867334}]}
+        return {
+            "channel": "orderUpdates",
+            "data": [
+                {
+                    "order": {
+                        "coin": "BTC",
+                        "side": "B",
+                        "limitPx": order.price,
+                        "sz": float(order.amount),
+                        "oid": order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
+                        "timestamp": 1700818402905,
+                        "origSz": "0.01",
+                        "cloid": order.client_order_id or "",
+                    },
+                    "status": "filled",
+                    "statusTimestamp": 1700818867334,
+                }
+            ],
+        }
 
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         self._simulate_trading_rules_initialized()
-        return {'channel': 'user', 'data': {'fills': [
-            {'coin': 'BTC', 'px': order.price, 'sz': float(order.amount), 'side': 'B', 'time': 1700819083138,
-             'startPosition': '0.0',
-             'dir': 'Open Long', 'closedPnl': '0.0',
-             'hash': '0x6065d86346c0ee0f5d9504081647930115005f95c201c3a6fb5ba2440507f2cf',  # noqa: mock
-             'tid': '0x6065d86346c0ee0f5d9504081647930115005f95c201c3a6fb5ba2440507f2cf',  # noqa: mock
-             'oid': order.exchange_order_id or "EOID1",
-             'cloid': order.client_order_id or "",
-             'crossed': True, 'fee': str(self.expected_fill_fee.flat_fees[0].amount), 'liquidationMarkPx': None}]}}
+        return {
+            "channel": "user",
+            "data": {
+                "fills": [
+                    {
+                        "coin": "BTC",
+                        "px": order.price,
+                        "sz": float(order.amount),
+                        "side": "B",
+                        "time": 1700819083138,
+                        "startPosition": "0.0",
+                        "dir": "Open Long",
+                        "closedPnl": "0.0",
+                        "hash": "0x6065d86346c0ee0f5d9504081647930115005f95c201c3a6fb5ba2440507f2cf",  # noqa: mock
+                        "tid": "0x6065d86346c0ee0f5d9504081647930115005f95c201c3a6fb5ba2440507f2cf",  # noqa: mock
+                        "oid": order.exchange_order_id or "EOID1",
+                        "cloid": order.client_order_id or "",
+                        "crossed": True,
+                        "fee": str(self.expected_fill_fee.flat_fees[0].amount),
+                        "liquidationMarkPx": None,
+                    }
+                ]
+            },
+        }
 
     def position_event_for_full_fill_websocket_update(self, order: InFlightOrder, unrealized_pnl: float):
         pass
@@ -745,13 +863,13 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         self.assertEqual(
             f"Invalid position action {PositionAction.NIL}. Must be one of {[PositionAction.OPEN, PositionAction.CLOSE]}",
-            str(exception_context.exception)
+            str(exception_context.exception),
         )
 
     def test_user_stream_update_for_new_order(self):
         self.exchange._set_current_timestamp(1640780000)
         self.exchange.start_tracking_order(
-            order_id="0x48424f54424548554436306163303012", # noqa: mock
+            order_id="0x48424f54424548554436306163303012",  # noqa: mock
             exchange_order_id=str(self.expected_exchange_order_id),
             trading_pair=self.trading_pair,
             order_type=OrderType.LIMIT,
@@ -759,7 +877,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             price=Decimal("10000"),
             amount=Decimal("1"),
         )
-        order = self.exchange.in_flight_orders["0x48424f54424548554436306163303012"] # noqa: mock
+        order = self.exchange.in_flight_orders["0x48424f54424548554436306163303012"]  # noqa: mock
 
         order_event = self.order_event_for_new_order_websocket_update(order=order)
 
@@ -813,9 +931,11 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
     @aioresponses()
     @patch("asyncio.Queue.get")
     @patch(
-        "hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_api_order_book_data_source.HyperliquidPerpetualAPIOrderBookDataSource._next_funding_time")
-    def test_listen_for_funding_info_update_initializes_funding_info(self, mock_api, mock_next_funding_time,
-                                                                     mock_queue_get):
+        "hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_api_order_book_data_source.HyperliquidPerpetualAPIOrderBookDataSource._next_funding_time"
+    )
+    def test_listen_for_funding_info_update_initializes_funding_info(
+        self, mock_api, mock_next_funding_time, mock_queue_get
+    ):
         pass
 
     @aioresponses()
@@ -868,14 +988,10 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         results = response[0]["universe"]
         first_duplicate = deepcopy(results[0])
         first_duplicate["name"] = f"{self.exchange_trading_pair}_12345"
-        first_duplicate["szDecimals"] = (
-            str(float(first_duplicate["szDecimals"]) + 1)
-        )
+        first_duplicate["szDecimals"] = str(float(first_duplicate["szDecimals"]) + 1)
         second_duplicate = deepcopy(results[0])
         second_duplicate["name"] = f"{self.exchange_trading_pair}_67890"
-        second_duplicate["szDecimals"] = (
-            str(float(second_duplicate["szDecimals"]) + 2)
-        )
+        second_duplicate["szDecimals"] = str(float(second_duplicate["szDecimals"]) + 2)
         results.pop(0)
         results.append(first_duplicate)
         results.append(second_duplicate)
@@ -893,7 +1009,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.exchange._set_current_timestamp(1640780000)
 
         self.exchange.start_tracking_order(
-            order_id="0x48424f54424548554436306163303012", # noqa: mock
+            order_id="0x48424f54424548554436306163303012",  # noqa: mock
             exchange_order_id="4",
             trading_pair=self.trading_pair,
             trade_type=TradeType.BUY,
@@ -902,28 +1018,26 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             order_type=OrderType.LIMIT,
         )
 
-        self.assertIn("0x48424f54424548554436306163303012", self.exchange.in_flight_orders) # noqa: mock
-        order = self.exchange.in_flight_orders["0x48424f54424548554436306163303012"] # noqa: mock
+        self.assertIn("0x48424f54424548554436306163303012", self.exchange.in_flight_orders)  # noqa: mock
+        order = self.exchange.in_flight_orders["0x48424f54424548554436306163303012"]  # noqa: mock
 
         for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
             self.async_run_with_timeout(
-                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id))
+                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id)
+            )
 
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
 
         url = self.configure_erroneous_cancelation_response(
-            order=order,
-            mock_api=mock_api,
-            callback=lambda *args, **kwargs: request_sent_event.set())
+            order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
+        )
 
         self.async_run_with_timeout(self.exchange._cancel_lost_orders())
         self.async_run_with_timeout(request_sent_event.wait())
 
         cancel_request = self._all_executed_requests(mock_api, url)[0]
         # self.validate_auth_credentials_present(cancel_request)
-        self.validate_order_cancelation_request(
-            order=order,
-            request_call=cancel_request)
+        self.validate_order_cancelation_request(order=order, request_call=cancel_request)
 
         self.assertIn(order.client_order_id, self.exchange._order_tracker.lost_orders)
         self.assertEqual(0, len(self.order_cancelled_logger.event_log))
@@ -958,9 +1072,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.exchange._user_stream_tracker._user_stream = mock_queue
 
         if self.is_order_fill_http_update_executed_during_websocket_order_event_processing:
-            self.configure_full_fill_trade_response(
-                order=order,
-                mock_api=mock_api)
+            self.configure_full_fill_trade_response(order=order, mock_api=mock_api)
 
         try:
             self.async_run_with_timeout(self.exchange._user_stream_event_listener())
@@ -995,12 +1107,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.assertTrue(order.is_filled)
         self.assertTrue(order.is_done)
 
-        self.assertTrue(
-            self.is_logged(
-                "INFO",
-                f"BUY order {order.client_order_id} completely filled."
-            )
-        )
+        self.assertTrue(self.is_logged("INFO", f"BUY order {order.client_order_id} completely filled."))
 
     @aioresponses()
     def test_user_stream_update_for_trade_message(self, mock_api):
@@ -1072,9 +1179,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         )
         order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
-        self.configure_order_not_found_unknow_error_order_status_response(
-            order=order,
-            mock_api=mock_api)
+        self.configure_order_not_found_unknow_error_order_status_response(order=order, mock_api=mock_api)
         with self.assertRaises(asyncio.TimeoutError):
             self.async_run_with_timeout(self.exchange._update_order_status())
         self.assertFalse(order.is_done)
@@ -1120,27 +1225,56 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
         self.assertNotIn(order.client_order_id, self.exchange._order_tracker.all_fillable_orders)
 
-        self.assertFalse(
-            self.is_logged("INFO", f"BUY order {order.client_order_id} completely filled.")
-        )
+        self.assertFalse(self.is_logged("INFO", f"BUY order {order.client_order_id} completely filled."))
 
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
-        return {'status': 'ok', 'response': {'type': 'cancel', 'data': {'statuses': ['success']}}}
+        return {"status": "ok", "response": {"type": "cancel", "data": {"statuses": ["success"]}}}
 
     def _order_fills_request_canceled_mock_response(self, order: InFlightOrder) -> Any:
-        return [{'closedPnl': '0.0', 'coin': self.base_asset, 'crossed': False, 'dir': 'Open Long',
-                 'hash': 'xxxxxxxx-xxxx-xxxx-8b66-c3d2fcd352f6', 'oid': order.exchange_order_id,
-                 'cloid': order.client_order_id, 'px': '10000', 'side': 'B', 'startPosition': '26.86',
-                 'sz': '1', 'time': 1681222254710, 'fee': '0.1'}]
+        return [
+            {
+                "closedPnl": "0.0",
+                "coin": self.base_asset,
+                "crossed": False,
+                "dir": "Open Long",
+                "hash": "xxxxxxxx-xxxx-xxxx-8b66-c3d2fcd352f6",
+                "oid": order.exchange_order_id,
+                "cloid": order.client_order_id,
+                "px": "10000",
+                "side": "B",
+                "startPosition": "26.86",
+                "sz": "1",
+                "time": 1681222254710,
+                "fee": "0.1",
+            }
+        ]
 
     def _order_status_request_completely_filled_mock_response(self, order: InFlightOrder) -> Any:
-        return {'order': {
-            'order': {'children': [], 'cloid': order.client_order_id, 'coin': self.base_asset,
-                      'isPositionTpsl': False, 'isTrigger': False, 'limitPx': str(order.price),
-                      'oid': int(order.exchange_order_id),
-                      'orderType': 'Limit', 'origSz': float(order.amount), 'reduceOnly': False, 'side': 'B',
-                      'sz': str(order.amount), 'tif': 'Gtc', 'timestamp': 1700814942565, 'triggerCondition': 'N/A',
-                      'triggerPx': '0.0'}, 'status': 'filled', 'statusTimestamp': 1700818403290}, 'status': 'filled'}
+        return {
+            "order": {
+                "order": {
+                    "children": [],
+                    "cloid": order.client_order_id,
+                    "coin": self.base_asset,
+                    "isPositionTpsl": False,
+                    "isTrigger": False,
+                    "limitPx": str(order.price),
+                    "oid": int(order.exchange_order_id),
+                    "orderType": "Limit",
+                    "origSz": float(order.amount),
+                    "reduceOnly": False,
+                    "side": "B",
+                    "sz": str(order.amount),
+                    "tif": "Gtc",
+                    "timestamp": 1700814942565,
+                    "triggerCondition": "N/A",
+                    "triggerPx": "0.0",
+                },
+                "status": "filled",
+                "statusTimestamp": 1700818403290,
+            },
+            "status": "filled",
+        }
 
     def _order_status_request_canceled_mock_response(self, order: InFlightOrder) -> Any:
         resp = self._order_status_request_completely_filled_mock_response(order)
@@ -1217,9 +1351,9 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         pass
 
     def configure_trading_rules_response(
-            self,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> List[str]:
 
         url = self.trading_rules_url
@@ -1234,7 +1368,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.exchange._set_current_timestamp(1640780000)
 
         self.exchange.start_tracking_order(
-            order_id="0x48424f54424548554436306163303012", # noqa: mock
+            order_id="0x48424f54424548554436306163303012",  # noqa: mock
             exchange_order_id=self.exchange_order_id_prefix + "1",
             trading_pair=self.trading_pair,
             trade_type=TradeType.BUY,
@@ -1243,19 +1377,19 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             order_type=OrderType.LIMIT,
         )
 
-        self.assertIn("0x48424f54424548554436306163303012", self.exchange.in_flight_orders) # noqa: mock
-        order: InFlightOrder = self.exchange.in_flight_orders["0x48424f54424548554436306163303012"] # noqa: mock
+        self.assertIn("0x48424f54424548554436306163303012", self.exchange.in_flight_orders)  # noqa: mock
+        order: InFlightOrder = self.exchange.in_flight_orders["0x48424f54424548554436306163303012"]  # noqa: mock
 
         for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
             self.async_run_with_timeout(
-                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id))
+                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id)
+            )
 
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
 
         url = self.configure_successful_cancelation_response(
-            order=order,
-            mock_api=mock_api,
-            callback=lambda *args, **kwargs: request_sent_event.set())
+            order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
+        )
 
         self.async_run_with_timeout(self.exchange._cancel_lost_orders())
         self.async_run_with_timeout(request_sent_event.wait())
@@ -1263,9 +1397,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         if url:
             cancel_request = self._all_executed_requests(mock_api, url)[0]
             # self.validate_auth_credentials_present(cancel_request)
-            self.validate_order_cancelation_request(
-                order=order,
-                request_call=cancel_request)
+            self.validate_order_cancelation_request(order=order, request_call=cancel_request)
 
         if self.exchange.is_cancel_request_in_exchange_synchronous:
             self.assertNotIn(order.client_order_id, self.exchange._order_tracker.lost_orders)
@@ -1296,9 +1428,8 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
         url = self.configure_successful_cancelation_response(
-            order=order,
-            mock_api=mock_api,
-            callback=lambda *args, **kwargs: request_sent_event.set())
+            order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
+        )
 
         self.exchange.cancel(trading_pair=order.trading_pair, client_order_id=order.client_order_id)
         self.async_run_with_timeout(request_sent_event.wait())
@@ -1306,9 +1437,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         if url != "":
             cancel_request = self._all_executed_requests(mock_api, url)[0]
             self.validate_auth_credentials_present(cancel_request)
-            self.validate_order_cancelation_request(
-                order=order,
-                request_call=cancel_request)
+            self.validate_order_cancelation_request(order=order, request_call=cancel_request)
 
         if self.exchange.is_cancel_request_in_exchange_synchronous:
             self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
@@ -1317,12 +1446,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             self.assertEqual(self.exchange.current_timestamp, cancel_event.timestamp)
             self.assertEqual(order.client_order_id, cancel_event.order_id)
 
-            self.assertTrue(
-                self.is_logged(
-                    "INFO",
-                    f"Successfully canceled order {order.client_order_id}."
-                )
-            )
+            self.assertTrue(self.is_logged("INFO", f"Successfully canceled order {order.client_order_id}."))
         else:
             self.assertIn(order.client_order_id, self.exchange.in_flight_orders)
             self.assertTrue(order.is_pending_cancel_confirmation)
@@ -1347,9 +1471,8 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
         url = self.configure_erroneous_cancelation_response(
-            order=order,
-            mock_api=mock_api,
-            callback=lambda *args, **kwargs: request_sent_event.set())
+            order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
+        )
 
         self.exchange.cancel(trading_pair=self.trading_pair, client_order_id=self.client_order_id_prefix + "1")
         self.async_run_with_timeout(request_sent_event.wait())
@@ -1357,16 +1480,11 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         if url != "":
             cancel_request = self._all_executed_requests(mock_api, url)[0]
             self.validate_auth_credentials_present(cancel_request)
-            self.validate_order_cancelation_request(
-                order=order,
-                request_call=cancel_request)
+            self.validate_order_cancelation_request(order=order, request_call=cancel_request)
 
         self.assertEqual(0, len(self.order_cancelled_logger.event_log))
         self.assertTrue(
-            any(
-                log.msg.startswith(f"Failed to cancel order {order.client_order_id}")
-                for log in self.log_records
-            )
+            any(log.msg.startswith(f"Failed to cancel order {order.client_order_id}") for log in self.log_records)
         )
 
     @aioresponses()
@@ -1401,9 +1519,8 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         order2 = self.exchange.in_flight_orders["12"]
 
         urls = self.configure_one_successful_one_erroneous_cancel_all_response(
-            successful_order=order1,
-            erroneous_order=order2,
-            mock_api=mock_api)
+            successful_order=order1, erroneous_order=order2, mock_api=mock_api
+        )
 
         cancellation_results = self.async_run_with_timeout(self.exchange.cancel_all(10))
 
@@ -1421,12 +1538,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             self.assertEqual(self.exchange.current_timestamp, cancel_event.timestamp)
             self.assertEqual(order1.client_order_id, cancel_event.order_id)
 
-            self.assertTrue(
-                self.is_logged(
-                    "INFO",
-                    f"Successfully canceled order {order1.client_order_id}."
-                )
-            )
+            self.assertTrue(self.is_logged("INFO", f"Successfully canceled order {order1.client_order_id}."))
 
     @aioresponses()
     def test_set_leverage_failure(self, mock_api):
@@ -1469,16 +1581,13 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         )
 
     def _configure_balance_response(
-            self,
-            response,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, response, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
 
         url = self.balance_url
         mock_api.post(
-            re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?")),
-            body=json.dumps(response),
-            callback=callback)
+            re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?")), body=json.dumps(response), callback=callback
+        )
         return url
 
     @aioresponses()
@@ -1497,13 +1606,11 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         )
         order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
-        urls = self.configure_canceled_order_status_response(
-            order=order,
-            mock_api=mock_api)
+        urls = self.configure_canceled_order_status_response(order=order, mock_api=mock_api)
 
         self.async_run_with_timeout(self.exchange._update_order_status())
 
-        for url in (urls if isinstance(urls, list) else [urls]):
+        for url in urls if isinstance(urls, list) else [urls]:
             order_status_request = self._all_executed_requests(mock_api, url)[0]
             self.validate_auth_credentials_present(order_status_request)
             self.validate_order_status_request(order=order, request_call=order_status_request)
@@ -1513,14 +1620,12 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.assertEqual(order.client_order_id, cancel_event.order_id)
         self.assertEqual(order.exchange_order_id, cancel_event.exchange_order_id)
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
-        self.assertTrue(
-            self.is_logged("INFO", f"Successfully canceled order {order.client_order_id}.")
-        )
+        self.assertTrue(self.is_logged("INFO", f"Successfully canceled order {order.client_order_id}."))
 
     def configure_erroneous_trading_rules_response(
-            self,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> List[str]:
 
         url = self.trading_rules_url
@@ -1556,9 +1661,9 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.assertIn(self.trading_pair, all_trading_pairs)
 
     def configure_all_symbols_response(
-            self,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> List[str]:
 
         url = self.all_symbols_url
@@ -1595,8 +1700,9 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
     def _simulate_trading_rules_initialized(self):
         mocked_response = self.get_trading_rule_rest_msg()
         self.exchange._initialize_trading_pair_symbols_from_exchange_info(mocked_response)
-        self.exchange.coin_to_asset = {asset_info["name"]: asset for (asset, asset_info) in
-                                       enumerate(mocked_response[0]["universe"])}
+        self.exchange.coin_to_asset = {
+            asset_info["name"]: asset for (asset, asset_info) in enumerate(mocked_response[0]["universe"])
+        }
         self.exchange._trading_rules = {
             self.trading_pair: TradingRule(
                 trading_pair=self.trading_pair,
@@ -1617,9 +1723,9 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         creation_response = self.order_creation_request_successful_mock_response
 
-        mock_api.post(url,
-                      body=json.dumps(creation_response),
-                      callback=lambda *args, **kwargs: request_sent_event.set())
+        mock_api.post(
+            url, body=json.dumps(creation_response), callback=lambda *args, **kwargs: request_sent_event.set()
+        )
 
         leverage = 2
         self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
@@ -1629,20 +1735,16 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         order_request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(order_request)
         self.assertIn(order_id, self.exchange.in_flight_orders)
-        self.validate_order_creation_request(
-            order=self.exchange.in_flight_orders[order_id],
-            request_call=order_request)
+        self.validate_order_creation_request(order=self.exchange.in_flight_orders[order_id], request_call=order_request)
 
         create_event: BuyOrderCreatedEvent = self.buy_order_created_logger.event_log[0]
-        self.assertEqual(self.exchange.current_timestamp,
-                         create_event.timestamp)
+        self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
         self.assertEqual(self.trading_pair, create_event.trading_pair)
         self.assertEqual(OrderType.LIMIT, create_event.type)
         self.assertEqual(Decimal("100.000000"), create_event.amount)
         self.assertEqual(Decimal("10000.0000"), create_event.price)
         self.assertEqual(order_id, create_event.order_id)
-        self.assertEqual(str(self.expected_exchange_order_id),
-                         create_event.exchange_order_id)
+        self.assertEqual(str(self.expected_exchange_order_id), create_event.exchange_order_id)
         self.assertEqual(leverage, create_event.leverage)
         self.assertEqual(PositionAction.OPEN.value, create_event.position)
 
@@ -1651,7 +1753,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.BUY.name} order {order_id} for "
                 f"{Decimal('100.000000')} to {PositionAction.OPEN.name} a {self.trading_pair} position "
-                f"at {Decimal('10000')}."
+                f"at {Decimal('10000')}.",
             )
         )
 
@@ -1664,9 +1766,9 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         url = self.order_creation_url
         creation_response = self.order_creation_request_successful_mock_response
 
-        mock_api.post(url,
-                      body=json.dumps(creation_response),
-                      callback=lambda *args, **kwargs: request_sent_event.set())
+        mock_api.post(
+            url, body=json.dumps(creation_response), callback=lambda *args, **kwargs: request_sent_event.set()
+        )
         leverage = 5
         self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
         order_id = self.place_sell_order(position_action=PositionAction.CLOSE)
@@ -1675,9 +1777,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         order_request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(order_request)
         self.assertIn(order_id, self.exchange.in_flight_orders)
-        self.validate_order_creation_request(
-            order=self.exchange.in_flight_orders[order_id],
-            request_call=order_request)
+        self.validate_order_creation_request(order=self.exchange.in_flight_orders[order_id], request_call=order_request)
 
         create_event: SellOrderCreatedEvent = self.sell_order_created_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
@@ -1695,7 +1795,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.SELL.name} order {order_id} for "
                 f"{Decimal('100.000000')} to {PositionAction.CLOSE.name} a {self.trading_pair} position "
-                f"at {Decimal('10000')}."
+                f"at {Decimal('10000')}.",
             )
         )
 
@@ -1709,9 +1809,9 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         creation_response = self.order_creation_request_successful_mock_response
 
-        mock_api.post(url,
-                      body=json.dumps(creation_response),
-                      callback=lambda *args, **kwargs: request_sent_event.set())
+        mock_api.post(
+            url, body=json.dumps(creation_response), callback=lambda *args, **kwargs: request_sent_event.set()
+        )
         leverage = 4
         self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
         order_id = self.place_buy_order(position_action=PositionAction.CLOSE)
@@ -1720,20 +1820,16 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         order_request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(order_request)
         self.assertIn(order_id, self.exchange.in_flight_orders)
-        self.validate_order_creation_request(
-            order=self.exchange.in_flight_orders[order_id],
-            request_call=order_request)
+        self.validate_order_creation_request(order=self.exchange.in_flight_orders[order_id], request_call=order_request)
 
         create_event: BuyOrderCreatedEvent = self.buy_order_created_logger.event_log[0]
-        self.assertEqual(self.exchange.current_timestamp,
-                         create_event.timestamp)
+        self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
         self.assertEqual(self.trading_pair, create_event.trading_pair)
         self.assertEqual(OrderType.LIMIT, create_event.type)
         self.assertEqual(Decimal("100"), create_event.amount)
         self.assertEqual(Decimal("10000"), create_event.price)
         self.assertEqual(order_id, create_event.order_id)
-        self.assertEqual(str(self.expected_exchange_order_id),
-                         create_event.exchange_order_id)
+        self.assertEqual(str(self.expected_exchange_order_id), create_event.exchange_order_id)
         self.assertEqual(leverage, create_event.leverage)
         self.assertEqual(PositionAction.CLOSE.value, create_event.position)
 
@@ -1742,7 +1838,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.BUY.name} order {order_id} for "
                 f"{Decimal('100.000000')} to {PositionAction.CLOSE.name} a {self.trading_pair} position "
-                f"at {Decimal('10000')}."
+                f"at {Decimal('10000')}.",
             )
         )
 
@@ -1756,9 +1852,9 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         url = self.order_creation_url
         creation_response = self.order_creation_request_successful_mock_response
 
-        mock_api.post(url,
-                      body=json.dumps(creation_response),
-                      callback=lambda *args, **kwargs: request_sent_event.set())
+        mock_api.post(
+            url, body=json.dumps(creation_response), callback=lambda *args, **kwargs: request_sent_event.set()
+        )
         leverage = 3
         self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
         order_id = self.place_sell_order()
@@ -1767,9 +1863,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         order_request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(order_request)
         self.assertIn(order_id, self.exchange.in_flight_orders)
-        self.validate_order_creation_request(
-            order=self.exchange.in_flight_orders[order_id],
-            request_call=order_request)
+        self.validate_order_creation_request(order=self.exchange.in_flight_orders[order_id], request_call=order_request)
 
         create_event: SellOrderCreatedEvent = self.sell_order_created_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
@@ -1787,6 +1881,6 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.SELL.name} order {order_id} for "
                 f"{Decimal('100.000000')} to {PositionAction.OPEN.name} a {self.trading_pair} position "
-                f"at {Decimal('10000')}."
+                f"at {Decimal('10000')}.",
             )
         )

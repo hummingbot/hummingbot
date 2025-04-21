@@ -8,7 +8,7 @@ from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 DEFAULT_FEES = TradeFeeSchema(
     maker_percent_fee_decimal=Decimal("0.0002"),
     taker_percent_fee_decimal=Decimal("0.0004"),
-    buy_percent_fee_deducted_from_returns=True
+    buy_percent_fee_deducted_from_returns=True,
 )
 
 CENTRALIZED = True
@@ -24,13 +24,19 @@ class BinancePerpetualConfigMap(BaseConnectorConfigMap):
         default=...,
         json_schema_extra={
             "prompt": "Enter your Binance Perpetual API key",
-            "is_secure": True, "is_connect_key": True, "prompt_on_new": True}
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        },
     )
     binance_perpetual_api_secret: SecretStr = Field(
         default=...,
         json_schema_extra={
             "prompt": "Enter your Binance Perpetual API secret",
-            "is_secure": True, "is_connect_key": True, "prompt_on_new": True}
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        },
     )
 
 
@@ -48,13 +54,19 @@ class BinancePerpetualTestnetConfigMap(BaseConnectorConfigMap):
         default=...,
         json_schema_extra={
             "prompt": "Enter your Binance Perpetual testnet API key",
-            "is_secure": True, "is_connect_key": True, "prompt_on_new": True}
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        },
     )
     binance_perpetual_testnet_api_secret: SecretStr = Field(
         default=...,
         json_schema_extra={
             "prompt": "Enter your Binance Perpetual testnet API secret",
-            "is_secure": True, "is_connect_key": True, "prompt_on_new": True}
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        },
     )
     model_config = ConfigDict(title="binance_perpetual")
 

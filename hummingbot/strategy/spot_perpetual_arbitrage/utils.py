@@ -6,9 +6,9 @@ from .data_types import ArbProposal, ArbProposalSide
 s_decimal_nan = Decimal("NaN")
 
 
-async def create_arb_proposals(market_info_1: MarketTradingPairTuple,
-                               market_info_2: MarketTradingPairTuple,
-                               order_amount: Decimal) -> List[ArbProposal]:
+async def create_arb_proposals(
+    market_info_1: MarketTradingPairTuple, market_info_2: MarketTradingPairTuple, order_amount: Decimal
+) -> List[ArbProposal]:
     """
     Creates base arbitrage proposals for given markets without any filtering.
     :param market_info_1: The first market
@@ -26,19 +26,7 @@ async def create_arb_proposals(market_info_1: MarketTradingPairTuple,
         m_2_o_price = await market_info_2.market.get_order_price(market_info_2.trading_pair, not is_buy, order_amount)
         if any(p is None for p in (m_1_o_price, m_1_q_price, m_2_o_price, m_2_q_price)):
             continue
-        first_side = ArbProposalSide(
-            market_info_1,
-            is_buy,
-            m_1_q_price,
-            m_1_o_price,
-            order_amount
-        )
-        second_side = ArbProposalSide(
-            market_info_2,
-            not is_buy,
-            m_2_q_price,
-            m_2_o_price,
-            order_amount
-        )
+        first_side = ArbProposalSide(market_info_1, is_buy, m_1_q_price, m_1_o_price, order_amount)
+        second_side = ArbProposalSide(market_info_2, not is_buy, m_2_q_price, m_2_o_price, order_amount)
         results.append(ArbProposal(first_side, second_side))
     return results

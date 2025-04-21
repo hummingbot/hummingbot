@@ -77,7 +77,8 @@ class CoinGeckoRateSource(RateSourceBase):
         results = {}
         if not self._coin_gecko_supported_vs_tokens:
             self._coin_gecko_supported_vs_tokens = await self.try_event(
-                self._coin_gecko_data_feed.get_supported_vs_tokens)()
+                self._coin_gecko_data_feed.get_supported_vs_tokens
+            )()
 
         if vs_currency not in self._coin_gecko_supported_vs_tokens:
             vs_currency = "usd"
@@ -95,7 +96,8 @@ class CoinGeckoRateSource(RateSourceBase):
             task_results = await self.try_event(safe_gather)(*tasks, return_exceptions=False)
         except Exception:
             self.logger().error(
-                "Unexpected error while retrieving rates from Coingecko. Check the log file for more info.")
+                "Unexpected error while retrieving rates from Coingecko. Check the log file for more info."
+            )
             raise
 
         # Collect the results
@@ -109,10 +111,9 @@ class CoinGeckoRateSource(RateSourceBase):
         if self._coin_gecko_data_feed is None:
             self._coin_gecko_data_feed = CoinGeckoDataFeed()
 
-    async def _get_coin_gecko_prices_by_page(self,
-                                             vs_currency: str,
-                                             page_no: int,
-                                             category: Union[str, None]) -> Dict[str, Decimal]:
+    async def _get_coin_gecko_prices_by_page(
+        self, vs_currency: str, page_no: int, category: Union[str, None]
+    ) -> Dict[str, Decimal]:
         """
         Fetches CoinGecko prices by page number.
 
@@ -124,11 +125,12 @@ class CoinGeckoRateSource(RateSourceBase):
         :return: A dictionary of trading pairs and prices (50 results max if a category is provided)
         """
         results = {}
-        resp = await self.try_event(self._coin_gecko_data_feed.get_prices_by_page)(vs_currency=vs_currency,
-                                                                                   page_no=page_no, category=category)
+        resp = await self.try_event(self._coin_gecko_data_feed.get_prices_by_page)(
+            vs_currency=vs_currency, page_no=page_no, category=category
+        )
 
         for record in resp:
-            pair = combine_to_hb_trading_pair(base=record['symbol'].upper(), quote=vs_currency.upper())
+            pair = combine_to_hb_trading_pair(base=record["symbol"].upper(), quote=vs_currency.upper())
             if record["current_price"]:
                 results[pair] = Decimal(str(record["current_price"]))
         return results
@@ -146,8 +148,9 @@ class CoinGeckoRateSource(RateSourceBase):
         # TODO: Should we force hummingbot to be included?
         # self._extra_token_ids.append("hummingbot") - This fails the tests, not sure why
         if self._extra_token_ids:
-            resp = await self.try_event(self._coin_gecko_data_feed.get_prices_by_token_id)(vs_currency=vs_currency,
-                                                                                           token_ids=self._extra_token_ids)
+            resp = await self.try_event(self._coin_gecko_data_feed.get_prices_by_token_id)(
+                vs_currency=vs_currency, token_ids=self._extra_token_ids
+            )
             for record in resp:
                 pair = combine_to_hb_trading_pair(base=record["symbol"].upper(), quote=vs_currency.upper())
                 if record["current_price"]:

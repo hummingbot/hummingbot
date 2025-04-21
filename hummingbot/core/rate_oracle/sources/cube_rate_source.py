@@ -46,7 +46,7 @@ class CubeRateSource(RateSourceBase):
             self._cube_staging_exchange = self._build_cube_connector_without_private_keys(domain="staging")
 
     @staticmethod
-    async def _get_cube_prices(exchange: 'CubeExchange', quote_token: str = None) -> Dict[str, Decimal]:
+    async def _get_cube_prices(exchange: "CubeExchange", quote_token: str = None) -> Dict[str, Decimal]:
         """
         Fetches binance prices
 
@@ -59,7 +59,8 @@ class CubeRateSource(RateSourceBase):
         for pair_price in pairs_prices:
             try:
                 trading_pair = await exchange.trading_pair_associated_to_exchange_symbol(
-                    symbol=pair_price["ticker_id"].upper())
+                    symbol=pair_price["ticker_id"].upper()
+                )
             except KeyError:
                 continue  # skip pairs that we don't track
             if quote_token is not None:
@@ -74,7 +75,7 @@ class CubeRateSource(RateSourceBase):
         return results
 
     @staticmethod
-    def _build_cube_connector_without_private_keys(domain: str) -> 'CubeExchange':
+    def _build_cube_connector_without_private_keys(domain: str) -> "CubeExchange":
         from hummingbot.client.hummingbot_application import HummingbotApplication
         from hummingbot.connector.exchange.cube.cube_exchange import CubeExchange
 

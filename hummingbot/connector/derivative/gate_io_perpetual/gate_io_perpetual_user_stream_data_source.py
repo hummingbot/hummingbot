@@ -17,13 +17,15 @@ class GateIoPerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(self,
-                 auth: GateIoPerpetualAuth,
-                 user_id: str,
-                 trading_pairs: List[str],
-                 connector: 'GateIoPerpetualExchange',
-                 api_factory: WebAssistantsFactory,
-                 domain: str = CONSTANTS.DEFAULT_DOMAIN):
+    def __init__(
+        self,
+        auth: GateIoPerpetualAuth,
+        user_id: str,
+        trading_pairs: List[str],
+        connector: "GateIoPerpetualExchange",
+        api_factory: WebAssistantsFactory,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+    ):
         super().__init__()
         self._api_factory = api_factory
         self._auth: GateIoPerpetualAuth = auth
@@ -50,30 +52,26 @@ class GateIoPerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 "time": int(self._time()),
                 "channel": CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
                 "event": "subscribe",
-                "payload": user_info_symbols
+                "payload": user_info_symbols,
             }
             subscribe_order_change_request: WSJSONRequest = WSJSONRequest(
-                payload=orders_change_payload,
-                is_auth_required=True)
+                payload=orders_change_payload, is_auth_required=True
+            )
 
             trades_payload = {
                 "time": int(self._time()),
                 "channel": CONSTANTS.USER_TRADES_ENDPOINT_NAME,
                 "event": "subscribe",
-                "payload": user_info_symbols
+                "payload": user_info_symbols,
             }
-            subscribe_trades_request: WSJSONRequest = WSJSONRequest(
-                payload=trades_payload,
-                is_auth_required=True)
+            subscribe_trades_request: WSJSONRequest = WSJSONRequest(payload=trades_payload, is_auth_required=True)
             positions_payload = {
                 "time": int(self._time()),
                 "channel": CONSTANTS.USER_POSITIONS_ENDPOINT_NAME,
                 "event": "subscribe",
-                "payload": user_info_symbols
+                "payload": user_info_symbols,
             }
-            subscribe_positions_request: WSJSONRequest = WSJSONRequest(
-                payload=positions_payload,
-                is_auth_required=True)
+            subscribe_positions_request: WSJSONRequest = WSJSONRequest(payload=positions_payload, is_auth_required=True)
             await websocket_assistant.send(subscribe_order_change_request)
             await websocket_assistant.send(subscribe_trades_request)
             await websocket_assistant.send(subscribe_positions_request)
@@ -88,10 +86,7 @@ class GateIoPerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
     async def _process_event_message(self, event_message: Dict[str, Any], queue: asyncio.Queue):
         if event_message.get("error") is not None:
             err_msg = event_message.get("error", {}).get("message", event_message.get("error"))
-            raise IOError({
-                "label": "WSS_ERROR",
-                "message": f"Error received via websocket - {err_msg}."
-            })
+            raise IOError({"label": "WSS_ERROR", "message": f"Error received via websocket - {err_msg}."})
         elif event_message.get("event") == "update" and event_message.get("channel") in [
             CONSTANTS.USER_TRADES_ENDPOINT_NAME,
             CONSTANTS.USER_ORDERS_ENDPOINT_NAME,

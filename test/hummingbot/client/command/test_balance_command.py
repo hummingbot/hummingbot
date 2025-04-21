@@ -29,6 +29,7 @@ class BalanceCommandTest(IsolatedAsyncioWrapperTestCase):
     def get_async_sleep_fn(delay: float):
         async def async_sleep(*_, **__):
             await asyncio.sleep(delay)
+
         return async_sleep
 
     async def async_run_with_timeout_coroutine_must_raise_timeout(self, coroutine: Awaitable, timeout: float = 1):
@@ -49,9 +50,7 @@ class BalanceCommandTest(IsolatedAsyncioWrapperTestCase):
             raise RuntimeError
 
     @patch("hummingbot.user.user_balances.UserBalances.all_balances_all_exchanges")
-    async def test_show_balances_handles_network_timeouts(
-        self, all_balances_all_exchanges_mock
-    ):
+    async def test_show_balances_handles_network_timeouts(self, all_balances_all_exchanges_mock):
         all_balances_all_exchanges_mock.side_effect = self.get_async_sleep_fn(delay=0.02)
         self.app.client_config_map.commands_timeout.other_commands_timeout = Decimal("0.01")
 
@@ -73,14 +72,10 @@ class BalanceCommandTest(IsolatedAsyncioWrapperTestCase):
         all_balances_all_exchanges_mock.return_value = {"binance": {}}
         all_available_balances_all_exchanges_mock.return_value = {"binance": {}}
 
-        await (self.app.show_balances())
+        await self.app.show_balances()
 
-        self.assertTrue(
-            self.cli_mock_assistant.check_log_called_with(msg="\nbinance:")
-        )
-        self.assertTrue(
-            self.cli_mock_assistant.check_log_called_with(msg="You have no balance on this exchange.")
-        )
+        self.assertTrue(self.cli_mock_assistant.check_log_called_with(msg="\nbinance:"))
+        self.assertTrue(self.cli_mock_assistant.check_log_called_with(msg="You have no balance on this exchange."))
         self.assertTrue(
             self.cli_mock_assistant.check_log_called_with(
                 msg=f"\n\nExchanges Total: {self.app.client_config_map.global_token.global_token_symbol} 0    "
@@ -104,11 +99,9 @@ class BalanceCommandTest(IsolatedAsyncioWrapperTestCase):
         }
         get_rate_mock.return_value = Decimal("2")
 
-        await (self.app.show_balances())
+        await self.app.show_balances()
 
-        self.assertTrue(
-            self.cli_mock_assistant.check_log_called_with(msg="\nbinance:")
-        )
+        self.assertTrue(self.cli_mock_assistant.check_log_called_with(msg="\nbinance:"))
         self.assertTrue(
             self.cli_mock_assistant.check_log_called_with(
                 msg=(
@@ -122,9 +115,7 @@ class BalanceCommandTest(IsolatedAsyncioWrapperTestCase):
                 msg=f"\n  Total: {self.app.client_config_map.global_token.global_token_symbol} 20.00"
             )
         )
-        self.assertTrue(
-            self.cli_mock_assistant.check_log_called_with(msg="Allocated: 50.00%")
-        )
+        self.assertTrue(self.cli_mock_assistant.check_log_called_with(msg="Allocated: 50.00%"))
         self.assertTrue(
             self.cli_mock_assistant.check_log_called_with(
                 msg=f"\n\nExchanges Total: {self.app.client_config_map.global_token.global_token_symbol} 20    "

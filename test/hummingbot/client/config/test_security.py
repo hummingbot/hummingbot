@@ -35,9 +35,7 @@ class SecurityTest(unittest.TestCase):
         config_crypt.PASSWORD_VERIFICATION_PATH = mock_conf_dir / ".password_verification"
 
         security.PASSWORD_VERIFICATION_PATH = config_crypt.PASSWORD_VERIFICATION_PATH
-        config_helpers.CONNECTORS_CONF_DIR_PATH = (
-            Path(self.new_conf_dir_path.name) / "connectors"
-        )
+        config_helpers.CONNECTORS_CONF_DIR_PATH = Path(self.new_conf_dir_path.name) / "connectors"
         config_helpers.CONNECTORS_CONF_DIR_PATH.mkdir(parents=True, exist_ok=True)
         self.connector = "binance"
         self.api_key = "someApiKey"

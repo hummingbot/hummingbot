@@ -8,6 +8,7 @@ class SqliteDecimal(TypeDecorator):
     This TypeDecorator use Sqlalchemy BigInteger as impl. It converts Decimalsfrom Python to Integers which is later
     stored in Sqlite database.
     """
+
     impl = BigInteger
 
     def __init__(self, scale):
@@ -17,7 +18,7 @@ class SqliteDecimal(TypeDecorator):
         """
         TypeDecorator.__init__(self)
         self.scale = scale
-        self.multiplier_int = 10 ** self.scale
+        self.multiplier_int = 10**self.scale
 
     @property
     def python_type(self):

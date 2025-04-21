@@ -60,8 +60,9 @@ class KrakenSpotCandles(CandlesBase):
 
     async def check_network(self) -> NetworkStatus:
         rest_assistant = await self._api_factory.get_rest_assistant()
-        await rest_assistant.execute_request(url=self.health_check_url,
-                                             throttler_limit_id=CONSTANTS.HEALTH_CHECK_ENDPOINT)
+        await rest_assistant.execute_request(
+            url=self.health_check_url, throttler_limit_id=CONSTANTS.HEALTH_CHECK_ENDPOINT
+        )
         return NetworkStatus.CONNECTED
 
     @staticmethod
@@ -94,10 +95,12 @@ class KrakenSpotCandles(CandlesBase):
     def _is_last_candle_not_included_in_rest_request(self):
         return False
 
-    def _get_rest_candles_params(self,
-                                 start_time: Optional[int] = None,
-                                 end_time: Optional[int] = None,
-                                 limit: Optional[int] = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST) -> dict:
+    def _get_rest_candles_params(
+        self,
+        start_time: Optional[int] = None,
+        end_time: Optional[int] = None,
+        limit: Optional[int] = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST,
+    ) -> dict:
         """
         For API documentation, please refer to:
         https://docs.kraken.com/rest/#tag/Spot-Market-Data/operation/getOHLCData
@@ -107,8 +110,7 @@ class KrakenSpotCandles(CandlesBase):
         candles_ago = (int(time.time()) - start_time) // self.interval_in_seconds
         if candles_ago > CONSTANTS.MAX_CANDLES_AGO:
             raise ValueError("Kraken REST API does not support fetching more than 720 candles ago.")
-        return {"pair": self._ex_trading_pair, "interval": CONSTANTS.INTERVALS[self.interval],
-                "since": start_time}
+        return {"pair": self._ex_trading_pair, "interval": CONSTANTS.INTERVALS[self.interval], "since": start_time}
 
     def _parse_rest_candles(self, data: dict, end_time: Optional[int] = None) -> List[List[float]]:
         data: List = next(iter(data["result"].values()))
@@ -124,23 +126,39 @@ class KrakenSpotCandles(CandlesBase):
             n_trades = 0
             taker_buy_base_volume = 0
             taker_buy_quote_volume = 0
-            new_hb_candles.append([timestamp, open, high, low, close, volume,
-                                   quote_asset_volume, n_trades, taker_buy_base_volume,
-                                   taker_buy_quote_volume])
+            new_hb_candles.append(
+                [
+                    timestamp,
+                    open,
+                    high,
+                    low,
+                    close,
+                    volume,
+                    quote_asset_volume,
+                    n_trades,
+                    taker_buy_base_volume,
+                    taker_buy_quote_volume,
+                ]
+            )
         return [candle for candle in new_hb_candles]
 
     def ws_subscription_payload(self):
         return {
             "event": "subscribe",
-            "pair": [self.get_exchange_trading_pair(self._trading_pair, '/')],
-            "subscription": {"name": CONSTANTS.WS_CANDLES_ENDPOINT,
-                             "interval": int(CONSTANTS.INTERVALS[self.interval])}
+            "pair": [self.get_exchange_trading_pair(self._trading_pair, "/")],
+            "subscription": {
+                "name": CONSTANTS.WS_CANDLES_ENDPOINT,
+                "interval": int(CONSTANTS.INTERVALS[self.interval]),
+            },
         }
 
     def _parse_websocket_message(self, data: dict):
         candles_row_dict = {}
-        if not (type(data) is dict and "event" in data.keys() and
-                data["event"] in ["heartbeat", "systemStatus", "subscriptionStatus"]):
+        if not (
+            type(data) is dict
+            and "event" in data.keys()
+            and data["event"] in ["heartbeat", "systemStatus", "subscriptionStatus"]
+        ):
             if data[-2][:4] == "ohlc":
                 candles_row_dict["timestamp"] = self.ensure_timestamp_in_seconds(data[1][1]) - self.interval_in_seconds
                 candles_row_dict["open"] = data[1][2]

@@ -27,13 +27,15 @@ class HashkeyAPIOrderBookDataSource(OrderBookTrackerDataSource):
     _trading_pair_symbol_map: Dict[str, Mapping[str, str]] = {}
     _mapping_initialization_lock = asyncio.Lock()
 
-    def __init__(self,
-                 trading_pairs: List[str],
-                 connector: 'HashkeyExchange',
-                 api_factory: Optional[WebAssistantsFactory] = None,
-                 domain: str = CONSTANTS.DEFAULT_DOMAIN,
-                 throttler: Optional[AsyncThrottler] = None,
-                 time_synchronizer: Optional[TimeSynchronizer] = None):
+    def __init__(
+        self,
+        trading_pairs: List[str],
+        connector: "HashkeyExchange",
+        api_factory: Optional[WebAssistantsFactory] = None,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+        throttler: Optional[AsyncThrottler] = None,
+        time_synchronizer: Optional[TimeSynchronizer] = None,
+    ):
         super().__init__(trading_pairs)
         self._connector = connector
         self._domain = domain
@@ -49,9 +51,7 @@ class HashkeyAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
         self._last_ws_message_sent_timestamp = 0
 
-    async def get_last_traded_prices(self,
-                                     trading_pairs: List[str],
-                                     domain: Optional[str] = None) -> Dict[str, float]:
+    async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
@@ -64,20 +64,18 @@ class HashkeyAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         params = {
             "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
-            "limit": "1000"
+            "limit": "1000",
         }
-        data = await self._connector._api_request(path_url=CONSTANTS.SNAPSHOT_PATH_URL,
-                                                  method=RESTMethod.GET,
-                                                  params=params)
+        data = await self._connector._api_request(
+            path_url=CONSTANTS.SNAPSHOT_PATH_URL, method=RESTMethod.GET, params=params
+        )
         return data
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
         snapshot_timestamp: float = float(snapshot["t"]) * 1e-3
         snapshot_msg: OrderBookMessage = HashkeyOrderBook.snapshot_message_from_exchange_rest(
-            snapshot,
-            snapshot_timestamp,
-            metadata={"trading_pair": trading_pair}
+            snapshot, snapshot_timestamp, metadata={"trading_pair": trading_pair}
         )
         return snapshot_msg
 
@@ -85,7 +83,8 @@ class HashkeyAPIOrderBookDataSource(OrderBookTrackerDataSource):
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["symbol"])
         for trades in raw_message["data"]:
             trade_message: OrderBookMessage = HashkeyOrderBook.trade_message_from_exchange(
-                trades, {"trading_pair": trading_pair})
+                trades, {"trading_pair": trading_pair}
+            )
             message_queue.put_nowait(trade_message)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
@@ -123,14 +122,13 @@ class HashkeyAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                 while True:
                     try:
-                        seconds_until_next_ping = (CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL - (
-                            self._time() - self._last_ws_message_sent_timestamp))
+                        seconds_until_next_ping = CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL - (
+                            self._time() - self._last_ws_message_sent_timestamp
+                        )
                         await asyncio.wait_for(self._process_ws_messages(ws=ws), timeout=seconds_until_next_ping)
                     except asyncio.TimeoutError:
                         ping_time = self._time()
-                        payload = {
-                            "ping": int(ping_time * 1e3)
-                        }
+                        payload = {"ping": int(ping_time * 1e3)}
                         ping_request = WSJSONRequest(payload=payload)
                         await ws.send(request=ping_request)
                         self._last_ws_message_sent_timestamp = ping_time
@@ -153,24 +151,10 @@ class HashkeyAPIOrderBookDataSource(OrderBookTrackerDataSource):
         try:
             for trading_pair in self._trading_pairs:
                 symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                trade_payload = {
-                    "topic": "trade",
-                    "event": "sub",
-                    "symbol": symbol,
-                    "params": {
-                        "binary": False
-                    }
-                }
+                trade_payload = {"topic": "trade", "event": "sub", "symbol": symbol, "params": {"binary": False}}
                 subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trade_payload)
 
-                depth_payload = {
-                    "topic": "depth",
-                    "event": "sub",
-                    "symbol": symbol,
-                    "params": {
-                        "binary": False
-                    }
-                }
+                depth_payload = {"topic": "depth", "event": "sub", "symbol": symbol, "params": {"binary": False}}
                 subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=depth_payload)
 
                 await ws.send(subscribe_trade_request)
@@ -181,8 +165,7 @@ class HashkeyAPIOrderBookDataSource(OrderBookTrackerDataSource):
             raise
         except Exception:
             self.logger().error(
-                "Unexpected error occurred subscribing to order book trading and delta streams...",
-                exc_info=True
+                "Unexpected error occurred subscribing to order book trading and delta streams...", exc_info=True
             )
             raise
 
@@ -203,9 +186,11 @@ class HashkeyAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 json_msg = await message_queue.get()
                 trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-                    symbol=json_msg["symbol"])
+                    symbol=json_msg["symbol"]
+                )
                 order_book_message: OrderBookMessage = HashkeyOrderBook.snapshot_message_from_exchange_websocket(
-                    json_msg["data"][0], json_msg["data"][0], {"trading_pair": trading_pair})
+                    json_msg["data"][0], json_msg["data"][0], {"trading_pair": trading_pair}
+                )
                 snapshot_queue.put_nowait(order_book_message)
             except asyncio.CancelledError:
                 raise
@@ -219,17 +204,14 @@ class HashkeyAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair=trading_pair)
                 snapshot_timestamp: float = float(snapshot["t"]) * 1e-3
                 snapshot_msg: OrderBookMessage = HashkeyOrderBook.snapshot_message_from_exchange_rest(
-                    snapshot,
-                    snapshot_timestamp,
-                    metadata={"trading_pair": trading_pair}
+                    snapshot, snapshot_timestamp, metadata={"trading_pair": trading_pair}
                 )
                 snapshot_queue.put_nowait(snapshot_msg)
                 self.logger().debug(f"Saved order book snapshot for {trading_pair}")
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error(f"Unexpected error fetching order book snapshot for {trading_pair}.",
-                                    exc_info=True)
+                self.logger().error(f"Unexpected error fetching order book snapshot for {trading_pair}.", exc_info=True)
                 await self._sleep(5.0)
 
     def _time(self):

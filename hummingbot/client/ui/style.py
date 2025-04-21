@@ -55,16 +55,16 @@ def load_style(config_map: ClientConfigAdapter):
 
         # Apply custom configuration
         style["output_field"] = "bg:" + color_output_pane + " " + color_terminal_primary
-        style["input_field"] = "bg:" + color_input_pane + " " + style["input_field"].split(' ')[-1]
-        style["log_field"] = "bg:" + color_logs_pane + " " + style["log_field"].split(' ')[-1]
+        style["input_field"] = "bg:" + color_input_pane + " " + style["input_field"].split(" ")[-1]
+        style["log_field"] = "bg:" + color_logs_pane + " " + style["log_field"].split(" ")[-1]
         style["tab_button.focused"] = "bg:" + color_terminal_primary + " " + color_logs_pane
-        style["tab_button"] = style["tab_button"].split(' ')[0] + " " + color_logs_pane
-        style["header"] = "bg:" + color_top_pane + " " + style["header"].split(' ')[-1]
-        style["footer"] = "bg:" + color_bottom_pane + " " + style["footer"].split(' ')[-1]
+        style["tab_button"] = style["tab_button"].split(" ")[0] + " " + color_logs_pane
+        style["header"] = "bg:" + color_top_pane + " " + style["header"].split(" ")[-1]
+        style["footer"] = "bg:" + color_bottom_pane + " " + style["footer"].split(" ")[-1]
         style["primary"] = color_terminal_primary
-        style["dialog.body"] = style["dialog.body"].split(' ')[0] + " " + color_terminal_primary
-        style["dialog frame.label"] = "bg:" + color_terminal_primary + " " + style["dialog frame.label"].split(' ')[-1]
-        style["text-area"] = style["text-area"].split(' ')[0] + " " + color_terminal_primary
+        style["dialog.body"] = style["dialog.body"].split(" ")[0] + " " + color_terminal_primary
+        style["dialog frame.label"] = "bg:" + color_terminal_primary + " " + style["dialog frame.label"].split(" ")[-1]
+        style["text-area"] = style["text-area"].split(" ")[0] + " " + color_terminal_primary
         style["search"] = color_terminal_primary
         style["search.current"] = color_terminal_primary
 
@@ -86,16 +86,16 @@ def load_style(config_map: ClientConfigAdapter):
 
         # Apply custom configuration
         style["output_field"] = "bg:" + color_output_pane + " " + color_terminal_primary
-        style["input_field"] = "bg:" + color_input_pane + " " + style["input_field"].split(' ')[-1]
-        style["log_field"] = "bg:" + color_logs_pane + " " + style["log_field"].split(' ')[-1]
-        style["header"] = "bg:" + color_top_pane + " " + style["header"].split(' ')[-1]
-        style["footer"] = "bg:" + color_bottom_pane + " " + style["footer"].split(' ')[-1]
+        style["input_field"] = "bg:" + color_input_pane + " " + style["input_field"].split(" ")[-1]
+        style["log_field"] = "bg:" + color_logs_pane + " " + style["log_field"].split(" ")[-1]
+        style["header"] = "bg:" + color_top_pane + " " + style["header"].split(" ")[-1]
+        style["footer"] = "bg:" + color_bottom_pane + " " + style["footer"].split(" ")[-1]
         style["primary"] = color_terminal_primary
-        style["dialog.body"] = style["dialog.body"].split(' ')[0] + " " + color_terminal_primary
-        style["dialog frame.label"] = "bg:" + color_terminal_primary + " " + style["dialog frame.label"].split(' ')[-1]
-        style["text-area"] = style["text-area"].split(' ')[0] + " " + color_terminal_primary
+        style["dialog.body"] = style["dialog.body"].split(" ")[0] + " " + color_terminal_primary
+        style["dialog frame.label"] = "bg:" + color_terminal_primary + " " + style["dialog frame.label"].split(" ")[-1]
+        style["text-area"] = style["text-area"].split(" ")[0] + " " + color_terminal_primary
         style["tab_button.focused"] = "bg:" + color_terminal_primary + " " + color_logs_pane
-        style["tab_button"] = style["tab_button"].split(' ')[0] + " " + color_logs_pane
+        style["tab_button"] = style["tab_button"].split(" ")[0] + " " + color_logs_pane
 
         style["primary_label"] = "bg:" + color_primary_label + " " + color_output_pane
         style["secondary_label"] = "bg:" + color_secondary_label + " " + color_output_pane
@@ -138,22 +138,23 @@ def reset_style(config_map: ClientConfigAdapter, save=True):
 
 
 def hex_to_ansi(color_hex):
-    ansi_palette = {"000000": "ansiblack",
-                    "FF0000": "ansired",
-                    "00FF00": "ansigreen",
-                    "FFFF00": "ansiyellow",
-                    "0000FF": "ansiblue",
-                    "FF00FF": "ansimagenta",
-                    "00FFFF": "ansicyan",
-                    "F0F0F0": "ansigray",
-                    "FFFFFF": "ansiwhite",
-                    "FFD700": "ansiyellow",
-                    "C0C0C0": "ansilightgray",
-                    "CD7F32": "ansibrown"
-                    }
+    ansi_palette = {
+        "000000": "ansiblack",
+        "FF0000": "ansired",
+        "00FF00": "ansigreen",
+        "FFFF00": "ansiyellow",
+        "0000FF": "ansiblue",
+        "FF00FF": "ansimagenta",
+        "00FFFF": "ansicyan",
+        "F0F0F0": "ansigray",
+        "FFFFFF": "ansiwhite",
+        "FFD700": "ansiyellow",
+        "C0C0C0": "ansilightgray",
+        "CD7F32": "ansibrown",
+    }
 
     # Sanitization
-    color_hex = color_hex.replace('#', '')
+    color_hex = color_hex.replace("#", "")
 
     # Calculate distance, choose the closest ANSI color
     hex_r = int(color_hex[0:2], 16)
@@ -183,18 +184,18 @@ text_ui_style = {
 }
 
 default_ui_style = {
-    "output_field":               "bg:#171E2B #1CD085",  # noqa: E241
-    "input_field":                "bg:#000000 #FFFFFF",  # noqa: E241
-    "log_field":                  "bg:#171E2B #FFFFFF",  # noqa: E241
-    "header":                     "bg:#000000 #AAAAAA",  # noqa: E241
-    "footer":                     "bg:#000000 #AAAAAA",  # noqa: E241
-    "search":                     "bg:#000000 #93C36D",  # noqa: E241
-    "search.current":             "bg:#000000 #1CD085",  # noqa: E241
-    "primary":                    "#1CD085",  # noqa: E241
-    "warning":                    "#93C36D",  # noqa: E241
-    "error":                      "#F5634A",  # noqa: E241
-    "tab_button.focused":         "bg:#1CD085 #171E2B",  # noqa: E241
-    "tab_button":                 "bg:#FFFFFF #000000",  # noqa: E241
+    "output_field": "bg:#171E2B #1CD085",  # noqa: E241
+    "input_field": "bg:#000000 #FFFFFF",  # noqa: E241
+    "log_field": "bg:#171E2B #FFFFFF",  # noqa: E241
+    "header": "bg:#000000 #AAAAAA",  # noqa: E241
+    "footer": "bg:#000000 #AAAAAA",  # noqa: E241
+    "search": "bg:#000000 #93C36D",  # noqa: E241
+    "search.current": "bg:#000000 #1CD085",  # noqa: E241
+    "primary": "#1CD085",  # noqa: E241
+    "warning": "#93C36D",  # noqa: E241
+    "error": "#F5634A",  # noqa: E241
+    "tab_button.focused": "bg:#1CD085 #171E2B",  # noqa: E241
+    "tab_button": "bg:#FFFFFF #000000",  # noqa: E241
     "dialog": "bg:#171E2B",
     "dialog frame.label": "bg:#FFFFFF #000000",
     "dialog.body": "bg:#000000 ",
@@ -207,18 +208,18 @@ default_ui_style = {
 # Style for an older version of Windows consoles. They support only 16 colors,
 # so we choose a combination that displays nicely.
 win32_code_style = {
-    "output_field":               "#ansigreen",  # noqa: E241
-    "input_field":                "#ansiwhite",  # noqa: E241
-    "log_field":                  "#ansiwhite",  # noqa: E241
-    "header":                     "#ansiwhite",  # noqa: E241
-    "footer":                     "#ansiwhite",  # noqa: E241
-    "search":                     "#ansigreen",  # noqa: E241
-    "search.current":             "#ansigreen",  # noqa: E241
-    "primary":                    "#ansigreen",  # noqa: E241
-    "warning":                    "#ansibrightyellow",  # noqa: E241
-    "error":                      "#ansired",  # noqa: E241
-    "tab_button.focused":         "bg:#ansigreen #ansiblack",  # noqa: E241
-    "tab_button":                 "bg:#ansiwhite #ansiblack",  # noqa: E241
+    "output_field": "#ansigreen",  # noqa: E241
+    "input_field": "#ansiwhite",  # noqa: E241
+    "log_field": "#ansiwhite",  # noqa: E241
+    "header": "#ansiwhite",  # noqa: E241
+    "footer": "#ansiwhite",  # noqa: E241
+    "search": "#ansigreen",  # noqa: E241
+    "search.current": "#ansigreen",  # noqa: E241
+    "primary": "#ansigreen",  # noqa: E241
+    "warning": "#ansibrightyellow",  # noqa: E241
+    "error": "#ansired",  # noqa: E241
+    "tab_button.focused": "bg:#ansigreen #ansiblack",  # noqa: E241
+    "tab_button": "bg:#ansiwhite #ansiblack",  # noqa: E241
     "dialog": "bg:#ansigreen",
     "dialog frame.label": "bg:#ansiwhite #ansiblack",
     "dialog.body": "bg:#ansiblack ",

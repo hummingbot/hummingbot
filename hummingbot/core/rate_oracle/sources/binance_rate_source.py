@@ -43,7 +43,7 @@ class BinanceRateSource(RateSourceBase):
             self._binance_exchange = self._build_binance_connector_without_private_keys(domain="com")
 
     @staticmethod
-    async def _get_binance_prices(exchange: 'BinanceExchange', quote_token: str = None) -> Dict[str, Decimal]:
+    async def _get_binance_prices(exchange: "BinanceExchange", quote_token: str = None) -> Dict[str, Decimal]:
         """
         Fetches binance prices
 
@@ -70,7 +70,7 @@ class BinanceRateSource(RateSourceBase):
         return results
 
     @staticmethod
-    def _build_binance_connector_without_private_keys(domain: str) -> 'BinanceExchange':
+    def _build_binance_connector_without_private_keys(domain: str) -> "BinanceExchange":
         from hummingbot.client.hummingbot_application import HummingbotApplication
         from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
 

@@ -57,8 +57,8 @@ class PerpetualMarketMakingTests(TestCase):
         super().setUp()
         self.log_records = []
         self.market: MockPerpConnector = MockPerpConnector(
-            client_config_map=ClientConfigAdapter(ClientConfigMap()),
-            trade_fee_schema=self.trade_fee_schema)
+            client_config_map=ClientConfigAdapter(ClientConfigMap()), trade_fee_schema=self.trade_fee_schema
+        )
         self.market.set_quantization_param(
             QuantizationParams(
                 self.trading_pair,
@@ -71,12 +71,14 @@ class PerpetualMarketMakingTests(TestCase):
         self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             self.market, self.trading_pair, self.base_asset, self.quote_asset
         )
-        self.market.set_balanced_order_book(trading_pair=self.trading_pair,
-                                            mid_price=self.initial_mid_price,
-                                            min_price=1,
-                                            max_price=200,
-                                            price_step_size=1,
-                                            volume_step_size=10)
+        self.market.set_balanced_order_book(
+            trading_pair=self.trading_pair,
+            mid_price=self.initial_mid_price,
+            min_price=1,
+            max_price=200,
+            price_step_size=1,
+            volume_step_size=10,
+        )
         self.market.set_balance("COINALPHA", 1000)
         self.market.set_balance("HBOT", 50000)
 
@@ -113,8 +115,9 @@ class PerpetualMarketMakingTests(TestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage().startswith(message)
-                   for record in self.log_records)
+        return any(
+            record.levelname == log_level and record.getMessage().startswith(message) for record in self.log_records
+        )
 
     def _configure_strategy(self, strategy: StrategyBase):
         self.strategy = strategy
@@ -138,27 +141,33 @@ class PerpetualMarketMakingTests(TestCase):
             market.set_balance(quote_currency, market.get_balance(quote_currency) + quote_currency_traded)
             market.set_balance(base_currency, market.get_balance(base_currency) - base_currency_traded)
 
-        market.trigger_event(MarketEvent.OrderFilled, OrderFilledEvent(
-            market.current_timestamp,
-            limit_order.client_order_id,
-            limit_order.trading_pair,
-            TradeType.BUY if limit_order.is_buy else TradeType.SELL,
-            OrderType.LIMIT,
-            limit_order.price,
-            limit_order.quantity,
-            AddedToCostTradeFee(Decimal("0"))
-        ))
+        market.trigger_event(
+            MarketEvent.OrderFilled,
+            OrderFilledEvent(
+                market.current_timestamp,
+                limit_order.client_order_id,
+                limit_order.trading_pair,
+                TradeType.BUY if limit_order.is_buy else TradeType.SELL,
+                OrderType.LIMIT,
+                limit_order.price,
+                limit_order.quantity,
+                AddedToCostTradeFee(Decimal("0")),
+            ),
+        )
         event_type = MarketEvent.BuyOrderCompleted if limit_order.is_buy else MarketEvent.SellOrderCompleted
         event_class = BuyOrderCompletedEvent if limit_order.is_buy else SellOrderCompletedEvent
-        market.trigger_event(event_type, event_class(
-            market.current_timestamp,
-            limit_order.client_order_id,
-            base_currency,
-            quote_currency,
-            base_currency_traded,
-            quote_currency_traded,
-            OrderType.LIMIT
-        ))
+        market.trigger_event(
+            event_type,
+            event_class(
+                market.current_timestamp,
+                limit_order.client_order_id,
+                base_currency,
+                quote_currency,
+                base_currency_traded,
+                quote_currency_traded,
+                OrderType.LIMIT,
+            ),
+        )
 
     def test_apply_budget_constraint(self):
         self.strategy = PerpetualMarketMakingStrategy()
@@ -207,17 +216,18 @@ class PerpetualMarketMakingTests(TestCase):
             unrealized_pnl=Decimal(1000),
             entry_price=self.initial_mid_price + Decimal(30),
             amount=Decimal(1),
-            leverage=Decimal(10))
+            leverage=Decimal(10),
+        )
         positions = [position]
 
         proposal = self.strategy.stop_loss_proposal(PositionMode.ONEWAY, positions)
 
         self.assertEqual(0, len(self.market.limit_orders))
         self.assertEqual(0, len(proposal.buys))
-        self.assertEqual(position.entry_price *
-                         (Decimal(1) - self.stop_loss_spread) *
-                         (Decimal(1) - self.stop_loss_slippage_buffer),
-                         proposal.sells[0].price)
+        self.assertEqual(
+            position.entry_price * (Decimal(1) - self.stop_loss_spread) * (Decimal(1) - self.stop_loss_slippage_buffer),
+            proposal.sells[0].price,
+        )
         self.assertEqual(abs(position.amount), proposal.sells[0].size)
 
     def test_create_stop_loss_proposal_for_short_position(self):
@@ -227,15 +237,17 @@ class PerpetualMarketMakingTests(TestCase):
             unrealized_pnl=Decimal(1000),
             entry_price=self.initial_mid_price - Decimal(30),
             amount=Decimal(-1),
-            leverage=Decimal(10))
+            leverage=Decimal(10),
+        )
         positions = [position]
         proposal = self.strategy.stop_loss_proposal(PositionMode.ONEWAY, positions)
 
         self.assertEqual(0, len(self.market.limit_orders))
         self.assertEqual(0, len(proposal.sells))
-        self.assertEqual(position.entry_price *
-                         (Decimal(1) + self.stop_loss_spread) *
-                         (Decimal(1) + self.stop_loss_slippage_buffer), proposal.buys[0].price)
+        self.assertEqual(
+            position.entry_price * (Decimal(1) + self.stop_loss_spread) * (Decimal(1) + self.stop_loss_slippage_buffer),
+            proposal.buys[0].price,
+        )
         self.assertEqual(abs(position.amount), proposal.buys[0].size)
 
     def test_stop_loss_order_recreated_after_wait_time_for_long_position(self):
@@ -244,7 +256,8 @@ class PerpetualMarketMakingTests(TestCase):
             market_trading_pair_tuple=self.market_info,
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            price=initial_stop_loss_price)
+            price=initial_stop_loss_price,
+        )
 
         position = Position(
             trading_pair=(self.trading_pair),
@@ -252,7 +265,8 @@ class PerpetualMarketMakingTests(TestCase):
             unrealized_pnl=Decimal(1000),
             entry_price=self.initial_mid_price + Decimal(30),
             amount=Decimal(1),
-            leverage=Decimal(10))
+            leverage=Decimal(10),
+        )
         self.market.account_positions[self.trading_pair] = position
 
         # Simulate first stop loss was created at timestamp 1000
@@ -276,8 +290,9 @@ class PerpetualMarketMakingTests(TestCase):
         self.assertNotEqual(initial_stop_loss_order_id, new_stop_loss_order.client_order_id)
         self.assertFalse(new_stop_loss_order.is_buy)
         self.assertEqual(position.amount, new_stop_loss_order.quantity)
-        self.assertEqual(initial_stop_loss_price * (Decimal(1) - self.stop_loss_slippage_buffer),
-                         new_stop_loss_order.price)
+        self.assertEqual(
+            initial_stop_loss_price * (Decimal(1) - self.stop_loss_slippage_buffer), new_stop_loss_order.price
+        )
 
     def test_stop_loss_order_recreated_after_wait_time_for_short_position(self):
         position = Position(
@@ -286,7 +301,8 @@ class PerpetualMarketMakingTests(TestCase):
             unrealized_pnl=Decimal(1000),
             entry_price=self.initial_mid_price - Decimal(30),
             amount=Decimal(-1),
-            leverage=Decimal(10))
+            leverage=Decimal(10),
+        )
         self.market.account_positions[self.trading_pair] = position
 
         initial_stop_loss_price = self.initial_mid_price + Decimal("0.1")
@@ -294,7 +310,8 @@ class PerpetualMarketMakingTests(TestCase):
             market_trading_pair_tuple=self.market_info,
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            price=initial_stop_loss_price)
+            price=initial_stop_loss_price,
+        )
 
         # Simulate first stop loss was created at timestamp 1000
         self.strategy._exit_orders[initial_stop_loss_order_id] = self.start_timestamp
@@ -317,8 +334,9 @@ class PerpetualMarketMakingTests(TestCase):
         self.assertNotEqual(initial_stop_loss_order_id, new_stop_loss_order.client_order_id)
         self.assertTrue(new_stop_loss_order.is_buy)
         self.assertEqual(abs(position.amount), new_stop_loss_order.quantity)
-        self.assertEqual(initial_stop_loss_price * (Decimal(1) + self.stop_loss_slippage_buffer),
-                         new_stop_loss_order.price)
+        self.assertEqual(
+            initial_stop_loss_price * (Decimal(1) + self.stop_loss_slippage_buffer), new_stop_loss_order.price
+        )
 
     def test_create_profit_taking_proposal_logs_when_one_way_mode_and_multiple_positions(self):
         positions = [
@@ -328,7 +346,7 @@ class PerpetualMarketMakingTests(TestCase):
                 unrealized_pnl=Decimal(1000),
                 entry_price=Decimal(50000),
                 amount=Decimal(1),
-                leverage=Decimal(10)
+                leverage=Decimal(10),
             ),
             Position(
                 trading_pair=(self.trading_pair),
@@ -336,8 +354,9 @@ class PerpetualMarketMakingTests(TestCase):
                 unrealized_pnl=Decimal(1000),
                 entry_price=Decimal(50000),
                 amount=Decimal(1),
-                leverage=Decimal(10)
-            )]
+                leverage=Decimal(10),
+            ),
+        ]
         self.strategy.profit_taking_proposal(PositionMode.ONEWAY, positions)
 
         self.assertTrue(
@@ -345,14 +364,17 @@ class PerpetualMarketMakingTests(TestCase):
                 "ERROR",
                 "More than one open position in ONEWAY position mode. "
                 "Kindly ensure you do not interact with the exchange through other platforms and"
-                " restart this strategy."))
+                " restart this strategy.",
+            )
+        )
 
     def test_create_profit_taking_proposal_for_one_way_cancels_other_possible_exit_orders(self):
         order_id = self.strategy.buy_with_specific_market(
             market_trading_pair_tuple=self.market_info,
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            price=Decimal(50000))
+            price=Decimal(50000),
+        )
         positions = [
             Position(
                 trading_pair=(self.trading_pair),
@@ -360,20 +382,23 @@ class PerpetualMarketMakingTests(TestCase):
                 unrealized_pnl=Decimal(1000),
                 entry_price=Decimal(50000),
                 amount=Decimal(-1),
-                leverage=Decimal(10)
-            )]
+                leverage=Decimal(10),
+            )
+        ]
 
         self.strategy.profit_taking_proposal(PositionMode.ONEWAY, positions)
 
         self.assertEqual(0, len(self.market.limit_orders))
         self.assertTrue(
-            self._is_logged("INFO", f"Initiated cancelation of buy order {order_id} in favour of take profit order."))
+            self._is_logged("INFO", f"Initiated cancelation of buy order {order_id} in favour of take profit order.")
+        )
 
         order_id = self.strategy.sell_with_specific_market(
             market_trading_pair_tuple=self.market_info,
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            price=Decimal(50000))
+            price=Decimal(50000),
+        )
         positions = [
             Position(
                 trading_pair=(self.trading_pair),
@@ -381,14 +406,16 @@ class PerpetualMarketMakingTests(TestCase):
                 unrealized_pnl=Decimal(1000),
                 entry_price=Decimal(50000),
                 amount=Decimal(1),
-                leverage=Decimal(10)
-            )]
+                leverage=Decimal(10),
+            )
+        ]
 
         self.strategy.profit_taking_proposal(PositionMode.ONEWAY, positions)
 
         self.assertEqual(0, len(self.market.limit_orders))
         self.assertTrue(
-            self._is_logged("INFO", f"Initiated cancelation of sell order {order_id} in favour of take profit order."))
+            self._is_logged("INFO", f"Initiated cancelation of sell order {order_id} in favour of take profit order.")
+        )
 
     def test_create_profit_taking_proposal_for_long_position(self):
         position = Position(
@@ -397,21 +424,25 @@ class PerpetualMarketMakingTests(TestCase):
             unrealized_pnl=Decimal(1000),
             entry_price=self.initial_mid_price - Decimal(20),
             amount=Decimal(1),
-            leverage=Decimal(10))
+            leverage=Decimal(10),
+        )
         positions = [position]
 
-        self.market.set_balanced_order_book(trading_pair=self.trading_pair,
-                                            mid_price=self.initial_mid_price - 10,
-                                            min_price=1,
-                                            max_price=200,
-                                            price_step_size=1,
-                                            volume_step_size=10)
+        self.market.set_balanced_order_book(
+            trading_pair=self.trading_pair,
+            mid_price=self.initial_mid_price - 10,
+            min_price=1,
+            max_price=200,
+            price_step_size=1,
+            volume_step_size=10,
+        )
 
         close_proposal = self.strategy.profit_taking_proposal(PositionMode.ONEWAY, positions)
 
         self.assertEqual(0, len(close_proposal.buys))
-        self.assertEqual(position.entry_price * (Decimal(1) + self.long_profit_taking_spread),
-                         close_proposal.sells[0].price)
+        self.assertEqual(
+            position.entry_price * (Decimal(1) + self.long_profit_taking_spread), close_proposal.sells[0].price
+        )
         self.assertEqual(Decimal("1"), close_proposal.sells[0].size)
 
     def test_create_profit_taking_proposal_for_short_position(self):
@@ -421,21 +452,25 @@ class PerpetualMarketMakingTests(TestCase):
             unrealized_pnl=Decimal(1000),
             entry_price=self.initial_mid_price + Decimal(20),
             amount=Decimal(-1),
-            leverage=Decimal(10))
+            leverage=Decimal(10),
+        )
         positions = [position]
 
-        self.market.set_balanced_order_book(trading_pair=self.trading_pair,
-                                            mid_price=self.initial_mid_price - 10,
-                                            min_price=1,
-                                            max_price=200,
-                                            price_step_size=1,
-                                            volume_step_size=10)
+        self.market.set_balanced_order_book(
+            trading_pair=self.trading_pair,
+            mid_price=self.initial_mid_price - 10,
+            min_price=1,
+            max_price=200,
+            price_step_size=1,
+            volume_step_size=10,
+        )
 
         close_proposal = self.strategy.profit_taking_proposal(PositionMode.ONEWAY, positions)
 
         self.assertEqual(0, len(close_proposal.sells))
-        self.assertEqual(position.entry_price * (Decimal(1) - self.short_profit_taking_spread),
-                         close_proposal.buys[0].price)
+        self.assertEqual(
+            position.entry_price * (Decimal(1) - self.short_profit_taking_spread), close_proposal.buys[0].price
+        )
         self.assertEqual(Decimal("1"), close_proposal.buys[0].size)
 
     def test_create_profit_taking_proposal_for_long_position_cancel_old_exit_orders(self):
@@ -443,7 +478,8 @@ class PerpetualMarketMakingTests(TestCase):
             market_trading_pair_tuple=self.market_info,
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            price=Decimal(self.initial_mid_price))
+            price=Decimal(self.initial_mid_price),
+        )
         self.strategy._exit_orders[order_id] = 1000
 
         position = Position(
@@ -452,23 +488,29 @@ class PerpetualMarketMakingTests(TestCase):
             unrealized_pnl=Decimal(1000),
             entry_price=self.initial_mid_price - Decimal(20),
             amount=Decimal(1),
-            leverage=Decimal(10))
+            leverage=Decimal(10),
+        )
         positions = [position]
 
-        self.market.set_balanced_order_book(trading_pair=self.trading_pair,
-                                            mid_price=self.initial_mid_price - 10,
-                                            min_price=1,
-                                            max_price=200,
-                                            price_step_size=1,
-                                            volume_step_size=10)
+        self.market.set_balanced_order_book(
+            trading_pair=self.trading_pair,
+            mid_price=self.initial_mid_price - 10,
+            min_price=1,
+            max_price=200,
+            price_step_size=1,
+            volume_step_size=10,
+        )
 
         self.strategy.profit_taking_proposal(PositionMode.ONEWAY, positions)
 
         self.assertEqual(order_id, self.cancel_order_logger.event_log[0].order_id)
         self.assertTrue(
-            self._is_logged("INFO",
-                            f"Initiated cancelation of previous take profit order {order_id} "
-                            f"in favour of new take profit order."))
+            self._is_logged(
+                "INFO",
+                f"Initiated cancelation of previous take profit order {order_id} "
+                f"in favour of new take profit order.",
+            )
+        )
         self.assertEqual(0, len(self.strategy.active_orders))
 
     def test_create_profit_taking_proposal_for_short_position_cancel_old_exit_orders(self):
@@ -476,7 +518,8 @@ class PerpetualMarketMakingTests(TestCase):
             market_trading_pair_tuple=self.market_info,
             amount=Decimal(1),
             order_type=OrderType.LIMIT,
-            price=Decimal(self.initial_mid_price))
+            price=Decimal(self.initial_mid_price),
+        )
         self.strategy._exit_orders[order_id] = 1000
 
         position = Position(
@@ -485,23 +528,29 @@ class PerpetualMarketMakingTests(TestCase):
             unrealized_pnl=Decimal(1000),
             entry_price=self.initial_mid_price + Decimal(20),
             amount=Decimal(-1),
-            leverage=Decimal(10))
+            leverage=Decimal(10),
+        )
         positions = [position]
 
-        self.market.set_balanced_order_book(trading_pair=self.trading_pair,
-                                            mid_price=self.initial_mid_price + 10,
-                                            min_price=1,
-                                            max_price=200,
-                                            price_step_size=1,
-                                            volume_step_size=10)
+        self.market.set_balanced_order_book(
+            trading_pair=self.trading_pair,
+            mid_price=self.initial_mid_price + 10,
+            min_price=1,
+            max_price=200,
+            price_step_size=1,
+            volume_step_size=10,
+        )
 
         self.strategy.profit_taking_proposal(PositionMode.ONEWAY, positions)
 
         self.assertEqual(order_id, self.cancel_order_logger.event_log[0].order_id)
         self.assertTrue(
-            self._is_logged("INFO",
-                            f"Initiated cancelation of previous take profit order {order_id} "
-                            f"in favour of new take profit order."))
+            self._is_logged(
+                "INFO",
+                f"Initiated cancelation of previous take profit order {order_id} "
+                f"in favour of new take profit order.",
+            )
+        )
         self.assertEqual(0, len(self.strategy.active_orders))
 
     def test_tick_creates_buy_and_sell_pairs_when_no_position_opened(self):
@@ -514,14 +563,10 @@ class PerpetualMarketMakingTests(TestCase):
         sell_order = self.strategy.active_sells[0]
 
         self.assertEqual(self.trading_pair, buy_order.trading_pair)
-        self.assertEqual(
-            self.strategy.get_price() * (Decimal(1) - self.strategy.bid_spread),
-            buy_order.price)
+        self.assertEqual(self.strategy.get_price() * (Decimal(1) - self.strategy.bid_spread), buy_order.price)
         self.assertEqual(Decimal(100), buy_order.quantity)
         self.assertEqual(self.trading_pair, sell_order.trading_pair)
-        self.assertEqual(
-            self.strategy.get_price() * (Decimal(1) + self.strategy.ask_spread),
-            sell_order.price)
+        self.assertEqual(self.strategy.get_price() * (Decimal(1) + self.strategy.ask_spread), sell_order.price)
         self.assertEqual(Decimal(100), sell_order.quantity)
 
     def test_active_orders_are_recreated_on_refresh_time(self):
@@ -544,14 +589,10 @@ class PerpetualMarketMakingTests(TestCase):
         self.assertEqual(1, len(self.strategy.active_buys))
         self.assertEqual(1, len(self.strategy.active_sells))
         self.assertEqual(self.trading_pair, buy_order.trading_pair)
-        self.assertEqual(
-            self.strategy.get_price() * (Decimal(1) - self.strategy.bid_spread),
-            buy_order.price)
+        self.assertEqual(self.strategy.get_price() * (Decimal(1) - self.strategy.bid_spread), buy_order.price)
         self.assertEqual(Decimal(100), buy_order.quantity)
         self.assertEqual(self.trading_pair, sell_order.trading_pair)
-        self.assertEqual(
-            self.strategy.get_price() * (Decimal(1) + self.strategy.ask_spread),
-            sell_order.price)
+        self.assertEqual(self.strategy.get_price() * (Decimal(1) + self.strategy.ask_spread), sell_order.price)
         self.assertEqual(Decimal(100), sell_order.quantity)
 
     def test_active_orders_are_not_refreshed_if_covered_by_refresh_tolerance(self):
@@ -587,7 +628,7 @@ class PerpetualMarketMakingTests(TestCase):
             stop_loss_spread=self.stop_loss_spread,
             time_between_stop_loss_orders=10.0,
             stop_loss_slippage_buffer=self.stop_loss_slippage_buffer,
-            order_override={"buy": ["buy", "10", "50"], "sell": ["sell", "20", "40"]}
+            order_override={"buy": ["buy", "10", "50"], "sell": ["sell", "20", "40"]},
         )
         new_strategy._position_mode_ready = True
 
@@ -603,14 +644,10 @@ class PerpetualMarketMakingTests(TestCase):
         sell_order = self.strategy.active_sells[0]
 
         self.assertEqual(self.trading_pair, buy_order.trading_pair)
-        self.assertEqual(
-            self.strategy.get_price() * (Decimal(1) - Decimal("0.1")),
-            buy_order.price)
+        self.assertEqual(self.strategy.get_price() * (Decimal(1) - Decimal("0.1")), buy_order.price)
         self.assertEqual(Decimal(50), buy_order.quantity)
         self.assertEqual(self.trading_pair, sell_order.trading_pair)
-        self.assertEqual(
-            self.strategy.get_price() * (Decimal(1) + Decimal("0.2")),
-            sell_order.price)
+        self.assertEqual(self.strategy.get_price() * (Decimal(1) + Decimal("0.2")), sell_order.price)
         self.assertEqual(Decimal(40), sell_order.quantity)
 
     def test_orders_not_created_if_not_enough_balance(self):
@@ -621,17 +658,16 @@ class PerpetualMarketMakingTests(TestCase):
         self.assertEqual(0, len(self.strategy.active_buys))
         self.assertEqual(0, len(self.strategy.active_sells))
         self.assertTrue(
-            self._is_logged(
-                "INFO",
-                "Insufficient balance: BUY order (price: 50.00, size: 20000.0) is omitted."))
+            self._is_logged("INFO", "Insufficient balance: BUY order (price: 50.00, size: 20000.0) is omitted.")
+        )
+        self.assertTrue(
+            self._is_logged("INFO", "Insufficient balance: SELL order (price: 140.00, size: 20000.0) is omitted.")
+        )
         self.assertTrue(
             self._is_logged(
-                "INFO",
-                "Insufficient balance: SELL order (price: 140.00, size: 20000.0) is omitted."))
-        self.assertTrue(
-            self._is_logged(
-                "WARNING",
-                "You are also at a possible risk of being liquidated if there happens to be an open loss."))
+                "WARNING", "You are also at a possible risk of being liquidated if there happens to be an open loss."
+            )
+        )
 
     def test_orders_creation_with_order_optimization_enabled(self):
         self.strategy.order_optimization_enabled = True
@@ -645,14 +681,10 @@ class PerpetualMarketMakingTests(TestCase):
         sell_order = self.strategy.active_sells[0]
 
         self.assertEqual(self.trading_pair, buy_order.trading_pair)
-        self.assertEqual(
-            self.strategy.get_price() * (Decimal(1) - self.strategy.bid_spread),
-            buy_order.price)
+        self.assertEqual(self.strategy.get_price() * (Decimal(1) - self.strategy.bid_spread), buy_order.price)
         self.assertEqual(Decimal(100), buy_order.quantity)
         self.assertEqual(self.trading_pair, sell_order.trading_pair)
-        self.assertEqual(
-            self.strategy.get_price() * (Decimal(1) + self.strategy.ask_spread),
-            sell_order.price)
+        self.assertEqual(self.strategy.get_price() * (Decimal(1) + self.strategy.ask_spread), sell_order.price)
         self.assertEqual(Decimal(100), sell_order.quantity)
 
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
@@ -669,8 +701,7 @@ class PerpetualMarketMakingTests(TestCase):
 
         self.assertTrue(
             self._is_logged(
-                "INFO",
-                f"({self.trading_pair}) Maker buy order of {buy_order.quantity} {self.base_asset} filled."
+                "INFO", f"({self.trading_pair}) Maker buy order of {buy_order.quantity} {self.base_asset} filled."
             )
         )
         self.assertTrue(
@@ -678,7 +709,7 @@ class PerpetualMarketMakingTests(TestCase):
                 "INFO",
                 f"({self.trading_pair}) Maker buy order {buy_order.client_order_id} "
                 f"({buy_order.quantity} {self.base_asset} @ "
-                f"{buy_order.price} {self.quote_asset}) has been completely filled."
+                f"{buy_order.price} {self.quote_asset}) has been completely filled.",
             )
         )
 
@@ -686,8 +717,7 @@ class PerpetualMarketMakingTests(TestCase):
 
         self.assertTrue(
             self._is_logged(
-                "INFO",
-                f"({self.trading_pair}) Maker sell order of {sell_order.quantity} {self.base_asset} filled."
+                "INFO", f"({self.trading_pair}) Maker sell order of {sell_order.quantity} {self.base_asset} filled."
             )
         )
         self.assertTrue(
@@ -695,7 +725,7 @@ class PerpetualMarketMakingTests(TestCase):
                 "INFO",
                 f"({self.trading_pair}) Maker sell order {sell_order.client_order_id} "
                 f"({sell_order.quantity} {self.base_asset} @ "
-                f"{sell_order.price} {self.quote_asset}) has been completely filled."
+                f"{sell_order.price} {self.quote_asset}) has been completely filled.",
             )
         )
 
@@ -705,18 +735,20 @@ class PerpetualMarketMakingTests(TestCase):
         self.assertEqual(1, len(self.strategy.active_buys))
         self.assertEqual(1, len(self.strategy.active_sells))
 
-        expected_status = ("\n  Markets:"
-                           "\n               Exchange         Market  Best Bid  Best Ask  Ref Price (MidPrice)"
-                           "\n    mock_perp_connector COINALPHA-HBOT      99.5     100.5                   100"
-                           "\n\n  Assets:"
-                           "\n                       HBOT"
-                           "\n    Total Balance     50000"
-                           "\n    Available Balance 45000"
-                           "\n\n  Orders:"
-                           "\n     Level Type  Price Spread Amount (Orig)  Amount (Adj)      Age"
-                           "\n         1 sell    140 40.00%           100           100 00:00:00"
-                           "\n         1  buy     50 50.00%           100           100 00:00:00"
-                           "\n\n  No active positions.")
+        expected_status = (
+            "\n  Markets:"
+            "\n               Exchange         Market  Best Bid  Best Ask  Ref Price (MidPrice)"
+            "\n    mock_perp_connector COINALPHA-HBOT      99.5     100.5                   100"
+            "\n\n  Assets:"
+            "\n                       HBOT"
+            "\n    Total Balance     50000"
+            "\n    Available Balance 45000"
+            "\n\n  Orders:"
+            "\n     Level Type  Price Spread Amount (Orig)  Amount (Adj)      Age"
+            "\n         1 sell    140 40.00%           100           100 00:00:00"
+            "\n         1  buy     50 50.00%           100           100 00:00:00"
+            "\n\n  No active positions."
+        )
         status = self.strategy.format_status()
 
         self.assertEqual(expected_status, status)
@@ -728,22 +760,25 @@ class PerpetualMarketMakingTests(TestCase):
             unrealized_pnl=Decimal(1000),
             entry_price=self.market.get_price(self.trading_pair, True),
             amount=Decimal(1),
-            leverage=Decimal(10))
+            leverage=Decimal(10),
+        )
         self.market.account_positions[self.trading_pair] = position
 
         self.clock.backtest_til(self.start_timestamp + 1)
 
-        expected_status = ("\n  Markets:"
-                           "\n               Exchange         Market  Best Bid  Best Ask  Ref Price (MidPrice)"
-                           "\n    mock_perp_connector COINALPHA-HBOT      99.5     100.5                   100"
-                           "\n\n  Assets:"
-                           "\n                       HBOT"
-                           "\n    Total Balance     50000"
-                           "\n    Available Balance 50000"
-                           "\n\n  No active maker orders."
-                           "\n\n  Positions:"
-                           "\n            Symbol Type Entry Price Amount Leverage Unrealized PnL"
-                           "\n    COINALPHA-HBOT LONG      100.50      1       10           0.00")
+        expected_status = (
+            "\n  Markets:"
+            "\n               Exchange         Market  Best Bid  Best Ask  Ref Price (MidPrice)"
+            "\n    mock_perp_connector COINALPHA-HBOT      99.5     100.5                   100"
+            "\n\n  Assets:"
+            "\n                       HBOT"
+            "\n    Total Balance     50000"
+            "\n    Available Balance 50000"
+            "\n\n  No active maker orders."
+            "\n\n  Positions:"
+            "\n            Symbol Type Entry Price Amount Leverage Unrealized PnL"
+            "\n    COINALPHA-HBOT LONG      100.50      1       10           0.00"
+        )
         status = self.strategy.format_status()
 
         self.assertEqual(expected_status, status)

@@ -13,18 +13,12 @@ class TestEncodeTypedData(unittest.TestCase):
             "name": "Example Domain",
             "version": "1",
             "chainId": 1,
-            "verifyingContract": "0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC"
+            "verifyingContract": "0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC",
         }
 
-        self.message_types = {
-            "CancelOrder": [
-                {"name": "order_id", "type": "string"}
-            ]
-        }
+        self.message_types = {"CancelOrder": [{"name": "order_id", "type": "string"}]}
 
-        self.message_data = {
-            "order_id": "123456"
-        }
+        self.message_data = {"order_id": "123456"}
 
         self.full_message = {
             "types": {
@@ -32,15 +26,13 @@ class TestEncodeTypedData(unittest.TestCase):
                     {"name": "name", "type": "string"},
                     {"name": "version", "type": "string"},
                     {"name": "chainId", "type": "uint256"},
-                    {"name": "verifyingContract", "type": "address"}
+                    {"name": "verifyingContract", "type": "address"},
                 ],
-                "CancelOrder": [
-                    {"name": "order_id", "type": "string"}
-                ]
+                "CancelOrder": [{"name": "order_id", "type": "string"}],
             },
             "primaryType": "CancelOrder",
             "domain": self.domain_data,
-            "message": self.message_data
+            "message": self.message_data,
         }
 
     def test_encode_typed_data_basic(self):
@@ -50,9 +42,7 @@ class TestEncodeTypedData(unittest.TestCase):
             hash_eip712_message(self.message_types, self.message_data),
         )
         result = encode_typed_data(
-            domain_data=self.domain_data,
-            message_types=self.message_types,
-            message_data=self.message_data
+            domain_data=self.domain_data, message_types=self.message_types, message_data=self.message_data
         )
         self.assertEqual(result, expected)
 
@@ -71,7 +61,7 @@ class TestEncodeTypedData(unittest.TestCase):
                 domain_data=self.domain_data,
                 message_types=self.message_types,
                 message_data=self.message_data,
-                full_message=self.full_message
+                full_message=self.full_message,
             )
 
     def test_encode_typed_data_raises_validation_error_on_mismatched_domain_fields(self):

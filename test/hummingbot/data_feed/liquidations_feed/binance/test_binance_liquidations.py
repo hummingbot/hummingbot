@@ -38,44 +38,46 @@ class TestBinanceLiquidations(IsolatedAsyncioWrapperTestCase):
         self.log_records.append(record)
 
     def is_logged(self, log_level: str, message: str) -> bool:
-        return any(
-            record.levelname == log_level and record.getMessage() == message for
-            record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
     def get_liquidations_ws_data_mock_1(self):
-        data = {"e": "forceOrder",
-                "E": 1714242617159,
-                "o": {"s": "GLMUSDT",
-                      "S": "BUY",
-                      "o": "LIMIT",
-                      "f": "IOC",
-                      "q": "9970",
-                      "p": "0.5088718",
-                      "ap": "0.5029243",
-                      "X": "FILLED",
-                      "l": "988",
-                      "z": "9970",
-                      "T": 1714242617155
-                      }
-                }
+        data = {
+            "e": "forceOrder",
+            "E": 1714242617159,
+            "o": {
+                "s": "GLMUSDT",
+                "S": "BUY",
+                "o": "LIMIT",
+                "f": "IOC",
+                "q": "9970",
+                "p": "0.5088718",
+                "ap": "0.5029243",
+                "X": "FILLED",
+                "l": "988",
+                "z": "9970",
+                "T": 1714242617155,
+            },
+        }
         return data
 
     def get_liquidations_ws_data_mock_2(self):
-        data = {"e": "forceOrder",
-                "E": 1714242964102,
-                "o": {"s": "CTSIUSDT",
-                      "S": "SELL",
-                      "o": "LIMIT",
-                      "f": "IOC",
-                      "q": "975",
-                      "p": "0.2240",
-                      "ap": "0.2197",
-                      "X": "FILLED",
-                      "l": "975",
-                      "z": "975",
-                      "T": 1714242964100
-                      }
-                }
+        data = {
+            "e": "forceOrder",
+            "E": 1714242964102,
+            "o": {
+                "s": "CTSIUSDT",
+                "S": "SELL",
+                "o": "LIMIT",
+                "f": "IOC",
+                "q": "975",
+                "p": "0.2240",
+                "ap": "0.2197",
+                "X": "FILLED",
+                "l": "975",
+                "z": "975",
+                "T": 1714242964100,
+            },
+        }
         return data
 
     def get_trading_pairs_map(self) -> bidict:
@@ -90,24 +92,9 @@ class TestBinanceLiquidations(IsolatedAsyncioWrapperTestCase):
             "serverTime": 1714240806674,
             "futuresType": "U_MARGINED",
             "rateLimits": [
-                {
-                    "rateLimitType": "REQUEST_WEIGHT",
-                    "interval": "MINUTE",
-                    "intervalNum": 1,
-                    "limit": 2400
-                },
-                {
-                    "rateLimitType": "ORDERS",
-                    "interval": "MINUTE",
-                    "intervalNum": 1,
-                    "limit": 1200
-                },
-                {
-                    "rateLimitType": "ORDERS",
-                    "interval": "SECOND",
-                    "intervalNum": 10,
-                    "limit": 300
-                }
+                {"rateLimitType": "REQUEST_WEIGHT", "interval": "MINUTE", "intervalNum": 1, "limit": 2400},
+                {"rateLimitType": "ORDERS", "interval": "MINUTE", "intervalNum": 1, "limit": 1200},
+                {"rateLimitType": "ORDERS", "interval": "SECOND", "intervalNum": 10, "limit": 300},
             ],
             "symbols": [
                 {
@@ -127,14 +114,12 @@ class TestBinanceLiquidations(IsolatedAsyncioWrapperTestCase):
                     "baseAssetPrecision": 8,
                     "quotePrecision": 8,
                     "underlyingType": "COIN",
-                    "underlyingSubType": [
-                        "PoW"
-                    ],
+                    "underlyingSubType": ["PoW"],
                     "settlePlan": 0,
                     "triggerProtect": "0.0500",
                     "liquidationFee": "0.012500",
                     "marketTakeBound": "0.05",
-                    "maxMoveOrderLimit": 10000
+                    "maxMoveOrderLimit": 10000,
                 },
                 {
                     "symbol": "ETHUSDT",
@@ -153,16 +138,14 @@ class TestBinanceLiquidations(IsolatedAsyncioWrapperTestCase):
                     "baseAssetPrecision": 8,
                     "quotePrecision": 8,
                     "underlyingType": "COIN",
-                    "underlyingSubType": [
-                        "Layer-1"
-                    ],
+                    "underlyingSubType": ["Layer-1"],
                     "settlePlan": 0,
                     "triggerProtect": "0.0500",
                     "liquidationFee": "0.012500",
                     "marketTakeBound": "0.05",
                     "maxMoveOrderLimit": 10000,
-                }
-            ]
+                },
+            ],
         }
         return data
 
@@ -173,34 +156,26 @@ class TestBinanceLiquidations(IsolatedAsyncioWrapperTestCase):
     async def test_listen_for_subscriptions_subscribes_to_all_liquidations(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
-        result_subscribe_liquidations = {
-            "result": None,
-            "id": 1
-        }
+        result_subscribe_liquidations = {"result": None, "id": 1}
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(result_subscribe_liquidations))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe_liquidations)
+        )
 
         self.listening_task = self.local_event_loop.create_task(self.liquidations_feed.listen_for_subscriptions())
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
-            websocket_mock=ws_connect_mock.return_value)
+            websocket_mock=ws_connect_mock.return_value
+        )
 
         self.assertEqual(1, len(sent_subscription_messages))
-        expected_liquidations_subscription = {
-            "method": "SUBSCRIBE",
-            "params": ["!forceOrder@arr"],
-            "id": 1}
+        expected_liquidations_subscription = {"method": "SUBSCRIBE", "params": ["!forceOrder@arr"], "id": 1}
 
         self.assertEqual(expected_liquidations_subscription, sent_subscription_messages[0])
 
-        self.assertTrue(self.is_logged(
-            "INFO",
-            "Subscribed to public liquidations..."
-        ))
+        self.assertTrue(self.is_logged("INFO", "Subscribed to public liquidations..."))
 
     @patch("hummingbot.data_feed.liquidations_feed.binance.BinancePerpetualLiquidations._sleep")
     @patch("aiohttp.ClientSession.ws_connect")
@@ -214,8 +189,7 @@ class TestBinanceLiquidations(IsolatedAsyncioWrapperTestCase):
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_subscriptions_logs_exception_details(self, mock_ws, sleep_mock: AsyncMock):
         mock_ws.side_effect = Exception("TEST ERROR.")
-        sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(
-            asyncio.CancelledError())
+        sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(asyncio.CancelledError())
 
         self.listening_task = self.local_event_loop.create_task(self.liquidations_feed.listen_for_subscriptions())
 
@@ -223,8 +197,9 @@ class TestBinanceLiquidations(IsolatedAsyncioWrapperTestCase):
 
         self.assertTrue(
             self.is_logged(
-                "ERROR",
-                "Unexpected error occurred when listening to public liquidations. Retrying in 1 seconds..."))
+                "ERROR", "Unexpected error occurred when listening to public liquidations. Retrying in 1 seconds..."
+            )
+        )
 
     async def test_subscribe_channels_raises_cancel_exception(self):
         mock_ws = MagicMock()
@@ -240,21 +215,19 @@ class TestBinanceLiquidations(IsolatedAsyncioWrapperTestCase):
         with self.assertRaises(Exception):
             await self.liquidations_feed._subscribe_channels(mock_ws)
 
-        self.assertTrue(
-            self.is_logged("ERROR", "Unexpected error occurred subscribing to public liquidations...")
-        )
+        self.assertTrue(self.is_logged("ERROR", "Unexpected error occurred subscribing to public liquidations..."))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_process_websocket_messages_with_two_valid_messages(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(self.get_liquidations_ws_data_mock_1()))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(self.get_liquidations_ws_data_mock_1())
+        )
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(self.get_liquidations_ws_data_mock_2()))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(self.get_liquidations_ws_data_mock_2())
+        )
 
         self.listening_task = self.local_event_loop.create_task(self.liquidations_feed.listen_for_subscriptions())
 

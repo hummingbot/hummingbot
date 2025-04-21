@@ -36,7 +36,8 @@ class TradeVolumeMetricCollectorTests(TestCase):
             connector=self.connector_mock,
             activation_interval=Decimal(10),
             rate_provider=self.rate_oracle,
-            instance_id=self.instance_id)
+            instance_id=self.instance_id,
+        )
 
         self.metrics_collector._dispatcher = self.dispatcher_mock
 
@@ -55,11 +56,13 @@ class TradeVolumeMetricCollectorTests(TestCase):
             activation_interval=300,
             rate_provider=self.rate_oracle,
             instance_id=self.instance_id,
-            valuation_token="USDT")
+            valuation_token="USDT",
+        )
 
         self.assertEqual(5 * 60, metrics_collector._activation_interval)
-        self.assertEqual(TradeVolumeMetricCollector.DEFAULT_METRICS_SERVER_URL,
-                         metrics_collector._dispatcher.log_server_url)
+        self.assertEqual(
+            TradeVolumeMetricCollector.DEFAULT_METRICS_SERVER_URL, metrics_collector._dispatcher.log_server_url
+        )
         self.assertEqual(self.instance_id, metrics_collector._instance_id)
         self.assertEqual(self.client_version, metrics_collector._client_version)
         self.assertEqual("USDT", metrics_collector._valuation_token)
@@ -147,23 +150,25 @@ class TradeVolumeMetricCollectorTests(TestCase):
             "url": f"{self.metrics_collector_url}/client_metrics",
             "method": "POST",
             "request_obj": {
-                "headers": {
-                    'Content-Type': "application/json"
+                "headers": {"Content-Type": "application/json"},
+                "data": json.dumps(
+                    {
+                        "source": "hummingbot",
+                        "name": TradeVolumeMetricCollector.METRIC_NAME,
+                        "instance_id": self.instance_id,
+                        "exchange": self.connector_name,
+                        "version": self.client_version,
+                        "system": f"{platform.system()} {platform.release()}({platform.platform()})",
+                        "value": str(event.amount * event.price * 100),
+                    }
+                ),
+                "params": {
+                    "ddtags": f"instance_id:{self.instance_id},"
+                    f"client_version:{self.client_version},"
+                    f"type:metrics",
+                    "ddsource": "hummingbot-client",
                 },
-                "data": json.dumps({
-                    "source": "hummingbot",
-                    "name": TradeVolumeMetricCollector.METRIC_NAME,
-                    "instance_id": self.instance_id,
-                    "exchange": self.connector_name,
-                    "version": self.client_version,
-                    "system": f"{platform.system()} {platform.release()}({platform.platform()})",
-                    "value": str(event.amount * event.price * 100)
-                }),
-                "params": {"ddtags": f"instance_id:{self.instance_id},"
-                                     f"client_version:{self.client_version},"
-                                     f"type:metrics",
-                           "ddsource": "hummingbot-client"}
-            }
+            },
         }
 
         self.dispatcher_mock.request.assert_called()
@@ -179,7 +184,8 @@ class TradeVolumeMetricCollectorTests(TestCase):
             connector=self.connector_mock,
             activation_interval=10,
             rate_provider=mock_rate_oracle,
-            instance_id=self.instance_id)
+            instance_id=self.instance_id,
+        )
         local_collector._dispatcher = self.dispatcher_mock
 
         event = OrderFilledEvent(
@@ -232,23 +238,25 @@ class TradeVolumeMetricCollectorTests(TestCase):
             "url": f"{self.metrics_collector_url}/client_metrics",
             "method": "POST",
             "request_obj": {
-                "headers": {
-                    'Content-Type': "application/json"
+                "headers": {"Content-Type": "application/json"},
+                "data": json.dumps(
+                    {
+                        "source": "hummingbot",
+                        "name": TradeVolumeMetricCollector.METRIC_NAME,
+                        "instance_id": self.instance_id,
+                        "exchange": self.connector_name,
+                        "version": self.client_version,
+                        "system": f"{platform.system()} {platform.release()}({platform.platform()})",
+                        "value": str(expected_volume),
+                    }
+                ),
+                "params": {
+                    "ddtags": f"instance_id:{self.instance_id},"
+                    f"client_version:{self.client_version},"
+                    f"type:metrics",
+                    "ddsource": "hummingbot-client",
                 },
-                "data": json.dumps({
-                    "source": "hummingbot",
-                    "name": TradeVolumeMetricCollector.METRIC_NAME,
-                    "instance_id": self.instance_id,
-                    "exchange": self.connector_name,
-                    "version": self.client_version,
-                    "system": f"{platform.system()} {platform.release()}({platform.platform()})",
-                    "value": str(expected_volume)
-                }),
-                "params": {"ddtags": f"instance_id:{self.instance_id},"
-                                     f"client_version:{self.client_version},"
-                                     f"type:metrics",
-                           "ddsource": "hummingbot-client"}
-            }
+            },
         }
 
         self.dispatcher_mock.request.assert_called()

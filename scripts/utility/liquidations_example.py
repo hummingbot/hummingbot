@@ -12,7 +12,7 @@ class LiquidationsExample(ScriptStrategyBase):
     binance_liquidations_config = LiquidationsConfig(
         connector="binance",  # the source for liquidation data (currently only binance is supported)
         max_retention_seconds=10,  # how many seconds the data should be stored (default is 60s)
-        trading_pairs=["BTC-USDT", "1000PEPE-USDT", "1000BONK-USDT", "HBAR-USDT"]
+        trading_pairs=["BTC-USDT", "1000PEPE-USDT", "1000BONK-USDT", "HBAR-USDT"],
         # optional, unset/none = all liquidations
     )
     binance_liquidations_feed = LiquidationsFactory.get_liquidations_feed(binance_liquidations_config)
@@ -36,8 +36,13 @@ class LiquidationsExample(ScriptStrategyBase):
         else:
             # You can get all the liquidations in a single dataframe
             lines.append("Combined liquidations:")
-            lines.extend([format_df_for_printout(df=self.binance_liquidations_feed.liquidations_df().tail(10),
-                                                 table_format="psql")])
+            lines.extend(
+                [
+                    format_df_for_printout(
+                        df=self.binance_liquidations_feed.liquidations_df().tail(10), table_format="psql"
+                    )
+                ]
+            )
             lines.append("")
             lines.append("")
 
@@ -45,7 +50,11 @@ class LiquidationsExample(ScriptStrategyBase):
             for trading_pair in self.binance_liquidations_config.trading_pairs:
                 lines.append("Liquidations for trading pair: {}".format(trading_pair))
                 lines.extend(
-                    [format_df_for_printout(df=self.binance_liquidations_feed.liquidations_df(trading_pair).tail(5),
-                                            table_format="psql")])
+                    [
+                        format_df_for_printout(
+                            df=self.binance_liquidations_feed.liquidations_df(trading_pair).tail(5), table_format="psql"
+                        )
+                    ]
+                )
 
         return "\n".join(lines)

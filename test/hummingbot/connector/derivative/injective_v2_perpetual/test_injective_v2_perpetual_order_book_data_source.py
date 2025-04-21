@@ -135,8 +135,7 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
     def is_logged(self, log_level: str, message: Union[str, re.Pattern]) -> bool:
         expression = (
             re.compile(
-                f"^{message}$"
-                .replace(".", r"\.")
+                f"^{message}$".replace(".", r"\.")
                 .replace("?", r"\?")
                 .replace("/", r"\/")
                 .replace("(", r"\(")
@@ -166,19 +165,15 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         quote_decimals = derivative_market.quote_token.decimals
 
         order_book_snapshot = {
-            "buys": [(Decimal("9487") * Decimal(f"1e{quote_decimals}"),
-                      Decimal("336241"),
-                      1640001112223)],
-            "sells": [(Decimal("9487.5") * Decimal(f"1e{quote_decimals}"),
-                       Decimal("522147"),
-                       1640001112224)],
+            "buys": [(Decimal("9487") * Decimal(f"1e{quote_decimals}"), Decimal("336241"), 1640001112223)],
+            "sells": [(Decimal("9487.5") * Decimal(f"1e{quote_decimals}"), Decimal("522147"), 1640001112224)],
             "sequence": 512,
             "timestamp": 1650001112223,
         }
 
         self.query_executor._derivative_order_book_responses.put_nowait(order_book_snapshot)
 
-        order_book = await (self.data_source.get_new_order_book(self.trading_pair))
+        order_book = await self.data_source.get_new_order_book(self.trading_pair)
 
         expected_update_id = order_book_snapshot["sequence"]
 
@@ -202,7 +197,7 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         with self.assertRaises(asyncio.CancelledError):
-            await (self.data_source.listen_for_trades(asyncio.get_running_loop(), msg_queue))
+            await self.data_source.listen_for_trades(asyncio.get_running_loop(), msg_queue)
 
     async def test_listen_for_trades_logs_exception(self):
         spot_markets_response = self._spot_markets_response()
@@ -236,7 +231,7 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                         "isLong": True,
                         "executionQuantity": "324600000000000000000000000000000000000",
                         "executionMargin": "186681600000000000000000000",
-                        "executionPrice": "7701000"
+                        "executionPrice": "7701000",
                     },
                     "payout": "207636617326923969135747808",
                     "fee": "-93340800000000000000000",
@@ -257,13 +252,9 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         msg_queue = asyncio.Queue()
         self.create_task(self.data_source.listen_for_trades(asyncio.get_running_loop(), msg_queue))
-        await (msg_queue.get())
+        await msg_queue.get()
 
-        self.assertTrue(
-            self.is_logged(
-                "WARNING", re.compile(r"^Invalid chain stream event format \(.*")
-            )
-        )
+        self.assertTrue(self.is_logged("WARNING", re.compile(r"^Invalid chain stream event format \(.*")))
 
     async def test_listen_for_trades_successful(self):
         spot_markets_response = self._spot_markets_response()
@@ -298,7 +289,7 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                         "isLong": True,
                         "executionQuantity": "324600000000000000000000000000000000000",
                         "executionMargin": "186681600000000000000000000",
-                        "executionPrice": "7701000"
+                        "executionPrice": "7701000",
                     },
                     "payout": "207636617326923969135747808",
                     "fee": "-93340800000000000000000",
@@ -324,9 +315,11 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         expected_timestamp = int(trade_data["blockTime"]) * 1e-3
         expected_price = Decimal(trade_data["derivativeTrades"][0]["positionDelta"]["executionPrice"]) * Decimal(
-            f"1e{-quote_decimals - 18}")
+            f"1e{-quote_decimals - 18}"
+        )
         expected_amount = Decimal(trade_data["derivativeTrades"][0]["positionDelta"]["executionQuantity"]) * Decimal(
-            "1e-18")
+            "1e-18"
+        )
         expected_trade_id = trade_data["derivativeTrades"][0]["tradeId"]
         self.assertEqual(OrderBookMessageType.TRADE, msg.type)
         self.assertEqual(expected_trade_id, msg.trade_id)
@@ -344,7 +337,7 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         with self.assertRaises(asyncio.CancelledError):
-            await (self.data_source.listen_for_order_book_diffs(asyncio.get_running_loop(), msg_queue))
+            await self.data_source.listen_for_order_book_diffs(asyncio.get_running_loop(), msg_queue)
 
     async def test_listen_for_order_book_diffs_logs_exception(self):
         spot_markets_response = self._spot_markets_response()
@@ -368,22 +361,13 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                     "orderbook": {
                         "marketId": self.market_id,
                         "buyLevels": [
-                            {
-                                "p": "7684000",
-                                "q": "4578787000000000000000000000000000000000"
-                            },
-                            {
-                                "p": "7685000",
-                                "q": "4412340000000000000000000000000000000000"
-                            },
+                            {"p": "7684000", "q": "4578787000000000000000000000000000000000"},
+                            {"p": "7685000", "q": "4412340000000000000000000000000000000000"},
                         ],
                         "sellLevels": [
-                            {
-                                "p": "7723000",
-                                "q": "3478787000000000000000000000000000000000"
-                            },
+                            {"p": "7723000", "q": "3478787000000000000000000000000000000000"},
                         ],
-                    }
+                    },
                 }
             ],
             "bankBalances": [],
@@ -401,16 +385,13 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
         self.create_task(self.data_source.listen_for_order_book_diffs(asyncio.get_running_loop(), msg_queue))
 
-        await (msg_queue.get())
+        await msg_queue.get()
 
-        self.assertTrue(
-            self.is_logged(
-                "WARNING", re.compile(r"^Invalid chain stream event format \(.*")
-            )
-        )
+        self.assertTrue(self.is_logged("WARNING", re.compile(r"^Invalid chain stream event format \(.*")))
 
     @patch(
-        "hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source.InjectiveGranteeDataSource._initialize_timeout_height")
+        "hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source.InjectiveGranteeDataSource._initialize_timeout_height"
+    )
     async def test_listen_for_order_book_diffs_successful(self, _):
         spot_markets_response = self._spot_markets_response()
         market = list(spot_markets_response.values())[0]
@@ -435,22 +416,13 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                     "orderbook": {
                         "marketId": self.market_id,
                         "buyLevels": [
-                            {
-                                "p": "7684000",
-                                "q": "4578787000000000000000000000000000000000"
-                            },
-                            {
-                                "p": "7685000",
-                                "q": "4412340000000000000000000000000000000000"
-                            },
+                            {"p": "7684000", "q": "4578787000000000000000000000000000000000"},
+                            {"p": "7685000", "q": "4412340000000000000000000000000000000000"},
                         ],
                         "sellLevels": [
-                            {
-                                "p": "7723000",
-                                "q": "3478787000000000000000000000000000000000"
-                            },
+                            {"p": "7723000", "q": "3478787000000000000000000000000000000000"},
                         ],
-                    }
+                    },
                 }
             ],
             "bankBalances": [],
@@ -464,7 +436,7 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         self.query_executor._chain_stream_events.put_nowait(order_book_data)
 
-        await (self.data_source.listen_for_subscriptions())
+        await self.data_source.listen_for_subscriptions()
 
         msg_queue: asyncio.Queue = asyncio.Queue()
         self.create_task(self.data_source.listen_for_order_book_diffs(asyncio.get_running_loop(), msg_queue))
@@ -481,19 +453,21 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         asks = msg.asks
         self.assertEqual(2, len(bids))
         first_bid_price = Decimal(
-            order_book_data["derivativeOrderbookUpdates"][0]["orderbook"]["buyLevels"][1]["p"]) * Decimal(
-            f"1e{-quote_decimals - 18}")
+            order_book_data["derivativeOrderbookUpdates"][0]["orderbook"]["buyLevels"][1]["p"]
+        ) * Decimal(f"1e{-quote_decimals - 18}")
         first_bid_quantity = Decimal(
-            order_book_data["derivativeOrderbookUpdates"][0]["orderbook"]["buyLevels"][1]["q"]) * Decimal("1e-18")
+            order_book_data["derivativeOrderbookUpdates"][0]["orderbook"]["buyLevels"][1]["q"]
+        ) * Decimal("1e-18")
         self.assertEqual(float(first_bid_price), bids[0].price)
         self.assertEqual(float(first_bid_quantity), bids[0].amount)
         self.assertEqual(expected_update_id, bids[0].update_id)
         self.assertEqual(1, len(asks))
         first_ask_price = Decimal(
-            order_book_data["derivativeOrderbookUpdates"][0]["orderbook"]["sellLevels"][0]["p"]) * Decimal(
-            f"1e{-quote_decimals - 18}")
+            order_book_data["derivativeOrderbookUpdates"][0]["orderbook"]["sellLevels"][0]["p"]
+        ) * Decimal(f"1e{-quote_decimals - 18}")
         first_ask_quantity = Decimal(
-            order_book_data["derivativeOrderbookUpdates"][0]["orderbook"]["sellLevels"][0]["q"]) * Decimal("1e-18")
+            order_book_data["derivativeOrderbookUpdates"][0]["orderbook"]["sellLevels"][0]["q"]
+        ) * Decimal("1e-18")
         self.assertEqual(float(first_ask_price), asks[0].price)
         self.assertEqual(float(first_ask_quantity), asks[0].amount)
         self.assertEqual(expected_update_id, asks[0].update_id)
@@ -506,10 +480,11 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         with self.assertRaises(asyncio.CancelledError):
-            await (self.data_source.listen_for_funding_info(msg_queue))
+            await self.data_source.listen_for_funding_info(msg_queue)
 
     @patch(
-        "hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source.InjectiveGranteeDataSource._initialize_timeout_height")
+        "hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source.InjectiveGranteeDataSource._initialize_timeout_height"
+    )
     async def test_listen_for_funding_info_logs_exception(self, _):
         spot_markets_response = self._spot_markets_response()
         market = list(spot_markets_response.values())[0]
@@ -526,28 +501,18 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                     "marketId": self.market_id,
                 },
             ],
-            "paging": {
-                "total": "2370"
-            }
+            "paging": {"total": "2370"},
         }
         self.query_executor._funding_rates_responses.put_nowait(funding_rate)
         funding_rate = {
             "fundingRates": [
-                {
-                    "marketId": self.market_id,
-                    "rate": "0.000004",
-                    "timestamp": "1690426800493"
-                },
+                {"marketId": self.market_id, "rate": "0.000004", "timestamp": "1690426800493"},
             ],
-            "paging": {
-                "total": "2370"
-            }
+            "paging": {"total": "2370"},
         }
         self.query_executor._funding_rates_responses.put_nowait(funding_rate)
 
-        oracle_price = {
-            "price": "29423.16356086"
-        }
+        oracle_price = {"price": "29423.16356086"}
         self.query_executor._oracle_prices_responses.put_nowait(oracle_price)
 
         trades = {
@@ -561,21 +526,17 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                         "tradeDirection": "buy",
                         "executionPrice": "9084900",
                         "executionQuantity": "3",
-                        "executionMargin": "5472660"
+                        "executionMargin": "5472660",
                     },
                     "payout": "0",
                     "fee": "81764.1",
                     "executedAt": "1689423842613",
                     "feeRecipient": "inj1zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3t5qxqh",
                     "tradeId": "13659264_800_0",
-                    "executionSide": "taker"
+                    "executionSide": "taker",
                 }
             ],
-            "paging": {
-                "total": "1000",
-                "from": 1,
-                "to": 1
-            }
+            "paging": {"total": "1000", "from": 1, "to": 1},
         }
         self.query_executor._derivative_trades_responses.put_nowait(trades)
 
@@ -598,7 +559,7 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                         "symbol": self.quote_asset,
                         "logo": "https://static.alchemyapi.io/images/assets/825.png",
                         "decimals": 6,
-                        "updatedAt": "1687190809716"
+                        "updatedAt": "1687190809716",
                     },
                     "makerFeeRate": "-0.0003",
                     "takerFeeRate": "0.003",
@@ -610,12 +571,12 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                         "hourlyFundingRateCap": "0.000625",
                         "hourlyInterestRate": "0.00000416666",
                         "nextFundingTimestamp": "1687190809716",
-                        "fundingInterval": "3600"
+                        "fundingInterval": "3600",
                     },
                     "perpetualMarketFunding": {
                         "cumulativeFunding": "81363.592243119007273334",
                         "cumulativePrice": "1.432536051546776736",
-                        "lastTimestamp": "1689423842"
+                        "lastTimestamp": "1689423842",
                     },
                     "minNotional": "1000000",
                 }
@@ -635,16 +596,8 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
             "derivativeOrders": [],
             "positions": [],
             "oraclePrices": [
-                {
-                    "symbol": self.base_asset,
-                    "price": "1000010000000000000",
-                    "type": "bandibc"
-                },
-                {
-                    "symbol": self.quote_asset,
-                    "price": "307604820000000000",
-                    "type": "bandibc"
-                },
+                {"symbol": self.base_asset, "price": "1000010000000000000", "type": "bandibc"},
+                {"symbol": self.quote_asset, "price": "307604820000000000", "type": "bandibc"},
             ],
         }
         self.query_executor._chain_stream_events.put_nowait(oracle_price_event)
@@ -655,16 +608,15 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
         self.create_task(self.data_source.listen_for_funding_info(msg_queue))
 
-        await (msg_queue.get())
+        await msg_queue.get()
 
         self.assertTrue(
-            self.is_logged(
-                "WARNING", re.compile(r"^Error processing oracle price update for market INJ-USDT \(.*")
-            )
+            self.is_logged("WARNING", re.compile(r"^Error processing oracle price update for market INJ-USDT \(.*"))
         )
 
     @patch(
-        "hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source.InjectiveGranteeDataSource._initialize_timeout_height")
+        "hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source.InjectiveGranteeDataSource._initialize_timeout_height"
+    )
     async def test_listen_for_funding_info_successful(self, _):
         spot_markets_response = self._spot_markets_response()
         market = list(spot_markets_response.values())[0]
@@ -680,21 +632,13 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         funding_rate = {
             "fundingRates": [
-                {
-                    "marketId": self.market_id,
-                    "rate": "0.000004",
-                    "timestamp": "1690426800493"
-                },
+                {"marketId": self.market_id, "rate": "0.000004", "timestamp": "1690426800493"},
             ],
-            "paging": {
-                "total": "2370"
-            }
+            "paging": {"total": "2370"},
         }
         self.query_executor._funding_rates_responses.put_nowait(funding_rate)
 
-        oracle_price = {
-            "price": "29423.16356086"
-        }
+        oracle_price = {"price": "29423.16356086"}
         self.query_executor._oracle_prices_responses.put_nowait(oracle_price)
 
         trades = {
@@ -708,21 +652,17 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                         "tradeDirection": "buy",
                         "executionPrice": "9084900",
                         "executionQuantity": "3",
-                        "executionMargin": "5472660"
+                        "executionMargin": "5472660",
                     },
                     "payout": "0",
                     "fee": "81764.1",
                     "executedAt": "1689423842613",
                     "feeRecipient": "inj1zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3t5qxqh",
                     "tradeId": "13659264_800_0",
-                    "executionSide": "taker"
+                    "executionSide": "taker",
                 }
             ],
-            "paging": {
-                "total": "1000",
-                "from": 1,
-                "to": 1
-            }
+            "paging": {"total": "1000", "from": 1, "to": 1},
         }
         self.query_executor._derivative_trades_responses.put_nowait(trades)
 
@@ -744,7 +684,7 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                     "symbol": self.quote_asset,
                     "logo": "https://static.alchemyapi.io/images/assets/825.png",
                     "decimals": 6,
-                    "updatedAt": "1687190809716"
+                    "updatedAt": "1687190809716",
                 },
                 "makerFeeRate": "-0.0003",
                 "takerFeeRate": "0.003",
@@ -756,12 +696,12 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                     "hourlyFundingRateCap": "0.000625",
                     "hourlyInterestRate": "0.00000416666",
                     "nextFundingTimestamp": "1687190809716",
-                    "fundingInterval": "3600"
+                    "fundingInterval": "3600",
                 },
                 "perpetualMarketFunding": {
                     "cumulativeFunding": "81363.592243119007273334",
                     "cumulativePrice": "1.432536051546776736",
-                    "lastTimestamp": "1689423842"
+                    "lastTimestamp": "1689423842",
                 },
                 "minNotional": "1000000",
             }
@@ -781,35 +721,29 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
             "derivativeOrders": [],
             "positions": [],
             "oraclePrices": [
-                {
-                    "symbol": self.base_asset,
-                    "price": "1000010000000000000",
-                    "type": "bandibc"
-                },
-                {
-                    "symbol": self.quote_asset,
-                    "price": "307604820000000000",
-                    "type": "bandibc"
-                },
+                {"symbol": self.base_asset, "price": "1000010000000000000", "type": "bandibc"},
+                {"symbol": self.quote_asset, "price": "307604820000000000", "type": "bandibc"},
             ],
         }
         self.query_executor._chain_stream_events.put_nowait(oracle_price_event)
 
-        await (self.data_source.listen_for_subscriptions())
+        await self.data_source.listen_for_subscriptions()
 
         msg_queue: asyncio.Queue = asyncio.Queue()
         self.create_task(self.data_source.listen_for_funding_info(msg_queue))
 
-        funding_info: FundingInfoUpdate = await (msg_queue.get())
+        funding_info: FundingInfoUpdate = await msg_queue.get()
 
         self.assertEqual(self.trading_pair, funding_info.trading_pair)
         self.assertEqual(
             Decimal(trades["trades"][0]["positionDelta"]["executionPrice"]) * Decimal(f"1e{-quote_decimals}"),
-            funding_info.index_price)
+            funding_info.index_price,
+        )
         self.assertEqual(Decimal(oracle_price["price"]), funding_info.mark_price)
         self.assertEqual(
             int(derivative_market_info["market"]["perpetualMarketInfo"]["nextFundingTimestamp"]),
-            funding_info.next_funding_utc_timestamp)
+            funding_info.next_funding_utc_timestamp,
+        )
         self.assertEqual(Decimal(funding_rate["fundingRates"][0]["rate"]), funding_info.rate)
 
     async def test_get_funding_info(self):
@@ -827,21 +761,13 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         funding_rate = {
             "fundingRates": [
-                {
-                    "marketId": self.market_id,
-                    "rate": "0.000004",
-                    "timestamp": "1690426800493"
-                },
+                {"marketId": self.market_id, "rate": "0.000004", "timestamp": "1690426800493"},
             ],
-            "paging": {
-                "total": "2370"
-            }
+            "paging": {"total": "2370"},
         }
         self.query_executor._funding_rates_responses.put_nowait(funding_rate)
 
-        oracle_price = {
-            "price": "29423.16356086"
-        }
+        oracle_price = {"price": "29423.16356086"}
         self.query_executor._oracle_prices_responses.put_nowait(oracle_price)
 
         trades = {
@@ -855,21 +781,17 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                         "tradeDirection": "buy",
                         "executionPrice": "9084900",
                         "executionQuantity": "3",
-                        "executionMargin": "5472660"
+                        "executionMargin": "5472660",
                     },
                     "payout": "0",
                     "fee": "81764.1",
                     "executedAt": "1689423842613",
                     "feeRecipient": "inj1zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3t5qxqh",
                     "tradeId": "13659264_800_0",
-                    "executionSide": "taker"
+                    "executionSide": "taker",
                 }
             ],
-            "paging": {
-                "total": "1000",
-                "from": 1,
-                "to": 1
-            }
+            "paging": {"total": "1000", "from": 1, "to": 1},
         }
         self.query_executor._derivative_trades_responses.put_nowait(trades)
 
@@ -891,7 +813,7 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                     "symbol": self.quote_asset,
                     "logo": "https://static.alchemyapi.io/images/assets/825.png",
                     "decimals": 6,
-                    "updatedAt": "1687190809716"
+                    "updatedAt": "1687190809716",
                 },
                 "makerFeeRate": "-0.0003",
                 "takerFeeRate": "0.003",
@@ -903,30 +825,30 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                     "hourlyFundingRateCap": "0.000625",
                     "hourlyInterestRate": "0.00000416666",
                     "nextFundingTimestamp": "1687190809716",
-                    "fundingInterval": "3600"
+                    "fundingInterval": "3600",
                 },
                 "perpetualMarketFunding": {
                     "cumulativeFunding": "81363.592243119007273334",
                     "cumulativePrice": "1.432536051546776736",
-                    "lastTimestamp": "1689423842"
+                    "lastTimestamp": "1689423842",
                 },
                 "minNotional": "1000000",
             }
         }
         self.query_executor._derivative_market_responses.put_nowait(derivative_market_info)
 
-        funding_info: FundingInfo = await (
-            self.data_source.get_funding_info(self.trading_pair)
-        )
+        funding_info: FundingInfo = await self.data_source.get_funding_info(self.trading_pair)
 
         self.assertEqual(self.trading_pair, funding_info.trading_pair)
         self.assertEqual(
             Decimal(trades["trades"][0]["positionDelta"]["executionPrice"]) * Decimal(f"1e{-quote_decimals}"),
-            funding_info.index_price)
+            funding_info.index_price,
+        )
         self.assertEqual(Decimal(oracle_price["price"]), funding_info.mark_price)
         self.assertEqual(
             int(derivative_market_info["market"]["perpetualMarketInfo"]["nextFundingTimestamp"]),
-            funding_info.next_funding_utc_timestamp)
+            funding_info.next_funding_utc_timestamp,
+        )
         self.assertEqual(Decimal(funding_rate["fundingRates"][0]["rate"]), funding_info.rate)
 
     def _spot_markets_response(self):

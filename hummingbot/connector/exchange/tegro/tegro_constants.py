@@ -72,20 +72,11 @@ ABI = {
             "name": "approve",
             "stateMutability": "nonpayable",
             "type": "function",
-            "inputs": [{
-                "internalType": "address",
-                "name": "spender",
-                "type": "address"
-            }, {
-                "internalType": "uint256",
-                "name": "value",
-                "type": "uint256"
-            }],
-            "outputs": [{
-                "internalType": "bool",
-                "name": "",
-                "type": "bool"
-            }]
+            "inputs": [
+                {"internalType": "address", "name": "spender", "type": "address"},
+                {"internalType": "uint256", "name": "value", "type": "uint256"},
+            ],
+            "outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
         },
     ],
     "allowance": [
@@ -93,36 +84,23 @@ ABI = {
             "name": "allowance",
             "stateMutability": "view",
             "type": "function",
-            "inputs": [{
-                "internalType": "address",
-                "name": "owner",
-                "type": "address"
-            }, {
-                "internalType": "address",
-                "name": "spender",
-                "type": "address"
-            }],
-            "outputs": [{
-                "internalType": "uint256",
-                "name": "",
-                "type": "uint256"
-            }]
+            "inputs": [
+                {"internalType": "address", "name": "owner", "type": "address"},
+                {"internalType": "address", "name": "spender", "type": "address"},
+            ],
+            "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
         }
-    ]
+    ],
 }
 
 Node_URLS = {
     "base": "https://mainnet.base.org",
     "tegro_base_testnet": "https://sepolia.base.org",
     "tegro_polygon_testnet": "https://rpc-amoy.polygon.technology",
-    "tegro_optimism_testnet": "https://sepolia.optimism.io"
+    "tegro_optimism_testnet": "https://sepolia.optimism.io",
 }
 
-TESTNET_CHAIN_IDS = {
-    "base": 84532,
-    "polygon": 80002,
-    "optimism": 11155420
-}
+TESTNET_CHAIN_IDS = {"base": 84532, "polygon": 80002, "optimism": 11155420}
 
 TRADE_EVENT_TYPE = "trade_updated"
 DIFF_EVENT_TYPE = "order_book_diff"
@@ -132,7 +110,7 @@ USER_METHODS = {
     "TRADES_UPDATE": "user_trade_updated",
     "ORDER_PLACED": "order_placed",
     "ORDER_SUBMITTED": "order_submitted",
-    "ORDER_TRADE_PROCESSED": "order_trade_processed"
+    "ORDER_TRADE_PROCESSED": "order_trade_processed",
 }
 
 HEARTBEAT_TIME_INTERVAL = 30.0
@@ -141,119 +119,115 @@ NO_LIMIT = sys.maxsize
 
 RATE_LIMITS = [
     # Weighted Limits
-    RateLimit(
-        limit_id=TICKER_PRICE_CHANGE_PATH_URL,
-        limit=NO_LIMIT,
-        time_interval=SECOND
-    ),
+    RateLimit(limit_id=TICKER_PRICE_CHANGE_PATH_URL, limit=NO_LIMIT, time_interval=SECOND),
     RateLimit(
         limit_id=EXCHANGE_INFO_PATH_LIST_URL,
         limit=NO_LIMIT,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)]
+        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)],
     ),
     RateLimit(
         limit_id=EXCHANGE_INFO_PATH_URL,
         limit=NO_LIMIT,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)]
+        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)],
     ),
     RateLimit(
         limit_id=SNAPSHOT_PATH_URL,
         limit=NO_LIMIT,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)]
+        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)],
     ),
     RateLimit(
         limit_id=SERVER_TIME_PATH_URL,
         limit=NO_LIMIT,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)]
+        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)],
     ),
     RateLimit(
         limit_id=TEGRO_USER_ORDER_PATH_URL,
         limit=NO_LIMIT,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)]
+        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)],
     ),
     RateLimit(
         limit_id=PING_PATH_URL,
         limit=NO_LIMIT,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)]
+        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)],
     ),
     RateLimit(
         limit_id=ACCOUNTS_PATH_URL,
         limit=NO_LIMIT,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)]
+        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)],
     ),
     RateLimit(
         limit_id=TRADES_PATH_URL,
         limit=NO_LIMIT,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)]
+        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)],
     ),
     RateLimit(
         limit_id=ORDER_PATH_URL,
         limit=NO_LIMIT,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)]
+        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)],
     ),
     RateLimit(
         limit_id=CHAIN_LIST,
         limit=NO_LIMIT,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)]
+        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)],
     ),
     RateLimit(
         limit_id=CHARTS_TRADES,
         limit=NO_LIMIT,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)]
+        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)],
     ),
     RateLimit(
         limit_id=ORDER_LIST,
         limit=NO_LIMIT,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)]
+        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)],
     ),
     RateLimit(
         limit_id=MARKET_LIST_PATH_URL,
         limit=NO_LIMIT,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)]
+        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)],
     ),
     RateLimit(
         limit_id=GENERATE_SIGN_URL,
         limit=NO_LIMIT,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)]
+        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)],
     ),
     RateLimit(
         limit_id=GENERATE_ORDER_URL,
         limit=NO_LIMIT,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)]
+        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)],
     ),
     RateLimit(
         limit_id=TRADES_FOR_ORDER_PATH_URL,
         limit=NO_LIMIT,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)]
+        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)],
     ),
     RateLimit(
         limit_id=CANCEL_ORDER_URL,
         limit=NO_LIMIT,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)]
+        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)],
     ),
     RateLimit(
         limit_id=CANCEL_ORDER_ALL_URL,
         limit=NO_LIMIT,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)
-                       ])
+        linked_limits=[LinkedLimitWeightPair(TICKER_PRICE_CHANGE_PATH_URL)],
+    ),
 ]
 
 

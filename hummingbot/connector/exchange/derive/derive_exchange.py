@@ -38,15 +38,15 @@ class DeriveExchange(ExchangePyBase):
     LONG_POLL_INTERVAL = 12.0
 
     def __init__(
-            self,
-            client_config_map: "ClientConfigAdapter",
-            derive_api_secret: str = None,
-            sub_id: int = None,
-            account_type: str = None,
-            derive_api_key: str = None,
-            trading_pairs: Optional[List[str]] = None,
-            trading_required: bool = True,
-            domain: str = CONSTANTS.DEFAULT_DOMAIN,
+        self,
+        client_config_map: "ClientConfigAdapter",
+        derive_api_secret: str = None,
+        sub_id: int = None,
+        account_type: str = None,
+        derive_api_key: str = None,
+        trading_pairs: Optional[List[str]] = None,
+        trading_required: bool = True,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
         self.derive_api_key = derive_api_key
         self.derive_secret_key = derive_api_secret
@@ -77,7 +77,9 @@ class DeriveExchange(ExchangePyBase):
 
     @property
     def authenticator(self) -> DeriveAuth:
-        return DeriveAuth(self.derive_api_key, self.derive_secret_key, self._sub_id, self._trading_required, self._domain)
+        return DeriveAuth(
+            self.derive_api_key, self.derive_secret_key, self._sub_id, self._trading_required, self._domain
+        )
 
     @property
     def rate_limits_rules(self) -> List[RateLimit]:
@@ -160,10 +162,8 @@ class DeriveExchange(ExchangePyBase):
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer,
-            domain=self._domain,
-            auth=self._auth)
+            throttler=self._throttler, time_synchronizer=self._time_synchronizer, domain=self._domain, auth=self._auth
+        )
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         return DeriveAPIOrderBookDataSource(
@@ -195,14 +195,16 @@ class DeriveExchange(ExchangePyBase):
         d_price = Decimal(round(float(f"{price:.5g}"), 6))
         return d_price
 
-    def _get_fee(self,
-                 base_currency: str,
-                 quote_currency: str,
-                 order_type: OrderType,
-                 order_side: TradeType,
-                 amount: Decimal,
-                 price: Decimal = s_decimal_NaN,
-                 is_maker: Optional[bool] = None) -> TradeFeeBase:
+    def _get_fee(
+        self,
+        base_currency: str,
+        quote_currency: str,
+        order_type: OrderType,
+        order_side: TradeType,
+        amount: Decimal,
+        price: Decimal = s_decimal_NaN,
+        is_maker: Optional[bool] = None,
+    ) -> TradeFeeBase:
         is_maker = order_type is OrderType.LIMIT_MAKER
         trade_base_fee = build_trade_fee(
             exchange=self.name,
@@ -212,7 +214,7 @@ class DeriveExchange(ExchangePyBase):
             amount=amount,
             price=price,
             base_currency=base_currency.upper(),
-            quote_currency=quote_currency.upper()
+            quote_currency=quote_currency.upper(),
         )
         return trade_base_fee
 
@@ -242,20 +244,14 @@ class DeriveExchange(ExchangePyBase):
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         oid = await tracked_order.get_exchange_order_id()
         symbol = tracked_order.trading_pair
-        api_params = {
-            "instrument_name": symbol,
-            "order_id": oid,
-            "subaccount_id": self._sub_id
-        }
+        api_params = {"instrument_name": symbol, "order_id": oid, "subaccount_id": self._sub_id}
         cancel_result = await self._api_post(
-            path_url=CONSTANTS.CANCEL_ORDER_URL,
-            data=api_params,
-            is_auth_required=True)
+            path_url=CONSTANTS.CANCEL_ORDER_URL, data=api_params, is_auth_required=True
+        )
 
         if "error" in cancel_result:
-            if 'Does not exist' in cancel_result['error']['message']:
-                self.logger().debug(f"The order {order_id} does not exist on Derive s. "
-                                    f"No cancelation needed.")
+            if "Does not exist" in cancel_result["error"]["message"]:
+                self.logger().debug(f"The order {order_id} does not exist on Derive s. " f"No cancelation needed.")
                 await self._order_tracker.process_order_not_found(order_id)
             raise IOError(f'{cancel_result["error"]["message"]}')
         else:
@@ -265,12 +261,9 @@ class DeriveExchange(ExchangePyBase):
 
     # === Orders placing ===
 
-    def buy(self,
-            trading_pair: str,
-            amount: Decimal,
-            order_type=OrderType.LIMIT,
-            price: Decimal = s_decimal_NaN,
-            **kwargs) -> str:
+    def buy(
+        self, trading_pair: str, amount: Decimal, order_type=OrderType.LIMIT, price: Decimal = s_decimal_NaN, **kwargs
+    ) -> str:
         """
         Creates a promise to create a buy order using the parameters
 
@@ -285,10 +278,10 @@ class DeriveExchange(ExchangePyBase):
             is_buy=True,
             trading_pair=trading_pair,
             hbot_order_id_prefix=self.client_order_id_prefix,
-            max_id_len=self.client_order_id_max_length
+            max_id_len=self.client_order_id_max_length,
         )
         md5 = hashlib.md5()
-        md5.update(order_id.encode('utf-8'))
+        md5.update(order_id.encode("utf-8"))
         hex_order_id = f"0x{md5.hexdigest()}"
         if order_type is OrderType.MARKET:
             mid_price = self.get_mid_price(trading_pair)
@@ -296,22 +289,27 @@ class DeriveExchange(ExchangePyBase):
             market_price = mid_price * Decimal(1 + slippage)
             price = self.quantize_order_price(trading_pair, market_price)
 
-        safe_ensure_future(self._create_order(
-            trade_type=TradeType.BUY,
-            order_id=hex_order_id,
-            trading_pair=trading_pair,
-            amount=amount,
-            order_type=order_type,
-            price=price,
-            **kwargs))
+        safe_ensure_future(
+            self._create_order(
+                trade_type=TradeType.BUY,
+                order_id=hex_order_id,
+                trading_pair=trading_pair,
+                amount=amount,
+                order_type=order_type,
+                price=price,
+                **kwargs,
+            )
+        )
         return hex_order_id
 
-    def sell(self,
-             trading_pair: str,
-             amount: Decimal,
-             order_type: OrderType = OrderType.LIMIT,
-             price: Decimal = s_decimal_NaN,
-             **kwargs) -> str:
+    def sell(
+        self,
+        trading_pair: str,
+        amount: Decimal,
+        order_type: OrderType = OrderType.LIMIT,
+        price: Decimal = s_decimal_NaN,
+        **kwargs,
+    ) -> str:
         """
         Creates a promise to create a sell order using the parameters.
         :param trading_pair: the token pair to operate with
@@ -324,10 +322,10 @@ class DeriveExchange(ExchangePyBase):
             is_buy=False,
             trading_pair=trading_pair,
             hbot_order_id_prefix=self.client_order_id_prefix,
-            max_id_len=self.client_order_id_max_length
+            max_id_len=self.client_order_id_max_length,
         )
         md5 = hashlib.md5()
-        md5.update(order_id.encode('utf-8'))
+        md5.update(order_id.encode("utf-8"))
         hex_order_id = f"0x{md5.hexdigest()}"
         if order_type is OrderType.MARKET:
             mid_price = self.get_mid_price(trading_pair)
@@ -335,25 +333,28 @@ class DeriveExchange(ExchangePyBase):
             market_price = mid_price * Decimal(1 - slippage)
             price = self.quantize_order_price(trading_pair, market_price)
 
-        safe_ensure_future(self._create_order(
-            trade_type=TradeType.SELL,
-            order_id=hex_order_id,
-            trading_pair=trading_pair,
-            amount=amount,
-            order_type=order_type,
-            price=price,
-            **kwargs))
+        safe_ensure_future(
+            self._create_order(
+                trade_type=TradeType.SELL,
+                order_id=hex_order_id,
+                trading_pair=trading_pair,
+                amount=amount,
+                order_type=order_type,
+                price=price,
+                **kwargs,
+            )
+        )
         return hex_order_id
 
     async def _place_order(
-            self,
-            order_id: str,
-            trading_pair: str,
-            amount: Decimal,
-            trade_type: TradeType,
-            order_type: OrderType,
-            price: Decimal,
-            **kwargs,
+        self,
+        order_id: str,
+        trading_pair: str,
+        amount: Decimal,
+        trade_type: TradeType,
+        order_type: OrderType,
+        price: Decimal,
+        **kwargs,
     ) -> Tuple[str, float]:
         """
         Creates an order on the exchange using the specified parameters.
@@ -388,10 +389,7 @@ class DeriveExchange(ExchangePyBase):
             "recipient_id": self._sub_id,
         }
 
-        order_result = await self._api_post(
-            path_url = CONSTANTS.CREATE_ORDER_URL,
-            data=api_params,
-            is_auth_required=True)
+        order_result = await self._api_post(path_url=CONSTANTS.CREATE_ORDER_URL, data=api_params, is_auth_required=True)
 
         if "error" in order_result:
             if "Self-crossing disallowed" in order_result["error"]["message"]:
@@ -399,7 +397,7 @@ class DeriveExchange(ExchangePyBase):
             else:
                 raise IOError(f"Error submitting order {order_id}: {order_result['error']['message']}")
         else:
-            o_order_result = order_result['result']
+            o_order_result = order_result["result"]
             o_data = o_order_result.get("order")
             o_id = str(o_data["order_id"])
             timestamp = o_data["creation_timestamp"] * 1e-3
@@ -413,17 +411,16 @@ class DeriveExchange(ExchangePyBase):
             try:
                 all_fills_response = await self._api_get(
                     path_url=CONSTANTS.MY_TRADES_PATH_URL,
-                    params={
-                        "subaccount_id": self._sub_id
-                    },
+                    params={"subaccount_id": self._sub_id},
                     is_auth_required=True,
-                    limit_id=CONSTANTS.MY_TRADES_PATH_URL)
+                    limit_id=CONSTANTS.MY_TRADES_PATH_URL,
+                )
             except asyncio.CancelledError:
                 raise
             except Exception as request_error:
                 self.logger().warning(
                     f"Failed to fetch trade updates. Error: {request_error}",
-                    exc_info = request_error,
+                    exc_info=request_error,
                 )
             for trade_fill in all_fills_response["result"]["trades"]:
                 self._process_trade_rs_event_message(order_fill=trade_fill, all_fillable_order=all_fillable_orders)
@@ -439,7 +436,7 @@ class DeriveExchange(ExchangePyBase):
                 fee_schema=self.trade_fee_schema(),
                 trade_type=fillable_order.trade_type,
                 percent_token=fee_asset,
-                flat_fees=[TokenAmount(amount=Decimal(order_fill["trade_fee"]), token=fee_asset)]
+                flat_fees=[TokenAmount(amount=Decimal(order_fill["trade_fee"]), token=fee_asset)],
             )
 
             trade_update = TradeUpdate(
@@ -457,6 +454,7 @@ class DeriveExchange(ExchangePyBase):
             self._order_tracker.process_trade_update(trade_update)
 
         # === loops and sync related methods === #
+
     async def _rate_limits_polling_loop(self):
         """
         Updates the rate limits.
@@ -469,9 +467,7 @@ class DeriveExchange(ExchangePyBase):
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().info(
-                "Unexpected error while Updating rate limits."
-            )
+            self.logger().info("Unexpected error while Updating rate limits.")
 
     async def _update_rate_limits(self):
         await self._initialize_rate_limits()
@@ -537,8 +533,7 @@ class DeriveExchange(ExchangePyBase):
                 else:
                     raise Exception(event_message)
                 if channel not in user_channels:
-                    self.logger().error(
-                        f"Unexpected message in user stream: {event_message}.", exc_info=True)
+                    self.logger().error(f"Unexpected message in user stream: {event_message}.", exc_info=True)
                     continue
                 if channel == user_channels[0] and results is not None:
                     for order_msg in results:
@@ -549,8 +544,7 @@ class DeriveExchange(ExchangePyBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error(
-                    "Unexpected error in user stream listener loop.", exc_info=True)
+                self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await self._sleep(5.0)
 
     async def _process_trade_message(self, trade: Dict[str, Any], client_order_id: Optional[str] = None):
@@ -578,7 +572,7 @@ class DeriveExchange(ExchangePyBase):
                 fee_schema=self.trade_fee_schema(),
                 trade_type=tracked_order.trade_type,
                 percent_token=fee_asset,
-                flat_fees=[TokenAmount(amount=Decimal(trade["trade_fee"]), token=fee_asset)]
+                flat_fees=[TokenAmount(amount=Decimal(trade["trade_fee"]), token=fee_asset)],
             )
             trade_update: TradeUpdate = TradeUpdate(
                 trade_id=str(trade["trade_id"]),
@@ -685,8 +679,9 @@ class DeriveExchange(ExchangePyBase):
                     )
                 )
             except Exception:
-                self.logger().error(f"Error parsing the trading pair rule {exchange_info_dict}. Skipping.",
-                                    exc_info=True)
+                self.logger().error(
+                    f"Error parsing the trading pair rule {exchange_info_dict}. Skipping.", exc_info=True
+                )
         return retval
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: List):
@@ -708,9 +703,8 @@ class DeriveExchange(ExchangePyBase):
         remote_asset_names = set()
 
         account_info = await self._api_post(
-            path_url=CONSTANTS.ACCOUNTS_PATH_URL,
-            data={"subaccount_id": self._sub_id},
-            is_auth_required=True)
+            path_url=CONSTANTS.ACCOUNTS_PATH_URL, data={"subaccount_id": self._sub_id}, is_auth_required=True
+        )
         if "error" in account_info:
             self.logger().error(f"Error fetching account balances: {account_info['error']['message']}")
             raise
@@ -734,13 +728,13 @@ class DeriveExchange(ExchangePyBase):
         client_order_id = tracked_order.client_order_id
         order_update = await self._api_post(
             path_url=CONSTANTS.ORDER_STATUS_PAATH_URL,
-            data={
-                "subaccount_id": self._sub_id,
-                "order_id": oid
-            },
-            is_auth_required=True)
+            data={"subaccount_id": self._sub_id, "order_id": oid},
+            is_auth_required=True,
+        )
         if "error" in order_update:
-            self.logger().debug(f"Error fetching order status for {client_order_id}: {order_update['error']['message']}")
+            self.logger().debug(
+                f"Error fetching order status for {client_order_id}: {order_update['error']['message']}"
+            )
         if "result" in order_update:
             current_state = order_update["result"]["order_status"]
             _order_update: OrderUpdate = OrderUpdate(
@@ -766,8 +760,9 @@ class DeriveExchange(ExchangePyBase):
         long_interval_last_tick = self._last_poll_timestamp / self.LONG_POLL_INTERVAL
         long_interval_current_tick = self.current_timestamp / self.LONG_POLL_INTERVAL
 
-        if (long_interval_current_tick > long_interval_last_tick
-                or (self.in_flight_orders and small_interval_current_tick > small_interval_last_tick)):
+        if long_interval_current_tick > long_interval_last_tick or (
+            self.in_flight_orders and small_interval_current_tick > small_interval_last_tick
+        ):
             query_time = int(self._last_trades_poll_timestamp * 1e3)
             self._last_trades_poll_timestamp = self._time_synchronizer.time()
             order_by_exchange_id_map = {}
@@ -783,10 +778,7 @@ class DeriveExchange(ExchangePyBase):
                 }
                 if self._last_poll_timestamp > 0:
                     params["from_timestamp"] = query_time
-                tasks.append(self._api_get(
-                    path_url=CONSTANTS.MY_TRADES_PATH_URL,
-                    params=params,
-                    is_auth_required=True))
+                tasks.append(self._api_get(path_url=CONSTANTS.MY_TRADES_PATH_URL, params=params, is_auth_required=True))
 
             self.logger().debug(f"Polling for order fills of {len(tasks)} trading pairs.")
             results = await safe_gather(*tasks, return_exceptions=True)
@@ -795,7 +787,7 @@ class DeriveExchange(ExchangePyBase):
                 if isinstance(trades, Exception):
                     self.logger().network(
                         f"Error fetching trades update for the order {trading_pair}: {trades}.",
-                        app_warning_msg=f"Failed to fetch trade update for {trading_pair}."
+                        app_warning_msg=f"Failed to fetch trade update for {trading_pair}.",
                     )
                     continue
                 if len(trades) == 0:
@@ -810,7 +802,7 @@ class DeriveExchange(ExchangePyBase):
                             fee_schema=self.trade_fee_schema(),
                             trade_type=tracked_order.trade_type,
                             percent_token=token,
-                            flat_fees=[TokenAmount(amount=Decimal(trade["trade_fee"]), token=token)]
+                            flat_fees=[TokenAmount(amount=Decimal(trade["trade_fee"]), token=token)],
                         )
                         trade_update = TradeUpdate(
                             trade_id=str(trade["trade_id"]),
@@ -824,33 +816,32 @@ class DeriveExchange(ExchangePyBase):
                             fill_timestamp=trade["timestamp"] * 1e-3,
                         )
                         self._order_tracker.process_trade_update(trade_update)
-                    elif self.is_confirmed_new_order_filled_event(str(trade["trade_id"]), exchange_order_id, trading_pair):
+                    elif self.is_confirmed_new_order_filled_event(
+                        str(trade["trade_id"]), exchange_order_id, trading_pair
+                    ):
                         token = trade["instrument_name"].split("-")[1]
                         # This is a fill of an order registered in the DB but not tracked any more
-                        self._current_trade_fills.add(TradeFillOrderDetails(
-                            market=self.display_name,
-                            exchange_trade_id=str(trade["trade_id"]),
-                            symbol=trading_pair))
+                        self._current_trade_fills.add(
+                            TradeFillOrderDetails(
+                                market=self.display_name, exchange_trade_id=str(trade["trade_id"]), symbol=trading_pair
+                            )
+                        )
                         self.trigger_event(
                             MarketEvent.OrderFilled,
                             OrderFilledEvent(
                                 timestamp=float(trade["timestamp"]) * 1e-3,
                                 order_id=self._exchange_order_ids.get(str(trade["order_id"]), None),
                                 trading_pair=trading_pair,
-                                trade_type=TradeType.BUY if trade["direction"] == 'buy' else TradeType.SELL,
-                                order_type=OrderType.MARKET if trade["liquidity_role"] == 'taker' else OrderType.LIMIT,
+                                trade_type=TradeType.BUY if trade["direction"] == "buy" else TradeType.SELL,
+                                order_type=OrderType.MARKET if trade["liquidity_role"] == "taker" else OrderType.LIMIT,
                                 price=Decimal(trade["trade_price"]),
                                 amount=Decimal(trade["trade_amount"]),
                                 trade_fee=DeductedFromReturnsTradeFee(
-                                    flat_fees=[
-                                        TokenAmount(
-                                            token,
-                                            Decimal(trade["trade_fee"])
-                                        )
-                                    ]
+                                    flat_fees=[TokenAmount(token, Decimal(trade["trade_fee"]))]
                                 ),
-                                exchange_trade_id=str(trade["trade_id"])
-                            ))
+                                exchange_trade_id=str(trade["trade_id"]),
+                            ),
+                        )
                         self.logger().info(f"Recreating missing trade in TradeFill: {trade}")
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
@@ -861,13 +852,10 @@ class DeriveExchange(ExchangePyBase):
             trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
             all_fills_response = await self._api_get(
                 path_url=CONSTANTS.MY_TRADES_PATH_URL,
-                params={
-                    "instrument_name": trading_pair,
-                    "order_id": exchange_order_id,
-                    "subaccount_id": self._sub_id
-                },
+                params={"instrument_name": trading_pair, "order_id": exchange_order_id, "subaccount_id": self._sub_id},
                 is_auth_required=True,
-                limit_id=CONSTANTS.MY_TRADES_PATH_URL)
+                limit_id=CONSTANTS.MY_TRADES_PATH_URL,
+            )
 
             for trade in all_fills_response["result"]["trades"]:
                 token = trade["instrument_name"].split("-")[1]
@@ -876,7 +864,7 @@ class DeriveExchange(ExchangePyBase):
                     fee_schema=self.trade_fee_schema(),
                     trade_type=order.trade_type,
                     percent_token=token,
-                    flat_fees=[TokenAmount(amount=Decimal(trade["trade_fee"]), token=token)]
+                    flat_fees=[TokenAmount(amount=Decimal(trade["trade_fee"]), token=token)],
                 )
                 trade_update = TradeUpdate(
                     trade_id=str(trade["trade_id"]),
@@ -897,8 +885,7 @@ class DeriveExchange(ExchangePyBase):
         await self.trading_pair_symbol_map()
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         payload = {"instrument_name": exchange_symbol}
-        response = await self._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
-                                        data=payload)
+        response = await self._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, data=payload)
 
         return response["result"]["mark_price"]
 
@@ -907,14 +894,13 @@ class DeriveExchange(ExchangePyBase):
             trading_pairs = []
 
         symbol_map = await self.trading_pair_symbol_map()
-        exchange_symbols = await asyncio.gather(*[
-            self.exchange_symbol_associated_to_pair(trading_pair=pair) for pair in trading_pairs
-        ])
+        exchange_symbols = await asyncio.gather(
+            *[self.exchange_symbol_associated_to_pair(trading_pair=pair) for pair in trading_pairs]
+        )
         payloads = [{"instrument_name": symbol} for symbol in exchange_symbols]
-        responses = await asyncio.gather(*[
-            self._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, data=payload)
-            for payload in payloads
-        ])
+        responses = await asyncio.gather(
+            *[self._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, data=payload) for payload in payloads]
+        )
         last_traded_prices = {}
         for ticker in responses:
             instrument_name = ticker["result"]["instrument_name"]
@@ -927,13 +913,18 @@ class DeriveExchange(ExchangePyBase):
         await self._api_get(path_url=self.check_network_request_path)
 
     async def _make_currency_request(self) -> Any:
-        currencies = await self._api_post(path_url=self.trading_pairs_request_path, data={
-            "instrument_type": "erc20",
-        })
+        currencies = await self._api_post(
+            path_url=self.trading_pairs_request_path,
+            data={
+                "instrument_type": "erc20",
+            },
+        )
         self.currencies.append(currencies)
         return currencies
 
-    async def _make_trading_rules_request(self, trading_pair: Optional[str] = None, fetch_pair: Optional[bool] = False) -> Any:
+    async def _make_trading_rules_request(
+        self, trading_pair: Optional[str] = None, fetch_pair: Optional[bool] = False
+    ) -> Any:
         self._instrument_ticker = []
         exchange_infos = []
         if not fetch_pair:
@@ -948,7 +939,7 @@ class DeriveExchange(ExchangePyBase):
 
                 exchange_info = await self._api_post(path_url=self.trading_currencies_request_path, data=payload)
                 if "error" in exchange_info:
-                    if 'Instrument not found' in exchange_info['error']['message']:
+                    if "Instrument not found" in exchange_info["error"]["message"]:
                         self.logger().debug(f"Ignoring currency {currency['currency']}: not supported sport.")
                         continue
                     self.logger().warning(f"Error: {exchange_info['error']['message']}")
@@ -958,11 +949,14 @@ class DeriveExchange(ExchangePyBase):
                 self._instrument_ticker.append(exchange_info["result"]["instruments"][0])
                 exchange_infos.append(exchange_info["result"]["instruments"][0])
         else:
-            exchange_info = await self._api_post(path_url=self.trading_pairs_request_path, data={
-                "expired": True,
-                "instrument_type": "erc20",
-                "currency": trading_pair.split("-")[0],
-            })
+            exchange_info = await self._api_post(
+                path_url=self.trading_pairs_request_path,
+                data={
+                    "expired": True,
+                    "instrument_type": "erc20",
+                    "currency": trading_pair.split("-")[0],
+                },
+            )
             exchange_info["result"]["instruments"][0]["spot_price"] = currency["spot_price"]
             self._instrument_ticker.append(exchange_info["result"]["instruments"][0])
             exchange_infos.append(exchange_info["result"]["instruments"][0])
@@ -982,7 +976,7 @@ class DeriveExchange(ExchangePyBase):
 
             exchange_info = await self._api_post(path_url=self.trading_currencies_request_path, data=payload)
             if "error" in exchange_info:
-                if 'Instrument not found' in exchange_info['error']['message']:
+                if "Instrument not found" in exchange_info["error"]["message"]:
                     self.logger().debug(f"Ignoring currency {currency['currency']}: not supported sport.")
                     continue
                 self.logger().error(f"Error: {currency['message']}")

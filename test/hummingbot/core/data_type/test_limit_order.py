@@ -7,14 +7,15 @@ from hummingbot.core.event.events import LimitOrderStatus
 
 class LimitOrderUnitTest(unittest.TestCase):
     def test_order_creation_with_default_values(self):
-        order = LimitOrder(client_order_id="HBOT_1",
-                           trading_pair="HBOT-USDT",
-                           is_buy=False,
-                           base_currency="HBOT",
-                           quote_currency="USDT",
-                           price=Decimal("100"),
-                           quantity=Decimal("1.5")
-                           )
+        order = LimitOrder(
+            client_order_id="HBOT_1",
+            trading_pair="HBOT-USDT",
+            is_buy=False,
+            base_currency="HBOT",
+            quote_currency="USDT",
+            price=Decimal("100"),
+            quantity=Decimal("1.5"),
+        )
         self.assertEqual("HBOT_1", order.client_order_id)
         self.assertEqual("HBOT-USDT", order.trading_pair)
         self.assertEqual(False, order.is_buy)
@@ -28,18 +29,19 @@ class LimitOrderUnitTest(unittest.TestCase):
         self.assertEqual(-1, order.age())
 
     def test_order_creation_with_all_values(self):
-        created = int((time.time() - 100.) * 1e6)
-        order = LimitOrder(client_order_id="HBOT_1",
-                           trading_pair="HBOT-USDT",
-                           is_buy=False,
-                           base_currency="HBOT",
-                           quote_currency="USDT",
-                           price=Decimal("100"),
-                           quantity=Decimal("1.5"),
-                           filled_quantity=Decimal("0.5"),
-                           creation_timestamp=created,
-                           status=LimitOrderStatus.OPEN
-                           )
+        created = int((time.time() - 100.0) * 1e6)
+        order = LimitOrder(
+            client_order_id="HBOT_1",
+            trading_pair="HBOT-USDT",
+            is_buy=False,
+            base_currency="HBOT",
+            quote_currency="USDT",
+            price=Decimal("100"),
+            quantity=Decimal("1.5"),
+            filled_quantity=Decimal("0.5"),
+            creation_timestamp=created,
+            status=LimitOrderStatus.OPEN,
+        )
         self.assertEqual(Decimal("0.5"), order.filled_quantity)
         self.assertEqual(created, order.creation_timestamp)
         self.assertEqual(LimitOrderStatus.OPEN, order.status)
@@ -57,8 +59,30 @@ class LimitOrderUnitTest(unittest.TestCase):
         orders = [
             LimitOrder("HBOT_1", "A-B", True, "A", "B", Decimal("1"), Decimal("1.5")),
             LimitOrder(f"HBOT_{str(created)}", "C-D", True, "C", "D", Decimal("1"), Decimal("1")),
-            LimitOrder("HBOT_2", "A-B ", False, "A", "B", Decimal("2.5"), Decimal("1"), Decimal("0"), created, LimitOrderStatus.OPEN),
-            LimitOrder(f"HBOT_{str(created)}", "A-B ", False, "A", "B", Decimal("2"), Decimal("1"), Decimal(0), created, LimitOrderStatus.CANCELED),
+            LimitOrder(
+                "HBOT_2",
+                "A-B ",
+                False,
+                "A",
+                "B",
+                Decimal("2.5"),
+                Decimal("1"),
+                Decimal("0"),
+                created,
+                LimitOrderStatus.OPEN,
+            ),
+            LimitOrder(
+                f"HBOT_{str(created)}",
+                "A-B ",
+                False,
+                "A",
+                "B",
+                Decimal("2"),
+                Decimal("1"),
+                Decimal(0),
+                created,
+                LimitOrderStatus.CANCELED,
+            ),
         ]
         df = LimitOrder.to_pandas(orders, 1.5, end_time_order_age=now_ts)
         # Except df output is as below
@@ -75,7 +99,7 @@ class LimitOrderUnitTest(unittest.TestCase):
         self.assertEqual("sell", df["Type"][0])
         self.assertAlmostEqual(2.5, df["Price"][0])
         self.assertEqual("66.67%", df["Spread"][0])
-        self.assertAlmostEqual(1., df["Amount"][0])
+        self.assertAlmostEqual(1.0, df["Amount"][0])
         self.assertEqual("00:01:40", df["Age"][0])
         self.assertEqual("n/a", df["Hang"][0])
 
@@ -92,7 +116,7 @@ class LimitOrderUnitTest(unittest.TestCase):
         self.assertEqual("sell", df["Type"][0])
         self.assertAlmostEqual(2.5, df["Price"][0])
         self.assertEqual("66.67%", df["Spread"][0])
-        self.assertAlmostEqual(1., df["Amount"][0])
+        self.assertAlmostEqual(1.0, df["Amount"][0])
         self.assertEqual("00:01:40", df["Age"][0])
         self.assertEqual("yes", df["Hang"][0])
         # Test to see if df is created and order age is calculated

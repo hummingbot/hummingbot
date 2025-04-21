@@ -10,15 +10,68 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 class VolatilityScreener(ScriptStrategyBase):
     exchange = "binance_perpetual"
-    trading_pairs = ["BTC-USDT", "ETH-USDT", "BNB-USDT", "NEO-USDT", "INJ-USDT", "API3-USDT", "TRB-USDT",
-                     "LPT-USDT", "SOL-USDT", "LTC-USDT", "DOT-USDT", "LINK-USDT", "UNI-USDT", "AAVE-USDT",
-                     "YFI-USDT", "SNX-USDT", "COMP-USDT", "MKR-USDT", "SUSHI-USDT", "CRV-USDT", "1INCH-USDT",
-                     "BAND-USDT", "KAVA-USDT", "KNC-USDT", "OMG-USDT", "REN-USDT", "ZRX-USDT", "BAL-USDT",
-                     "GRT-USDT", "ZEC-USDT", "XMR-USDT", "XTZ-USDT", "ALGO-USDT", "ATOM-USDT", "ZIL-USDT",
-                     "DASH-USDT", "DOGE-USDT", "EGLD-USDT", "EOS-USDT", "ETC-USDT", "FIL-USDT", "ICX-USDT",
-                     "IOST-USDT", "IOTA-USDT", "KSM-USDT", "LRC-USDT", "POL-USDT", "NEAR-USDT", "OCEAN-USDT",
-                     "ONT-USDT", "QTUM-USDT", "RVN-USDT", "SKL-USDT", "STORJ-USDT", "SXP-USDT",
-                     "TRX-USDT", "VET-USDT", "WAVES-USDT", "XLM-USDT", "XRP-USDT"]
+    trading_pairs = [
+        "BTC-USDT",
+        "ETH-USDT",
+        "BNB-USDT",
+        "NEO-USDT",
+        "INJ-USDT",
+        "API3-USDT",
+        "TRB-USDT",
+        "LPT-USDT",
+        "SOL-USDT",
+        "LTC-USDT",
+        "DOT-USDT",
+        "LINK-USDT",
+        "UNI-USDT",
+        "AAVE-USDT",
+        "YFI-USDT",
+        "SNX-USDT",
+        "COMP-USDT",
+        "MKR-USDT",
+        "SUSHI-USDT",
+        "CRV-USDT",
+        "1INCH-USDT",
+        "BAND-USDT",
+        "KAVA-USDT",
+        "KNC-USDT",
+        "OMG-USDT",
+        "REN-USDT",
+        "ZRX-USDT",
+        "BAL-USDT",
+        "GRT-USDT",
+        "ZEC-USDT",
+        "XMR-USDT",
+        "XTZ-USDT",
+        "ALGO-USDT",
+        "ATOM-USDT",
+        "ZIL-USDT",
+        "DASH-USDT",
+        "DOGE-USDT",
+        "EGLD-USDT",
+        "EOS-USDT",
+        "ETC-USDT",
+        "FIL-USDT",
+        "ICX-USDT",
+        "IOST-USDT",
+        "IOTA-USDT",
+        "KSM-USDT",
+        "LRC-USDT",
+        "POL-USDT",
+        "NEAR-USDT",
+        "OCEAN-USDT",
+        "ONT-USDT",
+        "QTUM-USDT",
+        "RVN-USDT",
+        "SKL-USDT",
+        "STORJ-USDT",
+        "SXP-USDT",
+        "TRX-USDT",
+        "VET-USDT",
+        "WAVES-USDT",
+        "XLM-USDT",
+        "XRP-USDT",
+    ]
     intervals = ["3m"]
     max_records = 1000
 
@@ -34,15 +87,19 @@ class VolatilityScreener(ScriptStrategyBase):
     def __init__(self, connectors: Dict[str, ConnectorBase]):
         super().__init__(connectors)
         self.last_time_reported = 0
-        combinations = [(trading_pair, interval) for trading_pair in self.trading_pairs for interval in
-                        self.intervals]
+        combinations = [(trading_pair, interval) for trading_pair in self.trading_pairs for interval in self.intervals]
 
         self.candles = {f"{combinations[0]}_{combinations[1]}": None for combinations in combinations}
         # we need to initialize the candles for each trading pair
         for combination in combinations:
             candle = CandlesFactory.get_candle(
-                CandlesConfig(connector=self.exchange, trading_pair=combination[0], interval=combination[1],
-                              max_records=self.max_records))
+                CandlesConfig(
+                    connector=self.exchange,
+                    trading_pair=combination[0],
+                    interval=combination[1],
+                    max_records=self.max_records,
+                )
+            )
             candle.start()
             self.candles[f"{combination[0]}_{combination[1]}"] = candle
 
@@ -50,7 +107,8 @@ class VolatilityScreener(ScriptStrategyBase):
         for trading_pair, candles in self.candles.items():
             if not candles.ready:
                 self.logger().info(
-                    f"Candles not ready yet for {trading_pair}! Missing {candles._candles.maxlen - len(candles._candles)}")
+                    f"Candles not ready yet for {trading_pair}! Missing {candles._candles.maxlen - len(candles._candles)}"
+                )
         if all(candle.ready for candle in self.candles.values()):
             if self.current_timestamp - self.last_time_reported > self.report_interval:
                 self.last_time_reported = self.current_timestamp
@@ -63,8 +121,11 @@ class VolatilityScreener(ScriptStrategyBase):
     def get_formatted_market_analysis(self):
         volatility_metrics_df = self.get_market_analysis()
         volatility_metrics_pct_str = format_df_for_printout(
-            volatility_metrics_df[self.columns_to_show].sort_values(by=self.sort_values_by, ascending=False).head(self.top_n),
-            table_format="psql")
+            volatility_metrics_df[self.columns_to_show]
+            .sort_values(by=self.sort_values_by, ascending=False)
+            .head(self.top_n),
+            table_format="psql",
+        )
         return volatility_metrics_pct_str
 
     def format_status(self) -> str:

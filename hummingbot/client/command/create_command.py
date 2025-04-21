@@ -49,9 +49,11 @@ class OrderedDumper(yaml.SafeDumper):
 
 
 class CreateCommand:
-    def create(self,  # type: HummingbotApplication
-               script_to_config: Optional[str] = None,
-               controller_name: Optional[str] = None, ) -> None:
+    def create(
+        self,  # type: HummingbotApplication
+        script_to_config: Optional[str] = None,
+        controller_name: Optional[str] = None,
+    ) -> None:
         self.app.clear_input()
         self.placeholder_mode = True
         self.app.hide_input = True
@@ -66,8 +68,10 @@ class CreateCommand:
         else:
             safe_ensure_future(self.prompt_for_configuration())
 
-    async def prompt_for_controller_config(self,  # type: HummingbotApplication
-                                           controller_name: str):
+    async def prompt_for_controller_config(
+        self,  # type: HummingbotApplication
+        controller_name: str,
+    ):
         try:
 
             # Attempt to find and load the correct module
@@ -82,11 +86,21 @@ class CreateCommand:
                 raise InvalidController(f"The controller {controller_name} was not found in any subfolder.")
 
             # Load the configuration class from the module
-            config_class = next((member for member_name, member in inspect.getmembers(module)
-                                 if inspect.isclass(member) and member not in [ControllerConfigBase,
-                                                                               MarketMakingControllerConfigBase,
-                                                                               DirectionalTradingControllerConfigBase,]
-                                 and (issubclass(member, ControllerConfigBase))), None)
+            config_class = next(
+                (
+                    member
+                    for member_name, member in inspect.getmembers(module)
+                    if inspect.isclass(member)
+                    and member
+                    not in [
+                        ControllerConfigBase,
+                        MarketMakingControllerConfigBase,
+                        DirectionalTradingControllerConfigBase,
+                    ]
+                    and (issubclass(member, ControllerConfigBase))
+                ),
+                None,
+            )
             if not config_class:
                 raise InvalidController(f"No configuration class found in the module {controller_name}.")
 
@@ -97,7 +111,9 @@ class CreateCommand:
             await self.prompt_for_model_config(config_map)
             if not self.app.to_stop_config:
                 file_name = await self.save_config(controller_name, config_map, settings.CONTROLLERS_CONF_DIR_PATH)
-                self.notify(f"A new config file has been created. Edit the file in your IDE to adjust the parameters: {file_name}")
+                self.notify(
+                    f"A new config file has been created. Edit the file in your IDE to adjust the parameters: {file_name}"
+                )
 
             self.app.change_prompt(prompt=">>> ")
             self.app.input_field.completer = load_completer(self)
@@ -110,15 +126,22 @@ class CreateCommand:
             self.notify(f"An error occurred: {str(e)}")
             self.reset_application_state()
 
-    async def prompt_for_configuration_v2(self,  # type: HummingbotApplication
-                                          script_to_config: str):
+    async def prompt_for_configuration_v2(
+        self,  # type: HummingbotApplication
+        script_to_config: str,
+    ):
         try:
             module = sys.modules.get(f"{settings.SCRIPT_STRATEGIES_MODULE}.{script_to_config}")
             script_module = importlib.reload(module)
-            config_class = next((member for member_name, member in inspect.getmembers(script_module)
-                                 if
-                                 inspect.isclass(member) and member not in [BaseClientModel, StrategyV2ConfigBase] and
-                                 (issubclass(member, BaseClientModel) or issubclass(member, StrategyV2ConfigBase))))
+            config_class = next(
+                (
+                    member
+                    for member_name, member in inspect.getmembers(script_module)
+                    if inspect.isclass(member)
+                    and member not in [BaseClientModel, StrategyV2ConfigBase]
+                    and (issubclass(member, BaseClientModel) or issubclass(member, StrategyV2ConfigBase))
+                )
+            )
             config_map = ClientConfigAdapter(config_class.model_construct())
 
             await self.prompt_for_model_config(config_map)
@@ -158,7 +181,7 @@ class CreateCommand:
             return dumper.represent_dict(data.items())
 
         OrderedDumper.add_representer(OrderedDict, _dict_representer)
-        with open(config_path, 'w') as file:
+        with open(config_path, "w") as file:
             yaml.dump(ordered_config_data, file, Dumper=OrderedDumper, default_flow_style=False)
 
         return file_name
@@ -172,8 +195,10 @@ class CreateCommand:
             return
 
         config_map = get_strategy_config_map(strategy)
-        self.notify(f"Please see https://docs.hummingbot.org/strategies/{strategy.replace('_', '-')}/ "
-                    f"while setting up these below configuration.")
+        self.notify(
+            f"Please see https://docs.hummingbot.org/strategies/{strategy.replace('_', '-')}/ "
+            f"while setting up these below configuration."
+        )
 
         if isinstance(config_map, ClientConfigAdapter):
             await self.prompt_for_model_config(config_map)
@@ -215,10 +240,7 @@ class CreateCommand:
     ):
         for key in config_map.keys():
             client_data = config_map.get_client_data(key)
-            if (
-                client_data is not None
-                and (client_data.prompt_on_new or config_map.is_required(key))
-            ):
+            if client_data is not None and (client_data.prompt_on_new or config_map.is_required(key)):
                 await self.prompt_a_config(config_map, key)
                 if self.app.to_stop_config:
                     break
@@ -334,9 +356,11 @@ class CreateCommand:
         save_to_yml(strategy_path, config_map)
         return file_name
 
-    async def prompt_new_file_name(self,  # type: HummingbotApplication
-                                   strategy: str,
-                                   is_script: bool = False):
+    async def prompt_new_file_name(
+        self,  # type: HummingbotApplication
+        strategy: str,
+        is_script: bool = False,
+    ):
         file_name = default_strategy_file_path(strategy)
         self.app.set_text(file_name)
         input = await self.app.prompt(prompt="Enter a new file name for your configuration >>> ")
@@ -353,7 +377,7 @@ class CreateCommand:
             return input
 
     async def verify_status(
-        self  # type: HummingbotApplication
+        self,  # type: HummingbotApplication
     ):
         try:
             timeout = float(self.client_config_map.commands_timeout.create_command_timeout)
@@ -365,7 +389,7 @@ class CreateCommand:
             self.strategy_config = None
             raise
         if all_status_go:
-            self.notify("\nEnter \"start\" to start market making.")
+            self.notify('\nEnter "start" to start market making.')
 
     @staticmethod
     def restore_config_legacy(config_map: Dict[str, ConfigVar], config_map_backup: Dict[str, ConfigVar]):

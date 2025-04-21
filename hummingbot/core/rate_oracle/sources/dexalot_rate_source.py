@@ -31,8 +31,7 @@ class DexalotRateSource(RateSourceBase):
                     continue
 
                 if Decimal(str(record["low"])) > 0 and Decimal(str(record["high"])) > 0:
-                    results[pair] = (Decimal(str(record["low"])) +
-                                     Decimal(str(record["high"]))) / Decimal("2")
+                    results[pair] = (Decimal(str(record["low"])) + Decimal(str(record["high"]))) / Decimal("2")
         except Exception:
             self.logger().exception(
                 msg="Unexpected error while retrieving rates from Dexalot. Check the log file for more info.",
@@ -44,7 +43,7 @@ class DexalotRateSource(RateSourceBase):
             self._exchange = self._build_dexalot_connector_without_private_keys()
 
     @staticmethod
-    def _build_dexalot_connector_without_private_keys() -> 'DexalotExchange':
+    def _build_dexalot_connector_without_private_keys() -> "DexalotExchange":
         from hummingbot.client.hummingbot_application import HummingbotApplication
         from hummingbot.connector.exchange.dexalot.dexalot_exchange import DexalotExchange
 
@@ -54,7 +53,7 @@ class DexalotRateSource(RateSourceBase):
         return DexalotExchange(
             client_config_map=client_config_map,
             dexalot_api_key="",
-            dexalot_api_secret="13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930", # noqa: mock
+            dexalot_api_secret="13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930",  # noqa: mock
             trading_pairs=[],
             trading_required=False,
         )

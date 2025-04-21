@@ -106,9 +106,5 @@ class Security:
     @classmethod
     def api_keys(cls, connector_name: str) -> Dict[str, Optional[str]]:
         connector_config = cls.decrypted_value(connector_name)
-        keys = (
-            api_keys_from_connector_config_map(connector_config)
-            if connector_config is not None
-            else {}
-        )
+        keys = api_keys_from_connector_config_map(connector_config) if connector_config is not None else {}
         return keys
