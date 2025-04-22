@@ -458,6 +458,9 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             trading_pairs=[self.trading_pair],
         )
 
+        exchange._data_source._is_trading_account_initialized = True
+        exchange._data_source._is_timeout_height_initialized = True
+        exchange._data_source._client.timeout_height = 0
         exchange._data_source._query_executor = ProgrammableQueryExecutor()
         exchange._data_source._spot_market_and_trading_pair_map = bidict({self.market_id: self.trading_pair})
         exchange._data_source._derivative_market_and_trading_pair_map = bidict()
@@ -680,7 +683,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             "spotOrders": [
                 {
                     "status": "Booked",
-                    "orderHash": base64.b64encode(bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                    "orderHash": order.exchange_order_id,
                     "cid": order.client_order_id,
                     "order": {
                         "marketId": self.market_id,
@@ -720,7 +723,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             "spotOrders": [
                 {
                     "status": "Cancelled",
-                    "orderHash": base64.b64encode(bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                    "orderHash": order.exchange_order_id,
                     "cid": order.client_order_id,
                     "order": {
                         "marketId": self.market_id,
@@ -760,7 +763,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             "spotOrders": [
                 {
                     "status": "Matched",
-                    "orderHash": base64.b64encode(bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                    "orderHash": order.exchange_order_id,
                     "cid": order.client_order_id,
                     "order": {
                         "marketId": self.market_id,
@@ -806,7 +809,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                     "fee": str(int(
                         self.expected_fill_fee.flat_fees[0].amount * Decimal(f"1e{self.quote_decimals + 18}")
                     )),
-                    "orderHash": base64.b64encode(bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                    "orderHash": order.exchange_order_id,
                     "feeRecipientAddress": self.portfolio_account_injective_address,
                     "cid": order.client_order_id,
                     "tradeId": self.expected_fill_trade_id,
@@ -903,15 +906,22 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.assertEqual(2, len(self.exchange.in_flight_orders))
 
         self.assertIn(buy_order_to_create_in_flight.client_order_id, self.exchange.in_flight_orders)
+        real_buy_order = self.exchange.in_flight_orders[buy_order_to_create_in_flight.client_order_id]
         self.assertIn(sell_order_to_create_in_flight.client_order_id, self.exchange.in_flight_orders)
+        real_sell_order = self.exchange.in_flight_orders[sell_order_to_create_in_flight.client_order_id]
+
+        for i in range(3):
+            if (not real_buy_order.exchange_order_id_update_event.is_set()
+                    or not real_sell_order.exchange_order_id_update_event.is_set()):
+                await asyncio.sleep(0.5)
 
         self.assertEqual(
             buy_order_to_create_in_flight.creation_transaction_hash,
-            self.exchange.in_flight_orders[buy_order_to_create_in_flight.client_order_id].creation_transaction_hash
+            real_buy_order.creation_transaction_hash
         )
         self.assertEqual(
             sell_order_to_create_in_flight.creation_transaction_hash,
-            self.exchange.in_flight_orders[sell_order_to_create_in_flight.client_order_id].creation_transaction_hash
+            real_sell_order.creation_transaction_hash
         )
 
     async def test_batch_order_create_with_one_market_order(self):
@@ -1000,15 +1010,22 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.assertEqual(2, len(self.exchange.in_flight_orders))
 
         self.assertIn(buy_order_to_create_in_flight.client_order_id, self.exchange.in_flight_orders)
+        real_buy_order = self.exchange.in_flight_orders[buy_order_to_create_in_flight.client_order_id]
         self.assertIn(sell_order_to_create_in_flight.client_order_id, self.exchange.in_flight_orders)
+        real_sell_order = self.exchange.in_flight_orders[sell_order_to_create_in_flight.client_order_id]
+
+        for i in range(3):
+            if (not real_buy_order.exchange_order_id_update_event.is_set()
+                    or not real_sell_order.exchange_order_id_update_event.is_set()):
+                await asyncio.sleep(0.5)
 
         self.assertEqual(
             buy_order_to_create_in_flight.creation_transaction_hash,
-            self.exchange.in_flight_orders[buy_order_to_create_in_flight.client_order_id].creation_transaction_hash
+            real_buy_order.creation_transaction_hash
         )
         self.assertEqual(
             sell_order_to_create_in_flight.creation_transaction_hash,
-            self.exchange.in_flight_orders[sell_order_to_create_in_flight.client_order_id].creation_transaction_hash
+            real_sell_order.creation_transaction_hash
         )
 
     @aioresponses()
@@ -1038,6 +1055,10 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         order = self.exchange.in_flight_orders[order_id]
 
+        for i in range(3):
+            if not order.exchange_order_id_update_event.is_set():
+                await asyncio.sleep(0.5)
+
         self.assertEqual(response["txhash"], order.creation_transaction_hash)
 
     @aioresponses()
@@ -1066,6 +1087,10 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.assertIn(order_id, self.exchange.in_flight_orders)
 
         order = self.exchange.in_flight_orders[order_id]
+
+        for i in range(3):
+            if order.current_state == OrderState.PENDING_CREATE:
+                await asyncio.sleep(0.5)
 
         self.assertEqual(response["txhash"], order.creation_transaction_hash)
 
@@ -1110,6 +1135,10 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.assertIn(order_id, self.exchange.in_flight_orders)
 
         order = self.exchange.in_flight_orders[order_id]
+
+        for i in range(3):
+            if not order.exchange_order_id_update_event.is_set():
+                await asyncio.sleep(0.5)
 
         self.assertEqual(response["txhash"], order.creation_transaction_hash)
         self.assertEqual(expected_price_for_volume, order.price)
@@ -1156,6 +1185,10 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         order = self.exchange.in_flight_orders[order_id]
 
+        for i in range(3):
+            if order.current_state == OrderState.PENDING_CREATE:
+                await asyncio.sleep(0.5)
+
         self.assertEqual(response["txhash"], order.creation_transaction_hash)
         self.assertEqual(expected_price_for_volume, order.price)
 
@@ -1180,6 +1213,10 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         order_id = self.place_buy_order()
         await asyncio.wait_for(request_sent_event.wait(), timeout=1)
+
+        for i in range(3):
+            if order_id in self.exchange.in_flight_orders:
+                await asyncio.sleep(0.5)
 
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
 
@@ -1223,6 +1260,10 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         order_id = self.place_buy_order()
         await asyncio.wait_for(request_sent_event.wait(), timeout=1)
+
+        for i in range(3):
+            if order_id in self.exchange.in_flight_orders:
+                await asyncio.sleep(0.5)
 
         self.assertNotIn(order_id_for_invalid_order, self.exchange.in_flight_orders)
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
@@ -1292,6 +1333,9 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.exchange.batch_order_cancel(orders_to_cancel=orders_to_cancel)
 
         await asyncio.wait_for(request_sent_event.wait(), timeout=10)
+        for i in range(3):
+            if buy_order_to_cancel.current_state in [OrderState.PENDING_CREATE, OrderState.CREATED, OrderState.OPEN]:
+                await asyncio.sleep(0.5)
 
         self.assertIn(buy_order_to_cancel.client_order_id, self.exchange.in_flight_orders)
         self.assertIn(sell_order_to_cancel.client_order_id, self.exchange.in_flight_orders)
@@ -1622,7 +1666,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                     derivative_markets=[],
                     subaccount_ids=[self.portfolio_account_subaccount_id]
                 ),
-                timeout=5,
+                timeout=1,
             )
         except asyncio.CancelledError:
             pass
@@ -1727,7 +1771,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         response = self.network_status_request_successful_mock_response
         self.exchange._data_source._query_executor._ping_responses.put_nowait(response)
 
-        network_status = await asyncio.wait_for(self.exchange.check_network(), timeout=10)
+        network_status = await asyncio.wait_for(self.exchange.check_network(), timeout=1)
 
         self.assertEqual(NetworkStatus.CONNECTED, network_status)
 
@@ -2161,6 +2205,10 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.exchange._data_source._query_executor._get_tx_responses.put_nowait(transaction_response)
 
         await asyncio.wait_for(self.exchange._check_orders_creation_transactions(), timeout=1)
+
+        for i in range(3):
+            if order.current_state == OrderState.PENDING_CREATE:
+                await asyncio.sleep(0.5)
 
         self.assertEqual(0, len(self.buy_order_created_logger.event_log))
         failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
