@@ -107,8 +107,12 @@ class DexalotSpotCandles(CandlesBase):
 
     def _parse_rest_candles(self, data: dict, end_time: Optional[int] = None) -> List[List[float]]:
         if data is not None and len(data) > 0:
-            return [[self.ensure_timestamp_in_seconds(datetime.strptime(row["date"], '%Y-%m-%dT%H:%M:%S.%fZ').timestamp()), row["open"], row["high"], row["low"], row["close"],
-                     row["volume"],
+            return [[self.ensure_timestamp_in_seconds(datetime.strptime(row["date"], '%Y-%m-%dT%H:%M:%S.%fZ').timestamp()),
+                     row["open"] if row["open"] != 'None' else None,
+                     row["high"] if row["high"] != 'None' else None,
+                     row["low"] if row["low"] != 'None' else None,
+                     row["close"] if row["close"] != 'None' else None,
+                     row["volume"] if row["volume"] != 'None' else None,
                      0., 0., 0., 0.] for row in data]
 
     def ws_subscription_payload(self):
