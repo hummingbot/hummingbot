@@ -15,16 +15,31 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
 from hummingbot.connector.exchange.gate_io.gate_io_exchange import GateIoExchange
 from hummingbot.connector.exchange.bybit.bybit_exchange import BybitExchange
+from hummingbot.connector.exchange.bing_x.bing_x_exchange import BingXExchange
+from hummingbot.connector.exchange.kucoin.kucoin_exchange import KucoinExchange
+from hummingbot.connector.exchange.bitmart.bitmart_exchange import BitmartExchange
+from hummingbot.connector.exchange.okx.okx_exchange import OkxExchange
+from hummingbot.connector.exchange.mexc.mexc_exchange import MexcExchange
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.fluxlayer_api.get_chain_gas import get_gas_prices, get_btc_fee
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from hummingbot.connector.exchange.gate_io.gate_io_api_order_book_data_source import GateIoAPIOrderBookDataSource
 from hummingbot.connector.exchange.bybit.bybit_api_order_book_data_source import BybitAPIOrderBookDataSource
+from hummingbot.connector.exchange.bing_x.bing_x_api_order_book_data_source import BingXAPIOrderBookDataSource
+from hummingbot.connector.exchange.kucoin.kucoin_api_order_book_data_source import KucoinAPIOrderBookDataSource
+from hummingbot.connector.exchange.bitmart.bitmart_api_order_book_data_source import BitmartAPIOrderBookDataSource
+from hummingbot.connector.exchange.okx.okx_api_order_book_data_source import OkxAPIOrderBookDataSource
+from hummingbot.connector.exchange.mexc.mexc_api_order_book_data_source import MexcAPIOrderBookDataSource
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.connector.exchange.binance import binance_constants as BINANCE_CONSTANTS
 from hummingbot.connector.exchange.gate_io import gate_io_constants as GATE_IO_CONSTANTS
+from hummingbot.connector.exchange.bing_x import bing_x_constants as BING_X_CONSTANTS
+from hummingbot.connector.exchange.kucoin import kucoin_constants as KUCOIN_CONSTANTS
+from hummingbot.connector.exchange.bitmart import bitmart_constants as BITMART_CONSTANTS
+from hummingbot.connector.exchange.okx import okx_constants as OKX_CONSTANTS
+from hummingbot.connector.exchange.mexc import mexc_constants as MEXC_CONSTANTS
 from hummingbot.connector.exchange.bybit import bybit_constants as BYBIT_CONSTANTS
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.config.client_config_map import ClientConfigMap
@@ -63,6 +78,59 @@ EXCHANGES = {
         "required_params": {
             "bybit_api_key": "",
             "bybit_api_secret": ""
+        }
+    },
+    "bing_x": {
+        "exchange_class": BingXExchange,
+        "data_source_class": BingXAPIOrderBookDataSource,
+        "constants": BING_X_CONSTANTS,
+        "proxy": "http://127.0.0.1:33210",
+        "required_params": {
+            "bingx_api_key": "",
+            "bingx_api_secret": ""
+        }
+    },
+    "kucoin": {
+        "exchange_class": KucoinExchange,
+        "data_source_class": KucoinAPIOrderBookDataSource,
+        "constants": KUCOIN_CONSTANTS,
+        "proxy": "http://127.0.0.1:33210",
+        "required_params": {
+            "kucoin_api_key": "",
+            "kucoin_passphrase": "",
+            "kucoin_secret_key": ""
+        }
+    },
+    "bitmart": {
+        "exchange_class": BitmartExchange,
+        "data_source_class": BitmartAPIOrderBookDataSource,
+        "constants": BITMART_CONSTANTS,
+        "proxy": "http://127.0.0.1:33210",
+        "required_params": {
+            "bitmart_api_key": "",
+            "bitmart_secret_key": "",
+            "bitmart_memo": "",
+        }
+    },
+    "okx": {
+        "exchange_class": OkxExchange,
+        "data_source_class": OkxAPIOrderBookDataSource,
+        "constants": OKX_CONSTANTS,
+        "proxy": "http://127.0.0.1:33210",
+        "required_params": {
+            "okx_api_key": "",
+            "okx_secret_key": "",
+            "okx_passphrase": "",
+        }
+    },
+    "mexc": {
+        "exchange_class": MexcExchange,
+        "data_source_class": MexcAPIOrderBookDataSource,
+        "constants": MEXC_CONSTANTS,
+        "proxy": "http://127.0.0.1:33210",
+        "required_params": {
+            "mexc_api_key": "",
+            "mexc_api_secret": ""
         }
     }
 }
@@ -235,7 +303,7 @@ def calculate_gas_fee(chain: str):
         gas_prices = get_gas_prices(chain)
         return gas_prices["base_fee"] * 21000 / 1e9
 
-async def rfq_demo(
+async def get_single_exchange_rfq(
     src_chain: str,
     src_token: str,
     src_amount: float,
@@ -243,7 +311,7 @@ async def rfq_demo(
     tar_token: str,
     exchange_name: str = "binance"
 ):
-    """计算跨链交易后的数量"""
+    """获取单个交易所的RFQ结果"""
     try:
         # 解析src链和target链信息
         src_chain_name, src_chain_token = parse_chain_token(src_chain)
@@ -253,14 +321,14 @@ async def rfq_demo(
         src_price_orderbook = await get_token_price(exchange_name, src_chain_token)
         await cleanup()
         if not src_price_orderbook or not src_price_orderbook['asks']:
-            return {"error": f"Failed to get price for source token {src_chain_token}"}
+            return None
             
         src_price = float(src_price_orderbook['asks'][0][0])
         
         tar_price_orderbook = await get_token_price(exchange_name, tar_chain_token)
         await cleanup()
         if not tar_price_orderbook or not tar_price_orderbook['asks']:
-            return {"error": f"Failed to get price for target token {tar_chain_token}"}
+            return None
             
         tar_recent_price = float(tar_price_orderbook['asks'][0][0])
         
@@ -300,24 +368,57 @@ async def rfq_demo(
             "tar_price": fluxlayer_price,
             "exchange": exchange_name
         }
-        
     except Exception as e:
-        return {"error": str(e)}
+        _logger.error(f"Error in {exchange_name} RFQ: {e}")
+        return None
     finally:
-        # 在所有操作完成后清理资源
         await cleanup()
+
+async def get_best_rfq(
+    src_chain: str,
+    src_token: str,
+    src_amount: float,
+    tar_chain: str,
+    tar_token: str
+):
+    """并行查询多个交易所并返回最优报价"""
+    # 获取所有交易所的RFQ结果
+    tasks = [
+        get_single_exchange_rfq(src_chain, src_token, src_amount, tar_chain, tar_token, exchange)
+        for exchange in EXCHANGES.keys()
+    ]
+    
+    results = await asyncio.gather(*tasks)
+    
+    # 过滤掉失败的结果
+    valid_results = [r for r in results if r is not None]
+    
+    if not valid_results:
+        return {"error": "Failed to get RFQ from all exchanges"}
+    
+    # 找出tar_amount最大的结果
+    best_result = max(valid_results, key=lambda x: x["tar_amount"])
+    
+    # 添加所有交易所的报价信息
+    best_result["all_exchanges"] = {
+        r["exchange"]: {
+            "tar_amount": r["tar_amount"],
+            "tar_price": r["tar_price"]
+        } for r in valid_results
+    }
+    
+    return best_result
 
 # # 运行入口
 # if __name__ == "__main__":
 #     try:
 #         # 示例调用
-#         result = asyncio.run(rfq_demo(
+#         result = asyncio.run(get_best_rfq(
 #             src_chain="ETH_ETH",
 #             src_token="ETH",
 #             src_amount=1.0,
 #             tar_chain="BTC_BTC",
-#             tar_token="BTC",
-#             exchange_name="binance"  # 可选：binance, gate_io, bybit
+#             tar_token="BTC"
 #         ))
 #         print(result)
 #     except KeyboardInterrupt:
