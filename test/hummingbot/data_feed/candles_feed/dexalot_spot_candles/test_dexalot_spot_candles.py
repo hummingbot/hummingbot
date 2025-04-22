@@ -56,7 +56,7 @@ class TestDexalotSpotCandles(TestCandlesBase):
             {'date': '2025-01-11T17:25:00.000Z', 'low': '0.834293', 'high': '0.8343', 'open': '0.834293',
              'close': '0.8343',
              'volume': '74.858252584002608541', 'change': '0.00', 'active': True, 'updated': True}],
-            'type': 'chartSnapShot',
+            'type': 'liveCandle',
             'pair': 'ALOT/USDC'}
 
     def get_candles_ws_data_mock_2(self):
@@ -64,7 +64,7 @@ class TestDexalotSpotCandles(TestCandlesBase):
             {'date': '2025-01-11T17:30:00.000Z', 'low': '0.834293', 'high': '0.8343', 'open': '0.834293',
              'close': '0.8343',
              'volume': '74.858252584002608541', 'change': '0.00', 'active': True, 'updated': True}],
-            'type': 'chartSnapShot',
+            'type': 'liveCandle',
             'pair': 'ALOT/USDC'}
 
     @staticmethod
