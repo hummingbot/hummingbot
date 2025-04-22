@@ -146,8 +146,25 @@ class StatArb(ControllerBase):
         return actions
 
     def get_executors_to_reduce_position_on_opposite_signal(self) -> List[ExecutorAction]:
-        # TODO: implement
-        return []
+        if self.processed_data["signal"] == 1:
+            dominant_side, hedge_side = TradeType.SELL, TradeType.BUY
+        elif self.processed_data["signal"] == -1:
+            dominant_side, hedge_side = TradeType.BUY, TradeType.SELL
+        else:
+            return []
+        # Get executors to stop
+        dominant_active_executors_to_stop = self.filter_executors(self.executors_info, filter_func=lambda e: e.connector_name == self.config.connector_pair_dominant.connector_name and e.trading_pair == self.config.connector_pair_dominant.trading_pair and e.side == dominant_side)
+        hedge_active_executors_to_stop = self.filter_executors(self.executors_info, filter_func=lambda e: e.connector_name == self.config.connector_pair_hedge.connector_name and e.trading_pair == self.config.connector_pair_hedge.trading_pair and e.side == hedge_side)
+        stop_actions = [StopExecutorAction(controller_id=self.config.id, executor_id=executor.id, keep_position=False) for executor in dominant_active_executors_to_stop + hedge_active_executors_to_stop]
+
+        # Get order executors to reduce positions
+        reduce_actions: List[ExecutorAction] = []
+        for position in self.positions_held:
+            if position.connector_name == self.config.connector_pair_dominant.connector_name and position.trading_pair == self.config.connector_pair_dominant.trading_pair and position.side == dominant_side:
+                reduce_actions.extend(self.get_executors_to_reduce_position(position))
+            elif position.connector_name == self.config.connector_pair_hedge.connector_name and position.trading_pair == self.config.connector_pair_hedge.trading_pair and position.side == hedge_side:
+                reduce_actions.extend(self.get_executors_to_reduce_position(position))
+        return stop_actions + reduce_actions
 
     def get_executors_to_keep_position(self) -> List[ExecutorAction]:
         stop_actions: List[ExecutorAction] = []
@@ -264,8 +281,8 @@ class StatArb(ControllerBase):
         dominant_price, hedge_price = self.get_pairs_prices()
 
         # Get current positions stats by signal
-        positions_dominant = next((position for position in self.positions_held if position.connector_name == self.config.connector_pair_dominant.connector_name and position.trading_pair == self.config.connector_pair_dominant.trading_pair and position.side == dominant_side), None)
-        positions_hedge = next((position for position in self.positions_held if position.connector_name == self.config.connector_pair_hedge.connector_name and position.trading_pair == self.config.connector_pair_hedge.trading_pair and position.side == hedge_side), None)
+        positions_dominant = next((position for position in self.positions_held if position.connector_name == self.config.connector_pair_dominant.connector_name and position.trading_pair == self.config.connector_pair_dominant.trading_pair and (position.side == dominant_side or dominant_side is None)), None)
+        positions_hedge = next((position for position in self.positions_held if position.connector_name == self.config.connector_pair_hedge.connector_name and position.trading_pair == self.config.connector_pair_hedge.trading_pair and (position.side == hedge_side or hedge_side is None)), None)
         # Get position stats
         position_dominant_quote = positions_dominant.amount_quote if positions_dominant else Decimal("0")
         position_hedge_quote = positions_hedge.amount_quote if positions_hedge else Decimal("0")
@@ -432,7 +449,7 @@ class StatArb(ControllerBase):
         status_lines.append(f"""
 Dominant Pair: {self.config.connector_pair_dominant} | Hedge Pair: {self.config.connector_pair_hedge} |
 Timeframe: {self.config.interval} | Lookback Period: {self.config.lookback_period} | Entry Threshold: {self.config.entry_threshold}
-Theoretical Dominant: {self.processed_data['theoretical_dominant_quote']} | Theoretical Hedge: {self.processed_data['theoretical_hedge_quote']}
+Theoretical Dominant: {self.theoretical_dominant_quote} | Theoretical Hedge: {self.theoretical_hedge_quote}
 Position Dominant: {self.processed_data['position_dominant_quote']} | Position Hedge: {self.processed_data['position_hedge_quote']} | Imbalance: {self.processed_data['imbalance']} | Imbalance Scaled: {self.processed_data['imbalance_scaled_pct']} %
 Active Orders Dominant: {len(self.processed_data['executors_dominant_placed'])} | Active Orders Hedge: {len(self.processed_data['executors_hedge_placed'])} | Active Orders Dominant Filled: {len(self.processed_data['executors_dominant_filled'])} | Active Orders Hedge Filled: {len(self.processed_data['executors_hedge_filled'])}
 
