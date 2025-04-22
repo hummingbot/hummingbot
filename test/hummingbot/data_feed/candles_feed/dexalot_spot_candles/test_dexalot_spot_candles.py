@@ -33,9 +33,9 @@ class TestDexalotSpotCandles(TestCandlesBase):
         self.resume_test_event = asyncio.Event()
 
     def get_fetch_candles_data_mock(self):
-        return [[1734619800.0, 'None', 'None', 'None', 'None', 'None', 0.0, 0.0, 0.0, 0.0],
+        return [[1734619800.0, None, None, None, None, None, 0.0, 0.0, 0.0, 0.0],
                 [1734620100.0, '1.0128', '1.0128', '1.0128', '1.0128', '4.94', 0.0, 0.0, 0.0, 0.0],
-                [1734620400.0, 'None', 'None', 'None', 'None', 'None', 0.0, 0.0, 0.0, 0.0],
+                [1734620400.0, None, None, None, None, None, 0.0, 0.0, 0.0, 0.0],
                 [1734620700.0, '1.0074', '1.0073', '1.0074', '1.0073', '68.91', 0.0, 0.0, 0.0,
                  0.0]]
 
@@ -53,7 +53,7 @@ class TestDexalotSpotCandles(TestCandlesBase):
 
     def get_candles_ws_data_mock_1(self):
         return {'data': [
-            {'date': '2025-01-11T17:25:00.000Z', 'low': '0.834293', 'high': '0.8343', 'open': '0.834293',
+            {'date': '2025-01-11T17:25:00Z', 'low': '0.834293', 'high': '0.8343', 'open': '0.834293',
              'close': '0.8343',
              'volume': '74.858252584002608541', 'change': '0.00', 'active': True, 'updated': True}],
             'type': 'liveCandle',
@@ -61,7 +61,7 @@ class TestDexalotSpotCandles(TestCandlesBase):
 
     def get_candles_ws_data_mock_2(self):
         return {'data': [
-            {'date': '2025-01-11T17:30:00.000Z', 'low': '0.834293', 'high': '0.8343', 'open': '0.834293',
+            {'date': '2025-01-11T17:30:00Z', 'low': '0.834293', 'high': '0.8343', 'open': '0.834293',
              'close': '0.8343',
              'volume': '74.858252584002608541', 'change': '0.00', 'active': True, 'updated': True}],
             'type': 'liveCandle',
