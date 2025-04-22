@@ -96,7 +96,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             bidict({f"{self.base_asset}-PERP": self.trading_pair}))
 
     def test_get_related_limits(self):
-        self.assertEqual(21, len(self.throttler._rate_limits))
+        self.assertEqual(17, len(self.throttler._rate_limits))
 
         rate_limit, related_limits = self.throttler.get_related_limits(CONSTANTS.ENDPOINTS["limits"]["non_matching"][4])
         self.assertIsNotNone(rate_limit, "Rate limit for TEST_POOL_ID is None.")  # Ensure rate_limit is not None
@@ -1618,8 +1618,9 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertIn(order.client_order_id, self.exchange._order_tracker.lost_orders)
         self.assertEqual(0, len(self.order_cancelled_logger.event_log))
 
+    @patch("hummingbot.connector.derivative.derive_perpetual.derive_perpetual_derivative.DerivePerpetualDerivative._update_positions")
     @aioresponses()
-    def test_user_stream_update_for_order_full_fill(self, mock_api):
+    def test_user_stream_update_for_order_full_fill(self, mock_api, mock_positions):
         self.exchange._set_current_timestamp(1640780000)
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -1639,6 +1640,17 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         event_messages = []
         if trade_event:
             event_messages.append(trade_event)
+            self._simulate_trading_rules_initialized()
+
+            url = web_utils.private_rest_url(
+                CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain
+            )
+            regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+            positions = self._get_position_risk_api_endpoint_single_position_list()
+            mock_positions.post(regex_url, body=json.dumps(positions))
+
+            self.async_run_with_timeout(self.exchange._update_positions())
         if order_event:
             event_messages.append(order_event)
         event_messages.append(asyncio.CancelledError)
@@ -2164,7 +2176,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         seconds_counter_mock.side_effect = [0, 0, 0]
 
         self.exchange._time_synchronizer.clear_time_offset_ms_samples()
-        url = web_utils.private_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.PING_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         response = {"result": 1640000003000}
@@ -2181,7 +2193,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     def test_update_time_synchronizer_failure_is_logged(self, mock_api):
         request_sent_event = asyncio.Event()
 
-        url = web_utils.private_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.PING_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         response = {"code": -1121, "msg": "Dummy error"}
@@ -2196,7 +2208,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     @aioresponses()
     def test_update_time_synchronizer_raises_cancelled_error(self, mock_api):
-        url = web_utils.private_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.PING_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url,
@@ -2491,6 +2503,81 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 f"at {Decimal('10000')}."
             )
         )
+
+    @aioresponses()
+    async def test_update_order_fills_from_trades_successful(self, req_mock):
+        self.exchange._set_current_timestamp(1640780000)
+        self._simulate_trading_rules_initialized()
+        self.exchange._last_poll_timestamp = 0
+
+        self.exchange._set_current_timestamp(1640780000)
+
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="8886774",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.SELL,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            position_action=PositionAction.OPEN,
+        )
+        order = self.exchange.in_flight_orders["OID1"]
+
+        trades = {
+            "result": {
+                'subaccount_id': 37799,
+                'trades': [
+                    {
+                        'subaccount_id': 37799,
+                        'order_id': "8886774",
+                        'instrument_name': f"{self.base_asset}-PERP",
+                        'direction': 'sell', 'label': "8886774",
+                        'quote_id': None,
+                        'trade_id': "698759",
+                        'timestamp': 1681222254710,
+                        'mark_price': '10000',
+                        'index_price': '10000',
+                        'trade_price': '10000', 'trade_amount': "0.5",
+                        'liquidity_role': 'maker',
+                        'realized_pnl': '0',
+                        'realized_pnl_excl_fees': '0',
+                        'is_transfer': False,
+                        'tx_status': 'settled',
+                        'trade_fee': "0",
+                        'tx_hash': '0xad4e10abb398a83955a80d6c072d0064eeecb96cceea1501411b02415b522d30'  # noqa: mock
+                    }
+                ]
+            }
+        }
+
+        url = web_utils.private_rest_url(
+            CONSTANTS.MY_TRADES_PATH_URL, domain=self.domain
+        )
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        req_mock.get(regex_url, body=json.dumps(trades))
+        await self.exchange._all_trade_updates_for_order(order)
+
+        in_flight_orders = self.exchange._order_tracker.active_orders
+
+        self.assertTrue("OID1" in in_flight_orders)
+
+        self.assertEqual("OID1", in_flight_orders["OID1"].client_order_id)
+        self.assertEqual(f"{self.base_asset}-{self.quote_asset}", in_flight_orders["OID1"].trading_pair)
+        self.assertEqual(OrderType.LIMIT, in_flight_orders["OID1"].order_type)
+        self.assertEqual(TradeType.SELL, in_flight_orders["OID1"].trade_type)
+        self.assertEqual(10000, in_flight_orders["OID1"].price)
+        self.assertEqual(1, in_flight_orders["OID1"].amount)
+        self.assertEqual("8886774", in_flight_orders["OID1"].exchange_order_id)
+        self.assertEqual(OrderState.PENDING_CREATE, in_flight_orders["OID1"].current_state)
+        self.assertEqual(1, in_flight_orders["OID1"].leverage)
+        self.assertEqual(PositionAction.OPEN, in_flight_orders["OID1"].position)
+
+        self.assertEqual(0.5, in_flight_orders["OID1"].executed_amount_base)
+        self.assertEqual(5000, in_flight_orders["OID1"].executed_amount_quote)
+
+        self.assertTrue("698759" in in_flight_orders["OID1"].order_fills.keys())
 
     @aioresponses()
     def test_update_trade_history_triggers_filled_event(self, mock_api):
