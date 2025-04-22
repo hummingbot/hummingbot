@@ -8,13 +8,9 @@ from typing import Any, Dict, Final, List, Optional, cast
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 from xrpl.asyncio.account import get_next_valid_seq_number
 from xrpl.asyncio.clients import Client, XRPLRequestFailureException
+from xrpl.asyncio.clients.client import get_network_id_and_build_version
 from xrpl.asyncio.transaction import XRPLReliableSubmissionException
-from xrpl.asyncio.transaction.main import (
-    _LEDGER_OFFSET,
-    _calculate_fee_per_transaction_type,
-    _get_network_id_and_build_version,
-    _tx_needs_networkID,
-)
+from xrpl.asyncio.transaction.main import _LEDGER_OFFSET, _calculate_fee_per_transaction_type, _tx_needs_networkID
 from xrpl.models import Request, Response, Transaction, TransactionMetadata, Tx
 from xrpl.models.requests.request import LookupByLedgerRequest, RequestMethod
 from xrpl.models.utils import require_kwargs_on_init
@@ -198,7 +194,7 @@ async def autofill(
     try:
         transaction_json = transaction.to_dict()
         if not client.network_id:
-            await _get_network_id_and_build_version(client)
+            await get_network_id_and_build_version(client)
         if "network_id" not in transaction_json and _tx_needs_networkID(client):
             transaction_json["network_id"] = client.network_id
         if "sequence" not in transaction_json:
@@ -309,7 +305,7 @@ class XRPLConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
 
     wss_node_url: str = Field(
@@ -319,7 +315,7 @@ class XRPLConfigMap(BaseConnectorConfigMap):
             "is_secure": False,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
 
     wss_second_node_url: str = Field(
@@ -329,7 +325,7 @@ class XRPLConfigMap(BaseConnectorConfigMap):
             "is_secure": False,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
 
     wss_third_node_url: str = Field(
@@ -339,7 +335,7 @@ class XRPLConfigMap(BaseConnectorConfigMap):
             "is_secure": False,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
 
     custom_markets: Dict[str, XRPLMarket] = Field(
@@ -353,16 +349,6 @@ class XRPLConfigMap(BaseConnectorConfigMap):
         },
     )
     model_config = ConfigDict(title="xrpl")
-
-    @field_validator("xrpl_secret_key", mode="before")
-    @classmethod
-    def validate_xrpl_secret_key(cls, v: str):
-        pattern = r"^s[A-HJ-NP-Za-km-z1-9]*$"
-        error_message = "Invalid XRPL wallet secret key. Secret key should be a base 58 string and start with 's'."
-        ret = validate_with_regex(v, pattern, error_message)
-        if ret is not None:
-            raise ValueError(ret)
-        return v
 
     @field_validator("wss_node_url", mode="before")
     @classmethod
