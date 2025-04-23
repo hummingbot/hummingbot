@@ -31,25 +31,30 @@ def get_btc_fee():
 
 def get_gas_prices(chain_name):
     config = CHAIN_CONFIG.get(chain_name, {})
+    if config == {}:
+        return {}
     params = {
         "module": "gastracker",
         "action": "gasoracle",
         "apikey": "R7R78C3U98KZ2MVQQE5XGRG1VCVFQSAYAU"
     }
     if chain_name == "Ethereum":
-        response = requests.get(config['explorer'], params=params)
-        if response.status_code == 200:
-            data = response.json()
-            if data["status"] == "1":
-                result = data["result"]
-                return {
-                    "base_fee": result["ProposeGasPrice"],
-                    "priority_fee": result["FastGasPrice"]
-                }
+        try:
+            response = requests.get(config['explorer'], params=params)
+            if response.status_code == 200:
+                data = response.json()
+                if data["status"] == "1":
+                    result = data["result"]
+                    return {
+                        "base_fee": result["ProposeGasPrice"],
+                        "priority_fee": result["FastGasPrice"]
+                    }
+                else:
+                    return f"Error: {data['message']}"
             else:
-                return f"Error: {data['message']}"
-        else:
-            return f"HTTP Error: {response.status_code}"
+                return f"HTTP Error: {response.status_code}"
+        except Exception as e:
+            return f"HTTP Error: {e}"
     else:
         # 使用Web3直接估算
         w3 = Web3(Web3.HTTPProvider(config["rpc"]))

@@ -230,6 +230,13 @@ async def cleanup():
 
 def calculate_price_impact(asks, budget_usdt=10000):
     """计算指定预算对价格的影响"""
+    if asks is None or len(asks) == 0:
+        return {
+            'final_price': None,
+            'total_amount': 0,
+            'average_price': None,
+            'price_impact': 0
+        }
     remaining_budget = budget_usdt
     total_amount = 0
     last_price = None
@@ -261,7 +268,7 @@ def calculate_price_impact(asks, budget_usdt=10000):
         'final_price': last_price,
         'total_amount': total_amount,
         'average_price': budget_usdt / total_amount if total_amount > 0 else None,
-        'price_impact': (last_price - float(asks[0][0])) / float(asks[0][0]) * 100
+        'price_impact': (last_price - float(asks[0][0])) / float(asks[0][0]) * 100 if last_price is not None else 0
     }
 
 def parse_chain_token(chain_token: str):
