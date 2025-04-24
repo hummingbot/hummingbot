@@ -390,6 +390,8 @@ async def get_best_rfq(
 ):
     """并行查询多个交易所并返回最优报价"""
     # 获取所有交易所的RFQ结果
+    if src_amount <= 0:
+        return {"error": "src_amount must be greater than 0"}
     tasks = [
         get_single_exchange_rfq(src_chain, src_token, src_amount, tar_chain, tar_token, exchange)
         for exchange in EXCHANGES.keys()
