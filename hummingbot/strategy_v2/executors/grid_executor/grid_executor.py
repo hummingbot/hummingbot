@@ -695,6 +695,7 @@ class GridExecutor(ExecutorBase):
             "position_pnl_quote": self.position_pnl_quote,
             "open_liquidity_placed": self.open_liquidity_placed,
             "close_liquidity_placed": self.close_liquidity_placed,
+            "grid_levels": self.grid_levels,
         }
 
     async def on_start(self):
