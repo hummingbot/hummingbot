@@ -99,6 +99,7 @@ def order_to_call(order):
         "direction": order["direction"],
         "order_type": order["order_type"],
         "reduce_only": order["reduce_only"],
+        "referral_code": order["referral_code"],
         "mmp": False,
         "time_in_force": order["time_in_force"],
         "label": order["label"]
