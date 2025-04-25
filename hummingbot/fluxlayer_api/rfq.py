@@ -355,6 +355,7 @@ async def get_single_exchange_rfq(
         analysis = calculate_price_impact(tar_price_orderbook['asks'], net_value_usdt)
 
         average_price = analysis['average_price']
+        average_price = average_price * 0.001 # add CEX trading fee，default 0.1%
         price_impact = analysis['price_impact']
         if price_impact * 10000 > 10:
             fluxlayer_price = average_price * 1.01
