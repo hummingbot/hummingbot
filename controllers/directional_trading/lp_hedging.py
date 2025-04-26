@@ -48,7 +48,8 @@ class LpHedgingControllerConfig(DirectionalTradingControllerConfigBase):
     pool_address: str = Field(
         default="",
         json_schema_extra={
-            "prompt": "Enter the pool address (e.g. 58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2): ",
+            "prompt": "Enter the pool address "
+            "(e.g. 58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2): ",
             "prompt_on_new": True,
         },
     )
@@ -274,6 +275,8 @@ class LpHedgingController(DirectionalTradingControllerBase):
         self.rebalance_type = RebalanceType.NOT_NEEDED
         self.last_opening_attempt = 0
         self.profitability = Decimal(0)
+        self.cumulative_fees = Decimal(0)
+        self.num_short_adjustments = 0
 
     async def get_pool_info(self):
         self.gw_status = await check_gateway_status(
@@ -375,6 +378,7 @@ class LpHedgingController(DirectionalTradingControllerBase):
         create_actions = []
         signal: int = self.processed_data["signal"]
         if signal != 0 and self.can_create_executor(signal):  # type: ignore
+            self.num_short_adjustments += 1
             price = Decimal(
                 self.market_data_provider.get_price_by_type(  # type: ignore
                     self.config.connector_name,
@@ -450,6 +454,9 @@ class LpHedgingController(DirectionalTradingControllerBase):
             self.hedging_amount = Decimal(0)
             self.current_hedging_usd = Decimal(0)
             self.rebalance_type = RebalanceType.NOT_NEEDED
+            self.position_summary = self.get_position_summary()
+            if self.position_summary:
+                self.cumulative_fees = self.position_summary.cum_fees_quote
             if self.config.use_current_short_size:
                 active_orders = self.market_data_provider.get_connector(
                     self.config.connector_name
@@ -474,7 +481,6 @@ class LpHedgingController(DirectionalTradingControllerBase):
                 # self.logger().info(f"Active orders: {active_orders}")
                 self.logger().debug("Positions held: %s", self.positions_held)
             else:
-                self.position_summary = self.get_position_summary()
                 if self.position_summary:
                     self.hedging_amount = Decimal(self.position_summary.amount)
                     if self.position_summary.side == TradeType.SELL:
@@ -515,7 +521,10 @@ class LpHedgingController(DirectionalTradingControllerBase):
                 abs(self.current_hedging_usd) / self.config.leverage
             )
             self.total_portfolio_value = (
-                self.total_value_usd + self.hedging_pnl + self.calculated_margin
+                self.total_value_usd
+                + self.hedging_pnl
+                + self.calculated_margin
+                - self.cumulative_fees
             )
 
             if self.initial_portfolio_value is None:
@@ -592,7 +601,7 @@ class LpHedgingController(DirectionalTradingControllerBase):
                 current_value=self.total_value_usd,
                 time_period_sec=total_time_running_seconds,
             )
-            if self.initial_total_value_usd and total_time_running_seconds > 3600
+            if self.initial_total_value_usd and total_time_running_seconds > 1
             else (Decimal(0), Decimal(0))
         )
         apr_portfolio, apy_portfolio = (
@@ -601,9 +610,34 @@ class LpHedgingController(DirectionalTradingControllerBase):
                 current_value=self.total_portfolio_value,  # type: ignore
                 time_period_sec=total_time_running_seconds,
             )
-            if self.initial_portfolio_value and total_time_running_seconds > 3600
+            if self.initial_portfolio_value and total_time_running_seconds > 1
             else (Decimal(0), Decimal(0))
         )
+
+        apr_apy_note = ""
+        if total_time_running_seconds < 24 * 3600:
+            apr_apy_note = "(Not enough data to calculate APR / APY)"
+
+        if apr_pool > 1000:
+            apr_pool_percentage = f"{float(apr_pool):.2f}% (unlikely)"
+        else:
+            apr_pool_percentage = f"{float(apr_pool):.2f}%"
+        apr_pool_percentage = f"{apr_pool_percentage} {apr_apy_note}"
+        if apr_portfolio > 1000:
+            apr_portfolio_percentage = f"{float(apr_portfolio):.2f}% (unlikely)"  # type: ignore
+        else:
+            apr_portfolio_percentage = f"{float(apr_portfolio):.2f}%"
+        apr_portfolio_percentage = f"{apr_portfolio_percentage} {apr_apy_note}"
+
+        if apy_pool > 10000:
+            apy_pool_percentage = "Not stable yet"
+        else:
+            apy_pool_percentage = f"{float(apy_pool):.2f}%"
+
+        if apy_portfolio > 10000:
+            apy_portfolio_percentage = "Not stable yet"
+        else:
+            apy_portfolio_percentage = f"{float(apy_portfolio):.2f}%"
 
         # TWOPLACES = Decimal(10) ** -2
 
@@ -639,6 +673,7 @@ class LpHedgingController(DirectionalTradingControllerBase):
             "calculated_margin": self.calculated_margin,
             "divergence": f"{abs(self.current_hedging_usd) - self.base_value_usd}",
             "hedging_pnl": self.hedging_pnl,
+            "short_adjustments": self.num_short_adjustments,
             "initial_portfolio_value": self.initial_portfolio_value,
             "total_portfolio_value": self.total_portfolio_value,
             "difference_between_current_and_initial_portfolio_value": (
@@ -647,10 +682,11 @@ class LpHedgingController(DirectionalTradingControllerBase):
                 else 0
             ),
             "profitability": self.profitability,
-            "apr_pool": f"{apr_pool}%",  # to quantize in 2 decimal places
-            "apy_pool": f"{apy_pool}%",
-            "apr_portfolio": f"{apr_portfolio}%",
-            "apy_portfolio": f"{apy_portfolio}%",
+            "cumulative_fees": self.cumulative_fees,
+            "apr_pool": apr_pool_percentage,  # to quantize in 2 decimal places
+            "apy_pool": apy_pool_percentage,
+            "apr_portfolio": apr_portfolio_percentage,
+            "apy_portfolio": apy_portfolio_percentage,
             "rebalance_type": self.rebalance_type,
             "last_update": last_update_readable,
         }
