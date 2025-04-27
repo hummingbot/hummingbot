@@ -311,7 +311,7 @@ class LpHedgingController(DirectionalTradingControllerBase):
             raise LpHedgingNotReady(exc_description) from e
         except NoPositionAddress as e:
             if self.config.open_pool_if_not_found:
-                if self.market_data_provider.time() - self.last_opening_attempt < 60:
+                if self.market_data_provider.time() - self.last_opening_attempt < 180:
                     raise LpHedgingNotReady(
                         "Pool not found, but opening a new pool is not allowed yet."
                     ) from e
@@ -489,11 +489,10 @@ class LpHedgingController(DirectionalTradingControllerBase):
                         self.position_summary.volume_traded_quote
                     )
                     self.hedging_pnl = self.position_summary.unrealized_pnl_quote
-
-            # if out of range, close position
             self.total_value_usd = self.base_value_usd + self.cur_quote_token_amount
             if self.initial_total_value_usd is None:
                 self.initial_total_value_usd = self.total_value_usd
+
             if self.base_value_usd <= 0:
                 self.logger().error("Base value is 0, check gateway and oracle")
                 return
@@ -527,7 +526,10 @@ class LpHedgingController(DirectionalTradingControllerBase):
                 - self.cumulative_fees
             )
 
-            if self.initial_portfolio_value is None:
+            if self.initial_total_value_usd is None:
+                self.initial_total_value_usd = self.total_value_usd
+
+            if self.initial_portfolio_value is None and self.calculated_margin > 0:
                 self.initial_portfolio_value = self.total_portfolio_value
 
             trading_rules_condition: bool = (
