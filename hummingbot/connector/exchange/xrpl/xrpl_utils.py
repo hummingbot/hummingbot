@@ -10,7 +10,7 @@ from xrpl.asyncio.account import get_next_valid_seq_number
 from xrpl.asyncio.clients import Client, XRPLRequestFailureException
 from xrpl.asyncio.transaction import XRPLReliableSubmissionException
 from xrpl.asyncio.transaction.main import _LEDGER_OFFSET, _calculate_fee_per_transaction_type, _tx_needs_networkID
-from xrpl.models import Request, Response, ServerInfo, Transaction, TransactionMetadata, Tx
+from xrpl.models import Currency, IssuedCurrency, Request, Response, ServerInfo, Transaction, TransactionMetadata, Tx
 from xrpl.models.requests.request import LookupByLedgerRequest, RequestMethod
 from xrpl.models.utils import require_kwargs_on_init
 from xrpl.utils.txn_parser.utils import NormalizedNode, normalize_nodes
@@ -318,6 +318,71 @@ async def _wait_for_final_transaction_outcome(
 
     # outcome is not yet final
     return await _wait_for_final_transaction_outcome(transaction_hash, client, prelim_result, last_ledger_sequence)
+
+
+# AMM Interfaces
+class PoolInfo(BaseModel):
+    address: str
+    base_token_address: Currency
+    quote_token_address: Currency
+    lp_token_address: IssuedCurrency
+    fee_pct: Decimal
+    price: Decimal
+    base_token_amount: Decimal
+    quote_token_amount: Decimal
+    lp_token_amount: Decimal
+    pool_type: Optional[str] = None
+
+
+class GetPoolInfoRequest(BaseModel):
+    network: Optional[str] = None
+    pool_address: str
+
+
+class AddLiquidityRequest(BaseModel):
+    network: Optional[str] = None
+    wallet_address: str
+    pool_address: str
+    base_token_amount: Decimal
+    quote_token_amount: Decimal
+    slippage_pct: Optional[Decimal] = None
+
+
+class AddLiquidityResponse(BaseModel):
+    signature: str
+    fee: Decimal
+    base_token_amount_added: Decimal
+    quote_token_amount_added: Decimal
+
+
+class QuoteLiquidityRequest(BaseModel):
+    network: Optional[str] = None
+    pool_address: str
+    base_token_amount: Decimal
+    quote_token_amount: Decimal
+    slippage_pct: Optional[Decimal] = None
+
+
+class QuoteLiquidityResponse(BaseModel):
+    base_limited: bool
+    base_token_amount: Decimal
+    quote_token_amount: Decimal
+    base_token_amount_max: Decimal
+    quote_token_amount_max: Decimal
+
+
+class RemoveLiquidityRequest(BaseModel):
+    network: Optional[str] = None
+    wallet_address: str
+    pool_address: str
+    percentage_to_remove: Decimal
+
+
+class RemoveLiquidityResponse(BaseModel):
+    signature: str
+    fee: Decimal
+    base_token_amount_removed: Decimal
+    quote_token_amount_removed: Decimal
 
 
 class XRPLConfigMap(BaseConnectorConfigMap):

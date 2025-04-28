@@ -10,6 +10,7 @@ from bidict import bidict
 # XRPL Imports
 from xrpl.asyncio.clients import AsyncWebsocketClient, Client, XRPLRequestFailureException
 from xrpl.asyncio.transaction import sign
+from xrpl.clients import JsonRpcClient
 from xrpl.core.binarycodec import encode
 from xrpl.models import (
     XRP,
@@ -17,7 +18,10 @@ from xrpl.models import (
     AccountLines,
     AccountObjects,
     AccountTx,
+    AMMDeposit,
     AMMInfo,
+    AMMWithdraw,
+    Currency,
     IssuedCurrency,
     Memo,
     OfferCancel,
@@ -28,6 +32,7 @@ from xrpl.models import (
 )
 from xrpl.models.amounts import IssuedCurrencyAmount
 from xrpl.models.response import Response, ResponseStatus
+from xrpl.transaction.reliable_submission import submit_and_wait
 from xrpl.utils import (
     drops_to_xrp,
     get_balance_changes,
@@ -43,7 +48,11 @@ from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS, xrpl
 from hummingbot.connector.exchange.xrpl.xrpl_api_order_book_data_source import XRPLAPIOrderBookDataSource
 from hummingbot.connector.exchange.xrpl.xrpl_api_user_stream_data_source import XRPLAPIUserStreamDataSource
 from hummingbot.connector.exchange.xrpl.xrpl_auth import XRPLAuth
-from hummingbot.connector.exchange.xrpl.xrpl_utils import (
+from hummingbot.connector.exchange.xrpl.xrpl_utils import (  # AddLiquidityRequest,; GetPoolInfoRequest,; QuoteLiquidityRequest,; RemoveLiquidityRequest,
+    AddLiquidityResponse,
+    PoolInfo,
+    QuoteLiquidityResponse,
+    RemoveLiquidityResponse,
     XRPLMarket,
     _wait_for_final_transaction_outcome,
     autofill,
@@ -87,6 +96,7 @@ class XrplExchange(ExchangePyBase):
         self._wss_second_node_url = wss_second_node_url
         self._wss_third_node_url = wss_third_node_url
         # self._xrpl_place_order_client = AsyncWebsocketClient(self._wss_node_url)
+        self._xrpl_sync_client = JsonRpcClient(self._wss_node_url.replace("wss", "https", 1))
         self._xrpl_query_client = AsyncWebsocketClient(self._wss_second_node_url)
         self._xrpl_order_book_data_client = AsyncWebsocketClient(self._wss_second_node_url)
         self._xrpl_user_stream_client = AsyncWebsocketClient(self._wss_third_node_url)
@@ -376,16 +386,16 @@ class XrplExchange(ExchangePyBase):
                         filled_tx = await self.tx_autofill(request, client)
                         signed_tx = self.tx_sign(filled_tx, self._xrpl_auth.get_wallet())
                         o_id = f"{signed_tx.sequence}-{signed_tx.last_ledger_sequence}"
-                        submit_response = await self.tx_submit(signed_tx, client)
+                        submit_response = await self.tx_submit(signed_tx, client, fail_hard=True)
                         transact_time = time.time()
                         prelim_result = submit_response.result["engine_result"]
 
                         submit_data = {"transaction": signed_tx, "prelim_result": prelim_result}
 
-                    if prelim_result[0:3] != "tes" and prelim_result != "terQUEUED":
-                        error_message = submit_response.result["engine_result_message"]
-                        self.logger().error(f"{prelim_result}: {error_message}, data: {submit_response}")
-                        raise Exception(f"Failed to place order {order_id} ({o_id})")
+                    # if prelim_result[0:3] != "tes" and prelim_result != "terQUEUED":
+                    #     error_message = submit_response.result["engine_result_message"]
+                    #     self.logger().error(f"{prelim_result}: {error_message}, data: {submit_response}")
+                    #     raise Exception(f"Failed to place order {order_id} ({o_id})")
 
                 if retry == 0:
                     order_update: OrderUpdate = OrderUpdate(
@@ -481,6 +491,12 @@ class XrplExchange(ExchangePyBase):
             self.logger().error("Failed to verify transaction result, transaction is None")
             return False, None
 
+        if prelim_result[0:3] != "tes":
+            self.logger().error(
+                f"Failed to verify transaction result, prelim_result: {prelim_result}, data: {submit_data}"
+            )
+            return False, None
+
         try:
             # await self._make_network_check_request()
             resp = await self.wait_for_final_transaction_outcome(transaction, prelim_result)
@@ -524,7 +540,6 @@ class XrplExchange(ExchangePyBase):
             return False, {}
 
         try:
-            # await self._client_health_check()
             async with self._xrpl_place_order_client_lock:
                 async with AsyncWebsocketClient(self._wss_node_url) as client:
                     sequence, _ = exchange_order_id.split("-")
@@ -538,7 +553,7 @@ class XrplExchange(ExchangePyBase):
                     filled_tx = await self.tx_autofill(request, client)
                     signed_tx = self.tx_sign(filled_tx, self._xrpl_auth.get_wallet())
 
-                    submit_response = await self.tx_submit(signed_tx, client)
+                    submit_response = await self.tx_submit(signed_tx, client, fail_hard=True)
                     prelim_result = submit_response.result["engine_result"]
 
                 if prelim_result is None:
@@ -546,9 +561,11 @@ class XrplExchange(ExchangePyBase):
                         f"prelim_result is None for {order_id} ({exchange_order_id}), data: {submit_response}"
                     )
 
-                if prelim_result[0:3] != "tes":
-                    error_message = submit_response.result["engine_result_message"]
-                    raise Exception(f"{prelim_result}: {error_message}, data: {submit_response}")
+                if prelim_result[0:3] == "tes":
+                    cancel_result = True
+                else:
+                    cancel_result = False
+                    self.logger().error(f"Order cancellation failed: {prelim_result}, data: {submit_response}")
 
                 cancel_result = True
                 cancel_data = {"transaction": signed_tx, "prelim_result": prelim_result}
@@ -593,7 +610,7 @@ class XrplExchange(ExchangePyBase):
                 retry = CONSTANTS.CANCEL_MAX_RETRY
             else:
                 retry += 1
-                self.logger().debug(
+                self.logger().info(
                     f"Order cancellation failed. Retrying in {CONSTANTS.CANCEL_RETRY_INTERVAL} seconds..."
                 )
                 await self._sleep(CONSTANTS.CANCEL_RETRY_INTERVAL)
@@ -2029,3 +2046,444 @@ class XrplExchange(ExchangePyBase):
                 return token_symbol.upper()
 
         return None
+
+    # AMM functions
+    async def get_pool_info(self, pool_address: str, network: Optional[str] = None) -> PoolInfo:
+        """
+        Get information about a specific AMM liquidity pool
+
+        :param pool_address: The address of the AMM pool
+        :param network: Optional network specification
+        :return: Pool information
+        """
+        # Use the XRPL AMMInfo query
+        resp: Response = await self.request_with_retry(
+            self._xrpl_query_client,
+            AMMInfo(
+                amm_account=pool_address,
+            ),
+            3,
+            self._xrpl_query_client_lock,
+            1,
+        )
+
+        # Process the response and convert to our PoolInfo model
+        amm_pool_info = resp.result.get("amm", {})
+
+        # Extract amounts
+        amount1: Any = amm_pool_info.get("amount", None)
+        amount2: Any = amm_pool_info.get("amount2", None)
+        lp_token: Any = amm_pool_info.get("lp_token", None)
+
+        if amount1 is None or amount2 is None or lp_token is None:
+            raise ValueError("Invalid AMM pool information: missing amounts or lp_token")
+
+        # Convert to decimals based on token type
+        if isinstance(amount1, str):
+            base_amount = drops_to_xrp(amount1)
+        else:
+            base_amount = Decimal(amount1.get("value", "0"))
+
+        if isinstance(amount2, str):
+            quote_amount = drops_to_xrp(amount2)
+        else:
+            quote_amount = Decimal(amount2.get("value", "0"))
+
+        lp_token_amount = Decimal(lp_token.get("value", "0")) if lp_token else Decimal("0")
+
+        # Calculate price
+        price = quote_amount / base_amount if base_amount > 0 else Decimal("0")
+
+        # Get fee percentage
+        fee_pct = Decimal(amm_pool_info.get("fee", "0")) / Decimal("10000")  # XRPL expresses fees in basis points
+
+        base_token_address: Currency = (
+            IssuedCurrency(currency=amount1.get("currency"), issuer=amount1.get("issuer"))
+            if not isinstance(amount1, str)
+            else XRP()
+        )
+        quote_token_address: Currency = (
+            IssuedCurrency(currency=amount2.get("currency"), issuer=amount2.get("issuer"))
+            if not isinstance(amount2, str)
+            else XRP()
+        )
+        lp_token_addess: Currency = IssuedCurrency(currency=lp_token.get("currency"), issuer=lp_token.get("issuer"))
+
+        return PoolInfo(
+            address=pool_address,
+            base_token_address=base_token_address,
+            quote_token_address=quote_token_address,
+            lp_token_address=lp_token_addess,
+            fee_pct=fee_pct,
+            price=price,
+            base_token_amount=base_amount,
+            quote_token_amount=quote_amount,
+            lp_token_amount=lp_token_amount,
+            pool_type="XRPL-AMM",
+        )
+
+    async def quote_add_liquidity(
+        self,
+        pool_address: str,
+        base_token_amount: Decimal,
+        quote_token_amount: Decimal,
+        slippage_pct: Optional[Decimal] = None,
+        network: Optional[str] = None,
+    ) -> QuoteLiquidityResponse:
+        """
+        Get a quote for adding liquidity to an AMM pool
+
+        :param pool_address: The address of the AMM pool
+        :param base_token_amount: Amount of base token to add
+        :param quote_token_amount: Amount of quote token to add
+        :param slippage_pct: Optional slippage percentage
+        :param network: Optional network specification
+        :return: Quote for adding liquidity
+        """
+        # Get current pool state
+        pool_info = await self.get_pool_info(pool_address, network)
+
+        # Calculate the optimal amounts based on current pool ratio
+        current_ratio = (
+            pool_info.quote_token_amount / pool_info.base_token_amount
+            if pool_info.base_token_amount > 0
+            else Decimal("0")
+        )
+
+        # Calculate maximum amounts based on provided amounts
+        if base_token_amount * current_ratio > quote_token_amount:
+            # Base limited
+            base_limited = True
+            quote_token_amount_required = base_token_amount * current_ratio
+            quote_token_amount_max = quote_token_amount_required * (Decimal("1") + (slippage_pct or Decimal("0.01")))
+            return QuoteLiquidityResponse(
+                base_limited=base_limited,
+                base_token_amount=base_token_amount,
+                quote_token_amount=quote_token_amount_required,
+                base_token_amount_max=base_token_amount,
+                quote_token_amount_max=quote_token_amount_max,
+            )
+        else:
+            # Quote limited
+            base_limited = False
+            base_token_amount_required = quote_token_amount / current_ratio
+            base_token_amount_max = base_token_amount_required * (Decimal("1") + (slippage_pct or Decimal("0.01")))
+            return QuoteLiquidityResponse(
+                base_limited=base_limited,
+                base_token_amount=base_token_amount_required,
+                quote_token_amount=quote_token_amount,
+                base_token_amount_max=base_token_amount_max,
+                quote_token_amount_max=quote_token_amount,
+            )
+
+    async def add_liquidity(
+        self,
+        pool_address: str,
+        wallet_address: str,
+        base_token_amount: Decimal,
+        quote_token_amount: Decimal,
+        slippage_pct: Optional[Decimal] = None,
+        network: Optional[str] = None,
+    ) -> AddLiquidityResponse:
+        """
+        Add liquidity to an AMM pool
+
+        :param pool_address: The address of the AMM pool
+        :param wallet_address: The address of the wallet to use
+        :param base_token_amount: Amount of base token to add
+        :param quote_token_amount: Amount of quote token to add
+        :param slippage_pct: Optional slippage percentage
+        :param network: Optional network specification
+        :return: Result of adding liquidity
+        """
+        # Get quote to determine optimal amounts
+        quote = await self.quote_add_liquidity(
+            pool_address=pool_address,
+            base_token_amount=base_token_amount,
+            quote_token_amount=quote_token_amount,
+            slippage_pct=slippage_pct,
+            network=network,
+        )
+
+        # Get pool info to determine token types
+        pool_info = await self.get_pool_info(pool_address, network)
+
+        # Convert amounts based on token types (XRP vs. issued token)
+        if isinstance(pool_info.base_token_address, XRP):
+            base_amount = xrp_to_drops(quote.base_token_amount)
+        else:
+            base_value_amount = str(Decimal(quote.base_token_amount).quantize(Decimal("0.000001"), rounding=ROUND_DOWN))
+            base_amount = IssuedCurrencyAmount(
+                currency=pool_info.base_token_address.currency,
+                issuer=pool_info.base_token_address.issuer,
+                value=base_value_amount,
+            )
+
+        if isinstance(pool_info.quote_token_address, XRP):
+            quote_amount = xrp_to_drops(quote.quote_token_amount)
+        else:
+            quote_value_amount = str(
+                Decimal(quote.quote_token_amount).quantize(Decimal("0.000001"), rounding=ROUND_DOWN)
+            )
+            quote_amount = IssuedCurrencyAmount(
+                currency=pool_info.quote_token_address.currency,
+                issuer=pool_info.quote_token_address.issuer,
+                value=quote_value_amount,
+            )
+
+        # Create memo
+        memo_text = f"HBOT-Add-Liquidity:{pool_address}:{base_token_amount}({pool_info.base_token_address.currency}):{quote_token_amount}({pool_info.quote_token_address.currency})"
+        memo = Memo(
+            memo_data=convert_string_to_hex(memo_text, padding=False),
+        )
+
+        # Create AMMDeposit transaction
+        account = self._xrpl_auth.get_account()
+        deposit_transaction = AMMDeposit(
+            account=account,
+            asset=pool_info.base_token_address,
+            asset2=pool_info.quote_token_address,
+            amount=base_amount,
+            amount2=quote_amount,
+            lp_token_out=None,
+            flags=1048576,
+            memos=[memo],
+        )
+
+        # Sign and submit transaction
+        tx_result = await self._submit_transaction(deposit_transaction)
+
+        # Get balance changes
+        tx_metadata = tx_result.result.get("meta", {})
+        balance_changes = get_balance_changes(tx_metadata)
+
+        base_token_amount_added = Decimal("0")
+        quote_token_amount_added = Decimal("0")
+
+        # Find balance changes by wallet address
+        for change in balance_changes:
+            if change.get("account") == wallet_address:
+                # Check if the change is for the LP token
+                balances = change.get("balances", [])
+                for balance in balances:
+                    if balance.get("currency") == pool_info.base_token_address.currency:
+                        # Extract the base token amount removed
+                        base_token_amount_added = abs(Decimal(balance.get("value")))
+                    elif balance.get("currency") == pool_info.quote_token_address.currency:
+                        # Extract the quote token amount removed
+                        quote_token_amount_added = abs(Decimal(balance.get("value")))
+
+        # Extract fee
+        fee = drops_to_xrp(tx_result.result.get("tx_json", {}).get("Fee", "0"))
+
+        return AddLiquidityResponse(
+            signature=tx_result.result.get("tx_json", {}).get("hash", ""),
+            fee=fee,
+            base_token_amount_added=base_token_amount_added,
+            quote_token_amount_added=quote_token_amount_added,
+        )
+
+    async def remove_liquidity(
+        self, pool_address: str, wallet_address: str, percentage_to_remove: Decimal, network: Optional[str] = None
+    ) -> RemoveLiquidityResponse:
+        """
+        Remove liquidity from an AMM pool
+
+        :param pool_address: The address of the AMM pool
+        :param wallet_address: The address of the wallet to use
+        :param percentage_to_remove: Percentage of liquidity to remove (0-100)
+        :param network: Optional network specification
+        :return: Result of removing liquidity
+        """
+        # Get current pool info
+        pool_info = await self.get_pool_info(pool_address, network)
+
+        # Get user's LP tokens for this pool
+        account = self._xrpl_auth.get_account()
+        resp = await self.request_with_retry(
+            self._xrpl_query_client,
+            AccountObjects(
+                account=account,
+            ),
+            3,
+            self._xrpl_query_client_lock,
+            1,
+        )
+
+        account_objects = resp.result.get("account_objects", [])
+
+        # Filter for currency that matches lp token issuer
+        lp_tokens = [
+            obj for obj in account_objects if obj.get("Balance").get("currency") == pool_info.lp_token_address.currency
+        ]
+
+        lp_token_amount = lp_tokens.pop(0).get("Balance").get("value")
+
+        if not lp_token_amount:
+            raise ValueError(f"No LP tokens found for pool {pool_address}")
+        #
+        # Calculate amount to withdraw based on percentage
+        withdraw_amount = Decimal(lp_token_amount) * (percentage_to_remove / Decimal("100")).quantize(
+            Decimal("0.000001"), rounding=ROUND_DOWN
+        )
+        lp_token_to_withdraw = IssuedCurrencyAmount(
+            currency=pool_info.lp_token_address.currency,
+            issuer=pool_info.lp_token_address.issuer,
+            value=str(withdraw_amount),
+        )
+
+        # Create memo
+        memo_text = f"HBOT-Remove-Liquidity:{pool_address}:{percentage_to_remove}"
+        memo = Memo(
+            memo_data=convert_string_to_hex(memo_text, padding=False),
+        )
+
+        # Create AMMWithdraw transaction
+        withdraw_transaction = AMMWithdraw(
+            account=wallet_address,
+            asset=pool_info.base_token_address,
+            asset2=pool_info.quote_token_address,
+            lp_token_in=lp_token_to_withdraw,
+            flags=65536,
+            memos=[memo],
+        )
+
+        # Sign and submit transaction
+        tx_result = await self._submit_transaction(withdraw_transaction)
+        tx_metadata = tx_result.result.get("meta", {})
+        balance_changes = get_balance_changes(tx_metadata)
+        print(balance_changes)
+
+        base_token_amount_removed = Decimal("0")
+        quote_token_amount_removed = Decimal("0")
+
+        # Find balance changes by wallet address
+        for change in balance_changes:
+            if change.get("account") == wallet_address:
+                # Check if the change is for the LP token
+                balances = change.get("balances", [])
+                for balance in balances:
+                    if balance.get("currency") == pool_info.base_token_address.currency:
+                        # Extract the base token amount removed
+                        base_token_amount_removed = Decimal(balance.get("value", "0"))
+                    elif balance.get("currency") == pool_info.quote_token_address.currency:
+                        # Extract the quote token amount removed
+                        quote_token_amount_removed = Decimal(balance.get("value", "0"))
+
+        # Extract fee
+        fee = drops_to_xrp(tx_result.result.get("tx_json", {}).get("Fee", "0"))
+
+        return RemoveLiquidityResponse(
+            signature=tx_result.result.get("tx_json", {}).get("hash", ""),
+            fee=fee,
+            base_token_amount_removed=base_token_amount_removed,
+            quote_token_amount_removed=quote_token_amount_removed,
+        )
+
+    async def get_amm_balance(self, pool_address: str, wallet_address: str) -> Dict[str, Any]:
+        """
+        Get the balance of an AMM pool for a specific wallet address
+
+        :param pool_address: The address of the AMM pool
+        :param wallet_address: The address of the wallet to check
+        :return: A dictionary containing the balance information
+        """
+        # Use the XRPL AccountLines query
+        resp: Response = await self.request_with_retry(
+            self._xrpl_query_client,
+            AccountLines(
+                account=wallet_address,
+                peer=pool_address,
+            ),
+            3,
+            self._xrpl_query_client_lock,
+            1,
+        )
+
+        # Process the response and extract balance information
+        lines = resp.result.get("lines", [])
+
+        # Get AMM Pool info
+        pool_info: PoolInfo = await self.get_pool_info(pool_address)
+
+        lp_token_balance = None
+        for line in lines:
+            if line.get("account") == pool_address:
+                lp_token_balance = {
+                    "balance": line.get("balance"),
+                    "currency": line.get("currency"),
+                    "issuer": line.get("account"),
+                }
+                break
+
+        if lp_token_balance is None:
+            return {
+                "base_token_lp_amount": Decimal("0"),
+                "base_token_address": pool_info.base_token_address,
+                "quote_token_lp_amount": Decimal("0"),
+                "quote_token_address": pool_info.quote_token_address,
+                "lp_token_amount": Decimal("0"),
+                "lp_token_amount_pct": Decimal("0"),
+            }
+
+        lp_token_amount = Decimal(lp_token_balance.get("balance", "0"))
+        lp_token_amount_pct = (
+            lp_token_amount / pool_info.lp_token_amount if pool_info.lp_token_amount > 0 else Decimal("0")
+        )
+        base_token_lp_amount = pool_info.base_token_amount * lp_token_amount_pct
+        quote_token_lp_amount = pool_info.quote_token_amount * lp_token_amount_pct
+
+        balance_info = {
+            "base_token_lp_amount": base_token_lp_amount,
+            "base_token_address": pool_info.base_token_address,
+            "quote_token_lp_amount": quote_token_lp_amount,
+            "quote_token_address": pool_info.quote_token_address,
+            "lp_token_amount": lp_token_amount,
+            "lp_token_amount_pct": lp_token_amount_pct,
+        }
+
+        return balance_info
+
+    # Helper method for transaction submission using reliable submission method
+    async def _submit_transaction(self, transaction):
+        """Helper method to submit a transaction and wait for result"""
+        # Autofill transaction details
+        filled_tx = await self.tx_autofill(transaction, self._xrpl_query_client)
+
+        # Sign transaction
+        wallet = self._xrpl_auth.get_wallet()
+        signed_tx = sign(filled_tx, wallet)
+
+        # Submit transaction with retry logic
+        retry_count = 0
+        max_retries = CONSTANTS.PLACE_ORDER_MAX_RETRY
+        submit_result = None
+
+        while retry_count < max_retries:
+            try:
+                submit_result = submit_and_wait(
+                    signed_tx, self._xrpl_sync_client, wallet, autofill=False, fail_hard=True
+                )
+
+                if submit_result.status == ResponseStatus.SUCCESS:
+                    break
+
+                self.logger().warning(f"Transaction attempt {retry_count + 1} failed: {submit_result.result}")
+                retry_count += 1
+
+                if retry_count < max_retries:
+                    await self._sleep(CONSTANTS.PLACE_ORDER_RETRY_INTERVAL)
+
+            except Exception as e:
+                self.logger().error(f"Error during transaction submission: {str(e)}")
+                retry_count += 1
+
+                if retry_count < max_retries:
+                    await self._sleep(CONSTANTS.PLACE_ORDER_RETRY_INTERVAL)
+
+        if submit_result is None or submit_result.status != ResponseStatus.SUCCESS:
+            raise ValueError(
+                f"Transaction failed after {max_retries} attempts: {submit_result.result if submit_result else 'No result'}"
+            )
+
+        return submit_result
