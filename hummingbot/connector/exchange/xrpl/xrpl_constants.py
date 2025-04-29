@@ -106,6 +106,9 @@ REQUEST_ORDERBOOK_INTERVAL = 5
 # Client refresh interval
 CLIENT_REFRESH_INTERVAL = 60
 
+# XRPL maximum digit for issued currency
+XRPL_MAX_DIGIT = 16
+
 # Markets list
 MARKETS = {
     "XRP-USD": {

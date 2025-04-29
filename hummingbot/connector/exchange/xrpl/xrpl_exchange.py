@@ -263,6 +263,8 @@ class XrplExchange(ExchangePyBase):
         o_id = "UNKNOWN"
         transact_time = 0.0
         resp = None
+        submit_response = None
+
         try:
             if price is None or price.is_nan():
                 price = Decimal(
@@ -302,17 +304,16 @@ class XrplExchange(ExchangePyBase):
             # If the digit is more than 16, we need to round it to 16
             # This is to prevent the error of "Decimal precision out of range for issued currency value."
             # when the amount is too small
-            # TODO: Add 16 to constant as the maximum precision of issued currency is 16
             total_digits_base = len(str(amount_in_base).split(".")[1]) + len(str(amount_in_base).split(".")[0])
-            if total_digits_base > 16:
-                adjusted_quantum = 16 - len(str(amount_in_base).split(".")[0])
+            if total_digits_base > CONSTANTS.XRPL_MAX_DIGIT:
+                adjusted_quantum = CONSTANTS.XRPL_MAX_DIGIT - len(str(amount_in_base).split(".")[0])
                 amount_in_base = Decimal(
                     amount_in_base.quantize(Decimal(f"1e-{adjusted_quantum}"), rounding=ROUND_DOWN)
                 )
 
             total_digits_quote = len(str(amount_in_quote).split(".")[1]) + len(str(amount_in_quote).split(".")[0])
-            if total_digits_quote > 16:
-                adjusted_quantum = 16 - len(str(amount_in_quote).split(".")[0])
+            if total_digits_quote > CONSTANTS.XRPL_MAX_DIGIT:
+                adjusted_quantum = CONSTANTS.XRPL_MAX_DIGIT - len(str(amount_in_quote).split(".")[0])
                 amount_in_quote = Decimal(
                     amount_in_quote.quantize(Decimal(f"1e-{adjusted_quantum}"), rounding=ROUND_DOWN)
                 )
@@ -392,10 +393,11 @@ class XrplExchange(ExchangePyBase):
 
                         submit_data = {"transaction": signed_tx, "prelim_result": prelim_result}
 
-                    # if prelim_result[0:3] != "tes" and prelim_result != "terQUEUED":
-                    #     error_message = submit_response.result["engine_result_message"]
-                    #     self.logger().error(f"{prelim_result}: {error_message}, data: {submit_response}")
-                    #     raise Exception(f"Failed to place order {order_id} ({o_id})")
+                        self.logger().info(
+                            f"Submitted order {order_id} ({o_id}): type={order_type}, "
+                            f"pair={trading_pair}, amount={amount}, price={price}, "
+                            f"prelim_result={prelim_result}, tx_hash={submit_response.result.get('tx_json', {}).get('hash', 'unknown')}"
+                        )
 
                 if retry == 0:
                     order_update: OrderUpdate = OrderUpdate(
@@ -415,17 +417,25 @@ class XrplExchange(ExchangePyBase):
                 else:
                     retry += 1
                     self.logger().info(
-                        f"Order placing failed. Retrying in {CONSTANTS.PLACE_ORDER_RETRY_INTERVAL} seconds..."
+                        f"Order {order_id} ({o_id}) placing failed with result {prelim_result}. "
+                        f"Retrying in {CONSTANTS.PLACE_ORDER_RETRY_INTERVAL} seconds... "
+                        f"(Attempt {retry}/{CONSTANTS.PLACE_ORDER_MAX_RETRY})"
                     )
                     await self._sleep(CONSTANTS.PLACE_ORDER_RETRY_INTERVAL)
 
             if resp is None:
-                self.logger().error(f"Failed to place order {order_id} ({o_id}), submit_data: {submit_data}")
+                self.logger().error(
+                    f"Failed to place order {order_id} ({o_id}), "
+                    f"submit_data: {submit_data}, "
+                    f"last_response: {submit_response.result if submit_response else 'None'}"
+                )
                 raise Exception(f"Failed to place order {order_id} ({o_id})")
 
             if not verified:
                 self.logger().error(
-                    f"Failed to verify transaction result for order {order_id} ({o_id}), submit_data: {submit_data}"
+                    f"Failed to verify transaction result for order {order_id} ({o_id}), "
+                    f"submit_data: {submit_data}, "
+                    f"last_response: {resp.result if resp else 'None'}"
                 )
                 raise Exception(f"Failed to verify transaction result for order {order_id} ({o_id})")
 
@@ -438,6 +448,10 @@ class XrplExchange(ExchangePyBase):
                 client_order_id=order_id,
             )
             self._order_tracker.process_order_update(order_update)
+            self.logger().error(
+                f"Order {o_id} ({order_id}) creation failed: {str(e)}, "
+                f"type={order_type}, pair={trading_pair}, amount={amount}, price={price}"
+            )
             raise Exception(f"Order {o_id} ({order_id}) creation failed: {e}")
 
         return o_id, transact_time, resp
@@ -493,39 +507,54 @@ class XrplExchange(ExchangePyBase):
 
         if prelim_result[0:3] != "tes":
             self.logger().error(
-                f"Failed to verify transaction result, prelim_result: {prelim_result}, data: {submit_data}"
+                f"Failed to verify transaction result, prelim_result: {prelim_result}, "
+                f"tx_hash: {transaction.get_hash()}, sequence: {transaction.sequence}"
             )
             return False, None
 
         try:
             # await self._make_network_check_request()
             resp = await self.wait_for_final_transaction_outcome(transaction, prelim_result)
+            self.logger().debug(
+                f"Transaction verified successfully - hash: {transaction.get_hash()}, "
+                f"sequence: {transaction.sequence}, result: {resp.result.get('meta', {}).get('TransactionResult', 'unknown')}"
+            )
             return True, resp
         except (TimeoutError, asyncio.exceptions.TimeoutError):
             self.logger().debug(
-                f"Verify transaction timeout error, Attempt {try_count + 1}/{CONSTANTS.VERIFY_TRANSACTION_MAX_RETRY}"
+                f"Verify transaction timeout error - hash: {transaction.get_hash()}, "
+                f"sequence: {transaction.sequence}, attempt: {try_count + 1}/{CONSTANTS.VERIFY_TRANSACTION_MAX_RETRY}"
             )
             if try_count < CONSTANTS.VERIFY_TRANSACTION_MAX_RETRY:
                 await self._sleep(CONSTANTS.VERIFY_TRANSACTION_RETRY_INTERVAL)
                 return await self._verify_transaction_result(submit_data, try_count + 1)
             else:
-                self.logger().error("Max retries reached. Verify transaction failed due to timeout.")
+                self.logger().error(
+                    f"Max retries reached. Verify transaction failed due to timeout - "
+                    f"hash: {transaction.get_hash()}, sequence: {transaction.sequence}"
+                )
                 return False, None
 
         except Exception as e:
             # If there is code 429, retry the request
             if "429" in str(e):
                 self.logger().debug(
-                    f"Verify transaction failed with code 429, Attempt {try_count + 1}/{CONSTANTS.VERIFY_TRANSACTION_MAX_RETRY}"
+                    f"Verify transaction rate limited - hash: {transaction.get_hash()}, "
+                    f"sequence: {transaction.sequence}, attempt: {try_count + 1}/{CONSTANTS.VERIFY_TRANSACTION_MAX_RETRY}"
                 )
                 if try_count < CONSTANTS.VERIFY_TRANSACTION_MAX_RETRY:
                     await self._sleep(CONSTANTS.VERIFY_TRANSACTION_RETRY_INTERVAL)
                     return await self._verify_transaction_result(submit_data, try_count + 1)
                 else:
-                    self.logger().error("Max retries reached. Verify transaction failed with code 429.")
+                    self.logger().error(
+                        f"Max retries reached. Verify transaction failed with code 429 - "
+                        f"hash: {transaction.get_hash()}, sequence: {transaction.sequence}"
+                    )
                     return False, None
 
-            self.logger().error(f"Submitted transaction failed: {e}")
+            self.logger().error(
+                f"Submitted transaction failed: {e}, hash: {transaction.get_hash()}, sequence: {transaction.sequence}"
+            )
 
             return False, None
 
@@ -918,10 +947,12 @@ class XrplExchange(ExchangePyBase):
 
         # raise if data is None
         if data is None:
+            self.logger().error(f"Data is None for order {order.client_order_id}")
             raise ValueError(f"Data is None for order {order.client_order_id}")
 
         # raise if exchange_order_id is None
         if order.exchange_order_id is None:
+            self.logger().error(f"Exchange order ID is None for order {order.client_order_id}")
             raise ValueError(f"Exchange order ID is None for order {order.client_order_id}")
 
         sequence, ledger_index = order.exchange_order_id.split("-")
@@ -932,6 +963,10 @@ class XrplExchange(ExchangePyBase):
             fee_rules = self._trading_pair_fee_rules.get(order.trading_pair)
 
             if fee_rules is None:
+                self.logger().error(
+                    f"Fee rules not found for order {order.client_order_id} ({order.exchange_order_id}), "
+                    f"trading_pair: {order.trading_pair}"
+                )
                 raise ValueError(f"Fee rules not found for order {order.client_order_id}")
 
         if "result" in data:
@@ -952,17 +987,23 @@ class XrplExchange(ExchangePyBase):
 
         if not isinstance(tx, dict):
             self.logger().error(
-                f"Transaction not found for order {order.client_order_id} ({order.exchange_order_id}), data: {data}"
+                f"Transaction not found for order {order.client_order_id} ({order.exchange_order_id}), "
+                f"data: {data}, tx: {tx}"
             )
             return None
 
         if tx.get("TransactionType") not in ["OfferCreate", "Payment"]:
+            self.logger().debug(
+                f"Skipping non-trade transaction type {tx.get('TransactionType')} for order "
+                f"{order.client_order_id} ({order.exchange_order_id})"
+            )
             return None
 
         if tx.get("hash") is None:
-            self.logger().error("Hash is None")
-            self.logger().error(f"Data: {data}")
-            self.logger().error(f"Tx: {tx}")
+            self.logger().error(
+                f"Transaction hash is None for order {order.client_order_id} ({order.exchange_order_id}), "
+                f"data: {data}, tx: {tx}"
+            )
             return None
 
         offer_changes = get_order_book_changes(meta)
@@ -975,6 +1016,10 @@ class XrplExchange(ExchangePyBase):
         tx_sequence = tx.get("Sequence")
 
         if tx_sequence is None:
+            self.logger().error(
+                f"Transaction sequence is None for order {order.client_order_id} ({order.exchange_order_id}), "
+                f"tx_hash: {tx.get('hash')}"
+            )
             raise ValueError(f"Transaction sequence is None for order {order.client_order_id}")
 
         if int(tx_sequence) == int(sequence):
@@ -982,7 +1027,8 @@ class XrplExchange(ExchangePyBase):
             tx_status = meta.get("TransactionResult")
             if tx_status != "tesSUCCESS":
                 self.logger().error(
-                    f"Order {order.client_order_id} ({order.exchange_order_id}) failed: {tx_status}, data: {data}"
+                    f"Order {order.client_order_id} ({order.exchange_order_id}) failed: {tx_status}, "
+                    f"tx_hash: {tx.get('hash')}, data: {data}"
                 )
                 return None
 
@@ -991,7 +1037,8 @@ class XrplExchange(ExchangePyBase):
                 # check if there is any balance changes
                 if len(balance_changes) == 0:
                     self.logger().error(
-                        f"Order {order.client_order_id} ({order.exchange_order_id}) has no balance changes, data: {data}"
+                        f"Order {order.client_order_id} ({order.exchange_order_id}) has no balance changes, "
+                        f"tx_hash: {tx.get('hash')}, data: {data}"
                     )
                     return None
 
@@ -1336,8 +1383,9 @@ class XrplExchange(ExchangePyBase):
             return order_update
 
         sequence, ledger_index = tracked_order.exchange_order_id.split("-")
-        found_tx = None
-        found_meta = None
+        found_creation_tx = None
+        found_creation_meta = None
+        found_txs = []
         history_transactions = await self._fetch_account_transactions(int(ledger_index))
 
         # Find the creation_transaction
@@ -1358,11 +1406,19 @@ class XrplExchange(ExchangePyBase):
                 )
 
             if tx is not None and tx.get("Sequence", 0) == int(sequence):
-                found_meta = meta
-                found_tx = tx
-                break
+                found_creation_tx = tx
+                found_creation_meta = meta
 
-        if found_meta is None or found_tx is None:
+            found_txs.append(
+                {
+                    "meta": meta,
+                    "tx": tx,
+                    "sequence": tx.get("Sequence", 0),
+                    "ledger_index": tx.get("ledger_index", 0),
+                }
+            )
+
+        if found_creation_meta is None or found_creation_tx is None:
             current_state = tracked_order.current_state
             if current_state is OrderState.PENDING_CREATE or current_state is OrderState.PENDING_CANCEL:
                 if time.time() - tracked_order.last_update_timestamp > CONSTANTS.PENDING_ORDER_STATUS_CHECK_TIMEOUT:
@@ -1389,12 +1445,12 @@ class XrplExchange(ExchangePyBase):
 
         # Process order by found_meta and found_tx
         if tracked_order.order_type is OrderType.MARKET:
-            tx_status = found_meta.get("TransactionResult")
+            tx_status = found_creation_meta.get("TransactionResult")
             update_timestamp = time.time()
             if tx_status != "tesSUCCESS":
                 new_order_state = OrderState.FAILED
                 self.logger().error(
-                    f"Order {tracked_order.client_order_id} ({tracked_order.exchange_order_id}) failed: {tx_status}, meta: {found_meta}, tx: {found_tx}"
+                    f"Order {tracked_order.client_order_id} ({tracked_order.exchange_order_id}) failed: {tx_status}, meta: {found_creation_meta}, tx: {found_creation_tx}"
                 )
             else:
                 new_order_state = OrderState.FILLED
@@ -1409,23 +1465,30 @@ class XrplExchange(ExchangePyBase):
 
             return order_update
         else:
+            # TODO: we should iterate through the history transactions to find the latest order status
             found = False
-            changes_array = get_order_book_changes(found_meta)
-            # Filter out change that is not from this account
-            changes_array = [x for x in changes_array if x.get("maker_account") == self._xrpl_auth.get_account()]
 
-            for offer_change in changes_array:
-                changes = offer_change.get("offer_changes", [])
+            for tx in found_txs:
+                meta = tx.get("meta", {})
 
-                for change in changes:
-                    if int(change.get("sequence")) == int(sequence):
-                        latest_status = change.get("status")
-                        found = True
+                changes_array = get_order_book_changes(meta)
+                # Filter out change that is not from this account
+                changes_array = [x for x in changes_array if x.get("maker_account") == self._xrpl_auth.get_account()]
+
+                for offer_change in changes_array:
+                    changes = offer_change.get("offer_changes", [])
+
+                    for found_tx in changes:
+                        if int(found_tx.get("sequence")) == int(sequence):
+                            latest_status = found_tx.get("status")
+                            found = True
+                            break
 
             if found is False:
+                # TODO: Only make this check if this is a at order creation
                 # No offer created, this look like the order has been consumed without creating any offer object
                 # Check if there is any balance changes
-                balance_changes = get_balance_changes(found_meta)
+                balance_changes = get_balance_changes(found_creation_meta)
 
                 # Filter by account
                 balance_changes = [x for x in balance_changes if x.get("account") == self._xrpl_auth.get_account()]
@@ -1464,31 +1527,41 @@ class XrplExchange(ExchangePyBase):
         """
         try:
             async with self._xrpl_fetch_trades_client_lock:
-                request = AccountTx(
-                    account=self._xrpl_auth.get_account(),
-                    ledger_index_min=int(ledger_index) - CONSTANTS.LEDGER_OFFSET,
-                    forward=is_forward,
-                )
-
-                client_one = AsyncWebsocketClient(self._wss_node_url)
-                client_two = AsyncWebsocketClient(self._wss_second_node_url)
-                tasks = [
-                    self.request_with_retry(client_one, request, 5),
-                    self.request_with_retry(client_two, request, 5),
-                ]
-                task_results = await safe_gather(*tasks, return_exceptions=True)
-
                 return_transactions = []
+                marker = None
+                fetching_transactions = True
 
-                for task_id, task_result in enumerate(task_results):
-                    if isinstance(task_result, Response):
-                        result = task_result.result
-                        if result is not None:
-                            transactions = result.get("transactions", [])
+                while fetching_transactions:
+                    request = AccountTx(
+                        account=self._xrpl_auth.get_account(),
+                        ledger_index_min=int(ledger_index) - CONSTANTS.LEDGER_OFFSET,
+                        forward=is_forward,
+                        marker=marker,
+                    )
 
-                            if len(transactions) > len(return_transactions):
-                                return_transactions = transactions
-                await self._sleep(3)
+                    client_one = AsyncWebsocketClient(self._wss_node_url)
+                    client_two = AsyncWebsocketClient(self._wss_second_node_url)
+                    tasks = [
+                        self.request_with_retry(client_one, request, 5),
+                        self.request_with_retry(client_two, request, 5),
+                    ]
+                    task_results = await safe_gather(*tasks, return_exceptions=True)
+                    transactions_from_task = []
+
+                    for task_id, task_result in enumerate(task_results):
+                        if isinstance(task_result, Response):
+                            result = task_result.result
+                            if result is not None:
+                                transactions = result.get("transactions", [])
+
+                                if len(transactions) > len(transactions_from_task):
+                                    transactions_from_task = transactions
+                                    marker = result.get("marker", None)
+
+                    return_transactions.extend(transactions_from_task)
+
+                    if marker is None:
+                        fetching_transactions = False
 
         except Exception as e:
             self.logger().error(f"Failed to fetch account transactions: {e}")
@@ -2048,7 +2121,8 @@ class XrplExchange(ExchangePyBase):
         return None
 
     # AMM functions
-    async def get_pool_info(self, pool_address: str, network: Optional[str] = None) -> PoolInfo:
+    # TODO: Add swap function for AMM pools
+    async def amm_get_pool_info(self, pool_address: str, network: Optional[str] = None) -> PoolInfo:
         """
         Get information about a specific AMM liquidity pool
 
@@ -2095,7 +2169,9 @@ class XrplExchange(ExchangePyBase):
         price = quote_amount / base_amount if base_amount > 0 else Decimal("0")
 
         # Get fee percentage
-        fee_pct = Decimal(amm_pool_info.get("fee", "0")) / Decimal("10000")  # XRPL expresses fees in basis points
+        fee_pct = Decimal(amm_pool_info.get("trading_fee", "0")) / Decimal(
+            "1000"
+        )  # XRPL expresses fees in basis points
 
         base_token_address: Currency = (
             IssuedCurrency(currency=amount1.get("currency"), issuer=amount1.get("issuer"))
@@ -2122,12 +2198,12 @@ class XrplExchange(ExchangePyBase):
             pool_type="XRPL-AMM",
         )
 
-    async def quote_add_liquidity(
+    async def amm_quote_add_liquidity(
         self,
         pool_address: str,
         base_token_amount: Decimal,
         quote_token_amount: Decimal,
-        slippage_pct: Optional[Decimal] = None,
+        slippage_pct: Decimal = Decimal("0"),
         network: Optional[str] = None,
     ) -> QuoteLiquidityResponse:
         """
@@ -2141,7 +2217,7 @@ class XrplExchange(ExchangePyBase):
         :return: Quote for adding liquidity
         """
         # Get current pool state
-        pool_info = await self.get_pool_info(pool_address, network)
+        pool_info = await self.amm_get_pool_info(pool_address, network)
 
         # Calculate the optimal amounts based on current pool ratio
         current_ratio = (
@@ -2155,7 +2231,7 @@ class XrplExchange(ExchangePyBase):
             # Base limited
             base_limited = True
             quote_token_amount_required = base_token_amount * current_ratio
-            quote_token_amount_max = quote_token_amount_required * (Decimal("1") + (slippage_pct or Decimal("0.01")))
+            quote_token_amount_max = quote_token_amount_required * (Decimal("1") + (slippage_pct))
             return QuoteLiquidityResponse(
                 base_limited=base_limited,
                 base_token_amount=base_token_amount,
@@ -2167,7 +2243,7 @@ class XrplExchange(ExchangePyBase):
             # Quote limited
             base_limited = False
             base_token_amount_required = quote_token_amount / current_ratio
-            base_token_amount_max = base_token_amount_required * (Decimal("1") + (slippage_pct or Decimal("0.01")))
+            base_token_amount_max = base_token_amount_required * (Decimal("1") + (slippage_pct))
             return QuoteLiquidityResponse(
                 base_limited=base_limited,
                 base_token_amount=base_token_amount_required,
@@ -2176,13 +2252,13 @@ class XrplExchange(ExchangePyBase):
                 quote_token_amount_max=quote_token_amount,
             )
 
-    async def add_liquidity(
+    async def amm_add_liquidity(
         self,
         pool_address: str,
         wallet_address: str,
         base_token_amount: Decimal,
         quote_token_amount: Decimal,
-        slippage_pct: Optional[Decimal] = None,
+        slippage_pct: Decimal = Decimal("0"),
         network: Optional[str] = None,
     ) -> AddLiquidityResponse:
         """
@@ -2197,7 +2273,7 @@ class XrplExchange(ExchangePyBase):
         :return: Result of adding liquidity
         """
         # Get quote to determine optimal amounts
-        quote = await self.quote_add_liquidity(
+        quote = await self.amm_quote_add_liquidity(
             pool_address=pool_address,
             base_token_amount=base_token_amount,
             quote_token_amount=quote_token_amount,
@@ -2206,7 +2282,7 @@ class XrplExchange(ExchangePyBase):
         )
 
         # Get pool info to determine token types
-        pool_info = await self.get_pool_info(pool_address, network)
+        pool_info = await self.amm_get_pool_info(pool_address, network)
 
         # Convert amounts based on token types (XRP vs. issued token)
         if isinstance(pool_info.base_token_address, XRP):
@@ -2283,7 +2359,7 @@ class XrplExchange(ExchangePyBase):
             quote_token_amount_added=quote_token_amount_added,
         )
 
-    async def remove_liquidity(
+    async def amm_remove_liquidity(
         self, pool_address: str, wallet_address: str, percentage_to_remove: Decimal, network: Optional[str] = None
     ) -> RemoveLiquidityResponse:
         """
@@ -2296,7 +2372,7 @@ class XrplExchange(ExchangePyBase):
         :return: Result of removing liquidity
         """
         # Get current pool info
-        pool_info = await self.get_pool_info(pool_address, network)
+        pool_info = await self.amm_get_pool_info(pool_address, network)
 
         # Get user's LP tokens for this pool
         account = self._xrpl_auth.get_account()
@@ -2352,7 +2428,6 @@ class XrplExchange(ExchangePyBase):
         tx_result = await self._submit_transaction(withdraw_transaction)
         tx_metadata = tx_result.result.get("meta", {})
         balance_changes = get_balance_changes(tx_metadata)
-        print(balance_changes)
 
         base_token_amount_removed = Decimal("0")
         quote_token_amount_removed = Decimal("0")
@@ -2380,7 +2455,7 @@ class XrplExchange(ExchangePyBase):
             quote_token_amount_removed=quote_token_amount_removed,
         )
 
-    async def get_amm_balance(self, pool_address: str, wallet_address: str) -> Dict[str, Any]:
+    async def amm_get_balance(self, pool_address: str, wallet_address: str) -> Dict[str, Any]:
         """
         Get the balance of an AMM pool for a specific wallet address
 
@@ -2404,7 +2479,7 @@ class XrplExchange(ExchangePyBase):
         lines = resp.result.get("lines", [])
 
         # Get AMM Pool info
-        pool_info: PoolInfo = await self.get_pool_info(pool_address)
+        pool_info: PoolInfo = await self.amm_get_pool_info(pool_address)
 
         lp_token_balance = None
         for line in lines:
