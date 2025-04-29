@@ -74,9 +74,9 @@ async def get_current_server_time(
     api_factory = build_api_factory_without_time_synchronizer_pre_processor(throttler=throttler)
     rest_assistant = await api_factory.get_rest_assistant()
     response = await rest_assistant.execute_request(
-        url=public_rest_url(path_url=CONSTANTS.SERVER_TIME_PATH_URL, domain=domain),
+        url=public_rest_url(path_url=CONSTANTS.PING_PATH_URL, domain=domain),
         method=RESTMethod.GET,
-        throttler_limit_id=CONSTANTS.SERVER_TIME_PATH_URL,
+        throttler_limit_id=CONSTANTS.PING_PATH_URL,
     )
     server_time = response["result"]
     return server_time
@@ -99,6 +99,7 @@ def order_to_call(order):
         "direction": order["direction"],
         "order_type": order["order_type"],
         "reduce_only": order["reduce_only"],
+        "referral_code": order["referral_code"],
         "mmp": False,
         "time_in_force": order["time_in_force"],
         "label": order["label"]
