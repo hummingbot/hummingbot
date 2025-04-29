@@ -54,7 +54,6 @@ def main():
         "aioresponses>=0.7.4",
         "aiounittest>=1.4.2",
         "async-timeout>=4.0.2,<5",
-        "autopep8",
         "bidict>=0.22.1",
         "bip-utils",
         "cachetools>=5.3.1",
