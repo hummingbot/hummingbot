@@ -27,14 +27,13 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     @property
     def all_symbols_url(self):
-        url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL, domain=self.exchange._domain)
-        return re.compile(f"^{url}.*")
+        return web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL, domain=self.exchange._domain)
 
     @property
     def latest_prices_url(self):
         url = web_utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, domain=self.exchange._domain)
-        symbol = self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset)
-        return re.compile(rf"^{url}\?signature=.*&symbol={symbol}&timestamp=.*")
+        url = f"{url}?symbol={self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset)}"
+        return url
 
     @property
     def network_status_url(self):
@@ -44,7 +43,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
     @property
     def trading_rules_url(self):
         url = web_utils.private_rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL, domain=self.exchange._domain)
-        return re.compile(f"^{url}.*")
+        return url
 
     @property
     def order_creation_url(self):
