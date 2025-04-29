@@ -114,8 +114,6 @@ class XrplExchange(ExchangePyBase):
 
         super().__init__(client_config_map)
 
-        self._order_tracker.TRADE_FILLS_WAIT_TIMEOUT = 10
-
     @staticmethod
     def xrpl_order_type(order_type: OrderType) -> int:
         return CONSTANTS.XRPL_ORDER_TYPE[order_type]
@@ -472,6 +470,8 @@ class XrplExchange(ExchangePyBase):
             creation_tx_resp=order_creation_resp.to_dict().get("result") if order_creation_resp is not None else None,
         )
 
+        self._order_tracker.process_order_update(order_update)
+
         if order_update.new_state in [OrderState.FILLED, OrderState.PARTIALLY_FILLED]:
             trade_update = await self.process_trade_fills(
                 order_creation_resp.to_dict() if order_creation_resp is not None else None, order
@@ -482,8 +482,6 @@ class XrplExchange(ExchangePyBase):
                 self.logger().error(
                     f"Failed to process trade fills for order {order.client_order_id} ({order.exchange_order_id}), order state: {order_update.new_state}, data: {order_creation_resp.to_dict() if order_creation_resp is not None else 'None'}"
                 )
-
-        self._order_tracker.process_order_update(order_update)
 
         return exchange_order_id
 
@@ -584,6 +582,11 @@ class XrplExchange(ExchangePyBase):
 
                     submit_response = await self.tx_submit(signed_tx, client, fail_hard=True)
                     prelim_result = submit_response.result["engine_result"]
+
+                    self.logger().info(
+                        f"Submitted cancel for order {order_id} ({exchange_order_id}): "
+                        f"prelim_result={prelim_result}, tx_hash={submit_response.result.get('tx_json', {}).get('hash', 'unknown')}"
+                    )
 
                 if prelim_result is None:
                     raise Exception(
@@ -798,13 +801,6 @@ class XrplExchange(ExchangePyBase):
                         new_order_state = OrderState.FAILED
                     else:
                         new_order_state = OrderState.FILLED
-                        trade_update = await self.process_trade_fills(event_message, tracked_order)
-                        if trade_update is not None:
-                            self._order_tracker.process_trade_update(trade_update)
-                        else:
-                            self.logger().error(
-                                f"Failed to process trade fills for order {tracked_order.client_order_id} ({tracked_order.exchange_order_id}), order state: {new_order_state}, data: {event_message}"
-                            )
 
                     order_update = OrderUpdate(
                         client_order_id=tracked_order.client_order_id,
@@ -815,6 +811,15 @@ class XrplExchange(ExchangePyBase):
                     )
 
                     self._order_tracker.process_order_update(order_update=order_update)
+
+                    if new_order_state in [OrderState.FILLED, OrderState.PARTIALLY_FILLED]:
+                        trade_update = await self.process_trade_fills(event_message, tracked_order)
+                        if trade_update is not None:
+                            self._order_tracker.process_trade_update(trade_update)
+                        else:
+                            self.logger().error(
+                                f"Failed to process trade fills for order {tracked_order.client_order_id} ({tracked_order.exchange_order_id}), order state: {new_order_state}, data: {event_message}"
+                            )
 
                 # Handle state updates for orders
                 for order_book_change in order_book_changes:
@@ -877,15 +882,6 @@ class XrplExchange(ExchangePyBase):
                             else:
                                 new_order_state = OrderState.OPEN
 
-                        if new_order_state == OrderState.FILLED or new_order_state == OrderState.PARTIALLY_FILLED:
-                            trade_update = await self.process_trade_fills(event_message, tracked_order)
-                            if trade_update is not None:
-                                self._order_tracker.process_trade_update(trade_update)
-                            else:
-                                self.logger().error(
-                                    f"Failed to process trade fills for order {tracked_order.client_order_id} ({tracked_order.exchange_order_id}), order state: {new_order_state}, data: {event_message}"
-                                )
-
                         self.logger().debug(
                             f"Order update for order '{tracked_order.client_order_id}' with sequence '{offer_change['sequence']}': '{new_order_state}'"
                         )
@@ -898,6 +894,15 @@ class XrplExchange(ExchangePyBase):
                         )
 
                         self._order_tracker.process_order_update(order_update=order_update)
+
+                        if new_order_state == OrderState.FILLED or new_order_state == OrderState.PARTIALLY_FILLED:
+                            trade_update = await self.process_trade_fills(event_message, tracked_order)
+                            if trade_update is not None:
+                                self._order_tracker.process_trade_update(trade_update)
+                            else:
+                                self.logger().error(
+                                    f"Failed to process trade fills for order {tracked_order.client_order_id} ({tracked_order.exchange_order_id}), order state: {new_order_state}, data: {event_message}"
+                                )
 
                 # Handle balance changes
                 for balance_change in balance_changes:
