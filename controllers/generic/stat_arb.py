@@ -249,7 +249,7 @@ class StatArb(ControllerBase):
                 amount=position.amount,
                 position_action=PositionAction.CLOSE,
                 execution_strategy=ExecutionStrategy.MARKET,
-                leverage=position.leverage,
+                leverage=self.config.leverage,
             )
             return [CreateExecutorAction(controller_id=self.config.id, executor_config=config)]
         return []
@@ -315,7 +315,7 @@ class StatArb(ControllerBase):
             filter_connector_pair = self.config.connector_pair_hedge
 
         # Update processed data
-        self.processed_data = {
+        self.processed_data.update({
             "dominant_price": Decimal(str(dominant_price)),
             "hedge_price": Decimal(str(hedge_price)),
             "spread": Decimal(str(spread)),
@@ -340,7 +340,7 @@ class StatArb(ControllerBase):
             "executors_dominant_placed": executors_dominant_placed,
             "executors_hedge_placed": executors_hedge_placed,
             "pair_pnl_pct": pair_pnl_pct,
-        }
+        })
 
     def get_spread_and_z_score(self):
         # Fetch candle data for both assets
@@ -380,33 +380,43 @@ class StatArb(ControllerBase):
         # Convert to numpy arrays
         dominant_prices_np = np.array(dominant_prices, dtype=float)
         hedge_prices_np = np.array(hedge_prices, dtype=float)
-        # Calculate normalized price series (cumulative returns)
-        # First calculate percentage change
+
+        # Calculate percentage returns
         dominant_pct_change = np.diff(dominant_prices_np) / dominant_prices_np[:-1]
         hedge_pct_change = np.diff(hedge_prices_np) / hedge_prices_np[:-1]
-        # Convert to cumulative product (add 1 to get returns)
+
+        # Convert to cumulative returns
         dominant_cum_returns = np.cumprod(dominant_pct_change + 1)
         hedge_cum_returns = np.cumprod(hedge_pct_change + 1)
-        # Make sure both series have the same starting point (normalize to start at 1)
-        dominant_cum_returns = dominant_cum_returns / dominant_cum_returns[0] if len(
-            dominant_cum_returns) > 0 else np.array([1.0])
+
+        # Normalize to start at 1
+        dominant_cum_returns = dominant_cum_returns / dominant_cum_returns[0] if len(dominant_cum_returns) > 0 else np.array([1.0])
         hedge_cum_returns = hedge_cum_returns / hedge_cum_returns[0] if len(hedge_cum_returns) > 0 else np.array([1.0])
-        # Perform linear regression on normalized price series to find hedge ratio
-        # Reshape for sklearn
-        hedge_cum_returns_reshaped = hedge_cum_returns.reshape(-1, 1)
-        # Linear regression
-        reg = LinearRegression().fit(hedge_cum_returns_reshaped, dominant_cum_returns)
-        hedge_ratio = float(reg.coef_[0])
-        # Calculate the spread using the original price series
-        spread = dominant_prices_np - hedge_ratio * hedge_prices_np
+
+        # Perform linear regression
+        dominant_cum_returns_reshaped = dominant_cum_returns.reshape(-1, 1)
+        reg = LinearRegression().fit(dominant_cum_returns_reshaped, hedge_cum_returns)
+        alpha = reg.intercept_
+        beta = reg.coef_[0]
+        self.processed_data.update({
+            "alpha": alpha,
+            "beta": beta,
+        })
+
+        # Calculate spread as percentage difference from predicted value
+        y_pred = alpha + beta * dominant_cum_returns
+        spread_pct = (hedge_cum_returns - y_pred) / y_pred * 100
+
         # Calculate z-score
-        mean_spread = np.mean(spread)
-        std_spread = np.std(spread)
+        mean_spread = np.mean(spread_pct)
+        std_spread = np.std(spread_pct)
         if std_spread == 0:
             self.logger().warning("Standard deviation of spread is zero, cannot calculate z-score")
             return
-        current_spread = spread[-1]
+
+        current_spread = spread_pct[-1]
         current_z_score = (current_spread - mean_spread) / std_spread
+
         return current_spread, current_z_score
 
     def get_pairs_prices(self):
@@ -449,11 +459,17 @@ class StatArb(ControllerBase):
         status_lines.append(f"""
 Dominant Pair: {self.config.connector_pair_dominant} | Hedge Pair: {self.config.connector_pair_hedge} |
 Timeframe: {self.config.interval} | Lookback Period: {self.config.lookback_period} | Entry Threshold: {self.config.entry_threshold}
-Theoretical Dominant: {self.theoretical_dominant_quote} | Theoretical Hedge: {self.theoretical_hedge_quote}
-Position Dominant: {self.processed_data['position_dominant_quote']} | Position Hedge: {self.processed_data['position_hedge_quote']} | Imbalance: {self.processed_data['imbalance']} | Imbalance Scaled: {self.processed_data['imbalance_scaled_pct']} %
-Active Orders Dominant: {len(self.processed_data['executors_dominant_placed'])} | Active Orders Hedge: {len(self.processed_data['executors_hedge_placed'])} | Active Orders Dominant Filled: {len(self.processed_data['executors_dominant_filled'])} | Active Orders Hedge Filled: {len(self.processed_data['executors_hedge_filled'])}
 
-Signal: {self.processed_data['signal']} | Z-Score: {self.processed_data['z_score']} | Spread: {self.processed_data['spread']} | Position Hedge Ratio: {self.config.pos_hedge_ratio}
-Pair PnL PCT: {self.processed_data['pair_pnl_pct']}
+Positions targets:
+Theoretical Dominant         : {self.theoretical_dominant_quote} | Theoretical Hedge: {self.theoretical_hedge_quote} | Position Hedge Ratio: {self.config.pos_hedge_ratio}
+Position Dominant            : {self.processed_data['position_dominant_quote']:.2f} | Position Hedge: {self.processed_data['position_hedge_quote']:.2f} | Imbalance: {self.processed_data['imbalance']:.2f} | Imbalance Scaled: {self.processed_data['imbalance_scaled_pct']:.2f} %
+
+Current Executors:
+Active Orders Dominant       : {len(self.processed_data['executors_dominant_placed'])} | Active Orders Hedge       : {len(self.processed_data['executors_hedge_placed'])} |
+Active Orders Dominant Filled: {len(self.processed_data['executors_dominant_filled'])} | Active Orders Hedge Filled: {len(self.processed_data['executors_hedge_filled'])}
+
+Signal: {self.processed_data['signal']:.2f} | Z-Score: {self.processed_data['z_score']:.2f} | Spread: {self.processed_data['spread']:.2f}
+Alpha : {self.processed_data['alpha']:.2f} | Beta: {self.processed_data['beta']:.2f}
+Pair PnL PCT: {self.processed_data['pair_pnl_pct'] * 100:.2f} %
 """)
         return status_lines
