@@ -1,4 +1,5 @@
 import json
+import re
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 
@@ -21,7 +22,7 @@ class MexcRateSourceTest(IsolatedAsyncioWrapperTestCase):
         cls.ignored_trading_pair = combine_to_hb_trading_pair(base="SOME", quote="PAIR")
 
     def setup_mexc_responses(self, mock_api, expected_rate: Decimal):
-        pairs_url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL)
+        pairs_url = re.compile(f"^{web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL)}.*")
         symbols_response = {
             "symbols": [
                 {
@@ -43,7 +44,7 @@ class MexcRateSourceTest(IsolatedAsyncioWrapperTestCase):
             ]
         }
 
-        mexc_prices_url = web_utils.public_rest_url(path_url=CONSTANTS.TICKER_BOOK_PATH_URL)
+        mexc_prices_url = re.compile(f"^{web_utils.public_rest_url(path_url=CONSTANTS.TICKER_BOOK_PATH_URL)}.*")
         mexc_prices_response = [
             {
                 "symbol": self.mexc_pair,
