@@ -40,6 +40,7 @@ class RESTAssistant:
         data: Optional[Dict[str, Any]] = None,
         method: RESTMethod = RESTMethod.GET,
         is_auth_required: bool = False,
+        sign_if_possible: bool = False,
         return_err: bool = False,
         timeout: Optional[float] = None,
         headers: Optional[Dict[str, Any]] = None,
@@ -51,6 +52,7 @@ class RESTAssistant:
             data=data,
             method=method,
             is_auth_required=is_auth_required,
+            sign_if_possible=sign_if_possible,
             return_err=return_err,
             timeout=timeout,
             headers=headers,
@@ -66,6 +68,7 @@ class RESTAssistant:
             data: Optional[Dict[str, Any]] = None,
             method: RESTMethod = RESTMethod.GET,
             is_auth_required: bool = False,
+            sign_if_possible: bool = False,
             return_err: bool = False,
             timeout: Optional[float] = None,
             headers: Optional[Dict[str, Any]] = None,
@@ -87,6 +90,7 @@ class RESTAssistant:
             data=data,
             headers=local_headers,
             is_auth_required=is_auth_required,
+            sign_if_possible=sign_if_possible,
             throttler_limit_id=throttler_limit_id
         )
 
@@ -115,7 +119,7 @@ class RESTAssistant:
         return request
 
     async def _authenticate(self, request: RESTRequest):
-        if self._auth is not None and request.is_auth_required:
+        if self._auth is not None and (request.is_auth_required or request.sign_if_possible):
             request = await self._auth.rest_authenticate(request)
         return request
 
