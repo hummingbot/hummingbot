@@ -43,6 +43,7 @@ from xrpl.utils import (
 )
 from xrpl.wallet import Wallet
 
+from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS, xrpl_web_utils
 from hummingbot.connector.exchange.xrpl.xrpl_api_order_book_data_source import XRPLAPIOrderBookDataSource
@@ -73,6 +74,10 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
+
+class XRPLOrderTracker(ClientOrderTracker):
+    TRADE_FILLS_WAIT_TIMEOUT = 15  # Increased timeout for XRPL
 
 
 class XrplExchange(ExchangePyBase):
@@ -113,6 +118,9 @@ class XrplExchange(ExchangePyBase):
         self._last_clients_refresh_time = 0
 
         super().__init__(client_config_map)
+
+    def _create_order_tracker(self) -> ClientOrderTracker:
+        return XRPLOrderTracker(connector=self)
 
     @staticmethod
     def xrpl_order_type(order_type: OrderType) -> int:
