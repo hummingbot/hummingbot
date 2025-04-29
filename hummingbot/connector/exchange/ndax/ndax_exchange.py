@@ -12,7 +12,7 @@ from hummingbot.connector.exchange.ndax.ndax_auth import NdaxAuth
 from hummingbot.connector.exchange.ndax.ndax_websocket_adaptor import NdaxWebSocketAdaptor
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_numeric_client_order_id
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OpenOrder, OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
@@ -27,6 +27,9 @@ from hummingbot.core.event.events import (
     OrderFilledEvent,
     SellOrderCompletedEvent,
 )
+from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.utils.tracking_nonce import NonceCreator
+from hummingbot.core.web_assistant.connections.data_types import RESTRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 if TYPE_CHECKING:
@@ -76,17 +79,13 @@ class NdaxExchange(ExchangePyBase):
 
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
+        self._nonce_creator = NonceCreator.for_milliseconds()
         super().__init__(client_config_map)
-        self._account_id = None
         self._product_id_map = {}
 
     @property
     def name(self) -> str:
         return CONSTANTS.EXCHANGE_NAME
-
-    @property
-    def account_id(self) -> int:
-        return self._account_id
 
     @property
     def authenticator(self):
@@ -115,7 +114,7 @@ class NdaxExchange(ExchangePyBase):
 
     @property
     def check_network_request_path(self):
-        return CONSTANTS.PING_PATH_URL
+        return CONSTANTS.MARKETS_URL
 
     @property
     def client_order_id_max_length(self):
@@ -138,9 +137,9 @@ class NdaxExchange(ExchangePyBase):
         return self._trading_required
 
     async def initialized_account_id(self) -> int:
-        if not self._account_id:
-            self._account_id = await self._get_account_id()
-        return self._account_id
+        if self.authenticator.account_id == 0:
+            await self.authenticator.rest_authenticate(RESTRequest(method="POST", url=""))  # dummy request to trigger auth
+        return self.authenticator.account_id
 
     def supported_order_types(self) -> List[OrderType]:
         """
@@ -155,35 +154,75 @@ class NdaxExchange(ExchangePyBase):
         """
         pass
 
-    async def _get_account_id(self) -> int:
-        """
-        Calls REST API to retrieve Account ID
-        """
-        params = {"omsId": 1, "accountId": self._auth.uid}
-
-        resp: List[int] = await self._api_request(
-            path_url=CONSTANTS.USER_ACCOUNT_INFOS_PATH_URL,
-            params=params,
-            is_auth_required=True,
-        )
-
-        account_info = next(
-            (account_info for account_info in resp if account_info.get("AccountName") == self._auth.account_name), None
-        )
-        if account_info is None:
-            self.logger().error(
-                f"There is no account named {self._auth.account_name} " f"associated with the current NDAX user"
-            )
-            acc_id = None
-        else:
-            acc_id = int(account_info.get("AccountId"))
-
-        return acc_id
-
     def get_order_book(self, trading_pair: str) -> OrderBook:
         if trading_pair not in self.order_book_tracker.order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
         return self.order_book_tracker.order_books[trading_pair]
+
+    def buy(
+            self, trading_pair: str, amount: Decimal, order_type=OrderType.LIMIT, price: Decimal = s_decimal_NaN,
+            **kwargs
+    ) -> str:
+        """
+        Creates a promise to create a buy order using the parameters
+
+        :param trading_pair: the token pair to operate with
+        :param amount: the order amount
+        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
+        :param price: the order price
+
+        :return: the id assigned by the connector to the order (the client id)
+        """
+        prefix = self.client_order_id_prefix
+        new_order_id = get_new_numeric_client_order_id(nonce_creator=self._nonce_creator,
+                                                       max_id_bit_count=self.client_order_id_max_length)
+        numeric_order_id = f"{prefix}{new_order_id}"
+
+        safe_ensure_future(
+            self._create_order(
+                trade_type=TradeType.BUY,
+                order_id=numeric_order_id,
+                trading_pair=trading_pair,
+                amount=amount,
+                order_type=order_type,
+                price=price,
+                **kwargs,
+            )
+        )
+        return numeric_order_id
+
+    def sell(
+            self,
+            trading_pair: str,
+            amount: Decimal,
+            order_type: OrderType = OrderType.LIMIT,
+            price: Decimal = s_decimal_NaN,
+            **kwargs,
+    ) -> str:
+        """
+        Creates a promise to create a sell order using the parameters.
+        :param trading_pair: the token pair to operate with
+        :param amount: the order amount
+        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
+        :param price: the order price
+        :return: the id assigned by the connector to the order (the client id)
+        """
+        prefix = self.client_order_id_prefix
+        new_order_id = get_new_numeric_client_order_id(nonce_creator=self._nonce_creator,
+                                                       max_id_bit_count=self.client_order_id_max_length)
+        numeric_order_id = f"{prefix}{new_order_id}"
+        safe_ensure_future(
+            self._create_order(
+                trade_type=TradeType.SELL,
+                order_id=numeric_order_id,
+                trading_pair=trading_pair,
+                amount=amount,
+                order_type=order_type,
+                price=price,
+                **kwargs,
+            )
+        )
+        return numeric_order_id
 
     async def _place_order(
         self,
@@ -257,15 +296,10 @@ class NdaxExchange(ExchangePyBase):
             path_url=CONSTANTS.GET_OPEN_ORDERS_PATH_URL, params=query_params, is_auth_required=True
         )
 
-        trading_pair_id_map: Dict[str, int] = await self.order_book_tracker.data_source.get_instrument_ids()
-        id_trading_pair_map: Dict[int, str] = {
-            instrument_id: trading_pair for trading_pair, instrument_id in trading_pair_id_map.items()
-        }
-
         return [
             OpenOrder(
                 client_order_id=order["ClientOrderId"],
-                trading_pair=id_trading_pair_map[order["Instrument"]],
+                trading_pair=await self.exchange_symbol_associated_to_pair(trading_pair=order["Instrument"]),
                 price=Decimal(str(order["Price"])),
                 amount=Decimal(str(order["Quantity"])),
                 executed_amount=Decimal(str(order["QuantityExecuted"])),
@@ -594,11 +628,11 @@ class NdaxExchange(ExchangePyBase):
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
         for symbol_data in filter(ndax_utils.is_exchange_information_valid, exchange_info):
-            mapping[symbol_data["instrumentId"]] = combine_to_hb_trading_pair(
-                base=symbol_data["product1Symbol"], quote=symbol_data["product2Symbol"]
+            mapping[symbol_data["InstrumentId"]] = combine_to_hb_trading_pair(
+                base=symbol_data["Product1Symbol"], quote=symbol_data["Product2Symbol"]
             )
-            self._product_id_map[symbol_data["product1Symbol"]] = symbol_data["product1"]
-            self._product_id_map[symbol_data["product2Symbol"]] = symbol_data["product2"]
+            self._product_id_map[symbol_data["Product1Symbol"]] = symbol_data["Product1"]
+            self._product_id_map[symbol_data["Product2Symbol"]] = symbol_data["Product2"]
         self._set_trading_pair_symbol_map(mapping)
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
