@@ -40,7 +40,7 @@ class MexcRateSource(RateSourceBase):
 
     def _ensure_exchanges(self):
         if self._mexc_exchange is None:
-            self._mexc_exchange = self._build_mexc_connector_without_private_keys()
+            self._mexc_exchange = self._build_mexc_connector()
 
     @staticmethod
     async def _get_mexc_prices(exchange: 'MexcExchange', quote_token: str = None) -> Dict[str, Decimal]:
@@ -70,17 +70,22 @@ class MexcRateSource(RateSourceBase):
         return results
 
     @staticmethod
-    def _build_mexc_connector_without_private_keys() -> 'MexcExchange':
+    def _build_mexc_connector() -> 'MexcExchange':
+        from hummingbot.client.config.security import Security
         from hummingbot.client.hummingbot_application import HummingbotApplication
         from hummingbot.connector.exchange.mexc.mexc_exchange import MexcExchange
 
         app = HummingbotApplication.main_application()
         client_config_map = app.client_config_map
 
+        config_exists = Security.connector_config_file_exists("mexc")
+
+        api_keys = Security.api_keys("mexc") if config_exists else {}
+
         return MexcExchange(
             client_config_map=client_config_map,
-            mexc_api_key="",
-            mexc_api_secret="",
+            mexc_api_key=api_keys.get("mexc_api_key", ""),
+            mexc_api_secret=api_keys.get("mexc_api_secret", ""),
             trading_pairs=[],
             trading_required=False,
         )

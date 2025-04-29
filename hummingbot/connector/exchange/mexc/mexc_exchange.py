@@ -113,7 +113,10 @@ class MexcExchange(ExchangePyBase):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
     async def get_all_pairs_prices(self) -> List[Dict[str, str]]:
-        pairs_prices = await self._api_get(path_url=CONSTANTS.TICKER_BOOK_PATH_URL, headers={"Content-Type": "application/json"})
+        pairs_prices = await self._api_get(
+            path_url=CONSTANTS.TICKER_BOOK_PATH_URL,
+            headers={"Content-Type": "application/json"},
+            sign_if_possible=True)
         return pairs_prices
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
@@ -545,8 +548,8 @@ class MexcExchange(ExchangePyBase):
             method=RESTMethod.GET,
             path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
             params=params,
-            headers={"Content-Type": "application/json"}
-        )
+            headers={"Content-Type": "application/json"},
+            sign_if_possible=True)
 
         return float(resp_json["lastPrice"])
 
@@ -554,9 +557,15 @@ class MexcExchange(ExchangePyBase):
         await self._api_get(path_url=self.check_network_request_path, headers={"Content-Type": "application/json"})
 
     async def _make_trading_rules_request(self) -> Any:
-        exchange_info = await self._api_get(path_url=self.trading_rules_request_path, headers={"Content-Type": "application/json"})
+        exchange_info = await self._api_get(
+            path_url=self.trading_rules_request_path,
+            headers={"Content-Type": "application/json"},
+            sign_if_possible=True)
         return exchange_info
 
     async def _make_trading_pairs_request(self) -> Any:
-        exchange_info = await self._api_get(path_url=self.trading_pairs_request_path, headers={"Content-Type": "application/json"})
+        exchange_info = await self._api_get(
+            path_url=self.trading_pairs_request_path,
+            headers={"Content-Type": "application/json"},
+            sign_if_possible=True)
         return exchange_info
