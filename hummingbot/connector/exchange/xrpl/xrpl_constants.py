@@ -11,7 +11,7 @@ DOMAIN = "xrpl"  # This just a placeholder since we don't use domain in xrpl con
 
 HBOT_SOURCE_TAG_ID = 19089388
 HBOT_ORDER_ID_PREFIX = "hbot"
-MAX_ORDER_ID_LEN = 64
+MAX_ORDER_ID_LEN = 48
 
 # Base URL
 DEFAULT_JSON_RPC_URL = "https://xrplcluster.com/"
@@ -48,7 +48,7 @@ XRPL_ORDER_TYPE = {
 XRPL_SELL_FLAG = 524288
 
 # Market Order Max Slippage
-MARKET_ORDER_MAX_SLIPPAGE = Decimal("0.02")
+MARKET_ORDER_MAX_SLIPPAGE = Decimal("0.001")
 
 # Order Side
 SIDE_BUY = 0

@@ -25,7 +25,6 @@ from xrpl.models import (
     IssuedCurrency,
     Memo,
     OfferCancel,
-    OfferCreate,
     Request,
     SubmitOnly,
     Transaction,
@@ -49,6 +48,7 @@ from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS, xrpl
 from hummingbot.connector.exchange.xrpl.xrpl_api_order_book_data_source import XRPLAPIOrderBookDataSource
 from hummingbot.connector.exchange.xrpl.xrpl_api_user_stream_data_source import XRPLAPIUserStreamDataSource
 from hummingbot.connector.exchange.xrpl.xrpl_auth import XRPLAuth
+from hummingbot.connector.exchange.xrpl.xrpl_order_placement_strategy import OrderPlacementStrategyFactory
 from hummingbot.connector.exchange.xrpl.xrpl_utils import (  # AddLiquidityRequest,; GetPoolInfoRequest,; QuoteLiquidityRequest,; RemoveLiquidityRequest,
     AddLiquidityResponse,
     PoolInfo,
@@ -77,7 +77,7 @@ if TYPE_CHECKING:
 
 
 class XRPLOrderTracker(ClientOrderTracker):
-    TRADE_FILLS_WAIT_TIMEOUT = 15  # Increased timeout for XRPL
+    TRADE_FILLS_WAIT_TIMEOUT = 10  # Increased timeout for XRPL
 
 
 class XrplExchange(ExchangePyBase):
@@ -266,126 +266,34 @@ class XrplExchange(ExchangePyBase):
         price: Optional[Decimal] = None,
         **kwargs,
     ) -> tuple[str, float, Response | None]:
+        """
+        Places an order using the appropriate strategy based on order type.
+        Returns a tuple of (exchange_order_id, transaction_time, response).
+        """
         o_id = "UNKNOWN"
         transact_time = 0.0
         resp = None
         submit_response = None
 
         try:
-            if price is None or price.is_nan():
-                price = Decimal(
-                    await self._get_best_price(trading_pair, is_buy=True if trade_type is TradeType.BUY else False)
-                )
-
-            if order_type is OrderType.MARKET:
-                market = self.order_books.get(trading_pair)
-
-                if market is None:
-                    raise ValueError(f"Market {trading_pair} not found in markets list")
-
-                get_price_with_enough_liquidity = market.get_price_for_volume(
-                    is_buy=True if trade_type is TradeType.BUY else False,
-                    volume=float(amount),  # Make sure we have enough liquidity
-                )
-
-                price = Decimal(get_price_with_enough_liquidity.result_price)
-
-                # Adding slippage to make sure we get the order filled and not cross our own offers
-                if trade_type is TradeType.SELL:
-                    price *= Decimal("1") - CONSTANTS.MARKET_ORDER_MAX_SLIPPAGE
-                else:
-                    price *= Decimal("1") + CONSTANTS.MARKET_ORDER_MAX_SLIPPAGE
-
-            base_currency, quote_currency = self.get_currencies_from_trading_pair(trading_pair)
-            account = self._xrpl_auth.get_account()
-            trading_rule = self._trading_rules[trading_pair]
-
-            amount_in_base_quantum = Decimal(trading_rule.min_base_amount_increment)
-            amount_in_quote_quantum = Decimal(trading_rule.min_quote_amount_increment)
-
-            amount_in_base = Decimal(amount.quantize(amount_in_base_quantum, rounding=ROUND_DOWN))
-            amount_in_quote = Decimal((amount * price).quantize(amount_in_quote_quantum, rounding=ROUND_DOWN))
-
-            # Count the digit in the base and quote amount
-            # If the digit is more than 16, we need to round it to 16
-            # This is to prevent the error of "Decimal precision out of range for issued currency value."
-            # when the amount is too small
-            total_digits_base = len(str(amount_in_base).split(".")[1]) + len(str(amount_in_base).split(".")[0])
-            if total_digits_base > CONSTANTS.XRPL_MAX_DIGIT:
-                adjusted_quantum = CONSTANTS.XRPL_MAX_DIGIT - len(str(amount_in_base).split(".")[0])
-                amount_in_base = Decimal(
-                    amount_in_base.quantize(Decimal(f"1e-{adjusted_quantum}"), rounding=ROUND_DOWN)
-                )
-
-            total_digits_quote = len(str(amount_in_quote).split(".")[1]) + len(str(amount_in_quote).split(".")[0])
-            if total_digits_quote > CONSTANTS.XRPL_MAX_DIGIT:
-                adjusted_quantum = CONSTANTS.XRPL_MAX_DIGIT - len(str(amount_in_quote).split(".")[0])
-                amount_in_quote = Decimal(
-                    amount_in_quote.quantize(Decimal(f"1e-{adjusted_quantum}"), rounding=ROUND_DOWN)
-                )
-        except Exception as e:
-            self.logger().error(f"Error calculating amount in base and quote: {e}")
-            raise e
-
-        if trade_type is TradeType.SELL:
-            if base_currency.currency == XRP().currency:
-                we_pay = xrp_to_drops(amount_in_base)
-            else:
-                # Ensure base_currency is IssuedCurrency before accessing issuer
-                if not isinstance(base_currency, IssuedCurrency):
-                    raise ValueError(f"Expected IssuedCurrency but got {type(base_currency)}")
-
-                we_pay = IssuedCurrencyAmount(
-                    currency=base_currency.currency, issuer=base_currency.issuer, value=str(amount_in_base)
-                )
-
-            if quote_currency.currency == XRP().currency:
-                we_get = xrp_to_drops(amount_in_quote)
-            else:
-                # Ensure quote_currency is IssuedCurrency before accessing issuer
-                if not isinstance(quote_currency, IssuedCurrency):
-                    raise ValueError(f"Expected IssuedCurrency but got {type(quote_currency)}")
-
-                we_get = IssuedCurrencyAmount(
-                    currency=quote_currency.currency, issuer=quote_currency.issuer, value=str(amount_in_quote)
-                )
-        else:
-            if quote_currency.currency == XRP().currency:
-                we_pay = xrp_to_drops(amount_in_quote)
-            else:
-                # Ensure quote_currency is IssuedCurrency before accessing issuer
-                if not isinstance(quote_currency, IssuedCurrency):
-                    raise ValueError(f"Expected IssuedCurrency but got {type(quote_currency)}")
-
-                we_pay = IssuedCurrencyAmount(
-                    currency=quote_currency.currency, issuer=quote_currency.issuer, value=str(amount_in_quote)
-                )
-
-            if base_currency.currency == XRP().currency:
-                we_get = xrp_to_drops(amount_in_base)
-            else:
-                # Ensure base_currency is IssuedCurrency before accessing issuer
-                if not isinstance(base_currency, IssuedCurrency):
-                    raise ValueError(f"Expected IssuedCurrency but got {type(base_currency)}")
-
-                we_get = IssuedCurrencyAmount(
-                    currency=base_currency.currency, issuer=base_currency.issuer, value=str(amount_in_base)
-                )
-
-        flags = CONSTANTS.XRPL_ORDER_TYPE[order_type]
-
-        if trade_type is TradeType.SELL and order_type is OrderType.MARKET:
-            flags += CONSTANTS.XRPL_SELL_FLAG
-
-        memo = Memo(
-            memo_data=convert_string_to_hex(order_id, padding=False),
-        )
-        request = OfferCreate(account=account, flags=flags, taker_gets=we_pay, taker_pays=we_get, memos=[memo])
-
-        try:
             retry = 0
             verified = False
             submit_data = {}
+
+            order = InFlightOrder(
+                client_order_id=order_id,
+                trading_pair=trading_pair,
+                order_type=order_type,
+                trade_type=trade_type,
+                amount=amount,
+                price=price,
+                creation_timestamp=self._time(),
+            )
+
+            strategy = OrderPlacementStrategyFactory.create_strategy(self, order)
+
+            # Create the transaction
+            request = await strategy.create_order_transaction()
 
             while retry < CONSTANTS.PLACE_ORDER_MAX_RETRY:
                 async with self._xrpl_place_order_client_lock:
@@ -903,7 +811,7 @@ class XrplExchange(ExchangePyBase):
 
                         self._order_tracker.process_order_update(order_update=order_update)
 
-                        if new_order_state == OrderState.FILLED or new_order_state == OrderState.PARTIALLY_FILLED:
+                        if new_order_state in [OrderState.FILLED, OrderState.PARTIALLY_FILLED]:
                             trade_update = await self.process_trade_fills(event_message, tracked_order)
                             if trade_update is not None:
                                 self._order_tracker.process_trade_update(trade_update)
@@ -1700,14 +1608,14 @@ class XrplExchange(ExchangePyBase):
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         # NOTE: We are querying both the order book and the AMM pool to get the last traded price
         last_traded_price = float("NaN")
-        last_traded_price_timestamp = 0
+        # last_traded_price_timestamp = 0
 
         order_book = self.order_books.get(trading_pair)
-        data_source: XRPLAPIOrderBookDataSource = self.order_book_tracker.data_source
+        # data_source: XRPLAPIOrderBookDataSource = self.order_book_tracker.data_source
 
         if order_book is not None:
             last_traded_price = order_book.last_trade_price
-            last_traded_price_timestamp = data_source.last_parsed_order_book_timestamp.get(trading_pair, 0)
+            # last_traded_price_timestamp = data_source.last_parsed_order_book_timestamp.get(trading_pair, 0)
 
         if math.isnan(last_traded_price) and order_book is not None:
             best_bid = order_book.get_price(is_buy=True)
@@ -1718,17 +1626,17 @@ class XrplExchange(ExchangePyBase):
 
             if is_best_bid_valid and is_best_ask_valid:
                 last_traded_price = (best_bid + best_ask) / 2
-                last_traded_price_timestamp = data_source.last_parsed_order_book_timestamp.get(trading_pair, 0)
+                # last_traded_price_timestamp = data_source.last_parsed_order_book_timestamp.get(trading_pair, 0)
             else:
                 last_traded_price = float("NaN")
-                last_traded_price_timestamp = 0
-        amm_pool_price, amm_pool_last_tx_timestamp = await self._get_price_from_amm_pool(trading_pair)
+                # last_traded_price_timestamp = 0
+        # amm_pool_price, amm_pool_last_tx_timestamp = await self._get_price_from_amm_pool(trading_pair)
 
-        if not math.isnan(amm_pool_price):
-            if amm_pool_last_tx_timestamp > last_traded_price_timestamp:
-                last_traded_price = amm_pool_price
-            elif math.isnan(last_traded_price):
-                last_traded_price = amm_pool_price
+        # if not math.isnan(amm_pool_price):
+        #     if amm_pool_last_tx_timestamp > last_traded_price_timestamp:
+        #         last_traded_price = amm_pool_price
+        #     elif math.isnan(last_traded_price):
+        #         last_traded_price = amm_pool_price
         return last_traded_price
 
     async def _get_best_price(self, trading_pair: str, is_buy: bool) -> float:
@@ -1739,13 +1647,13 @@ class XrplExchange(ExchangePyBase):
         if order_book is not None:
             best_price = order_book.get_price(is_buy)
 
-        amm_pool_price, amm_pool_last_tx_timestamp = await self._get_price_from_amm_pool(trading_pair)
+        # amm_pool_price, amm_pool_last_tx_timestamp = await self._get_price_from_amm_pool(trading_pair)
 
-        if not math.isnan(amm_pool_price):
-            if is_buy:
-                best_price = min(best_price, amm_pool_price) if not math.isnan(best_price) else amm_pool_price
-            else:
-                best_price = max(best_price, amm_pool_price) if not math.isnan(best_price) else amm_pool_price
+        # if not math.isnan(amm_pool_price):
+        #     if is_buy:
+        #         best_price = min(best_price, amm_pool_price) if not math.isnan(best_price) else amm_pool_price
+        #     else:
+        #         best_price = max(best_price, amm_pool_price) if not math.isnan(best_price) else amm_pool_price
         return best_price
 
     async def _get_price_from_amm_pool(self, trading_pair: str) -> Tuple[float, int]:
