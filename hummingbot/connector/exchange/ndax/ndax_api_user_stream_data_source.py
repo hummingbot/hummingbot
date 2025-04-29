@@ -33,7 +33,6 @@ class NdaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
     ):
         super().__init__()
         self._trading_pairs = trading_pairs
-        self._shared_client = api_factory._connections_factory.get_rest_connection()
         self._ws_adaptor = None
         self._auth_assistant: NdaxAuth = auth
         self._last_recv_time: float = 0
@@ -63,9 +62,9 @@ class NdaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         try:
             await ws.send_request(
-                CONSTANTS.AUTHENTICATE_USER_ENDPOINT_NAME, self._auth_assistant.add_auth_to_params({})
+                CONSTANTS.AUTHENTICATE_USER_ENDPOINT_NAME, self._auth_assistant.header_for_authentication()
             )
-            auth_resp = await ws.receive()
+            auth_resp = await ws.websocket.receive()
             auth_payload: Dict[str, Any] = ws.payload_from_raw_message(auth_resp.data)
 
             if not auth_payload["Authenticated"]:
