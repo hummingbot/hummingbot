@@ -55,13 +55,16 @@ class NdaxWebSocketAdaptor:
 
     @classmethod
     def payload_from_raw_message(cls, raw_message: str) -> Dict[str, Any]:
-        message = ujson.loads(raw_message)
-        return cls.payload_from_message(message=message)
+        return cls.payload_from_message(message=raw_message)
 
     @classmethod
     def payload_from_message(cls, message: Dict[str, Any]) -> Dict[str, Any]:
         payload = ujson.loads(message.get(cls._payload_field_name))
         return payload
+
+    @property
+    def websocket(self) -> WSAssistant:
+        return self._websocket
 
     async def next_message_number(self):
         async with self._lock:

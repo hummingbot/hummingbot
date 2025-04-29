@@ -27,7 +27,6 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         super().__init__(trading_pairs)
         self._connector = connector
         self._api_factory = api_factory
-        self._shared_client = api_factory._connections_factory.get_rest_connection()
         self._throttler = api_factory.throttler
         self._domain: Optional[str] = domain
 
@@ -71,13 +70,13 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         await ws.connect(ws_url=CONSTANTS.WSS_URLS.get(self._domain or "ndax_main"))
         return ws
 
-    async def _order_book_snapshots(self, trading_pair: str) -> OrderBookMessage:
+    async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         """
         Periodically polls for orderbook snapshots using the REST API.
         """
         snapshot: Dict[str:Any] = await self._request_order_book_snapshot(trading_pair)
         snapshot_message: OrderBookMessage = NdaxOrderBook.snapshot_message_from_exchange(
-            msg=snapshot, timestamp=snapshot["timestamp"], metadata={"trading_pair": trading_pair}
+            msg={"data": snapshot}, timestamp=time.time(), metadata={"trading_pair": trading_pair}
         )
         return snapshot_message
 

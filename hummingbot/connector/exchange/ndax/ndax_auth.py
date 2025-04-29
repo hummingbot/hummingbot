@@ -1,11 +1,15 @@
 import hashlib
 import hmac
-import json
-from typing import Any, Dict
+import threading
+import time
+from typing import Dict, Optional
 
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce_low_res
 from hummingbot.core.web_assistant.auth import AuthBase
+from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
+
+ONE_HOUR = 3600
 
 
 class NdaxAuth(AuthBase):
@@ -13,15 +17,42 @@ class NdaxAuth(AuthBase):
     Auth class required by NDAX API
     """
 
+    _instance = None
+    _lock = threading.Lock()  # To ensure thread safety during instance creation
+
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            with cls._lock:
+                if not cls._instance:  # Double-checked locking
+                    cls._instance = super(NdaxAuth, cls).__new__(cls)
+        return cls._instance
+
     def __init__(self, uid: str, api_key: str, secret_key: str, account_name: str):
-        self._uid: str = uid
-        self._api_key: str = api_key
-        self._secret_key: str = secret_key
-        self._account_name: str = account_name
+        if not hasattr(self, "_initialized"):  # Prevent reinitialization
+            self._uid: str = uid
+            self._account_id = 0
+            self._api_key: str = api_key
+            self._secret_key: str = secret_key
+            self._account_name: str = account_name
+            self._token: Optional[str] = None
+            self._token_expiration: int = 0
+            self._initialized = True
+
+    @property
+    def token(self) -> str:
+        return self._token
+
+    @token.setter
+    def token(self, token: str):
+        self._token = token
 
     @property
     def uid(self) -> int:
         return int(self._uid)
+
+    @property
+    def account_id(self) -> int:
+        return int(self._account_id)
 
     @property
     def account_name(self) -> str:
@@ -36,33 +67,46 @@ class NdaxAuth(AuthBase):
         the required parameter in the request header.
         :param request: the request to be configured for authenticated interaction
         """
-        if request.method == RESTMethod.POST:
-            request.data = self.add_auth_to_params(params=json.loads(request.data) if request.data is not None else {})
-        else:
-            request.params = self.add_auth_to_params(params=request.params)
-
         headers = {}
-        if request.headers is not None:
-            headers.update(request.headers)
-        headers.update(self.header_for_authentication())
+        if self._token is None or time.time() > self._token_expiration:
+            rest_connection = await ConnectionsFactory().get_rest_connection()
+            request = RESTRequest(
+                method=RESTMethod.POST,
+                url="https://api.ndax.io:8443/AP/Authenticate",
+                endpoint_url="",
+                params={},
+                data={},
+                headers=self.header_for_authentication(),
+            )
+            authentication_req = await rest_connection.call(request)
+            authentication = await authentication_req.json()
+            if authentication.get("Authenticated", False) is True:
+                self._token = authentication["SessionToken"]
+                self._token_expiration = time.time() + ONE_HOUR - 10
+                self._uid = authentication["User"]["UserId"]
+                self._account_id = int(authentication["User"]["AccountId"])
+            else:
+                raise Exception("Could not authenticate REST connection with NDAX")
+
+        headers.update({"APToken": self._token, "Content-Type": "application/json"})
         request.headers = headers
 
         return request
 
     async def ws_authenticate(self, request: WSRequest) -> WSRequest:
         """
-        This method is intended to configure a websocket request to be authenticated. Mexc does not use this
-        functionality
+        This method is intended to configure a websocket request to be authenticated.
         """
         return request
 
-    def add_auth_to_params(self, params: Dict[str, Any]):
+    def header_for_authentication(self) -> Dict[str, str]:
         """
-        Generates a dictionary with all required information for the authentication process
-        :return: a dictionary of authentication info including the request signature
+        Generates authentication headers
+        :return: a dictionary of auth headers
         """
+
         nonce = self.generate_nonce()
-        raw_signature = nonce + self._uid + self._api_key
+        raw_signature = nonce + str(self._uid) + self._api_key
 
         auth_info = {
             "Nonce": nonce,
@@ -72,15 +116,4 @@ class NdaxAuth(AuthBase):
             ).hexdigest(),
             "UserId": self._uid,
         }
-
         return auth_info
-
-    def header_for_authentication(self) -> Dict[str, str]:
-        """
-        Generates authentication headers required by ProBit
-        :return: a dictionary of auth headers
-        """
-
-        return {
-            "Content-Type": "application/json",
-        }

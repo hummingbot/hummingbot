@@ -47,7 +47,7 @@ class NdaxOrderBookMessage(OrderBookMessage):
             # Since uid of orderbook snapshots from REST API is not in sync with uid from websocket
             return 0
         elif self.type in [OrderBookMessageType.DIFF, OrderBookMessageType.TRADE]:
-            last_entry: NdaxOrderBookEntry = self.content["data"][-1]
+            last_entry: NdaxOrderBookEntry = NdaxOrderBookEntry(*(self.content["data"][-1]))
             return last_entry.mdUpdateId
 
     @property
@@ -61,19 +61,19 @@ class NdaxOrderBookMessage(OrderBookMessage):
 
     @property
     def last_traded_price(self) -> float:
-        entries: List[NdaxOrderBookEntry] = self.content["data"]
+        entries: List[NdaxOrderBookEntry] = [NdaxOrderBookEntry(*entry) for entry in self.content["data"]]
         return float(entries[-1].lastTradePrice)
 
     @property
     def asks(self) -> List[OrderBookRow]:
-        entries: List[NdaxOrderBookEntry] = self.content["data"]
+        entries: List[NdaxOrderBookEntry] = [NdaxOrderBookEntry(*entry) for entry in self.content["data"]]
         asks = [self._order_book_row_for_entry(entry) for entry in entries if entry.side == self._SELL_SIDE]
         asks.sort(key=lambda row: (row.price, row.update_id))
         return asks
 
     @property
     def bids(self) -> List[OrderBookRow]:
-        entries: List[NdaxOrderBookEntry] = self.content["data"]
+        entries: List[NdaxOrderBookEntry] = [NdaxOrderBookEntry(*entry) for entry in self.content["data"]]
         bids = [self._order_book_row_for_entry(entry) for entry in entries if entry.side == self._BUY_SIDE]
         bids.sort(key=lambda row: (row.price, row.update_id))
         return bids
@@ -85,7 +85,7 @@ class NdaxOrderBookMessage(OrderBookMessage):
         return OrderBookRow(price, amount, update_id)
 
     def __eq__(self, other) -> bool:
-        return type(self) == type(other) and self.type == other.type and self.timestamp == other.timestamp
+        return type(self) is type(other) and self.type == other.type and self.timestamp == other.timestamp
 
     def __lt__(self, other) -> bool:
         # If timestamp is the same, the ordering is snapshot < diff < trade
