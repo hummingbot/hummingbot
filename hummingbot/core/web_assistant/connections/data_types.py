@@ -34,7 +34,6 @@ class RESTRequest:
     data: Any = None
     headers: Optional[Mapping[str, str]] = None
     is_auth_required: bool = False
-    sign_if_possible: bool = False
     throttler_limit_id: Optional[str] = None
 
 
