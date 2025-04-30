@@ -15,9 +15,8 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_numeric_client_order_id
 from hummingbot.core.data_type.common import OpenOrder, OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
-from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.event.events import BuyOrderCompletedEvent, MarketEvent, OrderFilledEvent, SellOrderCompletedEvent
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -131,7 +130,9 @@ class NdaxExchange(ExchangePyBase):
 
     async def initialized_account_id(self) -> int:
         if self.authenticator.account_id == 0:
-            await self.authenticator.rest_authenticate(RESTRequest(method="POST", url=""))  # dummy request to trigger auth
+            await self.authenticator.rest_authenticate(
+                RESTRequest(method="POST", url="")
+            )  # dummy request to trigger auth
         return self.authenticator.account_id
 
     def supported_order_types(self) -> List[OrderType]:
@@ -147,14 +148,8 @@ class NdaxExchange(ExchangePyBase):
         """
         pass
 
-    def get_order_book(self, trading_pair: str) -> OrderBook:
-        if trading_pair not in self.order_book_tracker.order_books:
-            raise ValueError(f"No order book exists for '{trading_pair}'.")
-        return self.order_book_tracker.order_books[trading_pair]
-
     def buy(
-            self, trading_pair: str, amount: Decimal, order_type=OrderType.LIMIT, price: Decimal = s_decimal_NaN,
-            **kwargs
+        self, trading_pair: str, amount: Decimal, order_type=OrderType.LIMIT, price: Decimal = s_decimal_NaN, **kwargs
     ) -> str:
         """
         Creates a promise to create a buy order using the parameters
@@ -167,8 +162,9 @@ class NdaxExchange(ExchangePyBase):
         :return: the id assigned by the connector to the order (the client id)
         """
         prefix = self.client_order_id_prefix
-        new_order_id = get_new_numeric_client_order_id(nonce_creator=self._nonce_creator,
-                                                       max_id_bit_count=self.client_order_id_max_length)
+        new_order_id = get_new_numeric_client_order_id(
+            nonce_creator=self._nonce_creator, max_id_bit_count=self.client_order_id_max_length
+        )
         numeric_order_id = f"{prefix}{new_order_id}"
 
         safe_ensure_future(
@@ -185,12 +181,12 @@ class NdaxExchange(ExchangePyBase):
         return numeric_order_id
 
     def sell(
-            self,
-            trading_pair: str,
-            amount: Decimal,
-            order_type: OrderType = OrderType.LIMIT,
-            price: Decimal = s_decimal_NaN,
-            **kwargs,
+        self,
+        trading_pair: str,
+        amount: Decimal,
+        order_type: OrderType = OrderType.LIMIT,
+        price: Decimal = s_decimal_NaN,
+        **kwargs,
     ) -> str:
         """
         Creates a promise to create a sell order using the parameters.
@@ -201,8 +197,9 @@ class NdaxExchange(ExchangePyBase):
         :return: the id assigned by the connector to the order (the client id)
         """
         prefix = self.client_order_id_prefix
-        new_order_id = get_new_numeric_client_order_id(nonce_creator=self._nonce_creator,
-                                                       max_id_bit_count=self.client_order_id_max_length)
+        new_order_id = get_new_numeric_client_order_id(
+            nonce_creator=self._nonce_creator, max_id_bit_count=self.client_order_id_max_length
+        )
         numeric_order_id = f"{prefix}{new_order_id}"
         safe_ensure_future(
             self._create_order(
@@ -332,24 +329,6 @@ class NdaxExchange(ExchangePyBase):
         self._trading_rules.clear()
         self._trading_rules = self._format_trading_rules(instrument_info)
 
-    async def _trading_rules_polling_loop(self):
-        """
-        Periodically update trading rules.
-        """
-        while True:
-            try:
-                await self._update_trading_rules()
-                await asyncio.sleep(self.UPDATE_TRADING_RULES_INTERVAL)
-            except asyncio.CancelledError:
-                raise
-            except Exception as e:
-                self.logger().network(
-                    f"Unexpected error while fetching trading rules. Error: {str(e)}",
-                    exc_info=True,
-                    app_warning_msg="Could not fetch new trading rules from NDAX. " "Check network connection.",
-                )
-                await asyncio.sleep(0.5)
-
     async def _update_balances(self):
         """
         Calls REST API to update total and available balances
@@ -449,7 +428,27 @@ class NdaxExchange(ExchangePyBase):
         client_order_id = str(order_msg["ClientOrderId"])
         if client_order_id in self.in_flight_orders:
             tracked_order = self.in_flight_orders[client_order_id]
-            updated = tracked_order.update_with_trade_update(order_msg)
+            fee = self.get_fee(
+                base_currency=tracked_order.base_asset,
+                quote_currency=tracked_order.quote_asset,
+                order_type=tracked_order.order_type,
+                order_side=tracked_order.trade_type,
+                amount=Decimal(order_msg["Quantity"]),
+                price=Decimal(order_msg["Price"]),
+            )
+            updated = tracked_order.update_with_trade_update(
+                TradeUpdate(
+                    trade_id=str(order_msg["TradeId"]),
+                    client_order_id=tracked_order.client_order_id,
+                    exchange_order_id=tracked_order.exchange_order_id,
+                    trading_pair=tracked_order.trading_pair,
+                    fee=fee,
+                    fill_base_amount=Decimal(order_msg["Quantity"]),
+                    fill_quote_amount=Decimal(order_msg["Quantity"]) * Decimal(order_msg["Price"]),
+                    fill_price=Decimal(order_msg["Price"]),
+                    fill_timestamp=order_msg["TradeTime"],
+                )
+            )
 
             if updated:
                 trade_amount = Decimal(str(order_msg["Quantity"]))
@@ -462,11 +461,6 @@ class NdaxExchange(ExchangePyBase):
                     amount=trade_amount,
                     price=trade_price,
                 )
-                amount_for_fee = (
-                    trade_amount if tracked_order.trade_type is TradeType.BUY else trade_amount * trade_price
-                )
-                tracked_order.fee_paid += amount_for_fee * trade_fee.percent
-
                 self.trigger_event(
                     MarketEvent.OrderFilled,
                     OrderFilledEvent(
@@ -478,14 +472,13 @@ class NdaxExchange(ExchangePyBase):
                         trade_price,
                         trade_amount,
                         trade_fee,
-                        exchange_trade_id=str(order_msg["TradeId"]),
+                        exchange_trade_id=tracked_order.exchange_order_id,
                     ),
                 )
                 if (
                     math.isclose(tracked_order.executed_amount_base, tracked_order.amount)
                     or tracked_order.executed_amount_base >= tracked_order.amount
                 ):
-                    tracked_order.mark_as_filled()
                     self.logger().info(
                         f"The {tracked_order.trade_type.name} order "
                         f"{tracked_order.client_order_id} has completed "
@@ -536,23 +529,25 @@ class NdaxExchange(ExchangePyBase):
         )
 
         for trade in raw_responses:
-            fee = TradeFeeBase.new_spot_fee(
-                fee_schema=self.trade_fee_schema(),
-                trade_type=order.trade_type,
-                flat_fees=[
-                    TokenAmount(amount=Decimal(trade["fee"]), token=self._product_id_map[trade["feeProductId"]])
-                ],
+
+            fee = fee = self.get_fee(
+                base_currency=order.base_asset,
+                quote_currency=order.quote_asset,
+                order_type=order.order_type,
+                order_side=order.trade_type,
+                amount=Decimal(trade["Quantity"]),
+                price=Decimal(trade["Price"]),
             )
             trade_update = TradeUpdate(
-                trade_id=str(trade["id"]),
+                trade_id=str(trade["TradeId"]),
                 client_order_id=order.client_order_id,
                 exchange_order_id=order.exchange_order_id,
                 trading_pair=order.trading_pair,
                 fee=fee,
-                fill_base_amount=Decimal(trade["quantity"]),
-                fill_quote_amount=Decimal(trade["quantity"]) * Decimal(trade["price"]),
-                fill_price=Decimal(trade["price"]),
-                fill_timestamp=trade["tradeTime"],
+                fill_base_amount=Decimal(trade["Quantity"]),
+                fill_quote_amount=Decimal(trade["Quantity"]) * Decimal(trade["Price"]),
+                fill_price=Decimal(trade["Price"]),
+                fill_timestamp=trade["TradeTime"],
             )
             trade_updates.append(trade_update)
 
@@ -590,8 +585,9 @@ class NdaxExchange(ExchangePyBase):
         price: Decimal = s_decimal_NaN,
         is_maker: Optional[bool] = None,
     ) -> TradeFeeBase:
+        # https://apidoc.ndax.io/?_gl=1*frgalf*_gcl_au*MTc2Mjc1NzIxOC4xNzQ0MTQ3Mzcy*_ga*ODQyNjI5MDczLjE3NDQxNDczNzI.*_ga_KBXHH6Z610*MTc0NTU0OTg5OC4xOS4xLjE3NDU1NTAyNTguMC4wLjA.#getorderfee
         is_maker = order_type is OrderType.LIMIT_MAKER
-        return AddedToCostTradeFee(percent=self.estimate_fee_pct(is_maker))
+        return DeductedFromReturnsTradeFee(percent=self.estimate_fee_pct(is_maker))
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
