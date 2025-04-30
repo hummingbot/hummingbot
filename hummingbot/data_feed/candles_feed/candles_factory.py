@@ -7,6 +7,7 @@ from hummingbot.data_feed.candles_feed.bybit_perpetual_candles.bybit_perpetual_c
 from hummingbot.data_feed.candles_feed.bybit_spot_candles.bybit_spot_candles import BybitSpotCandles
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
+from hummingbot.data_feed.candles_feed.dexalot_spot_candles.dexalot_spot_candles import DexalotSpotCandles
 from hummingbot.data_feed.candles_feed.gate_io_perpetual_candles import GateioPerpetualCandles
 from hummingbot.data_feed.candles_feed.gate_io_spot_candles import GateioSpotCandles
 from hummingbot.data_feed.candles_feed.hyperliquid_perpetual_candles.hyperliquid_perpetual_candles import (
@@ -52,7 +53,8 @@ class CandlesFactory:
         "bybit": BybitSpotCandles,
         "bybit_perpetual": BybitPerpetualCandles,
         "hyperliquid": HyperliquidSpotCandles,
-        "hyperliquid_perpetual": HyperliquidPerpetualCandles
+        "hyperliquid_perpetual": HyperliquidPerpetualCandles,
+        "dexalot": DexalotSpotCandles
     }
 
     @classmethod
