@@ -96,4 +96,8 @@ class NdaxWebSocketAdaptor:
 
     async def close(self):
         if self._websocket is not None:
-            await self._websocket.close()
+            await self._websocket.disconnect()
+
+    async def disconnect(self):
+        if self._websocket is not None:
+            await self._websocket.disconnect()
