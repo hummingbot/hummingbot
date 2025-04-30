@@ -13,20 +13,13 @@ from hummingbot.connector.exchange.ndax.ndax_websocket_adaptor import NdaxWebSoc
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_numeric_client_order_id
-from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OpenOrder, OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.event.events import (
-    BuyOrderCompletedEvent,
-    MarketEvent,
-    OrderCancelledEvent,
-    OrderFilledEvent,
-    SellOrderCompletedEvent,
-)
+from hummingbot.core.event.events import BuyOrderCompletedEvent, MarketEvent, OrderFilledEvent, SellOrderCompletedEvent
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.tracking_nonce import NonceCreator
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest
@@ -312,41 +305,6 @@ class NdaxExchange(ExchangePyBase):
             for order in open_orders
         ]
 
-    async def cancel_all(self, timeout_sec: float) -> List[CancellationResult]:
-        """
-        Cancels all in-flight orders and waits for cancellation results.
-        Used by bot's top level stop and exit commands (cancelling outstanding orders on exit)
-        :param timeout_sec: The timeout at which the operation will be canceled.
-        :returns List of CancellationResult which indicates whether each order is successfully cancelled.
-        """
-
-        # Note: NDAX's CancelOrder endpoint simply indicates if the cancel requests has been successfully received.
-        cancellation_results = []
-        tracked_orders = self.in_flight_orders
-        try:
-            for order in tracked_orders.values():
-                self.cancel(trading_pair=order.trading_pair, order_id=order.client_order_id)
-
-            open_orders = await self.get_open_orders()
-
-            for client_oid, tracked_order in tracked_orders.items():
-                matched_order = [o for o in open_orders if o.client_order_id == client_oid]
-                if not matched_order:
-                    cancellation_results.append(CancellationResult(client_oid, True))
-                    self.trigger_event(
-                        MarketEvent.OrderCancelled, OrderCancelledEvent(self.current_timestamp, client_oid)
-                    )
-                else:
-                    cancellation_results.append(CancellationResult(client_oid, False))
-
-        except Exception as ex:
-            self.logger().network(
-                f"Failed to cancel all orders ({ex})",
-                exc_info=True,
-                app_warning_msg="Failed to cancel all orders on NDAX. Check API key and network connection.",
-            )
-        return cancellation_results
-
     def _format_trading_rules(self, instrument_info: List[Dict[str, Any]]) -> Dict[str, TradingRule]:
         """
         Converts JSON API response into a local dictionary of trading rules.
@@ -430,7 +388,7 @@ class NdaxExchange(ExchangePyBase):
             path_url=CONSTANTS.GET_ORDER_STATUS_PATH_URL, params=query_params, is_auth_required=True
         )
 
-        new_state = CONSTANTS.ORDER_STATE[updated_order_data["OrderState"]]
+        new_state = CONSTANTS.ORDER_STATE_STRINGS[updated_order_data["OrderState"]]
 
         order_update = OrderUpdate(
             client_order_id=tracked_order.client_order_id,
@@ -453,7 +411,17 @@ class NdaxExchange(ExchangePyBase):
                 if endpoint == CONSTANTS.ACCOUNT_POSITION_EVENT_ENDPOINT_NAME:
                     self._process_account_position_event(payload)
                 elif endpoint == CONSTANTS.ORDER_STATE_EVENT_ENDPOINT_NAME:
-                    self._process_order_event_message(payload)
+                    client_order_id = str(payload["ClientOrderId"])
+                    tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
+                    if tracked_order is not None:
+                        order_update = OrderUpdate(
+                            trading_pair=tracked_order.trading_pair,
+                            update_timestamp=payload["ReceiveTime"],
+                            new_state=CONSTANTS.ORDER_STATE_STRINGS[payload["OrderState"]],
+                            client_order_id=client_order_id,
+                            exchange_order_id=str(payload["OrderId"]),
+                        )
+                        self._order_tracker.process_order_update(order_update=order_update)
                 elif endpoint == CONSTANTS.ORDER_TRADE_EVENT_ENDPOINT_NAME:
                     self._process_trade_event_message(payload)
                 else:
