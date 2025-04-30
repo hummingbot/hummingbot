@@ -8,7 +8,7 @@ from aioresponses import aioresponses
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.rate_oracle.sources.coin_gecko_rate_source import CoinGeckoRateSource
 from hummingbot.data_feed.coin_gecko_data_feed import coin_gecko_constants as CONSTANTS
-from hummingbot.data_feed.coin_gecko_data_feed.coin_gecko_constants import COOLOFF_AFTER_BAN, PUBLIC
+from hummingbot.data_feed.coin_gecko_data_feed.coin_gecko_constants import COOLOFF_AFTER_BAN, PUBLIC, CoinGeckoAPITier
 
 
 class CoinGeckoRateSourceTest(IsolatedAsyncioWrapperTestCase):
@@ -250,3 +250,51 @@ class CoinGeckoRateSourceTest(IsolatedAsyncioWrapperTestCase):
             self.assertIn("Unhandled error in CoinGecko rate source", e.exception.args[0])
             # Exception is caught and the code continues, so the sleep is called
             mock_sleep.assert_not_called()
+
+    def test_property_setters(self):
+        """Test property setters for api_key and api_tier properties"""
+        rate_source = CoinGeckoRateSource(extra_token_ids=[])
+
+        # Verify initial state
+        self.assertEqual("", rate_source.api_key)
+        self.assertEqual(CoinGeckoAPITier.PUBLIC, rate_source.api_tier)
+
+        # Test setting api_key
+        new_api_key = "test_api_key"
+        rate_source.api_key = new_api_key
+        self.assertEqual(new_api_key, rate_source.api_key)
+
+        # Test setting api_tier
+        new_api_tier = CoinGeckoAPITier.PRO
+        rate_source.api_tier = new_api_tier
+        self.assertEqual(new_api_tier, rate_source.api_tier)
+
+        # Create data feed and test that setters update it
+        rate_source._ensure_data_feed()
+        self.assertIsNotNone(rate_source._coin_gecko_data_feed)
+
+        # Test api_key setter updates data feed
+        newer_api_key = "newer_api_key"
+        rate_source.api_key = newer_api_key
+        self.assertEqual(newer_api_key, rate_source._coin_gecko_data_feed._api_key)
+        self.assertEqual(new_api_tier.value.rate_limits,
+                         rate_source._coin_gecko_data_feed._api_factory._throttler._rate_limits)
+
+        # Test api_tier setter updates data feed
+        newer_api_tier = CoinGeckoAPITier.DEMO
+        rate_source.api_tier = newer_api_tier
+        self.assertEqual(newer_api_tier, rate_source._coin_gecko_data_feed._api_tier)
+        self.assertEqual(newer_api_tier.value.rate_limits,
+                         rate_source._coin_gecko_data_feed._api_factory._throttler._rate_limits)
+
+    def test_extra_token_ids_setter(self):
+        """Test extra_token_ids property setter"""
+        rate_source = CoinGeckoRateSource(extra_token_ids=["bitcoin"])
+
+        # Verify initial state
+        self.assertEqual(["bitcoin"], rate_source.extra_token_ids)
+
+        # Test setting new tokens
+        new_tokens = ["ethereum", "solana"]
+        rate_source.extra_token_ids = new_tokens
+        self.assertEqual(new_tokens, rate_source.extra_token_ids)
