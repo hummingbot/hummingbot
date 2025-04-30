@@ -114,6 +114,6 @@ class NdaxAuth(AuthBase):
             "Signature": hmac.new(
                 self._secret_key.encode("utf-8"), raw_signature.encode("utf-8"), hashlib.sha256
             ).hexdigest(),
-            "UserId": self._uid,
+            "UserId": str(self._uid),
         }
         return auth_info

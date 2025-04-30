@@ -61,6 +61,14 @@ WS_LIMIT = 500
 # 4 Expired
 # 5 Fully Executed.
 
+ORDER_STATE_STRINGS = {
+    "Working": OrderState.OPEN,
+    "Rejected": OrderState.FAILED,
+    "Canceled": OrderState.CANCELED,
+    "Expired": OrderState.FAILED,
+    "FullyExecuted": OrderState.FILLED,
+}
+
 ORDER_STATE = {
     "0": OrderState.OPEN,
     "1": OrderState.OPEN,
