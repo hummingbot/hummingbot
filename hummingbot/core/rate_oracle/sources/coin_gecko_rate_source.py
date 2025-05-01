@@ -9,15 +9,22 @@ from hummingbot.core.rate_oracle.sources.rate_source_base import RateSourceBase
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.data_feed.coin_gecko_data_feed import CoinGeckoDataFeed
-from hummingbot.data_feed.coin_gecko_data_feed.coin_gecko_constants import COOLOFF_AFTER_BAN
+from hummingbot.data_feed.coin_gecko_data_feed.coin_gecko_constants import COOLOFF_AFTER_BAN, CoinGeckoAPITier
 
 
 class CoinGeckoRateSource(RateSourceBase):
-    def __init__(self, extra_token_ids: List[str]):
+    def __init__(
+        self,
+        extra_token_ids: List[str],
+        api_key: str = "",
+        api_tier: CoinGeckoAPITier = CoinGeckoAPITier.PUBLIC,
+    ):
         super().__init__()
         self._coin_gecko_supported_vs_tokens: Optional[List[str]] = None
         self._coin_gecko_data_feed: Optional[CoinGeckoDataFeed] = None  # delayed because of circular reference
         self._extra_token_ids = extra_token_ids
+        self._api_key = api_key
+        self._api_tier = api_tier
         self._rate_limit_exceeded = asyncio.Event()
         self._lock = asyncio.Lock()
 
@@ -32,6 +39,32 @@ class CoinGeckoRateSource(RateSourceBase):
     @extra_token_ids.setter
     def extra_token_ids(self, new_ids: List[str]):
         self._extra_token_ids = new_ids
+
+    @property
+    def api_key(self) -> str:
+        return self._api_key
+
+    @api_key.setter
+    def api_key(self, new_api_key: str):
+        self._api_key = new_api_key
+        # Update data feed if it already exists
+        if self._coin_gecko_data_feed is not None:
+            self._coin_gecko_data_feed._api_key = new_api_key
+            # Update rate limits directly from the tier
+            self._coin_gecko_data_feed._api_factory._throttler._rate_limits = self._api_tier.value.rate_limits
+
+    @property
+    def api_tier(self) -> CoinGeckoAPITier:
+        return self._api_tier
+
+    @api_tier.setter
+    def api_tier(self, new_tier: CoinGeckoAPITier):
+        self._api_tier = new_tier
+        # Update data feed if it already exists
+        if self._coin_gecko_data_feed is not None:
+            self._coin_gecko_data_feed._api_tier = new_tier
+            # Update rate limits directly from the tier
+            self._coin_gecko_data_feed._api_factory._throttler._rate_limits = new_tier.value.rate_limits
 
     def try_event(self, fn):
         @functools.wraps(fn)
@@ -107,7 +140,10 @@ class CoinGeckoRateSource(RateSourceBase):
 
     def _ensure_data_feed(self):
         if self._coin_gecko_data_feed is None:
-            self._coin_gecko_data_feed = CoinGeckoDataFeed()
+            self._coin_gecko_data_feed = CoinGeckoDataFeed(
+                api_key=self._api_key,
+                api_tier=self._api_tier,
+            )
 
     async def _get_coin_gecko_prices_by_page(self,
                                              vs_currency: str,

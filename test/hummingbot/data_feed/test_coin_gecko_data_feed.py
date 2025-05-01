@@ -2,12 +2,13 @@ import asyncio
 import json
 import re
 import unittest
-from typing import Awaitable
+from typing import Awaitable, Optional
 from unittest.mock import MagicMock, patch
 
 from aioresponses import aioresponses
 
 from hummingbot.data_feed.coin_gecko_data_feed import CoinGeckoDataFeed, coin_gecko_constants as CONSTANTS
+from hummingbot.data_feed.coin_gecko_data_feed.coin_gecko_constants import DEMO, PRO, PUBLIC
 
 
 class CoinGeckoDataFeedTest(unittest.TestCase):
@@ -16,9 +17,7 @@ class CoinGeckoDataFeedTest(unittest.TestCase):
 
     def setUp(self) -> None:
         super().setUp()
-
         self.data_feed = CoinGeckoDataFeed()
-
         self.log_records = []
         self.data_feed.logger().setLevel(1)
         self.data_feed.logger().addHandler(self)
@@ -100,9 +99,28 @@ class CoinGeckoDataFeedTest(unittest.TestCase):
         ]
         return data
 
+    def _verify_api_auth_headers(self, mock_api: aioresponses, url: str, expected_header: Optional[str] = None,
+                                 expected_key: Optional[str] = None):
+        """Helper to verify auth headers in requests"""
+        found_request = False
+        for req_key, req_data in mock_api.requests.items():
+            req_method, req_url = req_key
+            if str(req_url) == url and req_method == 'GET':
+                found_request = True
+                request_headers = req_data[0].kwargs.get('headers', {})
+                if expected_header:
+                    self.assertIn(expected_header, request_headers)
+                    self.assertEqual(expected_key, request_headers[expected_header])
+                else:
+                    # Verify no auth headers are present
+                    self.assertNotIn(DEMO.header, request_headers)
+                    self.assertNotIn(PRO.header, request_headers)
+                break
+        self.assertTrue(found_request, f"No request found for URL: {url}")
+
     @aioresponses()
     def test_get_supported_vs_tokens(self, mock_api: aioresponses):
-        url = f"{CONSTANTS.BASE_URL}{CONSTANTS.SUPPORTED_VS_TOKENS_REST_ENDPOINT}"
+        url = f"{PUBLIC.base_url}{CONSTANTS.SUPPORTED_VS_TOKENS_REST_ENDPOINT}"
         data = ["btc", "eth"]
         mock_api.get(url=url, body=json.dumps(data))
 
@@ -116,7 +134,7 @@ class CoinGeckoDataFeedTest(unittest.TestCase):
         page_no = 0
         category = "coin"
         url = (
-            f"{CONSTANTS.BASE_URL}{CONSTANTS.PRICES_REST_ENDPOINT}"
+            f"{PUBLIC.base_url}{CONSTANTS.PRICES_REST_ENDPOINT}"
             f"?category={category}&order=market_cap_desc&page={page_no}"
             f"&per_page=250&sparkline=false&vs_currency={vs_currency}"
         )
@@ -135,7 +153,7 @@ class CoinGeckoDataFeedTest(unittest.TestCase):
         token_ids = ["ETH", "BTC"]
         token_ids_str = ",".join(map(str.lower, token_ids))
         url = (
-            f"{CONSTANTS.BASE_URL}{CONSTANTS.PRICES_REST_ENDPOINT}"
+            f"{PUBLIC.base_url}{CONSTANTS.PRICES_REST_ENDPOINT}"
             f"?ids={token_ids_str}&vs_currency={vs_currency}"
         )
         data = self.get_coin_markets_data_mock(btc_price=1, eth_price=2)
@@ -146,6 +164,56 @@ class CoinGeckoDataFeedTest(unittest.TestCase):
         )
 
         self.assertEqual(data, resp)
+
+    @aioresponses()
+    def test_execute_request_with_demo_api_key(self, mock_api: aioresponses):
+        """Test that _execute_request adds DEMO authentication headers when API key is provided"""
+        demo_key = "demo_api_key"
+        demo_data_feed = CoinGeckoDataFeed(api_key=demo_key, api_tier=CONSTANTS.CoinGeckoAPITier.DEMO)
+        url = f"{DEMO.base_url}{CONSTANTS.SUPPORTED_VS_TOKENS_REST_ENDPOINT}"
+        data = ["btc", "eth"]
+
+        mock_api.get(url, body=json.dumps(data))
+
+        self.async_run_with_timeout(demo_data_feed.get_supported_vs_tokens())
+
+        self._verify_api_auth_headers(mock_api, url, DEMO.header, demo_key)
+
+    @aioresponses()
+    def test_execute_request_with_pro_api_key(self, mock_api: aioresponses):
+        """Test that _execute_request adds PRO authentication headers when API key is provided"""
+        pro_key = "pro_api_key"
+        pro_data_feed = CoinGeckoDataFeed(api_key=pro_key, api_tier=CONSTANTS.CoinGeckoAPITier.PRO)
+        url = f"{PRO.base_url}{CONSTANTS.SUPPORTED_VS_TOKENS_REST_ENDPOINT}"
+        data = ["btc", "eth"]
+
+        mock_api.get(url, body=json.dumps(data))
+
+        self.async_run_with_timeout(pro_data_feed.get_supported_vs_tokens())
+
+        self._verify_api_auth_headers(mock_api, url, PRO.header, pro_key)
+
+    @aioresponses()
+    def test_execute_request_with_no_api_key(self, mock_api: aioresponses):
+        """Test that _execute_request does not add authentication headers when no API key is provided"""
+        public_data_feed = CoinGeckoDataFeed()
+        url = f"{PUBLIC.base_url}{CONSTANTS.SUPPORTED_VS_TOKENS_REST_ENDPOINT}"
+        data = ["btc", "eth"]
+
+        mock_api.get(url, body=json.dumps(data))
+
+        self.async_run_with_timeout(public_data_feed.get_supported_vs_tokens())
+
+        found_request = False
+        for req_key, req_data in mock_api.requests.items():
+            req_method, req_url = req_key
+            if str(req_url) == url and req_method == 'GET':
+                found_request = True
+                request_headers = req_data[0].kwargs.get('headers', {})
+                self.assertNotIn(DEMO.header, request_headers)
+                self.assertNotIn(PRO.header, request_headers)
+                break
+        self.assertTrue(found_request, f"No request found for URL: {url}")
 
     @aioresponses()
     @patch(
@@ -162,7 +230,7 @@ class CoinGeckoDataFeedTest(unittest.TestCase):
         sleep_mock.return_value = wait_on_sleep_event()
 
         prices_requested_event = asyncio.Event()
-        url = f"{CONSTANTS.BASE_URL}{CONSTANTS.PRICES_REST_ENDPOINT}"
+        url = f"{PUBLIC.base_url}{CONSTANTS.PRICES_REST_ENDPOINT}"
         regex_url = re.compile(f"^{url}")
         data = self.get_coin_markets_data_mock(btc_price=1, eth_price=2)
         first_page = data[:1]
@@ -220,16 +288,39 @@ class CoinGeckoDataFeedTest(unittest.TestCase):
         "hummingbot.data_feed.coin_gecko_data_feed.coin_gecko_data_feed.CoinGeckoDataFeed._async_sleep",
         new_callable=MagicMock,
     )
-    def test_fetch_data_logs_exceptions(self, mock_api, sleep_mock: MagicMock):
-        sleep_mock.side_effect = [asyncio.CancelledError]
+    def test_update_asset_prices_error_handling(self, mock_api: aioresponses, sleep_mock: MagicMock):
+        """Test error handling in _update_asset_prices method"""
+        # Configure sleep_mock to return a proper awaitable
+        async def mock_sleep(*args, **kwargs):
+            return None
+        sleep_mock.side_effect = mock_sleep
 
-        url = f"{CONSTANTS.BASE_URL}{CONSTANTS.PRICES_REST_ENDPOINT}"
-        regex_url = re.compile(f"^{url}")
-        mock_api.get(url=regex_url, exception=RuntimeError("Some error"))
+        # Set up URLs for testing
+        base_url = f"{PUBLIC.base_url}{CONSTANTS.PRICES_REST_ENDPOINT}"
 
-        with self.assertRaises(RuntimeError):
-            self.async_run_with_timeout(self.data_feed._fetch_data())
+        # First test case: API error response
+        error_url = f"{base_url}?vs_currency=usd&order=market_cap_desc&per_page=250&page=1&sparkline=false"
+        mock_api.get(error_url, body=json.dumps({"error": "API rate limit exceeded"}))
 
-        self.assertTrue(
-            self.is_logged(log_level="WARNING", message="Coin Gecko API request failed. Exception: Some error")
-        )
+        # Should raise the error with the API message
+        with self.assertRaises(Exception) as context:
+            self.async_run_with_timeout(self.data_feed._update_asset_prices())
+        self.assertEqual(str(context.exception), "API rate limit exceeded")
+        self.assertTrue(self.is_logged(log_level="WARNING",
+                                       message="Coin Gecko API request failed. Exception: API rate limit exceeded"))
+
+        # Reset for second test case
+        self.log_records.clear()
+        mock_api.clear()
+
+        # Second test case: null current_price handling
+        # Mock all 4 pages needed by the method
+        for page in range(1, 5):
+            url = f"{base_url}?vs_currency=usd&order=market_cap_desc&per_page=250&page={page}&sparkline=false"
+            data = [{"symbol": "btc", "current_price": None}] if page == 1 else []
+            mock_api.get(url, body=json.dumps(data))
+
+        # Process null price value (should set to 0.0)
+        self.async_run_with_timeout(self.data_feed._update_asset_prices())
+        self.assertIn("BTC", self.data_feed.price_dict)
+        self.assertEqual(0.0, self.data_feed.price_dict["BTC"])

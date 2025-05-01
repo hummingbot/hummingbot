@@ -263,6 +263,8 @@ class ClientConfigAdapter:
         for attr, value in conf_dict.items():
             if isinstance(value, SecretStr):
                 clear_text_value = value.get_secret_value() if isinstance(value, SecretStr) else value
+                if not Security.secrets_manager:
+                    logging.getLogger().warning(f"Ignore the following error if your config file {attr} contains secret(s)")
                 conf_dict[attr] = Security.secrets_manager.encrypt_secret_value(attr, clear_text_value)
 
     def _decrypt_secrets(self, conf_dict: Dict[str, Any]):
