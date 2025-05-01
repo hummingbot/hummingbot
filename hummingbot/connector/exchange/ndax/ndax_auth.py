@@ -29,14 +29,15 @@ class NdaxAuth(AuthBase):
 
     def __init__(self, uid: str, api_key: str, secret_key: str, account_name: str):
         if not hasattr(self, "_initialized"):  # Prevent reinitialization
-            self._uid: str = uid
-            self._account_id = 0
-            self._api_key: str = api_key
-            self._secret_key: str = secret_key
-            self._account_name: str = account_name
-            self._token: Optional[str] = None
-            self._token_expiration: int = 0
-            self._initialized = True
+            if len(uid) > 0:
+                self._uid: str = uid
+                self._account_id = 0
+                self._api_key: str = api_key
+                self._secret_key: str = secret_key
+                self._account_name: str = account_name
+                self._token: Optional[str] = None
+                self._token_expiration: int = 0
+                self._initialized = True
 
     @property
     def token(self) -> str:
