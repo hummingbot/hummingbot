@@ -72,6 +72,12 @@ class NdaxExchange(ExchangePyBase):
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._nonce_creator = NonceCreator.for_milliseconds()
+        self._authenticator = NdaxAuth(
+            uid=self._ndax_uid,
+            api_key=self._ndax_api_key,
+            secret_key=self._ndax_secret_key,
+            account_name=self._ndax_account_name,
+        )
         super().__init__(client_config_map)
         self._product_id_map = {}
 
@@ -81,12 +87,7 @@ class NdaxExchange(ExchangePyBase):
 
     @property
     def authenticator(self):
-        return NdaxAuth(
-            uid=self._ndax_uid,
-            api_key=self._ndax_api_key,
-            secret_key=self._ndax_secret_key,
-            account_name=self._ndax_account_name,
-        )
+        return self._authenticator
 
     @property
     def domain(self):
