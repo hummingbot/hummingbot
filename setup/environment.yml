@@ -4,6 +4,7 @@ channels:
   - defaults
 dependencies:
   ### Packages needed for the build/install process
+  - autopep8
   - conda-build>=3.26.0
   - coverage>=7.2.7
   - cython
