@@ -51,6 +51,10 @@ class NdaxAuth(AuthBase):
     def uid(self) -> int:
         return int(self._uid)
 
+    @uid.setter
+    def uid(self, uid: str):
+        self._uid = uid
+
     @property
     def account_id(self) -> int:
         return int(self._account_id)
