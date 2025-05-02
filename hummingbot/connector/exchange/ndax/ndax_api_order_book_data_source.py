@@ -31,7 +31,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._domain: Optional[str] = domain
         self._snapshot_messages_queue_key = CONSTANTS.WS_ORDER_BOOK_CHANNEL
         self._diff_messages_queue_key = CONSTANTS.WS_ORDER_BOOK_L2_UPDATE_EVENT
-        self._trade_messages_queue_key = ""
+        self._trade_messages_queue_key = CONSTANTS.ORDER_TRADE_EVENT_ENDPOINT_NAME
 
     async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
