@@ -24,12 +24,12 @@ class ExecutorSimulation(BaseModel):
             raise ValueError("executor_simulation must be a pandas DataFrame")
         return v
 
-    def get_executor_info_at_timestamp(self, timestamp_dt: pd.Timestamp) -> ExecutorInfo:
+    def get_executor_info_at_timestamp(self, timestamp: float) -> ExecutorInfo:
         # Initialize tracking of last lookup
         if not hasattr(self, '_max_timestamp'):
             self._max_timestamp = self.executor_simulation.index.max()
 
-        pos = self.executor_simulation.index.searchsorted(timestamp_dt, side='right') - 1
+        pos = self.executor_simulation.index.searchsorted(timestamp, side='right') - 1
         if pos < 0:
             # Very rare.
             return self._empty_executor_info()
@@ -40,7 +40,7 @@ class ExecutorSimulation(BaseModel):
             id=self.config.id,
             timestamp=self.config.timestamp,
             type=self.config.type,
-            close_timestamp=None if is_active else float(last_entry['timestamp']),
+            close_timestamp=None if is_active else float(last_entry.name),
             close_type=None if is_active else self.close_type,
             status=RunnableStatus.RUNNING if is_active else RunnableStatus.TERMINATED,
             config=self.config,
