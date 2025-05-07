@@ -419,7 +419,7 @@ class XrplExchange(ExchangePyBase):
             self.logger().error("Failed to verify transaction result, transaction is None")
             return False, None
 
-        if prelim_result[0:3] != "tes":
+        if prelim_result not in ["tesSUCCESS", "tefPAST_SEQ", "terQUEUED"]:
             self.logger().error(
                 f"Failed to verify transaction result, prelim_result: {prelim_result}, "
                 f"tx_hash: {transaction.get_hash()}, sequence: {transaction.sequence}"
