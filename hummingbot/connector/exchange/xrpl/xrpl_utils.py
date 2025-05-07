@@ -289,9 +289,8 @@ async def _wait_for_final_transaction_outcome(
 
     if current_ledger_sequence >= last_ledger_sequence and (current_ledger_sequence - last_ledger_sequence) > 10:
         raise XRPLReliableSubmissionException(
-            f"The latest validated ledger sequence {current_ledger_sequence} is "
-            f"greater than LastLedgerSequence {last_ledger_sequence} in "
-            f"the transaction. Prelim result: {prelim_result}"
+            f"Transaction failed - latest ledger {current_ledger_sequence} exceeds "
+            f"transaction's LastLedgerSequence {last_ledger_sequence}. Prelim result: {prelim_result}"
         )
 
     # query transaction by hash
