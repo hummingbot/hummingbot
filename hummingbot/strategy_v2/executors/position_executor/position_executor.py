@@ -590,7 +590,7 @@ class PositionExecutor(ExecutorBase):
             trading_pair=self.config.trading_pair,
             order_id=self._take_profit_limit_order.order_id
         )
-        self.logger().debug("Removing take profit")
+        self.logger().debug("Removing take profit limit")
 
     def cancel_open_order(self):
         """
