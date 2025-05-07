@@ -87,7 +87,7 @@ class HyperliquidAPIUserStreamDataSource(UserStreamTrackerDataSource):
             trades_payload = {
                 "method": "subscribe",
                 "subscription": {
-                    "type": "user",
+                    "type": "userFills",
                     "user": self._connector.hyperliquid_api_key,
                 }
             }
