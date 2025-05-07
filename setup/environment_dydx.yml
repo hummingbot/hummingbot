@@ -4,6 +4,7 @@ channels:
   - defaults
 dependencies:
   ### Packages needed for the build/install process
+  - autopep8
   - backports>=1.0
   - conda-build>=3.26.0
   - coverage>=7.2.7
@@ -57,6 +58,6 @@ dependencies:
   # This needs to be restricted to <2.0 - tests fail otherwise
   - urllib3>=1.26.15,<2.0
   - web3
-  - xrpl-py>=4,<4.1.0
+  - xrpl-py>=4.1.0
   - yaml>=0.2.5
   - zlib>=1.2.13
