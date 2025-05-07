@@ -42,7 +42,7 @@ CONDA_ENV=hummingbot
         "--ignore=test/hummingbot/client/command/test_create_command.py",
     ],
     "python.envFile": "${workspaceFolder}/.env",
-    "python.pythonPath": "${config:python.defaultInterpreterPath}" // Ensure correct Python interpreter
+    "python.terminal.activateEnvironment": true,
 }
 ```
 
