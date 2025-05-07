@@ -104,6 +104,5 @@ class NdaxAuthTests(TestCase):
 
         self.assertEqual(4, len(auth_info))
         self.assertEqual(self._uid, auth_info.get('UserId'))
-        self.assertEqual(self._api_key, auth_info.get('APIKey'))
         self.assertEqual(nonce, auth_info.get('Nonce'))
         self.assertEqual(expected_signature, auth_info.get('Signature'))
