@@ -88,6 +88,24 @@ class UltradeConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         ),
     )
+    ultrade_company_id: SecretStr = Field(
+        default="1",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Ultrade Company ID",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        ),
+    )
+    ultrade_api_url: SecretStr = Field(
+        default="https://api.ultrade.org",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Ultrade connecting API URL",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        ),
+    )
 
     @validator("ultrade_trading_key")
     def check_trading_key(cls, v):
@@ -162,6 +180,24 @@ class UltradeTestnetConfigMap(BaseConnectorConfigMap):
         default=...,
         client_data=ClientFieldData(
             prompt=lambda cm: "Enter your Ultrade Testnet Algorand Mnemonic or EVM Private Key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        ),
+    )
+    ultrade_company_id: SecretStr = Field(
+        default="1",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Ultrade Testnet Company ID",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        ),
+    )
+    ultrade_api_url: SecretStr = Field(
+        default="https://api.testnet.ultrade.org",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Ultrade Testnet connecting API URL",
             is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,
