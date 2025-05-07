@@ -600,6 +600,15 @@ class NdaxExchange(ExchangePyBase):
             self._product_id_map[symbol_data["Product2Symbol"]] = symbol_data["Product2"]
         self._set_trading_pair_symbol_map(mapping)
 
+    async def _get_last_traded_price(self, trading_pair: str) -> float:
+        ex_symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+
+        resp_json = await self._api_request(
+            path_url=CONSTANTS.TICKER_PATH_URL
+        )
+
+        return float(resp_json.get(ex_symbol, {}).get("last_price", 0.0))
+
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
         return str(RESOURCE_NOT_FOUND_ERR) in str(cancelation_exception)
 
