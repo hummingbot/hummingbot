@@ -1,5 +1,4 @@
 import asyncio
-import math
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
@@ -14,11 +13,10 @@ from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_numeric_client_order_id
 from hummingbot.core.data_type.common import OpenOrder, OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.event.events import BuyOrderCompletedEvent, MarketEvent, OrderFilledEvent, SellOrderCompletedEvent
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.tracking_nonce import NonceCreator
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest
@@ -103,11 +101,11 @@ class NdaxExchange(ExchangePyBase):
 
     @property
     def is_cancel_request_in_exchange_synchronous(self) -> bool:
-        return True
+        return False
 
     @property
     def check_network_request_path(self):
-        return CONSTANTS.MARKETS_URL
+        return CONSTANTS.PING_PATH_URL
 
     @property
     def client_order_id_max_length(self):
@@ -276,6 +274,9 @@ class NdaxExchange(ExchangePyBase):
             path_url=CONSTANTS.CANCEL_ORDER_PATH_URL, data=body_params, is_auth_required=True
         )
 
+        if response.get("errorcode", 1) != 0:
+            raise IOError(response.get("errormsg"))
+
         return response.get("result", False)
 
     async def get_open_orders(self) -> List[OpenOrder]:
@@ -370,6 +371,9 @@ class NdaxExchange(ExchangePyBase):
 
         new_state = CONSTANTS.ORDER_STATE_STRINGS[updated_order_data["OrderState"]]
 
+        if new_state == OrderState.OPEN and Decimal(str(updated_order_data["QuantityExecuted"])) > s_decimal_0:
+            new_state = OrderState.PARTIALLY_FILLED
+
         order_update = OrderUpdate(
             client_order_id=tracked_order.client_order_id,
             exchange_order_id=str(updated_order_data["OrderId"]),
@@ -408,8 +412,8 @@ class NdaxExchange(ExchangePyBase):
                     self.logger().debug(f"Unknown event received from the connector ({event_message})")
             except asyncio.CancelledError:
                 raise
-            except Exception as ex:
-                self.logger().error(f"Unexpected error in user stream listener loop ({ex})", exc_info=True)
+            except Exception:
+                self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await asyncio.sleep(5.0)
 
     def _process_account_position_event(self, account_position_event: Dict[str, Any]):
@@ -425,88 +429,30 @@ class NdaxExchange(ExchangePyBase):
         event if the total executed amount equals to the specified order amount.
         :param order_msg: The order event message payload
         """
-
         client_order_id = str(order_msg["ClientOrderId"])
-        if client_order_id in self.in_flight_orders:
-            tracked_order = self.in_flight_orders[client_order_id]
+        fillable_order = self._order_tracker.all_fillable_orders.get(client_order_id)
+        if fillable_order is not None:
+            trade_amount = Decimal(str(order_msg["Quantity"]))
+            trade_price = Decimal(str(order_msg["Price"]))
             fee = self.get_fee(
-                base_currency=tracked_order.base_asset,
-                quote_currency=tracked_order.quote_asset,
-                order_type=tracked_order.order_type,
-                order_side=tracked_order.trade_type,
+                base_currency=fillable_order.base_asset,
+                quote_currency=fillable_order.quote_asset,
+                order_type=fillable_order.order_type,
+                order_side=fillable_order.trade_type,
                 amount=Decimal(order_msg["Quantity"]),
                 price=Decimal(order_msg["Price"]),
             )
-            updated = tracked_order.update_with_trade_update(
-                TradeUpdate(
-                    trade_id=str(order_msg["TradeId"]),
-                    client_order_id=tracked_order.client_order_id,
-                    exchange_order_id=tracked_order.exchange_order_id,
-                    trading_pair=tracked_order.trading_pair,
-                    fee=fee,
-                    fill_base_amount=Decimal(order_msg["Quantity"]),
-                    fill_quote_amount=Decimal(order_msg["Quantity"]) * Decimal(order_msg["Price"]),
-                    fill_price=Decimal(order_msg["Price"]),
-                    fill_timestamp=order_msg["TradeTime"],
-                )
-            )
-
-            if updated:
-                trade_amount = Decimal(str(order_msg["Quantity"]))
-                trade_price = Decimal(str(order_msg["Price"]))
-                trade_fee = self.get_fee(
-                    base_currency=tracked_order.base_asset,
-                    quote_currency=tracked_order.quote_asset,
-                    order_type=tracked_order.order_type,
-                    order_side=tracked_order.trade_type,
-                    amount=trade_amount,
-                    price=trade_price,
-                )
-                self.trigger_event(
-                    MarketEvent.OrderFilled,
-                    OrderFilledEvent(
-                        self.current_timestamp,
-                        tracked_order.client_order_id,
-                        tracked_order.trading_pair,
-                        tracked_order.trade_type,
-                        tracked_order.order_type,
-                        trade_price,
-                        trade_amount,
-                        trade_fee,
-                        exchange_trade_id=tracked_order.exchange_order_id,
-                    ),
-                )
-                if (
-                    math.isclose(tracked_order.executed_amount_base, tracked_order.amount)
-                    or tracked_order.executed_amount_base >= tracked_order.amount
-                ):
-                    self.logger().info(
-                        f"The {tracked_order.trade_type.name} order "
-                        f"{tracked_order.client_order_id} has completed "
-                        f"according to order status API"
-                    )
-                    event_tag = (
-                        MarketEvent.BuyOrderCompleted
-                        if tracked_order.trade_type is TradeType.BUY
-                        else MarketEvent.SellOrderCompleted
-                    )
-                    event_class = (
-                        BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY else SellOrderCompletedEvent
-                    )
-                    self.trigger_event(
-                        event_tag,
-                        event_class(
-                            self.current_timestamp,
-                            tracked_order.client_order_id,
-                            tracked_order.base_asset,
-                            tracked_order.quote_asset,
-                            tracked_order.executed_amount_base,
-                            tracked_order.executed_amount_quote,
-                            tracked_order.order_type,
-                            tracked_order.exchange_order_id,
-                        ),
-                    )
-                    self.stop_tracking_order(tracked_order.client_order_id)
+            self._order_tracker.process_trade_update(TradeUpdate(
+                trade_id=str(order_msg["TradeId"]),
+                client_order_id=fillable_order.client_order_id,
+                exchange_order_id=fillable_order.exchange_order_id,
+                trading_pair=fillable_order.trading_pair,
+                fill_timestamp=self.current_timestamp,
+                fill_price=trade_price,
+                fill_base_amount=trade_amount,
+                fill_quote_amount=trade_price * trade_amount,
+                fee=fee,
+            ))
 
     async def _make_trading_pairs_request(self) -> Any:
         exchange_info = await self._api_get(path_url=self.trading_pairs_request_path, params={"OMSId": 1})
@@ -601,7 +547,7 @@ class NdaxExchange(ExchangePyBase):
         self._set_trading_pair_symbol_map(mapping)
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
-        ex_symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+        ex_symbol = trading_pair.replace("-", "_")
 
         resp_json = await self._api_request(
             path_url=CONSTANTS.TICKER_PATH_URL
