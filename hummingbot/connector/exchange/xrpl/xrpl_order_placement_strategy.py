@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from decimal import ROUND_DOWN, Decimal
-from typing import TYPE_CHECKING, Optional, Tuple, Union
+from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 
-from xrpl.models import XRP, IssuedCurrencyAmount, Memo, OfferCreate, Transaction
+from xrpl.models import XRP, IssuedCurrencyAmount, Memo, OfferCreate, Path, PathStep, Payment, PaymentFlag, Transaction
 from xrpl.utils import xrp_to_drops
 
 from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS
@@ -145,9 +145,66 @@ class AMMSwapOrderStrategy(XRPLOrderPlacementStrategy):
     """Strategy for placing AMM swap orders"""
 
     async def create_order_transaction(self) -> Transaction:
-        # TODO: Implement AMM swap order logic
-        # This will be similar to market order but use different transaction type
-        raise NotImplementedError("AMM swap orders not yet implemented")
+        # Get best price from order book
+        price = Decimal(
+            await self._connector._get_best_price(
+                self._order.trading_pair, is_buy=True if self._order.trade_type is TradeType.BUY else False
+            )
+        )
+
+        # Add slippage to make sure we get the order filled
+        if self._order.trade_type is TradeType.SELL:
+            price *= Decimal("1") - CONSTANTS.MARKET_ORDER_MAX_SLIPPAGE
+        else:
+            price *= Decimal("1") + CONSTANTS.MARKET_ORDER_MAX_SLIPPAGE
+
+        we_pay, we_get = await self.get_base_quote_amounts(price)
+
+        paths: Optional[List[Path]] = None
+
+        # if both we_pay and we_get are not XRP:
+        if isinstance(we_pay, IssuedCurrencyAmount) and isinstance(we_get, IssuedCurrencyAmount):
+            path: Path = [
+                PathStep(
+                    account=we_pay.issuer,
+                ),
+                PathStep(
+                    currency=we_get.currency,
+                    issuer=we_get.issuer,
+                ),
+            ]
+            paths = [path]
+
+        # if we_pay is XRP, we_get must be an IssuedCurrencyAmount
+        if isinstance(we_pay, str) and isinstance(we_get, IssuedCurrencyAmount):
+            path: Path = [
+                PathStep(
+                    currency=we_get.currency,
+                    issuer=we_get.issuer,
+                ),
+            ]
+            paths = [path]
+
+        # if we_pay is IssuedCurrencyAmount, we_get must be XRP
+        if isinstance(we_pay, IssuedCurrencyAmount) and isinstance(we_get, str):
+            path: Path = [
+                PathStep(currency="XRP"),
+            ]
+            paths = [path]
+
+        swap_amm_prefix = "AMM_SWAP"
+
+        memo = Memo(memo_data=convert_string_to_hex(f"{self._order.client_order_id}_{swap_amm_prefix}", padding=False))
+
+        return Payment(
+            account=self._connector._xrpl_auth.get_account(),
+            destination=self._connector._xrpl_auth.get_account(),
+            amount=we_get,
+            send_max=we_pay,
+            paths=paths,
+            memos=[memo],
+            flags=PaymentFlag.TF_NO_RIPPLE_DIRECT,
+        )
 
 
 class OrderPlacementStrategyFactory:
