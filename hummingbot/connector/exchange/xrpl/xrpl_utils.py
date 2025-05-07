@@ -287,7 +287,7 @@ async def _wait_for_final_transaction_outcome(
 
     current_ledger_sequence = await get_latest_validated_ledger_sequence(client)
 
-    if current_ledger_sequence >= last_ledger_sequence:
+    if current_ledger_sequence >= last_ledger_sequence and (current_ledger_sequence - last_ledger_sequence) > 10:
         raise XRPLReliableSubmissionException(
             f"The latest validated ledger sequence {current_ledger_sequence} is "
             f"greater than LastLedgerSequence {last_ledger_sequence} in "
