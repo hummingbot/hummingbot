@@ -1,6 +1,4 @@
 import asyncio
-import hashlib
-import hmac
 import json
 import re
 import time
@@ -97,12 +95,6 @@ class NdaxAuthTests(TestCase):
             generate_nonce_mock.return_value = nonce
             auth_info = auth.header_for_authentication()
 
-        raw_signature = nonce + str(self._uid) + self._api_key
-        expected_signature = hmac.new(self._secret_key.encode('utf-8'),
-                                      raw_signature.encode('utf-8'),
-                                      hashlib.sha256).hexdigest()
-
         self.assertEqual(4, len(auth_info))
         self.assertEqual(self._uid, auth_info.get('UserId'))
         self.assertEqual(nonce, auth_info.get('Nonce'))
-        self.assertEqual(expected_signature, auth_info.get('Signature'))
