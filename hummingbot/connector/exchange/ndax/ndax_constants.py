@@ -96,6 +96,12 @@ RATE_LIMITS = [
         linked_limits=[LinkedLimitWeightPair(HTTP_ENDPOINTS_LIMIT_ID)],
     ),
     RateLimit(
+        limit_id=TICKER_PATH_URL,
+        limit=HTTP_LIMIT,
+        time_interval=MINUTE,
+        linked_limits=[LinkedLimitWeightPair(HTTP_ENDPOINTS_LIMIT_ID)],
+    ),
+    RateLimit(
         limit_id=ORDER_BOOK_URL,
         limit=HTTP_LIMIT,
         time_interval=MINUTE,
