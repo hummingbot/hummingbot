@@ -130,7 +130,7 @@ class BacktestingEngineBase:
                     if executor_simulation.close_type != CloseType.FAILED:
                         self.manage_active_executors(executor_simulation)
                 elif isinstance(action, StopExecutorAction):
-                    self.handle_stop_action(action, row.name)
+                    self.handle_stop_action(action, row["timestamp"])
 
         return self.controller.executors_info
 
@@ -139,7 +139,7 @@ class BacktestingEngineBase:
         self.controller.market_data_provider.prices = {key: Decimal(row["close_bt"])}
         self.controller.market_data_provider._time = row["timestamp"]
         self.controller.processed_data.update(row.to_dict())
-        self.update_executors_info(row.name)
+        self.update_executors_info(row["timestamp"])
 
     def update_executors_info(self, timestamp: float):
         active_executors_info = []
@@ -175,19 +175,19 @@ class BacktestingEngineBase:
             trading_pair=self.controller.config.trading_pair,
             interval=self.backtesting_resolution
         ).add_suffix("_bt")
-        # Make sure we have an epoch index for performance (most of the time it already is)
-        backtesting_candles = BacktestingDataProvider.ensure_epoch_index(backtesting_candles, timestamp_column="timestamp_bt")
 
         if "features" not in self.controller.processed_data:
             backtesting_candles["reference_price"] = backtesting_candles["close_bt"]
             backtesting_candles["spread_multiplier"] = 1
             backtesting_candles["signal"] = 0
         else:
-            features_df = BacktestingDataProvider.ensure_epoch_index(self.controller.processed_data["features"], timestamp_column="timestamp")
-            backtesting_candles = pd.merge_asof(backtesting_candles, features_df,
-                                                left_index=True, right_index=True,
+            backtesting_candles = pd.merge_asof(backtesting_candles, self.controller.processed_data["features"],
+                                                left_on="timestamp_bt", right_on="timestamp",
                                                 direction="backward")
+
         backtesting_candles["timestamp"] = backtesting_candles["timestamp_bt"]
+        # Set timestamp as index to allow index slicing for performance
+        backtesting_candles = BacktestingDataProvider.ensure_epoch_index(backtesting_candles)
         backtesting_candles["open"] = backtesting_candles["open_bt"]
         backtesting_candles["high"] = backtesting_candles["high_bt"]
         backtesting_candles["low"] = backtesting_candles["low_bt"]

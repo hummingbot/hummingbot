@@ -94,7 +94,7 @@ class BacktestingDataProvider(MarketDataProvider):
         """
         key = self._generate_candle_feed_key(config)
         existing_feed = self.candles_feeds.get(key, pd.DataFrame())
-        existing_feed = self.ensure_epoch_index(existing_feed)
+        # existing_feed = self.ensure_epoch_index(existing_feed)
 
         if not existing_feed.empty:
             existing_feed_start_time = existing_feed["timestamp"].min()
@@ -111,7 +111,9 @@ class BacktestingDataProvider(MarketDataProvider):
             start_time=self.start_time - candles_buffer,
             end_time=self.end_time,
         ))
-        self.candles_feeds[key] = self.ensure_epoch_index(candles_df)
+        # TODO: fix pandas-ta improper float index slicing to allow us to use float indexes
+        # candles_df = self.ensure_epoch_index(candles_df)
+        self.candles_feeds[key] = candles_df
         return candles_df
 
     def get_candles_df(self, connector_name: str, trading_pair: str, interval: str, max_records: int = 500):
