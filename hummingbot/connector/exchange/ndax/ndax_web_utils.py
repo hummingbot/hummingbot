@@ -16,7 +16,7 @@ def public_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> st
     :param domain: the Mexc domain to connect to ("com" or "us"). The default value is "com"
     :return: the full URL to the endpoint
     """
-    return CONSTANTS.REST_URLS.get(domain or "ndax_main") + path_url
+    return CONSTANTS.REST_URLS.get(domain, CONSTANTS.REST_URLS["ndax_main"]) + path_url
 
 
 def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
@@ -26,7 +26,7 @@ def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> s
     :param domain: the Mexc domain to connect to ("com" or "us"). The default value is "com"
     :return: the full URL to the endpoint
     """
-    return CONSTANTS.REST_URLS.get(domain or "ndax_main") + path_url
+    return CONSTANTS.REST_URLS.get(domain, CONSTANTS.REST_URLS["ndax_main"]) + path_url
 
 
 def build_api_factory(
