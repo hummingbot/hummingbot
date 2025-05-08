@@ -98,6 +98,7 @@ class BacktestingDataProvider(MarketDataProvider):
         """
         key = self._generate_candle_feed_key(config)
         existing_feed = self.candles_feeds.get(key, pd.DataFrame())
+        # existing_feed = self.ensure_epoch_index(existing_feed)
 
         if not existing_feed.empty:
             existing_feed_start_time = existing_feed["timestamp"].min()
@@ -114,6 +115,8 @@ class BacktestingDataProvider(MarketDataProvider):
             start_time=self.start_time - candles_buffer,
             end_time=self.end_time,
         ))
+        # TODO: fix pandas-ta improper float index slicing to allow us to use float indexes
+        # candles_df = self.ensure_epoch_index(candles_df)
         self.candles_feeds[key] = candles_df
         return candles_df
 
@@ -127,7 +130,8 @@ class BacktestingDataProvider(MarketDataProvider):
         :return: Candles dataframe.
         """
         candles_df = self.candles_feeds.get(f"{connector_name}_{trading_pair}_{interval}")
-        return candles_df[(candles_df["timestamp"] >= self.start_time) & (candles_df["timestamp"] <= self.end_time)]
+        candles_df = self.ensure_epoch_index(candles_df)
+        return candles_df.loc[self.start_time:self.end_time]
 
     def get_price_by_type(self, connector_name: str, trading_pair: str, price_type: PriceType):
         """
@@ -162,3 +166,27 @@ class BacktestingDataProvider(MarketDataProvider):
         trading_rules = self.get_trading_rules(connector_name, trading_pair)
         price_quantum = trading_rules.min_price_increment
         return (price // price_quantum) * price_quantum
+
+    # TODO: enable copy-on-write and allow specification of inplace
+    @staticmethod
+    def ensure_epoch_index(df: pd.DataFrame, timestamp_column: str = "timestamp",
+                           keep_original: bool = True, index_name: str = "epoch_seconds") -> pd.DataFrame:
+        """Ensures DataFrame has numeric monotonic increasing timestamp index in seconds since epoch."""
+        # Skip if already numeric index but not RangeIndex as that generally means the index was dropped
+        if df.index.name == index_name or df.empty:
+            return df
+
+        # DatetimeIndex → convert to seconds
+        if isinstance(df.index, pd.DatetimeIndex):
+            df.index = df.index.map(pd.Timestamp.timestamp)
+        # Has timestamp column → use as index
+        elif timestamp_column in df.columns:
+            df = df.set_index(timestamp_column, drop=not keep_original)
+            # Convert non-numeric indices to seconds
+            if not pd.api.types.is_numeric_dtype(df.index):
+                df.index = pd.to_datetime(df.index).map(pd.Timestamp.timestamp)
+        else:
+            raise ValueError(f"Cannot create timestamp index: no '{timestamp_column}' column found and index isn't convertible")
+        df.sort_index(inplace=True)
+        df.index.name = index_name
+        return df
