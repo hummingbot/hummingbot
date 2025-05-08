@@ -163,7 +163,7 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
     @patch.object(MarketDataProvider, "update_rates_task", MagicMock())
     def test_initialize_rate_sources(self):
         self.provider.initialize_rate_sources([ConnectorPair(connector_name="binance", trading_pair="BTC-USDT")])
-        self.assertEqual(len(self.provider._rate_sources), 1)
+        self.assertEqual(len(self.provider._rates_required), 1)
         self.provider.stop()
 
     async def test_safe_get_last_traded_prices(self):
