@@ -129,66 +129,86 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         )
         return funding_info
 
+    # 3.1 - Strengthen the funding-info fetch process with retries to avoid startup failures from occasional glitches.
     async def _request_complete_funding_info(self, trading_pair: str):
-        tasks = []
-        rest_assistant = await self._api_factory.get_rest_assistant()
-        inst_id = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+        max_retries = 3
+        retry_delay = 2.0
+        attempt = 0
 
-        # TODO: Check what happens with index price in OKX API, only available for spot?
-        params_index_price = {
-            "instId": trading_pair
-        }
-        endpoint_index_price = CONSTANTS.REST_INDEX_TICKERS[CONSTANTS.ENDPOINT]
-        url_index_price = web_utils.get_rest_url_for_endpoint(endpoint=endpoint_index_price, domain=self._domain)
-        limit_id_index_price = web_utils.get_pair_specific_limit_id(
-            method=CONSTANTS.REST_INDEX_TICKERS[CONSTANTS.METHOD],
-            endpoint=endpoint_index_price,
-            trading_pair=trading_pair)
-        tasks.append(rest_assistant.execute_request(
-            url=url_index_price,
-            throttler_limit_id=limit_id_index_price,
-            params=params_index_price,
-            method=RESTMethod.GET,
-        ))
+        while True:
+            try:
+                tasks = []
+                rest_assistant = await self._api_factory.get_rest_assistant()
+                inst_id = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
 
-        params_mark_price = {
-            "instId": inst_id,
-            "instType": "SWAP",
-        }
-        endpoint_mark_price = CONSTANTS.REST_MARK_PRICE[CONSTANTS.ENDPOINT]
-        url_mark_price = web_utils.get_rest_url_for_endpoint(endpoint=endpoint_mark_price, domain=self._domain)
-        limit_id_mark_price = web_utils.get_pair_specific_limit_id(
-            method=CONSTANTS.REST_MARK_PRICE[CONSTANTS.METHOD],
-            endpoint=endpoint_mark_price,
-            trading_pair=trading_pair
-        )
-        tasks.append(rest_assistant.execute_request(
-            url=url_mark_price,
-            throttler_limit_id=limit_id_mark_price,
-            params=params_mark_price,
-            method=RESTMethod.GET,
-            is_auth_required=True
-        ))
+                # TODO: Check what happens with index price in OKX API, only available for spot?
+                params_index_price = {
+                    "instId": trading_pair
+                }
+                endpoint_index_price = CONSTANTS.REST_INDEX_TICKERS[CONSTANTS.ENDPOINT]
+                url_index_price = web_utils.get_rest_url_for_endpoint(endpoint=endpoint_index_price, domain=self._domain)
+                limit_id_index_price = web_utils.get_pair_specific_limit_id(
+                    method=CONSTANTS.REST_INDEX_TICKERS[CONSTANTS.METHOD],
+                    endpoint=endpoint_index_price,
+                    trading_pair=trading_pair)
+                tasks.append(rest_assistant.execute_request(
+                    url=url_index_price,
+                    throttler_limit_id=limit_id_index_price,
+                    params=params_index_price,
+                    method=RESTMethod.GET,
+                ))
 
-        params_funding_data = {
-            "instId": inst_id
-        }
-        endpoint_funding_data = CONSTANTS.REST_FUNDING_RATE_INFO[CONSTANTS.ENDPOINT]
-        url_funding_data = web_utils.get_rest_url_for_endpoint(endpoint=endpoint_funding_data, domain=self._domain)
-        limit_id_funding_data = web_utils.get_pair_specific_limit_id(
-            method=CONSTANTS.REST_FUNDING_RATE_INFO[CONSTANTS.METHOD],
-            endpoint=endpoint_funding_data,
-            trading_pair=trading_pair
-        )
-        tasks.append(rest_assistant.execute_request(
-            url=url_funding_data,
-            throttler_limit_id=limit_id_funding_data,
-            params=params_funding_data,
-            method=RESTMethod.GET,
-        ))
+                params_mark_price = {
+                    "instId": inst_id,
+                    "instType": "SWAP",
+                }
+                endpoint_mark_price = CONSTANTS.REST_MARK_PRICE[CONSTANTS.ENDPOINT]
+                url_mark_price = web_utils.get_rest_url_for_endpoint(endpoint=endpoint_mark_price, domain=self._domain)
+                limit_id_mark_price = web_utils.get_pair_specific_limit_id(
+                    method=CONSTANTS.REST_MARK_PRICE[CONSTANTS.METHOD],
+                    endpoint=endpoint_mark_price,
+                    trading_pair=trading_pair
+                )
+                tasks.append(rest_assistant.execute_request(
+                    url=url_mark_price,
+                    throttler_limit_id=limit_id_mark_price,
+                    params=params_mark_price,
+                    method=RESTMethod.GET,
+                    is_auth_required=True
+                ))
 
-        responses = await asyncio.gather(*tasks)
-        return responses
+                params_funding_data = {
+                    "instId": inst_id
+                }
+                endpoint_funding_data = CONSTANTS.REST_FUNDING_RATE_INFO[CONSTANTS.ENDPOINT]
+                url_funding_data = web_utils.get_rest_url_for_endpoint(endpoint=endpoint_funding_data, domain=self._domain)
+                limit_id_funding_data = web_utils.get_pair_specific_limit_id(
+                    method=CONSTANTS.REST_FUNDING_RATE_INFO[CONSTANTS.METHOD],
+                    endpoint=endpoint_funding_data,
+                    trading_pair=trading_pair
+                )
+                tasks.append(rest_assistant.execute_request(
+                    url=url_funding_data,
+                    throttler_limit_id=limit_id_funding_data,
+                    params=params_funding_data,
+                    method=RESTMethod.GET,
+                ))
+
+                responses = await asyncio.gather(*tasks)
+                return responses
+
+            except IOError as e:
+                attempt += 1
+                if "Too Many Requests" in str(e) and attempt < max_retries:
+                    self.logger().warning(
+                        f"Rate limit reached when requesting funding info. Retrying in {retry_delay} seconds. "
+                        f"Attempt {attempt}/{max_retries}"
+                    )
+                    await asyncio.sleep(retry_delay)
+                    # Exponential backoff
+                    retry_delay *= 2
+                else:
+                    raise
 
     # 4 - Websocket Connection
     async def _connected_websocket_assistant(self) -> WSAssistant:
