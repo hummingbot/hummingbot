@@ -9,8 +9,7 @@ from bidict import bidict
 
 # XRPL Imports
 from xrpl.asyncio.clients import AsyncWebsocketClient, Client, XRPLRequestFailureException
-from xrpl.asyncio.transaction import sign
-from xrpl.clients import JsonRpcClient
+from xrpl.asyncio.transaction import sign, submit_and_wait as async_submit_and_wait
 from xrpl.core.binarycodec import encode
 from xrpl.models import (
     XRP,
@@ -31,7 +30,6 @@ from xrpl.models import (
 )
 from xrpl.models.amounts import IssuedCurrencyAmount
 from xrpl.models.response import Response, ResponseStatus
-from xrpl.transaction.reliable_submission import submit_and_wait
 from xrpl.utils import (
     drops_to_xrp,
     get_balance_changes,
@@ -101,7 +99,6 @@ class XrplExchange(ExchangePyBase):
         self._wss_second_node_url = wss_second_node_url
         self._wss_third_node_url = wss_third_node_url
         # self._xrpl_place_order_client = AsyncWebsocketClient(self._wss_node_url)
-        self._xrpl_sync_client = JsonRpcClient(self._wss_node_url.replace("wss", "https", 1))
         self._xrpl_query_client = AsyncWebsocketClient(self._wss_second_node_url)
         self._xrpl_order_book_data_client = AsyncWebsocketClient(self._wss_second_node_url)
         self._xrpl_user_stream_client = AsyncWebsocketClient(self._wss_third_node_url)
@@ -1542,7 +1539,11 @@ class XrplExchange(ExchangePyBase):
         for balance in balances:
             currency = balance.get("currency")
             if len(currency) > 3:
-                currency = hex_to_str(currency)
+                try:
+                    currency = hex_to_str(currency)
+                except UnicodeDecodeError:
+                    # Do nothing since this is a non-hex string
+                    pass
 
             token = currency.strip("\x00").upper()
             token_issuer = balance.get("account")
@@ -1608,14 +1609,14 @@ class XrplExchange(ExchangePyBase):
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         # NOTE: We are querying both the order book and the AMM pool to get the last traded price
         last_traded_price = float("NaN")
-        # last_traded_price_timestamp = 0
+        last_traded_price_timestamp = 0
 
         order_book = self.order_books.get(trading_pair)
-        # data_source: XRPLAPIOrderBookDataSource = self.order_book_tracker.data_source
+        data_source: XRPLAPIOrderBookDataSource = self.order_book_tracker.data_source
 
         if order_book is not None:
             last_traded_price = order_book.last_trade_price
-            # last_traded_price_timestamp = data_source.last_parsed_order_book_timestamp.get(trading_pair, 0)
+            last_traded_price_timestamp = data_source.last_parsed_order_book_timestamp.get(trading_pair, 0)
 
         if math.isnan(last_traded_price) and order_book is not None:
             best_bid = order_book.get_price(is_buy=True)
@@ -1626,17 +1627,17 @@ class XrplExchange(ExchangePyBase):
 
             if is_best_bid_valid and is_best_ask_valid:
                 last_traded_price = (best_bid + best_ask) / 2
-                # last_traded_price_timestamp = data_source.last_parsed_order_book_timestamp.get(trading_pair, 0)
+                last_traded_price_timestamp = data_source.last_parsed_order_book_timestamp.get(trading_pair, 0)
             else:
                 last_traded_price = float("NaN")
-                # last_traded_price_timestamp = 0
-        # amm_pool_price, amm_pool_last_tx_timestamp = await self._get_price_from_amm_pool(trading_pair)
+                last_traded_price_timestamp = 0
+        amm_pool_price, amm_pool_last_tx_timestamp = await self.get_price_from_amm_pool(trading_pair)
 
-        # if not math.isnan(amm_pool_price):
-        #     if amm_pool_last_tx_timestamp > last_traded_price_timestamp:
-        #         last_traded_price = amm_pool_price
-        #     elif math.isnan(last_traded_price):
-        #         last_traded_price = amm_pool_price
+        if not math.isnan(amm_pool_price):
+            if amm_pool_last_tx_timestamp > last_traded_price_timestamp:
+                last_traded_price = amm_pool_price
+            elif math.isnan(last_traded_price):
+                last_traded_price = amm_pool_price
         return last_traded_price
 
     async def _get_best_price(self, trading_pair: str, is_buy: bool) -> float:
@@ -1647,16 +1648,16 @@ class XrplExchange(ExchangePyBase):
         if order_book is not None:
             best_price = order_book.get_price(is_buy)
 
-        # amm_pool_price, amm_pool_last_tx_timestamp = await self._get_price_from_amm_pool(trading_pair)
+        amm_pool_price, amm_pool_last_tx_timestamp = await self.get_price_from_amm_pool(trading_pair)
 
-        # if not math.isnan(amm_pool_price):
-        #     if is_buy:
-        #         best_price = min(best_price, amm_pool_price) if not math.isnan(best_price) else amm_pool_price
-        #     else:
-        #         best_price = max(best_price, amm_pool_price) if not math.isnan(best_price) else amm_pool_price
+        if not math.isnan(amm_pool_price):
+            if is_buy:
+                best_price = min(best_price, amm_pool_price) if not math.isnan(best_price) else amm_pool_price
+            else:
+                best_price = max(best_price, amm_pool_price) if not math.isnan(best_price) else amm_pool_price
         return best_price
 
-    async def _get_price_from_amm_pool(self, trading_pair: str) -> Tuple[float, int]:
+    async def get_price_from_amm_pool(self, trading_pair: str) -> Tuple[float, int]:
         base_token, quote_token = self.get_currencies_from_trading_pair(trading_pair)
         tx_timestamp = 0
         price = float("NaN")
@@ -1832,7 +1833,24 @@ class XrplExchange(ExchangePyBase):
 
             self._last_clients_refresh_time = time.time()
 
-        await self._xrpl_query_client.open()
+        max_retries = 3
+        retry_count = 0
+        while retry_count < max_retries:
+            try:
+                await self._xrpl_query_client.open()
+                return
+            except (TimeoutError, asyncio.exceptions.TimeoutError) as e:
+                retry_count += 1
+                self.logger().warning(
+                    f"TimeoutError when opening XRPL query client (attempt {retry_count}/{max_retries}): {e}"
+                )
+                if retry_count < max_retries:
+                    await self._sleep(CONSTANTS.REQUEST_RETRY_INTERVAL)
+                else:
+                    self.logger().error(
+                        f"Failed to open XRPL query client after {max_retries} attempts due to timeout."
+                    )
+                    raise
 
     async def _make_trading_rules_request(self) -> Dict[str, Any]:
         await self._client_health_check()
@@ -2043,27 +2061,50 @@ class XrplExchange(ExchangePyBase):
 
     # AMM functions
     # TODO: Add swap function for AMM pools
-    async def amm_get_pool_info(self, pool_address: str, network: Optional[str] = None) -> PoolInfo:
+    async def amm_get_pool_info(
+        self, pool_address: Optional[str] = None, trading_pair: Optional[str] = None
+    ) -> PoolInfo:
         """
         Get information about a specific AMM liquidity pool
 
         :param pool_address: The address of the AMM pool
+        :param trading_pair: The trading pair to get the pool info for
         :param network: Optional network specification
         :return: Pool information
         """
-        # Use the XRPL AMMInfo query
-        resp: Response = await self.request_with_retry(
-            self._xrpl_query_client,
-            AMMInfo(
-                amm_account=pool_address,
-            ),
-            3,
-            self._xrpl_query_client_lock,
-            1,
-        )
+        if pool_address is not None:
+            resp: Response = await self.request_with_retry(
+                self._xrpl_query_client,
+                AMMInfo(
+                    amm_account=pool_address,
+                ),
+                3,
+                self._xrpl_query_client_lock,
+                1,
+            )
+        elif trading_pair is not None:
+            base_token, quote_token = self.get_currencies_from_trading_pair(trading_pair)
+            resp: Response = await self.request_with_retry(
+                self._xrpl_query_client,
+                AMMInfo(
+                    asset=base_token,
+                    asset2=quote_token,
+                ),
+                3,
+                self._xrpl_query_client_lock,
+                1,
+            )
+        else:
+            raise ValueError("Either pool_address or trading_pair must be provided")
 
         # Process the response and convert to our PoolInfo model
         amm_pool_info = resp.result.get("amm", {})
+
+        # Extract pool address
+        extracted_pool_address = amm_pool_info.get("account", None)
+
+        if extracted_pool_address is None:
+            raise ValueError("Invalid AMM pool information: missing pool address")
 
         # Extract amounts
         amount1: Any = amm_pool_info.get("amount", None)
@@ -2107,7 +2148,7 @@ class XrplExchange(ExchangePyBase):
         lp_token_addess: Currency = IssuedCurrency(currency=lp_token.get("currency"), issuer=lp_token.get("issuer"))
 
         return PoolInfo(
-            address=pool_address,
+            address=extracted_pool_address,
             base_token_address=base_token_address,
             quote_token_address=quote_token_address,
             lp_token_address=lp_token_addess,
@@ -2435,7 +2476,7 @@ class XrplExchange(ExchangePyBase):
             "quote_token_lp_amount": quote_token_lp_amount,
             "quote_token_address": pool_info.quote_token_address,
             "lp_token_amount": lp_token_amount,
-            "lp_token_amount_pct": lp_token_amount_pct,
+            "lp_token_amount_pct": lp_token_amount_pct * Decimal("100"),
         }
 
         return balance_info
@@ -2443,12 +2484,6 @@ class XrplExchange(ExchangePyBase):
     # Helper method for transaction submission using reliable submission method
     async def _submit_transaction(self, transaction):
         """Helper method to submit a transaction and wait for result"""
-        # Autofill transaction details
-        filled_tx = await self.tx_autofill(transaction, self._xrpl_query_client)
-
-        # Sign transaction
-        wallet = self._xrpl_auth.get_wallet()
-        signed_tx = sign(filled_tx, wallet)
 
         # Submit transaction with retry logic
         retry_count = 0
@@ -2457,9 +2492,18 @@ class XrplExchange(ExchangePyBase):
 
         while retry_count < max_retries:
             try:
-                submit_result = submit_and_wait(
-                    signed_tx, self._xrpl_sync_client, wallet, autofill=False, fail_hard=True
-                )
+                async with self._xrpl_place_order_client_lock:
+                    async with AsyncWebsocketClient(self._wss_node_url) as client:
+                        # Autofill transaction details
+                        filled_tx = await self.tx_autofill(transaction, client)
+
+                        # Sign transaction
+                        wallet = self._xrpl_auth.get_wallet()
+                        signed_tx = sign(filled_tx, wallet)
+
+                        submit_result = await async_submit_and_wait(
+                            signed_tx, client, wallet, autofill=False, fail_hard=True
+                        )
 
                 if submit_result.status == ResponseStatus.SUCCESS:
                     break
