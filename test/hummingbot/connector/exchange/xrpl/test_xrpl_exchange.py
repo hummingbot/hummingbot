@@ -3904,7 +3904,7 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         self.connector.order_book_tracker.data_source.last_parsed_order_book_timestamp = {self.trading_pair: 100}
 
         # Mock _get_price_from_amm_pool to return NaN
-        self.connector._get_price_from_amm_pool = AsyncMock(return_value=(float("nan"), 0))
+        self.connector.get_price_from_amm_pool = AsyncMock(return_value=(float("nan"), 0))
 
         # Action
         result = await self.connector._get_last_traded_price(self.trading_pair)
@@ -3920,7 +3920,7 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         self.connector.order_book_tracker.data_source.last_parsed_order_book_timestamp = {self.trading_pair: 100}
 
         # Mock _get_price_from_amm_pool to return NaN
-        self.connector._get_price_from_amm_pool = AsyncMock(return_value=(float("NaN"), 0))
+        self.connector.get_price_from_amm_pool = AsyncMock(return_value=(float("NaN"), 0))
 
         # Action
         result = await self.connector._get_last_traded_price(self.trading_pair)
@@ -3935,7 +3935,7 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         self.connector.order_book_tracker.data_source.last_parsed_order_book_timestamp = {self.trading_pair: 100}
 
         # Mock _get_price_from_amm_pool to return NaN
-        self.connector._get_price_from_amm_pool = AsyncMock(return_value=(float("1.0"), 0))
+        self.connector.get_price_from_amm_pool = AsyncMock(return_value=(float("1.0"), 0))
 
         # Action
         result = await self.connector._get_last_traded_price(self.trading_pair)
@@ -3950,7 +3950,7 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         self.connector.order_book_tracker.data_source.last_parsed_order_book_timestamp = {self.trading_pair: 100}
 
         # Mock _get_price_from_amm_pool to return NaN
-        self.connector._get_price_from_amm_pool = AsyncMock(return_value=(float("2.0"), 99999999))
+        self.connector.get_price_from_amm_pool = AsyncMock(return_value=(float("2.0"), 99999999))
 
         # Action
         result = await self.connector._get_last_traded_price(self.trading_pair)
@@ -3966,7 +3966,7 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         self.connector.order_book_tracker.data_source.last_parsed_order_book_timestamp = {self.trading_pair: 100}
 
         # Mock _get_price_from_amm_pool to return NaN
-        self.connector._get_price_from_amm_pool = AsyncMock(return_value=(float("nan"), 0))
+        self.connector.get_price_from_amm_pool = AsyncMock(return_value=(float("nan"), 0))
 
         # Action
         result = await self.connector._get_last_traded_price(self.trading_pair)
@@ -3980,7 +3980,7 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         self.connector.order_books[self.trading_pair].get_price.return_value = Decimal("1.0")
 
         # Mock _get_price_from_amm_pool to return NaN
-        self.connector._get_price_from_amm_pool = AsyncMock(return_value=(float("nan"), 0))
+        self.connector.get_price_from_amm_pool = AsyncMock(return_value=(float("nan"), 0))
 
         # Action
         result = await self.connector._get_best_price(self.trading_pair, True)
@@ -3994,7 +3994,7 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         self.connector.order_books[self.trading_pair].get_price.return_value = Decimal("1.0")
 
         # Mock _get_price_from_amm_pool to return NaN
-        self.connector._get_price_from_amm_pool = AsyncMock(return_value=(1.1, 0))
+        self.connector.get_price_from_amm_pool = AsyncMock(return_value=(1.1, 0))
 
         # Action
         result = await self.connector._get_best_price(self.trading_pair, True)
@@ -4015,7 +4015,7 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         self.data_source._sleep = AsyncMock()
 
         # Action
-        price, timestamp = await self.connector._get_price_from_amm_pool(self.trading_pair)
+        price, timestamp = await self.connector.get_price_from_amm_pool(self.trading_pair)
 
         # Assert
         self.assertTrue(math.isnan(price))
@@ -4028,7 +4028,7 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         self.data_source._sleep = AsyncMock()
 
         # Action
-        price, timestamp = await self.connector._get_price_from_amm_pool(self.trading_pair)
+        price, timestamp = await self.connector.get_price_from_amm_pool(self.trading_pair)
 
         # Assert
         self.assertTrue(math.isnan(price))
@@ -4046,7 +4046,7 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         self.data_source._sleep = AsyncMock()
 
         # Action
-        price, timestamp = await self.connector._get_price_from_amm_pool(self.trading_pair)
+        price, timestamp = await self.connector.get_price_from_amm_pool(self.trading_pair)
 
         # Assert
         self.assertTrue(math.isnan(price))
@@ -4063,7 +4063,7 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         self.data_source._sleep = AsyncMock()
 
         # Action
-        price, timestamp = await self.connector._get_price_from_amm_pool(self.trading_pair)
+        price, timestamp = await self.connector.get_price_from_amm_pool(self.trading_pair)
 
         # Assert
         self.assertTrue(math.isnan(price))
@@ -4115,7 +4115,7 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         self.connector.request_with_retry = AsyncMock(side_effect=[amm_info_response, amm_pool_response])
 
         # Action
-        price, timestamp = await self.connector._get_price_from_amm_pool(self.trading_pair)
+        price, timestamp = await self.connector.get_price_from_amm_pool(self.trading_pair)
 
         # Assert
         self.assertEqual(price, 0.0001)
@@ -4167,7 +4167,7 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         self.connector.request_with_retry = AsyncMock(side_effect=[amm_info_response, amm_pool_response])
 
         # Action
-        price, timestamp = await self.connector._get_price_from_amm_pool(self.trading_pair)
+        price, timestamp = await self.connector.get_price_from_amm_pool(self.trading_pair)
 
         # Assert
         self.assertEqual(price, 10000.0)
