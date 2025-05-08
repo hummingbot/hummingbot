@@ -3,7 +3,7 @@ from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from hummingbot.core.data_type.common import OrderType, PositionMode, TradeType
+from hummingbot.core.data_type.common import MarketDict, OrderType, PositionMode, TradeType
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
 from hummingbot.strategy_v2.controllers.directional_trading_controller_base import (
     DirectionalTradingControllerBase,
@@ -90,14 +90,14 @@ class TestDirectionalTradingControllerBase(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(config.trailing_stop, None)
 
     def test_update_markets_new_connector(self):
-        markets = {}
+        markets = MarketDict()
         updated_markets = self.mock_controller_config.update_markets(markets)
 
         self.assertIn("binance_perpetual", updated_markets)
         self.assertIn("ETH-USDT", updated_markets["binance_perpetual"])
 
     def test_update_markets_existing_connector(self):
-        markets = {"binance_perpetual": {"BTC-USDT"}}
+        markets = MarketDict({"binance_perpetual": {"BTC-USDT"}})
         updated_markets = self.mock_controller_config.update_markets(markets)
 
         self.assertIn("binance_perpetual", updated_markets)
