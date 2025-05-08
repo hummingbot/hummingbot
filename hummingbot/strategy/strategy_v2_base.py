@@ -14,7 +14,7 @@ from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.markets_recorder import MarketsRecorder
-from hummingbot.core.data_type.common import PositionMode
+from hummingbot.core.data_type.common import MarketDict, PositionMode
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
 from hummingbot.exceptions import InvalidController
@@ -39,7 +39,7 @@ class StrategyV2ConfigBase(BaseClientModel):
     """
     Base class for version 2 strategy configurations.
     """
-    markets: Dict[str, Set[str]] = Field(
+    markets: MarketDict = Field(
         default=...,
         json_schema_extra={
             "prompt": "Enter markets in format 'exchange1.tp1,tp2:exchange2.tp1,tp2':",
@@ -174,7 +174,7 @@ class StrategyV2Base(ScriptStrategyBase):
         Initialize the markets that the strategy is going to use. This method is called when the strategy is created in
         the start command. Can be overridden to implement custom behavior.
         """
-        markets = config.markets
+        markets = MarketDict(config.markets)
         controllers_configs = config.load_controller_configs()
         for controller_config in controllers_configs:
             markets = controller_config.update_markets(markets)

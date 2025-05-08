@@ -46,6 +46,13 @@ class ConnectorPair(BaseModel):
             AllConnectorSettings.get_gateway_amm_connector_names()
         )
 
+    class Config:
+        frozen = True  # This makes the model immutable and thus hashable
+
+    def __iter__(self):
+        yield self.connector_name
+        yield self.trading_pair
+
 
 class PositionSummary(BaseModel):
     connector_name: str

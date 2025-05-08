@@ -1,7 +1,6 @@
 from decimal import Decimal
-from typing import Dict, Set
 
-from hummingbot.core.data_type.common import PositionAction, PositionMode, PriceType, TradeType
+from hummingbot.core.data_type.common import MarketDict, PositionAction, PositionMode, PriceType, TradeType
 from hummingbot.strategy_v2.controllers import ControllerBase, ControllerConfigBase
 from hummingbot.strategy_v2.executors.order_executor.data_types import ExecutionStrategy, OrderExecutorConfig
 from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, ExecutorAction
@@ -20,11 +19,8 @@ class BasicOrderOpenCloseExampleConfig(ControllerConfigBase):
     close_partial_position: bool = False
     amount_quote: Decimal = Decimal("20")
 
-    def update_markets(self, markets: Dict[str, Set[str]]) -> Dict[str, Set[str]]:
-        if self.connector_name not in markets:
-            markets[self.connector_name] = set()
-        markets[self.connector_name].add(self.trading_pair)
-        return markets
+    def update_markets(self, markets: MarketDict) -> MarketDict:
+        return markets.add_or_update(self.connector_name, self.trading_pair)
 
 
 class BasicOrderOpenClose(ControllerBase):

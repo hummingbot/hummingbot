@@ -2,21 +2,21 @@ import importlib
 import inspect
 import os
 from decimal import Decimal
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Type, Union
 
 import numpy as np
 import pandas as pd
 import yaml
 
 from hummingbot.client import settings
-from hummingbot.core.data_type.common import TradeType
+from hummingbot.core.data_type.common import LazyDict, TradeType
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.exceptions import InvalidController
 from hummingbot.strategy_v2.backtesting.backtesting_data_provider import BacktestingDataProvider
 from hummingbot.strategy_v2.backtesting.executor_simulator_base import ExecutorSimulation
 from hummingbot.strategy_v2.backtesting.executors_simulator.dca_executor_simulator import DCAExecutorSimulator
 from hummingbot.strategy_v2.backtesting.executors_simulator.position_executor_simulator import PositionExecutorSimulator
-from hummingbot.strategy_v2.controllers.controller_base import ControllerConfigBase
+from hummingbot.strategy_v2.controllers.controller_base import ControllerBase, ControllerConfigBase
 from hummingbot.strategy_v2.controllers.directional_trading_controller_base import (
     DirectionalTradingControllerConfigBase,
 )
@@ -30,6 +30,8 @@ from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
 
 
 class BacktestingEngineBase:
+    __controller_class_cache = LazyDict[str, Type[ControllerBase]]()
+
     def __init__(self):
         self.controller = None
         self.backtesting_resolution = None
@@ -82,8 +84,9 @@ class BacktestingEngineBase:
                               start: int, end: int,
                               backtesting_resolution: str = "1m",
                               trade_cost=0.0006):
+        controller_class = self.__controller_class_cache.get_or_add(controller_config.controller_name, controller_config.get_controller_class)
+        # controller_class = controller_config.get_controller_class()
         # Load historical candles
-        controller_class = controller_config.get_controller_class()
         self.backtesting_data_provider.update_backtesting_time(start, end)
         await self.backtesting_data_provider.initialize_trading_rules(controller_config.connector_name)
         self.controller = controller_class(config=controller_config, market_data_provider=self.backtesting_data_provider,

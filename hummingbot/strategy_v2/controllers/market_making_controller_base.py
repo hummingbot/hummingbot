@@ -1,10 +1,10 @@
 from decimal import Decimal
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 from pydantic import Field, field_validator
 from pydantic_core.core_schema import ValidationInfo
 
-from hummingbot.core.data_type.common import OrderType, PositionMode, PriceType, TradeType
+from hummingbot.core.data_type.common import MarketDict, OrderType, PositionMode, PriceType, TradeType
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.strategy_v2.controllers.controller_base import ControllerBase, ControllerConfigBase
 from hummingbot.strategy_v2.executors.data_types import ConnectorPair
@@ -208,11 +208,8 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
         spreads = getattr(self, f'{trade_type.name.lower()}_spreads')
         return spreads, [amt_pct * self.total_amount_quote for amt_pct in normalized_amounts_pct]
 
-    def update_markets(self, markets: Dict[str, Set[str]]) -> Dict[str, Set[str]]:
-        if self.connector_name not in markets:
-            markets[self.connector_name] = set()
-        markets[self.connector_name].add(self.trading_pair)
-        return markets
+    def update_markets(self, markets: MarketDict) -> MarketDict:
+        return markets.add_or_update(self.connector_name, self.trading_pair)
 
 
 class MarketMakingControllerBase(ControllerBase):

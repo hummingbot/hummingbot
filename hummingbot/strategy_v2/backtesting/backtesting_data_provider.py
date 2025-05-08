@@ -1,6 +1,6 @@
 import logging
 from decimal import Decimal
-from typing import Dict
+from typing import Dict, Optional
 
 import pandas as pd
 
@@ -8,7 +8,7 @@ from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter, get_connector_class
 from hummingbot.client.settings import AllConnectorSettings, ConnectorType
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.core.data_type.common import PriceType
+from hummingbot.core.data_type.common import LazyDict, PriceType
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesFactory
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig, HistoricalCandlesConfig
@@ -34,9 +34,13 @@ class BacktestingDataProvider(MarketDataProvider):
         self._time = None
         self.trading_rules = {}
         self.conn_settings = AllConnectorSettings.get_connector_settings()
-        self.connectors = {name: self.get_connector(name) for name, settings in self.conn_settings.items()
-                           if settings.type in self.CONNECTOR_TYPES and name not in self.EXCLUDED_CONNECTORS and
-                           "testnet" not in name}
+        self.connectors = LazyDict[str, Optional[ConnectorBase]](
+            lambda name: self.get_connector(name) if (
+                self.conn_settings[name].type in self.CONNECTOR_TYPES and
+                name not in self.EXCLUDED_CONNECTORS and
+                "testnet" not in name
+            ) else None
+        )
 
     def get_connector(self, connector_name: str):
         conn_setting = self.conn_settings.get(connector_name)
