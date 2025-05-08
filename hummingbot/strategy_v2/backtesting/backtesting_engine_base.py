@@ -187,7 +187,10 @@ class BacktestingEngineBase:
             backtesting_candles = pd.merge_asof(backtesting_candles, self.controller.processed_data["features"],
                                                 left_on="timestamp_bt", right_on="timestamp",
                                                 direction="backward")
+
         backtesting_candles["timestamp"] = backtesting_candles["timestamp_bt"]
+        # Set timestamp as index to allow index slicing for performance
+        backtesting_candles = BacktestingDataProvider.ensure_epoch_index(backtesting_candles)
         backtesting_candles["open"] = backtesting_candles["open_bt"]
         backtesting_candles["high"] = backtesting_candles["high_bt"]
         backtesting_candles["low"] = backtesting_candles["low_bt"]
@@ -227,7 +230,7 @@ class BacktestingEngineBase:
         if not simulation.executor_simulation.empty:
             self.active_executor_simulations.append(simulation)
 
-    def handle_stop_action(self, action: StopExecutorAction, timestamp: pd.Timestamp):
+    def handle_stop_action(self, action: StopExecutorAction, timestamp: float):
         """
         Handles stop actions for executors, terminating them as required.
 
