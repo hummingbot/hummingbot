@@ -1,11 +1,11 @@
 from decimal import Decimal
-from typing import Dict, List, Optional, Set
+from typing import List, Optional
 
 import pandas as pd
 from pydantic import Field, field_validator
 
 from hummingbot.client.ui.interface_utils import format_df_for_printout
-from hummingbot.core.data_type.common import OrderType, PositionMode, PriceType, TradeType
+from hummingbot.core.data_type.common import MarketDict, OrderType, PositionMode, PriceType, TradeType
 from hummingbot.strategy_v2.controllers.controller_base import ControllerBase, ControllerConfigBase
 from hummingbot.strategy_v2.executors.data_types import ConnectorPair
 from hummingbot.strategy_v2.executors.position_executor.data_types import (
@@ -146,17 +146,15 @@ class DirectionalTradingControllerConfigBase(ControllerConfigBase):
             time_limit_order_type=OrderType.MARKET  # Defaulting to MARKET as per requirement
         )
 
-    def update_markets(self, markets: Dict[str, Set[str]]) -> Dict[str, Set[str]]:
-        if self.connector_name not in markets:
-            markets[self.connector_name] = set()
-        markets[self.connector_name].add(self.trading_pair)
-        return markets
+    def update_markets(self, markets: MarketDict) -> MarketDict:
+        return markets.add_or_update(self.connector_name, self.trading_pair)
 
 
 class DirectionalTradingControllerBase(ControllerBase):
     """
     This class represents the base class for a Directional Strategy.
     """
+
     def __init__(self, config: DirectionalTradingControllerConfigBase, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
         self.config = config
