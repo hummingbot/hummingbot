@@ -203,7 +203,7 @@ class OkxExchange(ExchangePyBase):
         if order_type.is_limit_type():
             data["px"] = f"{price:f}"
         else:
-            # Specify that the the order quantity for market orders is denominated in base currency
+            # Specify that the order quantity for market orders is denominated in base currency
             data["tgtCcy"] = "base_ccy"
 
         exchange_order_id = await self._api_request(
