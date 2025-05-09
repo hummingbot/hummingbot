@@ -52,17 +52,12 @@ class BacktestingDataProvider(MarketDataProvider):
         init_params = conn_setting.conn_init_parameters(
             trading_pairs=[],
             trading_required=False,
-            api_keys=self.get_connector_config_map(connector_name),
+            api_keys=MarketDataProvider.get_connector_config_map(connector_name),
             client_config_map=client_config_map,
         )
         connector_class = get_connector_class(connector_name)
         connector = connector_class(**init_params)
         return connector
-
-    @staticmethod
-    def get_connector_config_map(connector_name: str):
-        connector_config = AllConnectorSettings.get_connector_config_keys(connector_name)
-        return {key: "" for key in connector_config.__fields__.keys() if key != "connector"}
 
     def get_trading_rules(self, connector_name: str, trading_pair: str):
         """
