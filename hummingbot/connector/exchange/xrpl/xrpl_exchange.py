@@ -2276,7 +2276,7 @@ class XrplExchange(ExchangePyBase):
             )
 
         # Create memo
-        memo_text = f"HBOT-Add-Liquidity:{pool_address}:{base_token_amount}({pool_info.base_token_address.currency}):{quote_token_amount}({pool_info.quote_token_address.currency})"
+        memo_text = f"HBOT-Add-Liquidity:{pool_address}:{base_token_amount:.5f}({pool_info.base_token_address.currency}):{quote_token_amount:.5f}({pool_info.quote_token_address.currency})"
         memo = Memo(
             memo_data=convert_string_to_hex(memo_text, padding=False),
         )
@@ -2391,6 +2391,8 @@ class XrplExchange(ExchangePyBase):
             flags=65536,
             memos=[memo],
         )
+
+        self.logger().info(f"AMMWithdraw transaction: {withdraw_transaction}")
 
         # Sign and submit transaction
         tx_result = await self._submit_transaction(withdraw_transaction)
