@@ -2398,7 +2398,7 @@ class XrplExchange(ExchangePyBase):
             memos=[memo],
         )
 
-        self.logger().info(f"AMMWithdraw transaction: {withdraw_transaction}")
+        self.logger().debug(f"AMMWithdraw transaction: {withdraw_transaction}")
 
         # Sign and submit transaction
         tx_result = await self._submit_transaction(withdraw_transaction)
