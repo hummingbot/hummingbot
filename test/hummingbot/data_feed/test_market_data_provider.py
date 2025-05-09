@@ -20,6 +20,31 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
         self.connectors = {"mock_connector": self.mock_connector}
         self.provider = MarketDataProvider(self.connectors)
 
+    @patch('hummingbot.client.config.config_helpers.MostRecentConfigLoadCache.get_client_config_map')
+    def test_client_config_map_from_cache(self, mock_get_client_config_map):
+        # Test when config map is found in cache
+        mock_config_map = MagicMock()
+        mock_get_client_config_map.return_value = mock_config_map
+
+        result = self.provider.client_config_map
+
+        mock_get_client_config_map.assert_called_once()
+        self.assertEqual(result, mock_config_map)
+
+    @patch('hummingbot.client.config.config_helpers.MostRecentConfigLoadCache.get_client_config_map')
+    @patch('hummingbot.data_feed.market_data_provider.ClientConfigAdapter')
+    def test_client_config_map_default(self, mock_client_config_adapter, mock_get_client_config_map):
+        # Test when config map is not found in cache
+        mock_get_client_config_map.return_value = None
+        mock_adapter = MagicMock()
+        mock_client_config_adapter.return_value = mock_adapter
+
+        result = self.provider.client_config_map
+
+        mock_get_client_config_map.assert_called_once()
+        mock_client_config_adapter.assert_called_once()
+        self.assertEqual(result, mock_adapter)
+
     def test_initialize_candles_feed(self):
         with patch('hummingbot.data_feed.candles_feed.candles_factory.CandlesFactory.get_candle', return_value=MagicMock()):
             config = CandlesConfig(connector="mock_connector", trading_pair="BTC-USDT", interval="1m", max_records=100)

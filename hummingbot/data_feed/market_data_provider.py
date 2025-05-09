@@ -2,12 +2,13 @@ import asyncio
 import logging
 import time
 from decimal import Decimal
+from functools import cached_property
 from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter, get_connector_class
+from hummingbot.client.config.config_helpers import ClientConfigAdapter, MostRecentConfigLoadCache, get_connector_class
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import GroupedSetDict, LazyDict, PriceType, TradeType
@@ -41,6 +42,14 @@ class MarketDataProvider:
         self._rate_sources = LazyDict[str, ConnectorBase](self.get_non_trading_connector)
         self._rates_required = GroupedSetDict[str, ConnectorPair]()
         self.conn_settings = AllConnectorSettings.get_connector_settings()
+
+    @cached_property
+    def client_config_map(self) -> ClientConfigAdapter:
+        config_map = MostRecentConfigLoadCache.get_client_config_map()
+        if config_map is None:
+            self.logger().warning("No client config map found in cache, creating default config map")
+            config_map = ClientConfigAdapter(ClientConfigMap())
+        return config_map
 
     def stop(self):
         for candle_feed in self.candles_feeds.values():
@@ -179,14 +188,13 @@ class MarketDataProvider:
             self.logger().error(f"Connector {connector_name} not found")
             raise ValueError(f"Connector {connector_name} not found")
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         connector_config = AllConnectorSettings.get_connector_config_keys(connector_name)
         api_keys = {key: "" for key in connector_config.__fields__.keys() if key != "connector"}
         init_params = conn_setting.conn_init_parameters(
             trading_pairs=[],
             trading_required=False,
             api_keys=api_keys,
-            client_config_map=client_config_map,
+            client_config_map=self.client_config_map,
         )
         connector_class = get_connector_class(connector_name)
         connector = connector_class(**init_params)
