@@ -84,7 +84,7 @@ class InjectiveMessageBasedTransactionFeeCalculatorMode(InjectiveFeeCalculatorMo
         gas_price: Optional[int] = None,
         gas_limit_adjustment_multiplier: Optional[Decimal] = None,
     ) -> TransactionFeeCalculator:
-        return MessageBasedTransactionFeeCalculator.new_using_gas_heuristics(
+        return MessageBasedTransactionFeeCalculator(
             client=client,
             composer=composer,
             gas_price=gas_price,
@@ -106,12 +106,19 @@ class InjectiveNetworkMode(BaseClientModel, ABC):
     def network(self) -> Network:
         pass
 
+    @abstractmethod
+    def use_secure_connection(self) -> bool:
+        pass
+
 
 class InjectiveMainnetNetworkMode(InjectiveNetworkMode):
     model_config = ConfigDict(title="mainnet_network")
 
     def network(self) -> Network:
         return Network.mainnet()
+
+    def use_secure_connection(self) -> bool:
+        return True
 
     def rate_limits(self) -> List[RateLimit]:
         return CONSTANTS.PUBLIC_NODE_RATE_LIMITS
@@ -136,6 +143,9 @@ class InjectiveTestnetNetworkMode(InjectiveNetworkMode):
 
     def network(self) -> Network:
         return Network.testnet(node=self.testnet_node)
+
+    def use_secure_connection(self) -> bool:
+        return True
 
     def rate_limits(self) -> List[RateLimit]:
         return CONSTANTS.PUBLIC_NODE_RATE_LIMITS
@@ -174,7 +184,6 @@ class InjectiveCustomNetworkMode(InjectiveNetworkMode):
         default=...,
         json_schema_extra={"prompt": "Enter the network environment name", "prompt_on_new": True},
     )
-<<<<<<< HEAD
     secure_connection: bool = Field(
         default=...,
         json_schema_extra={
@@ -182,8 +191,6 @@ class InjectiveCustomNetworkMode(InjectiveNetworkMode):
             "prompt_on_new": True,
         },
     )
-=======
->>>>>>> eba07e386c6193ba7e3bc572db905fb433dc9b29
     model_config = ConfigDict(title="custom_network")
 
     def network(self) -> Network:
@@ -198,6 +205,9 @@ class InjectiveCustomNetworkMode(InjectiveNetworkMode):
             env=self.env,
             official_tokens_list_url=Network.mainnet().official_tokens_list_url,
         )
+
+    def use_secure_connection(self) -> bool:
+        return True
 
     def rate_limits(self) -> List[RateLimit]:
         return CONSTANTS.CUSTOM_NODE_RATE_LIMITS

@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import re
 from decimal import Decimal
 from test.hummingbot.connector.exchange.injective_v2.programmable_query_executor import ProgrammableQueryExecutor
@@ -163,7 +164,6 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         quote_decimals = market.quote_token.decimals
 
         order_book_snapshot = {
-<<<<<<< HEAD
             "buys": [
                 (
                     Decimal("9487") * Decimal(f"1e{quote_decimals-base_decimals}"),
@@ -178,14 +178,6 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
                     1640001112224,
                 )
             ],
-=======
-            "buys": [(Decimal("9487") * Decimal(f"1e{quote_decimals - base_decimals}"),
-                      Decimal("336241") * Decimal(f"1e{base_decimals}"),
-                      1640001112223)],
-            "sells": [(Decimal("9487.5") * Decimal(f"1e{quote_decimals - base_decimals}"),
-                      Decimal("522147") * Decimal(f"1e{base_decimals}"),
-                      1640001112224)],
->>>>>>> eba07e386c6193ba7e3bc572db905fb433dc9b29
             "sequence": 512,
             "timestamp": 1650001112223,
         }
@@ -246,7 +238,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
                     "price": "7701000",
                     "subaccountId": "0x7998ca45575408f8b4fa354fe615abf3435cf1a7000000000000000000000000",  # noqa: mock
                     "fee": "-249974460000000000000000",
-                    "orderHash": order_hash,
+                    "orderHash": base64.b64encode(bytes.fromhex(order_hash.replace("0x", ""))).decode(),
                     "feeRecipientAddress": "inj10xvv532h2sy03d86x487v9dt7dp4eud8fe2qv5",  # noqa: mock
                     "cid": "cid1",
                     "tradeId": "7959737_3_0",
@@ -266,15 +258,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         self.create_task(self.data_source.listen_for_trades(self.async_loop, msg_queue))
         self.async_run_with_timeout(msg_queue.get())
 
-<<<<<<< HEAD
         self.assertTrue(self.is_logged("WARNING", re.compile(r"^Invalid chain stream event format \(.*")))
-=======
-        self.assertTrue(
-            self.is_logged(
-                "WARNING", re.compile(r"^Invalid chain stream event format\. Event:.*")
-            )
-        )
->>>>>>> eba07e386c6193ba7e3bc572db905fb433dc9b29
 
     @patch(
         "hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source."
@@ -315,7 +299,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
                     "price": "7701000",
                     "subaccountId": "0x7998ca45575408f8b4fa354fe615abf3435cf1a7000000000000000000000000",  # noqa: mock
                     "fee": "-249974460000000000000000",
-                    "orderHash": order_hash,
+                    "orderHash": base64.b64encode(bytes.fromhex(order_hash.replace("0x", ""))).decode(),
                     "feeRecipientAddress": "inj10xvv532h2sy03d86x487v9dt7dp4eud8fe2qv5",  # noqa: mock
                     "cid": "cid1",
                     "tradeId": "7959737_3_0",
@@ -336,10 +320,8 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
 
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
-        expected_price = (Decimal(trade_data["spotTrades"][0]["price"])
-                          * Decimal(f"1e{base_decimals - quote_decimals - 18}"))
-        expected_amount = (Decimal(trade_data["spotTrades"][0]["quantity"])
-                           * Decimal(f"1e{-base_decimals - 18}"))
+        expected_price = Decimal(trade_data["spotTrades"][0]["price"]) * Decimal(f"1e{base_decimals-quote_decimals-18}")
+        expected_amount = Decimal(trade_data["spotTrades"][0]["quantity"]) * Decimal(f"1e{-base_decimals-18}")
         expected_trade_id = trade_data["spotTrades"][0]["tradeId"]
         self.assertEqual(OrderBookMessageType.TRADE, msg.type)
         self.assertEqual(expected_trade_id, msg.trade_id)
@@ -406,15 +388,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
 
         self.async_run_with_timeout(msg_queue.get())
 
-<<<<<<< HEAD
         self.assertTrue(self.is_logged("WARNING", re.compile(r"^Invalid chain stream event format \(.*")))
-=======
-        self.assertTrue(
-            self.is_logged(
-                "WARNING", re.compile(r"^Invalid chain stream event format\. Event:.*")
-            )
-        )
->>>>>>> eba07e386c6193ba7e3bc572db905fb433dc9b29
 
     @patch(
         "hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source."
@@ -484,36 +458,22 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         asks = msg.asks
         self.assertEqual(2, len(bids))
 
-<<<<<<< HEAD
         first_bid_price = Decimal(
             order_book_data["spotOrderbookUpdates"][0]["orderbook"]["buyLevels"][1]["p"]
         ) * Decimal(f"1e{base_decimals-quote_decimals-18}")
         first_bid_quantity = Decimal(
             order_book_data["spotOrderbookUpdates"][0]["orderbook"]["buyLevels"][1]["q"]
         ) * Decimal(f"1e{-base_decimals-18}")
-=======
-        first_bid_price = (Decimal(order_book_data["spotOrderbookUpdates"][0]["orderbook"]["buyLevels"][1]["p"])
-                           * Decimal(f"1e{base_decimals - quote_decimals - 18}"))
-        first_bid_quantity = (Decimal(order_book_data["spotOrderbookUpdates"][0]["orderbook"]["buyLevels"][1]["q"])
-                              * Decimal(f"1e{-base_decimals - 18}"))
->>>>>>> eba07e386c6193ba7e3bc572db905fb433dc9b29
         self.assertEqual(float(first_bid_price), bids[0].price)
         self.assertEqual(float(first_bid_quantity), bids[0].amount)
         self.assertEqual(expected_update_id, bids[0].update_id)
         self.assertEqual(1, len(asks))
-<<<<<<< HEAD
         first_ask_price = Decimal(
             order_book_data["spotOrderbookUpdates"][0]["orderbook"]["sellLevels"][0]["p"]
         ) * Decimal(f"1e{base_decimals-quote_decimals-18}")
         first_ask_quantity = Decimal(
             order_book_data["spotOrderbookUpdates"][0]["orderbook"]["sellLevels"][0]["q"]
         ) * Decimal(f"1e{-base_decimals-18}")
-=======
-        first_ask_price = (Decimal(order_book_data["spotOrderbookUpdates"][0]["orderbook"]["sellLevels"][0]["p"])
-                           * Decimal(f"1e{base_decimals - quote_decimals - 18}"))
-        first_ask_quantity = (Decimal(order_book_data["spotOrderbookUpdates"][0]["orderbook"]["sellLevels"][0]["q"])
-                              * Decimal(f"1e{-base_decimals - 18}"))
->>>>>>> eba07e386c6193ba7e3bc572db905fb433dc9b29
         self.assertEqual(float(first_ask_price), asks[0].price)
         self.assertEqual(float(first_ask_quantity), asks[0].amount)
         self.assertEqual(expected_update_id, asks[0].update_id)

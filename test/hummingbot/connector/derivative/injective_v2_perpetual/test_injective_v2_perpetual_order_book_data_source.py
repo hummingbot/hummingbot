@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import re
 from decimal import Decimal
 from test.hummingbot.connector.exchange.injective_v2.programmable_query_executor import ProgrammableQueryExecutor
@@ -234,7 +235,7 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                     },
                     "payout": "207636617326923969135747808",
                     "fee": "-93340800000000000000000",
-                    "orderHash": order_hash,
+                    "orderHash": base64.b64encode(bytes.fromhex(order_hash.replace("0x", ""))).decode(),
                     "feeRecipientAddress": "inj10xvv532h2sy03d86x487v9dt7dp4eud8fe2qv5",  # noqa: mock
                     "cid": "cid1",
                     "tradeId": "7959737_3_0",
@@ -253,15 +254,7 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.create_task(self.data_source.listen_for_trades(asyncio.get_running_loop(), msg_queue))
         await msg_queue.get()
 
-<<<<<<< HEAD
         self.assertTrue(self.is_logged("WARNING", re.compile(r"^Invalid chain stream event format \(.*")))
-=======
-        self.assertTrue(
-            self.is_logged(
-                "WARNING", re.compile(r"^Invalid chain stream event format\. Event:.*")
-            )
-        )
->>>>>>> eba07e386c6193ba7e3bc572db905fb433dc9b29
 
     async def test_listen_for_trades_successful(self):
         spot_markets_response = self._spot_markets_response()
@@ -300,7 +293,7 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                     },
                     "payout": "207636617326923969135747808",
                     "fee": "-93340800000000000000000",
-                    "orderHash": order_hash,
+                    "orderHash": base64.b64encode(bytes.fromhex(order_hash.replace("0x", ""))).decode(),
                     "feeRecipientAddress": "inj10xvv532h2sy03d86x487v9dt7dp4eud8fe2qv5",  # noqa: mock
                     "cid": "cid1",
                     "tradeId": "7959737_3_0",
@@ -394,15 +387,7 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         await msg_queue.get()
 
-<<<<<<< HEAD
         self.assertTrue(self.is_logged("WARNING", re.compile(r"^Invalid chain stream event format \(.*")))
-=======
-        self.assertTrue(
-            self.is_logged(
-                "WARNING", re.compile(r"^Invalid chain stream event format\. Event:.*")
-            )
-        )
->>>>>>> eba07e386c6193ba7e3bc572db905fb433dc9b29
 
     @patch(
         "hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source.InjectiveGranteeDataSource._initialize_timeout_height"
@@ -626,13 +611,7 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         await msg_queue.get()
 
         self.assertTrue(
-<<<<<<< HEAD
             self.is_logged("WARNING", re.compile(r"^Error processing oracle price update for market INJ-USDT \(.*"))
-=======
-            self.is_logged(
-                "WARNING", re.compile(r"^Error processing oracle price update for market INJ-USDT")
-            )
->>>>>>> eba07e386c6193ba7e3bc572db905fb433dc9b29
         )
 
     @patch(
