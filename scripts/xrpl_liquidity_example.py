@@ -401,8 +401,8 @@ class XRPLTriggeredLiquidity(ScriptStrategyBase):
 
             position_closed = True
             self.logger().info(
-                f"Position closed successfully! Base: {remove_response.base_token_amount_removed}, "
-                f"Quote: {remove_response.quote_token_amount_removed}"
+                f"Position closed successfully! {self.base}: {remove_response.base_token_amount_removed:.6f}, "
+                f"{self.quote}: {remove_response.quote_token_amount_removed:.6f}, "
             )
 
         except Exception as e:
