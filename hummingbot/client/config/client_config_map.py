@@ -107,6 +107,31 @@ class MarketDataCollectionConfigMap(BaseClientModel):
     model_config = ConfigDict(title="market_data_collection")
 
 
+class CommandHistoryConfigMap(BaseClientModel):
+    use_history_file: bool = Field(
+        default=False,
+        description="Whether to save command history to a file for persistence between sessions (requires app restart)",
+        json_schema_extra={
+            "prompt": lambda cm: "Would you like to save command history to a file? (Yes/No)",
+        },
+    )
+    command_history_file_path: str = Field(
+        default="~/.hummingbot/cmd_history/command_history.txt",
+        description="Path to the command history file",
+        json_schema_extra={
+            "prompt": lambda cm: "Where would you like to save your command history? (default '~/.hummingbot/cmd_history/command_history.txt')",
+        },
+    )
+    command_history_exclusion_list: List[str] = Field(
+        default=["exit"],
+        description="List of command prefixes to exclude from command history",
+        json_schema_extra={
+            "prompt": lambda cm: "Enter list of comma-delimited command prefixes to exclude from history (default 'exit')",
+        },
+    )
+    model_config = ConfigDict(title="command_history")
+
+
 class ColorConfigMap(BaseClientModel):
     top_pane: str = Field(
         default="#000000",
@@ -708,6 +733,10 @@ class ClientConfigMap(BaseClientModel):
         json_schema_extra={
             "prompt": lambda cm: f"What to auto-fill in the prompt after each import command? ({'/'.join(list(AutofillImportEnum))})"
         }
+    )
+    command_history: CommandHistoryConfigMap = Field(
+        default=CommandHistoryConfigMap(),
+        description=('Command History configuration.'),
     )
     mqtt_bridge: MQTTBridgeConfigMap = Field(
         default=MQTTBridgeConfigMap(),

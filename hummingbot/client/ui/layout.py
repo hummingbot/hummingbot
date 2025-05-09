@@ -1,8 +1,10 @@
+import os
 from os.path import dirname, join, realpath
 from typing import Dict
 
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import Completer
+from prompt_toolkit.history import FileHistory
 from prompt_toolkit.layout import Dimension
 from prompt_toolkit.layout.containers import (
     ConditionalContainer,
@@ -80,7 +82,7 @@ with open(realpath(join(dirname(__file__), '../../VERSION'))) as version_file:
     version = version_file.read().strip()
 
 
-def create_input_field(lexer=None, completer: Completer = None):
+def create_input_field(lexer=None, completer: Completer = None, client_config_map: ClientConfigAdapter = None):
     return TextArea(
         height=10,
         prompt='>>> ',
@@ -91,6 +93,7 @@ def create_input_field(lexer=None, completer: Completer = None):
         auto_suggest=AutoSuggestFromHistory(),
         completer=completer,
         complete_while_typing=True,
+        history=_configure_history(client_config_map),
     )
 
 
@@ -280,3 +283,22 @@ def generate_layout(input_field: TextArea,
         components["pane_bottom"],
     ])
     return Layout(root_container, focused_element=input_field), components
+
+
+def _configure_history(client_config_map: ClientConfigAdapter):
+    use_file_history = client_config_map.command_history.use_history_file
+    history_file = os.path.expanduser(client_config_map.command_history.command_history_file_path)
+    excluded_commands = [cmd.strip().lower() for cmd in client_config_map.command_history.command_history_exclusion_list]
+    if not use_file_history:
+        return None
+    history_dir = os.path.dirname(history_file)
+    os.makedirs(history_dir, exist_ok=True)
+    if excluded_commands:
+        class FilteredFileHistory(FileHistory):
+            def append_string(self, string: str) -> None:
+                command = string.strip().lower()
+                if any(command.startswith(excluded) for excluded in excluded_commands):
+                    return
+                super().append_string(string)
+        return FilteredFileHistory(history_file)
+    return FileHistory(history_file)
