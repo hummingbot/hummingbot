@@ -109,11 +109,11 @@ class StatArb(ControllerBase):
         if "_perpetual" in self.config.connector_pair_dominant.connector_name:
             connector = self.market_data_provider.get_connector(self.config.connector_pair_dominant.connector_name)
             connector.set_position_mode(self.config.position_mode)
-            connector.set_leverage(self.config.leverage, self.config.connector_pair_dominant.trading_pair)
+            connector.set_leverage(self.config.connector_pair_dominant.trading_pair, self.config.leverage)
         if "_perpetual" in self.config.connector_pair_hedge.connector_name:
             connector = self.market_data_provider.get_connector(self.config.connector_pair_hedge.connector_name)
             connector.set_position_mode(self.config.position_mode)
-            connector.set_leverage(self.config.leverage, self.config.connector_pair_hedge.trading_pair)
+            connector.set_leverage(self.config.connector_pair_hedge.trading_pair, self.config.leverage)
 
     def determine_executor_actions(self) -> List[ExecutorAction]:
         """
