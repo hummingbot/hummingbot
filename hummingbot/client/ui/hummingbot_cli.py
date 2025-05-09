@@ -232,7 +232,7 @@ class HummingbotCLI(PubSub):
         if right_tab:
             self.tab_button_clicked(right_tab[0].name)
 
-    def close_buton_clicked(self, command_name: str):
+    def close_button_clicked(self, command_name: str):
         self.command_tabs[command_name].button = None
         self.command_tabs[command_name].close_button = None
         self.command_tabs[command_name].output_field = None
@@ -252,13 +252,13 @@ class HummingbotCLI(PubSub):
         cmd_tab = self.command_tabs[command_name]
         if "close" in kwargs and kwargs["close"]:
             if cmd_tab.close_button is not None:
-                self.close_buton_clicked(command_name)
+                self.close_button_clicked(command_name)
             return
         if "close" in kwargs:
             kwargs.pop("close")
         if cmd_tab.button is None:
             cmd_tab.button = create_tab_button(command_name, lambda: self.tab_button_clicked(command_name))
-            cmd_tab.close_button = create_tab_button("x", lambda: self.close_buton_clicked(command_name), 1, '', ' ')
+            cmd_tab.close_button = create_tab_button("x", lambda: self.close_button_clicked(command_name), 1, '', ' ')
             cmd_tab.output_field = create_live_field()
             cmd_tab.tab_index = max(t.tab_index for t in self.command_tabs.values()) + 1
         self.tab_button_clicked(command_name)
