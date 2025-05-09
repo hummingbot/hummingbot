@@ -987,8 +987,14 @@ class XrplExchange(ExchangePyBase):
                     quote_value = quote_change.get("value", None)
                     tx_date = tx.get("date", None)
 
-                    if tx_hash is None or base_value is None or quote_value is None or tx_date is None:
+                    if tx_hash is None or tx_date is None:
                         raise ValueError(f"Missing required transaction data for order {order.client_order_id}, changes: {changes}, tx: {tx}, base_change: {base_change}, quote_change: {quote_change}")
+
+                    if base_value is None or quote_value is None:
+                        self.logger().debug(
+                            f"Skipping trade update for order {order.client_order_id} ({order.exchange_order_id}) due to missing base or quote value, base_change: {base_change}, quote_change: {quote_change}"
+                        )
+                        return None
 
                     # Calculate fill price with validation
                     base_decimal = abs(Decimal(base_value))
