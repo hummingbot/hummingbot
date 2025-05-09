@@ -54,6 +54,7 @@ cdef class OrderBook(PubSub):
         self._last_trade_price = float("NaN")
         self._last_applied_trade = -1000.0
         self._last_trade_price_rest_updated = -1000
+        self._max_trade_interval = 5.0  # Default to 5 seconds
         self._dex = dex
 
     cdef c_apply_diffs(self, vector[OrderBookEntry] bids, vector[OrderBookEntry] asks, int64_t update_id):
@@ -481,3 +482,11 @@ cdef class OrderBook(PubSub):
         self.apply_snapshot(snapshot.bids, snapshot.asks, snapshot.update_id)
         for diff in replay_diffs:
             self.apply_diffs(diff.bids, diff.asks, diff.update_id)
+
+    @property
+    def max_trade_interval(self) -> float:
+        return self._max_trade_interval
+
+    @max_trade_interval.setter
+    def max_trade_interval(self, value: float):
+        self._max_trade_interval = value
