@@ -2367,9 +2367,15 @@ class XrplExchange(ExchangePyBase):
             raise ValueError(f"No LP tokens found for pool {pool_address}")
         #
         # Calculate amount to withdraw based on percentage
-        withdraw_amount = Decimal(lp_token_amount) * (percentage_to_remove / Decimal("100")).quantize(
+        withdraw_amount = abs(Decimal(lp_token_amount) * (percentage_to_remove / Decimal("100"))).quantize(
             Decimal("0.000001"), rounding=ROUND_DOWN
         )
+
+        # if percentage_to_remove >= Decimal("100"):
+        #     withdraw_flag = 0x00020000
+        #     lp_token_to_withdraw = None
+        # else:
+        withdraw_flag = 0x00010000
         lp_token_to_withdraw = IssuedCurrencyAmount(
             currency=pool_info.lp_token_address.currency,
             issuer=pool_info.lp_token_address.issuer,
@@ -2388,7 +2394,7 @@ class XrplExchange(ExchangePyBase):
             asset=pool_info.base_token_address,
             asset2=pool_info.quote_token_address,
             lp_token_in=lp_token_to_withdraw,
-            flags=65536,
+            flags=withdraw_flag,
             memos=[memo],
         )
 
