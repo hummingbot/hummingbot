@@ -23,6 +23,8 @@ if TYPE_CHECKING:
 
 class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
     _logger: Optional[HummingbotLogger] = None
+    last_parsed_trade_timestamp: Dict[str, int] = {}
+    last_parsed_order_book_timestamp: Dict[str, int] = {}
 
     def __init__(self, trading_pairs: List[str], connector: "XrplExchange", api_factory: WebAssistantsFactory):
         super().__init__(trading_pairs)
@@ -52,7 +54,7 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 if not self._xrpl_client.is_open():
                     await self._xrpl_client.open()
 
-                self._xrpl_client._websocket.max_size = 2**23
+                self._xrpl_client._websocket.max_size = 2**23  # type: ignore
 
                 orderbook_asks_task = self.fetch_order_book_side(
                     self._xrpl_client, "current", base_currency, quote_currency, CONSTANTS.ORDER_BOOK_DEPTH
@@ -142,6 +144,8 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
             metadata={"trading_pair": trading_pair},
         )
 
+        self.last_parsed_order_book_timestamp[trading_pair] = int(snapshot_timestamp)
+
         return snapshot_msg
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
@@ -181,11 +185,17 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
         subscribe = Subscribe(books=[subscribe_book_request])
 
         async with self._get_client() as client:
-            client._websocket.max_size = 2**23
+            client._websocket.max_size = 2**23  # type: ignore
             await client.send(subscribe)
 
             async for message in client:
-                transaction = message.get("transaction")
+                # Extract transaction data from the websocket message
+                # XRPL can return transaction data in either "transaction" or "tx_json" field
+                # depending on the message format, so we check for both
+                transaction = message.get("transaction") or message.get("tx_json")
+
+                # Extract metadata from the message which contains information about
+                # ledger changes caused by the transaction (including order book changes)
                 meta = message.get("meta")
 
                 if transaction is None or meta is None:
@@ -226,7 +236,9 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 {"trading_pair": trading_pair, "trade": trade_data}
                             )
 
-    async def listen_for_subscriptions(self):
+                            self.last_parsed_trade_timestamp[trading_pair] = int(timestamp)
+
+    async def listen_for_subscriptions(self):  # type: ignore
         """
         Connects to the trade events and order diffs websocket endpoints and listens to the messages sent by the
         exchange. Each message is stored in its own queue.
