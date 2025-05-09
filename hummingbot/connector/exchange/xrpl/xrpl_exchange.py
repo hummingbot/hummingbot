@@ -2371,16 +2371,16 @@ class XrplExchange(ExchangePyBase):
             Decimal("0.000001"), rounding=ROUND_DOWN
         )
 
-        # if percentage_to_remove >= Decimal("100"):
-        #     withdraw_flag = 0x00020000
-        #     lp_token_to_withdraw = None
-        # else:
-        withdraw_flag = 0x00010000
-        lp_token_to_withdraw = IssuedCurrencyAmount(
-            currency=pool_info.lp_token_address.currency,
-            issuer=pool_info.lp_token_address.issuer,
-            value=str(withdraw_amount),
-        )
+        if percentage_to_remove >= Decimal("100"):
+            withdraw_flag = 0x00020000
+            lp_token_to_withdraw = None
+        else:
+            withdraw_flag = 0x00010000
+            lp_token_to_withdraw = IssuedCurrencyAmount(
+                currency=pool_info.lp_token_address.currency,
+                issuer=pool_info.lp_token_address.issuer,
+                value=str(withdraw_amount),
+            )
 
         # Create memo
         memo_text = f"HBOT-Remove-Liquidity:{pool_address}:{percentage_to_remove}"
