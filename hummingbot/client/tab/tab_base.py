@@ -3,7 +3,6 @@ from abc import (
     abstractmethod,
 )
 from typing import TYPE_CHECKING, Dict, Any
-
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 

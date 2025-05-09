@@ -45,10 +45,13 @@ class BingXAuth(AuthBase):
         Generates authentication headers required by BingX
         :return: a dictionary of auth headers
         """
-        headers = {"referer": CONSTANTS.HBOT_BROKER_ID}
+        headers = {
+            "referer": CONSTANTS.HBOT_BROKER_ID
+        }
         return headers
 
-    def add_auth_to_params(self, params: Optional[Dict[str, Any]]):
+    def add_auth_to_params(self,
+                           params: Optional[Dict[str, Any]]):
         timestamp = str(int(time.time() * 1000))
         request_params = params or {}
         request_params["timestamp"] = timestamp
@@ -69,13 +72,20 @@ class BingXAuth(AuthBase):
         the 3 private ws channels
         """
         expires = int((self.time_provider.time() + 10) * 1e3)
-        _val = f"GET/realtime{expires}"
-        signature = hmac.new(self.secret_key.encode("utf8"), _val.encode("utf8"), hashlib.sha256).hexdigest()
-        auth_message = {"op": "auth", "args": [self.api_key, expires, signature]}
+        _val = f'GET/realtime{expires}'
+        signature = hmac.new(self.secret_key.encode("utf8"),
+                             _val.encode("utf8"), hashlib.sha256).hexdigest()
+        auth_message = {
+            "op": "auth",
+            "args": [self.api_key, expires, signature]
+        }
         return auth_message
 
     def _time(self):
         return time.time()
 
     def header_for_authentication(self) -> Dict[str, str]:
-        return {"X-BX-APIKEY": self.api_key, "X-SOURCE-KEY": CONSTANTS.SOURCE_KEY}
+        return {
+            "X-BX-APIKEY": self.api_key,
+            "X-SOURCE-KEY": CONSTANTS.SOURCE_KEY
+        }

@@ -13,12 +13,15 @@ from hummingbot.model.decimal_type_decorator import SqliteDecimal
 
 class TradeFill(HummingbotBase):
     __tablename__ = "TradeFill"
-    __table_args__ = (
-        Index("tf_config_timestamp_index", "config_file_path", "timestamp"),
-        Index("tf_market_trading_pair_timestamp_index", "market", "symbol", "timestamp"),
-        Index("tf_market_base_asset_timestamp_index", "market", "base_asset", "timestamp"),
-        Index("tf_market_quote_asset_timestamp_index", "market", "quote_asset", "timestamp"),
-    )
+    __table_args__ = (Index("tf_config_timestamp_index",
+                            "config_file_path", "timestamp"),
+                      Index("tf_market_trading_pair_timestamp_index",
+                            "market", "symbol", "timestamp"),
+                      Index("tf_market_base_asset_timestamp_index",
+                            "market", "base_asset", "timestamp"),
+                      Index("tf_market_quote_asset_timestamp_index",
+                            "market", "quote_asset", "timestamp")
+                      )
 
     config_file_path = Column(Text, nullable=False)
     strategy = Column(Text, nullable=False)
@@ -40,28 +43,25 @@ class TradeFill(HummingbotBase):
     order = relationship("Order", back_populates="trade_fills")
 
     def __repr__(self) -> str:
-        return (
-            f"TradeFill(config_file_path='{self.config_file_path}', strategy='{self.strategy}', "
-            f"market='{self.market}', symbol='{self.symbol}', base_asset='{self.base_asset}', "
-            f"quote_asset='{self.quote_asset}', timestamp={self.timestamp}, order_id='{self.order_id}', "
-            f"trade_type='{self.trade_type}', order_type='{self.order_type}', price={self.price}, "
-            f"amount={self.amount}, leverage={self.leverage}, trade_fee={self.trade_fee}, "
-            f"exchange_trade_id={self.exchange_trade_id}, position={self.position})"
-        )
+        return f"TradeFill(config_file_path='{self.config_file_path}', strategy='{self.strategy}', " \
+               f"market='{self.market}', symbol='{self.symbol}', base_asset='{self.base_asset}', " \
+               f"quote_asset='{self.quote_asset}', timestamp={self.timestamp}, order_id='{self.order_id}', " \
+               f"trade_type='{self.trade_type}', order_type='{self.order_type}', price={self.price}, " \
+               f"amount={self.amount}, leverage={self.leverage}, trade_fee={self.trade_fee}, " \
+               f"exchange_trade_id={self.exchange_trade_id}, position={self.position})"
 
     @staticmethod
-    def get_trades(
-        sql_session: Session,
-        strategy: str = None,
-        market: str = None,
-        trading_pair: str = None,
-        base_asset: str = None,
-        quote_asset: str = None,
-        trade_type: str = None,
-        order_type: str = None,
-        start_time: int = None,
-        end_time: int = None,
-    ) -> Optional[List["TradeFill"]]:
+    def get_trades(sql_session: Session,
+                   strategy: str = None,
+                   market: str = None,
+                   trading_pair: str = None,
+                   base_asset: str = None,
+                   quote_asset: str = None,
+                   trade_type: str = None,
+                   order_type: str = None,
+                   start_time: int = None,
+                   end_time: int = None,
+                   ) -> Optional[List["TradeFill"]]:
         filters = []
         if strategy is not None:
             filters.append(TradeFill.strategy == strategy)
@@ -82,52 +82,49 @@ class TradeFill(HummingbotBase):
         if end_time is not None:
             filters.append(TradeFill.timestamp <= end_time)
 
-        trades: Optional[List[TradeFill]] = (
-            sql_session.query(TradeFill).filter(*filters).order_by(TradeFill.timestamp.asc()).all()
-        )
+        trades: Optional[List[TradeFill]] = (sql_session
+                                             .query(TradeFill)
+                                             .filter(*filters)
+                                             .order_by(TradeFill.timestamp.asc())
+                                             .all())
         return trades
 
     @classmethod
     def to_pandas(cls, trades: List):
-        columns: List[str] = [
-            "Id",
-            "Timestamp",
-            "Exchange",
-            "Market",
-            "Order_type",
-            "Side",
-            "Price",
-            "Amount",
-            "Leverage",
-            "Position",
-            "Age",
-        ]
+        columns: List[str] = ["Id",
+                              "Timestamp",
+                              "Exchange",
+                              "Market",
+                              "Order_type",
+                              "Side",
+                              "Price",
+                              "Amount",
+                              "Leverage",
+                              "Position",
+                              "Age"]
         data = []
         for trade in trades:
 
             if trade.order is None:  # order creation update has not arrived yet
-                age = pd.Timestamp(0, unit="s").strftime("%H:%M:%S")
+                age = pd.Timestamp(0, unit='s').strftime('%H:%M:%S')
             else:
-                age = pd.Timestamp(
-                    int(trade.timestamp / 1e3 - trade.order.creation_timestamp / 1e3), unit="s"
-                ).strftime("%H:%M:%S")
-            data.append(
-                [
-                    trade.exchange_trade_id,
-                    datetime.fromtimestamp(int(trade.timestamp / 1e3)).strftime("%Y-%m-%d %H:%M:%S"),
-                    trade.market,
-                    trade.symbol,
-                    trade.order_type.lower(),
-                    trade.trade_type.lower(),
-                    trade.price,
-                    trade.amount,
-                    trade.leverage,
-                    trade.position,
-                    age,
-                ]
-            )
+                age = pd.Timestamp(int(trade.timestamp / 1e3 - trade.order.creation_timestamp / 1e3),
+                                   unit='s').strftime('%H:%M:%S')
+            data.append([
+                trade.exchange_trade_id,
+                datetime.fromtimestamp(int(trade.timestamp / 1e3)).strftime("%Y-%m-%d %H:%M:%S"),
+                trade.market,
+                trade.symbol,
+                trade.order_type.lower(),
+                trade.trade_type.lower(),
+                trade.price,
+                trade.amount,
+                trade.leverage,
+                trade.position,
+                age,
+            ])
         df = pd.DataFrame(data=data, columns=columns)
-        df.set_index("Id", inplace=True)
+        df.set_index('Id', inplace=True)
 
         return df
 
@@ -145,7 +142,7 @@ class TradeFill(HummingbotBase):
             "quote_asset": trade_fill.quote_asset,
             "raw_json": {
                 "trade_fee": trade_fill.trade_fee,
-            },
+            }
         }
 
     @staticmethod
@@ -168,5 +165,4 @@ class TradeFill(HummingbotBase):
             "leverage",
             "trade_fee",
             "trade_fee_in_quote",
-            "position",
-        ]
+            "position", ]

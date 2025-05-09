@@ -50,7 +50,7 @@ class CoinGeckoRateSourceTest(IsolatedAsyncioWrapperTestCase):
                 "atl_change_percentage": 34615.15839,
                 "atl_date": "2013-07-06T00:00:00.000Z",
                 "roi": None,
-                "last_updated": "2022-07-20T06:30:40.123Z",
+                "last_updated": "2022-07-20T06:30:40.123Z"
             },
         ]
         return data
@@ -83,7 +83,7 @@ class CoinGeckoRateSourceTest(IsolatedAsyncioWrapperTestCase):
                 "atl_change_percentage": 34615.15839,
                 "atl_date": "2013-07-06T00:00:00.000Z",
                 "roi": None,
-                "last_updated": "2022-07-20T06:30:40.123Z",
+                "last_updated": "2022-07-20T06:30:40.123Z"
             },
         ]
         return data

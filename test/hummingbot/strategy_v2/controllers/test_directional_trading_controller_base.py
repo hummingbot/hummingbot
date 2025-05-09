@@ -37,7 +37,7 @@ class TestDirectionalTradingControllerBase(IsolatedAsyncioWrapperTestCase):
         self.controller = DirectionalTradingControllerBase(
             config=self.mock_controller_config,
             market_data_provider=self.mock_market_data_provider,
-            actions_queue=self.mock_actions_queue,
+            actions_queue=self.mock_actions_queue
         )
 
     async def test_update_processed_data(self):
@@ -47,14 +47,8 @@ class TestDirectionalTradingControllerBase(IsolatedAsyncioWrapperTestCase):
     @patch.object(DirectionalTradingControllerBase, "get_executor_config")
     async def test_determine_executor_actions(self, get_executor_config_mock: MagicMock):
         get_executor_config_mock.return_value = PositionExecutorConfig(
-            timestamp=1234,
-            controller_id=self.controller.config.id,
-            connector_name="binance_perpetual",
-            trading_pair="ETH-USDT",
-            side=TradeType.BUY,
-            entry_price=Decimal(100),
-            amount=Decimal(10),
-        )
+            timestamp=1234, controller_id=self.controller.config.id, connector_name="binance_perpetual",
+            trading_pair="ETH-USDT", side=TradeType.BUY, entry_price=Decimal(100), amount=Decimal(10))
         await self.controller.update_processed_data()
         self.controller.market_data_provider.time = MagicMock(return_value=1000000)
         self.controller.processed_data["signal"] = 1
@@ -80,7 +74,8 @@ class TestDirectionalTradingControllerBase(IsolatedAsyncioWrapperTestCase):
     def test_validate_order_type(self):
         for order_type_name in OrderType.__members__:
             self.assertEqual(
-                DirectionalTradingControllerConfigBase.validate_order_type(order_type_name), OrderType[order_type_name]
+                DirectionalTradingControllerConfigBase.validate_order_type(order_type_name),
+                OrderType[order_type_name]
             )
 
         with self.assertRaises(ValueError):

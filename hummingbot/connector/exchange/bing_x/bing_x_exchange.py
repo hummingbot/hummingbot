@@ -33,15 +33,14 @@ s_decimal_NaN = Decimal("nan")
 class BingXExchange(ExchangePyBase):
     web_utils = web_utils
 
-    def __init__(
-        self,
-        client_config_map: "ClientConfigAdapter",
-        bingx_api_key: str,
-        bingx_api_secret: str,
-        trading_pairs: Optional[List[str]] = None,
-        trading_required: bool = True,
-        domain: str = CONSTANTS.DEFAULT_DOMAIN,
-    ):
+    def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
+                 bingx_api_key: str,
+                 bingx_api_secret: str,
+                 trading_pairs: Optional[List[str]] = None,
+                 trading_required: bool = True,
+                 domain: str = CONSTANTS.DEFAULT_DOMAIN,
+                 ):
         self.api_key = bingx_api_key
         self.secret_key = bingx_api_secret
         self._domain = domain
@@ -60,7 +59,9 @@ class BingXExchange(ExchangePyBase):
 
     @property
     def authenticator(self):
-        return BingXAuth(api_key=self.api_key, secret_key=self.secret_key)
+        return BingXAuth(
+            api_key=self.api_key,
+            secret_key=self.secret_key)
 
     @property
     def name(self) -> str:
@@ -132,8 +133,10 @@ class BingXExchange(ExchangePyBase):
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
-            throttler=self._throttler, time_synchronizer=self._time_synchronizer, domain=self._domain, auth=self._auth
-        )
+            throttler=self._throttler,
+            time_synchronizer=self._time_synchronizer,
+            domain=self._domain,
+            auth=self._auth)
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         return BingXAPIOrderBookDataSource(
@@ -148,30 +151,29 @@ class BingXExchange(ExchangePyBase):
         return BingXAPIUserStreamDataSource(
             auth=self._auth,
             throttler=self._throttler,
+
             api_factory=self._web_assistants_factory,
             domain=self.domain,
         )
 
-    def _get_fee(
-        self,
-        base_currency: str,
-        quote_currency: str,
-        order_type: OrderType,
-        order_side: TradeType,
-        amount: Decimal,
-        price: Decimal = s_decimal_NaN,
-        is_maker: Optional[bool] = None,
-    ) -> TradeFeeBase:
+    def _get_fee(self,
+                 base_currency: str,
+                 quote_currency: str,
+                 order_type: OrderType,
+                 order_side: TradeType,
+                 amount: Decimal,
+                 price: Decimal = s_decimal_NaN,
+                 is_maker: Optional[bool] = None) -> TradeFeeBase:
         is_maker = order_type is OrderType.LIMIT_MAKER
         trade_base_fee = build_trade_fee(
-            exchange="bing_x",
+            exchange='bing_x',
             is_maker=is_maker,
             order_side=order_side,
             order_type=order_type,
             amount=amount,
             price=price,
             base_currency=base_currency,
-            quote_currency=quote_currency,
+            quote_currency=quote_currency
         )
         return trade_base_fee
 
@@ -183,28 +185,24 @@ class BingXExchange(ExchangePyBase):
 
         return amount.quantize(step_size, rounding=ROUND_DOWN)
 
-    async def _place_order(
-        self,
-        order_id: str,
-        trading_pair: str,
-        amount: Decimal,
-        trade_type: TradeType,
-        order_type: OrderType,
-        price: Decimal,
-        **kwargs,
-    ) -> Tuple[str, float]:
+    async def _place_order(self,
+                           order_id: str,
+                           trading_pair: str,
+                           amount: Decimal,
+                           trade_type: TradeType,
+                           order_type: OrderType,
+                           price: Decimal,
+                           **kwargs) -> Tuple[str, float]:
         amount_str = f"{amount:f}"
         type_str = self.bingx_order_type(order_type)
 
         side_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
         symbol = trading_pair
-        api_params = {
-            "symbol": symbol,
-            "side": side_str,
-            "quantity": amount_str,
-            "type": type_str,
-            "newClientOrderId": order_id,
-        }
+        api_params = {"symbol": symbol,
+                      "side": side_str,
+                      "quantity": amount_str,
+                      "type": type_str,
+                      "newClientOrderId": order_id}
         if order_type != OrderType.MARKET:
             api_params["price"] = f"{price:f}"
         if order_type == OrderType.LIMIT:
@@ -224,26 +222,28 @@ class BingXExchange(ExchangePyBase):
         return (o_id, transact_time)
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
-        api_params = {"symbol": tracked_order.trading_pair}
+        api_params = {
+            "symbol": tracked_order.trading_pair
+        }
         if tracked_order.exchange_order_id:
             api_params["orderId"] = tracked_order.exchange_order_id
         else:
             api_params["clientOrderId"] = tracked_order.client_order_id
 
         cancel_result = await self._api_post(
-            path_url=CONSTANTS.CANCEL_ORDER_PATH_URL, params=api_params, is_auth_required=True
+            path_url=CONSTANTS.CANCEL_ORDER_PATH_URL,
+            params=api_params,
+            is_auth_required=True
         )
 
         if isinstance(cancel_result, dict) and cancel_result.get("code") == 0:
-            self._order_tracker.process_order_update(
-                OrderUpdate(
-                    client_order_id=tracked_order.client_order_id,
-                    exchange_order_id=tracked_order.exchange_order_id,
-                    trading_pair=tracked_order.trading_pair,
-                    update_timestamp=time.time(),
-                    new_state=OrderState.CANCELED,
-                )
-            )
+            self._order_tracker.process_order_update(OrderUpdate(
+                client_order_id=tracked_order.client_order_id,
+                exchange_order_id=tracked_order.exchange_order_id,
+                trading_pair=tracked_order.trading_pair,
+                update_timestamp=time.time(),
+                new_state=OrderState.CANCELED
+            ))
 
             return True
         else:
@@ -274,7 +274,7 @@ class BingXExchange(ExchangePyBase):
             }
         }
         """
-        trading_pair_rules = exchange_info_dict["data"].get("symbols", [])
+        trading_pair_rules = exchange_info_dict['data'].get("symbols", [])
         trading_pair_rules = [item for item in trading_pair_rules if (item.get("symbol") in self.trading_pairs)]
         retval = []
         for rule in trading_pair_rules:
@@ -287,12 +287,8 @@ class BingXExchange(ExchangePyBase):
                 min_base_amount_increment = Decimal(str(rule.get("stepSize")))
                 min_notional_size = Decimal(str(rule.get("minNotional")))
                 max_notional_size = Decimal(str(rule.get("maxNotional")))
-                min_order_size = Decimal(
-                    min_notional_size / last_traded_price
-                )  # rule.get("minQty") is deprecated for now
-                max_order_size = Decimal(
-                    max_notional_size / last_traded_price
-                )  # rule.get("maxQty") is deprecated for now
+                min_order_size = Decimal(min_notional_size / last_traded_price)  # rule.get("minQty") is deprecated for now
+                max_order_size = Decimal(max_notional_size / last_traded_price)  # rule.get("maxQty") is deprecated for now
 
                 retval.append(
                     TradingRule(
@@ -301,13 +297,11 @@ class BingXExchange(ExchangePyBase):
                         max_order_size=max_order_size,
                         min_price_increment=min_price_increment,
                         min_base_amount_increment=min_base_amount_increment,
-                        min_notional_size=min_notional_size,
+                        min_notional_size=min_notional_size
                     )
                 )
             except Exception as exception:
-                self.logger().exception(
-                    f"Error parsing the trading pair rule {rule.get('name')}. Skipping. Error: {exception}"
-                )
+                self.logger().exception(f"Error parsing the trading pair rule {rule.get('name')}. Skipping. Error: {exception}")
         return retval
 
     async def _update_trading_fees(self):
@@ -325,10 +319,10 @@ class BingXExchange(ExchangePyBase):
         async for event_message in self._iter_user_event_queue():
             try:
                 if event_message.get("dataType") == "spot.executionReport":
-                    data = event_message.get("data")
-                    execution_type = data.get("X")
+                    data = event_message.get('data')
+                    execution_type = data.get('X')
 
-                    client_order_id = data.get("C")
+                    client_order_id = data.get('C')
                     # exchange_order_id = data.get('i')
 
                     tracked_order = self._order_tracker.all_fillable_orders.get(client_order_id)
@@ -336,10 +330,7 @@ class BingXExchange(ExchangePyBase):
                     if tracked_order is not None:
                         if execution_type in ["PARTIALLY_FILLED", "FILLED"]:
                             new_state = CONSTANTS.ORDER_STATE[data["X"]]
-                            if (
-                                new_state == OrderState.FILLED
-                                and tracked_order.current_state == OrderState.PENDING_CREATE
-                            ):
+                            if new_state == OrderState.FILLED and tracked_order.current_state == OrderState.PENDING_CREATE:
                                 order_update = OrderUpdate(
                                     trading_pair=tracked_order.trading_pair,
                                     update_timestamp=int(data["E"]) * 1e-3,
@@ -353,7 +344,7 @@ class BingXExchange(ExchangePyBase):
                             fee = TradeFeeBase.new_spot_fee(
                                 fee_schema=self.trade_fee_schema(),
                                 trade_type=tracked_order.trade_type,
-                                flat_fees=[TokenAmount(amount=Decimal(str(data["n"])), token=data["N"])],
+                                flat_fees=[TokenAmount(amount=Decimal(str(data["n"])), token=data["N"])]
                             )
                             trade_update = TradeUpdate(
                                 trade_id=str(data["t"]),
@@ -409,10 +400,12 @@ class BingXExchange(ExchangePyBase):
             trading_pair = order.trading_pair
             all_fills_response = await self._api_get(
                 path_url=CONSTANTS.MY_TRADES_PATH_URL,
-                params={"symbol": trading_pair, "orderId": exchange_order_id},
+                params={
+                    "symbol": trading_pair,
+                    "orderId": exchange_order_id
+                },
                 is_auth_required=True,
-                limit_id=CONSTANTS.MY_TRADES_PATH_URL,
-            )
+                limit_id=CONSTANTS.MY_TRADES_PATH_URL)
             trade = all_fills_response.get("data", [])
             if trade is not None:
                 # for trade in fills_data:
@@ -421,7 +414,7 @@ class BingXExchange(ExchangePyBase):
                     fee_schema=self.trade_fee_schema(),
                     trade_type=order.trade_type,
                     percent_token=trade["feeAsset"],
-                    flat_fees=[TokenAmount(amount=Decimal(str(trade["fee"])), token=trade["feeAsset"])],
+                    flat_fees=[TokenAmount(amount=Decimal(str(trade["fee"])), token=trade["feeAsset"])]
                 )
                 trade_update = TradeUpdate(
                     trade_id=str(trade["orderId"]),
@@ -441,9 +434,11 @@ class BingXExchange(ExchangePyBase):
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         updated_order_data = await self._api_get(
             path_url=CONSTANTS.MY_TRADES_PATH_URL,
-            params={"symbol": tracked_order.trading_pair, "orderId": tracked_order.exchange_order_id},
-            is_auth_required=True,
-        )
+            params={
+                "symbol": tracked_order.trading_pair,
+                "orderId": tracked_order.exchange_order_id
+            },
+            is_auth_required=True)
 
         new_state = CONSTANTS.ORDER_STATE[updated_order_data["data"]["status"]]
         if new_state == OrderState.PENDING_CREATE:
@@ -476,8 +471,9 @@ class BingXExchange(ExchangePyBase):
         remote_asset_names = set()
 
         account_info = await self._api_request(
-            method=RESTMethod.GET, path_url=CONSTANTS.ACCOUNTS_PATH_URL, is_auth_required=True
-        )
+            method=RESTMethod.GET,
+            path_url=CONSTANTS.ACCOUNTS_PATH_URL,
+            is_auth_required=True)
         balances = account_info["data"]["balances"]
         for balance_entry in balances:
             asset_name = balance_entry["asset"]
@@ -499,29 +495,35 @@ class BingXExchange(ExchangePyBase):
         self._set_trading_pair_symbol_map(mapping)
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
-        params = {"symbol": trading_pair}
+        params = {
+            "symbol": trading_pair
+        }
         resp_json = await self._api_request(
-            method=RESTMethod.GET, path_url=CONSTANTS.LAST_TRADED_PRICE_PATH, params=params, is_auth_required=True
+            method=RESTMethod.GET,
+            path_url=CONSTANTS.LAST_TRADED_PRICE_PATH,
+            params=params,
+            is_auth_required=True
         )
         return float(resp_json["data"][0]["lastPrice"])
 
-    async def _api_request(
-        self,
-        path_url,
-        method: RESTMethod = RESTMethod.GET,
-        params: Optional[Dict[str, Any]] = None,
-        data: Optional[Dict[str, Any]] = None,
-        is_auth_required: bool = False,
-        return_err: bool = False,
-        limit_id: Optional[str] = None,
-        trading_pair: Optional[str] = None,
-        **kwargs,
-    ) -> Dict[str, Any]:
+    async def _api_request(self,
+                           path_url,
+                           method: RESTMethod = RESTMethod.GET,
+                           params: Optional[Dict[str, Any]] = None,
+                           data: Optional[Dict[str, Any]] = None,
+                           is_auth_required: bool = False,
+                           return_err: bool = False,
+                           limit_id: Optional[str] = None,
+                           trading_pair: Optional[str] = None,
+                           **kwargs) -> Dict[str, Any]:
         last_exception = None
         rest_assistant = await self._web_assistants_factory.get_rest_assistant()
         url = web_utils.rest_url(path_url, domain=self.domain)
 
-        local_headers = {"Content-Type": "application/json", "Accept": "application/json"}
+        local_headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
 
         # request_result = await rest_assistant.execute_request(
         #     url=url,

@@ -38,7 +38,7 @@ class BtcMarketsAuthTest(TestCase):
             url="https://test.url/api/endpoint",
             is_auth_required=True,
             params=params,
-            throttler_limit_id="/api/endpoint",
+            throttler_limit_id="/api/endpoint"
         )
 
     def test_add_auth_params_to_get_request_without_params(self):
@@ -52,7 +52,10 @@ class BtcMarketsAuthTest(TestCase):
         self.assertIn("BM-AUTH-SIGNATURE", params_expected)
 
     def test_add_auth_params_to_get_request_with_params(self):
-        params = {"param_z": "value_param_z", "param_a": "value_param_a"}
+        params = {
+            "param_z": "value_param_z",
+            "param_a": "value_param_a"
+        }
         request = self._get_request(params)
 
         params_expected = self._params_expected(request.params)
@@ -62,8 +65,8 @@ class BtcMarketsAuthTest(TestCase):
         self.assertIn("BM-AUTH-TIMESTAMP", params_expected)
         self.assertEqual(self.api_key, params_expected["BM-AUTH-APIKEY"])
         self.assertIn("BM-AUTH-SIGNATURE", params_expected)
-        self.assertEqual(params_expected["param_z"], request.params["param_z"])
-        self.assertEqual(params_expected["param_a"], request.params["param_a"])
+        self.assertEqual(params_expected['param_z'], request.params["param_z"])
+        self.assertEqual(params_expected['param_a'], request.params["param_a"])
 
     def test_add_auth_params_to_post_request(self):
         params = {"param_z": "value_param_z", "param_a": "value_param_a"}
@@ -72,7 +75,7 @@ class BtcMarketsAuthTest(TestCase):
             url="https://test.url/api/endpoint",
             data=params,
             is_auth_required=True,
-            throttler_limit_id="/api/endpoint",
+            throttler_limit_id="/api/endpoint"
         )
 
         params_auth = self._params_expected(request.params)
@@ -83,8 +86,8 @@ class BtcMarketsAuthTest(TestCase):
         self.assertIn("BM-AUTH-TIMESTAMP", params_auth)
         self.assertEqual(self.api_key, params_auth["BM-AUTH-APIKEY"])
         self.assertIn("BM-AUTH-SIGNATURE", params_auth)
-        self.assertEqual(params_request["param_z"], request.data["param_z"])
-        self.assertEqual(params_request["param_a"], request.data["param_a"])
+        self.assertEqual(params_request['param_z'], request.data["param_z"])
+        self.assertEqual(params_request['param_a'], request.data["param_a"])
 
     def test_no_auth_added_to_wsrequest(self):
         payload = {"param1": "value_param_1"}
@@ -100,16 +103,18 @@ class BtcMarketsAuthTest(TestCase):
     def _params_expected(self, request_params: Optional[Mapping[str, str]]) -> Dict:
         request_params = request_params if request_params else {}
         params = {
-            "BM-AUTH-TIMESTAMP": 1000000,
-            "BM-AUTH-APIKEY": self.api_key,
+            'BM-AUTH-TIMESTAMP': 1000000,
+            'BM-AUTH-APIKEY': self.api_key,
         }
         params.update(request_params)
         params = OrderedDict(sorted(params.items(), key=lambda t: t[0]))
-        params["BM-AUTH-SIGNATURE"] = self._generate_signature(params=params)
+        params['BM-AUTH-SIGNATURE'] = self._generate_signature(params=params)
         return params
 
     def test_get_referral_code_headers(self):
-        referer = {"referer": CONSTANTS.HBOT_BROKER_ID}
+        referer = {
+            "referer": CONSTANTS.HBOT_BROKER_ID
+        }
         response = self.auth.get_referral_code_headers()
         self.assertEqual(response, referer)
 
@@ -120,10 +125,10 @@ class BtcMarketsAuthTest(TestCase):
             "Content-Type": "application/json",
             "BM-AUTH-APIKEY": self.api_key,
             "BM-AUTH-TIMESTAMP": "123",
-            "BM-AUTH-SIGNATURE": "sig",
+            "BM-AUTH-SIGNATURE": "sig"
         }
 
-        response = self.auth._generate_auth_headers(123, "sig")
+        response = self.auth._generate_auth_headers(123, 'sig')
         self.assertEqual(response, headers)
 
     def test_generate_auth_dict_ws(self):

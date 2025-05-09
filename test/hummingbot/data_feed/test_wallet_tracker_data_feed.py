@@ -33,12 +33,8 @@ class TestWalletTrackerDataFeed(IsolatedAsyncioWrapperTestCase, LoggerMixinForTe
     async def test_check_network_not_connected(self, gateway_client_mock: AsyncMock):
         gateway_client_mock.ping_gateway.return_value = False
         self.assertEqual(NetworkStatus.NOT_CONNECTED, await self.data_feed.check_network())
-        self.assertTrue(
-            self.is_logged(
-                log_level=LogLevel.WARNING,
-                message="Gateway is not online. Please check your gateway connection.",
-            )
-        )
+        self.assertTrue(self.is_logged(log_level=LogLevel.WARNING,
+                                       message="Gateway is not online. Please check your gateway connection.", ))
 
     @patch("hummingbot.data_feed.wallet_tracker_data_feed.WalletTrackerDataFeed._async_sleep", new_callable=AsyncMock)
     @patch("hummingbot.data_feed.wallet_tracker_data_feed.WalletTrackerDataFeed._fetch_data", new_callable=AsyncMock)
@@ -50,12 +46,9 @@ class TestWalletTrackerDataFeed(IsolatedAsyncioWrapperTestCase, LoggerMixinForTe
             pass
         self.assertEqual(2, fetch_data_mock.call_count)
         self.assertTrue(
-            self.is_logged(
-                log_level=LogLevel.ERROR,
-                message="Error getting data from WalletTrackerDataFeed[chain-network]Check network "
-                "connection. Error: test exception",
-            )
-        )
+            self.is_logged(log_level=LogLevel.ERROR,
+                           message="Error getting data from WalletTrackerDataFeed[chain-network]Check network "
+                                   "connection. Error: test exception"))
 
     @patch("hummingbot.data_feed.wallet_tracker_data_feed.WalletTrackerDataFeed.gateway_client", new_callable=AsyncMock)
     async def test_fetch_data_successful(self, gateway_client_mock: AsyncMock):

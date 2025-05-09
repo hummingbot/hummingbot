@@ -49,15 +49,10 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
     @patch.object(DCAExecutor, "get_price", MagicMock(return_value=Decimal("120")))
     async def test_control_task_open_orders(self):
-        config = DCAExecutorConfig(
-            id="test",
-            timestamp=123,
-            side=TradeType.BUY,
-            connector_name="binance",
-            trading_pair="ETH-USDT",
-            amounts_quote=[Decimal(10), Decimal(20), Decimal(30)],
-            prices=[Decimal(100), Decimal(80), Decimal(60)],
-        )
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
+                                   trading_pair="ETH-USDT",
+                                   amounts_quote=[Decimal(10), Decimal(20), Decimal(30)],
+                                   prices=[Decimal(100), Decimal(80), Decimal(60)])
         executor = self.get_dca_executor_from_config(config)
         executor._status = RunnableStatus.RUNNING
         await executor.control_task()
@@ -77,15 +72,10 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     @patch.object(DCAExecutor, "get_price")
     def test_get_custom_info(self, get_price_mock):
         get_price_mock.return_value = Decimal("120")
-        config = DCAExecutorConfig(
-            id="test",
-            timestamp=123,
-            side=TradeType.BUY,
-            connector_name="binance",
-            trading_pair="ETH-USDT",
-            amounts_quote=[Decimal(10), Decimal(20), Decimal(30)],
-            prices=[Decimal(100), Decimal(80), Decimal(60)],
-        )
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
+                                   trading_pair="ETH-USDT",
+                                   amounts_quote=[Decimal(10), Decimal(20), Decimal(30)],
+                                   prices=[Decimal(100), Decimal(80), Decimal(60)])
         executor = self.get_dca_executor_from_config(config)
         custom_info = executor.get_custom_info()
         self.assertEqual(custom_info["close_price"], Decimal("120"))
@@ -96,16 +86,11 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     @patch.object(DCAExecutor, "get_price")
     async def test_activation_bounds_prevents_order_creation(self, get_price_mock):
         get_price_mock.return_value = Decimal("120")
-        config = DCAExecutorConfig(
-            id="test",
-            timestamp=123,
-            side=TradeType.BUY,
-            connector_name="binance",
-            trading_pair="ETH-USDT",
-            amounts_quote=[Decimal(10), Decimal(20), Decimal(30)],
-            prices=[Decimal(100), Decimal(80), Decimal(60)],
-            activation_bounds=[Decimal("0.01")],
-        )
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
+                                   trading_pair="ETH-USDT",
+                                   amounts_quote=[Decimal(10), Decimal(20), Decimal(30)],
+                                   prices=[Decimal(100), Decimal(80), Decimal(60)],
+                                   activation_bounds=[Decimal("0.01")], )
         executor = self.get_dca_executor_from_config(config)
         executor._status = RunnableStatus.RUNNING
         await executor.control_task()
@@ -115,16 +100,11 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     @patch.object(DCAExecutor, "get_price")
     async def test_activation_bounds_allows_order_creation(self, get_price_mock):
         get_price_mock.return_value = Decimal("101")
-        config = DCAExecutorConfig(
-            id="test",
-            timestamp=123,
-            side=TradeType.BUY,
-            connector_name="binance",
-            trading_pair="ETH-USDT",
-            amounts_quote=[Decimal(10), Decimal(20), Decimal(30)],
-            prices=[Decimal(100), Decimal(80), Decimal(60)],
-            activation_bounds=[Decimal("0.1")],
-        )
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
+                                   trading_pair="ETH-USDT",
+                                   amounts_quote=[Decimal(10), Decimal(20), Decimal(30)],
+                                   prices=[Decimal(100), Decimal(80), Decimal(60)],
+                                   activation_bounds=[Decimal("0.1")], )
         executor = self.get_dca_executor_from_config(config)
         executor._status = RunnableStatus.RUNNING
         await executor.control_task()
@@ -133,16 +113,11 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     @patch.object(DCAExecutor, "get_price")
     async def test_activation_bounds_allows_order_creation_with_sell(self, get_price_mock):
         get_price_mock.return_value = Decimal("99")
-        config = DCAExecutorConfig(
-            id="test",
-            timestamp=123,
-            side=TradeType.SELL,
-            connector_name="binance",
-            trading_pair="ETH-USDT",
-            amounts_quote=[Decimal(10), Decimal(20), Decimal(30)],
-            prices=[Decimal(100), Decimal(120), Decimal(140)],
-            activation_bounds=[Decimal("0.1")],
-        )
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.SELL, connector_name="binance",
+                                   trading_pair="ETH-USDT",
+                                   amounts_quote=[Decimal(10), Decimal(20), Decimal(30)],
+                                   prices=[Decimal(100), Decimal(120), Decimal(140)],
+                                   activation_bounds=[Decimal("0.1")], )
         executor = self.get_dca_executor_from_config(config)
         executor._status = RunnableStatus.RUNNING
         await executor.control_task()
@@ -151,16 +126,11 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     @patch.object(DCAExecutor, "get_price")
     async def test_activation_bounds_prevents_order_creation_with_sell(self, get_price_mock):
         get_price_mock.return_value = Decimal("99")
-        config = DCAExecutorConfig(
-            id="test",
-            timestamp=123,
-            side=TradeType.SELL,
-            connector_name="binance",
-            trading_pair="ETH-USDT",
-            amounts_quote=[Decimal(10), Decimal(20), Decimal(30)],
-            prices=[Decimal(100), Decimal(120), Decimal(140)],
-            activation_bounds=[Decimal("0.01")],
-        )
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.SELL, connector_name="binance",
+                                   trading_pair="ETH-USDT",
+                                   amounts_quote=[Decimal(10), Decimal(20), Decimal(30)],
+                                   prices=[Decimal(100), Decimal(120), Decimal(140)],
+                                   activation_bounds=[Decimal("0.01")], )
         executor = self.get_dca_executor_from_config(config)
         executor._status = RunnableStatus.RUNNING
         await executor.control_task()
@@ -169,16 +139,11 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     @patch.object(DCAExecutor, "get_price")
     async def test_dca_activated_and_stop_loss_triggered(self, get_price_mock):
         get_price_mock.side_effect = [Decimal("120"), Decimal("90"), Decimal("50")]
-        config = DCAExecutorConfig(
-            id="test",
-            timestamp=123,
-            side=TradeType.BUY,
-            connector_name="binance",
-            trading_pair="ETH-USDT",
-            amounts_quote=[Decimal(10), Decimal(20)],
-            prices=[Decimal(100), Decimal(80)],
-            stop_loss=Decimal("0.1"),
-        )
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
+                                   trading_pair="ETH-USDT",
+                                   amounts_quote=[Decimal(10), Decimal(20)],
+                                   prices=[Decimal(100), Decimal(80)],
+                                   stop_loss=Decimal("0.1"))
         executor = self.get_dca_executor_from_config(config)
         executor._status = RunnableStatus.RUNNING
         await executor.control_task()
@@ -193,7 +158,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             amount=Decimal(0.1),
             price=Decimal(100),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.COMPLETED,
+            initial_state=OrderState.COMPLETED
         )
         executor.active_open_orders[0].order.update_with_trade_update(
             TradeUpdate(
@@ -220,7 +185,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             amount=Decimal(0.25),
             price=Decimal(80),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.COMPLETED,
+            initial_state=OrderState.COMPLETED
         )
         executor.active_open_orders[1].order.update_with_trade_update(
             TradeUpdate(
@@ -241,16 +206,11 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     @patch.object(DCAExecutor, "get_price")
     async def test_dca_activated_and_stop_loss_triggered_with_sell(self, get_price_mock):
         get_price_mock.side_effect = [Decimal("100"), Decimal("120"), Decimal("140")]
-        config = DCAExecutorConfig(
-            id="test",
-            timestamp=123,
-            side=TradeType.SELL,
-            connector_name="binance",
-            trading_pair="ETH-USDT",
-            amounts_quote=[Decimal(10), Decimal(20)],
-            prices=[Decimal(100), Decimal(120)],
-            stop_loss=Decimal("0.1"),
-        )
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.SELL, connector_name="binance",
+                                   trading_pair="ETH-USDT",
+                                   amounts_quote=[Decimal(10), Decimal(20)],
+                                   prices=[Decimal(100), Decimal(120)],
+                                   stop_loss=Decimal("0.1"))
         executor = self.get_dca_executor_from_config(config)
         executor._status = RunnableStatus.RUNNING
         await executor.control_task()
@@ -265,7 +225,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             amount=Decimal(0.1),
             price=Decimal(100),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.COMPLETED,
+            initial_state=OrderState.COMPLETED
         )
         executor.active_open_orders[0].order.update_with_trade_update(
             TradeUpdate(
@@ -292,7 +252,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             amount=Decimal(0.25),
             price=Decimal(120),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.COMPLETED,
+            initial_state=OrderState.COMPLETED
         )
         executor.active_open_orders[1].order.update_with_trade_update(
             TradeUpdate(
@@ -313,16 +273,11 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     @patch.object(DCAExecutor, "get_price")
     async def test_dca_activated_and_take_profit_triggered_with_first_order(self, get_price_mock):
         get_price_mock.side_effect = [Decimal("110"), Decimal("100"), Decimal("105"), Decimal("115")]
-        config = DCAExecutorConfig(
-            id="test",
-            timestamp=123,
-            side=TradeType.BUY,
-            connector_name="binance",
-            trading_pair="ETH-USDT",
-            amounts_quote=[Decimal(10), Decimal(20)],
-            prices=[Decimal(100), Decimal(80)],
-            take_profit=Decimal("0.1"),
-        )
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
+                                   trading_pair="ETH-USDT",
+                                   amounts_quote=[Decimal(10), Decimal(20)],
+                                   prices=[Decimal(100), Decimal(80)],
+                                   take_profit=Decimal("0.1"))
         executor = self.get_dca_executor_from_config(config)
         executor._status = RunnableStatus.RUNNING
         await executor.control_task()
@@ -336,7 +291,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             amount=Decimal(0.1),
             price=Decimal(100),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.COMPLETED,
+            initial_state=OrderState.COMPLETED
         )
         executor.active_open_orders[0].order.update_with_trade_update(
             TradeUpdate(
@@ -362,24 +317,20 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             amount=Decimal(0.25),
             price=Decimal(80),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.OPEN,
+            initial_state=OrderState.OPEN
         )
         await executor.control_task()
         self.assertEqual(executor.active_close_orders[0].order_id, "OID-SELL-1")
 
     @patch.object(DCAExecutor, "get_price")
     async def test_dca_activated_and_take_profit_triggered_with_average_price(self, get_price_mock):
-        get_price_mock.side_effect = [Decimal("105"), Decimal("95"), Decimal("89"), Decimal("105")]
-        config = DCAExecutorConfig(
-            id="test",
-            timestamp=123,
-            side=TradeType.BUY,
-            connector_name="binance",
-            trading_pair="ETH-USDT",
-            amounts_quote=[Decimal(10), Decimal(20)],
-            prices=[Decimal(100), Decimal(90)],
-            take_profit=Decimal("0.05"),
-        )
+        get_price_mock.side_effect = [Decimal("105"), Decimal("95"), Decimal("89"),
+                                      Decimal("105")]
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
+                                   trading_pair="ETH-USDT",
+                                   amounts_quote=[Decimal(10), Decimal(20)],
+                                   prices=[Decimal(100), Decimal(90)],
+                                   take_profit=Decimal("0.05"))
         executor = self.get_dca_executor_from_config(config)
         executor._status = RunnableStatus.RUNNING
         await executor.control_task()
@@ -393,7 +344,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             amount=Decimal(0.1),
             price=Decimal(100),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.COMPLETED,
+            initial_state=OrderState.COMPLETED
         )
         executor.active_open_orders[0].order.update_with_trade_update(
             TradeUpdate(
@@ -419,7 +370,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             amount=Decimal(0.25),
             price=Decimal(80),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.COMPLETED,
+            initial_state=OrderState.COMPLETED
         )
         executor.active_open_orders[1].order.update_with_trade_update(
             TradeUpdate(
@@ -440,16 +391,12 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     @patch.object(DCAExecutor, "get_price")
     async def test_dca_activated_and_trailing_stop_triggered(self, get_price_mock):
         get_price_mock.side_effect = [Decimal("105"), Decimal("95"), Decimal("89"), Decimal("105"), Decimal("100")]
-        config = DCAExecutorConfig(
-            id="test",
-            timestamp=123,
-            side=TradeType.BUY,
-            connector_name="binance",
-            trading_pair="ETH-USDT",
-            amounts_quote=[Decimal(10), Decimal(20)],
-            prices=[Decimal(100), Decimal(90)],
-            trailing_stop=TrailingStop(activation_price=Decimal("0.05"), trailing_delta=Decimal("0.01")),
-        )
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
+                                   trading_pair="ETH-USDT",
+                                   amounts_quote=[Decimal(10), Decimal(20)],
+                                   prices=[Decimal(100), Decimal(90)],
+                                   trailing_stop=TrailingStop(activation_price=Decimal("0.05"),
+                                                              trailing_delta=Decimal("0.01")))
         executor = self.get_dca_executor_from_config(config)
         executor._status = RunnableStatus.RUNNING
         await executor.control_task()
@@ -463,7 +410,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             amount=Decimal(0.1),
             price=Decimal(100),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.COMPLETED,
+            initial_state=OrderState.COMPLETED
         )
         executor.active_open_orders[0].order.update_with_trade_update(
             TradeUpdate(
@@ -489,7 +436,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             amount=Decimal(0.25),
             price=Decimal(90),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.OPEN,
+            initial_state=OrderState.OPEN
         )
         executor.active_open_orders[1].order.update_with_trade_update(
             TradeUpdate(
@@ -509,16 +456,12 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(executor.active_close_orders[0].order_id, "OID-SELL-1")
 
     def test_process_order_failed_event_open_order(self):
-        config = DCAExecutorConfig(
-            id="test",
-            timestamp=123,
-            side=TradeType.BUY,
-            connector_name="binance",
-            trading_pair="ETH-USDT",
-            amounts_quote=[Decimal(10), Decimal(20)],
-            prices=[Decimal(100), Decimal(90)],
-            trailing_stop=TrailingStop(activation_price=Decimal("0.05"), trailing_delta=Decimal("0.01")),
-        )
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
+                                   trading_pair="ETH-USDT",
+                                   amounts_quote=[Decimal(10), Decimal(20)],
+                                   prices=[Decimal(100), Decimal(90)],
+                                   trailing_stop=TrailingStop(activation_price=Decimal("0.05"),
+                                                              trailing_delta=Decimal("0.01")))
         executor = self.get_dca_executor_from_config(config)
         executor._status = RunnableStatus.RUNNING
 
@@ -532,7 +475,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             price=Decimal("100"),
             amount=Decimal("1"),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.OPEN,
+            initial_state=OrderState.OPEN
         )
         tracked_order = TrackedOrder(open_order_id)
         tracked_order.order = open_order
@@ -540,7 +483,9 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         # Trigger the order failed event
         failure_event = MarketOrderFailureEvent(
-            order_id=open_order_id, timestamp=1640001112.223, order_type=OrderType.LIMIT
+            order_id=open_order_id,
+            timestamp=1640001112.223,
+            order_type=OrderType.LIMIT
         )
         executor.process_order_failed_event(1, self.strategy.connectors["binance"], failure_event)
 
@@ -549,16 +494,12 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertNotIn(tracked_order, executor._open_orders)
 
     def test_process_order_failed_event_close_order(self):
-        config = DCAExecutorConfig(
-            id="test",
-            timestamp=123,
-            side=TradeType.BUY,
-            connector_name="binance",
-            trading_pair="ETH-USDT",
-            amounts_quote=[Decimal(10), Decimal(20)],
-            prices=[Decimal(100), Decimal(90)],
-            trailing_stop=TrailingStop(activation_price=Decimal("0.05"), trailing_delta=Decimal("0.01")),
-        )
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
+                                   trading_pair="ETH-USDT",
+                                   amounts_quote=[Decimal(10), Decimal(20)],
+                                   prices=[Decimal(100), Decimal(90)],
+                                   trailing_stop=TrailingStop(activation_price=Decimal("0.05"),
+                                                              trailing_delta=Decimal("0.01")))
         executor = self.get_dca_executor_from_config(config)
         executor._status = RunnableStatus.RUNNING
 
@@ -572,7 +513,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             price=Decimal("100"),
             amount=Decimal("1"),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.OPEN,
+            initial_state=OrderState.OPEN
         )
         tracked_order = TrackedOrder(close_order_id)
         tracked_order.order = close_order
@@ -580,7 +521,9 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         # Trigger the order failed event
         failure_event = MarketOrderFailureEvent(
-            order_id=close_order_id, timestamp=1640001112.223, order_type=OrderType.MARKET
+            order_id=close_order_id,
+            timestamp=1640001112.223,
+            order_type=OrderType.MARKET
         )
         executor.process_order_failed_event(1, self.strategy.connectors["binance"], failure_event)
 
@@ -591,17 +534,13 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
     def test_is_within_activation_bounds_maker(self):
         # Assuming you have a setup method to initialize the executor with DCAMode.MAKER mode
-        config = DCAExecutorConfig(
-            id="test",
-            timestamp=123,
-            side=TradeType.BUY,
-            connector_name="binance",
-            trading_pair="ETH-USDT",
-            amounts_quote=[Decimal(10), Decimal(20)],
-            prices=[Decimal(100), Decimal(90)],
-            activation_bounds=[Decimal("0.01")],
-            trailing_stop=TrailingStop(activation_price=Decimal("0.05"), trailing_delta=Decimal("0.01")),
-        )
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
+                                   trading_pair="ETH-USDT",
+                                   amounts_quote=[Decimal(10), Decimal(20)],
+                                   prices=[Decimal(100), Decimal(90)],
+                                   activation_bounds=[Decimal("0.01")],
+                                   trailing_stop=TrailingStop(activation_price=Decimal("0.05"),
+                                                              trailing_delta=Decimal("0.01")))
         executor = self.get_dca_executor_from_config(config)
         order_price = Decimal("100")
 
@@ -621,18 +560,14 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
     def test_is_within_activation_bounds_taker(self):
         # Assuming you have a setup method to initialize the executor with DCAMode.TAKER mode
-        config = DCAExecutorConfig(
-            id="test",
-            timestamp=123,
-            side=TradeType.BUY,
-            connector_name="binance",
-            trading_pair="ETH-USDT",
-            mode=DCAMode.TAKER,
-            amounts_quote=[Decimal(10), Decimal(20)],
-            prices=[Decimal(100), Decimal(90)],
-            activation_bounds=[Decimal("0.01"), Decimal("0.015")],  # Example bounds
-            trailing_stop=TrailingStop(activation_price=Decimal("0.05"), trailing_delta=Decimal("0.01")),
-        )
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
+                                   trading_pair="ETH-USDT",
+                                   mode=DCAMode.TAKER,
+                                   amounts_quote=[Decimal(10), Decimal(20)],
+                                   prices=[Decimal(100), Decimal(90)],
+                                   activation_bounds=[Decimal("0.01"), Decimal("0.015")],  # Example bounds
+                                   trailing_stop=TrailingStop(activation_price=Decimal("0.05"),
+                                                              trailing_delta=Decimal("0.01")))
         executor = self.get_dca_executor_from_config(config)
         order_price = Decimal("100")
 

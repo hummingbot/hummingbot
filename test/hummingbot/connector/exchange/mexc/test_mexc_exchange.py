@@ -75,16 +75,25 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "quoteAssetPrecision": 8,
                     "baseCommissionPrecision": 8,
                     "quoteCommissionPrecision": 8,
-                    "orderTypes": ["LIMIT", "LIMIT_MAKER", "MARKET", "STOP_LOSS_LIMIT", "TAKE_PROFIT_LIMIT"],
+                    "orderTypes": [
+                        "LIMIT",
+                        "LIMIT_MAKER",
+                        "MARKET",
+                        "STOP_LOSS_LIMIT",
+                        "TAKE_PROFIT_LIMIT"
+                    ],
                     "icebergAllowed": True,
                     "ocoAllowed": True,
                     "quoteOrderQtyMarketAllowed": True,
                     "isSpotTradingAllowed": True,
                     "isMarginTradingAllowed": True,
                     "filters": [],
-                    "permissions": ["SPOT", "MARGIN"],
+                    "permissions": [
+                        "SPOT",
+                        "MARGIN"
+                    ]
                 },
-            ],
+            ]
         }
 
     @property
@@ -133,14 +142,22 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "baseCommissionPrecision": 8,
                     "quoteAmountPrecision": 8,
                     "quoteCommissionPrecision": 8,
-                    "orderTypes": ["LIMIT", "LIMIT_MAKER", "MARKET", "STOP_LOSS_LIMIT", "TAKE_PROFIT_LIMIT"],
+                    "orderTypes": [
+                        "LIMIT",
+                        "LIMIT_MAKER",
+                        "MARKET",
+                        "STOP_LOSS_LIMIT",
+                        "TAKE_PROFIT_LIMIT"
+                    ],
                     "icebergAllowed": True,
                     "ocoAllowed": True,
                     "quoteOrderQtyMarketAllowed": True,
                     "isSpotTradingAllowed": True,
                     "isMarginTradingAllowed": True,
                     "filters": [],
-                    "permissions": ["MARGIN"],
+                    "permissions": [
+                        "MARGIN"
+                    ]
                 },
                 {
                     "symbol": self.exchange_symbol_for_tokens("INVALID", "PAIR"),
@@ -154,16 +171,24 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "quoteAssetPrecision": 8,
                     "baseCommissionPrecision": 8,
                     "quoteCommissionPrecision": 8,
-                    "orderTypes": ["LIMIT", "LIMIT_MAKER", "MARKET", "STOP_LOSS_LIMIT", "TAKE_PROFIT_LIMIT"],
+                    "orderTypes": [
+                        "LIMIT",
+                        "LIMIT_MAKER",
+                        "MARKET",
+                        "STOP_LOSS_LIMIT",
+                        "TAKE_PROFIT_LIMIT"
+                    ],
                     "icebergAllowed": True,
                     "ocoAllowed": True,
                     "quoteOrderQtyMarketAllowed": True,
                     "isSpotTradingAllowed": True,
                     "isMarginTradingAllowed": True,
                     "filters": [],
-                    "permissions": ["MARGIN"],
+                    "permissions": [
+                        "MARGIN"
+                    ]
                 },
-            ],
+            ]
         }
 
         return "INVALID-PAIR", response
@@ -195,24 +220,29 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "ocoAllowed": True,
                     "isSpotTradingAllowed": True,
                     "isMarginTradingAllowed": True,
+
                     "filters": [
                         {
                             "filterType": "PRICE_FILTER",
                             "minPrice": "0.00000100",
                             "maxPrice": "100000.00000000",
-                            "tickSize": "0.00000100",
-                        },
-                        {
+                            "tickSize": "0.00000100"
+                        }, {
                             "filterType": "LOT_SIZE",
                             "minQty": "0.00100000",
                             "maxQty": "200000.00000000",
-                            "stepSize": "0.00100000",
-                        },
-                        {"filterType": "MIN_NOTIONAL", "minNotional": "0.00200000"},
+                            "stepSize": "0.00100000"
+                        }, {
+                            "filterType": "MIN_NOTIONAL",
+                            "minNotional": "0.00200000"
+                        }
                     ],
-                    "permissions": ["SPOT", "MARGIN"],
+                    "permissions": [
+                        "SPOT",
+                        "MARGIN"
+                    ]
                 }
-            ],
+            ]
         }
 
     @property
@@ -236,9 +266,12 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "ocoAllowed": True,
                     "isSpotTradingAllowed": True,
                     "isMarginTradingAllowed": True,
-                    "permissions": ["SPOT", "MARGIN"],
+                    "permissions": [
+                        "SPOT",
+                        "MARGIN"
+                    ]
                 }
-            ],
+            ]
         }
 
     @property
@@ -248,7 +281,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             "orderId": self.expected_exchange_order_id,
             "orderListId": -1,
             "clientOrderId": "OID1",
-            "transactTime": 1507725176595,
+            "transactTime": 1507725176595
         }
 
     @property
@@ -264,10 +297,20 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             "updateTime": 123456789,
             "accountType": "SPOT",
             "balances": [
-                {"asset": self.base_asset, "free": "10.0", "locked": "5.0"},
-                {"asset": self.quote_asset, "free": "2000", "locked": "0.00000000"},
+                {
+                    "asset": self.base_asset,
+                    "free": "10.0",
+                    "locked": "5.0"
+                },
+                {
+                    "asset": self.quote_asset,
+                    "free": "2000",
+                    "locked": "0.00000000"
+                }
             ],
-            "permissions": ["SPOT"],
+            "permissions": [
+                "SPOT"
+            ]
         }
 
     @property
@@ -297,9 +340,9 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 "fd": "-4.990689704",
                 "l": "5",
                 "ld": "4.990689704",
-                "o": "ENTRUST_PLACE",
+                "o": "ENTRUST_PLACE"
             },
-            "t": 1564034571073,
+            "t": 1564034571073
         }
 
     @property
@@ -316,11 +359,9 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             trading_pair=self.trading_pair,
             min_order_size=Decimal(self.trading_rules_request_mock_response["symbols"][0]["baseSizePrecision"]),
             min_price_increment=Decimal(
-                f'1e-{self.trading_rules_request_mock_response["symbols"][0]["quotePrecision"]}'
-            ),
+                f'1e-{self.trading_rules_request_mock_response["symbols"][0]["quotePrecision"]}'),
             min_base_amount_increment=Decimal(
-                f'1e-{self.trading_rules_request_mock_response["symbols"][0]["baseAssetPrecision"]}'
-            ),
+                f'1e-{self.trading_rules_request_mock_response["symbols"][0]["baseAssetPrecision"]}'),
             min_notional_size=Decimal(self.trading_rules_request_mock_response["symbols"][0]["quoteAmountPrecision"]),
         )
 
@@ -352,8 +393,8 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
     @property
     def expected_fill_fee(self) -> TradeFeeBase:
         return DeductedFromReturnsTradeFee(
-            percent_token=self.quote_asset, flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("30"))]
-        )
+            percent_token=self.quote_asset,
+            flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("30"))])
 
     @property
     def expected_fill_trade_id(self) -> str:
@@ -373,7 +414,8 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     def validate_auth_credentials_present(self, request_call: RequestCall):
         self._validate_auth_credentials_taking_parameters_from_argument(
-            request_call_tuple=request_call, params=request_call.kwargs["params"] or request_call.kwargs["data"]
+            request_call_tuple=request_call,
+            params=request_call.kwargs["params"] or request_call.kwargs["data"]
         )
 
     def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
@@ -387,22 +429,27 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = dict(request_call.kwargs["params"])
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset), request_data["symbol"])
+        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                         request_data["symbol"])
         self.assertEqual(order.client_order_id, request_data["origClientOrderId"])
 
     def validate_order_status_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset), request_params["symbol"])
+        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                         request_params["symbol"])
         self.assertEqual(order.client_order_id, request_params["origClientOrderId"])
 
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset), request_params["symbol"])
+        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                         request_params["symbol"])
         self.assertEqual(order.exchange_order_id, str(request_params["orderId"]))
 
     def configure_successful_cancelation_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> str:
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
         url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_cancelation_request_successful_mock_response(order=order)
@@ -410,15 +457,18 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return url
 
     def configure_erroneous_cancelation_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> str:
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
         url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.delete(regex_url, status=400, callback=callback)
         return url
 
     def configure_order_not_found_error_cancelation_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -427,8 +477,10 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return url
 
     def configure_one_successful_one_erroneous_cancel_all_response(
-        self, successful_order: InFlightOrder, erroneous_order: InFlightOrder, mock_api: aioresponses
-    ) -> List[str]:
+            self,
+            successful_order: InFlightOrder,
+            erroneous_order: InFlightOrder,
+            mock_api: aioresponses) -> List[str]:
         """
         :return: a list of all configured URLs for the cancelations
         """
@@ -440,8 +492,10 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return all_urls
 
     def configure_completely_filled_order_status_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> str:
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
         url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_status_request_completely_filled_mock_response(order=order)
@@ -449,8 +503,10 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return url
 
     def configure_canceled_order_status_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> str:
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
         url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_status_request_canceled_mock_response(order=order)
@@ -458,16 +514,20 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return url
 
     def configure_erroneous_http_fill_trade_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> str:
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.MY_TRADES_PATH_URL)
         regex_url = re.compile(url + r"\?.*")
         mock_api.get(regex_url, status=400, callback=callback)
         return url
 
     def configure_open_order_status_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> str:
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
         """
         :return: the URL configured
         """
@@ -478,16 +538,20 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return url
 
     def configure_http_error_order_status_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> str:
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
         url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.get(regex_url, status=401, callback=callback)
         return url
 
     def configure_partially_filled_order_status_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> str:
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
         url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_status_request_partially_filled_mock_response(order=order)
@@ -495,7 +559,8 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return url
 
     def configure_order_not_found_error_order_status_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
         url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -504,8 +569,10 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return [url]
 
     def configure_partial_fill_trade_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> str:
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.MY_TRADES_PATH_URL)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_fills_request_partial_fill_mock_response(order=order)
@@ -513,8 +580,10 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return url
 
     def configure_full_fill_trade_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> str:
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.MY_TRADES_PATH_URL)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_fills_request_full_fill_mock_response(order=order)
@@ -539,10 +608,10 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 "v": order.amount,
                 "ap": 0,
                 "cv": 0,
-                "ca": 0,
+                "ca": 0
             },
             "s": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-            "t": 1499405658657,
+            "t": 1499405658657
         }
 
     def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
@@ -563,10 +632,10 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 "v": order.amount,
                 "ap": 0,
                 "cv": 0,
-                "ca": 0,
+                "ca": 0
             },
             "s": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-            "t": 1499405658657,
+            "t": 1499405658657
         }
 
     def order_event_for_full_fill_websocket_update(self, order: InFlightOrder):
@@ -587,10 +656,10 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 "v": order.amount,
                 "ap": 0,
                 "cv": 0,
-                "ca": 0,
+                "ca": 0
             },
             "s": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-            "t": 1499405658657,
+            "t": 1499405658657
         }
 
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
@@ -608,10 +677,10 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 "m": 0,
                 "st": 0,
                 "n": Decimal(self.expected_fill_fee.flat_fees[0].amount),
-                "N": self.quote_asset,
+                "N": self.quote_asset
             },
             "s": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-            "t": 1661938980285,
+            "t": 1661938980285
         }
 
     @aioresponses()
@@ -626,7 +695,9 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
         response = {"serverTime": 1640000003000}
 
-        mock_api.get(regex_url, body=json.dumps(response), callback=lambda *args, **kwargs: request_sent_event.set())
+        mock_api.get(regex_url,
+                     body=json.dumps(response),
+                     callback=lambda *args, **kwargs: request_sent_event.set())
 
         self.async_run_with_timeout(self.exchange._update_time_synchronizer())
 
@@ -641,7 +712,9 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
         response = {"code": -1121, "msg": "Dummy error"}
 
-        mock_api.get(regex_url, body=json.dumps(response), callback=lambda *args, **kwargs: request_sent_event.set())
+        mock_api.get(regex_url,
+                     body=json.dumps(response),
+                     callback=lambda *args, **kwargs: request_sent_event.set())
 
         self.async_run_with_timeout(self.exchange._update_time_synchronizer())
 
@@ -652,18 +725,18 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         url = web_utils.private_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        mock_api.get(regex_url, exception=asyncio.CancelledError)
+        mock_api.get(regex_url,
+                     exception=asyncio.CancelledError)
 
         self.assertRaises(
-            asyncio.CancelledError, self.async_run_with_timeout, self.exchange._update_time_synchronizer()
-        )
+            asyncio.CancelledError,
+            self.async_run_with_timeout, self.exchange._update_time_synchronizer())
 
     @aioresponses()
     def test_update_order_fills_from_trades_triggers_filled_event(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = (
-            self.exchange.current_timestamp - self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1
-        )
+        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
+                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
 
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -692,7 +765,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             "time": 1499865549590,
             "isBuyer": True,
             "isMaker": False,
-            "isBestMatch": True,
+            "isBestMatch": True
         }
 
         trade_fill_non_tracked_order = {
@@ -708,15 +781,14 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             "time": 1499865549590,
             "isBuyer": True,
             "isMaker": False,
-            "isBestMatch": True,
+            "isBestMatch": True
         }
 
         mock_response = [trade_fill, trade_fill_non_tracked_order]
         mock_api.get(regex_url, body=json.dumps(mock_response))
 
         self.exchange.add_exchange_order_ids_from_market_recorder(
-            {str(trade_fill_non_tracked_order["orderId"]): "OID99"}
-        )
+            {str(trade_fill_non_tracked_order["orderId"]): "OID99"})
 
         self.async_run_with_timeout(self.exchange._update_order_fills_from_trades())
 
@@ -734,10 +806,8 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         self.assertEqual(Decimal(trade_fill["price"]), fill_event.price)
         self.assertEqual(Decimal(trade_fill["qty"]), fill_event.amount)
         self.assertEqual(0.0, fill_event.trade_fee.percent)
-        self.assertEqual(
-            [TokenAmount(trade_fill["commissionAsset"], Decimal(trade_fill["commission"]))],
-            fill_event.trade_fee.flat_fees,
-        )
+        self.assertEqual([TokenAmount(trade_fill["commissionAsset"], Decimal(trade_fill["commission"]))],
+                         fill_event.trade_fee.flat_fees)
 
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
         self.assertEqual(float(trade_fill_non_tracked_order["time"]) * 1e-3, fill_event.timestamp)
@@ -748,17 +818,15 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         self.assertEqual(Decimal(trade_fill_non_tracked_order["price"]), fill_event.price)
         self.assertEqual(Decimal(trade_fill_non_tracked_order["qty"]), fill_event.amount)
         self.assertEqual(0.0, fill_event.trade_fee.percent)
-        self.assertEqual(
-            [
-                TokenAmount(
-                    trade_fill_non_tracked_order["commissionAsset"], Decimal(trade_fill_non_tracked_order["commission"])
-                )
-            ],
-            fill_event.trade_fee.flat_fees,
-        )
-        self.assertTrue(
-            self.is_logged("INFO", f"Recreating missing trade in TradeFill: {trade_fill_non_tracked_order}")
-        )
+        self.assertEqual([
+            TokenAmount(
+                trade_fill_non_tracked_order["commissionAsset"],
+                Decimal(trade_fill_non_tracked_order["commission"]))],
+            fill_event.trade_fee.flat_fees)
+        self.assertTrue(self.is_logged(
+            "INFO",
+            f"Recreating missing trade in TradeFill: {trade_fill_non_tracked_order}"
+        ))
 
     @aioresponses()
     def test_update_order_fills_request_parameters(self, mock_api):
@@ -780,9 +848,8 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         self.assertNotIn("startTime", request_params)
 
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = (
-            self.exchange.current_timestamp - self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1
-        )
+        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
+                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
         self.exchange._last_trades_poll_mexc_timestamp = 10
         self.async_run_with_timeout(self.exchange._update_order_fills_from_trades())
 
@@ -795,9 +862,8 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
     @aioresponses()
     def test_update_order_fills_from_trades_with_repeated_fill_triggers_only_one_event(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = (
-            self.exchange.current_timestamp - self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1
-        )
+        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
+                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
 
         url = web_utils.private_rest_url(CONSTANTS.MY_TRADES_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -815,15 +881,14 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             "time": 1499865549590,
             "isBuyer": True,
             "isMaker": False,
-            "isBestMatch": True,
+            "isBestMatch": True
         }
 
         mock_response = [trade_fill_non_tracked_order, trade_fill_non_tracked_order]
         mock_api.get(regex_url, body=json.dumps(mock_response))
 
         self.exchange.add_exchange_order_ids_from_market_recorder(
-            {str(trade_fill_non_tracked_order["orderId"]): "OID99"}
-        )
+            {str(trade_fill_non_tracked_order["orderId"]): "OID99"})
 
         self.async_run_with_timeout(self.exchange._update_order_fills_from_trades())
 
@@ -842,24 +907,20 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         self.assertEqual(Decimal(trade_fill_non_tracked_order["price"]), fill_event.price)
         self.assertEqual(Decimal(trade_fill_non_tracked_order["qty"]), fill_event.amount)
         self.assertEqual(0.0, fill_event.trade_fee.percent)
-        self.assertEqual(
-            [
-                TokenAmount(
-                    trade_fill_non_tracked_order["commissionAsset"], Decimal(trade_fill_non_tracked_order["commission"])
-                )
-            ],
-            fill_event.trade_fee.flat_fees,
-        )
-        self.assertTrue(
-            self.is_logged("INFO", f"Recreating missing trade in TradeFill: {trade_fill_non_tracked_order}")
-        )
+        self.assertEqual([
+            TokenAmount(trade_fill_non_tracked_order["commissionAsset"],
+                        Decimal(trade_fill_non_tracked_order["commission"]))],
+            fill_event.trade_fee.flat_fees)
+        self.assertTrue(self.is_logged(
+            "INFO",
+            f"Recreating missing trade in TradeFill: {trade_fill_non_tracked_order}"
+        ))
 
     @aioresponses()
     def test_update_order_status_when_failed(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = (
-            self.exchange.current_timestamp - self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1
-        )
+        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
+                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
 
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -893,7 +954,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             "time": 1499827319559,
             "updateTime": 1499827319559,
             "isWorking": True,
-            "origQuoteOrderQty": "10000.000000",
+            "origQuoteOrderQty": "10000.000000"
         }
 
         mock_response = order_status
@@ -918,8 +979,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 f"Order {order.client_order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}',"
                 f" update_timestamp={order_status['updateTime'] * 1e-3}, new_state={repr(OrderState.FAILED)}, "
                 f"client_order_id='{order.client_order_id}', exchange_order_id='{order.exchange_order_id}', "
-                "misc_updates=None)",
-            )
+                "misc_updates=None)")
         )
 
     @patch("hummingbot.connector.utils.get_tracking_nonce")
@@ -957,47 +1017,39 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         self.assertEqual(result, expected_client_order_id)
 
     def test_time_synchronizer_related_request_error_detection(self):
-        exception = IOError(
-            "Error executing request POST https://api.mexc.com/api/v3/order. HTTP status is 400. "
-            "Error: {'code':700003,'msg':'Timestamp for this request is outside of the recvWindow.'}"
-        )
+        exception = IOError("Error executing request POST https://api.mexc.com/api/v3/order. HTTP status is 400. "
+                            "Error: {'code':700003,'msg':'Timestamp for this request is outside of the recvWindow.'}")
         self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
-        exception = IOError(
-            "Error executing request POST https://api.mexc.com/api/v3/order. HTTP status is 400. "
-            "Error: {'code':-1021,'msg':'Other error.'}"
-        )
+        exception = IOError("Error executing request POST https://api.mexc.com/api/v3/order. HTTP status is 400. "
+                            "Error: {'code':-1021,'msg':'Other error.'}")
         self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
     @aioresponses()
     def test_place_order_manage_server_overloaded_error_unkown_order(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = (
-            self.exchange.current_timestamp - self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1
-        )
+        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
+                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
         url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_response = {"code": -1003, "msg": "Unknown error, please check your request or try again later."}
         mock_api.post(regex_url, body=json.dumps(mock_response), status=503)
 
-        o_id, transact_time = self.async_run_with_timeout(
-            self.exchange._place_order(
-                order_id="test_order_id",
-                trading_pair=self.trading_pair,
-                amount=Decimal("1"),
-                trade_type=TradeType.BUY,
-                order_type=OrderType.LIMIT,
-                price=Decimal("2"),
-            )
-        )
+        o_id, transact_time = self.async_run_with_timeout(self.exchange._place_order(
+            order_id="test_order_id",
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            trade_type=TradeType.BUY,
+            order_type=OrderType.LIMIT,
+            price=Decimal("2"),
+        ))
         self.assertEqual(o_id, "UNKNOWN")
 
     @aioresponses()
     def test_place_order_manage_server_overloaded_error_failure(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = (
-            self.exchange.current_timestamp - self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1
-        )
+        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
+                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
 
         url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -1014,8 +1066,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 trade_type=TradeType.BUY,
                 order_type=OrderType.LIMIT,
                 price=Decimal("2"),
-            ),
-        )
+            ))
 
         mock_response = {"code": -1003, "msg": "Internal error; unable to process your request. Please try again."}
         mock_api.post(regex_url, body=json.dumps(mock_response), status=503)
@@ -1030,8 +1081,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 trade_type=TradeType.BUY,
                 order_type=OrderType.LIMIT,
                 price=Decimal("2"),
-            ),
-        )
+            ))
 
     @aioresponses()
     def test_create_market_order_price_is_nan(self, mock_api):
@@ -1041,7 +1091,10 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
         resp = self.order_creation_request_successful_mock_response
         url = self.order_creation_url
-        mock_api.post(url, body=json.dumps(resp), status=201, callback=lambda *args, **kwargs: request_sent_event.set())
+        mock_api.post(url,
+                      body=json.dumps(resp),
+                      status=201,
+                      callback=lambda *args, **kwargs: request_sent_event.set())
 
         order_book = OrderBook()
         self.exchange.order_book_tracker._order_books[self.trading_pair] = order_book
@@ -1051,7 +1104,9 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             update_id=1,
         )
 
-        order_id = self.place_buy_order(amount=Decimal("1"), price=Decimal("NaN"), order_type=OrderType.MARKET)
+        order_id = self.place_buy_order(
+            amount=Decimal("1"), price=Decimal("NaN"), order_type=OrderType.MARKET
+        )
         self.async_run_with_timeout(request_sent_event.wait(), timeout=3)
 
         order_request = self._all_executed_requests(mock_api, url)[0]
@@ -1070,42 +1125,43 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         self.assertEqual(str(resp["orderId"]), create_event.exchange_order_id)
 
     def test_format_trading_rules__min_notional_present(self):
-        trading_rules = [
-            {
-                "symbol": "COINALPHAHBOT",
-                "baseSizePrecision": 1e-8,
-                "quotePrecision": 8,
-                "baseAssetPrecision": 8,
-                "status": "1",
-                "quoteAmountPrecision": "0.001",
-                "orderTypes": ["LIMIT", "MARKET"],
-                "filters": [
-                    {
-                        "filterType": "PRICE_FILTER",
-                        "minPrice": "0.00000100",
-                        "maxPrice": "100000.00000000",
-                        "tickSize": "0.00000100",
-                    },
-                    {
-                        "filterType": "LOT_SIZE",
-                        "minQty": "0.00100000",
-                        "maxQty": "100000.00000000",
-                        "stepSize": "0.00100000",
-                    },
-                    {"filterType": "MIN_NOTIONAL", "minNotional": "0.00300000"},
-                ],
-                "permissions": ["SPOT"],
-            }
-        ]
+        trading_rules = [{
+            "symbol": "COINALPHAHBOT",
+            "baseSizePrecision": 1e-8,
+            "quotePrecision": 8,
+            "baseAssetPrecision": 8,
+            "status": "1",
+            "quoteAmountPrecision": "0.001",
+            "orderTypes": ["LIMIT", "MARKET"],
+            "filters": [
+                {
+                    "filterType": "PRICE_FILTER",
+                    "minPrice": "0.00000100",
+                    "maxPrice": "100000.00000000",
+                    "tickSize": "0.00000100"
+                }, {
+                    "filterType": "LOT_SIZE",
+                    "minQty": "0.00100000",
+                    "maxQty": "100000.00000000",
+                    "stepSize": "0.00100000"
+                }, {
+                    "filterType": "MIN_NOTIONAL",
+                    "minNotional": "0.00300000"
+                }
+            ],
+            "permissions": [
+                "SPOT"
+            ]
+        }]
         exchange_info = {"symbols": trading_rules}
 
         result = self.async_run_with_timeout(self.exchange._format_trading_rules(exchange_info))
 
         self.assertEqual(result[0].min_notional_size, Decimal("0.00100000"))
 
-    def _validate_auth_credentials_taking_parameters_from_argument(
-        self, request_call_tuple: RequestCall, params: Dict[str, Any]
-    ):
+    def _validate_auth_credentials_taking_parameters_from_argument(self,
+                                                                   request_call_tuple: RequestCall,
+                                                                   params: Dict[str, Any]):
         self.assertIn("timestamp", params)
         self.assertIn("signature", params)
         request_headers = request_call_tuple.kwargs["headers"]
@@ -1126,7 +1182,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             "status": "NEW",
             "timeInForce": "GTC",
             "type": "LIMIT",
-            "side": "BUY",
+            "side": "BUY"
         }
 
     def _order_status_request_completely_filled_mock_response(self, order: InFlightOrder) -> Any:
@@ -1148,7 +1204,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             "time": 1499827319559,
             "updateTime": 1499827319559,
             "isWorking": True,
-            "origQuoteOrderQty": str(order.price * order.amount),
+            "origQuoteOrderQty": str(order.price * order.amount)
         }
 
     def _order_status_request_canceled_mock_response(self, order: InFlightOrder) -> Any:
@@ -1170,7 +1226,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             "time": 1499827319559,
             "updateTime": 1499827319559,
             "isWorking": True,
-            "origQuoteOrderQty": str(order.price * order.amount),
+            "origQuoteOrderQty": str(order.price * order.amount)
         }
 
     def _order_status_request_open_mock_response(self, order: InFlightOrder) -> Any:
@@ -1192,7 +1248,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             "time": 1499827319559,
             "updateTime": 1499827319559,
             "isWorking": True,
-            "origQuoteOrderQty": str(order.price * order.amount),
+            "origQuoteOrderQty": str(order.price * order.amount)
         }
 
     def _order_status_request_partially_filled_mock_response(self, order: InFlightOrder) -> Any:
@@ -1214,7 +1270,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             "time": 1499827319559,
             "updateTime": 1499827319559,
             "isWorking": True,
-            "origQuoteOrderQty": str(order.price * order.amount),
+            "origQuoteOrderQty": str(order.price * order.amount)
         }
 
     def _order_fills_request_partial_fill_mock_response(self, order: InFlightOrder):
@@ -1232,7 +1288,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 "time": 1499865549590,
                 "isBuyer": True,
                 "isMaker": False,
-                "isBestMatch": True,
+                "isBestMatch": True
             }
         ]
 
@@ -1251,6 +1307,6 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 "time": 1499865549590,
                 "isBuyer": True,
                 "isMaker": False,
-                "isBestMatch": True,
+                "isBestMatch": True
             }
         ]

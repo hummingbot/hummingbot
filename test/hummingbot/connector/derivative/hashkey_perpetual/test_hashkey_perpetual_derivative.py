@@ -53,7 +53,9 @@ class HashkeyPerpetualDerivativeTests(
 
     @property
     def latest_prices_url(self):
-        url = web_utils.rest_url(path_url=CONSTANTS.TICKER_PRICE_URL)
+        url = web_utils.rest_url(
+            path_url=CONSTANTS.TICKER_PRICE_URL
+        )
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
@@ -71,7 +73,9 @@ class HashkeyPerpetualDerivativeTests(
 
     @property
     def order_creation_url(self):
-        url = web_utils.rest_url(path_url=CONSTANTS.ORDER_URL)
+        url = web_utils.rest_url(
+            path_url=CONSTANTS.ORDER_URL
+        )
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
@@ -122,7 +126,7 @@ class HashkeyPerpetualDerivativeTests(
                             "minPrice": "0.1",
                             "maxPrice": "100000.00000000",
                             "tickSize": "0.1",
-                            "filterType": "PRICE_FILTER",
+                            "filterType": "PRICE_FILTER"
                         },
                         {
                             "minQty": "0.001",
@@ -130,18 +134,25 @@ class HashkeyPerpetualDerivativeTests(
                             "stepSize": "0.001",
                             "marketOrderMinQty": "0",
                             "marketOrderMaxQty": "0",
-                            "filterType": "LOT_SIZE",
+                            "filterType": "LOT_SIZE"
                         },
-                        {"minNotional": "0", "filterType": "MIN_NOTIONAL"},
+                        {
+                            "minNotional": "0",
+                            "filterType": "MIN_NOTIONAL"
+                        },
                         {
                             "maxSellPrice": "999999",
                             "buyPriceUpRate": "0.05",
                             "sellPriceDownRate": "0.05",
                             "maxEntrustNum": 200,
                             "maxConditionNum": 200,
-                            "filterType": "LIMIT_TRADING",
+                            "filterType": "LIMIT_TRADING"
                         },
-                        {"buyPriceUpRate": "0.05", "sellPriceDownRate": "0.05", "filterType": "MARKET_TRADING"},
+                        {
+                            "buyPriceUpRate": "0.05",
+                            "sellPriceDownRate": "0.05",
+                            "filterType": "MARKET_TRADING"
+                        },
                         {
                             "noAllowMarketStartTime": "0",
                             "noAllowMarketEndTime": "0",
@@ -149,8 +160,8 @@ class HashkeyPerpetualDerivativeTests(
                             "limitOrderEndTime": "0",
                             "limitMinPrice": "0",
                             "limitMaxPrice": "0",
-                            "filterType": "OPEN_QUOTE",
-                        },
+                            "filterType": "OPEN_QUOTE"
+                        }
                     ],
                     "exchangeId": "301",
                     "symbol": "BTCUSDT-PERPETUAL",
@@ -173,9 +184,9 @@ class HashkeyPerpetualDerivativeTests(
                             "quantity": "1000.00",
                             "initialMargin": "0.10",
                             "maintMargin": "0.005",
-                            "isWhite": False,
+                            "isWhite": False
                         }
-                    ],
+                    ]
                 }
             ]
         }
@@ -183,7 +194,12 @@ class HashkeyPerpetualDerivativeTests(
 
     @property
     def latest_prices_request_mock_response(self):
-        mock_response = [{"s": "BTCUSDT-PERPETUAL", "p": "9999.9"}]
+        mock_response = [
+            {
+                "s": "BTCUSDT-PERPETUAL",
+                "p": "9999.9"
+            }
+        ]
         return mock_response
 
     @property
@@ -196,7 +212,7 @@ class HashkeyPerpetualDerivativeTests(
                             "minPrice": "0.1",
                             "maxPrice": "100000.00000000",
                             "tickSize": "0.1",
-                            "filterType": "PRICE_FILTER",
+                            "filterType": "PRICE_FILTER"
                         },
                         {
                             "minQty": "0.001",
@@ -204,18 +220,25 @@ class HashkeyPerpetualDerivativeTests(
                             "stepSize": "0.001",
                             "marketOrderMinQty": "0",
                             "marketOrderMaxQty": "0",
-                            "filterType": "LOT_SIZE",
+                            "filterType": "LOT_SIZE"
                         },
-                        {"minNotional": "0", "filterType": "MIN_NOTIONAL"},
+                        {
+                            "minNotional": "0",
+                            "filterType": "MIN_NOTIONAL"
+                        },
                         {
                             "maxSellPrice": "999999",
                             "buyPriceUpRate": "0.05",
                             "sellPriceDownRate": "0.05",
                             "maxEntrustNum": 200,
                             "maxConditionNum": 200,
-                            "filterType": "LIMIT_TRADING",
+                            "filterType": "LIMIT_TRADING"
                         },
-                        {"buyPriceUpRate": "0.05", "sellPriceDownRate": "0.05", "filterType": "MARKET_TRADING"},
+                        {
+                            "buyPriceUpRate": "0.05",
+                            "sellPriceDownRate": "0.05",
+                            "filterType": "MARKET_TRADING"
+                        },
                         {
                             "noAllowMarketStartTime": "0",
                             "noAllowMarketEndTime": "0",
@@ -223,8 +246,8 @@ class HashkeyPerpetualDerivativeTests(
                             "limitOrderEndTime": "0",
                             "limitMinPrice": "0",
                             "limitMaxPrice": "0",
-                            "filterType": "OPEN_QUOTE",
-                        },
+                            "filterType": "OPEN_QUOTE"
+                        }
                     ],
                     "exchangeId": "301",
                     "symbol": "BTCUSDT-PERPETUAL",
@@ -247,9 +270,9 @@ class HashkeyPerpetualDerivativeTests(
                             "quantity": "1000.00",
                             "initialMargin": "0.10",
                             "maintMargin": "0.005",
-                            "isWhite": False,
+                            "isWhite": False
                         }
-                    ],
+                    ]
                 }
             ]
         }
@@ -300,7 +323,7 @@ class HashkeyPerpetualDerivativeTests(
             "timeInForce": "GTC",
             "status": "NEW",
             "priceType": "INPUT",
-            "contractMultiplier": "0.00100000",
+            "contractMultiplier": "0.00100000"
         }
         return mock_response
 
@@ -328,7 +351,7 @@ class HashkeyPerpetualDerivativeTests(
             "timeInForce": "GTC",
             "status": "NEW",
             "priceType": "INPUT",
-            "contractMultiplier": "0.00100000",
+            "contractMultiplier": "0.00100000"
         }
         return mock_response
 
@@ -341,7 +364,7 @@ class HashkeyPerpetualDerivativeTests(
                 "positionMargin": "500",
                 "orderMargin": "500",
                 "asset": "USDT",
-                "crossUnRealizedPnl": "1000",
+                "crossUnRealizedPnl": "1000"
             }
         ]
         return mock_response
@@ -363,19 +386,19 @@ class HashkeyPerpetualDerivativeTests(
     def balance_event_websocket_update(self):
         mock_response = [
             {
-                "e": "outboundContractAccountInfo",  # event type
-                "E": "1714717314118",  # event time
-                "T": True,  # can trade
-                "W": True,  # can withdraw
-                "D": True,  # can deposit
-                "B": [  # balances changed
+                "e": "outboundContractAccountInfo",        # event type
+                "E": "1714717314118",                      # event time
+                "T": True,                                 # can trade
+                "W": True,                                 # can withdraw
+                "D": True,                                 # can deposit
+                "B": [                                     # balances changed
                     {
-                        "a": "USDT",  # asset
-                        "f": "474960.65",  # free amount
-                        "l": "100000",  # locked amount
-                        "r": "",  # to be released
+                        "a": "USDT",                       # asset
+                        "f": "474960.65",                  # free amount
+                        "l": "100000",                     # locked amount
+                        "r": ""                            # to be released
                     }
-                ],
+                ]
             }
         ]
         return mock_response
@@ -385,22 +408,22 @@ class HashkeyPerpetualDerivativeTests(
         mock_response = [
             {
                 "e": "outboundContractPositionInfo",  # event type
-                "E": "1715224789008",  # event time
-                "A": "1649292498437183234",  # account ID
-                "s": self.exchange_trading_pair,  # symbol
-                "S": "LONG",  # side, LONG or SHORT
-                "p": "3212.78",  # avg Price
-                "P": "3000",  # total position
-                "a": "3000",  # available position
-                "f": "0",  # liquidation price
-                "m": "13680.323",  # portfolio margin
-                "r": "-3.8819",  # realised profit and loss (Pnl)
-                "up": "-4909.9255",  # unrealized profit and loss (unrealizedPnL)
-                "pr": "-0.3589",  # profit rate of current position
-                "pv": "73579.09",  # position value (USDT)
-                "v": "5.00",  # leverage
-                "mt": "CROSS",  # position type, only CROSS, ISOLATED later will support
-                "mm": "0",  # min margin
+                "E": "1715224789008",                 # event time
+                "A": "1649292498437183234",           # account ID
+                "s": self.exchange_trading_pair,      # symbol
+                "S": "LONG",                          # side, LONG or SHORT
+                "p": "3212.78",                       # avg Price
+                "P": "3000",                          # total position
+                "a": "3000",                          # available position
+                "f": "0",                             # liquidation price
+                "m": "13680.323",                     # portfolio margin
+                "r": "-3.8819",                       # realised profit and loss (Pnl)
+                "up": "-4909.9255",                   # unrealized profit and loss (unrealizedPnL)
+                "pr": "-0.3589",                      # profit rate of current position
+                "pv": "73579.09",                     # position value (USDT)
+                "v": "5.00",                          # leverage
+                "mt": "CROSS",          # position type, only CROSS, ISOLATED later will support
+                "mm": "0"                             # min margin
             }
         ]
         return mock_response
@@ -410,22 +433,22 @@ class HashkeyPerpetualDerivativeTests(
         mock_response = [
             {
                 "e": "outboundContractPositionInfo",  # event type
-                "E": "1715224789008",  # event time
-                "A": "1649292498437183234",  # account ID
-                "s": self.exchange_trading_pair,  # symbol
-                "S": "LONG",  # side, LONG or SHORT
-                "p": "3212.78",  # avg Price
-                "P": "0",  # total position
-                "a": "0",  # available position
-                "f": "0",  # liquidation price
-                "m": "13680.323",  # portfolio margin
-                "r": "-3.8819",  # realised profit and loss (Pnl)
-                "up": "-4909.9255",  # unrealized profit and loss (unrealizedPnL)
-                "pr": "-0.3589",  # profit rate of current position
-                "pv": "73579.09",  # position value (USDT)
-                "v": "5.00",  # leverage
-                "mt": "CROSS",  # position type, only CROSS, ISOLATED later will support
-                "mm": "0",  # min margin
+                "E": "1715224789008",                 # event time
+                "A": "1649292498437183234",           # account ID
+                "s": self.exchange_trading_pair,      # symbol
+                "S": "LONG",                          # side, LONG or SHORT
+                "p": "3212.78",                       # avg Price
+                "P": "0",                             # total position
+                "a": "0",                             # available position
+                "f": "0",                             # liquidation price
+                "m": "13680.323",                     # portfolio margin
+                "r": "-3.8819",                       # realised profit and loss (Pnl)
+                "up": "-4909.9255",                   # unrealized profit and loss (unrealizedPnL)
+                "pr": "-0.3589",                      # profit rate of current position
+                "pv": "73579.09",                     # position value (USDT)
+                "v": "5.00",                          # leverage
+                "mt": "CROSS",          # position type, only CROSS, ISOLATED later will support
+                "mm": "0"                             # min margin
             }
         ]
         return mock_response
@@ -444,25 +467,26 @@ class HashkeyPerpetualDerivativeTests(
 
     @property
     def target_funding_info_next_funding_utc_str(self):
-        datetime_str = (
-            str(pd.Timestamp.utcfromtimestamp(self.target_funding_info_next_funding_utc_timestamp)).replace(" ", "T")
-            + "Z"
-        )
+        datetime_str = str(
+            pd.Timestamp.utcfromtimestamp(
+                self.target_funding_info_next_funding_utc_timestamp)
+        ).replace(" ", "T") + "Z"
         return datetime_str
 
     @property
     def target_funding_info_next_funding_utc_str_ws_updated(self):
-        datetime_str = (
-            str(pd.Timestamp.utcfromtimestamp(self.target_funding_info_next_funding_utc_timestamp_ws_updated)).replace(
-                " ", "T"
-            )
-            + "Z"
-        )
+        datetime_str = str(
+            pd.Timestamp.utcfromtimestamp(
+                self.target_funding_info_next_funding_utc_timestamp_ws_updated)
+        ).replace(" ", "T") + "Z"
         return datetime_str
 
     @property
     def target_funding_payment_timestamp_str(self):
-        datetime_str = str(pd.Timestamp.utcfromtimestamp(self.target_funding_payment_timestamp)).replace(" ", "T") + "Z"
+        datetime_str = str(
+            pd.Timestamp.utcfromtimestamp(
+                self.target_funding_payment_timestamp)
+        ).replace(" ", "T") + "Z"
         return datetime_str
 
     @property
@@ -477,19 +501,27 @@ class HashkeyPerpetualDerivativeTests(
     @property
     def funding_rate_mock_response(self):
         return [
-            {"symbol": "ETHUSDT-PERPETUAL", "rate": "0.0001", "nextSettleTime": "1724140800000"},
+            {
+                "symbol": "ETHUSDT-PERPETUAL",
+                "rate": "0.0001",
+                "nextSettleTime": "1724140800000"
+            },
             {
                 "symbol": "BTCUSDT-PERPETUAL",
                 "rate": self.target_funding_info_rate,
-                "nextSettleTime": str(self.target_funding_info_next_funding_utc_timestamp * 1e3),
+                "nextSettleTime": str(self.target_funding_info_next_funding_utc_timestamp * 1e3)
             },
         ]
 
     @property
     def index_price_mock_response(self):
         return {
-            "index": {f"{self.base_asset}{self.quote_asset}": self.target_funding_info_index_price},
-            "edp": {f"{self.base_asset}{self.quote_asset}": "2"},
+            "index": {
+                f"{self.base_asset}{self.quote_asset}": self.target_funding_info_index_price
+            },
+            "edp": {
+                f"{self.base_asset}{self.quote_asset}": "2"
+            }
         }
 
     @property
@@ -498,7 +530,7 @@ class HashkeyPerpetualDerivativeTests(
             "exchangeId": 301,
             "symbolId": self.exchange_trading_pair,
             "price": self.target_funding_info_mark_price,
-            "time": str(self.target_funding_info_next_funding_utc_timestamp * 1e3),
+            "time": str(self.target_funding_info_next_funding_utc_timestamp * 1e3)
         }
 
     @property
@@ -517,13 +549,11 @@ class HashkeyPerpetualDerivativeTests(
         min_base_amount_increment = rule.get("baseAssetPrecision")
         min_notional_size = trading_filter_info.get("MIN_NOTIONAL", {}).get("minNotional")
 
-        return TradingRule(
-            trading_pair,
-            min_order_size=Decimal(min_order_size),
-            min_price_increment=Decimal(min_price_increment),
-            min_base_amount_increment=Decimal(min_base_amount_increment),
-            min_notional_size=Decimal(min_notional_size),
-        )
+        return TradingRule(trading_pair,
+                           min_order_size=Decimal(min_order_size),
+                           min_price_increment=Decimal(min_price_increment),
+                           min_base_amount_increment=Decimal(min_base_amount_increment),
+                           min_notional_size=Decimal(min_notional_size))
 
     @property
     def expected_logged_error_for_erroneous_trading_rule(self):
@@ -590,10 +620,8 @@ class HashkeyPerpetualDerivativeTests(
         request_params = request_call.kwargs["params"]
         self.assertEqual(order.trade_type.name.lower(), request_params["side"].split("_")[0].lower())
         self.assertEqual(self.exchange_trading_pair, request_params["symbol"])
-        self.assertEqual(
-            order.amount,
-            self.exchange.get_amount_of_contracts(self.trading_pair, abs(Decimal(str(request_params["quantity"])))),
-        )
+        self.assertEqual(order.amount, self.exchange.get_amount_of_contracts(
+            self.trading_pair, abs(Decimal(str(request_params["quantity"])))))
         self.assertEqual(order.client_order_id, request_params["clientOrderId"])
 
     def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
@@ -614,10 +642,10 @@ class HashkeyPerpetualDerivativeTests(
         self.assertEqual(order.exchange_order_id, request_params["orderId"])
 
     def configure_successful_cancelation_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         """
         :return: the URL configured for the cancelation
@@ -629,21 +657,23 @@ class HashkeyPerpetualDerivativeTests(
         return url
 
     def configure_erroneous_cancelation_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
-        url = web_utils.rest_url(path_url=CONSTANTS.ORDER_URL)
+        url = web_utils.rest_url(
+            path_url=CONSTANTS.ORDER_URL
+        )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         mock_api.delete(regex_url, status=400, callback=callback)
         return url
 
     def configure_one_successful_one_erroneous_cancel_all_response(
-        self,
-        successful_order: InFlightOrder,
-        erroneous_order: InFlightOrder,
-        mock_api: aioresponses,
+            self,
+            successful_order: InFlightOrder,
+            erroneous_order: InFlightOrder,
+            mock_api: aioresponses,
     ) -> List[str]:
         """
         :return: a list of all configured URLs for the cancelations
@@ -656,20 +686,25 @@ class HashkeyPerpetualDerivativeTests(
         return all_urls
 
     def configure_order_not_found_error_cancelation_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         # Implement the expected not found response when enabling test_cancel_order_not_found_in_the_exchange
         raise NotImplementedError
 
     def configure_order_not_found_error_order_status_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
         # Implement the expected not found response when enabling
         # test_lost_order_removed_if_not_found_during_order_status_update
         raise NotImplementedError
 
     def configure_completely_filled_order_status_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         url = web_utils.rest_url(path_url=CONSTANTS.ORDER_URL)
 
@@ -680,10 +715,10 @@ class HashkeyPerpetualDerivativeTests(
         return url
 
     def configure_canceled_order_status_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.rest_url(path_url=CONSTANTS.ORDER_URL)
 
@@ -694,10 +729,10 @@ class HashkeyPerpetualDerivativeTests(
         return url
 
     def configure_open_order_status_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.rest_url(path_url=CONSTANTS.ORDER_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
@@ -707,10 +742,10 @@ class HashkeyPerpetualDerivativeTests(
         return url
 
     def configure_http_error_order_status_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.rest_url(path_url=CONSTANTS.ORDER_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
@@ -719,10 +754,10 @@ class HashkeyPerpetualDerivativeTests(
         return url
 
     def configure_partially_filled_order_status_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.rest_url(path_url=CONSTANTS.ORDER_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
@@ -732,10 +767,10 @@ class HashkeyPerpetualDerivativeTests(
         return url
 
     def configure_partial_fill_trade_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.rest_url(path_url=CONSTANTS.ORDER_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
@@ -745,10 +780,10 @@ class HashkeyPerpetualDerivativeTests(
         return url
 
     def configure_full_fill_trade_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.rest_url(
             path_url=CONSTANTS.ACCOUNT_TRADE_LIST_URL,
@@ -760,10 +795,10 @@ class HashkeyPerpetualDerivativeTests(
         return url
 
     def configure_erroneous_http_fill_trade_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.rest_url(path_url=CONSTANTS.ORDER_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
@@ -772,18 +807,24 @@ class HashkeyPerpetualDerivativeTests(
         return url
 
     def configure_failed_set_position_mode(
-        self,
-        position_mode: PositionMode,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            position_mode: PositionMode,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ):
-        url = web_utils.rest_url(path_url=CONSTANTS.SET_POSITION_MODE_URL)
-        get_position_url = web_utils.rest_url(path_url=CONSTANTS.POSITION_INFORMATION_URL)
+        url = web_utils.rest_url(
+            path_url=CONSTANTS.SET_POSITION_MODE_URL
+        )
+        get_position_url = web_utils.rest_url(
+            path_url=CONSTANTS.POSITION_INFORMATION_URL
+        )
         regex_url = re.compile(f"^{url}")
         regex_get_position_url = re.compile(f"^{get_position_url}")
 
         error_msg = ""
-        get_position_mock_response = [{"mode": "single"}]
+        get_position_mock_response = [
+            {"mode": 'single'}
+        ]
         mock_response = {
             "label": "1666",
             "detail": "",
@@ -794,37 +835,44 @@ class HashkeyPerpetualDerivativeTests(
         return url, f"{error_msg}"
 
     def configure_successful_set_position_mode(
-        self,
-        position_mode: PositionMode,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            position_mode: PositionMode,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ):
         pass
 
     def configure_failed_set_leverage(
-        self,
-        leverage: PositionMode,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            leverage: PositionMode,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> Tuple[str, str]:
         url = web_utils.rest_url(path_url=CONSTANTS.SET_LEVERAGE_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
         err_msg = "leverage is diff"
-        mock_response = {"code": "0001", "msg": err_msg}
+        mock_response = {
+            "code": "0001",
+            "msg": err_msg
+        }
         mock_api.post(regex_url, body=json.dumps(mock_response), callback=callback)
         return url, err_msg
 
     def configure_successful_set_leverage(
-        self,
-        leverage: int,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            leverage: int,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ):
         url = web_utils.rest_url(path_url=CONSTANTS.SET_LEVERAGE_URL)
         regex_url = re.compile(f"^{url}")
 
-        mock_response = {"code": "0000", "symbolId": "BTCUSDT-PERPETUAL", "leverage": str(leverage)}
+        mock_response = {
+            "code": "0000",
+            "symbolId": "BTCUSDT-PERPETUAL",
+            "leverage": str(leverage)
+        }
 
         mock_api.post(regex_url, body=json.dumps(mock_response), callback=callback)
 
@@ -834,36 +882,36 @@ class HashkeyPerpetualDerivativeTests(
         self._simulate_trading_rules_initialized()
         return [
             {
-                "e": "contractExecutionReport",  # event type
-                "E": "1714716899100",  # event time
-                "s": self.exchange_trading_pair,  # symbol
-                "c": order.client_order_id,  # client order ID
-                "S": "BUY",  # side
-                "o": "LIMIT",  # order type
-                "f": "GTC",  # time in force
-                "q": self.exchange.get_quantity_of_contracts(self.trading_pair, order.amount),  # order quantity
-                "p": str(order.price),  # order price
-                "X": "NEW",  # current order status
-                "i": order.exchange_order_id,  # order ID
-                "l": "0",  # last executed quantity
-                "z": "0",  # cumulative filled quantity
-                "L": "",  # last executed price
-                "n": "0",  # commission amount
-                "N": "",  # commission asset
-                "u": True,  # is the trade normal, ignore for now
-                "w": True,  # is the order working?
-                "m": False,  # is this trade the maker side?
-                "O": "1714716899068",  # order creation time
-                "Z": "0",  # cumulative quote asset transacted quantity
-                "C": False,  # is close, Is the buy close or sell close
-                "V": "26105.5",  # average executed price
-                "reqAmt": "0",  # requested cash amount
-                "d": "",  # execution ID
-                "r": "10000",  # unfilled quantity
-                "v": "5",  # leverage
-                "P": "30000",  # Index price
-                "lo": True,  # Is liquidation Order
-                "lt": "LIQUIDATION_MAKER",  # Liquidation type "LIQUIDATION_MAKER_ADL", "LIQUIDATION_MAKER", "LIQUIDATION_TAKER" (To be released)
+                "e": "contractExecutionReport",          # event type
+                "E": "1714716899100",                    # event time
+                "s": self.exchange_trading_pair,         # symbol
+                "c": order.client_order_id,              # client order ID
+                "S": "BUY",                              # side
+                "o": "LIMIT",                            # order type
+                "f": "GTC",                              # time in force
+                "q": self.exchange.get_quantity_of_contracts(self.trading_pair, order.amount),         # order quantity
+                "p": str(order.price),                   # order price
+                "X": "NEW",                              # current order status
+                "i": order.exchange_order_id,            # order ID
+                "l": "0",                                # last executed quantity
+                "z": "0",                                # cumulative filled quantity
+                "L": "",                                 # last executed price
+                "n": "0",                                # commission amount
+                "N": "",                                 # commission asset
+                "u": True,                               # is the trade normal, ignore for now
+                "w": True,                               # is the order working?
+                "m": False,                              # is this trade the maker side?
+                "O": "1714716899068",                    # order creation time
+                "Z": "0",                                # cumulative quote asset transacted quantity
+                "C": False,                              # is close, Is the buy close or sell close
+                "V": "26105.5",                          # average executed price
+                "reqAmt": "0",                           # requested cash amount
+                "d": "",                                 # execution ID
+                "r": "10000",                            # unfilled quantity
+                "v": "5",                                # leverage
+                "P": "30000",                            # Index price
+                "lo": True,                              # Is liquidation Order
+                "lt": "LIQUIDATION_MAKER"                # Liquidation type "LIQUIDATION_MAKER_ADL", "LIQUIDATION_MAKER", "LIQUIDATION_TAKER" (To be released)
             }
         ]
 
@@ -872,36 +920,36 @@ class HashkeyPerpetualDerivativeTests(
 
         return [
             {
-                "e": "contractExecutionReport",  # event type
-                "E": "1714716899100",  # event time
-                "s": self.exchange_trading_pair,  # symbol
-                "c": order.client_order_id,  # client order ID
-                "S": "BUY",  # side
-                "o": "LIMIT",  # order type
-                "f": "GTC",  # time in force
-                "q": self.exchange.get_quantity_of_contracts(self.trading_pair, order.amount),  # order quantity
-                "p": str(order.price),  # order price
-                "X": "CANCELED",  # current order status
-                "i": order.exchange_order_id,  # order ID
-                "l": "0",  # last executed quantity
-                "z": "0",  # cumulative filled quantity
-                "L": "",  # last executed price
-                "n": "0",  # commission amount
-                "N": "",  # commission asset
-                "u": True,  # is the trade normal, ignore for now
-                "w": True,  # is the order working?
-                "m": False,  # is this trade the maker side?
-                "O": "1714716899068",  # order creation time
-                "Z": "0",  # cumulative quote asset transacted quantity
-                "C": False,  # is close, Is the buy close or sell close
-                "V": "26105.5",  # average executed price
-                "reqAmt": "0",  # requested cash amount
-                "d": "",  # execution ID
-                "r": "10000",  # unfilled quantity
-                "v": "5",  # leverage
-                "P": "30000",  # Index price
-                "lo": True,  # Is liquidation Order
-                "lt": "LIQUIDATION_MAKER",  # Liquidation type "LIQUIDATION_MAKER_ADL", "LIQUIDATION_MAKER", "LIQUIDATION_TAKER" (To be released)
+                "e": "contractExecutionReport",          # event type
+                "E": "1714716899100",                    # event time
+                "s": self.exchange_trading_pair,         # symbol
+                "c": order.client_order_id,              # client order ID
+                "S": "BUY",                              # side
+                "o": "LIMIT",                            # order type
+                "f": "GTC",                              # time in force
+                "q": self.exchange.get_quantity_of_contracts(self.trading_pair, order.amount),         # order quantity
+                "p": str(order.price),                   # order price
+                "X": "CANCELED",                        # current order status
+                "i": order.exchange_order_id,            # order ID
+                "l": "0",                                # last executed quantity
+                "z": "0",                                # cumulative filled quantity
+                "L": "",                                 # last executed price
+                "n": "0",                                # commission amount
+                "N": "",                                 # commission asset
+                "u": True,                               # is the trade normal, ignore for now
+                "w": True,                               # is the order working?
+                "m": False,                              # is this trade the maker side?
+                "O": "1714716899068",                    # order creation time
+                "Z": "0",                                # cumulative quote asset transacted quantity
+                "C": False,                              # is close, Is the buy close or sell close
+                "V": "26105.5",                          # average executed price
+                "reqAmt": "0",                           # requested cash amount
+                "d": "",                                 # execution ID
+                "r": "10000",                            # unfilled quantity
+                "v": "5",                                # leverage
+                "P": "30000",                            # Index price
+                "lo": True,                              # Is liquidation Order
+                "lt": "LIQUIDATION_MAKER"                # Liquidation type "LIQUIDATION_MAKER_ADL", "LIQUIDATION_MAKER", "LIQUIDATION_TAKER" (To be released)
             }
         ]
 
@@ -911,36 +959,36 @@ class HashkeyPerpetualDerivativeTests(
         quantity = self.exchange.get_quantity_of_contracts(self.trading_pair, order.amount)
         return [
             {
-                "e": "contractExecutionReport",  # event type
-                "E": "1714716899100",  # event time
-                "s": self.exchange_trading_pair,  # symbol
-                "c": order.client_order_id,  # client order ID
-                "S": "BUY",  # side
-                "o": "LIMIT",  # order type
-                "f": "GTC",  # time in force
-                "q": str(quantity),  # order quantity
-                "p": str(order.price),  # order price
-                "X": "FILLED",  # current order status
-                "i": order.exchange_order_id,  # order ID
-                "l": str(quantity),  # last executed quantity
-                "z": "0",  # cumulative filled quantity
-                "L": str(order.price),  # last executed price
-                "n": "0.1",  # commission amount
-                "N": "USDT",  # commission asset
-                "u": True,  # is the trade normal, ignore for now
-                "w": True,  # is the order working?
-                "m": False,  # is this trade the maker side?
-                "O": "1714716899068",  # order creation time
-                "Z": "0",  # cumulative quote asset transacted quantity
-                "C": False,  # is close, Is the buy close or sell close
-                "V": "26105.5",  # average executed price
-                "reqAmt": "0",  # requested cash amount
-                "d": "",  # execution ID
-                "r": "10000",  # unfilled quantity
-                "v": "5",  # leverage
-                "P": "30000",  # Index price
-                "lo": True,  # Is liquidation Order
-                "lt": "LIQUIDATION_MAKER",  # Liquidation type "LIQUIDATION_MAKER_ADL", "LIQUIDATION_MAKER", "LIQUIDATION_TAKER" (To be released)
+                "e": "contractExecutionReport",          # event type
+                "E": "1714716899100",                    # event time
+                "s": self.exchange_trading_pair,         # symbol
+                "c": order.client_order_id,              # client order ID
+                "S": "BUY",                              # side
+                "o": "LIMIT",                            # order type
+                "f": "GTC",                              # time in force
+                "q": str(quantity),                      # order quantity
+                "p": str(order.price),                   # order price
+                "X": "FILLED",                           # current order status
+                "i": order.exchange_order_id,            # order ID
+                "l": str(quantity),                      # last executed quantity
+                "z": "0",                                # cumulative filled quantity
+                "L": str(order.price),                   # last executed price
+                "n": "0.1",                                # commission amount
+                "N": "USDT",                             # commission asset
+                "u": True,                               # is the trade normal, ignore for now
+                "w": True,                               # is the order working?
+                "m": False,                              # is this trade the maker side?
+                "O": "1714716899068",                    # order creation time
+                "Z": "0",                                # cumulative quote asset transacted quantity
+                "C": False,                              # is close, Is the buy close or sell close
+                "V": "26105.5",                          # average executed price
+                "reqAmt": "0",                           # requested cash amount
+                "d": "",                                 # execution ID
+                "r": "10000",                            # unfilled quantity
+                "v": "5",                                # leverage
+                "P": "30000",                            # Index price
+                "lo": True,                              # Is liquidation Order
+                "lt": "LIQUIDATION_MAKER"                # Liquidation type "LIQUIDATION_MAKER_ADL", "LIQUIDATION_MAKER", "LIQUIDATION_TAKER" (To be released)
             }
         ]
 
@@ -949,18 +997,18 @@ class HashkeyPerpetualDerivativeTests(
 
         return [
             {
-                "e": "ticketInfo",  # event type
-                "E": "1714717146971",  # event time
-                "s": self.exchange_trading_pair,  # symbol
-                "q": self.exchange.get_quantity_of_contracts(self.trading_pair, order.amount),  # quantity
-                "t": "1714717146957",  # time
-                "p": str(order.price),  # price
+                "e": "ticketInfo",                 # event type
+                "E": "1714717146971",              # event time
+                "s": self.exchange_trading_pair,   # symbol
+                "q": self.exchange.get_quantity_of_contracts(self.trading_pair, order.amount),                      # quantity
+                "t": "1714717146957",              # time
+                "p": str(order.price),             # price
                 "T": self.expected_fill_trade_id,  # ticketId
-                "o": order.exchange_order_id,  # orderId
-                "c": order.client_order_id,  # clientOrderId
-                "a": "1649292498437183232",  # accountId
-                "m": True,  # isMaker
-                "S": order.trade_type,  # side  SELL or BUY
+                "o": order.exchange_order_id,      # orderId
+                "c": order.client_order_id,        # clientOrderId
+                "a": "1649292498437183232",        # accountId
+                "m": True,                         # isMaker
+                "S": order.trade_type              # side  SELL or BUY
             }
         ]
 
@@ -968,22 +1016,22 @@ class HashkeyPerpetualDerivativeTests(
         mock_response = [
             {
                 "e": "outboundContractPositionInfo",  # event type
-                "E": "1715224789008",  # event time
-                "A": "1649292498437183234",  # account ID
-                "s": self.exchange_trading_pair,  # symbol
-                "S": "LONG",  # side, LONG or SHORT
-                "p": "3212.78",  # avg Price
-                "P": "3000",  # total position
-                "a": "3000",  # available position
-                "f": "0",  # liquidation price
-                "m": "13680.323",  # portfolio margin
-                "r": "-3.8819",  # realised profit and loss (Pnl)
-                "up": str(unrealized_pnl),  # unrealized profit and loss (unrealizedPnL)
-                "pr": "-0.3589",  # profit rate of current position
-                "pv": "73579.09",  # position value (USDT)
-                "v": "5.00",  # leverage
-                "mt": "CROSS",  # position type, only CROSS, ISOLATED later will support
-                "mm": "0",  # min margin
+                "E": "1715224789008",                 # event time
+                "A": "1649292498437183234",           # account ID
+                "s": self.exchange_trading_pair,      # symbol
+                "S": "LONG",                          # side, LONG or SHORT
+                "p": "3212.78",                       # avg Price
+                "P": "3000",                          # total position
+                "a": "3000",                          # available position
+                "f": "0",                             # liquidation price
+                "m": "13680.323",                     # portfolio margin
+                "r": "-3.8819",                       # realised profit and loss (Pnl)
+                "up": str(unrealized_pnl),            # unrealized profit and loss (unrealizedPnL)
+                "pr": "-0.3589",                      # profit rate of current position
+                "pv": "73579.09",                     # position value (USDT)
+                "v": "5.00",                          # leverage
+                "mt": "CROSS",                        # position type, only CROSS, ISOLATED later will support
+                "mm": "0"                             # min margin
             }
         ]
         return mock_response
@@ -1009,7 +1057,7 @@ class HashkeyPerpetualDerivativeTests(
 
         self.assertEqual(
             f"Invalid position action {PositionAction.NIL}. Must be one of {[PositionAction.OPEN, PositionAction.CLOSE]}",
-            str(exception_context.exception),
+            str(exception_context.exception)
         )
 
     def test_user_stream_update_for_new_order(self):
@@ -1084,10 +1132,10 @@ class HashkeyPerpetualDerivativeTests(
         self.exchange.account_positions[pos_key] = Position(
             trading_pair=self.trading_pair,
             position_side=PositionSide.LONG,
-            unrealized_pnl=Decimal("1"),
-            entry_price=Decimal("1"),
-            amount=Decimal("1"),
-            leverage=Decimal("1"),
+            unrealized_pnl=Decimal('1'),
+            entry_price=Decimal('1'),
+            amount=Decimal('1'),
+            leverage=Decimal('1'),
         )
         amount_precision = Decimal(self.exchange.trading_rules[self.trading_pair].min_base_amount_increment)
         try:
@@ -1115,10 +1163,10 @@ class HashkeyPerpetualDerivativeTests(
         self.exchange.account_positions[pos_key] = Position(
             trading_pair=self.trading_pair,
             position_side=PositionSide.LONG,
-            unrealized_pnl=Decimal("1"),
-            entry_price=Decimal("1"),
-            amount=Decimal("1"),
-            leverage=Decimal("1"),
+            unrealized_pnl=Decimal('1'),
+            entry_price=Decimal('1'),
+            amount=Decimal('1'),
+            leverage=Decimal('1'),
         )
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [position_event, asyncio.CancelledError]
@@ -1212,21 +1260,23 @@ class HashkeyPerpetualDerivativeTests(
 
         for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
             self.async_run_with_timeout(
-                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id)
-            )
+                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id))
 
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
 
         url = self.configure_erroneous_cancelation_response(
-            order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
-        )
+            order=order,
+            mock_api=mock_api,
+            callback=lambda *args, **kwargs: request_sent_event.set())
 
         self.async_run_with_timeout(self.exchange._cancel_lost_orders())
         self.async_run_with_timeout(request_sent_event.wait())
 
         cancel_request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(cancel_request)
-        self.validate_order_cancelation_request(order=order, request_call=cancel_request)
+        self.validate_order_cancelation_request(
+            order=order,
+            request_call=cancel_request)
 
         self.assertIn(order.client_order_id, self.exchange._order_tracker.lost_orders)
         self.assertEqual(0, len(self.order_cancelled_logger.event_log))
@@ -1261,7 +1311,9 @@ class HashkeyPerpetualDerivativeTests(
         self.exchange._user_stream_tracker._user_stream = mock_queue
 
         if self.is_order_fill_http_update_executed_during_websocket_order_event_processing:
-            self.configure_full_fill_trade_response(order=order, mock_api=mock_api)
+            self.configure_full_fill_trade_response(
+                order=order,
+                mock_api=mock_api)
 
         try:
             self.async_run_with_timeout(self.exchange._user_stream_event_listener())
@@ -1296,7 +1348,12 @@ class HashkeyPerpetualDerivativeTests(
         self.assertTrue(order.is_filled)
         self.assertTrue(order.is_done)
 
-        self.assertTrue(self.is_logged("INFO", f"BUY order {order.client_order_id} completely filled."))
+        self.assertTrue(
+            self.is_logged(
+                "INFO",
+                f"BUY order {order.client_order_id} completely filled."
+            )
+        )
 
     @aioresponses()
     def test_cancel_order_not_found_in_the_exchange(self, mock_api):
@@ -1331,7 +1388,7 @@ class HashkeyPerpetualDerivativeTests(
             "priceType": "INPUT",
             "isLiquidationOrder": False,
             "indexPrice": "0",
-            "liquidationType": "",
+            "liquidationType": ""
         }
 
     def _order_status_request_completely_filled_mock_response(self, order: InFlightOrder) -> Any:
@@ -1355,7 +1412,7 @@ class HashkeyPerpetualDerivativeTests(
             "priceType": "INPUT",
             "isLiquidationOrder": False,
             "indexPrice": "0",
-            "liquidationType": "",
+            "liquidationType": ""
         }
 
     def _order_status_request_canceled_mock_response(self, order: InFlightOrder) -> Any:
@@ -1392,7 +1449,7 @@ class HashkeyPerpetualDerivativeTests(
                 "type": "LIMIT",
                 "side": f"{'BUY' if order.trade_type == TradeType.BUY else 'SELL'}_{order.position.value}",
                 "realizedPnl": "0",
-                "isMaker": True,
+                "isMaker": True
             },
         ]
 
@@ -1442,9 +1499,9 @@ class HashkeyPerpetualDerivativeTests(
 
         creation_response = self.limit_maker_order_creation_request_successful_mock_response
 
-        mock_api.post(
-            url, body=json.dumps(creation_response), callback=lambda *args, **kwargs: request_sent_event.set()
-        )
+        mock_api.post(url,
+                      body=json.dumps(creation_response),
+                      callback=lambda *args, **kwargs: request_sent_event.set())
 
         leverage = 2
         self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
@@ -1454,16 +1511,20 @@ class HashkeyPerpetualDerivativeTests(
         order_request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(order_request)
         self.assertIn(order_id, self.exchange.in_flight_orders)
-        self.validate_order_creation_request(order=self.exchange.in_flight_orders[order_id], request_call=order_request)
+        self.validate_order_creation_request(
+            order=self.exchange.in_flight_orders[order_id],
+            request_call=order_request)
 
         create_event = self.buy_order_created_logger.event_log[0]
-        self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
+        self.assertEqual(self.exchange.current_timestamp,
+                         create_event.timestamp)
         self.assertEqual(self.trading_pair, create_event.trading_pair)
         self.assertEqual(OrderType.LIMIT_MAKER, create_event.type)
         self.assertEqual(Decimal("100"), create_event.amount)
         self.assertEqual(Decimal("10000"), create_event.price)
         self.assertEqual(order_id, create_event.order_id)
-        self.assertEqual(str(self.expected_exchange_order_id), create_event.exchange_order_id)
+        self.assertEqual(str(self.expected_exchange_order_id),
+                         create_event.exchange_order_id)
         self.assertEqual(leverage, create_event.leverage)
         self.assertEqual(PositionAction.OPEN.value, create_event.position)
 
@@ -1472,17 +1533,19 @@ class HashkeyPerpetualDerivativeTests(
                 "INFO",
                 f"Created {OrderType.LIMIT_MAKER.name} {TradeType.BUY.name} order {order_id} for "
                 f"{Decimal('100.000000')} to {PositionAction.OPEN.name} a {self.trading_pair} position "
-                f"at {Decimal('10000.0000')}.",
+                f"at {Decimal('10000.0000')}."
             )
         )
 
     @aioresponses()
     def test_update_position_mode(
-        self,
-        mock_api: aioresponses,
+            self,
+            mock_api: aioresponses,
     ):
         self._simulate_trading_rules_initialized()
-        get_position_url = web_utils.rest_url(path_url=CONSTANTS.POSITION_INFORMATION_URL)
+        get_position_url = web_utils.rest_url(
+            path_url=CONSTANTS.POSITION_INFORMATION_URL
+        )
         regex_get_position_url = re.compile(f"^{get_position_url}")
         response = [
             {
@@ -1500,7 +1563,7 @@ class HashkeyPerpetualDerivativeTests(
                 "unrealizedPnL": "152047.5663",
                 "profitRate": "1.4427",
                 "realizedPnL": "-215.2107",
-                "minMargin": "38059.0138",
+                "minMargin": "38059.0138"
             },
         ]
         mock_api.get(regex_get_position_url, body=json.dumps(response))
@@ -1511,7 +1574,9 @@ class HashkeyPerpetualDerivativeTests(
         self.assertEqual(self.trading_pair, position.trading_pair)
         self.assertEqual(PositionSide.SHORT, position.position_side)
 
-        get_position_url = web_utils.rest_url(path_url=CONSTANTS.POSITION_INFORMATION_URL)
+        get_position_url = web_utils.rest_url(
+            path_url=CONSTANTS.POSITION_INFORMATION_URL
+        )
         regex_get_position_url = re.compile(f"^{get_position_url}")
         response = [
             {
@@ -1529,7 +1594,7 @@ class HashkeyPerpetualDerivativeTests(
                 "unrealizedPnL": "152047.5663",
                 "profitRate": "1.4427",
                 "realizedPnL": "-215.2107",
-                "minMargin": "38059.0138",
+                "minMargin": "38059.0138"
             },
         ]
         mock_api.get(regex_get_position_url, body=json.dumps(response))
@@ -1564,7 +1629,9 @@ class HashkeyPerpetualDerivativeTests(
         self.assertEqual(self.trading_pair, funding_info.trading_pair)
         self.assertEqual(self.target_funding_info_index_price, funding_info.index_price)
         self.assertEqual(self.target_funding_info_mark_price, funding_info.mark_price)
-        self.assertEqual(self.target_funding_info_next_funding_utc_timestamp, funding_info.next_funding_utc_timestamp)
+        self.assertEqual(
+            self.target_funding_info_next_funding_utc_timestamp, funding_info.next_funding_utc_timestamp
+        )
         self.assertEqual(self.target_funding_info_rate, funding_info.rate)
 
     @aioresponses()

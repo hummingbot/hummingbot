@@ -68,9 +68,8 @@ class WalletHedgeExample(ScriptStrategyBase):
     def format_status(self) -> str:
         if self.wallet_balance_data_feed.is_ready():
             lines = []
-            prices_str = format_df_for_printout(
-                self.wallet_balance_data_feed.wallet_balances_df, table_format="psql", index=True
-            )
+            prices_str = format_df_for_printout(self.wallet_balance_data_feed.wallet_balances_df,
+                                                table_format="psql", index=True)
             lines.append(f"\nWallet Data Feed:\n{prices_str}")
 
             precision = 3

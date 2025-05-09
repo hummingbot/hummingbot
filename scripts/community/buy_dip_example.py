@@ -24,7 +24,6 @@ class BuyDipExample(ScriptStrategyBase):
       - How to structure order execution on a more complex strategy
     Before running this example, make sure you run `config rate_oracle_source coingecko`
     """
-
     connector_name: str = "binance_paper_trade"
     trading_pair: str = "ETH-BTC"
     base_asset, quote_asset = split_hb_trading_pair(trading_pair)
@@ -33,9 +32,9 @@ class BuyDipExample(ScriptStrategyBase):
     moving_avg_period: int = 50
     dip_percentage: Decimal = Decimal("0.05")
     #: A cool off period before the next buy (in seconds)
-    cool_off_interval: float = 10.0
+    cool_off_interval: float = 10.
     #: The last buy timestamp
-    last_ordered_ts: float = 0.0
+    last_ordered_ts: float = 0.
 
     markets = {connector_name: {trading_pair}}
 
@@ -72,9 +71,8 @@ class BuyDipExample(ScriptStrategyBase):
             order_price = self.connector.get_price(self.trading_pair, False) * Decimal("0.9")
             usd_conversion_rate = RateOracle.get_instance().get_pair_rate(self.conversion_pair)
             amount = (self.buy_usd_amount / usd_conversion_rate) / order_price
-            proposal.append(
-                OrderCandidate(self.trading_pair, False, OrderType.LIMIT, TradeType.BUY, amount, order_price)
-            )
+            proposal.append(OrderCandidate(self.trading_pair, False, OrderType.LIMIT, TradeType.BUY, amount,
+                                           order_price))
         return proposal
 
     def execute_proposal(self, proposal: List[OrderCandidate]):
@@ -85,23 +83,16 @@ class BuyDipExample(ScriptStrategyBase):
             return
         for order_candidate in proposal:
             if order_candidate.amount > Decimal("0"):
-                self.buy(
-                    self.connector_name,
-                    self.trading_pair,
-                    order_candidate.amount,
-                    order_candidate.order_type,
-                    order_candidate.price,
-                )
+                self.buy(self.connector_name, self.trading_pair, order_candidate.amount, order_candidate.order_type,
+                         order_candidate.price)
                 self.last_ordered_ts = time.time()
 
     def did_fill_order(self, event: OrderFilledEvent):
         """
         Listens to fill order event to log it and notify the hummingbot application.
         """
-        msg = (
-            f"({event.trading_pair}) {event.trade_type.name} order (price: {event.price}) of {event.amount} "
-            f"{split_hb_trading_pair(event.trading_pair)[0]} is filled."
-        )
+        msg = (f"({event.trading_pair}) {event.trade_type.name} order (price: {event.price}) of {event.amount} "
+               f"{split_hb_trading_pair(event.trading_pair)[0]} is filled.")
         self.log_with_clock(logging.INFO, msg)
         self.notify_hb_app_with_timestamp(msg)
 
@@ -132,6 +123,7 @@ class BuyDipExample(ScriptStrategyBase):
         """
 
         url = "https://api.binance.com/api/v3/klines"
-        params = {"symbol": trading_pair.replace("-", ""), "interval": "1d"}
+        params = {"symbol": trading_pair.replace("-", ""),
+                  "interval": "1d"}
         records = requests.get(url=url, params=params).json()
         return [Decimal(str(record[4])) for record in records]

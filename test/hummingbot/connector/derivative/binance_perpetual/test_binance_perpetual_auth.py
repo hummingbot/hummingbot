@@ -26,7 +26,10 @@ class BinancePerpetualAuthUnitTests(unittest.TestCase):
             "test_param": "test_input",
             "timestamp": int(self.emulated_time * 1e3),
         }
-        self.auth = BinancePerpetualAuth(api_key=self.api_key, api_secret=self.secret_key, time_provider=self)
+        self.auth = BinancePerpetualAuth(
+            api_key=self.api_key,
+            api_secret=self.secret_key,
+            time_provider=self)
 
     def _get_test_payload(self):
         return urlencode(dict(copy.deepcopy(self.test_params)))

@@ -19,8 +19,7 @@ class StrategyUtilsTests(TestCase):
             quote_currency="HBOT",
             price=Decimal(1000),
             quantity=Decimal(1),
-            creation_timestamp=1640001110000000,
-        )
+            creation_timestamp=1640001110000000)
 
         age = order_age(order)
         self.assertEqual(int(time_mock.return_value - 1640001110), age)

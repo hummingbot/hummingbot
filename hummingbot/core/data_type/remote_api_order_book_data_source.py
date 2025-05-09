@@ -5,7 +5,12 @@ import aiohttp
 import base64
 import logging
 import pandas as pd
-from typing import Dict, Optional, Tuple, AsyncIterable
+from typing import (
+    Dict,
+    Optional,
+    Tuple,
+    AsyncIterable
+)
 import pickle
 import time
 import websockets
@@ -42,7 +47,9 @@ class RemoteAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def authentication_headers(self) -> Dict[str, str]:
         auth_str: str = f"{conf.coinalpha_order_book_api_username}:{conf.coinalpha_order_book_api_password}"
         encoded_auth: str = base64.standard_b64encode(auth_str.encode("utf8")).decode("utf8")
-        return {"Authorization": f"Basic {encoded_auth}"}
+        return {
+            "Authorization": f"Basic {encoded_auth}"
+        }
 
     async def get_client_session(self) -> aiohttp.ClientSession:
         if self._client_session is None:
@@ -50,9 +57,8 @@ class RemoteAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return self._client_session
 
     async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
-        auth: aiohttp.BasicAuth = aiohttp.BasicAuth(
-            login=conf.coinalpha_order_book_api_username, password=conf.coinalpha_order_book_api_password
-        )
+        auth: aiohttp.BasicAuth = aiohttp.BasicAuth(login=conf.coinalpha_order_book_api_username,
+                                                    password=conf.coinalpha_order_book_api_password)
         client_session: aiohttp.ClientSession = await self.get_client_session()
         response: aiohttp.ClientResponse = await client_session.get(self.SNAPSHOT_REST_URL, auth=auth)
         timestamp: float = time.time()
@@ -70,7 +76,8 @@ class RemoteAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         return retval
 
-    async def _inner_messages(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
+    async def _inner_messages(self,
+                              ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
         # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
         try:
             while True:
@@ -91,31 +98,29 @@ class RemoteAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                async with websockets.connect(self.DIFF_STREAM_URL, extra_headers=self.authentication_headers) as ws:
+                async with websockets.connect(self.DIFF_STREAM_URL,
+                                              extra_headers=self.authentication_headers) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     async for msg in self._inner_messages(ws):
                         output.put_nowait(msg)
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error(
-                    "Unexpected error with WebSocket connection. Retrying after 30 seconds...", exc_info=True
-                )
+                self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
+                                    exc_info=True)
                 await asyncio.sleep(30.0)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                async with websockets.connect(
-                    self.SNAPSHOT_STREAM_URL, extra_headers=self.authentication_headers
-                ) as ws:
+                async with websockets.connect(self.SNAPSHOT_STREAM_URL,
+                                              extra_headers=self.authentication_headers) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     async for msg in self._inner_messages(ws):
                         output.put_nowait(msg)
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error(
-                    "Unexpected error with WebSocket connection. Retrying after 30 seconds...", exc_info=True
-                )
+                self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
+                                    exc_info=True)
                 await asyncio.sleep(30.0)

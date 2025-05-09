@@ -56,13 +56,13 @@ class BtcMarketsAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
         self.data_source = BtcMarketsAPIOrderBookDataSource(
             trading_pairs=[self.trading_pair],
             connector=self.connector,
-            api_factory=self.connector._web_assistants_factory,
-        )
+            api_factory=self.connector._web_assistants_factory)
 
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
-        self.connector._set_trading_pair_symbol_map(bidict({self.ex_trading_pair: self.trading_pair}))
+        self.connector._set_trading_pair_symbol_map(
+            bidict({self.ex_trading_pair: self.trading_pair}))
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
@@ -73,32 +73,41 @@ class BtcMarketsAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message
+                   for record in self.log_records)
 
     def _order_book_snapshot_example(self):
         return {
             "marketId": "BAT-AUD",
             "snapshotId": 1567334110144000,
             "bids": [["50005.12", "403.0416"]],
-            "asks": [["50006.34", "0.2297"]],
+            "asks": [["50006.34", "0.2297"]]
         }
 
     def _setup_time_mock(self, mock_api):
         time_url = web_utils.public_rest_url(path_url=CONSTANTS.SERVER_TIME_PATH_URL)
         regex_url = re.compile(f"^{time_url}".replace(".", r"\.").replace("?", r"\?"))
-        resp = {"timestamp": "2019-09-01T10:35:04.940000Z"}
+        resp = {
+            "timestamp": "2019-09-01T10:35:04.940000Z"
+        }
         mock_api.get(regex_url, body=json.dumps(resp))
 
     def test_channel_originating_message_returns_correct(self):
-        event_type = {"messageType": CONSTANTS.DIFF_EVENT_TYPE}
+        event_type = {
+            "messageType": CONSTANTS.DIFF_EVENT_TYPE
+        }
         event_message = self.data_source._channel_originating_message(event_type)
         self.assertEqual(self.data_source._diff_messages_queue_key, event_message)
 
-        event_type = {"messageType": CONSTANTS.SNAPSHOT_EVENT_TYPE}
+        event_type = {
+            "messageType": CONSTANTS.SNAPSHOT_EVENT_TYPE
+        }
         event_message = self.data_source._channel_originating_message(event_type)
         self.assertEqual(self.data_source._snapshot_messages_queue_key, event_message)
 
-        event_type = {"messageType": CONSTANTS.TRADE_EVENT_TYPE}
+        event_type = {
+            "messageType": CONSTANTS.TRADE_EVENT_TYPE
+        }
         event_message = self.data_source._channel_originating_message(event_type)
         self.assertEqual(self.data_source._trade_messages_queue_key, event_message)
 
@@ -121,7 +130,7 @@ class BtcMarketsAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
             "pricePct24h": "0.002",
             "low24h": "0.2621",
             "high24h": "0.2708",
-            "timestamp": "2019-09-01T10:35:04.940000Z",
+            "timestamp": "2019-09-01T10:35:04.940000Z"
         }
         mock_api.get(regex_url, body=json.dumps(resp))
 
@@ -160,42 +169,32 @@ class BtcMarketsAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
         subscription_result = {
             "messageType": "subscribe",
             "marketIds": [self.trading_pair],
-            "channels": [
-                CONSTANTS.DIFF_EVENT_TYPE,
-                CONSTANTS.SNAPSHOT_EVENT_TYPE,
-                CONSTANTS.TRADE_EVENT_TYPE,
-                CONSTANTS.HEARTBEAT,
-            ],
+            "channels": [CONSTANTS.DIFF_EVENT_TYPE, CONSTANTS.SNAPSHOT_EVENT_TYPE, CONSTANTS.TRADE_EVENT_TYPE, CONSTANTS.HEARTBEAT]
         }
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value, message=json.dumps(subscription_result)
-        )
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(subscription_result))
 
         self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_subscriptions())
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
-            websocket_mock=ws_connect_mock.return_value
-        )
+            websocket_mock=ws_connect_mock.return_value)
 
         self.assertEqual(1, len(sent_subscription_messages))
         expected_trade_subscription = {
             "messageType": "subscribe",
             "marketIds": [self.ex_trading_pair],
-            "channels": [
-                CONSTANTS.DIFF_EVENT_TYPE,
-                CONSTANTS.SNAPSHOT_EVENT_TYPE,
-                CONSTANTS.TRADE_EVENT_TYPE,
-                CONSTANTS.HEARTBEAT,
-            ],
+            "channels": [CONSTANTS.DIFF_EVENT_TYPE, CONSTANTS.SNAPSHOT_EVENT_TYPE, CONSTANTS.TRADE_EVENT_TYPE, CONSTANTS.HEARTBEAT]
         }
         self.assertEqual(expected_trade_subscription, sent_subscription_messages[0])
 
-        self.assertTrue(
-            self._is_logged("INFO", "Subscribed to public order book and trade channels for all trading pairs ...")
-        )
+        self.assertTrue(self._is_logged(
+            "INFO",
+            "Subscribed to public order book and trade channels for all trading pairs ..."
+        ))
 
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect")
@@ -218,9 +217,8 @@ class BtcMarketsAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
 
         self.assertTrue(
             self._is_logged(
-                "ERROR", "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
-            )
-        )
+                "ERROR",
+                "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."))
 
     async def test_subscribe_channels_raises_cancel_exception(self):
         mock_ws = MagicMock()
@@ -253,12 +251,12 @@ class BtcMarketsAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
     async def test_listen_for_trades_logs_exception(self):
         incomplete_resp = {
             # "marketId": self.trading_pair,
-            "timestamp": "2019-04-08T20:54:27.632Z",
+            "timestamp": '2019-04-08T20:54:27.632Z',
             "tradeId": 3153171493,
-            "price": "7370.11",
-            "volume": "0.10901605",
-            "side": "Ask",
-            "messageType": CONSTANTS.TRADE_EVENT_TYPE,
+            "price": '7370.11',
+            "volume": '0.10901605',
+            "side": 'Ask',
+            "messageType": CONSTANTS.TRADE_EVENT_TYPE
         }
 
         mock_queue = AsyncMock()
@@ -272,19 +270,20 @@ class BtcMarketsAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
         except asyncio.CancelledError:
             pass
 
-        self.assertTrue(self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
 
     async def test_listen_for_trades_successful(self):
         msg_queue: asyncio.Queue = asyncio.Queue()
         mock_queue = AsyncMock()
         trade_event = {
             "marketId": self.ex_trading_pair,
-            "timestamp": "2019-04-08T20:54:27.632Z",
+            "timestamp": '2019-04-08T20:54:27.632Z',
             "tradeId": 3153171493,
-            "price": "7370.11",
-            "volume": "0.10901605",
-            "side": "Ask",
-            "messageType": CONSTANTS.TRADE_EVENT_TYPE,
+            "price": '7370.11',
+            "volume": '0.10901605',
+            "side": 'Ask',
+            "messageType": CONSTANTS.TRADE_EVENT_TYPE
         }
         mock_queue.get.side_effect = [trade_event, asyncio.CancelledError()]
         self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
@@ -317,16 +316,19 @@ class BtcMarketsAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
             # "marketId": self.ex_trading_pair,
             "snapshot": True,
             "snapshotId": 1578512833978000,
-            "timestamp": "2020-01-08T19:47:13.986Z",
+            "timestamp": '2020-01-08T19:47:13.986Z',
             "bids": [
-                ["99.57", "0.55", 1],
-                ["97.62", "3.20", 2],
-                ["97.07", "0.9", 1],
-                ["96.7", "1.9", 1],
-                ["95.8", "7.0", 1],
+                ['99.57', '0.55', 1],
+                ['97.62', '3.20', 2],
+                ['97.07', '0.9', 1],
+                ['96.7', '1.9', 1],
+                ['95.8', '7.0', 1]
             ],
-            "asks": [["100", "3.79", 3], ["101", "6.32", 2]],
-            "messageType": CONSTANTS.DIFF_EVENT_TYPE,
+            "asks": [
+                ['100', '3.79', 3],
+                ['101', '6.32', 2]
+            ],
+            "messageType": CONSTANTS.DIFF_EVENT_TYPE
         }
 
         mock_queue = AsyncMock()
@@ -341,8 +343,7 @@ class BtcMarketsAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
             pass
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange")
-        )
+            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange"))
 
     async def test_listen_for_order_book_diffs_successful(self):
         mock_queue = AsyncMock()
@@ -350,16 +351,19 @@ class BtcMarketsAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
             "marketId": self.ex_trading_pair,
             "snapshot": True,
             "snapshotId": 1578512833978000,
-            "timestamp": "2020-01-08T19:47:13.986Z",
+            "timestamp": '2020-01-08T19:47:13.986Z',
             "bids": [
-                ["99.57", "0.55", 1],
-                ["97.62", "3.20", 2],
-                ["97.07", "0.9", 1],
-                ["96.7", "1.9", 1],
-                ["95.8", "7.0", 1],
+                ['99.57', '0.55', 1],
+                ['97.62', '3.20', 2],
+                ['97.07', '0.9', 1],
+                ['96.7', '1.9', 1],
+                ['95.8', '7.0', 1]
             ],
-            "asks": [["100", "3.79", 3], ["101", "6.32", 2]],
-            "messageType": CONSTANTS.DIFF_EVENT_TYPE,
+            "asks": [
+                ['100', '3.79', 3],
+                ['101', '6.32', 2]
+            ],
+            "messageType": CONSTANTS.DIFF_EVENT_TYPE
         }
         mock_queue.get.side_effect = [diff_event, asyncio.CancelledError()]
         self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_queue
@@ -384,8 +388,12 @@ class BtcMarketsAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
         return {
             "marketId": "COINALPHA-HBOT",
             "snapshotId": 1567334110144000,
-            "bids": [["50005.12", "403.0416"]],
-            "asks": [["50006.34", "0.2297"]],
+            "bids": [
+                ["50005.12", "403.0416"]
+            ],
+            "asks": [
+                ["50006.34", "0.2297"]
+            ]
         }
 
     @staticmethod
@@ -394,7 +402,7 @@ class BtcMarketsAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
             "marketId": "COINALPHA-HBOT",
             "snapshotId": 1567334110144000,
             "bids": [["50005.12", "403.0416"]],
-            "asks": [["50006.34", "0.2297"]],
+            "asks": [["50006.34", "0.2297"]]
         }
 
     @aioresponses()
@@ -434,8 +442,7 @@ class BtcMarketsAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
             pass
 
         self.assertTrue(
-            self._is_logged("ERROR", f"Unexpected error fetching order book snapshot for {self.trading_pair}.")
-        )
+            self._is_logged("ERROR", f"Unexpected error fetching order book snapshot for {self.trading_pair}."))
 
     @aioresponses()
     async def test_listen_for_order_book_snapshots_successful_rest(self, mock_api):
@@ -467,16 +474,19 @@ class BtcMarketsAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
             "marketId": self.ex_trading_pair,
             "snapshot": True,
             "snapshotId": 1578512833978000,
-            "timestamp": "2020-01-08T19:47:13.986Z",
+            "timestamp": '2020-01-08T19:47:13.986Z',
             "bids": [
-                ["99.57", "0.55", 1],
-                ["97.62", "3.20", 2],
-                ["97.07", "0.9", 1],
-                ["96.7", "1.9", 1],
-                ["95.8", "7.0", 1],
+                ['99.57', '0.55', 1],
+                ['97.62', '3.20', 2],
+                ['97.07', '0.9', 1],
+                ['96.7', '1.9', 1],
+                ['95.8', '7.0', 1]
             ],
-            "asks": [["100", "3.79", 3], ["101", "6.32", 2]],
-            "messageType": CONSTANTS.SNAPSHOT_EVENT_TYPE,
+            "asks": [
+                ['100', '3.79', 3],
+                ['101', '6.32', 2]
+            ],
+            "messageType": CONSTANTS.SNAPSHOT_EVENT_TYPE
         }
         mock_queue.get.side_effect = [snapshot_event, asyncio.CancelledError()]
         self.data_source._message_queue[self.data_source._snapshot_messages_queue_key] = mock_queue
@@ -512,8 +522,7 @@ class BtcMarketsAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
         await self.data_source._order_book_snapshot(self.trading_pair)
 
         self.assertTrue(
-            self._is_logged("ERROR", f"Unexpected error fetching order book snapshot for {self.trading_pair}.")
-        )
+            self._is_logged("ERROR", f"Unexpected error fetching order book snapshot for {self.trading_pair}."))
 
     @aioresponses()
     async def test_order_book_snapshot(self, mock_api):

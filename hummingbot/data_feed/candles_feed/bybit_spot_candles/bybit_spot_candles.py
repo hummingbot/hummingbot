@@ -57,9 +57,8 @@ class BybitSpotCandles(CandlesBase):
 
     async def check_network(self) -> NetworkStatus:
         rest_assistant = await self._api_factory.get_rest_assistant()
-        await rest_assistant.execute_request(
-            url=self.health_check_url, throttler_limit_id=CONSTANTS.HEALTH_CHECK_ENDPOINT
-        )
+        await rest_assistant.execute_request(url=self.health_check_url,
+                                             throttler_limit_id=CONSTANTS.HEALTH_CHECK_ENDPOINT)
         return NetworkStatus.CONNECTED
 
     def get_exchange_trading_pair(self, trading_pair):
@@ -73,12 +72,10 @@ class BybitSpotCandles(CandlesBase):
     def _is_last_candle_not_included_in_rest_request(self):
         return False
 
-    def _get_rest_candles_params(
-        self,
-        start_time: Optional[int] = None,
-        end_time: Optional[int] = None,
-        limit: Optional[int] = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST,
-    ) -> dict:
+    def _get_rest_candles_params(self,
+                                 start_time: Optional[int] = None,
+                                 end_time: Optional[int] = None,
+                                 limit: Optional[int] = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST) -> dict:
         """
         For API documentation, please refer to:
         https://bybit-exchange.github.io/docs/v5/market/kline
@@ -89,7 +86,7 @@ class BybitSpotCandles(CandlesBase):
             "category": "spot",
             "symbol": self._ex_trading_pair,
             "interval": CONSTANTS.INTERVALS[self.interval],
-            "limit": limit,
+            "limit": limit
         }
         if start_time is not None or end_time is not None:
             params["startTime"] = start_time if start_time is not None else end_time - limit * self.interval_in_seconds
@@ -102,21 +99,8 @@ class BybitSpotCandles(CandlesBase):
         if data is not None and data.get("result") is not None:
             candles = data["result"].get("list")
             if candles is not None:
-                return [
-                    [
-                        self.ensure_timestamp_in_seconds(row[0]),
-                        row[1],
-                        row[2],
-                        row[3],
-                        row[4],
-                        row[5],
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                    ]
-                    for row in candles
-                ][::-1]
+                return [[self.ensure_timestamp_in_seconds(row[0]), row[1], row[2], row[3], row[4], row[5],
+                         0., 0., 0., 0.] for row in candles][::-1]
 
     def ws_subscription_payload(self):
         interval = CONSTANTS.INTERVALS[self.interval]
@@ -138,8 +122,8 @@ class BybitSpotCandles(CandlesBase):
             candles_row_dict["high"] = candle["high"]
             candles_row_dict["close"] = candle["close"]
             candles_row_dict["volume"] = candle["volume"]
-            candles_row_dict["quote_asset_volume"] = 0.0
-            candles_row_dict["n_trades"] = 0.0
-            candles_row_dict["taker_buy_base_volume"] = 0.0
-            candles_row_dict["taker_buy_quote_volume"] = 0.0
+            candles_row_dict["quote_asset_volume"] = 0.
+            candles_row_dict["n_trades"] = 0.
+            candles_row_dict["taker_buy_base_volume"] = 0.
+            candles_row_dict["taker_buy_quote_volume"] = 0.
             return candles_row_dict

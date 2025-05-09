@@ -142,34 +142,22 @@ ORDER_STATE = {
 ORDER_STATUS_NOT_FOUND_ERROR_CODE = "UNKNOWN_ORDER_STATUS"
 
 PRIVATE_REST_RATE_LIMITS = [
-    RateLimit(
-        limit_id=endpoint,
-        limit=MAX_PRIVATE_REST_REQUESTS_S,
-        time_interval=ONE_SECOND,
-        linked_limits=[LinkedLimitWeightPair(PRIVATE_REST_REQUESTS, 1)],
-    )
-    for endpoint in PRIVATE_REST_ENDPOINTS
-]
+    RateLimit(limit_id=endpoint,
+              limit=MAX_PRIVATE_REST_REQUESTS_S,
+              time_interval=ONE_SECOND,
+              linked_limits=[LinkedLimitWeightPair(PRIVATE_REST_REQUESTS, 1)]) for endpoint in PRIVATE_REST_ENDPOINTS]
 
 PUBLIC_REST_RATE_LIMITS = [
-    RateLimit(
-        limit_id=endpoint,
-        limit=MAX_PUBLIC_REST_REQUESTS_S,
-        time_interval=ONE_SECOND,
-        linked_limits=[LinkedLimitWeightPair(PRIVATE_REST_REQUESTS, 1)],
-    )
-    for endpoint in PUBLIC_REST_ENDPOINTS
-]
+    RateLimit(limit_id=endpoint,
+              limit=MAX_PUBLIC_REST_REQUESTS_S,
+              time_interval=ONE_SECOND,
+              linked_limits=[LinkedLimitWeightPair(PRIVATE_REST_REQUESTS, 1)]) for endpoint in PUBLIC_REST_ENDPOINTS]
 
 SIGNIN_RATE_LIMITS = [
-    RateLimit(
-        limit_id=endpoint,
-        limit=MAX_SIGNIN_REQUESTS_H,
-        time_interval=ONE_HOUR,
-        linked_limits=[LinkedLimitWeightPair(SIGNIN_REQUESTS, 1)],
-    )
-    for endpoint in SIGNIN_ENDPOINTS
-]
+    RateLimit(limit_id=endpoint,
+              limit=MAX_SIGNIN_REQUESTS_H,
+              time_interval=ONE_HOUR,
+              linked_limits=[LinkedLimitWeightPair(SIGNIN_REQUESTS, 1)]) for endpoint in SIGNIN_ENDPOINTS]
 
 RATE_LIMITS = [
     RateLimit(limit_id=PRIVATE_REST_REQUESTS, limit=MAX_PRIVATE_REST_REQUESTS_S, time_interval=ONE_SECOND),

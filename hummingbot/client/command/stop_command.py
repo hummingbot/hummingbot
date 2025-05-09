@@ -12,26 +12,21 @@ if TYPE_CHECKING:
 
 
 class StopCommand:
-    def stop(
-        self,  # type: HummingbotApplication
-        skip_order_cancellation: bool = False,
-    ):
+    def stop(self,  # type: HummingbotApplication
+             skip_order_cancellation: bool = False):
         if threading.current_thread() != threading.main_thread():
             self.ev_loop.call_soon_threadsafe(self.stop, skip_order_cancellation)
             return
         safe_ensure_future(self.stop_loop(skip_order_cancellation), loop=self.ev_loop)
 
-    async def stop_loop(
-        self,  # type: HummingbotApplication
-        skip_order_cancellation: bool = False,
-    ):
+    async def stop_loop(self,  # type: HummingbotApplication
+                        skip_order_cancellation: bool = False):
         self.logger().info("stop command initiated.")
         self.notify("\nWinding down...")
 
         # Restore App Nap on macOS.
         if platform.system() == "Darwin":
             import appnope
-
             appnope.nap()
 
         if isinstance(self.strategy, ScriptStrategyBase):

@@ -51,8 +51,9 @@ class BitmartAuth(AuthBase):
         unsigned_signature = f"{str(timestamp)}#{self.memo}#{body}"
 
         signature = hmac.new(
-            self.secret_key.encode("utf-8"), unsigned_signature.encode("utf-8"), hashlib.sha256
-        ).hexdigest()
+            self.secret_key.encode("utf-8"),
+            unsigned_signature.encode("utf-8"),
+            hashlib.sha256).hexdigest()
 
         return signature
 
@@ -75,4 +76,10 @@ class BitmartAuth(AuthBase):
     def websocket_login_parameters(self) -> List[str]:
         timestamp = str(int(self.time_provider.time() * 1e3))
 
-        return [self.api_key, timestamp, self._generate_signature(timestamp=timestamp, body="bitmart.WebSocket")]
+        return [
+            self.api_key,
+            timestamp,
+            self._generate_signature(
+                timestamp=timestamp,
+                body="bitmart.WebSocket")
+        ]

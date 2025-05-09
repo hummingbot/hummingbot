@@ -1,4 +1,7 @@
-from typing import Dict, Any
+from typing import (
+    Dict,
+    Any
+)
 
 import numpy
 from sqlalchemy import (
@@ -16,12 +19,14 @@ from hummingbot.model.decimal_type_decorator import SqliteDecimal
 
 class Order(HummingbotBase):
     __tablename__ = "Order"
-    __table_args__ = (
-        Index("o_config_timestamp_index", "config_file_path", "creation_timestamp"),
-        Index("o_market_trading_pair_timestamp_index", "market", "symbol", "creation_timestamp"),
-        Index("o_market_base_asset_timestamp_index", "market", "base_asset", "creation_timestamp"),
-        Index("o_market_quote_asset_timestamp_index", "market", "quote_asset", "creation_timestamp"),
-    )
+    __table_args__ = (Index("o_config_timestamp_index",
+                            "config_file_path", "creation_timestamp"),
+                      Index("o_market_trading_pair_timestamp_index",
+                            "market", "symbol", "creation_timestamp"),
+                      Index("o_market_base_asset_timestamp_index",
+                            "market", "base_asset", "creation_timestamp"),
+                      Index("o_market_quote_asset_timestamp_index",
+                            "market", "quote_asset", "creation_timestamp"))
 
     id = Column(Text, primary_key=True, nullable=False)
     config_file_path = Column(Text, nullable=False)
@@ -43,15 +48,13 @@ class Order(HummingbotBase):
     trade_fills = relationship("TradeFill", back_populates="order")
 
     def __repr__(self) -> str:
-        return (
-            f"Order(id={self.id}, config_file_path='{self.config_file_path}', strategy='{self.strategy}', "
-            f"market='{self.market}', symbol='{self.symbol}', base_asset='{self.base_asset}', "
-            f"quote_asset='{self.quote_asset}', creation_timestamp={self.creation_timestamp}, "
-            f"order_type='{self.order_type}', amount={self.amount}, leverage={self.leverage}, "
-            f"price={self.price}, last_status='{self.last_status}', "
-            f"last_update_timestamp={self.last_update_timestamp}), "
-            f"exchange_order_id={self.exchange_order_id}, position={self.position}"
-        )
+        return f"Order(id={self.id}, config_file_path='{self.config_file_path}', strategy='{self.strategy}', " \
+               f"market='{self.market}', symbol='{self.symbol}', base_asset='{self.base_asset}', " \
+               f"quote_asset='{self.quote_asset}', creation_timestamp={self.creation_timestamp}, " \
+               f"order_type='{self.order_type}', amount={self.amount}, leverage={self.leverage}, " \
+               f"price={self.price}, last_status='{self.last_status}', " \
+               f"last_update_timestamp={self.last_update_timestamp}), " \
+               f"exchange_order_id={self.exchange_order_id}, position={self.position}"
 
     @staticmethod
     def to_bounty_api_json(order: "Order") -> Dict[str, Any]:
@@ -65,5 +68,6 @@ class Order(HummingbotBase):
             "order_type": order.order_type,
             "base_asset": order.base_asset,
             "quote_asset": order.quote_asset,
-            "raw_json": {},
+            "raw_json": {
+            }
         }

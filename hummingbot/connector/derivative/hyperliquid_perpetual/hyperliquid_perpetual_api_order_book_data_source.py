@@ -27,11 +27,11 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
     _mapping_initialization_lock = asyncio.Lock()
 
     def __init__(
-        self,
-        trading_pairs: List[str],
-        connector: "HyperliquidPerpetualDerivative",
-        api_factory: WebAssistantsFactory,
-        domain: str = CONSTANTS.DOMAIN,
+            self,
+            trading_pairs: List[str],
+            connector: 'HyperliquidPerpetualDerivative',
+            api_factory: WebAssistantsFactory,
+            domain: str = CONSTANTS.DOMAIN
     ):
         super().__init__(trading_pairs)
         self._connector = connector
@@ -41,21 +41,23 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
         self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
         self._snapshot_messages_queue_key = "order_book_snapshot"
 
-    async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
+    async def get_last_traded_prices(self,
+                                     trading_pairs: List[str],
+                                     domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
         response: List = await self._request_complete_funding_info(trading_pair)
         ex_trading_pair = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         coin = ex_trading_pair.split("-")[0]
-        for index, i in enumerate(response[0]["universe"]):
-            if i["name"] == coin:
+        for index, i in enumerate(response[0]['universe']):
+            if i['name'] == coin:
                 funding_info = FundingInfo(
                     trading_pair=trading_pair,
-                    index_price=Decimal(response[1][index]["oraclePx"]),
-                    mark_price=Decimal(response[1][index]["markPx"]),
+                    index_price=Decimal(response[1][index]['oraclePx']),
+                    mark_price=Decimal(response[1][index]['markPx']),
                     next_funding_utc_timestamp=self._next_funding_time(),
-                    rate=Decimal(response[1][index]["funding"]),
+                    rate=Decimal(response[1][index]['funding']),
                 )
                 return funding_info
 
@@ -85,24 +87,25 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         ex_trading_pair = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         coin = ex_trading_pair.split("-")[0]
-        params = {"type": "l2Book", "coin": coin}
+        params = {
+            "type": 'l2Book',
+            "coin": coin
+        }
 
-        data = await self._connector._api_post(path_url=CONSTANTS.SNAPSHOT_REST_URL, data=params)
+        data = await self._connector._api_post(
+            path_url=CONSTANTS.SNAPSHOT_REST_URL,
+            data=params)
         return data
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot_response: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
         snapshot_response.update({"trading_pair": trading_pair})
-        snapshot_msg: OrderBookMessage = OrderBookMessage(
-            OrderBookMessageType.SNAPSHOT,
-            {
-                "trading_pair": snapshot_response["trading_pair"],
-                "update_id": int(snapshot_response["time"]),
-                "bids": [[float(i["px"]), float(i["sz"])] for i in snapshot_response["levels"][0]],
-                "asks": [[float(i["px"]), float(i["sz"])] for i in snapshot_response["levels"][1]],
-            },
-            timestamp=int(snapshot_response["time"]),
-        )
+        snapshot_msg: OrderBookMessage = OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
+            "trading_pair": snapshot_response["trading_pair"],
+            "update_id": int(snapshot_response['time']),
+            "bids": [[float(i['px']), float(i['sz'])] for i in snapshot_response['levels'][0]],
+            "asks": [[float(i['px']), float(i['sz'])] for i in snapshot_response['levels'][1]],
+        }, timestamp=int(snapshot_response['time']))
         return snapshot_msg
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
@@ -126,7 +129,7 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
                     "subscription": {
                         "type": CONSTANTS.TRADES_ENDPOINT_NAME,
                         "coin": coin,
-                    },
+                    }
                 }
                 subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trades_payload)
 
@@ -135,7 +138,7 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
                     "subscription": {
                         "type": CONSTANTS.DEPTH_ENDPOINT_NAME,
                         "coin": coin,
-                    },
+                    }
                 }
                 subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=order_book_payload)
 
@@ -162,58 +165,42 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         timestamp: float = raw_message["data"]["time"] * 1e-3
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-            raw_message["data"]["coin"] + "-" + CONSTANTS.CURRENCY
-        )
+            raw_message["data"]["coin"] + '-' + CONSTANTS.CURRENCY)
         data = raw_message["data"]
-        order_book_message: OrderBookMessage = OrderBookMessage(
-            OrderBookMessageType.DIFF,
-            {
-                "trading_pair": trading_pair,
-                "update_id": data["time"],
-                "bids": [[float(i["px"]), float(i["sz"])] for i in data["levels"][0]],
-                "asks": [[float(i["px"]), float(i["sz"])] for i in data["levels"][1]],
-            },
-            timestamp=timestamp,
-        )
+        order_book_message: OrderBookMessage = OrderBookMessage(OrderBookMessageType.DIFF, {
+            "trading_pair": trading_pair,
+            "update_id": data["time"],
+            "bids": [[float(i['px']), float(i['sz'])] for i in data["levels"][0]],
+            "asks": [[float(i['px']), float(i['sz'])] for i in data["levels"][1]],
+        }, timestamp=timestamp)
         message_queue.put_nowait(order_book_message)
 
     async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         timestamp: float = raw_message["data"]["time"] * 1e-3
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-            raw_message["data"]["coin"] + "-" + CONSTANTS.CURRENCY
-        )
+            raw_message["data"]["coin"] + '-' + CONSTANTS.CURRENCY)
         data = raw_message["data"]
-        order_book_message: OrderBookMessage = OrderBookMessage(
-            OrderBookMessageType.SNAPSHOT,
-            {
-                "trading_pair": trading_pair,
-                "update_id": data["time"],
-                "bids": [[float(i["px"]), float(i["sz"])] for i in data["levels"][0]],
-                "asks": [[float(i["px"]), float(i["sz"])] for i in data["levels"][1]],
-            },
-            timestamp=timestamp,
-        )
+        order_book_message: OrderBookMessage = OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
+            "trading_pair": trading_pair,
+            "update_id": data["time"],
+            "bids": [[float(i['px']), float(i['sz'])] for i in data["levels"][0]],
+            "asks": [[float(i['px']), float(i['sz'])] for i in data["levels"][1]],
+        }, timestamp=timestamp)
         message_queue.put_nowait(order_book_message)
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         data = raw_message["data"]
         for trade_data in data:
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-                trade_data["coin"] + "-" + CONSTANTS.CURRENCY
-            )
-            trade_message: OrderBookMessage = OrderBookMessage(
-                OrderBookMessageType.TRADE,
-                {
-                    "trading_pair": trading_pair,
-                    "trade_type": (
-                        float(TradeType.SELL.value) if trade_data["side"] == "A" else float(TradeType.BUY.value)
-                    ),
-                    "trade_id": trade_data["hash"],
-                    "price": float(trade_data["px"]),
-                    "amount": float(trade_data["sz"]),
-                },
-                timestamp=trade_data["time"] * 1e-3,
-            )
+                trade_data["coin"] + '-' + CONSTANTS.CURRENCY)
+            trade_message: OrderBookMessage = OrderBookMessage(OrderBookMessageType.TRADE, {
+                "trading_pair": trading_pair,
+                "trade_type": float(TradeType.SELL.value) if trade_data["side"] == "A" else float(
+                    TradeType.BUY.value),
+                "trade_id": trade_data["hash"],
+                "price": float(trade_data["px"]),
+                "amount": float(trade_data["sz"])
+            }, timestamp=trade_data["time"] * 1e-3)
 
             message_queue.put_nowait(trade_message)
 
@@ -221,9 +208,8 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
         pass
 
     async def _request_complete_funding_info(self, trading_pair: str):
-        data = await self._connector._api_post(
-            path_url=CONSTANTS.EXCHANGE_INFO_URL, data={"type": CONSTANTS.ASSET_CONTEXT_TYPE}
-        )
+        data = await self._connector._api_post(path_url=CONSTANTS.EXCHANGE_INFO_URL,
+                                               data={"type": CONSTANTS.ASSET_CONTEXT_TYPE})
         return data
 
     def _next_funding_time(self) -> int:

@@ -280,7 +280,7 @@ class OMSExchangeTests:
                 "TotalYearDepositNotional": 0,
                 "TotalYearDeposits": 0,
                 "TotalYearWithdrawNotional": 0,
-                "TotalYearWithdraws": 0,
+                "TotalYearWithdraws": 0
             }
 
         def get_mock_balance_quote(self) -> Dict[str, Union[str, int]]:
@@ -360,7 +360,8 @@ class OMSExchangeTests:
         @property
         def expected_fill_fee(self) -> TradeFeeBase:
             return AddedToCostTradeFee(
-                percent_token=self.quote_asset, flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("0.075"))]
+                percent_token=self.quote_asset,
+                flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("0.075"))]
             )
 
         @property
@@ -460,19 +461,15 @@ class OMSExchangeTests:
             return all_urls
 
         def configure_order_not_found_error_cancelation_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+                self, order: InFlightOrder, mock_api: aioresponses,
+                callback: Optional[Callable] = lambda *args, **kwargs: None
         ) -> str:
             # Implement the expected not found response when enabling test_cancel_order_not_found_in_the_exchange
             raise NotImplementedError
 
         def configure_order_not_found_error_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+                self, order: InFlightOrder, mock_api: aioresponses,
+                callback: Optional[Callable] = lambda *args, **kwargs: None
         ) -> List[str]:
             # Implement the expected not found response when enabling
             # test_lost_order_removed_if_not_found_during_order_status_update
@@ -551,10 +548,10 @@ class OMSExchangeTests:
             return url
 
         def configure_full_fill_trade_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+                self,
+                order: InFlightOrder,
+                mock_api: aioresponses,
+                callback: Optional[Callable] = lambda *args, **kwargs: None,
         ) -> str:
             url = self.url_creator.get_rest_url(path_url=CONSTANTS.REST_TRADE_HISTORY_ENDPOINT)
             regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -563,10 +560,10 @@ class OMSExchangeTests:
             return url
 
         def configure_erroneous_http_fill_trade_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+                self,
+                order: InFlightOrder,
+                mock_api: aioresponses,
+                callback: Optional[Callable] = lambda *args, **kwargs: None,
         ) -> str:
             url = self.url_creator.get_rest_url(path_url=CONSTANTS.REST_TRADE_HISTORY_ENDPOINT)
             regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))

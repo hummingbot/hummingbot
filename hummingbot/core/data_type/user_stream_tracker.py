@@ -30,7 +30,9 @@ class UserStreamTracker:
         return self.data_source.last_recv_time
 
     async def start(self):
-        self._user_stream_tracking_task = safe_ensure_future(self.data_source.listen_for_user_stream(self._user_stream))
+        self._user_stream_tracking_task = safe_ensure_future(
+            self.data_source.listen_for_user_stream(self._user_stream)
+        )
         await safe_gather(self._user_stream_tracking_task)
 
     @property

@@ -28,7 +28,7 @@ class TWAPExecutorConfig(ExecutorConfigBase):
     limit_order_buffer: Optional[Decimal] = None
     order_resubmission_time: Optional[int] = None
 
-    @field_validator("limit_order_buffer", mode="before")
+    @field_validator('limit_order_buffer', mode="before")
     @classmethod
     def validate_limit_order_buffer(cls, v, values):
         if v is None and values["mode"] == TWAPMode.MAKER:

@@ -72,7 +72,8 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
             self.domain: bidict({self.ex_trading_pair: self.trading_pair})
         }
 
-        self.connector._set_trading_pair_symbol_map(bidict({f"{self.base_asset}{self.quote_asset}": self.trading_pair}))
+        self.connector._set_trading_pair_symbol_map(
+            bidict({f"{self.base_asset}{self.quote_asset}": self.trading_pair}))
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
@@ -162,7 +163,8 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
         with self.assertRaises(IOError) as context:
             await self.data_source._order_book_snapshot(trading_pair=self.trading_pair)
 
-        self.assertIn('HTTP status is 400. Error: ["ERROR"]', str(context.exception))
+        self.assertIn("HTTP status is 400. Error: [\"ERROR\"]",
+                      str(context.exception))
 
     @aioresponses()
     async def test_get_snapshot_successful(self, mock_api):
@@ -268,9 +270,8 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
             await self.data_source.listen_for_subscriptions()
 
         self.assertTrue(
-            self._is_logged(
-                "ERROR", "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
-            )
+            self._is_logged("ERROR",
+                            "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds...")
         )
 
     async def test_subscribe_to_channels_raises_cancel_exception(self):
@@ -330,8 +331,7 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
             self.data_source.listen_for_trades(self.local_event_loop, msg_queue_trades)
         )
         self.listening_task_funding_info = self.local_event_loop.create_task(
-            self.data_source.listen_for_funding_info(msg_queue_funding)
-        )
+            self.data_source.listen_for_funding_info(msg_queue_funding))
 
         result: OrderBookMessage = await msg_queue_diffs.get()
         self.assertIsInstance(result, OrderBookMessage)

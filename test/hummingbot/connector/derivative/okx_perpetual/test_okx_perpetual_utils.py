@@ -9,9 +9,17 @@ class OKXPerpetualWebUtilsTest(unittest.TestCase):
         super().setUpClass()
 
     def test_is_exchange_information_valid(self):
-        exchange_info = {"instType": "SWAP", "ctType": "linear", "state": "live"}
+        exchange_info = {
+            "instType": "SWAP",
+            "ctType": "linear",
+            "state": "live"
+        }
         self.assertTrue(utils.is_exchange_information_valid(exchange_info))
-        exchange_info = {"instType": "FUTURES", "ctType": "linear", "state": "live"}
+        exchange_info = {
+            "instType": "FUTURES",
+            "ctType": "linear",
+            "state": "live"
+        }
         self.assertFalse(utils.is_exchange_information_valid(exchange_info))
 
     def test_is_linear_perpetual(self):

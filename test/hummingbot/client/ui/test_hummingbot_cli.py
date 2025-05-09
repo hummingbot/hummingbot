@@ -34,8 +34,7 @@ class HummingbotCLITest(unittest.TestCase):
             input_handler=None,
             bindings=None,
             completer=None,
-            command_tabs=tabs,
-        )
+            command_tabs=tabs)
         self.app.app = MagicMock()
         self.hb = HummingbotApplication()
 

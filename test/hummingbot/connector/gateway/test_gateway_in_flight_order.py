@@ -69,7 +69,7 @@ class GatewayInFlightOrderUnitTests(unittest.TestCase):
             exchange_order_id="someExchangeOrderID",
             misc_updates={
                 "creation_transaction_hash": desired_creation_transaction_hash,
-            },
+            }
         )
         order.update_with_order_update(order_update=order_update)
 
@@ -98,7 +98,7 @@ class GatewayInFlightOrderUnitTests(unittest.TestCase):
             exchange_order_id="someExchangeOrderID",
             misc_updates={
                 "cancelation_transaction_hash": desired_cancelation_transaction_hash,
-            },
+            }
         )
         order.update_with_order_update(order_update=order_update)
 

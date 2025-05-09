@@ -15,22 +15,30 @@ class BybitPerpetualUtilsTests(TestCase):
             "deliveryTime": "0",
             "deliveryFeeRate": "",
             "priceScale": "2",
-            "leverageFilter": {"minLeverage": "1", "maxLeverage": "100.00", "leverageStep": "0.01"},
-            "priceFilter": {"minPrice": "0.10", "maxPrice": "199999.80", "tickSize": "0.10"},
+            "leverageFilter": {
+                "minLeverage": "1",
+                "maxLeverage": "100.00",
+                "leverageStep": "0.01"
+            },
+            "priceFilter": {
+                "minPrice": "0.10",
+                "maxPrice": "199999.80",
+                "tickSize": "0.10"
+            },
             "lotSizeFilter": {
                 "maxOrderQty": "100.000",
                 "maxMktOrderQty": "100.000",
                 "minOrderQty": "0.001",
                 "qtyStep": "0.001",
                 "postOnlyMaxOrderQty": "1000.000",
-                "minNotionalValue": "5",
+                "minNotionalValue": "5"
             },
             "unifiedMarginTrade": True,
             "fundingInterval": 480,
             "settleCoin": "USDT",
             "copyTrading": "both",
             "upperFundingRate": "0.00375",
-            "lowerFundingRate": "-0.00375",
+            "lowerFundingRate": "-0.00375"
         }
 
         self.assertTrue(utils.is_exchange_information_valid(exchange_info))

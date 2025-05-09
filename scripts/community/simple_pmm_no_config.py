@@ -18,7 +18,6 @@ class SimplePMM(ScriptStrategyBase):
     exchange, with a distance defined by the ask_spread and bid_spread. Every order_refresh_time in seconds,
     the bot will cancel and replace the orders.
     """
-
     bid_spread = 0.001
     ask_spread = 0.001
     order_refresh_time = 15
@@ -44,23 +43,11 @@ class SimplePMM(ScriptStrategyBase):
         buy_price = ref_price * Decimal(1 - self.bid_spread)
         sell_price = ref_price * Decimal(1 + self.ask_spread)
 
-        buy_order = OrderCandidate(
-            trading_pair=self.trading_pair,
-            is_maker=True,
-            order_type=OrderType.LIMIT,
-            order_side=TradeType.BUY,
-            amount=Decimal(self.order_amount),
-            price=buy_price,
-        )
+        buy_order = OrderCandidate(trading_pair=self.trading_pair, is_maker=True, order_type=OrderType.LIMIT,
+                                   order_side=TradeType.BUY, amount=Decimal(self.order_amount), price=buy_price)
 
-        sell_order = OrderCandidate(
-            trading_pair=self.trading_pair,
-            is_maker=True,
-            order_type=OrderType.LIMIT,
-            order_side=TradeType.SELL,
-            amount=Decimal(self.order_amount),
-            price=sell_price,
-        )
+        sell_order = OrderCandidate(trading_pair=self.trading_pair, is_maker=True, order_type=OrderType.LIMIT,
+                                    order_side=TradeType.SELL, amount=Decimal(self.order_amount), price=sell_price)
 
         return [buy_order, sell_order]
 
@@ -74,27 +61,17 @@ class SimplePMM(ScriptStrategyBase):
 
     def place_order(self, connector_name: str, order: OrderCandidate):
         if order.order_side == TradeType.SELL:
-            self.sell(
-                connector_name=connector_name,
-                trading_pair=order.trading_pair,
-                amount=order.amount,
-                order_type=order.order_type,
-                price=order.price,
-            )
+            self.sell(connector_name=connector_name, trading_pair=order.trading_pair, amount=order.amount,
+                      order_type=order.order_type, price=order.price)
         elif order.order_side == TradeType.BUY:
-            self.buy(
-                connector_name=connector_name,
-                trading_pair=order.trading_pair,
-                amount=order.amount,
-                order_type=order.order_type,
-                price=order.price,
-            )
+            self.buy(connector_name=connector_name, trading_pair=order.trading_pair, amount=order.amount,
+                     order_type=order.order_type, price=order.price)
 
     def cancel_all_orders(self):
         for order in self.get_active_orders(connector_name=self.exchange):
             self.cancel(self.exchange, order.trading_pair, order.client_order_id)
 
     def did_fill_order(self, event: OrderFilledEvent):
-        msg = f"{event.trade_type.name} {round(event.amount, 2)} {event.trading_pair} {self.exchange} at {round(event.price, 2)}"
+        msg = (f"{event.trade_type.name} {round(event.amount, 2)} {event.trading_pair} {self.exchange} at {round(event.price, 2)}")
         self.log_with_clock(logging.INFO, msg)
         self.notify_hb_app_with_timestamp(msg)

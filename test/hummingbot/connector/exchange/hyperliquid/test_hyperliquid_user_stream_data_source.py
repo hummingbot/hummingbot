@@ -44,7 +44,10 @@ class TestHyperliquidAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
         self.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         self.mock_time_provider = MagicMock()
         self.mock_time_provider.time.return_value = 1000
-        self.auth = HyperliquidAuth(api_key=self.api_key, api_secret=self.api_secret_key, use_vault=self.use_vault)
+        self.auth = HyperliquidAuth(
+            api_key=self.api_key,
+            api_secret=self.api_secret_key,
+            use_vault=self.use_vault)
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
 
@@ -54,16 +57,14 @@ class TestHyperliquidAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
             hyperliquid_api_key=self.api_key,
             hyperliquid_api_secret=self.api_secret_key,
             use_vault=self.use_vault,
-            trading_pairs=[],
-        )
+            trading_pairs=[])
         self.connector._web_assistants_factory._auth = self.auth
 
         self.data_source = HyperliquidAPIUserStreamDataSource(
             self.auth,
             trading_pairs=[self.trading_pair],
             connector=self.connector,
-            api_factory=self.connector._web_assistants_factory,
-        )
+            api_factory=self.connector._web_assistants_factory)
 
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
@@ -78,7 +79,8 @@ class TestHyperliquidAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message
+                   for record in self.log_records)
 
     async def get_token(self):
         return "be4ffcc9-2b2b-4c3e-9d47-68bf062cf651"
@@ -87,66 +89,35 @@ class TestHyperliquidAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
     async def test_listen_for_user_stream_subscribes_to_orders_and_balances_events(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
-        result_subscribe_orders = {
-            "channel": "orderUpdates",
-            "data": [
-                {
-                    "order": {
-                        "coin": "ETH",
-                        "side": "A",
-                        "limitPx": "2112.8",
-                        "sz": "0.01",
-                        "oid": 2260108845,
-                        "timestamp": 1700688451563,
-                        "origSz": "0.01",
-                        "cloid": "0x48424f54534548554436306163343632",
-                    },  # noqa: mock
-                    "status": "canceled",
-                    "statusTimestamp": 1700688453173,
-                }
-            ],
-        }
-        result_subscribe_trades = {
-            "channel": "user",
-            "data": {
-                "fills": [
-                    {
-                        "coin": "ETH",
-                        "px": "2091.3",
-                        "sz": "0.01",
-                        "side": "B",
-                        "time": 1700688460805,
-                        "startPosition": "0.0",
-                        "dir": "Open Long",
-                        "closedPnl": "0.0",
-                        "hash": "0x544c46b72e0efdada8cd04080bb32b010d005a7d0554c10c4d0287e9a2c237e7",
-                        "oid": 2260113568,  # noqa: mock
-                        # noqa: mock
-                        "crossed": True,
-                        "fee": "0.005228",
-                        "liquidationMarkPx": None,
-                    }
-                ]
-            },
-        }
+        result_subscribe_orders = {'channel': 'orderUpdates', 'data': [{'order': {'coin': 'ETH', 'side': 'A',
+                                                                                  'limitPx': '2112.8', 'sz': '0.01',
+                                                                                  'oid': 2260108845,
+                                                                                  'timestamp': 1700688451563,
+                                                                                  'origSz': '0.01',
+                                                                                  'cloid': '0x48424f54534548554436306163343632'}, # noqa: mock
+                                                                        'status': 'canceled',
+                                                                        'statusTimestamp': 1700688453173}]}
+        result_subscribe_trades = {'channel': 'user', 'data': {'fills': [
+            {'coin': 'ETH', 'px': '2091.3', 'sz': '0.01', 'side': 'B', 'time': 1700688460805, 'startPosition': '0.0',
+             'dir': 'Open Long', 'closedPnl': '0.0',
+             'hash': '0x544c46b72e0efdada8cd04080bb32b010d005a7d0554c10c4d0287e9a2c237e7', 'oid': 2260113568, # noqa: mock
+             # noqa: mock
+             'crossed': True, 'fee': '0.005228', 'liquidationMarkPx': None}]}}
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe_orders)
-        )
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(result_subscribe_orders))
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe_trades)
-        )
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(result_subscribe_trades))
         output_queue = asyncio.Queue()
 
-        self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_user_stream(output=output_queue)
-        )
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
-            websocket_mock=ws_connect_mock.return_value
-        )
+            websocket_mock=ws_connect_mock.return_value)
 
         self.assertEqual(2, len(sent_subscription_messages))
         expected_orders_subscription = {
@@ -154,7 +125,7 @@ class TestHyperliquidAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
             "subscription": {
                 "type": "orderUpdates",
                 "user": self.api_key,
-            },
+            }
         }
         self.assertEqual(expected_orders_subscription, sent_subscription_messages[0])
         expected_trades_subscription = {
@@ -162,11 +133,14 @@ class TestHyperliquidAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
             "subscription": {
                 "type": "user",
                 "user": self.api_key,
-            },
+            }
         }
         self.assertEqual(expected_trades_subscription, sent_subscription_messages[1])
 
-        self.assertTrue(self._is_logged("INFO", "Subscribed to private order and trades changes channels..."))
+        self.assertTrue(self._is_logged(
+            "INFO",
+            "Subscribed to private order and trades changes channels..."
+        ))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
@@ -181,8 +155,8 @@ class TestHyperliquidAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
             pass
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error while listening to user stream. Retrying after 5 seconds...")
-        )
+            self._is_logged("ERROR",
+                            "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
@@ -198,5 +172,6 @@ class TestHyperliquidAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
             pass
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error while listening to user stream. Retrying after 5 seconds...")
-        )
+            self._is_logged(
+                "ERROR",
+                "Unexpected error while listening to user stream. Retrying after 5 seconds..."))

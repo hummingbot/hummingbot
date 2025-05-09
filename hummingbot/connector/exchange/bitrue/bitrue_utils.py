@@ -34,7 +34,7 @@ class BitrueConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        },
+        }
     )
     bitrue_api_secret: SecretStr = Field(
         default=...,
@@ -43,7 +43,7 @@ class BitrueConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        },
+        }
     )
     model_config = ConfigDict(title="bitrue")
 

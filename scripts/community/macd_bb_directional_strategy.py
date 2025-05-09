@@ -35,9 +35,7 @@ class MACDBBDirectionalStrategy(ScriptStrategyBase):
     # Create the candles that we want to use and the thresholds for the indicators
     # IMPORTANT: The connector name of the candles can be binance or binance_perpetual, and can be different from the
     # connector that you define to trade
-    candles = CandlesFactory.get_candle(
-        CandlesConfig(connector=exchange, trading_pair=trading_pair, interval="3m", max_records=1000)
-    )
+    candles = CandlesFactory.get_candle(CandlesConfig(connector=exchange, trading_pair=trading_pair, interval="3m", max_records=1000))
 
     # Configure the leverage and order amount the bot is going to use
     set_leverage_flag = None
@@ -54,7 +52,8 @@ class MACDBBDirectionalStrategy(ScriptStrategyBase):
         self.candles.start()
 
     def get_active_executors(self):
-        return [signal_executor for signal_executor in self.active_executors if not signal_executor.is_closed]
+        return [signal_executor for signal_executor in self.active_executors
+                if not signal_executor.is_closed]
 
     def get_closed_executors(self):
         return self.stored_executors
@@ -65,27 +64,22 @@ class MACDBBDirectionalStrategy(ScriptStrategyBase):
             signal_value, take_profit, stop_loss, indicators = self.get_signal_tp_and_sl()
             if self.is_margin_enough() and signal_value != 0:
                 price = self.connectors[self.exchange].get_mid_price(self.trading_pair)
-                self.notify_hb_app_with_timestamp(
-                    f"""
+                self.notify_hb_app_with_timestamp(f"""
                 Creating new position!
                 Price: {price}
                 BB%: {indicators[0]}
                 MACDh: {indicators[1]}
                 MACD: {indicators[2]}
-                """
-                )
+                """)
                 signal_executor = PositionExecutor(
                     config=PositionExecutorConfig(
-                        timestamp=self.current_timestamp,
-                        trading_pair=self.trading_pair,
+                        timestamp=self.current_timestamp, trading_pair=self.trading_pair,
                         connector_name=self.exchange,
                         side=TradeType.SELL if signal_value < 0 else TradeType.BUY,
                         entry_price=price,
                         amount=self.order_amount_usd / price,
-                        triple_barrier_config=TripleBarrierConfig(
-                            stop_loss=stop_loss, take_profit=take_profit, time_limit=self.time_limit
-                        ),
-                    ),
+                        triple_barrier_config=TripleBarrierConfig(stop_loss=stop_loss, take_profit=take_profit,
+                                                                  time_limit=self.time_limit)),
                     strategy=self,
                 )
                 self.active_executors.append(signal_executor)
@@ -132,45 +126,29 @@ class MACDBBDirectionalStrategy(ScriptStrategyBase):
         lines = []
 
         if len(self.stored_executors) > 0:
-            lines.extend(
-                [
-                    "\n########################################## Closed Executors ##########################################"
-                ]
-            )
+            lines.extend([
+                "\n########################################## Closed Executors ##########################################"])
 
         for executor in self.stored_executors:
             lines.extend([f"|Signal id: {executor.timestamp}"])
             lines.extend(executor.to_format_status())
-            lines.extend(
-                [
-                    "-----------------------------------------------------------------------------------------------------------"
-                ]
-            )
+            lines.extend([
+                "-----------------------------------------------------------------------------------------------------------"])
 
         if len(self.active_executors) > 0:
-            lines.extend(
-                [
-                    "\n########################################## Active Executors ##########################################"
-                ]
-            )
+            lines.extend([
+                "\n########################################## Active Executors ##########################################"])
 
         for executor in self.active_executors:
             lines.extend([f"|Signal id: {executor.timestamp}"])
             lines.extend(executor.to_format_status())
         if self.candles.ready:
-            lines.extend(
-                [
-                    "\n############################################ Market Data ############################################\n"
-                ]
-            )
+            lines.extend([
+                "\n############################################ Market Data ############################################\n"])
             signal, take_profit, stop_loss, indicators = self.get_signal_tp_and_sl()
             lines.extend([f"Signal: {signal} | Take Profit: {take_profit} | Stop Loss: {stop_loss}"])
             lines.extend([f"BB%: {indicators[0]} | MACDh: {indicators[1]} | MACD: {indicators[2]}"])
-            lines.extend(
-                [
-                    "\n-----------------------------------------------------------------------------------------------------------\n"
-                ]
-            )
+            lines.extend(["\n-----------------------------------------------------------------------------------------------------------\n"])
         else:
             lines.extend(["", "  No data collected."])
 
@@ -187,52 +165,40 @@ class MACDBBDirectionalStrategy(ScriptStrategyBase):
     def clean_and_store_executors(self):
         executors_to_store = [executor for executor in self.active_executors if executor.is_closed]
         if not os.path.exists(self.csv_path):
-            df_header = pd.DataFrame(
-                [
-                    (
-                        "timestamp",
-                        "exchange",
-                        "trading_pair",
-                        "side",
-                        "amount",
-                        "pnl",
-                        "close_timestamp",
-                        "entry_price",
-                        "close_price",
-                        "last_status",
-                        "sl",
-                        "tp",
-                        "tl",
-                        "order_type",
-                        "leverage",
-                    )
-                ]
-            )
-            df_header.to_csv(self.csv_path, mode="a", header=False, index=False)
+            df_header = pd.DataFrame([("timestamp",
+                                       "exchange",
+                                       "trading_pair",
+                                       "side",
+                                       "amount",
+                                       "pnl",
+                                       "close_timestamp",
+                                       "entry_price",
+                                       "close_price",
+                                       "last_status",
+                                       "sl",
+                                       "tp",
+                                       "tl",
+                                       "order_type",
+                                       "leverage")])
+            df_header.to_csv(self.csv_path, mode='a', header=False, index=False)
         for executor in executors_to_store:
             self.stored_executors.append(executor)
-            df = pd.DataFrame(
-                [
-                    (
-                        executor.config.timestamp,
-                        executor.config.connector_name,
-                        executor.config.trading_pair,
-                        executor.config.side,
-                        executor.config.amount,
-                        executor.trade_pnl_pct,
-                        executor.close_timestamp,
-                        executor.entry_price,
-                        executor.close_price,
-                        executor.status,
-                        executor.config.triple_barrier_config.stop_loss,
-                        executor.config.triple_barrier_config.take_profit,
-                        executor.config.triple_barrier_config.time_limit,
-                        executor.config.triple_barrier_config.open_order_type,
-                        self.leverage,
-                    )
-                ]
-            )
-            df.to_csv(self.csv_path, mode="a", header=False, index=False)
+            df = pd.DataFrame([(executor.config.timestamp,
+                                executor.config.connector_name,
+                                executor.config.trading_pair,
+                                executor.config.side,
+                                executor.config.amount,
+                                executor.trade_pnl_pct,
+                                executor.close_timestamp,
+                                executor.entry_price,
+                                executor.close_price,
+                                executor.status,
+                                executor.config.triple_barrier_config.stop_loss,
+                                executor.config.triple_barrier_config.take_profit,
+                                executor.config.triple_barrier_config.time_limit,
+                                executor.config.triple_barrier_config.open_order_type,
+                                self.leverage)])
+            df.to_csv(self.csv_path, mode='a', header=False, index=False)
         self.active_executors = [executor for executor in self.active_executors if not executor.is_closed]
 
     def close_open_positions(self):
@@ -240,23 +206,19 @@ class MACDBBDirectionalStrategy(ScriptStrategyBase):
         for connector_name, connector in self.connectors.items():
             for trading_pair, position in connector.account_positions.items():
                 if position.position_side == PositionSide.LONG:
-                    self.sell(
-                        connector_name=connector_name,
-                        trading_pair=position.trading_pair,
-                        amount=abs(position.amount),
-                        order_type=OrderType.MARKET,
-                        price=connector.get_mid_price(position.trading_pair),
-                        position_action=PositionAction.CLOSE,
-                    )
+                    self.sell(connector_name=connector_name,
+                              trading_pair=position.trading_pair,
+                              amount=abs(position.amount),
+                              order_type=OrderType.MARKET,
+                              price=connector.get_mid_price(position.trading_pair),
+                              position_action=PositionAction.CLOSE)
                 elif position.position_side == PositionSide.SHORT:
-                    self.buy(
-                        connector_name=connector_name,
-                        trading_pair=position.trading_pair,
-                        amount=abs(position.amount),
-                        order_type=OrderType.MARKET,
-                        price=connector.get_mid_price(position.trading_pair),
-                        position_action=PositionAction.CLOSE,
-                    )
+                    self.buy(connector_name=connector_name,
+                             trading_pair=position.trading_pair,
+                             amount=abs(position.amount),
+                             order_type=OrderType.MARKET,
+                             price=connector.get_mid_price(position.trading_pair),
+                             position_action=PositionAction.CLOSE)
 
     def is_margin_enough(self):
         quote_balance = self.connectors[self.exchange].get_available_balance(self.trading_pair.split("-")[-1])

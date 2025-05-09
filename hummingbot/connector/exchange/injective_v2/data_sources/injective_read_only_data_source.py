@@ -29,7 +29,10 @@ from hummingbot.logger import HummingbotLogger
 class InjectiveReadOnlyDataSource(InjectiveDataSource):
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(self, network: Network, rate_limits: List[RateLimit]):
+    def __init__(
+            self,
+            network: Network,
+            rate_limits: List[RateLimit]):
         self._network = network
         self._client = AsyncClient(
             network=self._network,
@@ -136,10 +139,7 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
     async def trading_pair_for_market(self, market_id: str):
         if self._spot_market_and_trading_pair_map is None or self._derivative_market_and_trading_pair_map is None:
             async with self._markets_initialization_lock:
-                if (
-                    self._spot_market_and_trading_pair_map is None
-                    or self._derivative_market_and_trading_pair_map is None
-                ):
+                if self._spot_market_and_trading_pair_map is None or self._derivative_market_and_trading_pair_map is None:
                     await self.update_markets()
 
         trading_pair = self._spot_market_and_trading_pair_map.get(market_id)
@@ -219,7 +219,8 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
 
     def real_tokens_spot_trading_pair(self, unique_trading_pair: str) -> str:
         resulting_trading_pair = unique_trading_pair
-        if self._spot_market_and_trading_pair_map is not None and self._spot_market_info_map is not None:
+        if (self._spot_market_and_trading_pair_map is not None
+                and self._spot_market_info_map is not None):
             market_id = self._spot_market_and_trading_pair_map.inverse.get(unique_trading_pair)
             market = self._spot_market_info_map.get(market_id)
             if market is not None:
@@ -232,7 +233,8 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
 
     def real_tokens_perpetual_trading_pair(self, unique_trading_pair: str) -> str:
         resulting_trading_pair = unique_trading_pair
-        if self._derivative_market_and_trading_pair_map is not None and self._derivative_market_info_map is not None:
+        if (self._derivative_market_and_trading_pair_map is not None
+                and self._derivative_market_info_map is not None):
             market_id = self._derivative_market_and_trading_pair_map.inverse.get(unique_trading_pair)
             market = self._derivative_market_info_map.get(market_id)
             if market is not None:
@@ -244,10 +246,10 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
         return resulting_trading_pair
 
     async def order_updates_for_transaction(
-        self,
-        transaction_hash: str,
-        spot_orders: Optional[List[GatewayInFlightOrder]] = None,
-        perpetual_orders: Optional[List[GatewayPerpetualInFlightOrder]] = None,
+            self,
+            transaction_hash: str,
+            spot_orders: Optional[List[GatewayInFlightOrder]] = None,
+            perpetual_orders: Optional[List[GatewayPerpetualInFlightOrder]] = None
     ) -> List[OrderUpdate]:
         raise NotImplementedError
 
@@ -265,30 +267,30 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
         return True
 
     async def _order_creation_messages(
-        self,
-        spot_orders_to_create: List[GatewayInFlightOrder],
-        derivative_orders_to_create: List[GatewayPerpetualInFlightOrder],
+            self,
+            spot_orders_to_create: List[GatewayInFlightOrder],
+            derivative_orders_to_create: List[GatewayPerpetualInFlightOrder]
     ) -> List[any_pb2.Any]:
         raise NotImplementedError
 
     async def _order_cancel_message(
-        self,
-        spot_orders_to_cancel: List[injective_exchange_tx_pb.OrderData],
-        derivative_orders_to_cancel: List[injective_exchange_tx_pb.OrderData],
+            self,
+            spot_orders_to_cancel: List[injective_exchange_tx_pb.OrderData],
+            derivative_orders_to_cancel: List[injective_exchange_tx_pb.OrderData]
     ) -> any_pb2.Any:
         raise NotImplementedError
 
     async def _all_subaccount_orders_cancel_message(
-        self,
-        spot_orders_to_cancel: List[injective_exchange_tx_pb.OrderData],
-        derivative_orders_to_cancel: List[injective_exchange_tx_pb.OrderData],
+            self,
+            spot_orders_to_cancel: List[injective_exchange_tx_pb.OrderData],
+            derivative_orders_to_cancel: List[injective_exchange_tx_pb.OrderData]
     ) -> any_pb2.Any:
         raise NotImplementedError
 
     async def _generate_injective_order_data(
-        self,
-        order: GatewayInFlightOrder,
-        market_id: str,
+            self,
+            order: GatewayInFlightOrder,
+            market_id: str,
     ) -> injective_exchange_tx_pb.OrderData:
         raise NotImplementedError
 
@@ -299,9 +301,7 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
         return market_info
 
     async def _process_chain_stream_update(
-        self,
-        chain_stream_update: Dict[str, Any],
-        derivative_markets: List[InjectiveDerivativeMarket],
+            self, chain_stream_update: Dict[str, Any], derivative_markets: List[InjectiveDerivativeMarket],
     ):
         self._last_received_message_timestamp = self._time()
         await super()._process_chain_stream_update(

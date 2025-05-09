@@ -54,8 +54,7 @@ class HashkeyUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             hashkey_api_secret="",
             trading_pairs=[],
             trading_required=False,
-            domain=self.domain,
-        )
+            domain=self.domain)
         self.connector._web_assistants_factory._auth = self.auth
 
         self.data_source = HashkeyAPIUserStreamDataSource(
@@ -63,7 +62,7 @@ class HashkeyUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             trading_pairs=[self.trading_pair],
             connector=self.connector,
             api_factory=self.connector._web_assistants_factory,
-            domain=self.domain,
+            domain=self.domain
         )
 
         self.data_source.logger().setLevel(1)
@@ -81,7 +80,8 @@ class HashkeyUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message
+                   for record in self.log_records)
 
     def _raise_exception(self, exception_class):
         raise exception_class
@@ -95,12 +95,18 @@ class HashkeyUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         return value
 
     def _error_response(self) -> Dict[str, Any]:
-        resp = {"code": "ERROR CODE", "msg": "ERROR MESSAGE"}
+        resp = {
+            "code": "ERROR CODE",
+            "msg": "ERROR MESSAGE"
+        }
 
         return resp
 
     def _successfully_subscribed_event(self):
-        resp = {"result": None, "id": 1}
+        resp = {
+            "result": None,
+            "id": 1
+        }
         return resp
 
     @aioresponses()
@@ -118,7 +124,9 @@ class HashkeyUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         url = web_utils.rest_url(path_url=CONSTANTS.USER_STREAM_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        mock_response = {"listenKey": self.listen_key}
+        mock_response = {
+            "listenKey": self.listen_key
+        }
         mock_api.post(regex_url, body=json.dumps(mock_response))
 
         result: str = await self.data_source._get_listen_key()
@@ -135,11 +143,8 @@ class HashkeyUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.data_source._current_listen_key = self.listen_key
         result: bool = await self.data_source._ping_listen_key()
 
-        self.assertTrue(
-            self._is_logged(
-                "WARNING", f"Failed to refresh the listen key {self.listen_key}: " f"{self._error_response()}"
-            )
-        )
+        self.assertTrue(self._is_logged("WARNING", f"Failed to refresh the listen key {self.listen_key}: "
+                                                   f"{self._error_response()}"))
         self.assertFalse(result)
 
     @aioresponses()
@@ -152,15 +157,12 @@ class HashkeyUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         result: bool = await self.data_source._ping_listen_key()
         self.assertTrue(result)
 
-    @patch(
-        "hummingbot.connector.exchange.hashkey.hashkey_api_user_stream_data_source.HashkeyAPIUserStreamDataSource"
-        "._ping_listen_key",
-        new_callable=AsyncMock,
-    )
+    @patch("hummingbot.connector.exchange.hashkey.hashkey_api_user_stream_data_source.HashkeyAPIUserStreamDataSource"
+           "._ping_listen_key",
+           new_callable=AsyncMock)
     async def test_manage_listen_key_task_loop_keep_alive_failed(self, mock_ping_listen_key):
-        mock_ping_listen_key.side_effect = lambda *args, **kwargs: self._create_return_value_and_unlock_test_with_event(
-            False
-        )
+        mock_ping_listen_key.side_effect = (lambda *args, **kwargs:
+                                            self._create_return_value_and_unlock_test_with_event(False))
 
         self.data_source._current_listen_key = self.listen_key
 
@@ -175,15 +177,12 @@ class HashkeyUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.assertIsNone(self.data_source._current_listen_key)
         self.assertFalse(self.data_source._listen_key_initialized_event.is_set())
 
-    @patch(
-        "hummingbot.connector.exchange.hashkey.hashkey_api_user_stream_data_source.HashkeyAPIUserStreamDataSource."
-        "_ping_listen_key",
-        new_callable=AsyncMock,
-    )
+    @patch("hummingbot.connector.exchange.hashkey.hashkey_api_user_stream_data_source.HashkeyAPIUserStreamDataSource."
+           "_ping_listen_key",
+           new_callable=AsyncMock)
     async def test_manage_listen_key_task_loop_keep_alive_successful(self, mock_ping_listen_key):
-        mock_ping_listen_key.side_effect = lambda *args, **kwargs: self._create_return_value_and_unlock_test_with_event(
-            True
-        )
+        mock_ping_listen_key.side_effect = (lambda *args, **kwargs:
+                                            self._create_return_value_and_unlock_test_with_event(True))
 
         # Simulate LISTEN_KEY_KEEP_ALIVE_INTERVAL reached
         self.data_source._current_listen_key = self.listen_key
@@ -203,14 +202,18 @@ class HashkeyUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         url = web_utils.rest_url(path_url=CONSTANTS.USER_STREAM_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        mock_response = {"listenKey": self.listen_key}
+        mock_response = {
+            "listenKey": self.listen_key
+        }
         mock_api.post(regex_url, body=json.dumps(mock_response))
 
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, "")
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(msg_queue)
+        )
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
@@ -222,21 +225,24 @@ class HashkeyUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         url = web_utils.rest_url(path_url=CONSTANTS.USER_STREAM_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        mock_response = {"listenKey": self.listen_key}
+        mock_response = {
+            "listenKey": self.listen_key
+        }
         mock_api.post(regex_url, body=json.dumps(mock_response))
 
         mock_ws.side_effect = lambda *arg, **kwars: self._create_exception_and_unlock_test_with_event(
-            Exception("TEST ERROR.")
-        )
+            Exception("TEST ERROR."))
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(msg_queue)
+        )
 
         await self.resume_test_event.wait()
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error while listening to user stream. Retrying after 5 seconds...")
-        )
+            self._is_logged("ERROR",
+                            "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -244,23 +250,28 @@ class HashkeyUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         url = web_utils.rest_url(path_url=CONSTANTS.USER_STREAM_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        mock_response = {"listenKey": self.listen_key}
+        mock_response = {
+            "listenKey": self.listen_key
+        }
         mock_api.post(regex_url, body=json.dumps(mock_response))
 
         msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
-        mock_ws.return_value.receive.side_effect = (
-            lambda *args, **kwargs: self._create_exception_and_unlock_test_with_event(Exception("TEST ERROR"))
-        )
+        mock_ws.return_value.receive.side_effect = (lambda *args, **kwargs:
+                                                    self._create_exception_and_unlock_test_with_event(
+                                                        Exception("TEST ERROR")))
         mock_ws.close.return_value = None
 
-        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(msg_queue)
+        )
 
         await self.resume_test_event.wait()
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error while listening to user stream. Retrying after 5 seconds...")
-        )
+            self._is_logged(
+                "ERROR",
+                "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -268,15 +279,21 @@ class HashkeyUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         url = web_utils.rest_url(path_url=CONSTANTS.USER_STREAM_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        mock_response = {"listenKey": self.listen_key}
+        mock_response = {
+            "listenKey": self.listen_key
+        }
         mock_api.post(regex_url, body=json.dumps(mock_response))
 
-        mock_pong = {"pong": "1545910590801"}
+        mock_pong = {
+            "pong": "1545910590801"
+        }
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, json.dumps(mock_pong))
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(msg_queue)
+        )
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
@@ -288,32 +305,36 @@ class HashkeyUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         url = web_utils.rest_url(path_url=CONSTANTS.USER_STREAM_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        mock_response = {"listenKey": self.listen_key}
+        mock_response = {
+            "listenKey": self.listen_key
+        }
         mock_api.post(regex_url, body=json.dumps(mock_response))
 
         ticket_info = [
             {
-                "e": "ticketInfo",  # Event type
-                "E": "1668693440976",  # Event time
-                "s": "BTCUSDT",  # Symbol
-                "q": "0.001639",  # quantity
-                "t": "1668693440899",  # time
-                "p": "61000.0",  # price
-                "T": "899062000267837441",  # ticketId
-                "o": "899048013515737344",  # orderId
-                "c": "1621910874883",  # clientOrderId
-                "O": "899062000118679808",  # matchOrderId
-                "a": "10086",  # accountId
-                "A": 0,  # ignore
-                "m": True,  # isMaker
-                "S": "BUY",  # side  SELL or BUY
+                "e": "ticketInfo",                # Event type
+                "E": "1668693440976",             # Event time
+                "s": "BTCUSDT",                   # Symbol
+                "q": "0.001639",                  # quantity
+                "t": "1668693440899",             # time
+                "p": "61000.0",                    # price
+                "T": "899062000267837441",        # ticketId
+                "o": "899048013515737344",        # orderId
+                "c": "1621910874883",             # clientOrderId
+                "O": "899062000118679808",        # matchOrderId
+                "a": "10086",                     # accountId
+                "A": 0,                           # ignore
+                "m": True,                        # isMaker
+                "S": "BUY",                       # side  SELL or BUY
             }
         ]
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, json.dumps(ticket_info))
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(msg_queue)
+        )
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 

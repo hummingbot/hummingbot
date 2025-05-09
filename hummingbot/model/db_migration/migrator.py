@@ -15,14 +15,10 @@ class Migrator:
     @classmethod
     def _get_transformations(cls):
         import hummingbot.model.db_migration.transformations as transformations
-
-        return [
-            o
-            for _, o in getmembers(
-                transformations,
-                predicate=lambda c: isclass(c) and issubclass(c, DatabaseTransformation) and not isabstract(c),
-            )
-        ]
+        return [o for _, o in getmembers(transformations,
+                                         predicate=lambda c: isclass(c) and
+                                         issubclass(c, DatabaseTransformation) and
+                                         not isabstract(c))]
 
     def __init__(self):
         self.transformations = [t(self) for t in self._get_transformations()]
@@ -30,8 +26,8 @@ class Migrator:
     def migrate_db_to_version(self, client_config_map: ClientConfigAdapter, db_handle, from_version, to_version):
         original_db_path = db_handle.db_path
         original_db_name = Path(original_db_path).stem
-        backup_db_path = original_db_path + ".backup_" + pd.Timestamp.utcnow().strftime("%Y%m%d-%H%M%S")
-        new_db_path = original_db_path + ".new"
+        backup_db_path = original_db_path + '.backup_' + pd.Timestamp.utcnow().strftime("%Y%m%d-%H%M%S")
+        new_db_path = original_db_path + '.new'
         copyfile(original_db_path, new_db_path)
         copyfile(original_db_path, backup_db_path)
 
@@ -40,11 +36,11 @@ class Migrator:
             client_config_map, SQLConnectionType.TRADE_FILLS, new_db_path, original_db_name, True
         )
 
-        relevant_transformations = [
-            t for t in self.transformations if t.does_apply_to_version(from_version, to_version)
-        ]
+        relevant_transformations = [t for t in self.transformations
+                                    if t.does_apply_to_version(from_version, to_version)]
         if relevant_transformations:
-            logging.getLogger().info(f"Will run DB migration from {from_version} to {to_version}")
+            logging.getLogger().info(
+                f"Will run DB migration from {from_version} to {to_version}")
 
         migration_successful = False
         try:
@@ -54,9 +50,8 @@ class Migrator:
                 logging.getLogger().info(f"DONE with {transformation.name}")
             migration_successful = True
         except SQLAlchemyError:
-            logging.getLogger().error(
-                "Unexpected error while checking and upgrading the local database.", exc_info=True
-            )
+            logging.getLogger().error("Unexpected error while checking and upgrading the local database.",
+                                      exc_info=True)
         finally:
             try:
                 new_db_handle.engine.dispose()

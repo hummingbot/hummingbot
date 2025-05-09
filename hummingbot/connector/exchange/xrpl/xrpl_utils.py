@@ -309,7 +309,7 @@ class XRPLConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        },
+        }
     )
 
     wss_node_url: str = Field(
@@ -319,7 +319,7 @@ class XRPLConfigMap(BaseConnectorConfigMap):
             "is_secure": False,
             "is_connect_key": True,
             "prompt_on_new": True,
-        },
+        }
     )
 
     wss_second_node_url: str = Field(
@@ -329,7 +329,7 @@ class XRPLConfigMap(BaseConnectorConfigMap):
             "is_secure": False,
             "is_connect_key": True,
             "prompt_on_new": True,
-        },
+        }
     )
 
     wss_third_node_url: str = Field(
@@ -339,7 +339,7 @@ class XRPLConfigMap(BaseConnectorConfigMap):
             "is_secure": False,
             "is_connect_key": True,
             "prompt_on_new": True,
-        },
+        }
     )
 
     custom_markets: Dict[str, XRPLMarket] = Field(

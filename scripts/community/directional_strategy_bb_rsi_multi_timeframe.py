@@ -36,7 +36,6 @@ class MultiTimeframeBBRSI(DirectionalStrategyBase):
     Inherits from:
         DirectionalStrategyBase: Base class for creating directional strategies using the PositionExecutor.
     """
-
     directional_strategy_name: str = "bb_rsi_multi_timeframe"
     # Define the trading pair and exchange that we want to use and the csv where we are going to store the entries
     trading_pair: str = "ETH-USDT"
@@ -52,12 +51,8 @@ class MultiTimeframeBBRSI(DirectionalStrategyBase):
     trailing_stop_trailing_delta = 0.001
     CandlesConfig(connector=exchange, trading_pair=trading_pair, interval="3m", max_records=1000)
     candles = [
-        CandlesFactory.get_candle(
-            CandlesConfig(connector=exchange, trading_pair=trading_pair, interval="1m", max_records=1000)
-        ),
-        CandlesFactory.get_candle(
-            CandlesConfig(connector=exchange, trading_pair=trading_pair, interval="3m", max_records=1000)
-        ),
+        CandlesFactory.get_candle(CandlesConfig(connector=exchange, trading_pair=trading_pair, interval="1m", max_records=1000)),
+        CandlesFactory.get_candle(CandlesConfig(connector=exchange, trading_pair=trading_pair, interval="3m", max_records=1000)),
     ]
     markets = {exchange: {trading_pair}}
 

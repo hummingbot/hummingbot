@@ -22,21 +22,20 @@ class BingXAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     _bausds_logger: Optional[HummingbotLogger] = None
 
-    def __init__(
-        self,
-        auth: BingXAuth,
-        domain: str = CONSTANTS.DEFAULT_DOMAIN,
-        api_factory: Optional[WebAssistantsFactory] = None,
-        throttler: Optional[AsyncThrottler] = None,
-    ):
+    def __init__(self,
+                 auth: BingXAuth,
+                 domain: str = CONSTANTS.DEFAULT_DOMAIN,
+                 api_factory: Optional[WebAssistantsFactory] = None,
+                 throttler: Optional[AsyncThrottler] = None):
         super().__init__()
         self._auth: BingXAuth = auth
         self._last_recv_time: float = 0
         self._domain = domain
         self._throttler = throttler
         self._api_factory = api_factory or web_utils.build_api_factory(
-            throttler=self._throttler, domain=self._domain, auth=self._auth
-        )
+            throttler=self._throttler,
+            domain=self._domain,
+            auth=self._auth)
         self._ws_assistant: Optional[WSAssistant] = None
         self._last_ws_message_sent_timestamp = 0
 
@@ -77,15 +76,15 @@ class BingXAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 self._last_ws_message_sent_timestamp = self._time()
                 while True:
                     try:
-                        seconds_until_next_ping = CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL - (
-                            self._time() - self._last_ws_message_sent_timestamp
-                        )
+                        seconds_until_next_ping = (CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL -
+                                                   (self._time() - self._last_ws_message_sent_timestamp))
                         await asyncio.wait_for(
-                            self._process_ws_messages(ws=ws, output=output), timeout=seconds_until_next_ping
-                        )
+                            self._process_ws_messages(ws=ws, output=output), timeout=seconds_until_next_ping)
                     except asyncio.TimeoutError:
                         ping_time = self._time()
-                        payload = {"ping": int(ping_time * 1e3)}
+                        payload = {
+                            "ping": int(ping_time * 1e3)
+                        }
                         ping_request = WSJSONRequest(payload=payload)
                         await ws.send(request=ping_request)
                         self._last_ws_message_sent_timestamp = ping_time
@@ -104,10 +103,16 @@ class BingXAPIUserStreamDataSource(UserStreamTrackerDataSource):
         :param ws: the websocket assistant used to connect to the exchange
         """
         try:
-            trade_payload = {"id": "usertrade", "dataType": "spot.executionReport"}
+            trade_payload = {
+                "id": "usertrade",
+                "dataType": "spot.executionReport"
+            }
             subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trade_payload)
 
-            balance_payload = {"id": "userbalance", "dataType": "ACCOUNT_UPDATE"}
+            balance_payload = {
+                "id": "userbalance",
+                "dataType": "ACCOUNT_UPDATE"
+            }
             subscribe_balance_request: WSJSONRequest = WSJSONRequest(payload=balance_payload)
 
             await ws.send(subscribe_trade_request)
@@ -118,7 +123,8 @@ class BingXAPIUserStreamDataSource(UserStreamTrackerDataSource):
             raise
         except Exception:
             self.logger().error(
-                "Unexpected error occurred subscribing to order book trading and delta streams...", exc_info=True
+                "Unexpected error occurred subscribing to order book trading and delta streams...",
+                exc_info=True
             )
             raise
 
@@ -137,7 +143,7 @@ class BingXAPIUserStreamDataSource(UserStreamTrackerDataSource):
             data = utils.decompress_ws_message(ws_response.data)
             if data.get("e") == "ACCOUNT_UPDATE":
                 output.put_nowait(data)
-            elif data.get("dataType") == "spot.executionReport":
+            elif (data.get("dataType") == "spot.executionReport"):
                 output.put_nowait(data)
             # if isinstance(data, list):
             #     for message in data:
@@ -161,7 +167,7 @@ class BingXAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 url=web_utils.rest_url(path_url=CONSTANTS.USER_STREAM_PATH_URL, domain=self._domain),
                 method=RESTMethod.POST,
                 throttler_limit_id=CONSTANTS.USER_STREAM_PATH_URL,
-                headers=self._auth.header_for_authentication(),
+                headers=self._auth.header_for_authentication()
             )
         except asyncio.CancelledError:
             raise
@@ -179,7 +185,7 @@ class BingXAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 params={"listenKey": self._current_listen_key},
                 method=RESTMethod.PUT,
                 return_err=True,
-                throttler_limit_id=CONSTANTS.USER_STREAM_PATH_URL,
+                throttler_limit_id=CONSTANTS.USER_STREAM_PATH_URL
             )
             self.logger().info(data)
 

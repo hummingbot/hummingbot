@@ -21,10 +21,11 @@ class TegroOrderBookTests(TestCase):
                         "price": 712,
                         "quantity": 5000,
                     },
-                ],
+
+                ]
             },
             timestamp=1640000000.0,
-            metadata={"trading_pair": "KRYPTONITE-USDT"},
+            metadata={"trading_pair": "KRYPTONITE-USDT"}
         )
 
         self.assertEqual(OrderBookMessageType.SNAPSHOT, snapshot_message.type)
@@ -58,11 +59,10 @@ class TegroOrderBookTests(TestCase):
                             "price": 712,
                             "quantity": 5000,
                         },
-                    ],
-                },
-            },
+                    ]
+                }},
             timestamp=1640000000000,
-            metadata={"trading_pair": "KRYPTONITE-USDT"},
+            metadata={"trading_pair": "KRYPTONITE-USDT"}
         )
 
         self.assertEqual(1708817206, diff_msg.update_id)
@@ -91,11 +91,13 @@ class TegroOrderBookTests(TestCase):
                 "taker": "0x0a0cdc90cc16a0f3e67c296c8c0f7207cbdc0f4e",
                 "timestamp": 1708817206,
                 "txHash": "0x2f0d41ced1c7d21fe114235dfe363722f5f7026c21441f181ea39768a151c205",  # noqa: mock
-            },
+            }
         }
 
         trade_message = TegroOrderBook.trade_message_from_exchange(
-            msg=trade_update, metadata={"trading_pair": "KRYPTONITE-USDT"}, timestamp=1661927587836
+            msg=trade_update,
+            metadata={"trading_pair": "KRYPTONITE-USDT"},
+            timestamp=1661927587836
         )
 
         self.assertEqual("KRYPTONITE_USDT", trade_message.trading_pair)

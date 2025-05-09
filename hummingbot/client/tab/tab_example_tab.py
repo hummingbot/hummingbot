@@ -1,5 +1,4 @@
 from typing import TYPE_CHECKING, Dict, Any
-
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.client.ui.custom_widgets import CustomTextArea
@@ -20,9 +19,8 @@ class TabExampleTab(TabBase):
         return {}
 
     @classmethod
-    async def display(
-        cls,
-        output_field: CustomTextArea,
-        hummingbot: "HummingbotApplication",
-    ):
+    async def display(cls,
+                      output_field: CustomTextArea,
+                      hummingbot: "HummingbotApplication",
+                      ):
         output_field.log("Hello World!")

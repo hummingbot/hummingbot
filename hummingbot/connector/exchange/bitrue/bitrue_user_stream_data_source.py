@@ -170,4 +170,6 @@ class BitrueUserStreamDataSource(UserStreamTrackerDataSource):
             if event_message.get("status") != "ok":
                 raise ValueError(f"Error subscribing to topic: {event_message.get('channel')} ({event_message})")
         else:
-            await super()._process_event_message(event_message=event_message, queue=queue)
+            await super()._process_event_message(
+                event_message=event_message, queue=queue
+            )

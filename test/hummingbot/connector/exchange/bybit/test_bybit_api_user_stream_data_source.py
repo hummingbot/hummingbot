@@ -40,19 +40,22 @@ class TestBybitAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
         self.mock_time_provider.time.return_value = 1000
         # self.time_synchronizer = TimeSynchronizer()
         # self.time_synchronizer.add_time_offset_ms_sample(0)
-        self.auth = BybitAuth(self.api_key, self.api_secret_key, time_provider=self.mock_time_provider)
+        self.auth = BybitAuth(
+            self.api_key,
+            self.api_secret_key,
+            time_provider=self.mock_time_provider)
 
         self.api_factory = web_utils.build_api_factory(
-            throttler=self.throttler, time_synchronizer=self.mock_time_provider, auth=self.auth
-        )
+            throttler=self.throttler,
+            time_synchronizer=self.mock_time_provider,
+            auth=self.auth)
 
         self.data_source = BybitAPIUserStreamDataSource(
             auth=self.auth,
             domain=self.domain,
             api_factory=self.api_factory,
             throttler=self.throttler,
-            time_synchronizer=self.mock_time_provider,
-        )
+            time_synchronizer=self.mock_time_provider)
 
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
@@ -65,7 +68,8 @@ class TestBybitAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message
+                   for record in self.log_records)
 
     async def test_last_recv_time(self):
         # Initial last_recv_time
@@ -83,32 +87,33 @@ class TestBybitAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         sleep_mock.side_effect = asyncio.CancelledError()
 
-        result_auth = {"auth": "success", "userId": 24068148}
+        result_auth = {'auth': 'success', 'userId': 24068148}
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_auth)
-        )
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(result_auth))
 
         output_queue = asyncio.Queue()
         try:
             self.data_source._sleep = AsyncMock()
             self.data_source._sleep.side_effect = asyncio.CancelledError()
-            self.listening_task = self.local_event_loop.create_task(
-                self.data_source.listen_for_user_stream(output=output_queue)
-            )
+            self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
             await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
         except asyncio.CancelledError:
             pass
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
-            websocket_mock=ws_connect_mock.return_value
-        )
+            websocket_mock=ws_connect_mock.return_value)
 
         self.assertEqual(4, len(sent_subscription_messages))
 
         expires = 11000000
-        _val = f"GET/realtime{expires}"
-        signature = hmac.new(self.api_secret_key.encode("utf8"), _val.encode("utf8"), hashlib.sha256).hexdigest()
-        auth_subscription = {"op": "auth", "args": [self.api_key, expires, signature]}
+        _val = f'GET/realtime{expires}'
+        signature = hmac.new(self.api_secret_key.encode("utf8"),
+                             _val.encode("utf8"), hashlib.sha256).hexdigest()
+        auth_subscription = {
+            "op": "auth",
+            "args": [self.api_key, expires, signature]
+        }
 
         self.assertEqual(auth_subscription, sent_subscription_messages[0])
 
@@ -123,7 +128,9 @@ class TestBybitAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_user_stream_does_not_queue_pong_payload(self, mock_ws):
 
-        mock_pong = {"pong": "1545910590801"}
+        mock_pong = {
+            "pong": "1545910590801"
+        }
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, json.dumps(mock_pong))
 
@@ -153,14 +160,16 @@ class TestBybitAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
                 "O": "899062000118679808",
                 "a": "10043",
                 "A": "10024",
-                "m": True,
+                "m": True
             }
         ]
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, json.dumps(ticket_info))
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(msg_queue)
+        )
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
@@ -169,39 +178,40 @@ class TestBybitAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
     @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
     @patch("hummingbot.connector.exchange.bybit.bybit_auth.BybitAuth._time")
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    async def test_listen_for_user_stream_auth_failed_throws_exception(
-        self, ws_connect_mock, auth_time_mock, sleep_mock
-    ):
+    async def test_listen_for_user_stream_auth_failed_throws_exception(self, ws_connect_mock, auth_time_mock, sleep_mock):
         # Mock sleep to raise CancelledError to exit the loop
         sleep_mock.side_effect = asyncio.CancelledError()
         auth_time_mock.side_effect = [100]
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
-        result = {"success": False, "ret_msg": "Failed to authenticate", "op": "auth", "conn_id": "24068148"}
+        result = {
+            "success": False,
+            "ret_msg": "Failed to authenticate",
+            "op": "auth",
+            "conn_id": "24068148"
+        }
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result)
-        )
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(result))
 
         output_queue = asyncio.Queue()
 
         try:
             self.listening_task = self.local_event_loop.create_task(
-                self.data_source.listen_for_user_stream(output=output_queue)
-            )
+                self.data_source.listen_for_user_stream(output=output_queue))
             await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
             await self.listening_task
         except asyncio.CancelledError:
             pass
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
-            websocket_mock=ws_connect_mock.return_value
-        )
+            websocket_mock=ws_connect_mock.return_value)
 
         # 4 channels: auth, orderbook, trades and wallet
         self.assertEqual(4, len(sent_subscription_messages))
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error while listening to user stream. Retrying after 5 seconds...")
-        )
+            self._is_logged("ERROR",
+                            "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
@@ -217,37 +227,36 @@ class TestBybitAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
             pass
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error while listening to user stream. Retrying after 5 seconds...")
-        )
+            self._is_logged(
+                "ERROR",
+                "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.bybit.bybit_api_user_stream_data_source.BybitAPIUserStreamDataSource._time")
     async def test_listen_for_user_stream_sends_ping_message_before_ping_interval_finishes(
-        self, time_mock, ws_connect_mock
-    ):
+            self,
+            time_mock,
+            ws_connect_mock):
 
         time_mock.side_effect = [1000, 1100, 1101, 1102]  # Simulate first ping interval is already due
 
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
-        result_auth = {"auth": "success", "userId": 24068148}
+        result_auth = {'auth': 'success', 'userId': 24068148}
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_auth)
-        )
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(result_auth))
 
         output_queue = asyncio.Queue()
         self.data_source._sleep = AsyncMock()
         self.data_source._sleep.side_effect = asyncio.CancelledError()
-        self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_user_stream(output=output_queue)
-        )
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         sent_messages = self.mocking_assistant.json_messages_sent_through_websocket(
-            websocket_mock=ws_connect_mock.return_value
-        )
+            websocket_mock=ws_connect_mock.return_value)
 
-        expected_ping_message = {"op": "ping", "args": 1101000}
+        expected_ping_message = {'op': 'ping', 'args': 1101000}
         self.assertEqual(expected_ping_message, sent_messages[-1])

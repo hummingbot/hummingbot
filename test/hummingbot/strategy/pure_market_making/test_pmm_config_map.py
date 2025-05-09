@@ -9,7 +9,7 @@ from hummingbot.strategy.pure_market_making.pure_market_making_config_map import
     order_amount_prompt,
     maker_trading_pair_prompt,
     validate_price_source_exchange,
-    validate_decimal_list,
+    validate_decimal_list
 )
 
 
@@ -113,12 +113,10 @@ class TestPMMConfigMap(unittest.TestCase):
 
     def test_validate_price_source_exchange(self):
         pmm_config_map["exchange"].value = self.exchange
-        self.assertEqual(
-            validate_price_source_exchange(value="binance"),
-            "Price source exchange cannot be the same as maker exchange.",
-        )
-        self.assertIsNone(validate_price_source_exchange(value="kucoin"))
-        self.assertIsNone(validate_price_source_exchange(value="binance_perpetual"))
+        self.assertEqual(validate_price_source_exchange(value='binance'),
+                         'Price source exchange cannot be the same as maker exchange.')
+        self.assertIsNone(validate_price_source_exchange(value='kucoin'))
+        self.assertIsNone(validate_price_source_exchange(value='binance_perpetual'))
 
     def test_validate_decimal_list(self):
         error = validate_decimal_list(value="1")

@@ -14,7 +14,11 @@ USD_EQUIVALANT_TOKENS = ["USC"]
 
 
 def unwrap_token_symbol(on_chain_token_symbol: str) -> str:
-    patterns: List[Pattern] = [CAPITAL_W_SYMBOLS_PATTERN, SMALL_W_SYMBOLS_PATTERN, DOT_E_SYMBOLS_PATTERN]
+    patterns: List[Pattern] = [
+        CAPITAL_W_SYMBOLS_PATTERN,
+        SMALL_W_SYMBOLS_PATTERN,
+        DOT_E_SYMBOLS_PATTERN
+    ]
     for p in patterns:
         m: Optional[Match] = p.search(on_chain_token_symbol)
         if m is not None:

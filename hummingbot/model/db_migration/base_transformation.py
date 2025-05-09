@@ -50,7 +50,7 @@ class DatabaseTransformation(ABC):
         column_name = column.compile(dialect=engine.dialect)
         column_type = column.type.compile(engine.dialect)
         column_nullable = "NULL" if column.nullable else "NOT NULL"
-        query_to_execute = f'ALTER TABLE "{table_name}" ADD COLUMN {column_name} {column_type} {column_nullable}'
+        query_to_execute = f'ALTER TABLE \"{table_name}\" ADD COLUMN {column_name} {column_type} {column_nullable}'
         if dry_run:
             logging.getLogger().info(f"Query to execute in DB: {query_to_execute}")
         else:

@@ -12,16 +12,19 @@ class TestOrderbook(TestCase):
         diff_event = {
             "snapshot": True,
             "snapshotId": 1578512833978000,
-            "timestamp": "2020-01-08T19:47:13.986Z",
+            "timestamp": '2020-01-08T19:47:13.986Z',
             "bids": [
-                ["99.57", "0.55", 1],
-                ["97.62", "3.20", 2],
-                ["97.07", "0.9", 1],
-                ["96.7", "1.9", 1],
-                ["95.8", "7.0", 1],
+                ['99.57', '0.55', 1],
+                ['97.62', '3.20', 2],
+                ['97.07', '0.9', 1],
+                ['96.7', '1.9', 1],
+                ['95.8', '7.0', 1]
             ],
-            "asks": [["100", "3.79", 3], ["101", "6.32", 2]],
-            "messageType": CONSTANTS.DIFF_EVENT_TYPE,
+            "asks": [
+                ['100', '3.79', 3],
+                ['101', '6.32', 2]
+            ],
+            "messageType": CONSTANTS.DIFF_EVENT_TYPE
         }
 
         diff_message: Optional[OrderBookMessage] = BtcMarketsOrderBook.snapshot_message_from_exchange_websocket(
@@ -31,38 +34,29 @@ class TestOrderbook(TestCase):
         self.assertEqual(diff_message.type, OrderBookMessageType.SNAPSHOT)
         self.assertEqual(diff_message.trading_pair, "BAT-AUD")
         self.assertEqual(diff_message.update_id, diff_event["snapshotId"])
-        self.assertEqual(
-            diff_message.bids[0],
-            OrderBookRow(float(diff_event["bids"][0][0]), float(diff_event["bids"][0][1]), update_id=1578512833978000),
-        )
-        self.assertEqual(
-            diff_message.bids[1],
-            OrderBookRow(float(diff_event["bids"][1][0]), float(diff_event["bids"][1][1]), update_id=1578512833978000),
-        )
-        self.assertEqual(
-            diff_message.asks[0],
-            OrderBookRow(float(diff_event["asks"][0][0]), float(diff_event["asks"][0][1]), update_id=1578512833978000),
-        )
-        self.assertEqual(
-            diff_message.bids[1],
-            OrderBookRow(float(diff_event["bids"][1][0]), float(diff_event["bids"][1][1]), update_id=1578512833978000),
-        )
+        self.assertEqual(diff_message.bids[0], OrderBookRow(float(diff_event["bids"][0][0]), float(diff_event["bids"][0][1]), update_id=1578512833978000))
+        self.assertEqual(diff_message.bids[1], OrderBookRow(float(diff_event["bids"][1][0]), float(diff_event["bids"][1][1]), update_id=1578512833978000))
+        self.assertEqual(diff_message.asks[0], OrderBookRow(float(diff_event["asks"][0][0]), float(diff_event["asks"][0][1]), update_id=1578512833978000))
+        self.assertEqual(diff_message.bids[1], OrderBookRow(float(diff_event["bids"][1][0]), float(diff_event["bids"][1][1]), update_id=1578512833978000))
         self.assertEqual(diff_message.content["snapshotId"], diff_event["snapshotId"])
 
     def test_snapshot_message_from_exchange_rest(self):
         diff_event = {
             "snapshot": True,
             "snapshotId": 1578512833978000,
-            "timestamp": "2020-01-08T19:47:13.986Z",
+            "timestamp": '2020-01-08T19:47:13.986Z',
             "bids": [
-                ["99.57", "0.55", 1],
-                ["97.62", "3.20", 2],
-                ["97.07", "0.9", 1],
-                ["96.7", "1.9", 1],
-                ["95.8", "7.0", 1],
+                ['99.57', '0.55', 1],
+                ['97.62', '3.20', 2],
+                ['97.07', '0.9', 1],
+                ['96.7', '1.9', 1],
+                ['95.8', '7.0', 1]
             ],
-            "asks": [["100", "3.79", 3], ["101", "6.32", 2]],
-            "messageType": CONSTANTS.DIFF_EVENT_TYPE,
+            "asks": [
+                ['100', '3.79', 3],
+                ['101', '6.32', 2]
+            ],
+            "messageType": CONSTANTS.DIFF_EVENT_TYPE
         }
 
         diff_message: Optional[OrderBookMessage] = BtcMarketsOrderBook.snapshot_message_from_exchange_rest(
@@ -72,38 +66,29 @@ class TestOrderbook(TestCase):
         self.assertEqual(diff_message.type, OrderBookMessageType.SNAPSHOT)
         self.assertEqual(diff_message.trading_pair, "BAT-AUD")
         self.assertEqual(diff_message.update_id, diff_event["snapshotId"])
-        self.assertEqual(
-            diff_message.bids[0],
-            OrderBookRow(float(diff_event["bids"][0][0]), float(diff_event["bids"][0][1]), update_id=1578512833978000),
-        )
-        self.assertEqual(
-            diff_message.bids[1],
-            OrderBookRow(float(diff_event["bids"][1][0]), float(diff_event["bids"][1][1]), update_id=1578512833978000),
-        )
-        self.assertEqual(
-            diff_message.asks[0],
-            OrderBookRow(float(diff_event["asks"][0][0]), float(diff_event["asks"][0][1]), update_id=1578512833978000),
-        )
-        self.assertEqual(
-            diff_message.bids[1],
-            OrderBookRow(float(diff_event["bids"][1][0]), float(diff_event["bids"][1][1]), update_id=1578512833978000),
-        )
+        self.assertEqual(diff_message.bids[0], OrderBookRow(float(diff_event["bids"][0][0]), float(diff_event["bids"][0][1]), update_id=1578512833978000))
+        self.assertEqual(diff_message.bids[1], OrderBookRow(float(diff_event["bids"][1][0]), float(diff_event["bids"][1][1]), update_id=1578512833978000))
+        self.assertEqual(diff_message.asks[0], OrderBookRow(float(diff_event["asks"][0][0]), float(diff_event["asks"][0][1]), update_id=1578512833978000))
+        self.assertEqual(diff_message.bids[1], OrderBookRow(float(diff_event["bids"][1][0]), float(diff_event["bids"][1][1]), update_id=1578512833978000))
         self.assertEqual(diff_message.content["snapshotId"], diff_event["snapshotId"])
 
     def test_diff_message_from_exchange(self):
         diff_event = {
             "snapshot": True,
             "snapshotId": 1578512833978000,
-            "timestamp": "2020-01-08T19:47:13.986Z",
+            "timestamp": '2020-01-08T19:47:13.986Z',
             "bids": [
-                ["99.57", "0.55", 1],
-                ["97.62", "3.20", 2],
-                ["97.07", "0.9", 1],
-                ["96.7", "1.9", 1],
-                ["95.8", "7.0", 1],
+                ['99.57', '0.55', 1],
+                ['97.62', '3.20', 2],
+                ['97.07', '0.9', 1],
+                ['96.7', '1.9', 1],
+                ['95.8', '7.0', 1]
             ],
-            "asks": [["100", "3.79", 3], ["101", "6.32", 2]],
-            "messageType": CONSTANTS.DIFF_EVENT_TYPE,
+            "asks": [
+                ['100', '3.79', 3],
+                ['101', '6.32', 2]
+            ],
+            "messageType": CONSTANTS.DIFF_EVENT_TYPE
         }
 
         diff_message: Optional[OrderBookMessage] = BtcMarketsOrderBook.diff_message_from_exchange(
@@ -113,33 +98,21 @@ class TestOrderbook(TestCase):
         self.assertEqual(diff_message.type, OrderBookMessageType.DIFF)
         self.assertEqual(diff_message.trading_pair, "BAT-AUD")
         self.assertEqual(diff_message.update_id, diff_event["snapshotId"])
-        self.assertEqual(
-            diff_message.bids[0],
-            OrderBookRow(float(diff_event["bids"][0][0]), float(diff_event["bids"][0][1]), update_id=1578512833978000),
-        )
-        self.assertEqual(
-            diff_message.bids[1],
-            OrderBookRow(float(diff_event["bids"][1][0]), float(diff_event["bids"][1][1]), update_id=1578512833978000),
-        )
-        self.assertEqual(
-            diff_message.asks[0],
-            OrderBookRow(float(diff_event["asks"][0][0]), float(diff_event["asks"][0][1]), update_id=1578512833978000),
-        )
-        self.assertEqual(
-            diff_message.bids[1],
-            OrderBookRow(float(diff_event["bids"][1][0]), float(diff_event["bids"][1][1]), update_id=1578512833978000),
-        )
+        self.assertEqual(diff_message.bids[0], OrderBookRow(float(diff_event["bids"][0][0]), float(diff_event["bids"][0][1]), update_id=1578512833978000))
+        self.assertEqual(diff_message.bids[1], OrderBookRow(float(diff_event["bids"][1][0]), float(diff_event["bids"][1][1]), update_id=1578512833978000))
+        self.assertEqual(diff_message.asks[0], OrderBookRow(float(diff_event["asks"][0][0]), float(diff_event["asks"][0][1]), update_id=1578512833978000))
+        self.assertEqual(diff_message.bids[1], OrderBookRow(float(diff_event["bids"][1][0]), float(diff_event["bids"][1][1]), update_id=1578512833978000))
         self.assertEqual(diff_message.content["snapshotId"], diff_event["snapshotId"])
 
     def test_sell_trade_message_from_exchange(self):
         trade_event = {
             "marketId": "BAT-AUD",
-            "timestamp": "2019-04-08T20:54:27.632Z",
+            "timestamp": '2019-04-08T20:54:27.632Z',
             "tradeId": 3153171493,
-            "price": "7370.11",
-            "volume": "0.10901605",
-            "side": "Ask",
-            "messageType": CONSTANTS.TRADE_EVENT_TYPE,
+            "price": '7370.11',
+            "volume": '0.10901605',
+            "side": 'Ask',
+            "messageType": CONSTANTS.TRADE_EVENT_TYPE
         }
 
         trade_message: Optional[OrderBookMessage] = BtcMarketsOrderBook.trade_message_from_exchange(
@@ -156,12 +129,12 @@ class TestOrderbook(TestCase):
     def test_buy_trade_message_from_exchange(self):
         trade_event = {
             "marketId": "BAT-AUD",
-            "timestamp": "2019-04-08T20:54:27.632Z",
+            "timestamp": '2019-04-08T20:54:27.632Z',
             "tradeId": 3153171493,
-            "price": "7370.11",
-            "volume": "0.10901605",
-            "side": "Bid",
-            "messageType": CONSTANTS.TRADE_EVENT_TYPE,
+            "price": '7370.11',
+            "volume": '0.10901605',
+            "side": 'Bid',
+            "messageType": CONSTANTS.TRADE_EVENT_TYPE
         }
 
         trade_message: Optional[OrderBookMessage] = BtcMarketsOrderBook.trade_message_from_exchange(

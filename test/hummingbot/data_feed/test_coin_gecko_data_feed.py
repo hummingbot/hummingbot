@@ -27,7 +27,9 @@ class CoinGeckoDataFeedTest(unittest.TestCase):
         self.log_records.append(record)
 
     def is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
+        return any(
+            record.levelname == log_level and record.getMessage() == message for
+            record in self.log_records)
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -61,7 +63,7 @@ class CoinGeckoDataFeedTest(unittest.TestCase):
                 "atl_change_percentage": 34615.15839,
                 "atl_date": "2013-07-06T00:00:00.000Z",
                 "roi": None,
-                "last_updated": "2022-07-20T06:30:40.123Z",
+                "last_updated": "2022-07-20T06:30:40.123Z"
             },
             {
                 "id": "ethereum",
@@ -88,8 +90,12 @@ class CoinGeckoDataFeedTest(unittest.TestCase):
                 "atl": 0.432979,
                 "atl_change_percentage": 363099.28971,
                 "atl_date": "2015-10-20T00:00:00.000Z",
-                "roi": {"times": 88.0543596997439, "currency": "btc", "percentage": 8805.435969974389},
-                "last_updated": "2022-07-20T06:30:15.395Z",
+                "roi": {
+                    "times": 88.0543596997439,
+                    "currency": "btc",
+                    "percentage": 8805.435969974389
+                },
+                "last_updated": "2022-07-20T06:30:15.395Z"
             },
         ]
         return data
@@ -128,7 +134,10 @@ class CoinGeckoDataFeedTest(unittest.TestCase):
         vs_currency = "USD"
         token_ids = ["ETH", "BTC"]
         token_ids_str = ",".join(map(str.lower, token_ids))
-        url = f"{CONSTANTS.BASE_URL}{CONSTANTS.PRICES_REST_ENDPOINT}" f"?ids={token_ids_str}&vs_currency={vs_currency}"
+        url = (
+            f"{CONSTANTS.BASE_URL}{CONSTANTS.PRICES_REST_ENDPOINT}"
+            f"?ids={token_ids_str}&vs_currency={vs_currency}"
+        )
         data = self.get_coin_markets_data_mock(btc_price=1, eth_price=2)
         mock_api.get(url=url, body=json.dumps(data))
 
@@ -162,7 +171,9 @@ class CoinGeckoDataFeedTest(unittest.TestCase):
         self.assertEqual({}, self.data_feed.price_dict)
         self.data_feed._price_dict["SOMECOIN"] = 10
 
-        mock_api.get(url=regex_url, body=json.dumps(first_page), callback=lambda *_, **__: prices_requested_event.set())
+        mock_api.get(
+            url=regex_url, body=json.dumps(first_page), callback=lambda *_, **__: prices_requested_event.set()
+        )
         self.async_run_with_timeout(self.data_feed.start_network())
         self.async_run_with_timeout(prices_requested_event.wait())
         prices_dict = self.data_feed.price_dict
@@ -174,9 +185,7 @@ class CoinGeckoDataFeedTest(unittest.TestCase):
         self.assertFalse(self.data_feed.ready)
 
         prices_requested_event.clear()
-        mock_api.get(
-            url=regex_url, body=json.dumps(second_page), callback=lambda *_, **__: prices_requested_event.set()
-        )
+        mock_api.get(url=regex_url, body=json.dumps(second_page), callback=lambda *_, **__: prices_requested_event.set())
         sleep_continue_event.set()
         sleep_mock.return_value = wait_on_sleep_event()
         self.async_run_with_timeout(prices_requested_event.wait())

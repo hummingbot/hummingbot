@@ -22,14 +22,12 @@ class HashkeyAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(
-        self,
-        auth: HashkeyAuth,
-        trading_pairs: List[str],
-        connector: "HashkeyExchange",
-        api_factory: WebAssistantsFactory,
-        domain: str = CONSTANTS.DEFAULT_DOMAIN,
-    ):
+    def __init__(self,
+                 auth: HashkeyAuth,
+                 trading_pairs: List[str],
+                 connector: "HashkeyExchange",
+                 api_factory: WebAssistantsFactory,
+                 domain: str = CONSTANTS.DEFAULT_DOMAIN):
         super().__init__()
         self._auth: HashkeyAuth = auth
         self._current_listen_key = None

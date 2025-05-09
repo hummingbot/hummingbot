@@ -62,8 +62,7 @@ class GateIoPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         self.data_source.logger().addHandler(self)
 
         self.connector._set_trading_pair_symbol_map(
-            bidict({f"{self.base_asset}_{self.quote_asset}": self.trading_pair})
-        )
+            bidict({f"{self.base_asset}_{self.quote_asset}": self.trading_pair}))
 
     async def asyncSetUp(self) -> None:
         await super().asyncSetUp()
@@ -80,7 +79,8 @@ class GateIoPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message
+                   for record in self.log_records)
 
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
@@ -91,8 +91,26 @@ class GateIoPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
             "id": 123456,
             "current": 1623898993.123,
             "update": 1623898993.121,
-            "asks": [{"p": "1.52", "s": 100}, {"p": "1.53", "s": 40}],
-            "bids": [{"p": "1.17", "s": 150}, {"p": "1.16", "s": 203}],
+            "asks": [
+                {
+                    "p": "1.52",
+                    "s": 100
+                },
+                {
+                    "p": "1.53",
+                    "s": 40
+                }
+            ],
+            "bids": [
+                {
+                    "p": "1.17",
+                    "s": 150
+                },
+                {
+                    "p": "1.16",
+                    "s": 203
+                }
+            ]
         }
 
     def get_ws_snapshot_msg(self) -> Dict:
@@ -104,9 +122,27 @@ class GateIoPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
                 "t": 1541500161123,
                 "contract": self.ex_trading_pair,
                 "id": 93973511,
-                "asks": [{"p": "97.1", "s": 2245}, {"p": "97.1", "s": 2245}],
-                "bids": [{"p": "97.1", "s": 2245}, {"p": "97.1", "s": 2245}],
-            },
+                "asks": [
+                    {
+                        "p": "97.1",
+                        "s": 2245
+                    },
+                    {
+                        "p": "97.1",
+                        "s": 2245
+                    }
+                ],
+                "bids": [
+                    {
+                        "p": "97.1",
+                        "s": 2245
+                    },
+                    {
+                        "p": "97.1",
+                        "s": 2245
+                    }
+                ]
+            }
         }
 
     def get_ws_diff_msg(self) -> Dict:
@@ -120,9 +156,27 @@ class GateIoPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
                 "s": self.ex_trading_pair,
                 "U": 2517661101,
                 "u": 2517661113,
-                "b": [{"p": "54672.1", "s": 0}, {"p": "54664.5", "s": 58794}],
-                "a": [{"p": "54743.6", "s": 0}, {"p": "54742", "s": 95}],
-            },
+                "b": [
+                    {
+                        "p": "54672.1",
+                        "s": 0
+                    },
+                    {
+                        "p": "54664.5",
+                        "s": 58794
+                    }
+                ],
+                "a": [
+                    {
+                        "p": "54743.6",
+                        "s": 0
+                    },
+                    {
+                        "p": "54742",
+                        "s": 95
+                    }
+                ]
+            }
         }
 
     def get_funding_info_msg(self) -> Dict:
@@ -164,7 +218,7 @@ class GateIoPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
             "funding_impact_value": "60000",
             "orders_limit": 50,
             "trade_id": 10851092,
-            "orderbook_id": 2129638396,
+            "orderbook_id": 2129638396
         }
 
     def get_funding_info_rest_msg(self):
@@ -206,7 +260,7 @@ class GateIoPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
             "funding_impact_value": "60000",
             "orders_limit": 50,
             "trade_id": 10851092,
-            "orderbook_id": 2129638396,
+            "orderbook_id": 2129638396
         }
 
     @aioresponses()
@@ -268,7 +322,9 @@ class GateIoPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         self.assertEqual(expected_trade_subscription_channel, sent_subscription_messages[1]["channel"])
         self.assertEqual(expected_trade_subscription_payload, sent_subscription_messages[1]["payload"])
 
-        self.assertTrue(self._is_logged("INFO", "Subscribed to public order book and trade channels..."))
+        self.assertTrue(
+            self._is_logged("INFO", "Subscribed to public order book and trade channels...")
+        )
 
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect")
@@ -290,7 +346,8 @@ class GateIoPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
 
         self.assertTrue(
             self._is_logged(
-                "ERROR", "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
+                "ERROR",
+                "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
             )
         )
 
@@ -308,7 +365,9 @@ class GateIoPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         with self.assertRaises(Exception):
             await self.data_source._subscribe_channels(mock_ws)
 
-        self.assertTrue(self._is_logged("ERROR", "Unexpected error occurred subscribing to order book data streams."))
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error occurred subscribing to order book data streams.")
+        )
 
     async def test_listen_for_trades_cancelled_when_listening(self):
         mock_queue = MagicMock()
@@ -332,9 +391,9 @@ class GateIoPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
                     "create_time": 1545136464,
                     "create_time_ms": 1545136464123,
                     "price": "96.4",
-                    "contract": "BTC_USD",
+                    "contract": "BTC_USD"
                 }
-            ],
+            ]
         }
 
         mock_queue = AsyncMock()
@@ -348,7 +407,8 @@ class GateIoPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         except asyncio.CancelledError:
             pass
 
-        self.assertTrue(self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
 
     async def test_listen_for_trades_successful(self):
         self._simulate_trading_rules_initialized()
@@ -364,9 +424,9 @@ class GateIoPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
                     "create_time": 1545136464,
                     "create_time_ms": 1545136464123,
                     "price": "96.4",
-                    "contract": self.ex_trading_pair,
+                    "contract": self.ex_trading_pair
                 }
-            ],
+            ]
         }
         mock_queue.get.side_effect = [trade_event, asyncio.CancelledError()]
         self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
@@ -374,8 +434,7 @@ class GateIoPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_trades(self.local_event_loop, msg_queue)
-        )
+            self.data_source.listen_for_trades(self.local_event_loop, msg_queue))
 
         msg: OrderBookMessage = await msg_queue.get()
 
@@ -409,8 +468,7 @@ class GateIoPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
             pass
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange")
-        )
+            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange"))
 
     async def test_listen_for_order_book_diffs_successful(self):
         self._simulate_trading_rules_initialized()
@@ -422,8 +480,7 @@ class GateIoPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue)
-        )
+            self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue))
 
         msg: OrderBookMessage = await msg_queue.get()
 
@@ -444,7 +501,8 @@ class GateIoPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
     @aioresponses()
     async def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
         endpoint = CONSTANTS.ORDER_BOOK_PATH_URL
-        url = web_utils.public_rest_url(endpoint=endpoint)
+        url = web_utils.public_rest_url(
+            endpoint=endpoint)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
         mock_api.get(regex_url, exception=asyncio.CancelledError)
@@ -459,7 +517,8 @@ class GateIoPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(asyncio.CancelledError())
 
         endpoint = CONSTANTS.ORDER_SNAPSHOT_ENDPOINT_NAME
-        url = web_utils.public_rest_url(endpoint=endpoint)
+        url = web_utils.public_rest_url(
+            endpoint=endpoint)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
         mock_api.get(regex_url, exception=Exception)
@@ -478,7 +537,8 @@ class GateIoPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         self._simulate_trading_rules_initialized()
         msg_queue: asyncio.Queue = asyncio.Queue()
         endpoint = CONSTANTS.ORDER_BOOK_PATH_URL
-        url = web_utils.public_rest_url(endpoint=endpoint)
+        url = web_utils.public_rest_url(
+            endpoint=endpoint)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
         resp = self.get_rest_snapshot_msg()

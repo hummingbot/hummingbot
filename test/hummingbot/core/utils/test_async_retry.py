@@ -11,7 +11,6 @@ class FooException(Exception):
     """
     foo_three_times throws this exception, and we set async_retry to use this to trigger a retry
     """
-
     pass
 
 
@@ -19,7 +18,6 @@ class BarException(Exception):
     """
     bar_three_times throws this exception, but we do not set async_retry to use this to trigger a retry
     """
-
     pass
 
 

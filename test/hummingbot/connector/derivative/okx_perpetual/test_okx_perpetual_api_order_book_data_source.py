@@ -68,7 +68,8 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
-        self.connector._set_trading_pair_symbol_map(bidict({f"{self.base_asset}{self.quote_asset}": self.trading_pair}))
+        self.connector._set_trading_pair_symbol_map(
+            bidict({f"{self.base_asset}{self.quote_asset}": self.trading_pair}))
 
     async def asyncSetUp(self) -> None:
         await super().asyncSetUp()
@@ -85,7 +86,8 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message
+                   for record in self.log_records)
 
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
@@ -98,16 +100,23 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
             "msg": "",
             "data": [
                 {
-                    "asks": [["41006.8", "0.60038921", "0", "1"]],
-                    "bids": [["41006.3", "0.30178218", "0", "2"]],
+                    "asks": [
+                        ["41006.8", "0.60038921", "0", "1"]
+                    ],
+                    "bids": [
+                        ["41006.3", "0.30178218", "0", "2"]
+                    ],
                     "ts": "1629966436396",
                 }
-            ],
+            ]
         }
 
     def get_ws_trade_msg(self) -> Dict:
         return {
-            "arg": {"channel": "trades", "instId": self.trading_pair},
+            "arg": {
+                "channel": "trades",
+                "instId": self.trading_pair
+            },
             "data": [
                 {
                     "instId": self.trading_pair,
@@ -115,14 +124,17 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                     "px": "42219.9",
                     "sz": "0.12060306",
                     "side": "buy",
-                    "ts": "1630048897897",
+                    "ts": "1630048897897"
                 }
-            ],
+            ]
         }
 
     def get_ws_order_book_snapshot_msg(self) -> Dict:
         return {
-            "arg": {"channel": "books", "instId": self.ex_trading_pair},
+            "arg": {
+                "channel": "books",
+                "instId": self.ex_trading_pair
+            },
             "action": "snapshot",
             "data": [
                 {
@@ -134,7 +146,7 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                         ["8505.84", "8", "0", "1"],
                         ["8506.37", "85", "0", "1"],
                         ["8506.49", "2", "0", "1"],
-                        ["8506.96", "100", "0", "2"],
+                        ["8506.96", "100", "0", "2"]
                     ],
                     "bids": [
                         ["8476.97", "256", "0", "12"],
@@ -144,19 +156,22 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                         ["8447.32", "6", "0", "1"],
                         ["8447.02", "246", "0", "1"],
                         ["8446.83", "24", "0", "1"],
-                        ["8446", "95", "0", "3"],
+                        ["8446", "95", "0", "3"]
                     ],
                     "ts": "1597026383085",
                     "checksum": -855196043,
                     "prevSeqId": -1,
-                    "seqId": 123456,
+                    "seqId": 123456
                 }
-            ],
+            ]
         }
 
     def get_ws_order_book_diff_msg(self) -> Dict:
         return {
-            "arg": {"channel": "books", "instId": self.ex_trading_pair},
+            "arg": {
+                "channel": "books",
+                "instId": self.ex_trading_pair
+            },
             "action": "update",
             "data": [
                 {
@@ -170,14 +185,17 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                         ["8475.55", "101", "0", "1"],
                     ],
                     "ts": "1597026383085",
-                    "checksum": -855196043,
+                    "checksum": -855196043
                 }
-            ],
+            ]
         }
 
     def get_ws_funding_info_msg(self) -> Dict:
         return {
-            "arg": {"channel": "funding-rate", "instId": self.ex_trading_pair},
+            "arg": {
+                "channel": "funding-rate",
+                "instId": self.ex_trading_pair
+            },
             "data": [
                 {
                     "fundingRate": "0.0000691810863830",
@@ -191,20 +209,33 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                     "nextFundingTime": "1706198400000",
                     "settFundingRate": "-0.0000126482926462",
                     "settState": "settled",
-                    "ts": "1706148300320",
+                    "ts": "1706148300320"
                 }
-            ],
+            ]
         }
 
     def get_ws_mark_price_info_msg(self) -> Dict:
         return {
-            "arg": {"channel": "mark-price", "instId": self.ex_trading_pair},
-            "data": [{"instType": "SWAP", "instId": self.ex_trading_pair, "markPx": "0.1", "ts": "1597026383085"}],
+            "arg": {
+                "channel": "mark-price",
+                "instId": self.ex_trading_pair
+            },
+            "data": [
+                {
+                    "instType": "SWAP",
+                    "instId": self.ex_trading_pair,
+                    "markPx": "0.1",
+                    "ts": "1597026383085"
+                }
+            ]
         }
 
     def get_ws_index_price_info_msg(self) -> Dict:
         return {
-            "arg": {"channel": "index-tickers", "instId": self.ex_trading_pair},
+            "arg": {
+                "channel": "index-tickers",
+                "instId": self.ex_trading_pair
+            },
             "data": [
                 {
                     "instId": self.ex_trading_pair,
@@ -214,9 +245,9 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                     "open24h": "0.1",
                     "sodUtc0": "0.1",
                     "sodUtc8": "0.1",
-                    "ts": "1597026383085",
+                    "ts": "1597026383085"
                 }
-            ],
+            ]
         }
 
     def get_index_price_info_rest_msg(self):
@@ -232,16 +263,23 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                     "open24h": "43640.8",
                     "low24h": "43261.9",
                     "sodUtc8": "43328.7",
-                    "ts": "1649419644492",
+                    "ts": "1649419644492"
                 }
-            ],
+            ]
         }
 
     def get_mark_price_info_rest_msg(self):
         return {
             "code": "0",
             "msg": "",
-            "data": [{"instType": "SWAP", "instId": self.ex_trading_pair, "markPx": "200", "ts": "1597026383085"}],
+            "data": [
+                {
+                    "instType": "SWAP",
+                    "instId": self.ex_trading_pair,
+                    "markPx": "200",
+                    "ts": "1597026383085"
+                }
+            ]
         }
 
     def get_funding_info_rest_msg(self):
@@ -260,10 +298,10 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                     "nextFundingTime": "1703116800000",
                     "settFundingRate": "0.0001418433662153",
                     "settState": "settled",
-                    "ts": "1703070685309",
+                    "ts": "1703070685309"
                 }
             ],
-            "msg": "",
+            "msg": ""
         }
 
     def get_last_traded_prices_rest_msg(self):
@@ -287,7 +325,7 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                     "vol24h": "2222",
                     "sodUtc0": "0.1",
                     "sodUtc8": "0.1",
-                    "ts": "1597026383085",
+                    "ts": "1597026383085"
                 },
                 {
                     "instType": "SWAP",
@@ -305,9 +343,9 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                     "vol24h": "2222",
                     "sodUtc0": "0.1",
                     "sodUtc8": "0.1",
-                    "ts": "1597026383085",
-                },
-            ],
+                    "ts": "1597026383085"
+                }
+            ]
         }
 
     @property
@@ -348,18 +386,19 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                     "uly": self.ex_trading_pair,
                 }
             ],
-            "msg": "",
+            "msg": ""
         }
         return response
 
     def configure_trading_rules_response(
-        self,
-        mock_api: aioresponses,
+            self,
+            mock_api: aioresponses,
     ) -> List[str]:
-        base_url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
-        )
-        params = {"instType": "SWAP"}
+        base_url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.ENDPOINT],
+                                                       domain=CONSTANTS.DEFAULT_DOMAIN)
+        params = {
+            "instType": "SWAP"
+        }
         encoded_params = urlencode(params)
         full_url = f"{base_url}?{encoded_params}"
         regex_url = re.compile(f"^{full_url}".replace(".", r"\.").replace("?", r"\?") + ".*")
@@ -406,9 +445,7 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
     @aioresponses()
     async def test_get_last_traded_prices(self, mock_api):
-        url = web_utils.get_rest_url_for_endpoint(
-            CONSTANTS.REST_LATEST_SYMBOL_INFORMATION[CONSTANTS.ENDPOINT], self.domain
-        )
+        url = web_utils.get_rest_url_for_endpoint(CONSTANTS.REST_LATEST_SYMBOL_INFORMATION[CONSTANTS.ENDPOINT], self.domain)
         url_regex = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.get(url_regex, body=json.dumps(self.get_last_traded_prices_rest_msg()))
         last_traded_prices = await self.data_source.get_last_traded_prices([self.trading_pair])
@@ -440,9 +477,7 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(self.trading_pair, funding_info.trading_pair)
         self.assertEqual(Decimal(index_price_resp["data"][0]["idxPx"]), funding_info.index_price)
         self.assertEqual(Decimal(mark_price_resp["data"][0]["markPx"]), funding_info.mark_price)
-        self.assertEqual(
-            int(float(funding_info_resp["data"][0]["nextFundingTime"]) * 1e-3), funding_info.next_funding_utc_timestamp
-        )
+        self.assertEqual(int(float(funding_info_resp["data"][0]["nextFundingTime"]) * 1e-3), funding_info.next_funding_utc_timestamp)
         self.assertEqual(Decimal(funding_info_resp["data"][0]["fundingRate"]), funding_info.rate)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -488,35 +523,62 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         expected_trade_subscription = {
             "op": "subscribe",
-            "args": [{"channel": "trades", "instId": self.ex_trading_pair}],
+            "args": [
+                {
+                    "channel": "trades",
+                    "instId": self.ex_trading_pair
+                }
+            ],
         }
         self.assertEqual(expected_trade_subscription, sent_subscription_messages[0])
 
         expected_order_book_subscription = {
             "op": "subscribe",
-            "args": [{"channel": "books", "instId": self.ex_trading_pair}],
+            "args": [
+                {
+                    "channel": "books",
+                    "instId": self.ex_trading_pair
+                }
+            ],
         }
         self.assertEqual(expected_order_book_subscription, sent_subscription_messages[1])
 
         expected_funding_info_subscription = {
             "op": "subscribe",
-            "args": [{"channel": "funding-rate", "instId": self.ex_trading_pair}],
+            "args": [
+                {
+                    "channel": "funding-rate",
+                    "instId": self.ex_trading_pair
+                }
+            ],
         }
         self.assertEqual(expected_funding_info_subscription, sent_subscription_messages[2])
 
         expected_mark_price_subscription = {
             "op": "subscribe",
-            "args": [{"channel": "mark-price", "instId": self.ex_trading_pair}],
+            "args": [
+                {
+                    "channel": "mark-price",
+                    "instId": self.ex_trading_pair
+                }
+            ],
         }
         self.assertEqual(expected_mark_price_subscription, sent_subscription_messages[3])
 
         expected_index_price_subscription = {
             "op": "subscribe",
-            "args": [{"channel": "index-tickers", "instId": self.ex_trading_pair}],
+            "args": [
+                {
+                    "channel": "index-tickers",
+                    "instId": self.ex_trading_pair
+                }
+            ],
         }
         self.assertEqual(expected_index_price_subscription, sent_subscription_messages[4])
 
-        self.assertTrue(self._is_logged("INFO", "Subscribed to public order book, trade and funding info channels..."))
+        self.assertTrue(
+            self._is_logged("INFO", "Subscribed to public order book, trade and funding info channels...")
+        )
 
     async def test_subscribe_channels_raises_cancel_exception(self):
         mock_ws = MagicMock()
@@ -562,12 +624,16 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         except asyncio.CancelledError:
             pass
 
-        self.assertTrue(self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
 
     async def test_listen_for_trades_successful(self):
         mock_queue = AsyncMock()
         trade_event = {
-            "arg": {"channel": "trades", "instId": self.trading_pair},
+            "arg": {
+                "channel": "trades",
+                "instId": self.trading_pair
+            },
             "data": [
                 {
                     "instId": self.trading_pair,
@@ -575,9 +641,9 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                     "px": "42219.9",
                     "sz": "0.12060306",
                     "side": "buy",
-                    "ts": "1630048897897",
+                    "ts": "1630048897897"
                 }
-            ],
+            ]
         }
         mock_queue.get.side_effect = [trade_event, asyncio.CancelledError()]
         self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
@@ -585,8 +651,7 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_trades(self.local_event_loop, msg_queue)
-        )
+            self.data_source.listen_for_trades(self.local_event_loop, msg_queue))
 
         msg: OrderBookMessage = await msg_queue.get()
 
@@ -606,7 +671,10 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
     async def test_listen_for_order_book_diffs_logs_exception(self):
         incomplete_resp = {
-            "arg": {"channel": "books", "instId": self.trading_pair},
+            "arg": {
+                "channel": "books",
+                "instId": self.trading_pair
+            },
             "action": "update",
         }
 
@@ -622,8 +690,7 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
             pass
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange")
-        )
+            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange"))
 
     @aioresponses()
     async def test_listen_for_order_book_diffs_successful(self, mock_api):
@@ -636,8 +703,7 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue)
-        )
+            self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue))
 
         msg: OrderBookMessage = await msg_queue.get()
 
@@ -698,7 +764,10 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = 1
         mock_queue = AsyncMock()
         snapshot_event = {
-            "arg": {"channel": "books", "instId": self.trading_pair},
+            "arg": {
+                "channel": "books",
+                "instId": self.trading_pair
+            },
             "action": "snapshot",
             "data": [
                 {
@@ -712,9 +781,9 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                         ["8475.55", "101", "0", "1"],
                     ],
                     "ts": "1597026383085",
-                    "checksum": -855196043,
+                    "checksum": -855196043
                 }
-            ],
+            ]
         }
         mock_queue.get.side_effect = [snapshot_event, asyncio.CancelledError()]
         self.data_source._message_queue[self.data_source._snapshot_messages_queue_key] = mock_queue
@@ -722,8 +791,7 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_order_book_snapshots(self.local_event_loop, msg_queue)
-        )
+            self.data_source.listen_for_order_book_snapshots(self.local_event_loop, msg_queue))
 
         msg: OrderBookMessage = await msg_queue.get()
 
@@ -770,8 +838,7 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
             pass
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public mark price updates from exchange")
-        )
+            self._is_logged("ERROR", "Unexpected error when processing public mark price updates from exchange"))
 
     async def test_listen_for_mark_price_successful(self):
         mark_price_event = self.get_ws_mark_price_info_msg()
@@ -825,8 +892,7 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
             pass
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public index price updates from exchange")
-        )
+            self._is_logged("ERROR", "Unexpected error when processing public index price updates from exchange"))
 
     async def test_listen_for_index_price_successful(self):
         index_price_event = self.get_ws_index_price_info_msg()
@@ -881,8 +947,7 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
             pass
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public funding info updates from exchange")
-        )
+            self._is_logged("ERROR", "Unexpected error when processing public funding info updates from exchange"))
 
     async def test_listen_for_funding_info_successful(self):
         index_price_event = self.get_ws_funding_info_msg()

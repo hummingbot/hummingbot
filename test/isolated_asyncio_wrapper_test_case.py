@@ -65,7 +65,6 @@ class IsolatedAsyncioWrapperTestCase(unittest.IsolatedAsyncioTestCase):
             ...
     ```
     """
-
     main_event_loop = None
 
     @classmethod
@@ -167,7 +166,6 @@ class LocalClassEventLoopWrapperTestCase(unittest.TestCase):
     - `main_event_loop`: The reference to the main asyncio event loop.
     - `local_event_loop`: The local asyncio event loop used for each test case.
     """
-
     main_event_loop: Optional[asyncio.AbstractEventLoop] = None
     local_event_loop: Optional[asyncio.AbstractEventLoop] = None
 
@@ -232,7 +230,6 @@ class LocalTestEventLoopWrapperTestCase(unittest.TestCase):
     - `main_event_loop`: The reference to the main asyncio event loop.
     - `local_event_loop`: The local asyncio event loop used for each test case.
     """
-
     main_event_loop: Optional[asyncio.AbstractEventLoop] = None
     local_event_loop: Optional[asyncio.AbstractEventLoop] = None
 

@@ -27,7 +27,6 @@ class OrderCandidate:
     It also provides logic to adjust the order size, the collateral values, and the return based on
     a dictionary of currently available assets in the user account.
     """
-
     trading_pair: str
     is_maker: bool
     order_type: OrderType
@@ -71,7 +70,7 @@ class OrderCandidate:
     def set_to_zero(self):
         self._scale_order(scaler=Decimal("0"))
 
-    def populate_collateral_entries(self, exchange: "ExchangeBase"):
+    def populate_collateral_entries(self, exchange: 'ExchangeBase'):
         self._populate_order_collateral_entry(exchange)
         fee = self._get_fee(exchange)
         self._populate_percent_fee_collateral_entry(exchange, fee)
@@ -88,13 +87,13 @@ class OrderCandidate:
         if not self.is_zero_order:
             self._adjust_for_fixed_fee_collaterals(available_balances)
 
-    def _populate_order_collateral_entry(self, exchange: "ExchangeBase"):
+    def _populate_order_collateral_entry(self, exchange: 'ExchangeBase'):
         oc_token = self._get_order_collateral_token(exchange)
         if oc_token is not None:
             oc_amount = self._get_order_collateral_amount(exchange, oc_token)
             self.order_collateral = TokenAmount(oc_token, oc_amount)
 
-    def _get_order_collateral_token(self, exchange: "ExchangeBase") -> Optional[str]:
+    def _get_order_collateral_token(self, exchange: 'ExchangeBase') -> Optional[str]:
         trading_pair = self.trading_pair
         base, quote = split_hb_trading_pair(trading_pair)
         if self.order_side == TradeType.BUY:
@@ -103,13 +102,15 @@ class OrderCandidate:
             oc_token = base
         return oc_token
 
-    def _get_order_collateral_amount(self, exchange: "ExchangeBase", order_collateral_token: str) -> Decimal:
+    def _get_order_collateral_amount(
+        self, exchange: 'ExchangeBase', order_collateral_token: str
+    ) -> Decimal:
         size_token, order_size = self.get_size_token_and_order_size()
         size_collateral_price = self._get_size_collateral_price(exchange, order_collateral_token)
         oc_amount = order_size * size_collateral_price
         return oc_amount
 
-    def _populate_percent_fee_collateral_entry(self, exchange: "ExchangeBase", fee: TradeFeeBase):
+    def _populate_percent_fee_collateral_entry(self, exchange: 'ExchangeBase', fee: TradeFeeBase):
         impact = fee.get_fee_impact_on_order_cost(self, exchange)
         if impact is not None:
             token, amount = impact
@@ -118,15 +119,16 @@ class OrderCandidate:
     def _populate_fixed_fee_collateral_entries(self, fee: TradeFeeBase):
         self.fixed_fee_collaterals = []
         for token, amount in fee.flat_fees:
-            self.fixed_fee_collaterals.append(TokenAmount(token, amount))
+            self.fixed_fee_collaterals.append(
+                TokenAmount(token, amount))
 
-    def _populate_potential_returns_entry(self, exchange: "ExchangeBase"):
+    def _populate_potential_returns_entry(self, exchange: 'ExchangeBase'):
         r_token = self._get_returns_token(exchange)
         if r_token is not None:
             r_amount = self._get_returns_amount(exchange)
             self.potential_returns = TokenAmount(r_token, r_amount)
 
-    def _populate_percent_fee_value(self, exchange: "ExchangeBase", fee: TradeFeeBase):
+    def _populate_percent_fee_value(self, exchange: 'ExchangeBase', fee: TradeFeeBase):
         cost_impact = fee.get_fee_impact_on_order_cost(self, exchange)
         if cost_impact is not None:
             self.percent_fee_value = cost_impact
@@ -136,13 +138,13 @@ class OrderCandidate:
                 impact_token = self.potential_returns.token
                 self.percent_fee_value = TokenAmount(impact_token, returns_impact)
 
-    def _apply_fee_impact_on_potential_returns(self, exchange: "ExchangeBase", fee: TradeFeeBase):
+    def _apply_fee_impact_on_potential_returns(self, exchange: 'ExchangeBase', fee: TradeFeeBase):
         if self.potential_returns is not None:
             impact = fee.get_fee_impact_on_order_returns(self, exchange)
             if impact is not None:
                 self.potential_returns.amount -= impact
 
-    def _get_returns_token(self, exchange: "ExchangeBase") -> Optional[str]:
+    def _get_returns_token(self, exchange: 'ExchangeBase') -> Optional[str]:
         trading_pair = self.trading_pair
         base, quote = split_hb_trading_pair(trading_pair)
         if self.order_side == TradeType.BUY:
@@ -151,14 +153,16 @@ class OrderCandidate:
             r_token = quote
         return r_token
 
-    def _get_returns_amount(self, exchange: "ExchangeBase") -> Decimal:
+    def _get_returns_amount(self, exchange: 'ExchangeBase') -> Decimal:
         if self.order_side == TradeType.BUY:
             r_amount = self.amount
         else:
             r_amount = self.amount * self.price
         return r_amount
 
-    def _get_size_collateral_price(self, exchange: "ExchangeBase", order_collateral_token: str) -> Decimal:
+    def _get_size_collateral_price(
+        self, exchange: 'ExchangeBase', order_collateral_token: str
+    ) -> Decimal:
         size_token, _ = self.get_size_token_and_order_size()
         base, quote = split_hb_trading_pair(self.trading_pair)
 
@@ -227,7 +231,7 @@ class OrderCandidate:
             pfc_amount = Decimal("0")
         return TokenAmount(oc_amount, pfc_amount)
 
-    def _get_fee(self, exchange: "ExchangeBase") -> TradeFeeBase:
+    def _get_fee(self, exchange: 'ExchangeBase') -> TradeFeeBase:
         trading_pair = self.trading_pair
         price = self.price
         base, quote = split_hb_trading_pair(trading_pair)
@@ -268,21 +272,23 @@ class PerpetualOrderCandidate(OrderCandidate):
     leverage: Decimal = Decimal("1")
     position_close: bool = False
 
-    def _get_order_collateral_token(self, exchange: "ExchangeBase") -> Optional[str]:
+    def _get_order_collateral_token(self, exchange: 'ExchangeBase') -> Optional[str]:
         if self.position_close:
             oc_token = None  # the contract is the collateral
         else:
             oc_token = self._get_collateral_token(exchange)
         return oc_token
 
-    def _get_order_collateral_amount(self, exchange: "ExchangeBase", order_collateral_token: str) -> Decimal:
+    def _get_order_collateral_amount(
+        self, exchange: 'ExchangeBase', order_collateral_token: str
+    ) -> Decimal:
         if self.position_close:
             oc_amount = Decimal("0")  # the contract is the collateral
         else:
             oc_amount = self._get_collateral_amount(exchange)
         return oc_amount
 
-    def _populate_percent_fee_collateral_entry(self, exchange: "ExchangeBase", fee: TradeFeeBase):
+    def _populate_percent_fee_collateral_entry(self, exchange: 'ExchangeBase', fee: TradeFeeBase):
         if not self.position_close:
             super()._populate_percent_fee_collateral_entry(exchange, fee)
             if (
@@ -292,28 +298,31 @@ class PerpetualOrderCandidate(OrderCandidate):
                 leverage = self.leverage
                 self.percent_fee_collateral.amount *= leverage
 
-    def _populate_percent_fee_value(self, exchange: "ExchangeBase", fee: TradeFeeBase):
+    def _populate_percent_fee_value(self, exchange: 'ExchangeBase', fee: TradeFeeBase):
         if not self.position_close:
             super()._populate_percent_fee_value(exchange, fee)
-            if self.percent_fee_value is not None and self.percent_fee_value.token == self.order_collateral.token:
+            if (
+                self.percent_fee_value is not None
+                and self.percent_fee_value.token == self.order_collateral.token
+            ):
                 leverage = self.leverage
                 self.percent_fee_value.amount *= leverage
 
-    def _get_returns_token(self, exchange: "ExchangeBase") -> Optional[str]:
+    def _get_returns_token(self, exchange: 'ExchangeBase') -> Optional[str]:
         if self.position_close:
             r_token = self._get_collateral_token(exchange)
         else:
             r_token = None  # the contract is the returns
         return r_token
 
-    def _get_returns_amount(self, exchange: "ExchangeBase") -> Decimal:
+    def _get_returns_amount(self, exchange: 'ExchangeBase') -> Decimal:
         if self.position_close:
             r_amount = self._get_collateral_amount(exchange)
         else:
             r_amount = Decimal("0")  # the contract is the returns
         return r_amount
 
-    def _get_collateral_amount(self, exchange: "ExchangeBase") -> Decimal:
+    def _get_collateral_amount(self, exchange: 'ExchangeBase') -> Decimal:
         if self.position_close:
             self._flip_order_side()
         size_token, order_size = self.get_size_token_and_order_size()
@@ -324,7 +333,7 @@ class PerpetualOrderCandidate(OrderCandidate):
         amount = order_size * size_collateral_price / self.leverage
         return amount
 
-    def _get_collateral_token(self, exchange: "ExchangeBase") -> str:
+    def _get_collateral_token(self, exchange: 'ExchangeBase') -> str:
         trading_pair = self.trading_pair
         if self.order_side == TradeType.BUY:
             token = exchange.get_buy_collateral_token(trading_pair)
@@ -333,9 +342,12 @@ class PerpetualOrderCandidate(OrderCandidate):
         return token
 
     def _flip_order_side(self):
-        self.order_side = TradeType.BUY if self.order_side == TradeType.SELL else TradeType.SELL
+        self.order_side = (
+            TradeType.BUY if self.order_side == TradeType.SELL
+            else TradeType.SELL
+        )
 
-    def _get_fee(self, exchange: "ExchangeBase") -> TradeFeeBase:
+    def _get_fee(self, exchange: 'ExchangeBase') -> TradeFeeBase:
         base, quote = split_hb_trading_pair(self.trading_pair)
         position_action = PositionAction.CLOSE if self.position_close else PositionAction.OPEN
         fee = build_perpetual_trade_fee(

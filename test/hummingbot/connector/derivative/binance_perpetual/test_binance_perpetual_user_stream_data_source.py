@@ -53,19 +53,17 @@ class BinancePerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCa
             binance_perpetual_api_key="",
             binance_perpetual_api_secret="",
             domain=self.domain,
-            trading_pairs=[],
-        )
+            trading_pairs=[])
 
-        self.auth = BinancePerpetualAuth(api_key=self.api_key, api_secret=self.secret_key, time_provider=self)
+        self.auth = BinancePerpetualAuth(api_key=self.api_key,
+                                         api_secret=self.secret_key,
+                                         time_provider=self)
         self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
         api_factory = web_utils.build_api_factory(auth=self.auth)
         self.data_source = BinancePerpetualUserStreamDataSource(
-            auth=self.auth,
-            domain=self.domain,
-            api_factory=api_factory,
-            connector=self.connector,
+            auth=self.auth, domain=self.domain, api_factory=api_factory, connector=self.connector,
         )
 
         self.data_source.logger().setLevel(1)
@@ -215,27 +213,26 @@ class BinancePerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCa
         mock_api.post(regex_url, body=self._successful_get_listen_key_response())
 
         mock_ws.side_effect = lambda *arg, **kwars: self._create_exception_and_unlock_test_with_event(
-            Exception("TEST ERROR.")
-        )
+            Exception("TEST ERROR."))
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(msg_queue)
+        )
 
         await self.resume_test_event.wait()
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error while listening to user stream. Retrying after 5 seconds...")
-        )
+            self._is_logged("ERROR",
+                            "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
 
     @patch(
         "hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_data_source.BinancePerpetualUserStreamDataSource"
         "._ping_listen_key",
-        new_callable=AsyncMock,
-    )
+        new_callable=AsyncMock)
     async def test_manage_listen_key_task_loop_keep_alive_failed(self, mock_ping_listen_key):
-        mock_ping_listen_key.side_effect = lambda *args, **kwargs: self._create_return_value_and_unlock_test_with_event(
-            False
-        )
+        mock_ping_listen_key.side_effect = (lambda *args, **kwargs:
+                                            self._create_return_value_and_unlock_test_with_event(False))
 
         self.data_source._current_listen_key = self.listen_key
 

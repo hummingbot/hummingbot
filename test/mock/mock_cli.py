@@ -9,10 +9,14 @@ if TYPE_CHECKING:
 class CLIMockingAssistant:
     def __init__(self, app: "HummingbotCLI"):
         self._app = app
-        self._prompt_patch = patch("hummingbot.client.ui.hummingbot_cli.HummingbotCLI.prompt")
+        self._prompt_patch = patch(
+            "hummingbot.client.ui.hummingbot_cli.HummingbotCLI.prompt"
+        )
         self._prompt_mock: Optional[AsyncMock] = None
         self._prompt_replies = asyncio.Queue()
-        self._log_patch = patch("hummingbot.client.ui.hummingbot_cli.HummingbotCLI.log")
+        self._log_patch = patch(
+            "hummingbot.client.ui.hummingbot_cli.HummingbotCLI.log"
+        )
         self._log_mock: Optional[MagicMock] = None
         self._log_calls = []
         self._to_stop_config_msg = "to_stop_config"

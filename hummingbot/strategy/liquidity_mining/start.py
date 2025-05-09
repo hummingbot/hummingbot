@@ -50,5 +50,5 @@ def start(self):
         volatility_to_spread_multiplier=volatility_to_spread_multiplier,
         max_spread=max_spread,
         max_order_age=max_order_age,
-        hb_app_notification=True,
+        hb_app_notification=True
     )

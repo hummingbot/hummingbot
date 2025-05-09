@@ -52,52 +52,49 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
         self._initialize_event_loggers()
 
-        exchange_market_info = {
-            "result": {
-                "assets": [
-                    {
-                        "assetId": 5,
-                        "symbol": "SOL",
-                        "decimals": 9,
-                        "displayDecimals": 2,
-                        "settles": "true",
-                        "assetType": "Crypto",
-                        "sourceId": 3,
-                        "metadata": {},
-                        "status": 1,
-                    },
-                    {
-                        "assetId": 7,
-                        "symbol": "USDC",
-                        "decimals": 6,
-                        "displayDecimals": 2,
-                        "settles": "true",
-                        "assetType": "Crypto",
-                        "sourceId": 3,
-                        "metadata": {"mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"},
-                        "status": 1,
-                    },
-                ],
-                "markets": [
-                    {
-                        "marketId": 100006,
-                        "symbol": "SOLUSDC",
-                        "baseAssetId": 5,
-                        "baseLotSize": "10000000",
-                        "quoteAssetId": 7,
-                        "quoteLotSize": "100",
-                        "priceDisplayDecimals": 2,
-                        "protectionPriceLevels": 1000,
-                        "priceBandBidPct": 25,
-                        "priceBandAskPct": 400,
-                        "priceTickSize": "0.01",
-                        "quantityTickSize": "0.01",
-                        "status": 1,
-                        "feeTableId": 2,
-                    }
-                ],
-            }
-        }
+        exchange_market_info = {"result": {
+            "assets": [{
+                "assetId": 5,
+                "symbol": "SOL",
+                "decimals": 9,
+                "displayDecimals": 2,
+                "settles": "true",
+                "assetType": "Crypto",
+                "sourceId": 3,
+                "metadata": {},
+                "status": 1
+            }, {
+                "assetId": 7,
+                "symbol": "USDC",
+                "decimals": 6,
+                "displayDecimals": 2,
+                "settles": "true",
+                "assetType": "Crypto",
+                "sourceId": 3,
+                "metadata": {
+                    "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+                },
+                "status": 1
+            }],
+            "markets": [
+                {
+                    "marketId": 100006,
+                    "symbol": "SOLUSDC",
+                    "baseAssetId": 5,
+                    "baseLotSize": "10000000",
+                    "quoteAssetId": 7,
+                    "quoteLotSize": "100",
+                    "priceDisplayDecimals": 2,
+                    "protectionPriceLevels": 1000,
+                    "priceBandBidPct": 25,
+                    "priceBandAskPct": 400,
+                    "priceTickSize": "0.01",
+                    "quantityTickSize": "0.01",
+                    "status": 1,
+                    "feeTableId": 2
+                }
+            ]
+        }}
 
         self.exchange._initialize_trading_pair_symbols_from_exchange_info(exchange_market_info)
 
@@ -105,8 +102,8 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             self.trading_pair,
             min_order_size=Decimal("0.001"),
             min_price_increment=Decimal("0.01"),
-            min_base_amount_increment=Decimal("10000000") / (10**9),
-            min_notional_size=Decimal("100") / (10**6),
+            min_base_amount_increment=Decimal("10000000") / (10 ** 9),
+            min_notional_size=Decimal("100") / (10 ** 6),
         )
 
         self.exchange._trading_rules[self.trading_pair] = trading_rule
@@ -142,9 +139,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     @property
     def balance_url(self):
-        url = web_utils.private_rest_url(
-            CONSTANTS.ACCOUNTS_PATH_URL.format(self.exchange.cube_subaccount_id), domain=self.exchange._domain
-        )
+        url = web_utils.private_rest_url(CONSTANTS.ACCOUNTS_PATH_URL.format(self.exchange.cube_subaccount_id), domain=self.exchange._domain)
         return url
 
     @property
@@ -161,7 +156,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                         "assetType": "Crypto",
                         "sourceId": 3,
                         "metadata": {},
-                        "status": 1,
+                        "status": 1
                     },
                     {
                         "assetId": 7,
@@ -171,9 +166,11 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                         "settles": True,
                         "assetType": "Crypto",
                         "sourceId": 3,
-                        "metadata": {"mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"},
-                        "status": 1,
-                    },
+                        "metadata": {
+                            "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+                        },
+                        "status": 1
+                    }
                 ],
                 "markets": [
                     {
@@ -190,13 +187,31 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                         "priceTickSize": "0.01",
                         "quantityTickSize": "0.01",
                         "status": 1,
-                        "feeTableId": 2,
+                        "feeTableId": 2
                     }
                 ],
                 "feeTables": [
-                    {"feeTableId": 1, "feeTiers": [{"priority": 0, "makerFeeRatio": 0.0, "takerFeeRatio": 0.0}]},
-                    {"feeTableId": 2, "feeTiers": [{"priority": 0, "makerFeeRatio": 0.0004, "takerFeeRatio": 0.0008}]},
-                ],
+                    {
+                        "feeTableId": 1,
+                        "feeTiers": [
+                            {
+                                "priority": 0,
+                                "makerFeeRatio": 0.0,
+                                "takerFeeRatio": 0.0
+                            }
+                        ]
+                    },
+                    {
+                        "feeTableId": 2,
+                        "feeTiers": [
+                            {
+                                "priority": 0,
+                                "makerFeeRatio": 0.0004,
+                                "takerFeeRatio": 0.0008
+                            }
+                        ]
+                    }
+                ]
             }
         }
 
@@ -215,7 +230,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "ask": 185.1,
                     "high": 195.32,
                     "low": 170.97,
-                    "open": 172.98,
+                    "open": 172.98
                 }
             ]
         }
@@ -234,7 +249,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                         "assetType": "Crypto",
                         "sourceId": 3,
                         "metadata": {},
-                        "status": 1,
+                        "status": 1
                     },
                     {
                         "assetId": 7,
@@ -244,9 +259,11 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                         "settles": True,
                         "assetType": "Crypto",
                         "sourceId": 3,
-                        "metadata": {"mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"},
-                        "status": 1,
-                    },
+                        "metadata": {
+                            "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+                        },
+                        "status": 1
+                    }
                 ],
                 "markets": [
                     {
@@ -263,7 +280,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                         "priceTickSize": "0.01",
                         "quantityTickSize": "0.01",
                         "status": 1,
-                        "feeTableId": 2,
+                        "feeTableId": 2
                     },
                     {
                         "marketId": 100006,
@@ -279,13 +296,31 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                         "priceTickSize": "0.01",
                         "quantityTickSize": "0.01",
                         "status": 1,
-                        "feeTableId": 2,
-                    },
+                        "feeTableId": 2
+                    }
                 ],
                 "feeTables": [
-                    {"feeTableId": 1, "feeTiers": [{"priority": 0, "makerFeeRatio": 0.0, "takerFeeRatio": 0.0}]},
-                    {"feeTableId": 2, "feeTiers": [{"priority": 0, "makerFeeRatio": 0.0004, "takerFeeRatio": 0.0008}]},
-                ],
+                    {
+                        "feeTableId": 1,
+                        "feeTiers": [
+                            {
+                                "priority": 0,
+                                "makerFeeRatio": 0.0,
+                                "takerFeeRatio": 0.0
+                            }
+                        ]
+                    },
+                    {
+                        "feeTableId": 2,
+                        "feeTiers": [
+                            {
+                                "priority": 0,
+                                "makerFeeRatio": 0.0004,
+                                "takerFeeRatio": 0.0008
+                            }
+                        ]
+                    }
+                ]
             }
         }
 
@@ -309,7 +344,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                         "assetType": "Crypto",
                         "sourceId": 3,
                         "metadata": {},
-                        "status": 1,
+                        "status": 1
                     },
                     {
                         "assetId": 7,
@@ -319,9 +354,11 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                         "settles": True,
                         "assetType": "Crypto",
                         "sourceId": 3,
-                        "metadata": {"mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"},
-                        "status": 1,
-                    },
+                        "metadata": {
+                            "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+                        },
+                        "status": 1
+                    }
                 ],
                 "markets": [
                     {
@@ -338,13 +375,31 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                         "priceTickSize": "0.01",
                         "quantityTickSize": "0.01",
                         "status": 1,
-                        "feeTableId": 2,
+                        "feeTableId": 2
                     }
                 ],
                 "feeTables": [
-                    {"feeTableId": 1, "feeTiers": [{"priority": 0, "makerFeeRatio": 0.0, "takerFeeRatio": 0.0}]},
-                    {"feeTableId": 2, "feeTiers": [{"priority": 0, "makerFeeRatio": 0.0004, "takerFeeRatio": 0.0008}]},
-                ],
+                    {
+                        "feeTableId": 1,
+                        "feeTiers": [
+                            {
+                                "priority": 0,
+                                "makerFeeRatio": 0.0,
+                                "takerFeeRatio": 0.0
+                            }
+                        ]
+                    },
+                    {
+                        "feeTableId": 2,
+                        "feeTiers": [
+                            {
+                                "priority": 0,
+                                "makerFeeRatio": 0.0004,
+                                "takerFeeRatio": 0.0008
+                            }
+                        ]
+                    }
+                ]
             }
         }
 
@@ -362,7 +417,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                         "assetType": "Crypto",
                         "sourceId": 3,
                         "metadata": {},
-                        "status": 1,
+                        "status": 1
                     },
                     {
                         "assetId": 7,
@@ -372,9 +427,11 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                         "settles": True,
                         "assetType": "Crypto",
                         "sourceId": 3,
-                        "metadata": {"mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"},
-                        "status": 1,
-                    },
+                        "metadata": {
+                            "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+                        },
+                        "status": 1
+                    }
                 ],
                 "markets": [
                     {
@@ -388,37 +445,41 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                         "priceBandBidPct": 25,
                         "priceBandAskPct": 400,
                         "status": 1,
-                        "feeTableId": 2,
+                        "feeTableId": 2
                     }
                 ],
                 "feeTables": [
-                    {"feeTableId": 1, "feeTiers": [{"priority": 0, "makerFeeRatio": 0.0, "takerFeeRatio": 0.0}]},
-                    {"feeTableId": 2, "feeTiers": [{"priority": 0, "makerFeeRatio": 0.0004, "takerFeeRatio": 0.0008}]},
-                ],
+                    {
+                        "feeTableId": 1,
+                        "feeTiers": [
+                            {
+                                "priority": 0,
+                                "makerFeeRatio": 0.0,
+                                "takerFeeRatio": 0.0
+                            }
+                        ]
+                    },
+                    {
+                        "feeTableId": 2,
+                        "feeTiers": [
+                            {
+                                "priority": 0,
+                                "makerFeeRatio": 0.0004,
+                                "takerFeeRatio": 0.0008
+                            }
+                        ]
+                    }
+                ]
             }
         }
 
     @property
     def order_creation_request_successful_mock_response(self):
-        return {
-            "result": {
-                "Ack": {
-                    "msgSeqNum": 24112895,
-                    "clientOrderId": 11111647030279,
-                    "requestId": 11111647030279,
-                    "exchangeOrderId": self.expected_exchange_order_id,
-                    "marketId": 100006,
-                    "price": 18256,
-                    "quantity": 1,
-                    "side": 1,
-                    "timeInForce": 1,
-                    "orderType": 0,
-                    "transactTime": 1711042496071379572,
-                    "subaccountId": 38393,
-                    "cancelOnDisconnect": False,
-                }
-            }
-        }
+        return {'result': {'Ack': {'msgSeqNum': 24112895, 'clientOrderId': 11111647030279, 'requestId': 11111647030279,
+                                   'exchangeOrderId': self.expected_exchange_order_id, 'marketId': 100006,
+                                   'price': 18256, 'quantity': 1,
+                                   'side': 1, 'timeInForce': 1, 'orderType': 0, 'transactTime': 1711042496071379572,
+                                   'subaccountId': 38393, 'cancelOnDisconnect': False}}}
 
     @property
     def balance_request_mock_response_for_base_and_quote(self):
@@ -432,16 +493,16 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                             "receivedAmount": "10000000000",
                             "pendingDeposits": "0",
                             "assetId": 5,
-                            "accountingType": "asset",
+                            "accountingType": "asset"
                         },
                         {
                             "amount": "2000000000",
                             "receivedAmount": "2000000000",
                             "pendingDeposits": "0",
                             "assetId": 7,
-                            "accountingType": "asset",
-                        },
-                    ],
+                            "accountingType": "asset"
+                        }
+                    ]
                 }
             }
         }
@@ -458,9 +519,9 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                             "receivedAmount": "15000000000",
                             "pendingDeposits": "0",
                             "assetId": 5,
-                            "accountingType": "asset",
+                            "accountingType": "asset"
                         }
-                    ],
+                    ]
                 }
             }
         }
@@ -475,12 +536,16 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             ),
             available=trade_pb2.RawUnits(
                 word0=10000000000,
-            ),
+            )
         )
 
-        positions = trade_pb2.AssetPositions(positions=[position])
+        positions = trade_pb2.AssetPositions(
+            positions=[position]
+        )
 
-        boostrap = trade_pb2.Bootstrap(position=positions)
+        boostrap = trade_pb2.Bootstrap(
+            position=positions
+        )
 
         return boostrap.SerializeToString()
 
@@ -499,8 +564,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             min_order_size=Decimal("0.01"),
             min_price_increment=Decimal("0.01"),
             min_base_amount_increment=Decimal("0.01"),
-            min_notional_size=Decimal("0.0001"),
-        )
+            min_notional_size=Decimal("0.0001"))
 
     @property
     def expected_logged_error_for_erroneous_trading_rule(self):
@@ -531,8 +595,8 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
     @property
     def expected_fill_fee(self) -> TradeFeeBase:
         return DeductedFromReturnsTradeFee(
-            percent_token=self.base_asset, flat_fees=[TokenAmount(token=self.base_asset, amount=Decimal("30"))]
-        )
+            percent_token=self.base_asset,
+            flat_fees=[TokenAmount(token=self.base_asset, amount=Decimal("30"))])
 
     @property
     def expected_fill_trade_id(self) -> str:
@@ -554,7 +618,9 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         )
 
     def validate_auth_credentials_present(self, request_call: RequestCall):
-        self._validate_auth_credentials_taking_parameters_from_argument(request_call_tuple=request_call)
+        self._validate_auth_credentials_taking_parameters_from_argument(
+            request_call_tuple=request_call
+        )
 
     def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = json.loads(request_call.kwargs["data"])
@@ -568,13 +634,16 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = json.loads(request_call.kwargs["data"])
-        self.assertEqual(int(order.client_order_id), request_data["clientOrderId"])
-        self.assertEqual(int(order.client_order_id), request_data["requestId"])
+        self.assertEqual(int(order.client_order_id),
+                         request_data["clientOrderId"])
+        self.assertEqual(int(order.client_order_id),
+                         request_data["requestId"])
         self.assertEqual(self.exchange.cube_subaccount_id, request_data["subaccountId"])
 
     def validate_order_status_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
-        self.assertEqual(500, request_params["limit"])
+        self.assertEqual(500,
+                         request_params["limit"])
         self.assertEqual(1640780030000000000, request_params["createdBefore"])
 
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
@@ -583,8 +652,10 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         self.assertEqual(order.exchange_order_id, str(request_params["orderIds"]))
 
     def configure_successful_cancelation_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> str:
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
         url = web_utils.private_rest_url(CONSTANTS.POST_ORDER_PATH_URL)
         auth_header = self.exchange.authenticator.header_for_authentication()
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -593,8 +664,10 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return url
 
     def configure_erroneous_cancelation_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> str:
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
         url = web_utils.private_rest_url(CONSTANTS.POST_ORDER_PATH_URL)
         auth_header = self.exchange.authenticator.header_for_authentication()
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -602,7 +675,8 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return url
 
     def configure_order_not_found_error_cancelation_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         url = web_utils.private_rest_url(CONSTANTS.POST_ORDER_PATH_URL)
         auth_header = self.exchange.authenticator.header_for_authentication()
@@ -612,8 +686,10 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return url
 
     def configure_one_successful_one_erroneous_cancel_all_response(
-        self, successful_order: InFlightOrder, erroneous_order: InFlightOrder, mock_api: aioresponses
-    ) -> List[str]:
+            self,
+            successful_order: InFlightOrder,
+            erroneous_order: InFlightOrder,
+            mock_api: aioresponses) -> List[str]:
         """
         :return: a list of all configured URLs for the cancelations
         """
@@ -625,8 +701,10 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return all_urls
 
     def configure_completely_filled_order_status_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> str:
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
         url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL.format(self.exchange.cube_subaccount_id))
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_status_request_completely_filled_mock_response(order=order)
@@ -634,8 +712,10 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return url
 
     def configure_canceled_order_status_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> str:
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
         url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL.format(self.exchange.cube_subaccount_id))
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_status_request_canceled_mock_response(order=order)
@@ -643,16 +723,20 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return url
 
     def configure_erroneous_http_fill_trade_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> str:
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.FILLS_PATH_URL.format(self.exchange.cube_subaccount_id))
         regex_url = re.compile(url + r"\?.*")
         mock_api.get(regex_url, status=400, callback=callback)
         return url
 
     def configure_open_order_status_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> str:
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
         """
         :return: the URL configured
         """
@@ -663,16 +747,20 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return url
 
     def configure_http_error_order_status_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> str:
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
         url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL.format(self.exchange.cube_subaccount_id))
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.get(regex_url, status=401, callback=callback)
         return url
 
     def configure_partially_filled_order_status_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> str:
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
         url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL.format(self.exchange.cube_subaccount_id))
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_status_request_partially_filled_mock_response(order=order)
@@ -680,7 +768,8 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return url
 
     def configure_order_not_found_error_order_status_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
         url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL.format(self.exchange.cube_subaccount_id))
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -689,8 +778,10 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return [url]
 
     def configure_partial_fill_trade_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> str:
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.FILLS_PATH_URL.format(self.exchange.cube_subaccount_id))
         regex_url = re.compile(url + r"\?.*")
         response = self._order_fills_request_partial_fill_mock_response(order=order)
@@ -698,8 +789,10 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return url
 
     def configure_full_fill_trade_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> str:
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.FILLS_PATH_URL.format(self.exchange.cube_subaccount_id))
         regex_url = re.compile(url + r"\?.*")
         response = self._order_fills_request_full_fill_mock_response(order=order)
@@ -733,10 +826,12 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             side=trade_pb2.Side.ASK if order.trade_type == TradeType.SELL else trade_pb2.Side.BID,
             time_in_force=trade_pb2.TimeInForce.GOOD_FOR_SESSION,
             transact_time=1711095259064065797,
-            subaccount_id=38393,
+            subaccount_id=38393
         )
 
-        order_response = trade_pb2.OrderResponse(new_ack=new_ack)
+        order_response = trade_pb2.OrderResponse(
+            new_ack=new_ack
+        )
 
         return order_response.SerializeToString()
 
@@ -761,10 +856,12 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             subaccount_id=38393,
             reason=trade_pb2.CancelOrderAck.Reason.REQUESTED,
             market_id=100006,
-            exchange_order_id=int(order.exchange_order_id),
+            exchange_order_id=int(order.exchange_order_id)
         )
 
-        order_response = trade_pb2.OrderResponse(cancel_ack=cancel_ack)
+        order_response = trade_pb2.OrderResponse(
+            cancel_ack=cancel_ack
+        )
 
         return order_response.SerializeToString()
 
@@ -800,10 +897,12 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             cumulative_quantity=1,
             side=trade_pb2.Side.ASK if order.trade_type == TradeType.SELL else trade_pb2.Side.BID,
             fee_ratio=trade_pb2.FixedPointDecimal(mantissa=4, exponent=-4),
-            trade_id=1280602,
+            trade_id=1280602
         )
 
-        order_response = trade_pb2.OrderResponse(fill=fill)
+        order_response = trade_pb2.OrderResponse(
+            fill=fill
+        )
 
         return order_response.SerializeToString()
 
@@ -872,19 +971,20 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
         for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
             self.async_run_with_timeout(
-                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id)
-            )
+                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id))
 
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
 
         self.configure_completely_filled_order_status_response(
-            order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
-        )
+            order=order,
+            mock_api=mock_api,
+            callback=lambda *args, **kwargs: request_sent_event.set())
 
         if self.is_order_fill_http_update_included_in_status_update:
             trade_url = self.configure_full_fill_trade_response(
-                order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
-            )
+                order=order,
+                mock_api=mock_api,
+                callback=lambda *args, **kwargs: request_sent_event.set())
         else:
             # If the fill events will not be requested with the order status, we need to manually set the event
             # to allow the ClientOrderTracker to process the last status update
@@ -903,7 +1003,9 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             if trade_url:
                 trades_request = self._all_executed_requests(mock_api, trade_url)[0]
                 self.validate_auth_credentials_present(trades_request)
-                self.validate_trades_request(order=order, request_call=trades_request)
+                self.validate_trades_request(
+                    order=order,
+                    request_call=trades_request)
 
             fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
 
@@ -918,14 +1020,20 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
         self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
         self.assertIn(order.client_order_id, self.exchange._order_tracker.all_fillable_orders)
-        self.assertFalse(self.is_logged("INFO", f"BUY order {order.client_order_id} completely filled."))
+        self.assertFalse(
+            self.is_logged(
+                "INFO",
+                f"BUY order {order.client_order_id} completely filled."
+            )
+        )
 
         request_sent_event.clear()
 
         # Configure again the response to the order fills request since it is required by lost orders update logic
         self.configure_full_fill_trade_response(
-            order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
-        )
+            order=order,
+            mock_api=mock_api,
+            callback=lambda *args, **kwargs: request_sent_event.set())
 
         self.async_run_with_timeout(self.exchange._update_lost_orders_status())
         # Execute one more synchronization to ensure the async task that processes the update is finished
@@ -937,7 +1045,12 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
         self.assertNotIn(order.client_order_id, self.exchange._order_tracker.all_fillable_orders)
-        self.assertFalse(self.is_logged("INFO", f"BUY order {order.client_order_id} completely filled."))
+        self.assertFalse(
+            self.is_logged(
+                "INFO",
+                f"BUY order {order.client_order_id} completely filled."
+            )
+        )
 
     def test_lost_order_removed_after_cancel_status_user_event_received(self):
         self.exchange._set_current_timestamp(1640780000)
@@ -954,8 +1067,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
         for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
             self.async_run_with_timeout(
-                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id)
-            )
+                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id))
 
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
 
@@ -966,7 +1078,9 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             read_only=True,
         )
 
-        boostrap_message = trade_pb2.Bootstrap(done=done_ack)
+        boostrap_message = trade_pb2.Bootstrap(
+            done=done_ack
+        )
 
         done_message = boostrap_message.SerializeToString()
 
@@ -1027,7 +1141,8 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
         self.assertNotIn(order.client_order_id, self.exchange._order_tracker.all_fillable_orders)
 
-        self.assertFalse(self.is_logged("INFO", f"BUY order {order.client_order_id} completely filled."))
+        self.assertFalse(
+            self.is_logged("INFO", f"BUY order {order.client_order_id} completely filled."))
 
     @aioresponses()
     def test_lost_order_user_stream_full_fill_events_are_processed(self, mock_api):
@@ -1045,8 +1160,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
         for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
             self.async_run_with_timeout(
-                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id)
-            )
+                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id))
 
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
 
@@ -1058,7 +1172,9 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             read_only=True,
         )
 
-        boostrap_message = trade_pb2.Bootstrap(done=done_ack)
+        boostrap_message = trade_pb2.Bootstrap(
+            done=done_ack
+        )
 
         done_message = boostrap_message.SerializeToString()
 
@@ -1073,7 +1189,9 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         self.exchange._user_stream_tracker._user_stream = mock_queue
 
         if self.is_order_fill_http_update_executed_during_websocket_order_event_processing:
-            self.configure_full_fill_trade_response(order=order, mock_api=mock_api)
+            self.configure_full_fill_trade_response(
+                order=order,
+                mock_api=mock_api)
 
         try:
             self.async_run_with_timeout(self.exchange._user_stream_event_listener())
@@ -1113,11 +1231,14 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
         urls = self.configure_completely_filled_order_status_response(
-            order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
-        )
+            order=order,
+            mock_api=mock_api,
+            callback=lambda *args, **kwargs: request_sent_event.set())
 
         if self.is_order_fill_http_update_included_in_status_update:
-            trade_url = self.configure_full_fill_trade_response(order=order, mock_api=mock_api)
+            trade_url = self.configure_full_fill_trade_response(
+                order=order,
+                mock_api=mock_api)
         else:
             # If the fill events will not be requested with the order status, we need to manually set the event
             # to allow the ClientOrderTracker to process the last status update
@@ -1126,10 +1247,12 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         # Execute one more synchronization to ensure the async task that processes the update is finished
         self.async_run_with_timeout(request_sent_event.wait())
 
-        for url in urls if isinstance(urls, list) else [urls]:
+        for url in (urls if isinstance(urls, list) else [urls]):
             order_status_request = self._all_executed_requests(mock_api, url)[0]
             self.validate_auth_credentials_present(order_status_request)
-            self.validate_order_status_request(order=order, request_call=order_status_request)
+            self.validate_order_status_request(
+                order=order,
+                request_call=order_status_request)
 
         self.async_run_with_timeout(order.wait_until_completely_filled())
         self.assertTrue(order.is_done)
@@ -1139,7 +1262,9 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             if trade_url:
                 trades_request = self._all_executed_requests(mock_api, trade_url)[0]
                 self.validate_auth_credentials_present(trades_request)
-                self.validate_trades_request(order=order, request_call=trades_request)
+                self.validate_trades_request(
+                    order=order,
+                    request_call=trades_request)
 
             fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
             self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
@@ -1158,23 +1283,27 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         self.assertEqual(order.quote_asset, buy_event.quote_asset)
         self.assertEqual(
             order.amount if self.is_order_fill_http_update_included_in_status_update else Decimal(0),
-            buy_event.base_asset_amount,
-        )
+            buy_event.base_asset_amount)
         self.assertEqual(
-            order.amount * order.price if self.is_order_fill_http_update_included_in_status_update else Decimal(0),
-            buy_event.quote_asset_amount / Decimal(1e5),
-        )
+            order.amount * order.price
+            if self.is_order_fill_http_update_included_in_status_update
+            else Decimal(0),
+            buy_event.quote_asset_amount / Decimal(1e5))
         self.assertEqual(order.order_type, buy_event.order_type)
         self.assertEqual(order.exchange_order_id, buy_event.exchange_order_id)
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
-        self.assertTrue(self.is_logged("INFO", f"BUY order {order.client_order_id} completely filled."))
+        self.assertTrue(
+            self.is_logged(
+                "INFO",
+                f"BUY order {order.client_order_id} completely filled."
+            )
+        )
 
     @aioresponses()
     def test_update_order_fills_from_trades_triggers_filled_event(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = (
-            self.exchange.current_timestamp - self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1
-        )
+        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
+                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
 
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -1206,9 +1335,9 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                         "side": "Bid",
                         "aggressingSide": "Ask",
                         "price": 19999,
-                        "quantity": 1,
+                        "quantity": 1
                     }
-                ],
+                ]
             }
         }
 
@@ -1229,15 +1358,14 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         self.assertEqual(order.trading_pair, fill_event.trading_pair)
         self.assertEqual(order.trade_type, fill_event.trade_type)
         self.assertEqual(order.order_type, fill_event.order_type)
-        self.assertEqual(Decimal(trade_fill["result"]["fills"][0]["price"]) / 10**2, fill_event.price)
-        self.assertEqual(Decimal(trade_fill["result"]["fills"][0]["baseAmount"]) / 10**9, fill_event.amount)
+        self.assertEqual(Decimal(trade_fill["result"]["fills"][0]["price"]) / 10 ** 2, fill_event.price)
+        self.assertEqual(Decimal(trade_fill["result"]["fills"][0]["baseAmount"]) / 10 ** 9, fill_event.amount)
 
     @aioresponses()
     def test_update_order_fills_from_trades_with_repeated_fill_triggers_only_one_event(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = (
-            self.exchange.current_timestamp - self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1
-        )
+        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
+                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
 
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -1269,9 +1397,9 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                         "side": "Bid",
                         "aggressingSide": "Ask",
                         "price": 19999,
-                        "quantity": 1,
+                        "quantity": 1
                     }
-                ],
+                ]
             }
         }
 
@@ -1293,15 +1421,14 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         self.assertEqual(order.trading_pair, fill_event.trading_pair)
         self.assertEqual(order.trade_type, fill_event.trade_type)
         self.assertEqual(order.order_type, fill_event.order_type)
-        self.assertEqual(Decimal(trade_fill["result"]["fills"][0]["price"]) / 10**2, fill_event.price)
-        self.assertEqual(Decimal(trade_fill["result"]["fills"][0]["baseAmount"]) / 10**9, fill_event.amount)
+        self.assertEqual(Decimal(trade_fill["result"]["fills"][0]["price"]) / 10 ** 2, fill_event.price)
+        self.assertEqual(Decimal(trade_fill["result"]["fills"][0]["baseAmount"]) / 10 ** 9, fill_event.amount)
 
     @aioresponses()
     def test_update_order_status_when_failed(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = (
-            self.exchange.current_timestamp - self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1
-        )
+        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
+                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
 
         self.exchange.start_tracking_order(
             order_id="11111",
@@ -1311,14 +1438,19 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             trade_type=TradeType.BUY,
             price=Decimal("199.99"),
             amount=Decimal("0.01"),
-            creation_timestamp=self.exchange.current_timestamp,
+            creation_timestamp=self.exchange.current_timestamp
         )
         order = self.exchange.in_flight_orders["11111"]
 
         url_fill = web_utils.private_rest_url(CONSTANTS.FILLS_PATH_URL.format(self.exchange.cube_subaccount_id))
         regex_url_fill = re.compile(f"^{url_fill}".replace(".", r"\.").replace("?", r"\?"))
 
-        trade_fill = {"result": {"name": "primary", "fills": []}}
+        trade_fill = {
+            "result": {
+                "name": "primary",
+                "fills": []
+            }
+        }
 
         mock_response = trade_fill
         auth_header = self.exchange.authenticator.header_for_authentication()
@@ -1346,9 +1478,9 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                         "orderType": 0,
                         "selfTradePrevention": 0,
                         "cancelOnDisconnect": "false",
-                        "postOnly": "true",
+                        "postOnly": "true"
                     }
-                ],
+                ]
             }
         }
         mock_response = order_status
@@ -1377,8 +1509,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 f"Order {order.client_order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}',"
                 f" update_timestamp={canceled_at_time}, new_state={repr(OrderState.FAILED)}, "
                 f"client_order_id='{order.client_order_id}', exchange_order_id='{order.exchange_order_id}', "
-                "misc_updates=None)",
-            )
+                "misc_updates=None)")
         )
 
     def test_user_stream_update_for_order_failure(self):
@@ -1406,10 +1537,12 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             transact_time=1711095259064065797,
             subaccount_id=38393,
             reason=trade_pb2.NewOrderReject.Reason.INVALID_QUANTITY,
-            order_type=trade_pb2.OrderType.LIMIT,
+            order_type=trade_pb2.OrderType.LIMIT
         )
 
-        order_response = trade_pb2.OrderResponse(new_reject=new_reject)
+        order_response = trade_pb2.OrderResponse(
+            new_reject=new_reject
+        )
 
         event_message = order_response.SerializeToString()
 
@@ -1418,7 +1551,9 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             read_only=True,
         )
 
-        boostrap_message = trade_pb2.Bootstrap(done=done_ack)
+        boostrap_message = trade_pb2.Bootstrap(
+            done=done_ack
+        )
 
         done_message = boostrap_message.SerializeToString()
 
@@ -1449,9 +1584,8 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             order_type=OrderType.LIMIT,
             price=Decimal("2"),
         )
-        expected_client_order_id = get_new_numeric_client_order_id(
-            nonce_creator=self.exchange._nonce_creator, max_id_bit_count=CONSTANTS.MAX_ORDER_ID_LEN
-        )
+        expected_client_order_id = get_new_numeric_client_order_id(nonce_creator=self.exchange._nonce_creator,
+                                                                   max_id_bit_count=CONSTANTS.MAX_ORDER_ID_LEN)
         expected_client_order_id = f"{prefix}{expected_client_order_id - 1}"
         self.assertEqual(result, expected_client_order_id)
 
@@ -1461,64 +1595,63 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             order_type=OrderType.LIMIT,
             price=Decimal("2"),
         )
-        expected_client_order_id = get_new_numeric_client_order_id(
-            nonce_creator=self.exchange._nonce_creator, max_id_bit_count=CONSTANTS.MAX_ORDER_ID_LEN
-        )
+        expected_client_order_id = get_new_numeric_client_order_id(nonce_creator=self.exchange._nonce_creator,
+                                                                   max_id_bit_count=CONSTANTS.MAX_ORDER_ID_LEN)
         expected_client_order_id = f"{prefix}{expected_client_order_id - 1}"
         self.assertEqual(result, expected_client_order_id)
 
     @aioresponses()
     def test_place_order_get_rejection(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = (
-            self.exchange.current_timestamp - self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1
-        )
+        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
+                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
         url = web_utils.private_rest_url(CONSTANTS.POST_ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        mock_response = {"result": {"Rej": {"transactTime": 1711095259064065797, "reason": "SOME REASON"}}}
+        mock_response = {
+            "result": {
+                "Rej": {
+                    "transactTime": 1711095259064065797,
+                    "reason": "SOME REASON"
+                }
+            }
+        }
         mock_api.post(regex_url, body=json.dumps(mock_response), status=200)
 
-        o_id, transact_time = self.async_run_with_timeout(
-            self.exchange._place_order(
-                order_id="999999",
-                trading_pair=self.trading_pair,
-                amount=Decimal("1"),
-                trade_type=TradeType.BUY,
-                order_type=OrderType.LIMIT,
-                price=Decimal("2"),
-            )
-        )
+        o_id, transact_time = self.async_run_with_timeout(self.exchange._place_order(
+            order_id="999999",
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            trade_type=TradeType.BUY,
+            order_type=OrderType.LIMIT,
+            price=Decimal("2"),
+        ))
         self.assertEqual(o_id, "UNKNOWN")
 
     @aioresponses()
     def test_place_order_manage_server_overloaded_error_unkown_order(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = (
-            self.exchange.current_timestamp - self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1
-        )
+        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
+                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
         url = web_utils.private_rest_url(CONSTANTS.POST_ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_response = {"code": -1003, "msg": "Unknown error, please check your request or try again later."}
         mock_api.post(regex_url, body=json.dumps(mock_response), status=503)
 
-        o_id, transact_time = self.async_run_with_timeout(
-            self.exchange._place_order(
-                order_id="999999",
-                trading_pair=self.trading_pair,
-                amount=Decimal("1"),
-                trade_type=TradeType.BUY,
-                order_type=OrderType.LIMIT,
-                price=Decimal("2"),
-            )
-        )
+        o_id, transact_time = self.async_run_with_timeout(self.exchange._place_order(
+            order_id="999999",
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            trade_type=TradeType.BUY,
+            order_type=OrderType.LIMIT,
+            price=Decimal("2"),
+        ))
         self.assertEqual(o_id, "UNKNOWN")
 
     @aioresponses()
     def test_place_order_manage_server_overloaded_error_failure(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = (
-            self.exchange.current_timestamp - self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1
-        )
+        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
+                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
 
         url = web_utils.private_rest_url(CONSTANTS.POST_ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -1535,8 +1668,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 trade_type=TradeType.BUY,
                 order_type=OrderType.LIMIT,
                 price=Decimal("2"),
-            ),
-        )
+            ))
 
         mock_response = {"code": -1003, "msg": "Internal error; unable to process your request. Please try again."}
         mock_api.post(regex_url, body=json.dumps(mock_response), status=503)
@@ -1551,8 +1683,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 trade_type=TradeType.BUY,
                 order_type=OrderType.LIMIT,
                 price=Decimal("2"),
-            ),
-        )
+            ))
 
     def test_format_trading_rules__min_notional_present(self):
         exchange_info = {
@@ -1567,7 +1698,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                         "assetType": "Crypto",
                         "sourceId": 3,
                         "metadata": {},
-                        "status": 1,
+                        "status": 1
                     },
                     {
                         "assetId": 7,
@@ -1577,9 +1708,11 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                         "settles": True,
                         "assetType": "Crypto",
                         "sourceId": 3,
-                        "metadata": {"mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"},
-                        "status": 1,
-                    },
+                        "metadata": {
+                            "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+                        },
+                        "status": 1
+                    }
                 ],
                 "markets": [
                     {
@@ -1596,13 +1729,31 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                         "priceTickSize": "0.01",
                         "quantityTickSize": "0.01",
                         "status": 1,
-                        "feeTableId": 2,
+                        "feeTableId": 2
                     }
                 ],
                 "feeTables": [
-                    {"feeTableId": 1, "feeTiers": [{"priority": 0, "makerFeeRatio": 0.0, "takerFeeRatio": 0.0}]},
-                    {"feeTableId": 2, "feeTiers": [{"priority": 0, "makerFeeRatio": 0.0004, "takerFeeRatio": 0.0008}]},
-                ],
+                    {
+                        "feeTableId": 1,
+                        "feeTiers": [
+                            {
+                                "priority": 0,
+                                "makerFeeRatio": 0.0,
+                                "takerFeeRatio": 0.0
+                            }
+                        ]
+                    },
+                    {
+                        "feeTableId": 2,
+                        "feeTiers": [
+                            {
+                                "priority": 0,
+                                "makerFeeRatio": 0.0004,
+                                "takerFeeRatio": 0.0008
+                            }
+                        ]
+                    }
+                ]
             }
         }
 
@@ -1625,10 +1776,14 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         )
         order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
-        order_url = self.configure_partially_filled_order_status_response(order=order, mock_api=mock_api)
+        order_url = self.configure_partially_filled_order_status_response(
+            order=order,
+            mock_api=mock_api)
 
         if self.is_order_fill_http_update_included_in_status_update:
-            trade_url = self.configure_partial_fill_trade_response(order=order, mock_api=mock_api)
+            trade_url = self.configure_partial_fill_trade_response(
+                order=order,
+                mock_api=mock_api)
 
         self.assertTrue(order.is_open)
 
@@ -1637,7 +1792,9 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         if order_url:
             order_status_request = self._all_executed_requests(mock_api, order_url)[0]
             self.validate_auth_credentials_present(order_status_request)
-            self.validate_order_status_request(order=order, request_call=order_status_request)
+            self.validate_order_status_request(
+                order=order,
+                request_call=order_status_request)
 
         self.assertTrue(order.is_open)
         self.assertEqual(OrderState.PARTIALLY_FILLED, order.current_state)
@@ -1646,7 +1803,9 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             if trade_url:
                 trades_request = self._all_executed_requests(mock_api, trade_url)[0]
                 self.validate_auth_credentials_present(trades_request)
-                self.validate_trades_request(order=order, request_call=trades_request)
+                self.validate_trades_request(
+                    order=order,
+                    request_call=trades_request)
 
             fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
             self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
@@ -1675,10 +1834,10 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         trading_rule_with_default_values = TradingRule(trading_pair=self.trading_pair)
 
         # The following element can't be left with the default value because that breaks quantization in Cython
-        self.assertNotEqual(
-            trading_rule_with_default_values.min_base_amount_increment, trading_rule.min_base_amount_increment
-        )
-        self.assertNotEqual(trading_rule_with_default_values.min_price_increment, trading_rule.min_price_increment)
+        self.assertNotEqual(trading_rule_with_default_values.min_base_amount_increment,
+                            trading_rule.min_base_amount_increment)
+        self.assertNotEqual(trading_rule_with_default_values.min_price_increment,
+                            trading_rule.min_price_increment)
 
     def test_user_stream_balance_update(self):
         if self.exchange.real_time_balance_update:
@@ -1691,7 +1850,9 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 read_only=True,
             )
 
-            boostrap_message = trade_pb2.Bootstrap(done=done_ack)
+            boostrap_message = trade_pb2.Bootstrap(
+                done=done_ack
+            )
 
             done_message = boostrap_message.SerializeToString()
 
@@ -1728,7 +1889,9 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             read_only=True,
         )
 
-        boostrap_message = trade_pb2.Bootstrap(done=done_ack)
+        boostrap_message = trade_pb2.Bootstrap(
+            done=done_ack
+        )
 
         done_message = boostrap_message.SerializeToString()
 
@@ -1750,7 +1913,9 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         self.assertTrue(order.is_cancelled)
         self.assertTrue(order.is_done)
 
-        self.assertTrue(self.is_logged("INFO", f"Successfully canceled order {order.client_order_id}."))
+        self.assertTrue(
+            self.is_logged("INFO", f"Successfully canceled order {order.client_order_id}.")
+        )
 
     @aioresponses()
     def test_user_stream_update_for_order_full_fill(self, mock_api):
@@ -1774,7 +1939,9 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             read_only=True,
         )
 
-        boostrap_message = trade_pb2.Bootstrap(done=done_ack)
+        boostrap_message = trade_pb2.Bootstrap(
+            done=done_ack
+        )
 
         done_message = boostrap_message.SerializeToString()
 
@@ -1789,7 +1956,9 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         self.exchange._user_stream_tracker._user_stream = mock_queue
 
         if self.is_order_fill_http_update_executed_during_websocket_order_event_processing:
-            self.configure_full_fill_trade_response(order=order, mock_api=mock_api)
+            self.configure_full_fill_trade_response(
+                order=order,
+                mock_api=mock_api)
 
         try:
             self.async_run_with_timeout(self.exchange._user_stream_event_listener())
@@ -1820,7 +1989,12 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         self.assertTrue(order.is_filled)
         self.assertTrue(order.is_done)
 
-        self.assertTrue(self.is_logged("INFO", f"BUY order {order.client_order_id} completely filled."))
+        self.assertTrue(
+            self.is_logged(
+                "INFO",
+                f"BUY order {order.client_order_id} completely filled."
+            )
+        )
 
     def test_user_stream_update_for_new_order(self):
         self.exchange._set_current_timestamp(1640780000)
@@ -1842,7 +2016,9 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             read_only=True,
         )
 
-        boostrap_message = trade_pb2.Bootstrap(done=done_ack)
+        boostrap_message = trade_pb2.Bootstrap(
+            done=done_ack
+        )
 
         done_message = boostrap_message.SerializeToString()
 
@@ -1878,65 +2054,54 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         self.assertEqual("1111111111-11111-11111-11111-1111111111", request_headers["x-api-key"])
 
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
-        return {
-            "result": {
-                "Ack": {
-                    "msgSeqNum": 38377824,
-                    "clientOrderId": order.client_order_id,
-                    "requestId": order.client_order_id,
-                    "transactTime": 1711085861601585726,
-                    "subaccountId": 38393,
-                    "reason": 2,
-                    "marketId": 100006,
-                    "exchangeOrderId": order.exchange_order_id,
-                }
-            }
-        }
+        return {'result': {
+            'Ack': {'msgSeqNum': 38377824, 'clientOrderId': order.client_order_id, 'requestId': order.client_order_id,
+                    'transactTime': 1711085861601585726, 'subaccountId': 38393, 'reason': 2, 'marketId': 100006,
+                    'exchangeOrderId': order.exchange_order_id}}}
 
     def _order_status_request_completely_filled_mock_response(self, order: InFlightOrder) -> Any:
         return {
             "result": {
                 "name": "primary",
-                "orders": [
-                    {
-                        "orderId": order.exchange_order_id,
-                        "marketId": 100006,
-                        "side": "Bid",
-                        "price": str(order.price * Decimal(1e2)),
-                        "qty": 1,
-                        "createdAt": 1711093892075781247,
-                        "filledAt": 1711093947444675299,
-                        "filledTotal": {
+                "orders": [{
+                    "orderId": order.exchange_order_id,
+                    "marketId": 100006,
+                    "side": "Bid",
+                    "price": str(order.price * Decimal(1e2)),
+                    "qty": 1,
+                    "createdAt": 1711093892075781247,
+                    "filledAt": 1711093947444675299,
+                    "filledTotal": {
+                        "baseAmount": str(order.amount * Decimal(1e9)),
+                        "quoteAmount": str((order.amount * (order.price * Decimal(1e2))) * Decimal(1e9)),
+                        "feeAmount": "4000",
+                        "feeAssetId": 5,
+                        "filledAt": 1711093947444675299
+                    },
+                    "fills": [
+                        {
                             "baseAmount": str(order.amount * Decimal(1e9)),
                             "quoteAmount": str((order.amount * (order.price * Decimal(1e2))) * Decimal(1e9)),
                             "feeAmount": "4000",
                             "feeAssetId": 5,
                             "filledAt": 1711093947444675299,
-                        },
-                        "fills": [
-                            {
-                                "baseAmount": str(order.amount * Decimal(1e9)),
-                                "quoteAmount": str((order.amount * (order.price * Decimal(1e2))) * Decimal(1e9)),
-                                "feeAmount": "4000",
-                                "feeAssetId": 5,
-                                "filledAt": 1711093947444675299,
-                                "tradeId": 1280532,
-                                "baseBatchId": "a10f5765-eb88-4c19-bd83-829650aa8cac",
-                                "quoteBatchId": "c78614be-6a60-45e1-a920-4b32224084fb",
-                                "baseSettled": "true",
-                                "quoteSettled": "true",
-                            }
-                        ],
-                        "settled": "true",
-                        "status": "filled",
-                        "clientOrderId": order.client_order_id,
-                        "timeInForce": 1,
-                        "orderType": 0,
-                        "selfTradePrevention": 0,
-                        "cancelOnDisconnect": "false",
-                        "postOnly": "true",
-                    }
-                ],
+                            "tradeId": 1280532,
+                            "baseBatchId": "a10f5765-eb88-4c19-bd83-829650aa8cac",
+                            "quoteBatchId": "c78614be-6a60-45e1-a920-4b32224084fb",
+                            "baseSettled": "true",
+                            "quoteSettled": "true"
+                        }
+                    ],
+                    "settled": "true",
+                    "status": "filled",
+                    "clientOrderId": order.client_order_id,
+                    "timeInForce": 1,
+                    "orderType": 0,
+                    "selfTradePrevention": 0,
+                    "cancelOnDisconnect": "false",
+                    "postOnly": "true"
+                }
+                ]
             }
         }
 
@@ -1944,25 +2109,24 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return {
             "result": {
                 "name": "primary",
-                "orders": [
-                    {
-                        "orderId": order.exchange_order_id,
-                        "marketId": 100006,
-                        "side": "Ask",
-                        "price": str(order.price * Decimal(1e2)),
-                        "qty": int(order.amount * Decimal(1e2)),
-                        "createdAt": 1711094008074744935,
-                        "canceledAt": 1711094115868231244,
-                        "reason": "Requested",
-                        "status": "canceled",
-                        "clientOrderId": order.client_order_id,
-                        "timeInForce": 1,
-                        "orderType": 0,
-                        "selfTradePrevention": 0,
-                        "cancelOnDisconnect": "false",
-                        "postOnly": "true",
-                    },
-                ],
+                "orders": [{
+                    "orderId": order.exchange_order_id,
+                    "marketId": 100006,
+                    "side": "Ask",
+                    "price": str(order.price * Decimal(1e2)),
+                    "qty": int(order.amount * Decimal(1e2)),
+                    "createdAt": 1711094008074744935,
+                    "canceledAt": 1711094115868231244,
+                    "reason": "Requested",
+                    "status": "canceled",
+                    "clientOrderId": order.client_order_id,
+                    "timeInForce": 1,
+                    "orderType": 0,
+                    "selfTradePrevention": 0,
+                    "cancelOnDisconnect": "false",
+                    "postOnly": "true"
+                },
+                ]
             }
         }
 
@@ -1970,25 +2134,24 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return {
             "result": {
                 "name": "primary",
-                "orders": [
-                    {
-                        "orderId": order.exchange_order_id,
-                        "marketId": 100006,
-                        "side": "Ask",
-                        "price": str(order.price * Decimal(1e2)),
-                        "qty": int(order.amount * Decimal(1e2)),
-                        "createdAt": 1711094008074744935,
-                        "canceledAt": 1711094115868231244,
-                        "reason": "Requested",
-                        "status": "open",
-                        "clientOrderId": order.client_order_id,
-                        "timeInForce": 1,
-                        "orderType": 0,
-                        "selfTradePrevention": 0,
-                        "cancelOnDisconnect": "false",
-                        "postOnly": "true",
-                    },
-                ],
+                "orders": [{
+                    "orderId": order.exchange_order_id,
+                    "marketId": 100006,
+                    "side": "Ask",
+                    "price": str(order.price * Decimal(1e2)),
+                    "qty": int(order.amount * Decimal(1e2)),
+                    "createdAt": 1711094008074744935,
+                    "canceledAt": 1711094115868231244,
+                    "reason": "Requested",
+                    "status": "open",
+                    "clientOrderId": order.client_order_id,
+                    "timeInForce": 1,
+                    "orderType": 0,
+                    "selfTradePrevention": 0,
+                    "cancelOnDisconnect": "false",
+                    "postOnly": "true"
+                },
+                ]
             }
         }
 
@@ -1996,46 +2159,47 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return {
             "result": {
                 "name": "primary",
-                "orders": [
-                    {
-                        "orderId": order.exchange_order_id,
-                        "marketId": 100006,
-                        "side": "Bid",
-                        "price": str(order.price * Decimal(1e2)),
-                        "qty": str(order.amount * Decimal(1e2)),
-                        "createdAt": 1711093892075781247,
-                        "filledAt": 1711093947444675299,
-                        "filledTotal": {
+                "orders": [{
+                    "orderId": order.exchange_order_id,
+                    "marketId": 100006,
+                    "side": "Bid",
+                    "price": str(order.price * Decimal(1e2)),
+                    "qty": str(order.amount * Decimal(1e2)),
+                    "createdAt": 1711093892075781247,
+                    "filledAt": 1711093947444675299,
+                    "filledTotal": {
+                        "baseAmount": str(self.expected_partial_fill_amount * Decimal(1e9)),
+                        "quoteAmount": str(
+                            (self.expected_partial_fill_amount * order.price) * Decimal(1e9)),
+                        "feeAmount": "4000",
+                        "feeAssetId": 5,
+                        "filledAt": 1711093947444675299
+                    },
+                    "fills": [
+                        {
                             "baseAmount": str(self.expected_partial_fill_amount * Decimal(1e9)),
-                            "quoteAmount": str((self.expected_partial_fill_amount * order.price) * Decimal(1e9)),
+                            "quoteAmount": str(
+                                (self.expected_partial_fill_amount * order.price) * Decimal(1e9)),
                             "feeAmount": "4000",
                             "feeAssetId": 5,
                             "filledAt": 1711093947444675299,
-                        },
-                        "fills": [
-                            {
-                                "baseAmount": str(self.expected_partial_fill_amount * Decimal(1e9)),
-                                "quoteAmount": str((self.expected_partial_fill_amount * order.price) * Decimal(1e9)),
-                                "feeAmount": "4000",
-                                "feeAssetId": 5,
-                                "filledAt": 1711093947444675299,
-                                "tradeId": 1280532,
-                                "baseBatchId": "a10f5765-eb88-4c19-bd83-829650aa8cac",
-                                "quoteBatchId": "c78614be-6a60-45e1-a920-4b32224084fb",
-                                "baseSettled": "true",
-                                "quoteSettled": "true",
-                            }
-                        ],
-                        "settled": "true",
-                        "status": "p-filled",
-                        "clientOrderId": order.client_order_id,
-                        "timeInForce": 1,
-                        "orderType": 0,
-                        "selfTradePrevention": 0,
-                        "cancelOnDisconnect": "false",
-                        "postOnly": "true",
-                    }
-                ],
+                            "tradeId": 1280532,
+                            "baseBatchId": "a10f5765-eb88-4c19-bd83-829650aa8cac",
+                            "quoteBatchId": "c78614be-6a60-45e1-a920-4b32224084fb",
+                            "baseSettled": "true",
+                            "quoteSettled": "true"
+                        }
+                    ],
+                    "settled": "true",
+                    "status": "p-filled",
+                    "clientOrderId": order.client_order_id,
+                    "timeInForce": 1,
+                    "orderType": 0,
+                    "selfTradePrevention": 0,
+                    "cancelOnDisconnect": "false",
+                    "postOnly": "true"
+                }
+                ]
             }
         }
 
@@ -2049,18 +2213,16 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                         "tradeId": self.expected_fill_trade_id,
                         "orderId": int(order.exchange_order_id),
                         "baseAmount": str(self.expected_partial_fill_amount * Decimal(1e9)),
-                        "quoteAmount": str(
-                            (self.expected_partial_fill_amount * self.expected_partial_fill_price) * Decimal(1e9)
-                        ),
+                        "quoteAmount": str((self.expected_partial_fill_amount * self.expected_partial_fill_price) * Decimal(1e9)),
                         "feeAmount": str(self.expected_fill_fee.flat_fees[0].amount * Decimal(1e9)),
                         "feeAssetId": 5,
                         "filledAt": 1711093947444675299,
                         "side": "Bid",
                         "aggressingSide": "Ask",
                         "price": str(self.expected_partial_fill_price),
-                        "quantity": 1,
+                        "quantity": 1
                     }
-                ],
+                ]
             }
         }
 
@@ -2081,9 +2243,9 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                         "side": "Bid",
                         "aggressingSide": "Ask",
                         "price": str(order.price),
-                        "quantity": 1,
+                        "quantity": 1
                     }
-                ],
+                ]
             }
         }
 

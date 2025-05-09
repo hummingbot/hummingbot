@@ -396,13 +396,15 @@ class AscendExExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         return all_urls
 
     def configure_order_not_found_error_cancelation_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         # Implement the expected not found response when enabling test_cancel_order_not_found_in_the_exchange
         raise NotImplementedError
 
     def configure_order_not_found_error_order_status_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
         # Implement the expected not found response when enabling
         # test_lost_order_removed_if_not_found_during_order_status_update
@@ -1081,9 +1083,9 @@ class AscendExExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
 
         creation_response = self.order_creation_request_successful_mock_response
 
-        mock_api.post(
-            url, body=json.dumps(creation_response), callback=lambda *args, **kwargs: request_sent_event.set()
-        )
+        mock_api.post(url,
+                      body=json.dumps(creation_response),
+                      callback=lambda *args, **kwargs: request_sent_event.set())
 
         order_id = self.place_buy_market_order()
         self.async_run_with_timeout(request_sent_event.wait())
@@ -1110,6 +1112,6 @@ class AscendExExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
             self.is_logged(
                 "INFO",
                 f"Created {OrderType.MARKET.name} {TradeType.BUY.name} order {order_id} for "
-                f"{Decimal('100.000000')} {self.trading_pair} at {Decimal('10000')}.",
+                f"{Decimal('100.000000')} {self.trading_pair} at {Decimal('10000')}."
             )
         )

@@ -8,26 +8,26 @@ import hummingbot.strategy.twap.twap_config_map as twap_config_map_module
 class TwapConfigMapTests(TestCase):
 
     def test_string_to_boolean_conversion(self):
-        true_variants = ["Yes", "YES", "yes", "y", "Y", "true", "True", "TRUE", "t", "T", "1"]
+        true_variants = ["Yes", "YES", "yes", "y", "Y",
+                         "true", "True", "TRUE", "t", "T",
+                         "1"]
         for variant in true_variants:
             self.assertTrue(twap_config_map_module.str2bool(variant))
 
-        false_variants = ["No", "NO", "no", "n", "N", "false", "False", "FALSE", "f", "F", "0"]
+        false_variants = ["No", "NO", "no", "n", "N",
+                          "false", "False", "FALSE", "f", "F",
+                          "0"]
         for variant in false_variants:
             self.assertFalse(twap_config_map_module.str2bool(variant))
 
     def test_trading_pair_prompt(self):
         twap_config_map_module.twap_config_map.get("connector").value = "binance"
-        self.assertEqual(
-            twap_config_map_module.trading_pair_prompt(),
-            "Enter the token trading pair you would like to trade on binance (e.g. ZRX-ETH) >>> ",
-        )
+        self.assertEqual(twap_config_map_module.trading_pair_prompt(),
+                         "Enter the token trading pair you would like to trade on binance (e.g. ZRX-ETH) >>> ")
 
         twap_config_map_module.twap_config_map.get("connector").value = "undefined-exchange"
-        self.assertEqual(
-            twap_config_map_module.trading_pair_prompt(),
-            "Enter the token trading pair you would like to trade on undefined-exchange >>> ",
-        )
+        self.assertEqual(twap_config_map_module.trading_pair_prompt(),
+                         "Enter the token trading pair you would like to trade on undefined-exchange >>> ")
 
     def test_trading_pair_validation(self):
         twap_config_map_module.twap_config_map.get("connector").value = "binance"
@@ -36,16 +36,12 @@ class TwapConfigMapTests(TestCase):
     def test_target_asset_amount_prompt(self):
         twap_config_map_module.twap_config_map.get("trading_pair").value = "BTC-USDT"
         twap_config_map_module.twap_config_map.get("trade_side").value = "buy"
-        self.assertEqual(
-            twap_config_map_module.target_asset_amount_prompt(),
-            "What is the total amount of BTC to be traded? (Default is 1.0) >>> ",
-        )
+        self.assertEqual(twap_config_map_module.target_asset_amount_prompt(),
+                         "What is the total amount of BTC to be traded? (Default is 1.0) >>> ")
 
         twap_config_map_module.twap_config_map.get("trade_side").value = "sell"
-        self.assertEqual(
-            twap_config_map_module.target_asset_amount_prompt(),
-            "What is the total amount of BTC to be traded? (Default is 1.0) >>> ",
-        )
+        self.assertEqual(twap_config_map_module.target_asset_amount_prompt(),
+                         "What is the total amount of BTC to be traded? (Default is 1.0) >>> ")
 
     def test_trade_side_config(self):
         config_var = twap_config_map_module.twap_config_map.get("trade_side")
@@ -89,4 +85,5 @@ class TwapConfigMapTests(TestCase):
         # Test order_step_size value greater than target_asset_amount
         twap_config_map_module.twap_config_map.get("target_asset_amount").value = Decimal("1.0")
         validate_order_step_size = twap_config_map_module.validate_order_step_size("1.1")
-        self.assertEqual(validate_order_step_size, "Order step size cannot be greater than the total trade amount.")
+        self.assertEqual(validate_order_step_size,
+                         "Order step size cannot be greater than the total trade amount.")

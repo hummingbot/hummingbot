@@ -36,30 +36,35 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
             self.clock.current_timestamp,
             TradeType.BUY if is_buy else TradeType.SELL,
             price,
-            quantity,
+            quantity
         )
         order_book.apply_trade(trade_event)
 
     def setUp(self):
         self.clock_tick_size = 1
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
-        self.market: MockPaperExchange = MockPaperExchange(client_config_map=ClientConfigAdapter(ClientConfigMap()))
+        self.market: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
+        )
         self.mid_price = 100
         self.bid_spread = 0.01
         self.ask_spread = 0.01
         self.order_refresh_time = 30
-        self.market.set_balanced_order_book(
-            trading_pair=self.trading_pair,
-            mid_price=self.mid_price,
-            min_price=1,
-            max_price=200,
-            price_step_size=1,
-            volume_step_size=10,
-        )
+        self.market.set_balanced_order_book(trading_pair=self.trading_pair,
+                                            mid_price=self.mid_price,
+                                            min_price=1,
+                                            max_price=200,
+                                            price_step_size=1,
+                                            volume_step_size=10)
         self.market.set_balance("HBOT", 500)
         self.market.set_balance("ETH", 5000)
-        self.market.set_quantization_param(QuantizationParams(self.trading_pair, 6, 6, 6, 6))
-        self.market_info = MarketTradingPairTuple(self.market, self.trading_pair, self.base_asset, self.quote_asset)
+        self.market.set_quantization_param(
+            QuantizationParams(
+                self.trading_pair, 6, 6, 6, 6
+            )
+        )
+        self.market_info = MarketTradingPairTuple(self.market, self.trading_pair,
+                                                  self.base_asset, self.quote_asset)
         self.clock.add_iterator(self.market)
         self.maker_order_fill_logger: EventLogger = EventLogger()
         self.cancel_order_logger: EventLogger = EventLogger()
@@ -76,7 +81,7 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
             filled_order_delay=8,
             hanging_orders_enabled=True,
             hanging_orders_cancel_pct=0.05,
-            order_refresh_tolerance_pct=0,
+            order_refresh_tolerance_pct=0
         )
         self.multi_levels_strategy: PureMarketMakingStrategy = PureMarketMakingStrategy()
         self.multi_levels_strategy.init_params(
@@ -88,7 +93,7 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
             order_level_spread=Decimal("0.01"),
             order_refresh_time=4,
             filled_order_delay=8,
-            order_refresh_tolerance_pct=0,
+            order_refresh_tolerance_pct=0
         )
         self.hanging_order_multiple_strategy = PureMarketMakingStrategy()
         self.hanging_order_multiple_strategy.init_params(
@@ -101,7 +106,7 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
             order_refresh_time=4,
             filled_order_delay=8,
             order_refresh_tolerance_pct=0,
-            hanging_orders_enabled=True,
+            hanging_orders_enabled=True
         )
 
     def test_active_orders_are_cancelled_when_mid_price_moves(self):
@@ -118,9 +123,8 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
         self.assertEqual(1, len(strategy.active_sells))
         self.assertEqual(old_bid.client_order_id, strategy.active_buys[0].client_order_id)
         self.assertEqual(old_ask.client_order_id, strategy.active_sells[0].client_order_id)
-        self.market.order_books[self.trading_pair].apply_diffs(
-            [OrderBookRow(99.5, 30, 2)], [OrderBookRow(100.1, 30, 2)], 2
-        )
+        self.market.order_books[self.trading_pair].apply_diffs([OrderBookRow(99.5, 30, 2)],
+                                                               [OrderBookRow(100.1, 30, 2)], 2)
         self.clock.backtest_til(self.start_timestamp + 6 * self.clock_tick_size)
         new_bid = strategy.active_buys[0]
         new_ask = strategy.active_sells[0]
@@ -160,9 +164,8 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
         self.assertEqual(5, len(strategy.active_sells))
         old_buys = strategy.active_buys
         old_sells = strategy.active_sells
-        self.market.order_books[self.trading_pair].apply_diffs(
-            [OrderBookRow(99.5, 30, 2)], [OrderBookRow(100.1, 30, 2)], 2
-        )
+        self.market.order_books[self.trading_pair].apply_diffs([OrderBookRow(99.5, 30, 2)],
+                                                               [OrderBookRow(100.1, 30, 2)], 2)
         self.clock.backtest_til(self.start_timestamp + 6 * self.clock_tick_size)
         new_buys = strategy.active_buys
         new_sells = strategy.active_sells
@@ -225,9 +228,8 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
         self.assertEqual(1, len(strategy.hanging_order_ids))
 
         # Check all hanging order ids are indeed in active bids list
-        self.assertTrue(
-            all(h in [order.client_order_id for order in strategy.active_buys] for h in strategy.hanging_order_ids)
-        )
+        self.assertTrue(all(h in [order.client_order_id for order in strategy.active_buys]
+                            for h in strategy.hanging_order_ids))
 
         old_buys = [o for o in strategy.active_buys if o.client_order_id not in strategy.hanging_order_ids]
         old_sells = [o for o in strategy.active_sells if o.client_order_id not in strategy.hanging_order_ids]

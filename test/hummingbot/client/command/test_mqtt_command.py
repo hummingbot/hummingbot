@@ -21,7 +21,7 @@ class RemoteIfaceMQTTTests(IsolatedAsyncioWrapperTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.instance_id = "TEST_ID"
+        cls.instance_id = 'TEST_ID'
         cls.fake_err_msg = "Some error"
         cls.client_config_map = ClientConfigAdapter(ClientConfigMap())
         cls.hbapp = HummingbotApplication(client_config_map=cls.client_config_map)
@@ -45,12 +45,16 @@ class RemoteIfaceMQTTTests(IsolatedAsyncioWrapperTestCase):
         self.hbapp.logger().setLevel(1)
         self.hbapp.logger().addHandler(self)
         # MQTT Transport Patcher
-        self.mqtt_transport_patcher = patch("commlib.transports.mqtt.MQTTTransport")
+        self.mqtt_transport_patcher = patch(
+            'commlib.transports.mqtt.MQTTTransport'
+        )
         self.addCleanup(self.mqtt_transport_patcher.stop)
         self.mqtt_transport_mock = self.mqtt_transport_patcher.start()
         self.mqtt_transport_mock.side_effect = self.fake_mqtt_broker.create_transport
         # MQTT Patch Loggers Patcher
-        self.patch_loggers_patcher = patch("hummingbot.remote_iface.mqtt.MQTTGateway.patch_loggers")
+        self.patch_loggers_patcher = patch(
+            'hummingbot.remote_iface.mqtt.MQTTGateway.patch_loggers'
+        )
         self.addCleanup(self.patch_loggers_patcher.stop)
         self.patch_loggers_mock = self.patch_loggers_patcher.start()
         self.patch_loggers_mock.return_value = None
@@ -76,9 +80,7 @@ class RemoteIfaceMQTTTests(IsolatedAsyncioWrapperTestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(
-            record.levelname == log_level and str(record.getMessage()) == str(message) for record in self.log_records
-        )
+        return any(record.levelname == log_level and str(record.getMessage()) == str(message) for record in self.log_records)
 
     async def wait_for_logged(self, log_level: str, message: str):
         try:
@@ -110,7 +112,7 @@ class RemoteIfaceMQTTTests(IsolatedAsyncioWrapperTestCase):
         await self.hbapp.start_mqtt_async()
         await self.wait_for_logged("INFO", "MQTT Bridge connected with success.")
 
-    @patch("hummingbot.remote_iface.mqtt.MQTTGateway.start")
+    @patch('hummingbot.remote_iface.mqtt.MQTTGateway.start')
     async def test_start_mqtt_command_fails(
         self,
         mqtt_start_mock: MagicMock,
@@ -119,10 +121,8 @@ class RemoteIfaceMQTTTests(IsolatedAsyncioWrapperTestCase):
         await self.hbapp.start_mqtt_async()
         await self.wait_for_logged("ERROR", f"Failed to connect MQTT Bridge: {self.fake_err_msg}")
 
-    @patch(
-        "hummingbot.client.command.mqtt_command.MQTTCommand._mqtt_sleep_rate_autostart_retry", new_callable=PropertyMock
-    )
-    @patch("hummingbot.remote_iface.mqtt.MQTTGateway.health", new_callable=PropertyMock)
+    @patch('hummingbot.client.command.mqtt_command.MQTTCommand._mqtt_sleep_rate_autostart_retry', new_callable=PropertyMock)
+    @patch('hummingbot.remote_iface.mqtt.MQTTGateway.health', new_callable=PropertyMock)
     async def test_start_mqtt_command_retries_with_autostart(
         self,
         mqtt_health_mock: PropertyMock,
@@ -134,7 +134,8 @@ class RemoteIfaceMQTTTests(IsolatedAsyncioWrapperTestCase):
         self.hbapp.mqtt_start()
         await self.async_run_with_timeout(self.resume_test_event.wait())
         await self.wait_for_logged(
-            "ERROR", f"Failed to connect MQTT Bridge: {self.fake_err_msg}. Retrying in 0.0 seconds."
+            "ERROR",
+            f"Failed to connect MQTT Bridge: {self.fake_err_msg}. Retrying in 0.0 seconds."
         )
         mqtt_health_mock.side_effect = lambda: True
         await self.wait_for_logged("INFO", "MQTT Bridge connected with success.")

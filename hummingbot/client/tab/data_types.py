@@ -13,7 +13,6 @@ class CommandTab:
     """
     Defines all data points for a tab.
     """
-
     name: str  # Command name of the tab
     button: Optional[Button]  # Tab toggle button
     close_button: Optional[Button]  # Tab close button

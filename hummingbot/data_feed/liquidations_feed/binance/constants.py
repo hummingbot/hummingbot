@@ -10,10 +10,6 @@ REQUEST_WEIGHT = "REQUEST_WEIGHT"
 
 RATE_LIMITS = [
     RateLimit(HEALTH_CHECK_ENDPOINT, limit=1200, time_interval=60, linked_limits=[LinkedLimitWeightPair("raw", 1)]),
-    RateLimit(
-        limit_id=EXCHANGE_INFO,
-        limit=1200,
-        time_interval=60,
-        linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=40)],
-    ),
+    RateLimit(limit_id=EXCHANGE_INFO, limit=1200, time_interval=60,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=40)]),
 ]

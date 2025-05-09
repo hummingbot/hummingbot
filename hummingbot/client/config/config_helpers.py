@@ -260,7 +260,6 @@ class ClientConfigAdapter:
 
     def _encrypt_secrets(self, conf_dict: Dict[str, Any]):
         from hummingbot.client.config.security import Security  # avoids circular import
-
         for attr, value in conf_dict.items():
             if isinstance(value, SecretStr):
                 clear_text_value = value.get_secret_value() if isinstance(value, SecretStr) else value
@@ -268,7 +267,6 @@ class ClientConfigAdapter:
 
     def _decrypt_secrets(self, conf_dict: Dict[str, Any]):
         from hummingbot.client.config.security import Security  # avoids circular import
-
         for attr, value in conf_dict.items():
             attr_type = self._hb_config.model_fields[attr].annotation
             if attr_type == SecretStr:
@@ -388,15 +386,33 @@ def base_client_model_representer(dumper: SafeDumper, data: BaseClientModel):
     return dumper.represent_dict(dictionary_representation)
 
 
-yaml.add_representer(data_type=Decimal, representer=decimal_representer, Dumper=SafeDumper)
-yaml.add_multi_representer(data_type=ClientConfigEnum, multi_representer=enum_representer, Dumper=SafeDumper)
-yaml.add_representer(data_type=date, representer=date_representer, Dumper=SafeDumper)
-yaml.add_representer(data_type=time, representer=time_representer, Dumper=SafeDumper)
-yaml.add_representer(data_type=datetime, representer=datetime_representer, Dumper=SafeDumper)
-yaml.add_representer(data_type=Path, representer=path_representer, Dumper=SafeDumper)
-yaml.add_representer(data_type=PosixPath, representer=path_representer, Dumper=SafeDumper)
-yaml.add_representer(data_type=CommandShortcutModel, representer=command_shortcut_representer, Dumper=SafeDumper)
-yaml.add_representer(data_type=ClientConfigAdapter, representer=client_config_adapter_representer, Dumper=SafeDumper)
+yaml.add_representer(
+    data_type=Decimal, representer=decimal_representer, Dumper=SafeDumper
+)
+yaml.add_multi_representer(
+    data_type=ClientConfigEnum, multi_representer=enum_representer, Dumper=SafeDumper
+)
+yaml.add_representer(
+    data_type=date, representer=date_representer, Dumper=SafeDumper
+)
+yaml.add_representer(
+    data_type=time, representer=time_representer, Dumper=SafeDumper
+)
+yaml.add_representer(
+    data_type=datetime, representer=datetime_representer, Dumper=SafeDumper
+)
+yaml.add_representer(
+    data_type=Path, representer=path_representer, Dumper=SafeDumper
+)
+yaml.add_representer(
+    data_type=PosixPath, representer=path_representer, Dumper=SafeDumper
+)
+yaml.add_representer(
+    data_type=CommandShortcutModel, representer=command_shortcut_representer, Dumper=SafeDumper
+)
+yaml.add_representer(
+    data_type=ClientConfigAdapter, representer=client_config_adapter_representer, Dumper=SafeDumper
+)
 yaml.add_multi_representer(
     data_type=BaseClientModel, multi_representer=base_client_model_representer, Dumper=SafeDumper
 )
@@ -411,43 +427,43 @@ def parse_cvar_value(cvar: ConfigVar, value: Any) -> Any:
     """
     if value is None:
         return None
-    elif cvar.type == "str":
+    elif cvar.type == 'str':
         return str(value)
-    elif cvar.type == "list":
+    elif cvar.type == 'list':
         if isinstance(value, str):
             if len(value) == 0:
                 return []
-            filtered: filter = filter(lambda x: x not in ["[", "]", '"', "'"], list(value))
+            filtered: filter = filter(lambda x: x not in ['[', ']', '"', "'"], list(value))
             value = "".join(filtered).split(",")  # create csv and generate list
             return [s.strip() for s in value]  # remove leading and trailing whitespaces
         else:
             return value
-    elif cvar.type == "json":
+    elif cvar.type == 'json':
         if isinstance(value, str):
             value_json = value.replace("'", '"')  # replace single quotes with double quotes for valid JSON
             cvar_value = json.loads(value_json)
         else:
             cvar_value = value
         return cvar_json_migration(cvar, cvar_value)
-    elif cvar.type == "float":
+    elif cvar.type == 'float':
         try:
             return float(value)
         except Exception:
-            logging.getLogger().error(f'"{value}" is not valid float.', exc_info=True)
+            logging.getLogger().error(f"\"{value}\" is not valid float.", exc_info=True)
             return value
-    elif cvar.type == "decimal":
+    elif cvar.type == 'decimal':
         try:
             return Decimal(str(value))
         except Exception:
-            logging.getLogger().error(f'"{value}" is not valid decimal.', exc_info=True)
+            logging.getLogger().error(f"\"{value}\" is not valid decimal.", exc_info=True)
             return value
-    elif cvar.type == "int":
+    elif cvar.type == 'int':
         try:
             return int(value)
         except Exception:
-            logging.getLogger().error(f'"{value}" is not an integer.', exc_info=True)
+            logging.getLogger().error(f"\"{value}\" is not an integer.", exc_info=True)
             return value
-    elif cvar.type == "bool":
+    elif cvar.type == 'bool':
         if isinstance(value, str) and value.lower() in ["true", "yes", "y"]:
             return True
         elif isinstance(value, str) and value.lower() in ["false", "no", "n"]:
@@ -480,7 +496,7 @@ def parse_cvar_default_value_prompt(cvar: ConfigVar) -> str:
         default = ""
     elif callable(cvar.default):
         default = cvar.default()
-    elif cvar.type == "bool" and isinstance(cvar.prompt, str) and "Yes/No" in cvar.prompt:
+    elif cvar.type == 'bool' and isinstance(cvar.prompt, str) and "Yes/No" in cvar.prompt:
         default = "Yes" if cvar.default else "No"
     else:
         default = str(cvar.default)
@@ -526,11 +542,14 @@ def _merge_dicts(*args: Dict[str, ConfigVar]) -> OrderedDict:
 
 def get_connector_class(connector_name: str) -> Callable:
     conn_setting = AllConnectorSettings.get_connector_settings()[connector_name]
-    mod = __import__(conn_setting.module_path(), fromlist=[conn_setting.class_name()])
+    mod = __import__(conn_setting.module_path(),
+                     fromlist=[conn_setting.class_name()])
     return getattr(mod, conn_setting.class_name())
 
 
-def get_strategy_config_map(strategy: str) -> Optional[Union[ClientConfigAdapter, Dict[str, ConfigVar]]]:
+def get_strategy_config_map(
+    strategy: str
+) -> Optional[Union[ClientConfigAdapter, Dict[str, ConfigVar]]]:
     """
     Given the name of a strategy, find and load strategy-specific config map.
     """
@@ -538,9 +557,8 @@ def get_strategy_config_map(strategy: str) -> Optional[Union[ClientConfigAdapter
         config_cls = get_strategy_pydantic_config_cls(strategy)
         if config_cls is None:  # legacy
             cm_key = f"{strategy}_config_map"
-            strategy_module = __import__(
-                f"hummingbot.strategy.{strategy}.{cm_key}", fromlist=[f"hummingbot.strategy.{strategy}"]
-            )
+            strategy_module = __import__(f"hummingbot.strategy.{strategy}.{cm_key}",
+                                         fromlist=[f"hummingbot.strategy.{strategy}"])
             config_map = getattr(strategy_module, cm_key)
         else:
             hb_config = config_cls.model_construct()
@@ -558,9 +576,8 @@ def get_strategy_starter_file(strategy: str) -> Callable:
     if strategy is None:
         return lambda: None
     try:
-        strategy_module = __import__(
-            f"hummingbot.strategy.{strategy}.start", fromlist=[f"hummingbot.strategy.{strategy}"]
-        )
+        strategy_module = __import__(f"hummingbot.strategy.{strategy}.start",
+                                     fromlist=[f"hummingbot.strategy.{strategy}"])
         return getattr(strategy_module, "start")
     except Exception as e:
         logging.getLogger().error(e, exc_info=True)
@@ -602,9 +619,8 @@ def get_strategy_pydantic_config_cls(strategy_name: str):
         pydantic_cm_path = root_path() / "hummingbot" / "strategy" / strategy_name / f"{pydantic_cm_pkg}.py"
         if pydantic_cm_path.exists():
             pydantic_cm_class_name = f"{''.join([s.capitalize() for s in strategy_name.split('_')])}ConfigMap"
-            pydantic_cm_mod = __import__(
-                f"hummingbot.strategy.{strategy_name}.{pydantic_cm_pkg}", fromlist=[f"{pydantic_cm_class_name}"]
-            )
+            pydantic_cm_mod = __import__(f"hummingbot.strategy.{strategy_name}.{pydantic_cm_pkg}",
+                                         fromlist=[f"{pydantic_cm_class_name}"])
             pydantic_cm_class = getattr(pydantic_cm_mod, pydantic_cm_class_name)
     except ImportError:
         logging.getLogger().exception(f"Could not import Pydantic configs for {strategy_name}.")
@@ -690,8 +706,7 @@ def get_connector_config_yml_path(connector_name: str) -> Path:
 
 def list_connector_configs() -> List[Path]:
     connector_configs = [
-        Path(f.path)
-        for f in scandir(str(CONNECTORS_CONF_DIR_PATH))
+        Path(f.path) for f in scandir(str(CONNECTORS_CONF_DIR_PATH))
         if f.is_file() and not f.name.startswith("_") and not f.name.startswith(".")
     ]
     return connector_configs
@@ -768,7 +783,8 @@ async def load_yml_into_cm_legacy(yml_path: str, template_file_path: str, cm: Di
             # save the old variables into the new config file
             save_to_yml_legacy(yml_path, cm)
     except Exception as e:
-        logging.getLogger().error("Error loading configs. Your config file may be corrupt. %s" % (e,), exc_info=True)
+        logging.getLogger().error("Error loading configs. Your config file may be corrupt. %s" % (e,),
+                                  exc_info=True)
 
 
 async def read_system_configs_from_yml():
@@ -892,7 +908,11 @@ def short_strategy_name(strategy: str) -> str:
 
 
 def all_configs_complete(strategy_config: Union[ClientConfigAdapter, Dict], client_config_map: ClientConfigAdapter):
-    return config_map_complete_legacy(strategy_config) if isinstance(strategy_config, Dict) else True
+    return (
+        config_map_complete_legacy(strategy_config)
+        if isinstance(strategy_config, Dict)
+        else True
+    )
 
 
 def config_map_complete_legacy(config_map):
@@ -918,7 +938,7 @@ def parse_config_default_to_text(config: ConfigVar) -> str:
         default = ""
     elif callable(config.default):
         default = config.default()
-    elif config.type == "bool" and isinstance(config.prompt, str) and "Yes/No" in config.prompt:
+    elif config.type == 'bool' and isinstance(config.prompt, str) and "Yes/No" in config.prompt:
         default = "Yes" if config.default else "No"
     else:
         default = str(config.default)

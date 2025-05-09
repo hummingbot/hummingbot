@@ -28,15 +28,13 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
     _trading_pair_symbol_map: Dict[str, Mapping[str, str]] = {}
     _mapping_initialization_lock = asyncio.Lock()
 
-    def __init__(
-        self,
-        trading_pairs: List[str],
-        connector: "BybitExchange",
-        api_factory: Optional[WebAssistantsFactory] = None,
-        domain: str = CONSTANTS.DEFAULT_DOMAIN,
-        throttler: Optional[AsyncThrottler] = None,
-        time_synchronizer: Optional[TimeSynchronizer] = None,
-    ):
+    def __init__(self,
+                 trading_pairs: List[str],
+                 connector: 'BybitExchange',
+                 api_factory: Optional[WebAssistantsFactory] = None,
+                 domain: str = CONSTANTS.DEFAULT_DOMAIN,
+                 throttler: Optional[AsyncThrottler] = None,
+                 time_synchronizer: Optional[TimeSynchronizer] = None):
         super().__init__(trading_pairs)
         self._connector = connector
         self._domain = domain
@@ -52,7 +50,9 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._category = "spot"
         self._depth = CONSTANTS.SPOT_ORDER_BOOK_DEPTH
 
-    async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
+    async def get_last_traded_prices(self,
+                                     trading_pairs: List[str],
+                                     domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
@@ -66,18 +66,22 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         params = {
             "category": self._category,
             "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
-            "limit": "1000",
+            "limit": "1000"
         }
         data = await self._connector._api_request(
-            path_url=CONSTANTS.SNAPSHOT_PATH_URL, method=RESTMethod.GET, params=params
+            path_url=CONSTANTS.SNAPSHOT_PATH_URL,
+            method=RESTMethod.GET,
+            params=params
         )
-        return data["result"]
+        return data['result']
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
         snapshot_timestamp: float = float(snapshot["ts"]) * 1e-3
         snapshot_msg: OrderBookMessage = BybitOrderBook.snapshot_message_from_exchange_rest(
-            snapshot, snapshot_timestamp, metadata={"trading_pair": trading_pair}
+            snapshot,
+            snapshot_timestamp,
+            metadata={"trading_pair": trading_pair}
         )
         return snapshot_msg
 
@@ -86,14 +90,19 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         for trade in data:
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=trade["s"])
             trade_message: OrderBookMessage = BybitOrderBook.trade_message_from_exchange(
-                trade, {"trading_pair": trading_pair}
+                trade,
+                {"trading_pair": trading_pair}
             )
             message_queue.put_nowait(trade_message)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["data"]["s"])
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
+            symbol=raw_message["data"]["s"]
+        )
         order_book_message: OrderBookMessage = BybitOrderBook.diff_message_from_exchange(
-            raw_message["data"], raw_message["ts"] * 1e-3, {"trading_pair": trading_pair}
+            raw_message['data'],
+            raw_message["ts"] * 1e-3,
+            {"trading_pair": trading_pair}
         )
         message_queue.put_nowait(order_book_message)
 
@@ -132,13 +141,14 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                 while True:
                     try:
-                        seconds_until_next_ping = CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL - (
-                            self._time() - self._last_ws_message_sent_timestamp
-                        )
+                        seconds_until_next_ping = (CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL - (
+                            self._time() - self._last_ws_message_sent_timestamp))
                         await asyncio.wait_for(self._process_ws_messages(ws=ws), timeout=seconds_until_next_ping)
                     except asyncio.TimeoutError:
                         ping_time = self._time()
-                        payload = {"op": "ping"}
+                        payload = {
+                            "op": "ping"
+                        }
                         ping_request = WSJSONRequest(payload=payload)
                         await ws.send(request=ping_request)
                         self._last_ws_message_sent_timestamp = ping_time
@@ -162,11 +172,17 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
             for trading_pair in self._trading_pairs:
                 symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
                 trade_topic = self._get_trade_topic_from_symbol(symbol)
-                trade_payload = {"op": "subscribe", "args": [trade_topic]}
+                trade_payload = {
+                    "op": "subscribe",
+                    "args": [trade_topic]
+                }
                 subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trade_payload)
 
                 orderbook_topic = self._get_ob_topic_from_symbol(symbol, self._depth)
-                orderbook_payload = {"op": "subscribe", "args": [orderbook_topic]}
+                orderbook_payload = {
+                    "op": "subscribe",
+                    "args": [orderbook_topic]
+                }
                 subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=orderbook_payload)
 
                 await ws.send(subscribe_trade_request)
@@ -177,7 +193,8 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
             raise
         except Exception:
             self.logger().error(
-                "Unexpected error occurred subscribing to order book trading and delta streams...", exc_info=True
+                "Unexpected error occurred subscribing to order book trading and delta streams...",
+                exc_info=True
             )
             raise
 
@@ -188,7 +205,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 if data.get("success") is False:
                     self.logger().error(
                         "Unexpected error occurred subscribing to order book trading and delta streams...",
-                        exc_info=True,
+                        exc_info=True
                     )
                 continue
             event_type = data.get("type")
@@ -210,10 +227,10 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 json_msg = await message_queue.get()
                 data = json_msg["data"]
-                trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=data["s"])
+                trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
+                    symbol=data["s"])
                 order_book_message: OrderBookMessage = BybitOrderBook.snapshot_message_from_exchange_websocket(
-                    data, json_msg["ts"], {"trading_pair": trading_pair}
-                )
+                    data, json_msg["ts"], {"trading_pair": trading_pair})
                 snapshot_queue.put_nowait(order_book_message)
             except asyncio.CancelledError:
                 raise
@@ -227,14 +244,17 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair=trading_pair)
                 snapshot_timestamp: float = float(snapshot["ts"]) * 1e-3
                 snapshot_msg: OrderBookMessage = BybitOrderBook.snapshot_message_from_exchange_rest(
-                    snapshot, snapshot_timestamp, metadata={"trading_pair": trading_pair}
+                    snapshot,
+                    snapshot_timestamp,
+                    metadata={"trading_pair": trading_pair}
                 )
                 snapshot_queue.put_nowait(snapshot_msg)
                 self.logger().debug(f"Saved order book snapshot for {trading_pair}")
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error(f"Unexpected error fetching order book snapshot for {trading_pair}.", exc_info=True)
+                self.logger().error(f"Unexpected error fetching order book snapshot for {trading_pair}.",
+                                    exc_info=True)
                 await self._sleep(5.0)
 
     def _time(self):

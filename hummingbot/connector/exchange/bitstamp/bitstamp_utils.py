@@ -9,7 +9,10 @@ from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 CENTRALIZED = True
 EXAMPLE_PAIR = "ZRX-ETH"
 
-DEFAULT_FEES = TradeFeeSchema(maker_percent_fee_decimal=Decimal("0.1"), taker_percent_fee_decimal=Decimal("0.2"))
+DEFAULT_FEES = TradeFeeSchema(
+    maker_percent_fee_decimal=Decimal("0.1"),
+    taker_percent_fee_decimal=Decimal("0.2")
+)
 
 
 def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
@@ -30,7 +33,7 @@ class BitstampConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        },
+        }
     )
     bitstamp_api_secret: SecretStr = Field(
         default=...,
@@ -39,7 +42,7 @@ class BitstampConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        },
+        }
     )
     model_config = ConfigDict(title="bitstamp")
 

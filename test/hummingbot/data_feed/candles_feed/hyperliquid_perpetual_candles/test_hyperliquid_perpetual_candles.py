@@ -37,13 +37,11 @@ class TestHyperliquidPerpetualCandles(TestCandlesBase):
         self.resume_test_event = asyncio.Event()
 
     def get_fetch_candles_data_mock(self):
-        return [
-            [1718895600.0, "64942.0", "65123.0", "64812.0", "64837.0", "190.58479", 0.0, 1789, 0.0, 0.0],
-            [1718899200.0, "64837.0", "64964.0", "64564.0", "64898.0", "271.68638", 0.0, 2296, 0.0, 0.0],
-            [1718902800.0, "64900.0", "65034.0", "64714.0", "64997.0", "104.80095", 0.0, 1229, 0.0, 0.0],
-            [1718906400.0, "64999.0", "65244.0", "64981.0", "65157.0", "158.51753", 0.0, 1598, 0.0, 0.0],
-            [1718910000.0, "65153.0", "65153.0", "64882.0", "65095.0", "209.75558", 0.0, 1633, 0.0, 0.0],
-        ]
+        return [[1718895600.0, '64942.0', '65123.0', '64812.0', '64837.0', '190.58479', 0.0, 1789, 0.0, 0.0],
+                [1718899200.0, '64837.0', '64964.0', '64564.0', '64898.0', '271.68638', 0.0, 2296, 0.0, 0.0],
+                [1718902800.0, '64900.0', '65034.0', '64714.0', '64997.0', '104.80095', 0.0, 1229, 0.0, 0.0],
+                [1718906400.0, '64999.0', '65244.0', '64981.0', '65157.0', '158.51753', 0.0, 1598, 0.0, 0.0],
+                [1718910000.0, '65153.0', '65153.0', '64882.0', '65095.0', '209.75558', 0.0, 1633, 0.0, 0.0]]
 
     def get_candles_rest_data_mock(self):
         return [
@@ -57,7 +55,7 @@ class TestHyperliquidPerpetualCandles(TestCandlesBase):
                 "h": "65123.0",
                 "l": "64812.0",
                 "v": "190.58479",
-                "n": 1789,
+                "n": 1789
             },
             {
                 "t": 1718899200000,
@@ -69,7 +67,7 @@ class TestHyperliquidPerpetualCandles(TestCandlesBase):
                 "h": "64964.0",
                 "l": "64564.0",
                 "v": "271.68638",
-                "n": 2296,
+                "n": 2296
             },
             {
                 "t": 1718902800000,
@@ -81,7 +79,7 @@ class TestHyperliquidPerpetualCandles(TestCandlesBase):
                 "h": "65034.0",
                 "l": "64714.0",
                 "v": "104.80095",
-                "n": 1229,
+                "n": 1229
             },
             {
                 "t": 1718906400000,
@@ -93,7 +91,7 @@ class TestHyperliquidPerpetualCandles(TestCandlesBase):
                 "h": "65244.0",
                 "l": "64981.0",
                 "v": "158.51753",
-                "n": 1598,
+                "n": 1598
             },
             {
                 "t": 1718910000000,
@@ -105,8 +103,8 @@ class TestHyperliquidPerpetualCandles(TestCandlesBase):
                 "h": "65153.0",
                 "l": "64882.0",
                 "v": "209.75558",
-                "n": 1633,
-            },
+                "n": 1633
+            }
         ]
 
     def get_candles_ws_data_mock_1(self):
@@ -122,8 +120,8 @@ class TestHyperliquidPerpetualCandles(TestCandlesBase):
                 "h": "65162.0",
                 "l": "65156.0",
                 "v": "0.00296",
-                "n": 2,
-            },
+                "n": 2
+            }
         }
 
     def get_candles_ws_data_mock_2(self):
@@ -139,8 +137,8 @@ class TestHyperliquidPerpetualCandles(TestCandlesBase):
                 "h": "65162.0",
                 "l": "65156.0",
                 "v": "0.00296",
-                "n": 2,
-            },
+                "n": 2
+            }
         }
 
     @staticmethod
@@ -153,9 +151,8 @@ class TestHyperliquidPerpetualCandles(TestCandlesBase):
         data_mock = self.get_candles_rest_data_mock()
         mock_api.post(url=regex_url, body=json.dumps(data_mock))
 
-        resp = self.run_async_with_timeout(
-            self.data_feed.fetch_candles(start_time=self.start_time, end_time=self.end_time)
-        )
+        resp = self.run_async_with_timeout(self.data_feed.fetch_candles(start_time=self.start_time,
+                                                                        end_time=self.end_time))
 
         self.assertEqual(resp.shape[0], len(self.get_fetch_candles_data_mock()))
         self.assertEqual(resp.shape[1], 10)

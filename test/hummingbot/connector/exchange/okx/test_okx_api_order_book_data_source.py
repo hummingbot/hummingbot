@@ -48,8 +48,7 @@ class OkxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.data_source = OkxAPIOrderBookDataSource(
             trading_pairs=[self.trading_pair],
             connector=self.connector,
-            api_factory=self.connector._web_assistants_factory,
-        )
+            api_factory=self.connector._web_assistants_factory)
 
         self._original_full_order_book_reset_time = self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS
         self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = -1
@@ -60,8 +59,7 @@ class OkxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.resume_test_event = asyncio.Event()
 
         self.connector._set_trading_pair_symbol_map(
-            bidict({f"{self.base_asset}-{self.quote_asset}": self.trading_pair})
-        )
+            bidict({f"{self.base_asset}-{self.quote_asset}": self.trading_pair}))
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
@@ -72,7 +70,8 @@ class OkxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message
+                   for record in self.log_records)
 
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
@@ -88,11 +87,25 @@ class OkxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             "msg": "",
             "data": [
                 {
-                    "asks": [["41006.8", "0.60038921", "0", "1"]],
-                    "bids": [["41006.3", "0.30178218", "0", "2"]],
-                    "ts": "1629966436396",
+                    "asks": [
+                        [
+                            "41006.8",
+                            "0.60038921",
+                            "0",
+                            "1"
+                        ]
+                    ],
+                    "bids": [
+                        [
+                            "41006.3",
+                            "0.30178218",
+                            "0",
+                            "2"
+                        ]
+                    ],
+                    "ts": "1629966436396"
                 }
-            ],
+            ]
         }
 
         mock_api.get(regex_url, body=json.dumps(resp))
@@ -126,40 +139,68 @@ class OkxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
     async def test_listen_for_subscriptions_subscribes_to_trades_and_order_diffs(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
-        result_subscribe_trades = {"event": "subscribe", "args": {"channel": "trades", "instId": self.trading_pair}}
-        result_subscribe_diffs = {"event": "subscribe", "arg": {"channel": "books", "instId": self.trading_pair}}
+        result_subscribe_trades = {
+            "event": "subscribe",
+            "args": {
+                "channel": "trades",
+                "instId": self.trading_pair
+            }
+        }
+        result_subscribe_diffs = {
+            "event": "subscribe",
+            "arg": {
+                "channel": "books",
+                "instId": self.trading_pair
+            }
+        }
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe_trades)
-        )
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(result_subscribe_trades))
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe_diffs)
-        )
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(result_subscribe_diffs))
 
         self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_subscriptions())
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
-            websocket_mock=ws_connect_mock.return_value
-        )
+            websocket_mock=ws_connect_mock.return_value)
 
         self.assertEqual(2, len(sent_subscription_messages))
-        expected_trade_subscription = {"op": "subscribe", "args": [{"channel": "trades", "instId": self.trading_pair}]}
+        expected_trade_subscription = {
+            "op": "subscribe",
+            "args": [
+                {
+                    "channel": "trades",
+                    "instId": self.trading_pair
+                }
+            ]
+        }
         self.assertEqual(expected_trade_subscription, sent_subscription_messages[0])
-        expected_diff_subscription = {"op": "subscribe", "args": [{"channel": "books", "instId": self.trading_pair}]}
+        expected_diff_subscription = {
+            "op": "subscribe",
+            "args": [
+                {
+                    "channel": "books",
+                    "instId": self.trading_pair
+                }
+            ]
+        }
         self.assertEqual(expected_diff_subscription, sent_subscription_messages[1])
 
-        self.assertTrue(self._is_logged("INFO", "Subscribed to public order book and trade channels..."))
+        self.assertTrue(self._is_logged(
+            "INFO",
+            "Subscribed to public order book and trade channels..."
+        ))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_subscriptions_sends_ping_message_before_ping_interval_finishes(self, ws_connect_mock):
 
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        ws_connect_mock.return_value.receive.side_effect = [
-            asyncio.TimeoutError("Test timeiout"),
-            asyncio.CancelledError,
-        ]
+        ws_connect_mock.return_value.receive.side_effect = [asyncio.TimeoutError("Test timeiout"),
+                                                            asyncio.CancelledError]
 
         try:
             await self.data_source.listen_for_subscriptions()
@@ -167,8 +208,7 @@ class OkxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             pass
 
         sent_messages = self.mocking_assistant.text_messages_sent_through_websocket(
-            websocket_mock=ws_connect_mock.return_value
-        )
+            websocket_mock=ws_connect_mock.return_value)
 
         expected_ping_message = "ping"
         self.assertEqual(expected_ping_message, sent_messages[0])
@@ -193,9 +233,8 @@ class OkxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         self.assertTrue(
             self._is_logged(
-                "ERROR", "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
-            )
-        )
+                "ERROR",
+                "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."))
 
     async def test_subscribe_channels_raises_cancel_exception(self):
         mock_ws = MagicMock()
@@ -227,12 +266,15 @@ class OkxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
     async def test_listen_for_trades_logs_exception(self):
         incomplete_resp = {
-            "arg": {"channel": "trades", "instId": "BTC-USDT"},
+            "arg": {
+                "channel": "trades",
+                "instId": "BTC-USDT"
+            },
             "data": [
                 {
                     "instId": "BTC-USDT",
                 }
-            ],
+            ]
         }
 
         mock_queue = AsyncMock()
@@ -246,12 +288,16 @@ class OkxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         except asyncio.CancelledError:
             pass
 
-        self.assertTrue(self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
 
     async def test_listen_for_trades_successful(self):
         mock_queue = AsyncMock()
         trade_event = {
-            "arg": {"channel": "trades", "instId": self.trading_pair},
+            "arg": {
+                "channel": "trades",
+                "instId": self.trading_pair
+            },
             "data": [
                 {
                     "instId": self.trading_pair,
@@ -259,9 +305,9 @@ class OkxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
                     "px": "42219.9",
                     "sz": "0.12060306",
                     "side": "buy",
-                    "ts": "1630048897897",
+                    "ts": "1630048897897"
                 }
-            ],
+            ]
         }
         mock_queue.get.side_effect = [trade_event, asyncio.CancelledError()]
         self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
@@ -269,8 +315,7 @@ class OkxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_trades(self.local_event_loop, msg_queue)
-        )
+            self.data_source.listen_for_trades(self.local_event_loop, msg_queue))
 
         msg: OrderBookMessage = await msg_queue.get()
 
@@ -290,7 +335,10 @@ class OkxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
     async def test_listen_for_order_book_diffs_logs_exception(self):
         incomplete_resp = {
-            "arg": {"channel": "books", "instId": self.trading_pair},
+            "arg": {
+                "channel": "books",
+                "instId": self.trading_pair
+            },
             "action": "update",
         }
 
@@ -306,13 +354,15 @@ class OkxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             pass
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange")
-        )
+            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange"))
 
     async def test_listen_for_order_book_diffs_successful(self):
         mock_queue = AsyncMock()
         diff_event = {
-            "arg": {"channel": "books", "instId": self.trading_pair},
+            "arg": {
+                "channel": "books",
+                "instId": self.trading_pair
+            },
             "action": "update",
             "data": [
                 {
@@ -326,9 +376,9 @@ class OkxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
                         ["8475.55", "101", "0", "1"],
                     ],
                     "ts": "1597026383085",
-                    "checksum": -855196043,
+                    "checksum": -855196043
                 }
-            ],
+            ]
         }
         mock_queue.get.side_effect = [diff_event, asyncio.CancelledError()]
         self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_queue
@@ -336,8 +386,7 @@ class OkxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue)
-        )
+            self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue))
 
         msg: OrderBookMessage = await msg_queue.get()
 
@@ -362,7 +411,10 @@ class OkxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = 1
         mock_queue = AsyncMock()
         snapshot_event = {
-            "arg": {"channel": "books", "instId": self.trading_pair},
+            "arg": {
+                "channel": "books",
+                "instId": self.trading_pair
+            },
             "action": "snapshot",
             "data": [
                 {
@@ -376,9 +428,9 @@ class OkxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
                         ["8475.55", "101", "0", "1"],
                     ],
                     "ts": "1597026383085",
-                    "checksum": -855196043,
+                    "checksum": -855196043
                 }
-            ],
+            ]
         }
         mock_queue.get.side_effect = [snapshot_event, asyncio.CancelledError()]
         self.data_source._message_queue[self.data_source._snapshot_messages_queue_key] = mock_queue
@@ -386,8 +438,7 @@ class OkxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_order_book_snapshots(self.local_event_loop, msg_queue)
-        )
+            self.data_source.listen_for_order_book_snapshots(self.local_event_loop, msg_queue))
 
         msg: OrderBookMessage = await msg_queue.get()
 
@@ -419,7 +470,8 @@ class OkxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             await self.data_source.listen_for_order_book_snapshots(self.local_event_loop, asyncio.Queue())
 
     @aioresponses()
-    @patch("hummingbot.connector.exchange.okx.okx_api_order_book_data_source" ".OkxAPIOrderBookDataSource._sleep")
+    @patch("hummingbot.connector.exchange.okx.okx_api_order_book_data_source"
+           ".OkxAPIOrderBookDataSource._sleep")
     async def test_listen_for_order_book_snapshots_log_exception(self, mock_api, sleep_mock):
         msg_queue: asyncio.Queue = asyncio.Queue()
         sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(asyncio.CancelledError())
@@ -435,14 +487,10 @@ class OkxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         await self.resume_test_event.wait()
 
         self.assertTrue(
-            self._is_logged("ERROR", f"Unexpected error fetching order book snapshot for {self.trading_pair}.")
-        )
+            self._is_logged("ERROR", f"Unexpected error fetching order book snapshot for {self.trading_pair}."))
 
     @aioresponses()
-    async def test_listen_for_order_book_snapshots_api_successful(
-        self,
-        mock_api,
-    ):
+    async def test_listen_for_order_book_snapshots_api_successful(self, mock_api, ):
         msg_queue: asyncio.Queue = asyncio.Queue()
         url = web_utils.public_rest_url(path_url=CONSTANTS.OKX_ORDER_BOOK_PATH)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -452,11 +500,25 @@ class OkxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             "msg": "",
             "data": [
                 {
-                    "asks": [["41006.8", "0.60038921", "0", "1"]],
-                    "bids": [["41006.3", "0.30178218", "0", "2"]],
-                    "ts": "1629966436396",
+                    "asks": [
+                        [
+                            "41006.8",
+                            "0.60038921",
+                            "0",
+                            "1"
+                        ]
+                    ],
+                    "bids": [
+                        [
+                            "41006.3",
+                            "0.30178218",
+                            "0",
+                            "2"
+                        ]
+                    ],
+                    "ts": "1629966436396"
                 }
-            ],
+            ]
         }
 
         mock_api.get(regex_url, body=json.dumps(resp))
@@ -486,7 +548,10 @@ class OkxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
     async def test_channel_originating_message_snapshot_queue(self):
         event_message = {
-            "arg": {"channel": "books", "instId": self.trading_pair},
+            "arg": {
+                "channel": "books",
+                "instId": self.trading_pair
+            },
             "action": "snapshot",
             "data": [
                 {
@@ -497,16 +562,19 @@ class OkxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
                         ["8476.97", "256", "0", "12"],
                     ],
                     "ts": "1597026383085",
-                    "checksum": -855196043,
+                    "checksum": -855196043
                 }
-            ],
+            ]
         }
         channel_result = self.data_source._channel_originating_message(event_message)
         self.assertEqual(channel_result, self.data_source._snapshot_messages_queue_key)
 
     async def test_channel_originating_message_diff_queue(self):
         event_message = {
-            "arg": {"channel": "books", "instId": self.trading_pair},
+            "arg": {
+                "channel": "books",
+                "instId": self.trading_pair
+            },
             "action": "update",
             "data": [
                 {
@@ -517,9 +585,9 @@ class OkxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
                         ["8476.97", "256", "0", "12"],
                     ],
                     "ts": "1597026383085",
-                    "checksum": -855196043,
+                    "checksum": -855196043
                 }
-            ],
+            ]
         }
         channel_result = self.data_source._channel_originating_message(event_message)
         self.assertEqual(channel_result, self.data_source._diff_messages_queue_key)

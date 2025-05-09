@@ -45,7 +45,9 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     @property
     def latest_prices_url(self):
-        url = web_utils.public_rest_url(endpoint=CONSTANTS.TICKER_PATH_URL)
+        url = web_utils.public_rest_url(
+            endpoint=CONSTANTS.TICKER_PATH_URL
+        )
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
@@ -63,7 +65,9 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     @property
     def order_creation_url(self):
-        url = web_utils.public_rest_url(endpoint=CONSTANTS.ORDER_CREATE_PATH_URL)
+        url = web_utils.public_rest_url(
+            endpoint=CONSTANTS.ORDER_CREATE_PATH_URL
+        )
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
@@ -74,7 +78,9 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     @property
     def funding_info_url(self):
-        url = web_utils.public_rest_url(endpoint=CONSTANTS.MARK_PRICE_URL.format(id=self.exchange_trading_pair))
+        url = web_utils.public_rest_url(
+            endpoint=CONSTANTS.MARK_PRICE_URL.format(id=self.exchange_trading_pair)
+        )
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
@@ -127,7 +133,7 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "funding_impact_value": "60000",
                 "orders_limit": 50,
                 "trade_id": 10851092,
-                "orderbook_id": 2129638396,
+                "orderbook_id": 2129638396
             }
         ]
         return mock_response
@@ -152,7 +158,7 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "funding_rate": "3",
                 "funding_next_apply": self.target_funding_info_next_funding_utc_timestamp,
                 "funding_rate_indicative": "3",
-                "index_price": "6531",
+                "index_price": "6531"
             }
         ]
         return mock_response
@@ -198,7 +204,7 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "funding_impact_value": "60000",
                 "orders_limit": 50,
                 "trade_id": 10851092,
-                "orderbook_id": 2129638396,
+                "orderbook_id": 2129638396
             }
         ]
         return "INVALID-PAIR", mock_response
@@ -251,7 +257,7 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "funding_impact_value": "60000",
                 "orders_limit": 50,
                 "trade_id": 10851092,
-                "orderbook_id": 2129638396,
+                "orderbook_id": 2129638396
             }
         ]
         return mock_response
@@ -302,7 +308,7 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             ),
             "status": "open",
             "finish_time": 1514764900,
-            "finish_as": "",
+            "finish_as": ""
         }
         return mock_response
 
@@ -333,7 +339,7 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             ),
             "status": "open",
             "finish_time": 1514764900,
-            "finish_as": "",
+            "finish_as": ""
         }
         return mock_response
 
@@ -360,8 +366,8 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "point_fee": "0",
                 "point_refr": "0",
                 "bonus_dnw": "0",
-                "bonus_offset": "0",
-            },
+                "bonus_offset": "0"
+            }
         }
         return mock_response
 
@@ -392,9 +398,9 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "time": 1547199246,
                     "time_ms": 1547199246123,
                     "type": "fee",
-                    "user": "211xxx",
+                    "user": "211xxx"
                 }
-            ],
+            ]
         }
         return mock_response
 
@@ -425,9 +431,9 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "size": 3,
                     "time": 1628736848,
                     "time_ms": 1628736848321,
-                    "user": "110xxxxx",
+                    "user": "110xxxxx"
                 }
-            ],
+            ]
         }
         return mock_response
 
@@ -458,9 +464,9 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "size": 0,
                     "time": 1628736848,
                     "time_ms": 1628736848321,
-                    "user": "110xxxxx",
+                    "user": "110xxxxx"
                 }
-            ],
+            ]
         }
         return mock_response
 
@@ -478,25 +484,26 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     @property
     def target_funding_info_next_funding_utc_str(self):
-        datetime_str = (
-            str(pd.Timestamp.utcfromtimestamp(self.target_funding_info_next_funding_utc_timestamp)).replace(" ", "T")
-            + "Z"
-        )
+        datetime_str = str(
+            pd.Timestamp.utcfromtimestamp(
+                self.target_funding_info_next_funding_utc_timestamp)
+        ).replace(" ", "T") + "Z"
         return datetime_str
 
     @property
     def target_funding_info_next_funding_utc_str_ws_updated(self):
-        datetime_str = (
-            str(pd.Timestamp.utcfromtimestamp(self.target_funding_info_next_funding_utc_timestamp_ws_updated)).replace(
-                " ", "T"
-            )
-            + "Z"
-        )
+        datetime_str = str(
+            pd.Timestamp.utcfromtimestamp(
+                self.target_funding_info_next_funding_utc_timestamp_ws_updated)
+        ).replace(" ", "T") + "Z"
         return datetime_str
 
     @property
     def target_funding_payment_timestamp_str(self):
-        datetime_str = str(pd.Timestamp.utcfromtimestamp(self.target_funding_payment_timestamp)).replace(" ", "T") + "Z"
+        datetime_str = str(
+            pd.Timestamp.utcfromtimestamp(
+                self.target_funding_payment_timestamp)
+        ).replace(" ", "T") + "Z"
         return datetime_str
 
     @property
@@ -521,14 +528,13 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         min_amount = min_amount_inc
         min_notional = Decimal(str(1))
 
-        return TradingRule(
-            self.trading_pair,
-            min_order_size=min_amount,
-            min_price_increment=min_price_inc,
-            min_base_amount_increment=min_amount_inc,
-            min_notional_size=min_notional,
-            min_order_value=min_notional,
-        )
+        return TradingRule(self.trading_pair,
+                           min_order_size=min_amount,
+                           min_price_increment=min_price_inc,
+                           min_base_amount_increment=min_amount_inc,
+                           min_notional_size=min_notional,
+                           min_order_value=min_notional,
+                           )
 
     @property
     def expected_logged_error_for_erroneous_trading_rule(self):
@@ -636,36 +642,40 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(order.exchange_order_id, request_params["order"])
 
     def configure_successful_cancelation_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         """
         :return: the URL configured for the cancelation
         """
-        url = web_utils.public_rest_url(endpoint=CONSTANTS.ORDER_DELETE_PATH_URL.format(id=order.exchange_order_id))
+        url = web_utils.public_rest_url(
+            endpoint=CONSTANTS.ORDER_DELETE_PATH_URL.format(id=order.exchange_order_id)
+        )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         response = self._order_cancelation_request_successful_mock_response(order=order)
         mock_api.delete(regex_url, body=json.dumps(response), callback=callback)
         return url
 
     def configure_erroneous_cancelation_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
-        url = web_utils.public_rest_url(endpoint=CONSTANTS.ORDER_DELETE_PATH_URL.format(id=order.exchange_order_id))
+        url = web_utils.public_rest_url(
+            endpoint=CONSTANTS.ORDER_DELETE_PATH_URL.format(id=order.exchange_order_id)
+        )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         mock_api.delete(regex_url, status=400, callback=callback)
         return url
 
     def configure_one_successful_one_erroneous_cancel_all_response(
-        self,
-        successful_order: InFlightOrder,
-        erroneous_order: InFlightOrder,
-        mock_api: aioresponses,
+            self,
+            successful_order: InFlightOrder,
+            erroneous_order: InFlightOrder,
+            mock_api: aioresponses,
     ) -> List[str]:
         """
         :return: a list of all configured URLs for the cancelations
@@ -678,20 +688,25 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return all_urls
 
     def configure_order_not_found_error_cancelation_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         # Implement the expected not found response when enabling test_cancel_order_not_found_in_the_exchange
         raise NotImplementedError
 
     def configure_order_not_found_error_order_status_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
         # Implement the expected not found response when enabling
         # test_lost_order_removed_if_not_found_during_order_status_update
         raise NotImplementedError
 
     def configure_completely_filled_order_status_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         url = web_utils.public_rest_url(
             endpoint=CONSTANTS.ORDER_STATUS_PATH_URL.format(id=order.exchange_order_id),
@@ -704,10 +719,10 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return url
 
     def configure_canceled_order_status_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.public_rest_url(
             endpoint=CONSTANTS.ORDER_STATUS_PATH_URL.format(id=order.exchange_order_id),
@@ -720,10 +735,10 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return url
 
     def configure_open_order_status_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.public_rest_url(
             endpoint=CONSTANTS.ORDER_STATUS_PATH_URL.format(id=order.exchange_order_id),
@@ -735,10 +750,10 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return url
 
     def configure_http_error_order_status_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.public_rest_url(
             endpoint=CONSTANTS.ORDER_STATUS_PATH_URL.format(id=order.exchange_order_id),
@@ -749,10 +764,10 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return url
 
     def configure_partially_filled_order_status_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.public_rest_url(
             endpoint=CONSTANTS.ORDER_STATUS_PATH_URL.format(id=order.exchange_order_id),
@@ -764,10 +779,10 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return url
 
     def configure_partial_fill_trade_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.public_rest_url(
             endpoint=CONSTANTS.ORDER_STATUS_PATH_URL.format(id=order.exchange_order_id),
@@ -779,10 +794,10 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return url
 
     def configure_full_fill_trade_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.public_rest_url(
             endpoint=CONSTANTS.MY_TRADES_PATH_URL,
@@ -794,10 +809,10 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return url
 
     def configure_erroneous_http_fill_trade_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.public_rest_url(
             endpoint=CONSTANTS.ORDER_STATUS_PATH_URL.format(id=order.exchange_order_id),
@@ -808,16 +823,22 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return url
 
     def configure_successful_set_position_mode(
-        self,
-        position_mode: PositionMode,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            position_mode: PositionMode,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ):
-        url = web_utils.public_rest_url(endpoint=CONSTANTS.SET_POSITION_MODE_URL)
+        url = web_utils.public_rest_url(
+            endpoint=CONSTANTS.SET_POSITION_MODE_URL
+        )
         regex_url = re.compile(f"^{url}")
-        get_position_url = web_utils.public_rest_url(endpoint=CONSTANTS.POSITION_INFORMATION_URL)
+        get_position_url = web_utils.public_rest_url(
+            endpoint=CONSTANTS.POSITION_INFORMATION_URL
+        )
         regex_get_position_url = re.compile(f"^{get_position_url}")
-        get_position_mock_response = [{"mode": "dual"} if position_mode is PositionMode.ONEWAY else {"mode": "single"}]
+        get_position_mock_response = [
+            {"mode": 'dual'} if position_mode is PositionMode.ONEWAY else {"mode": 'single'}
+        ]
         response = {
             "user": 1666,
             "currency": "USDT",
@@ -841,26 +862,32 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "point_fee": "0",
                 "point_refr": "0",
                 "bonus_dnw": "0",
-                "bonus_offset": "0",
-            },
+                "bonus_offset": "0"
+            }
         }
         mock_api.get(regex_get_position_url, body=json.dumps(get_position_mock_response), callback=callback)
         mock_api.post(regex_url, body=json.dumps(response), callback=callback)
         return url
 
     def configure_failed_set_position_mode(
-        self,
-        position_mode: PositionMode,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            position_mode: PositionMode,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ):
-        url = web_utils.public_rest_url(endpoint=CONSTANTS.SET_POSITION_MODE_URL)
-        get_position_url = web_utils.public_rest_url(endpoint=CONSTANTS.POSITION_INFORMATION_URL)
+        url = web_utils.public_rest_url(
+            endpoint=CONSTANTS.SET_POSITION_MODE_URL
+        )
+        get_position_url = web_utils.public_rest_url(
+            endpoint=CONSTANTS.POSITION_INFORMATION_URL
+        )
         regex_url = re.compile(f"^{url}")
         regex_get_position_url = re.compile(f"^{get_position_url}")
 
         error_msg = ""
-        get_position_mock_response = [{"mode": "single"}]
+        get_position_mock_response = [
+            {"mode": 'single'}
+        ]
         mock_response = {
             "label": "1666",
             "detail": "",
@@ -871,16 +898,18 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return url, f"{error_msg}"
 
     def configure_failed_set_leverage(
-        self,
-        leverage: PositionMode,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            leverage: PositionMode,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> Tuple[str, str]:
         if self.exchange.position_mode is PositionMode.ONEWAY:
             endpoint = CONSTANTS.ONEWAY_SET_LEVERAGE_PATH_URL.format(contract=self.exchange_trading_pair)
         else:
             endpoint = CONSTANTS.HEDGE_SET_LEVERAGE_PATH_URL.format(contract=self.exchange_trading_pair)
-        url = web_utils.public_rest_url(endpoint=endpoint)
+        url = web_utils.public_rest_url(
+            endpoint=endpoint
+        )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
         err_msg = "leverage is diff"
@@ -906,25 +935,31 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "history_point": "0",
                 "adl_ranking": 5,
                 "pending_orders": 16,
-                "close_order": {"id": 232323, "price": "3779", "is_liq": False},
+                "close_order": {
+                    "id": 232323,
+                    "price": "3779",
+                    "is_liq": False
+                },
                 "mode": "single",
-                "cross_leverage_limit": "0",
+                "cross_leverage_limit": "0"
             }
         ]
         mock_api.post(regex_url, body=json.dumps(mock_response), callback=callback)
         return url, err_msg
 
     def configure_successful_set_leverage(
-        self,
-        leverage: int,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            leverage: int,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ):
         if self.exchange.position_mode is PositionMode.ONEWAY:
             endpoint = CONSTANTS.ONEWAY_SET_LEVERAGE_PATH_URL.format(contract=self.exchange_trading_pair)
         else:
             endpoint = CONSTANTS.HEDGE_SET_LEVERAGE_PATH_URL.format(contract=self.exchange_trading_pair)
-        url = web_utils.public_rest_url(endpoint=endpoint)
+        url = web_utils.public_rest_url(
+            endpoint=endpoint
+        )
         regex_url = re.compile(f"^{url}")
 
         mock_response = [
@@ -949,9 +984,13 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "history_point": "0",
                 "adl_ranking": 5,
                 "pending_orders": 16,
-                "close_order": {"id": 232323, "price": "3779", "is_liq": False},
+                "close_order": {
+                    "id": 232323,
+                    "price": "3779",
+                    "is_liq": False
+                },
                 "mode": "single",
-                "cross_leverage_limit": "0",
+                "cross_leverage_limit": "0"
             }
         ]
 
@@ -988,9 +1027,9 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "text": order.client_order_id or "",
                     "tif": "gtc",
                     "tkfr": 0.0005,
-                    "user": "110xxxxx",
+                    "user": "110xxxxx"
                 }
-            ],
+            ]
         }
 
     def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
@@ -1022,9 +1061,9 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "text": order.client_order_id or "",
                     "tif": "gtc",
                     "tkfr": 0.0005,
-                    "user": "110xxxxx",
+                    "user": "110xxxxx"
                 }
-            ],
+            ]
         }
 
     def order_event_for_full_fill_websocket_update(self, order: InFlightOrder):
@@ -1058,9 +1097,9 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "text": order.client_order_id or "",
                     "tif": "gtc",
                     "tkfr": 0.0005,
-                    "user": "110xxxxx",
+                    "user": "110xxxxx"
                 }
-            ],
+            ]
         }
 
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
@@ -1082,9 +1121,9 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "role": "maker",
                     "text": order.client_order_id or "",
                     "fee": Decimal(self.expected_fill_fee.flat_fees[0].amount),
-                    "point_fee": 0,
+                    "point_fee": 0
                 }
-            ],
+            ]
         }
 
     def position_event_for_full_fill_websocket_update(self, order: InFlightOrder, unrealized_pnl: float):
@@ -1114,9 +1153,9 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "volume_24h_settle": "178",
                     "volume_24h_base": "5526",
                     "low_24h": "99.2",
-                    "high_24h": "132.5",
+                    "high_24h": "132.5"
                 }
-            ],
+            ]
         }
 
     def test_create_order_with_invalid_position_action_raises_value_error(self):
@@ -1137,7 +1176,7 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
         self.assertEqual(
             f"Invalid position action {PositionAction.NIL}. Must be one of {[PositionAction.OPEN, PositionAction.CLOSE]}",
-            str(exception_context.exception),
+            str(exception_context.exception)
         )
 
     def test_user_stream_update_for_new_order(self):
@@ -1211,12 +1250,13 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.exchange._user_stream_tracker._user_stream = mock_queue
         self._simulate_trading_rules_initialized()
         self.exchange.account_positions[self.trading_pair] = Position(
+
             trading_pair=self.trading_pair,
             position_side=PositionSide.SHORT,
-            unrealized_pnl=Decimal("1"),
-            entry_price=Decimal("1"),
-            amount=Decimal("1"),
-            leverage=Decimal("1"),
+            unrealized_pnl=Decimal('1'),
+            entry_price=Decimal('1'),
+            amount=Decimal('1'),
+            leverage=Decimal('1'),
         )
         amount_precision = Decimal(self.exchange.trading_rules[self.trading_pair].min_base_amount_increment)
         try:
@@ -1244,10 +1284,10 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.exchange.account_positions[self.trading_pair] = Position(
             trading_pair=self.trading_pair,
             position_side=PositionSide.SHORT,
-            unrealized_pnl=Decimal("1"),
-            entry_price=Decimal("1"),
-            amount=Decimal("1"),
-            leverage=Decimal("1"),
+            unrealized_pnl=Decimal('1'),
+            entry_price=Decimal('1'),
+            amount=Decimal('1'),
+            leverage=Decimal('1'),
         )
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [position_event, asyncio.CancelledError]
@@ -1329,10 +1369,14 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         results = response
         first_duplicate = deepcopy(results[0])
         first_duplicate["name"] = f"{self.exchange_trading_pair}_12345"
-        first_duplicate["quanto_multiplier"] = str(float(first_duplicate["quanto_multiplier"]) + 1)
+        first_duplicate["quanto_multiplier"] = (
+            str(float(first_duplicate["quanto_multiplier"]) + 1)
+        )
         second_duplicate = deepcopy(results[0])
         second_duplicate["name"] = f"{self.exchange_trading_pair}_67890"
-        second_duplicate["quanto_multiplier"] = str(float(second_duplicate["quanto_multiplier"]) + 2)
+        second_duplicate["quanto_multiplier"] = (
+            str(float(second_duplicate["quanto_multiplier"]) + 2)
+        )
         results.pop(0)
         results.append(first_duplicate)
         results.append(second_duplicate)
@@ -1373,21 +1417,23 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
         for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
             self.async_run_with_timeout(
-                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id)
-            )
+                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id))
 
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
 
         url = self.configure_erroneous_cancelation_response(
-            order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
-        )
+            order=order,
+            mock_api=mock_api,
+            callback=lambda *args, **kwargs: request_sent_event.set())
 
         self.async_run_with_timeout(self.exchange._cancel_lost_orders())
         self.async_run_with_timeout(request_sent_event.wait())
 
         cancel_request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(cancel_request)
-        self.validate_order_cancelation_request(order=order, request_call=cancel_request)
+        self.validate_order_cancelation_request(
+            order=order,
+            request_call=cancel_request)
 
         self.assertIn(order.client_order_id, self.exchange._order_tracker.lost_orders)
         self.assertEqual(0, len(self.order_cancelled_logger.event_log))
@@ -1422,7 +1468,9 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.exchange._user_stream_tracker._user_stream = mock_queue
 
         if self.is_order_fill_http_update_executed_during_websocket_order_event_processing:
-            self.configure_full_fill_trade_response(order=order, mock_api=mock_api)
+            self.configure_full_fill_trade_response(
+                order=order,
+                mock_api=mock_api)
 
         try:
             self.async_run_with_timeout(self.exchange._user_stream_event_listener())
@@ -1457,7 +1505,12 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertTrue(order.is_filled)
         self.assertTrue(order.is_done)
 
-        self.assertTrue(self.is_logged("INFO", f"BUY order {order.client_order_id} completely filled."))
+        self.assertTrue(
+            self.is_logged(
+                "INFO",
+                f"BUY order {order.client_order_id} completely filled."
+            )
+        )
 
     @aioresponses()
     def test_cancel_order_not_found_in_the_exchange(self, mock_api):
@@ -1492,7 +1545,7 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             "text": order.client_order_id or "",
             "status": "finished",
             "finish_time": 1514764900,
-            "finish_as": "cancelled",
+            "finish_as": "cancelled"
         }
 
     def _order_status_request_completely_filled_mock_response(self, order: InFlightOrder) -> Any:
@@ -1516,7 +1569,7 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             "text": order.client_order_id or "2b1d811c-8ff0-4ef0-92ed-b4ed5fd6de34",
             "status": "finished",
             "finish_time": 1514764900,
-            "finish_as": "filled",
+            "finish_as": "filled"
         }
 
     def _order_status_request_canceled_mock_response(self, order: InFlightOrder) -> Any:
@@ -1563,7 +1616,7 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "text": order.client_order_id,
                 "fee": str(self.expected_fill_fee.flat_fees[0].amount),
                 "point_fee": "0",
-                "role": "taker",
+                "role": "taker"
             }
         ]
 
@@ -1623,9 +1676,9 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
         creation_response = self.limit_maker_order_creation_request_successful_mock_response
 
-        mock_api.post(
-            url, body=json.dumps(creation_response), callback=lambda *args, **kwargs: request_sent_event.set()
-        )
+        mock_api.post(url,
+                      body=json.dumps(creation_response),
+                      callback=lambda *args, **kwargs: request_sent_event.set())
 
         leverage = 2
         self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
@@ -1635,16 +1688,20 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         order_request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(order_request)
         self.assertIn(order_id, self.exchange.in_flight_orders)
-        self.validate_order_creation_request(order=self.exchange.in_flight_orders[order_id], request_call=order_request)
+        self.validate_order_creation_request(
+            order=self.exchange.in_flight_orders[order_id],
+            request_call=order_request)
 
         create_event = self.buy_order_created_logger.event_log[0]
-        self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
+        self.assertEqual(self.exchange.current_timestamp,
+                         create_event.timestamp)
         self.assertEqual(self.trading_pair, create_event.trading_pair)
         self.assertEqual(OrderType.LIMIT_MAKER, create_event.type)
         self.assertEqual(Decimal("100"), create_event.amount)
         self.assertEqual(Decimal("10000"), create_event.price)
         self.assertEqual(order_id, create_event.order_id)
-        self.assertEqual(str(self.expected_exchange_order_id), create_event.exchange_order_id)
+        self.assertEqual(str(self.expected_exchange_order_id),
+                         create_event.exchange_order_id)
         self.assertEqual(leverage, create_event.leverage)
         self.assertEqual(PositionAction.OPEN.value, create_event.position)
 
@@ -1653,17 +1710,19 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "INFO",
                 f"Created {OrderType.LIMIT_MAKER.name} {TradeType.BUY.name} order {order_id} for "
                 f"{Decimal('100.000000')} to {PositionAction.OPEN.name} a {self.trading_pair} position "
-                f"at {Decimal('10000.0000')}.",
+                f"at {Decimal('10000.0000')}."
             )
         )
 
     @aioresponses()
     def test_update_position_mode(
-        self,
-        mock_api: aioresponses,
+            self,
+            mock_api: aioresponses,
     ):
         self._simulate_trading_rules_initialized()
-        get_position_url = web_utils.public_rest_url(endpoint=CONSTANTS.POSITION_INFORMATION_URL)
+        get_position_url = web_utils.public_rest_url(
+            endpoint=CONSTANTS.POSITION_INFORMATION_URL
+        )
         regex_get_position_url = re.compile(f"^{get_position_url}")
         response = [
             {
@@ -1687,10 +1746,14 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "history_point": "0",
                 "adl_ranking": 5,
                 "pending_orders": 16,
-                "close_order": {"id": 232323, "price": "3779", "is_liq": False},
+                "close_order": {
+                    "id": 232323,
+                    "price": "3779",
+                    "is_liq": False
+                },
                 "mode": "single",
                 "update_time": 1684994406,
-                "cross_leverage_limit": "0",
+                "cross_leverage_limit": "0"
             }
         ]
         mock_api.get(regex_get_position_url, body=json.dumps(response))
@@ -1700,7 +1763,9 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(self.trading_pair, position.trading_pair)
         self.assertEqual(PositionSide.LONG, position.position_side)
 
-        get_position_url = web_utils.public_rest_url(endpoint=CONSTANTS.POSITION_INFORMATION_URL)
+        get_position_url = web_utils.public_rest_url(
+            endpoint=CONSTANTS.POSITION_INFORMATION_URL
+        )
         regex_get_position_url = re.compile(f"^{get_position_url}")
         response = [
             {
@@ -1724,10 +1789,14 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "history_point": "0",
                 "adl_ranking": 5,
                 "pending_orders": 16,
-                "close_order": {"id": 232323, "price": "3779", "is_liq": False},
+                "close_order": {
+                    "id": 232323,
+                    "price": "3779",
+                    "is_liq": False
+                },
                 "mode": "dual_long",
                 "update_time": 1684994406,
-                "cross_leverage_limit": "0",
+                "cross_leverage_limit": "0"
             }
         ]
         mock_api.get(regex_get_position_url, body=json.dumps(response))

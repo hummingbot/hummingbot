@@ -55,8 +55,8 @@ class AmmArbStrategy(StrategyPyBase):
     _last_timestamp: float
     _status_report_interval: float
     _quote_eth_rate_fetch_loop_task: Optional[asyncio.Task]
-    _market_1_quote_eth_rate: None  # XXX (martin_kou): Why are these here?
-    _market_2_quote_eth_rate: None  # XXX (martin_kou): Why are these here?
+    _market_1_quote_eth_rate: None          # XXX (martin_kou): Why are these here?
+    _market_2_quote_eth_rate: None          # XXX (martin_kou): Why are these here?
     _rate_source: Optional[RateOracle]
 
     @classmethod
@@ -66,18 +66,17 @@ class AmmArbStrategy(StrategyPyBase):
             amm_logger = logging.getLogger(__name__)
         return amm_logger
 
-    def init_params(
-        self,
-        market_info_1: MarketTradingPairTuple,
-        market_info_2: MarketTradingPairTuple,
-        min_profitability: Decimal,
-        order_amount: Decimal,
-        market_1_slippage_buffer: Decimal = Decimal("0"),
-        market_2_slippage_buffer: Decimal = Decimal("0"),
-        concurrent_orders_submission: bool = True,
-        status_report_interval: float = 900,
-        rate_source: Optional[RateOracle] = RateOracle.get_instance(),
-    ):
+    def init_params(self,
+                    market_info_1: MarketTradingPairTuple,
+                    market_info_2: MarketTradingPairTuple,
+                    min_profitability: Decimal,
+                    order_amount: Decimal,
+                    market_1_slippage_buffer: Decimal = Decimal("0"),
+                    market_2_slippage_buffer: Decimal = Decimal("0"),
+                    concurrent_orders_submission: bool = True,
+                    status_report_interval: float = 900,
+                    rate_source: Optional[RateOracle] = RateOracle.get_instance(),
+                    ):
         """
         Assigns strategy parameters, this function must be called directly after init.
         The reason for this is to make the parameters discoverable on introspect (it is not possible on init of
@@ -154,14 +153,14 @@ class AmmArbStrategy(StrategyPyBase):
     @staticmethod
     @lru_cache(maxsize=10)
     def is_gateway_market(market_info: MarketTradingPairTuple) -> bool:
-        return market_info.market.name in sorted(AllConnectorSettings.get_gateway_amm_connector_names())
+        return market_info.market.name in sorted(
+            AllConnectorSettings.get_gateway_amm_connector_names()
+        )
 
     @staticmethod
     @lru_cache(maxsize=10)
     def is_gateway_market_evm_compatible(market_info: MarketTradingPairTuple) -> bool:
-        connector_spec: Dict[str, str] = GatewayConnectionSetting.get_connector_spec_from_market_name(
-            market_info.market.name
-        )
+        connector_spec: Dict[str, str] = GatewayConnectionSetting.get_connector_spec_from_market_name(market_info.market.name)
         return connector_spec["chain"] == "ethereum"
 
     def tick(self, timestamp: float):
@@ -175,7 +174,7 @@ class AmmArbStrategy(StrategyPyBase):
                 if int(timestamp) % 10 == 0:  # prevent spamming by logging every 10 secs
                     unready_markets = [market for market in self.active_markets if market.ready is False]
                     for market in unready_markets:
-                        msg = ", ".join([k for k, v in market.status_dict.items() if v is False])
+                        msg = ', '.join([k for k, v in market.status_dict.items() if v is False])
                         self.logger().warning(f"{market.name} not ready: waiting for {msg}.")
                 return
             else:
@@ -207,19 +206,16 @@ class AmmArbStrategy(StrategyPyBase):
             order_amount=self._order_amount,
         )
         profitable_arb_proposals: List[ArbProposal] = [
-            t.copy()
-            for t in self._all_arb_proposals
+            t.copy() for t in self._all_arb_proposals
             if t.profit_pct(
                 rate_source=self._rate_source,
                 account_for_fee=True,
-            )
-            >= self._min_profitability
+            ) >= self._min_profitability
         ]
         if len(profitable_arb_proposals) == 0:
-            if self._last_no_arb_reported < self.current_timestamp - 20.0:
-                self.logger().info(
-                    "No arbitrage opportunity.\n" + "\n".join(self.short_proposal_msg(self._all_arb_proposals, False))
-                )
+            if self._last_no_arb_reported < self.current_timestamp - 20.:
+                self.logger().info("No arbitrage opportunity.\n" +
+                                   "\n".join(self.short_proposal_msg(self._all_arb_proposals, False)))
                 self._last_no_arb_reported = self.current_timestamp
             return
         await self.apply_slippage_buffers(profitable_arb_proposals)
@@ -237,17 +233,13 @@ class AmmArbStrategy(StrategyPyBase):
             for arb_side in (arb_proposal.first_side, arb_proposal.second_side):
                 market = arb_side.market_info.market
                 arb_side.amount = market.quantize_order_amount(arb_side.market_info.trading_pair, arb_side.amount)
-                s_buffer = (
-                    self._market_1_slippage_buffer
-                    if market == self._market_info_1.market
+                s_buffer = self._market_1_slippage_buffer if market == self._market_info_1.market \
                     else self._market_2_slippage_buffer
-                )
                 if not arb_side.is_buy:
                     s_buffer *= Decimal("-1")
                 arb_side.order_price *= Decimal("1") + s_buffer
-                arb_side.order_price = market.quantize_order_price(
-                    arb_side.market_info.trading_pair, arb_side.order_price
-                )
+                arb_side.order_price = market.quantize_order_price(arb_side.market_info.trading_pair,
+                                                                   arb_side.order_price)
 
     def apply_budget_constraint(self, arb_proposals: List[ArbProposal]):
         """
@@ -263,11 +255,9 @@ class AmmArbStrategy(StrategyPyBase):
                 required = arb_side.amount * arb_side.order_price if arb_side.is_buy else arb_side.amount
                 if balance < required:
                     arb_side.amount = s_decimal_zero
-                    self.logger().info(
-                        f"Can't arbitrage, {market.display_name} "
-                        f"{token} balance "
-                        f"({balance}) is below required order amount ({required})."
-                    )
+                    self.logger().info(f"Can't arbitrage, {market.display_name} "
+                                       f"{token} balance "
+                                       f"({balance}) is below required order amount ({required}).")
                     continue
 
     def prioritize_evm_exchanges(self, arb_proposal: ArbProposal) -> ArbProposal:
@@ -306,36 +296,39 @@ class AmmArbStrategy(StrategyPyBase):
 
             for arb_side in (arb_proposal.first_side, arb_proposal.second_side):
                 side: str = "BUY" if arb_side.is_buy else "SELL"
-                self.log_with_clock(
-                    logging.INFO,
-                    f"Placing {side} order for {arb_side.amount} {arb_side.market_info.base_asset} "
-                    f"at {arb_side.market_info.market.display_name} at {arb_side.order_price} price",
-                )
+                self.log_with_clock(logging.INFO,
+                                    f"Placing {side} order for {arb_side.amount} {arb_side.market_info.base_asset} "
+                                    f"at {arb_side.market_info.market.display_name} at {arb_side.order_price} price")
 
                 order_id: str = await self.place_arb_order(
-                    arb_side.market_info, arb_side.is_buy, arb_side.amount, arb_side.order_price
+                    arb_side.market_info,
+                    arb_side.is_buy,
+                    arb_side.amount,
+                    arb_side.order_price
                 )
 
-                self._order_id_side_map.update({order_id: arb_side})
+                self._order_id_side_map.update({
+                    order_id: arb_side
+                })
 
                 if not self._concurrent_orders_submission:
                     await arb_side.completed_event.wait()
                     if arb_side.is_failed:
-                        self.log_with_clock(
-                            logging.ERROR,
-                            f"Order {order_id} seems to have failed in this arbitrage opportunity. "
-                            f"Dropping Arbitrage Proposal. ",
-                        )
+                        self.log_with_clock(logging.ERROR,
+                                            f"Order {order_id} seems to have failed in this arbitrage opportunity. "
+                                            f"Dropping Arbitrage Proposal. ")
                         return
 
             await arb_proposal.wait()
 
     async def place_arb_order(
-        self, market_info: MarketTradingPairTuple, is_buy: bool, amount: Decimal, order_price: Decimal
-    ) -> str:
-        place_order_fn: Callable[[MarketTradingPairTuple, Decimal, OrderType, Decimal], str] = cast(
-            Callable, self.buy_with_specific_market if is_buy else self.sell_with_specific_market
-        )
+            self,
+            market_info: MarketTradingPairTuple,
+            is_buy: bool,
+            amount: Decimal,
+            order_price: Decimal) -> str:
+        place_order_fn: Callable[[MarketTradingPairTuple, Decimal, OrderType, Decimal], str] = \
+            cast(Callable, self.buy_with_specific_market if is_buy else self.sell_with_specific_market)
 
         return place_order_fn(market_info, amount, market_info.market.get_taker_order_type(), order_price)
 
@@ -366,21 +359,17 @@ class AmmArbStrategy(StrategyPyBase):
                 rate_source=self._rate_source,
                 account_for_fee=True,
             )
-            lines.append(
-                f"{'    ' if indented else ''}{side1} at {market_1_name}"
-                f", {side2} at {market_2_name}: "
-                f"{profit_pct:.2%}"
-            )
+            lines.append(f"{'    ' if indented else ''}{side1} at {market_1_name}"
+                         f", {side2} at {market_2_name}: "
+                         f"{profit_pct:.2%}")
         return lines
 
     def get_fixed_rates_df(self):
         columns = ["Pair", "Rate"]
         quotes_pair: str = f"{self._market_info_2.quote_asset}-{self._market_info_1.quote_asset}"
         bases_pair: str = f"{self._market_info_2.base_asset}-{self._market_info_1.base_asset}"
-        data = [
-            [quotes_pair, PerformanceMetrics.smart_round(self._rate_source.get_pair_rate(quotes_pair))],
-            [bases_pair, PerformanceMetrics.smart_round(self._rate_source.get_pair_rate(bases_pair))],
-        ]
+        data = [[quotes_pair, PerformanceMetrics.smart_round(self._rate_source.get_pair_rate(quotes_pair))],
+                [bases_pair, PerformanceMetrics.smart_round(self._rate_source.get_pair_rate(bases_pair))]]
         return pd.DataFrame(data=data, columns=columns)
 
     async def format_status(self) -> str:
@@ -399,15 +388,17 @@ class AmmArbStrategy(StrategyPyBase):
             sell_price = await market.get_quote_price(trading_pair, False, self._order_amount)
 
             # check for unavailable price data
-            buy_price = PerformanceMetrics.smart_round(Decimal(str(buy_price)), 8) if buy_price is not None else "-"
-            sell_price = PerformanceMetrics.smart_round(Decimal(str(sell_price)), 8) if sell_price is not None else "-"
-            mid_price = (
-                PerformanceMetrics.smart_round(((buy_price + sell_price) / 2), 8)
-                if "-" not in [buy_price, sell_price]
-                else "-"
-            )
+            buy_price = PerformanceMetrics.smart_round(Decimal(str(buy_price)), 8) if buy_price is not None else '-'
+            sell_price = PerformanceMetrics.smart_round(Decimal(str(sell_price)), 8) if sell_price is not None else '-'
+            mid_price = PerformanceMetrics.smart_round(((buy_price + sell_price) / 2), 8) if '-' not in [buy_price, sell_price] else '-'
 
-            data.append([market.display_name, trading_pair, sell_price, buy_price, mid_price])
+            data.append([
+                market.display_name,
+                trading_pair,
+                sell_price,
+                buy_price,
+                mid_price
+            ])
         markets_df = pd.DataFrame(data=data, columns=columns)
         lines = []
         lines.extend(["", "  Markets:"] + ["    " + line for line in markets_df.to_string(index=False).split("\n")])
@@ -421,19 +412,19 @@ class AmmArbStrategy(StrategyPyBase):
         network_fees_df = pd.DataFrame(data=data, columns=columns)
         if len(data) > 0:
             lines.extend(
-                ["", "  Network Fees:"] + ["    " + line for line in network_fees_df.to_string(index=False).split("\n")]
+                ["", "  Network Fees:"] +
+                ["    " + line for line in network_fees_df.to_string(index=False).split("\n")]
             )
 
         assets_df = self.wallet_balance_data_frame([self._market_info_1, self._market_info_2])
-        lines.extend(["", "  Assets:"] + ["    " + line for line in str(assets_df).split("\n")])
+        lines.extend(["", "  Assets:"] +
+                     ["    " + line for line in str(assets_df).split("\n")])
 
         lines.extend(["", "  Profitability:"] + self.short_proposal_msg(self._all_arb_proposals))
 
         fixed_rates_df = self.get_fixed_rates_df()
-        lines.extend(
-            ["", f"  Exchange Rates: ({str(self._rate_source)})"]
-            + ["    " + line for line in str(fixed_rates_df).split("\n")]
-        )
+        lines.extend(["", f"  Exchange Rates: ({str(self._rate_source)})"] +
+                     ["    " + line for line in str(fixed_rates_df).split("\n")])
 
         warning_lines = self.network_warning([self._market_info_1])
         warning_lines.extend(self.network_warning([self._market_info_2]))
@@ -465,11 +456,9 @@ class AmmArbStrategy(StrategyPyBase):
         if self.is_gateway_market(market_info):
             log_msg += f" txHash: {order_completed_event.exchange_order_id}"
         self.log_with_clock(logging.INFO, log_msg)
-        self.notify_hb_app_with_timestamp(
-            f"Bought {order_completed_event.base_asset_amount:.8f} "
-            f"{order_completed_event.base_asset}-{order_completed_event.quote_asset} "
-            f"on {market_info.market.name}."
-        )
+        self.notify_hb_app_with_timestamp(f"Bought {order_completed_event.base_asset_amount:.8f} "
+                                          f"{order_completed_event.base_asset}-{order_completed_event.quote_asset} "
+                                          f"on {market_info.market.name}.")
 
     def did_complete_sell_order(self, order_completed_event: SellOrderCompletedEvent):
         self.set_order_completed(order_id=order_completed_event.order_id)
@@ -481,11 +470,9 @@ class AmmArbStrategy(StrategyPyBase):
         if self.is_gateway_market(market_info):
             log_msg += f" txHash: {order_completed_event.exchange_order_id}"
         self.log_with_clock(logging.INFO, log_msg)
-        self.notify_hb_app_with_timestamp(
-            f"Sold {order_completed_event.base_asset_amount:.8f} "
-            f"{order_completed_event.base_asset}-{order_completed_event.quote_asset} "
-            f"on {market_info.market.name}."
-        )
+        self.notify_hb_app_with_timestamp(f"Sold {order_completed_event.base_asset_amount:.8f} "
+                                          f"{order_completed_event.base_asset}-{order_completed_event.quote_asset} "
+                                          f"on {market_info.market.name}.")
 
     def did_fail_order(self, order_failed_event: MarketOrderFailureEvent):
         self.set_order_failed(order_id=order_failed_event.order_id)

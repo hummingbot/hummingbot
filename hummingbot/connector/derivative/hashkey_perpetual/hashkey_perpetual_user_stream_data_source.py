@@ -24,14 +24,12 @@ class HashkeyPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
 
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(
-        self,
-        auth: HashkeyPerpetualAuth,
-        trading_pairs: List[str],
-        connector: "HashkeyPerpetualDerivative",
-        api_factory: WebAssistantsFactory,
-        domain: str = CONSTANTS.DEFAULT_DOMAIN,
-    ):
+    def __init__(self,
+                 auth: HashkeyPerpetualAuth,
+                 trading_pairs: List[str],
+                 connector: "HashkeyPerpetualDerivative",
+                 api_factory: WebAssistantsFactory,
+                 domain: str = CONSTANTS.DEFAULT_DOMAIN):
         super().__init__()
         self._auth: HashkeyPerpetualAuth = auth
         self._current_listen_key = None

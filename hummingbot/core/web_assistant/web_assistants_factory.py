@@ -21,7 +21,6 @@ class WebAssistantsFactory:
 
     todo: integrate AsyncThrottler
     """
-
     def __init__(
         self,
         throttler: AsyncThrottlerBase,
@@ -55,13 +54,15 @@ class WebAssistantsFactory:
             throttler=self._throttler,
             rest_pre_processors=self._rest_pre_processors,
             rest_post_processors=self._rest_post_processors,
-            auth=self._auth,
+            auth=self._auth
         )
         return assistant
 
     async def get_ws_assistant(self) -> WSAssistant:
         connection = await self._connections_factory.get_ws_connection()
-        assistant = WSAssistant(connection, self._ws_pre_processors, self._ws_post_processors, self._auth)
+        assistant = WSAssistant(
+            connection, self._ws_pre_processors, self._ws_post_processors, self._auth
+        )
         return assistant
 
     async def close(self) -> None:

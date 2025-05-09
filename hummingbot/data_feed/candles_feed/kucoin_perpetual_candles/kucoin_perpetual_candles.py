@@ -90,9 +90,8 @@ class KucoinPerpetualCandles(CandlesBase):
 
     async def check_network(self) -> NetworkStatus:
         rest_assistant = await self._api_factory.get_rest_assistant()
-        await rest_assistant.execute_request(
-            url=self.health_check_url, throttler_limit_id=CONSTANTS.HEALTH_CHECK_ENDPOINT
-        )
+        await rest_assistant.execute_request(url=self.health_check_url,
+                                             throttler_limit_id=CONSTANTS.HEALTH_CHECK_ENDPOINT)
         return NetworkStatus.CONNECTED
 
     def get_exchange_trading_pair(self, trading_pair):
@@ -106,9 +105,10 @@ class KucoinPerpetualCandles(CandlesBase):
     def _is_first_candle_not_included_in_rest_request(self):
         return False
 
-    def _get_rest_candles_params(
-        self, start_time: Optional[int] = None, end_time: Optional[int] = None, limit: Optional[int] = None
-    ) -> dict:
+    def _get_rest_candles_params(self,
+                                 start_time: Optional[int] = None,
+                                 end_time: Optional[int] = None,
+                                 limit: Optional[int] = None) -> dict:
         """
         For API documentation, please refer to:
         https://www.kucoin.com/docs/rest/futures-trading/market-data/get-klines
@@ -123,14 +123,13 @@ class KucoinPerpetualCandles(CandlesBase):
             60: 120 * 24,  # 1 hour granularity, 120 days
             120: 240 * 24,  # 2 hours granularity, 240 days
             240: 480 * 24,  # 4 hours granularity, 480 days
-            480: 720 * 24,  # 6 hours granularity, 720 days
+            480: 720 * 24  # 6 hours granularity, 720 days
         }
         if granularity in granularity_limits:
             max_duration = granularity_limits[granularity] * 60  # convert days to minutes
             if (now - start_time) / 60 >= max_duration:
                 raise ValueError(
-                    f"{granularity}m granularity candles are only available for the last {granularity_limits[granularity] // 24} days."
-                )
+                    f"{granularity}m granularity candles are only available for the last {granularity_limits[granularity] // 24} days.")
 
         params = {
             "symbol": self.symbols_dict[f"{self.kucoin_base_asset}-{self.quote_asset}"],
@@ -140,10 +139,8 @@ class KucoinPerpetualCandles(CandlesBase):
         return params
 
     def _parse_rest_candles(self, data: dict, end_time: Optional[int] = None) -> List[List[float]]:
-        return [
-            [self.ensure_timestamp_in_seconds(row[0]), row[1], row[2], row[3], row[4], row[5], 0.0, 0.0, 0.0, 0.0]
-            for row in data["data"]
-        ]
+        return [[self.ensure_timestamp_in_seconds(row[0]), row[1], row[2], row[3], row[4], row[5], 0., 0., 0., 0.]
+                for row in data['data']]
 
     def ws_subscription_payload(self):
         topic_candle = f"{self.symbols_dict[self._ex_trading_pair]}_{CONSTANTS.INTERVALS[self.interval]}"
@@ -167,10 +164,10 @@ class KucoinPerpetualCandles(CandlesBase):
                 candles_row_dict["high"] = candles[3]
                 candles_row_dict["low"] = candles[4]
                 candles_row_dict["volume"] = candles[5]
-                candles_row_dict["quote_asset_volume"] = 0.0
-                candles_row_dict["n_trades"] = 0.0
-                candles_row_dict["taker_buy_base_volume"] = 0.0
-                candles_row_dict["taker_buy_quote_volume"] = 0.0
+                candles_row_dict["quote_asset_volume"] = 0.
+                candles_row_dict["n_trades"] = 0.
+                candles_row_dict["taker_buy_base_volume"] = 0.
+                candles_row_dict["taker_buy_quote_volume"] = 0.
                 return candles_row_dict
 
     async def initialize_exchange_data(self) -> Dict[str, Any]:
@@ -180,9 +177,8 @@ class KucoinPerpetualCandles(CandlesBase):
     async def _get_symbols_dict(self):
         try:
             rest_assistant = await self._api_factory.get_rest_assistant()
-            response = await rest_assistant.execute_request(
-                url=self.symbols_url, throttler_limit_id=CONSTANTS.SYMBOLS_ENDPOINT
-            )
+            response = await rest_assistant.execute_request(url=self.symbols_url,
+                                                            throttler_limit_id=CONSTANTS.SYMBOLS_ENDPOINT)
             symbols = response["data"]
             symbols_dict = {}
             for symbol in symbols:

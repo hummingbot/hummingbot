@@ -56,9 +56,9 @@ async def main() -> None:
     )
 
     msg_batch_update = composer.MsgGrantTyped(
-        granter=granter_address.to_acc_bech32(),
-        grantee=GRANTEE_PUBLIC_INJECTIVE_ADDRESS,
-        msg_type="BatchUpdateOrdersAuthz",
+        granter = granter_address.to_acc_bech32(),
+        grantee = GRANTEE_PUBLIC_INJECTIVE_ADDRESS,
+        msg_type = "BatchUpdateOrdersAuthz",
         expire_in=GRANT_EXPIRATION_IN_DAYS * SECONDS_PER_DAY,
         subaccount_id=granter_subaccount_id,
         spot_markets=SPOT_MARKET_IDS,
@@ -82,12 +82,10 @@ async def main() -> None:
     gas_price = 500000000
     gas_limit = int(simulation["gasInfo"]["gasUsed"]) + 20000
     gas_fee = "{:.18f}".format((gas_price * gas_limit) / pow(10, 18)).rstrip("0")
-    fee = [
-        composer.coin(
-            amount=gas_price * gas_limit,
-            denom=NETWORK.fee_denom,
-        )
-    ]
+    fee = [composer.coin(
+        amount=gas_price * gas_limit,
+        denom=NETWORK.fee_denom,
+    )]
 
     tx = tx.with_gas(gas_limit).with_fee(fee).with_memo("").with_timeout_height(client.timeout_height)
     sign_doc = tx.get_sign_doc(granter_public_key)

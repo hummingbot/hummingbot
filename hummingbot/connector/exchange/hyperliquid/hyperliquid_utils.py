@@ -10,7 +10,7 @@ from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 DEFAULT_FEES = TradeFeeSchema(
     maker_percent_fee_decimal=Decimal("0"),
     taker_percent_fee_decimal=Decimal("0.00025"),
-    buy_percent_fee_deducted_from_returns=True,
+    buy_percent_fee_deducted_from_returns=True
 )
 
 CENTRALIZED = True
@@ -24,7 +24,7 @@ def validate_bool(value: str) -> Optional[str]:
     """
     Permissively interpret a string as a boolean
     """
-    valid_values = ("true", "yes", "y", "false", "no", "n")
+    valid_values = ('true', 'yes', 'y', 'false', 'no', 'n')
     if value.lower() not in valid_values:
         return f"Invalid value, please choose value from {valid_values}"
 
@@ -38,7 +38,7 @@ class HyperliquidConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        },
+        }
     )
     use_vault: bool = Field(
         default="no",
@@ -47,7 +47,7 @@ class HyperliquidConfigMap(BaseConnectorConfigMap):
             "is_secure": False,
             "is_connect_key": True,
             "prompt_on_new": True,
-        },
+        }
     )
     hyperliquid_api_key: SecretStr = Field(
         default=...,
@@ -56,7 +56,7 @@ class HyperliquidConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        },
+        }
     )
 
     @field_validator("use_vault", mode="before")
@@ -87,7 +87,7 @@ class HyperliquidTestnetConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        },
+        }
     )
     use_vault: bool = Field(
         default="no",
@@ -96,7 +96,7 @@ class HyperliquidTestnetConfigMap(BaseConnectorConfigMap):
             "is_secure": False,
             "is_connect_key": True,
             "prompt_on_new": True,
-        },
+        }
     )
     hyperliquid_testnet_api_key: SecretStr = Field(
         default=...,
@@ -105,7 +105,7 @@ class HyperliquidTestnetConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        },
+        }
     )
     model_config = ConfigDict(title="hyperliquid")
 

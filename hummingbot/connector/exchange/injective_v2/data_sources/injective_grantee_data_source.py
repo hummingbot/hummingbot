@@ -35,14 +35,14 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
     _logger: Optional[HummingbotLogger] = None
 
     def __init__(
-        self,
-        private_key: str,
-        subaccount_index: int,
-        granter_address: str,
-        granter_subaccount_index: int,
-        network: Network,
-        rate_limits: List[RateLimit],
-        fee_calculator_mode: "InjectiveFeeCalculatorMode",
+            self,
+            private_key: str,
+            subaccount_index: int,
+            granter_address: str,
+            granter_subaccount_index: int,
+            network: Network,
+            rate_limits: List[RateLimit],
+            fee_calculator_mode: "InjectiveFeeCalculatorMode",
     ):
         self._network = network
         self._client = AsyncClient(
@@ -180,10 +180,7 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
     async def trading_pair_for_market(self, market_id: str):
         if self._spot_market_and_trading_pair_map is None or self._derivative_market_and_trading_pair_map is None:
             async with self._markets_initialization_lock:
-                if (
-                    self._spot_market_and_trading_pair_map is None
-                    or self._derivative_market_and_trading_pair_map is None
-                ):
+                if self._spot_market_and_trading_pair_map is None or self._derivative_market_and_trading_pair_map is None:
                     await self.update_markets()
 
         trading_pair = self._spot_market_and_trading_pair_map.get(market_id)
@@ -267,10 +264,10 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         ) = await self._get_markets_and_tokens()
 
     async def order_updates_for_transaction(
-        self,
-        transaction_hash: str,
-        spot_orders: Optional[List[GatewayInFlightOrder]] = None,
-        perpetual_orders: Optional[List[GatewayPerpetualInFlightOrder]] = None,
+            self,
+            transaction_hash: str,
+            spot_orders: Optional[List[GatewayInFlightOrder]] = None,
+            perpetual_orders: Optional[List[GatewayPerpetualInFlightOrder]] = None,
     ) -> List[OrderUpdate]:
         spot_orders = spot_orders or []
         perpetual_orders = perpetual_orders or []
@@ -288,7 +285,7 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
 
         if transaction_info["txResponse"]["code"] != CONSTANTS.TRANSACTION_SUCCEEDED_CODE:
             # The transaction failed. All orders should be marked as failed
-            for order in spot_orders + perpetual_orders:
+            for order in (spot_orders + perpetual_orders):
                 order_update = OrderUpdate(
                     trading_pair=order.trading_pair,
                     update_timestamp=self._time(),
@@ -323,7 +320,8 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
 
     def real_tokens_spot_trading_pair(self, unique_trading_pair: str) -> str:
         resulting_trading_pair = unique_trading_pair
-        if self._spot_market_and_trading_pair_map is not None and self._spot_market_info_map is not None:
+        if (self._spot_market_and_trading_pair_map is not None
+                and self._spot_market_info_map is not None):
             market_id = self._spot_market_and_trading_pair_map.inverse.get(unique_trading_pair)
             market = self._spot_market_info_map.get(market_id)
             if market is not None:
@@ -336,7 +334,8 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
 
     def real_tokens_perpetual_trading_pair(self, unique_trading_pair: str) -> str:
         resulting_trading_pair = unique_trading_pair
-        if self._derivative_market_and_trading_pair_map is not None and self._derivative_market_info_map is not None:
+        if (self._derivative_market_and_trading_pair_map is not None
+                and self._derivative_market_info_map is not None):
             market_id = self._derivative_market_and_trading_pair_map.inverse.get(unique_trading_pair)
             market = self._derivative_market_info_map.get(market_id)
             if market is not None:
@@ -367,9 +366,9 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         return market_info
 
     async def _order_creation_messages(
-        self,
-        spot_orders_to_create: List[GatewayInFlightOrder],
-        derivative_orders_to_create: List[GatewayPerpetualInFlightOrder],
+            self,
+            spot_orders_to_create: List[GatewayInFlightOrder],
+            derivative_orders_to_create: List[GatewayPerpetualInFlightOrder],
     ) -> List[any_pb2.Any]:
         composer = await self.composer()
         spot_market_order_definitions = []
@@ -432,14 +431,17 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
             )
             all_messages.append(message)
 
-        delegated_message = composer.MsgExec(grantee=self.trading_account_injective_address, msgs=all_messages)
+        delegated_message = composer.MsgExec(
+            grantee=self.trading_account_injective_address,
+            msgs=all_messages
+        )
 
         return [delegated_message]
 
     async def _order_cancel_message(
-        self,
-        spot_orders_to_cancel: List[injective_exchange_tx_pb.OrderData],
-        derivative_orders_to_cancel: List[injective_exchange_tx_pb.OrderData],
+            self,
+            spot_orders_to_cancel: List[injective_exchange_tx_pb.OrderData],
+            derivative_orders_to_cancel: List[injective_exchange_tx_pb.OrderData]
     ) -> any_pb2.Any:
         composer = await self.composer()
 
@@ -448,11 +450,16 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
             spot_orders_to_cancel=spot_orders_to_cancel,
             derivative_orders_to_cancel=derivative_orders_to_cancel,
         )
-        delegated_message = composer.MsgExec(grantee=self.trading_account_injective_address, msgs=[message])
+        delegated_message = composer.MsgExec(
+            grantee=self.trading_account_injective_address,
+            msgs=[message]
+        )
         return delegated_message
 
     async def _all_subaccount_orders_cancel_message(
-        self, spot_markets_ids: List[str], derivative_markets_ids: List[str]
+            self,
+            spot_markets_ids: List[str],
+            derivative_markets_ids: List[str]
     ) -> any_pb2.Any:
         composer = await self.composer()
 
@@ -462,12 +469,13 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
             spot_market_ids_to_cancel_all=spot_markets_ids,
             derivative_market_ids_to_cancel_all=derivative_markets_ids,
         )
-        delegated_message = composer.MsgExec(grantee=self.trading_account_injective_address, msgs=[message])
+        delegated_message = composer.MsgExec(
+            grantee=self.trading_account_injective_address,
+            msgs=[message]
+        )
         return delegated_message
 
-    async def _generate_injective_order_data(
-        self, order: GatewayInFlightOrder, market_id: str
-    ) -> injective_exchange_tx_pb.OrderData:
+    async def _generate_injective_order_data(self, order: GatewayInFlightOrder, market_id: str) -> injective_exchange_tx_pb.OrderData:
         composer = await self.composer()
         order_hash = order.exchange_order_id
         cid = order.client_order_id if order_hash is None else None
@@ -483,9 +491,7 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         return order_data
 
     async def _process_chain_stream_update(
-        self,
-        chain_stream_update: Dict[str, Any],
-        derivative_markets: List[InjectiveDerivativeMarket],
+        self, chain_stream_update: Dict[str, Any], derivative_markets: List[InjectiveDerivativeMarket],
     ):
         self._last_received_message_timestamp = self._time()
         await super()._process_chain_stream_update(
@@ -498,11 +504,9 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         await super()._process_transaction_update(transaction_event=transaction_event)
 
     async def _configure_gas_fee_for_transaction(self, transaction: Transaction):
-        multiplier = (
-            None
-            if CONSTANTS.GAS_LIMIT_ADJUSTMENT_MULTIPLIER is None
-            else Decimal(str(CONSTANTS.GAS_LIMIT_ADJUSTMENT_MULTIPLIER))
-        )
+        multiplier = (None
+                      if CONSTANTS.GAS_LIMIT_ADJUSTMENT_MULTIPLIER is None
+                      else Decimal(str(CONSTANTS.GAS_LIMIT_ADJUSTMENT_MULTIPLIER)))
         if self._fee_calculator is None:
             self._fee_calculator = self._fee_calculator_mode.create_calculator(
                 client=self._client,

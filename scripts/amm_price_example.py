@@ -13,23 +13,18 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 class DEXPriceConfig(BaseClientModel):
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
-    connector: str = Field("jupiter", json_schema_extra={"prompt": "DEX to swap on", "prompt_on_new": True})
-    chain: str = Field("solana", json_schema_extra={"prompt": "Chain", "prompt_on_new": True})
-    network: str = Field("mainnet-beta", json_schema_extra={"prompt": "Network", "prompt_on_new": True})
-    trading_pair: str = Field(
-        "SOL-USDC",
-        json_schema_extra={"prompt": "Trading pair in which the bot will place orders", "prompt_on_new": True},
-    )
-    is_buy: bool = Field(
-        True,
-        json_schema_extra={
-            "prompt": "Buying or selling the base asset? (True for buy, False for sell)",
-            "prompt_on_new": True,
-        },
-    )
-    amount: Decimal = Field(
-        Decimal("0.01"), json_schema_extra={"prompt": "Amount of base asset to buy or sell", "prompt_on_new": True}
-    )
+    connector: str = Field("jupiter", json_schema_extra={
+        "prompt": "DEX to swap on", "prompt_on_new": True})
+    chain: str = Field("solana", json_schema_extra={
+        "prompt": "Chain", "prompt_on_new": True})
+    network: str = Field("mainnet-beta", json_schema_extra={
+        "prompt": "Network", "prompt_on_new": True})
+    trading_pair: str = Field("SOL-USDC", json_schema_extra={
+        "prompt": "Trading pair in which the bot will place orders", "prompt_on_new": True})
+    is_buy: bool = Field(True, json_schema_extra={
+        "prompt": "Buying or selling the base asset? (True for buy, False for sell)", "prompt_on_new": True})
+    amount: Decimal = Field(Decimal("0.01"), json_schema_extra={
+        "prompt": "Amount of base asset to buy or sell", "prompt_on_new": True})
 
 
 class DEXPrice(ScriptStrategyBase):
@@ -56,7 +51,9 @@ class DEXPrice(ScriptStrategyBase):
     async def async_task(self):
         # fetch price using GatewaySwap instead of direct HTTP call
         side = "buy" if self.config.is_buy else "sell"
-        msg = f"Getting quote on {self.exchange} " f"to {side} {self.config.amount} {self.base} " f"for {self.quote}"
+        msg = (f"Getting quote on {self.exchange} "
+               f"to {side} {self.config.amount} {self.base} "
+               f"for {self.quote}")
         try:
             self.log_with_clock(logging.INFO, msg)
             price = await self.connectors[self.exchange].get_quote_price(

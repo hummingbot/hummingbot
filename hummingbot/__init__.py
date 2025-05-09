@@ -26,7 +26,6 @@ _cert_path = None
 
 def root_path() -> Path:
     from os.path import join, realpath
-
     return Path(realpath(join(__file__, "../../")))
 
 
@@ -41,7 +40,6 @@ def prefix_path() -> str:
     global _prefix_path
     if _prefix_path is None:
         from os.path import join, realpath
-
         _prefix_path = realpath(join(__file__, "../../"))
     return _prefix_path
 
@@ -55,11 +53,9 @@ def data_path() -> str:
     global _data_path
     if _data_path is None:
         from os.path import join, realpath
-
         _data_path = realpath(join(prefix_path(), "data"))
 
     import os
-
     if not os.path.exists(_data_path):
         os.makedirs(_data_path)
     return _data_path
@@ -76,7 +72,6 @@ _independent_package: Optional[bool] = None
 def is_independent_package() -> bool:
     global _independent_package
     import os
-
     if _independent_package is None:
         _independent_package = not os.path.basename(sys.executable).startswith("python")
     return _independent_package
@@ -103,7 +98,6 @@ def chdir_to_data_directory():
     import os
 
     import appdirs
-
     app_data_dir: str = appdirs.user_data_dir("Hummingbot", "hummingbot.io")
     os.makedirs(os.path.join(app_data_dir, "logs"), 0o711, exist_ok=True)
     os.makedirs(os.path.join(app_data_dir, "conf"), 0o711, exist_ok=True)
@@ -114,7 +108,7 @@ def chdir_to_data_directory():
     set_prefix_path(app_data_dir)
 
 
-def get_logging_conf(conf_filename: str = "hummingbot_logs.yml"):
+def get_logging_conf(conf_filename: str = 'hummingbot_logs.yml'):
     import io
     from os.path import join
     from typing import Dict
@@ -132,12 +126,10 @@ def get_logging_conf(conf_filename: str = "hummingbot_logs.yml"):
         return config_dict
 
 
-def init_logging(
-    conf_filename: str,
-    client_config_map: "_ClientConfigAdapter",
-    override_log_level: Optional[str] = None,
-    strategy_file_path: str = "hummingbot",
-):
+def init_logging(conf_filename: str,
+                 client_config_map: "_ClientConfigAdapter",
+                 override_log_level: Optional[str] = None,
+                 strategy_file_path: str = "hummingbot"):
     import io
     import logging.config
     from os.path import join
@@ -147,7 +139,6 @@ def init_logging(
     from ruamel.yaml import YAML
 
     from hummingbot.logger.struct_logger import StructLogger, StructLogRecord
-
     global STRUCT_LOGGER_SET
     if not STRUCT_LOGGER_SET:
         logging.setLogRecordFactory(StructLogRecord)

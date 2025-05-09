@@ -33,9 +33,7 @@ class UserBalances:
 
             # collect unique trading pairs that are for balance reporting only
             if conn_setting.uses_gateway_generic_connector():
-                config: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(
-                    conn_setting.name
-                )
+                config: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(conn_setting.name)
                 if config is not None:
                     existing_pairs = set(flatten([x.split("-") for x in trading_pairs]))
 
@@ -67,7 +65,11 @@ class UserBalances:
     @staticmethod
     @lru_cache(maxsize=10)
     def is_gateway_market(exchange_name: str) -> bool:
-        return exchange_name in sorted(AllConnectorSettings.get_gateway_amm_connector_names())
+        return (
+            exchange_name in sorted(
+                AllConnectorSettings.get_gateway_amm_connector_names()
+            )
+        )
 
     def __init__(self):
         if UserBalances.__instance is not None:
@@ -108,7 +110,10 @@ class UserBalances:
 
     # returns error message for each exchange
     async def update_exchanges(
-        self, client_config_map: ClientConfigMap, reconnect: bool = False, exchanges: Optional[List[str]] = None
+        self,
+        client_config_map: ClientConfigMap,
+        reconnect: bool = False,
+        exchanges: Optional[List[str]] = None
     ) -> Dict[str, Optional[str]]:
         exchanges = exchanges or []
         tasks = []
@@ -118,7 +123,9 @@ class UserBalances:
         exchanges: List[str] = [
             cs.name
             for cs in AllConnectorSettings.get_connector_settings().values()
-            if not cs.use_ethereum_wallet and cs.name in exchanges and not cs.name.endswith("paper_trade")
+            if not cs.use_ethereum_wallet
+            and cs.name in exchanges
+            and not cs.name.endswith("paper_trade")
         ]
 
         if reconnect:
@@ -131,19 +138,11 @@ class UserBalances:
     # returns only for non-gateway connectors since balance command no longer reports gateway connector balances
     async def all_balances_all_exchanges(self, client_config_map: ClientConfigMap) -> Dict[str, Dict[str, Decimal]]:
         await self.update_exchanges(client_config_map)
-        return {
-            k: v.get_all_balances()
-            for k, v in sorted(self._markets.items(), key=lambda x: x[0])
-            if not self.is_gateway_market(k)
-        }
+        return {k: v.get_all_balances() for k, v in sorted(self._markets.items(), key=lambda x: x[0]) if not self.is_gateway_market(k)}
 
     # returns only for non-gateway connectors since balance command no longer reports gateway connector balances
     def all_available_balances_all_exchanges(self) -> Dict[str, Dict[str, Decimal]]:
-        return {
-            k: v.available_balances
-            for k, v in sorted(self._markets.items(), key=lambda x: x[0])
-            if not self.is_gateway_market(k)
-        }
+        return {k: v.available_balances for k, v in sorted(self._markets.items(), key=lambda x: x[0]) if not self.is_gateway_market(k)}
 
     async def balances(self, exchange, client_config_map: ClientConfigMap, *symbols) -> Dict[str, Decimal]:
         if await self.update_exchange_balance(exchange, client_config_map) is None:

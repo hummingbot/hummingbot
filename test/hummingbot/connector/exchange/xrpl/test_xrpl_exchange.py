@@ -958,7 +958,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         self.assertEqual(0.22452700389932698, asks[0].price)
         self.assertEqual(91.846106, asks[0].amount)
 
-    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient")
+    @patch('hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient')
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._verify_transaction_result")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_autofill")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_sign")
@@ -971,7 +971,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         sign_mock,
         autofill_mock,
         verify_transaction_result_mock,
-        mock_async_websocket_client,
+        mock_async_websocket_client
     ):
         # Create a mock client to be returned by the context manager
         mock_client = AsyncMock()
@@ -988,8 +988,12 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         )
 
         await self.connector._place_order(
-            "hbot", self.trading_pair, Decimal("12345.12345678901234567"), TradeType.BUY, OrderType.LIMIT, Decimal("1")
-        )
+            "hbot",
+            self.trading_pair,
+            Decimal("12345.12345678901234567"),
+            TradeType.BUY,
+            OrderType.LIMIT,
+            Decimal("1"))
 
         await self.connector._place_order(
             "hbot",
@@ -997,8 +1001,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
             Decimal("12345.12345678901234567"),
             TradeType.SELL,
             OrderType.LIMIT,
-            Decimal("1234567.123456789"),
-        )
+            Decimal("1234567.123456789"))
 
         await self.connector._place_order(
             "hbot",
@@ -1006,8 +1009,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
             Decimal("12345.12345678901234567"),
             TradeType.BUY,
             OrderType.LIMIT,
-            Decimal("1234567.123456789"),
-        )
+            Decimal("1234567.123456789"))
 
         await self.connector._place_order(
             "hbot",
@@ -1015,8 +1017,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
             Decimal("12345.12345678901234567"),
             TradeType.SELL,
             OrderType.LIMIT,
-            Decimal("1234567.123456789"),
-        )
+            Decimal("1234567.123456789"))
 
         order_id = self.connector.buy(
             self.trading_pair_usd,
@@ -1042,7 +1043,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         self.assertTrue(autofill_mock.called)
         self.assertTrue(sign_mock.called)
 
-    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient")
+    @patch('hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient')
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._verify_transaction_result")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_autofill")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_sign")
@@ -1055,7 +1056,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         sign_mock,
         autofill_mock,
         verify_transaction_result_mock,
-        mock_async_websocket_client,
+        mock_async_websocket_client
     ):
         # Create a mock client to be returned by the context manager
         mock_client = AsyncMock()
@@ -1086,21 +1087,13 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
             return_value=MockGetPriceReturn(result_price=Decimal("1"))
         )
 
-        await self.connector._place_order(
-            "hbot", self.trading_pair, Decimal("1"), TradeType.BUY, OrderType.MARKET, Decimal("1")
-        )
+        await self.connector._place_order("hbot", self.trading_pair, Decimal("1"), TradeType.BUY, OrderType.MARKET, Decimal("1"))
 
-        await self.connector._place_order(
-            "hbot", self.trading_pair, Decimal("1"), TradeType.SELL, OrderType.MARKET, Decimal("1")
-        )
+        await self.connector._place_order("hbot", self.trading_pair, Decimal("1"), TradeType.SELL, OrderType.MARKET, Decimal("1"))
 
-        await self.connector._place_order(
-            "hbot", self.trading_pair_usd, Decimal("1"), TradeType.BUY, OrderType.MARKET, Decimal("1")
-        )
+        await self.connector._place_order("hbot", self.trading_pair_usd, Decimal("1"), TradeType.BUY, OrderType.MARKET, Decimal("1"))
 
-        await self.connector._place_order(
-            "hbot", self.trading_pair_usd, Decimal("1"), TradeType.SELL, OrderType.MARKET, Decimal("1")
-        )
+        await self.connector._place_order("hbot", self.trading_pair_usd, Decimal("1"), TradeType.SELL, OrderType.MARKET, Decimal("1"))
 
         order_id = self.connector.buy(
             self.trading_pair_usd,
@@ -1136,13 +1129,12 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
                 amount=Decimal("1.0"),
                 trade_type=TradeType.BUY,
                 order_type=OrderType.MARKET,
-                price=Decimal("1"),
-            )
+                price=Decimal("1"))
 
         # Verify the exception was raised and contains the expected message
         self.assertTrue("Market NOT_FOUND not found in markets list" in str(context.exception))
 
-    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient")
+    @patch('hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient')
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.autofill", new_callable=MagicMock)
     # @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.submit", new_callable=MagicMock)
     async def test_place_order_exception_handling_autofill(self, autofill_mock, mock_async_websocket_client):
@@ -1160,15 +1152,14 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
                 amount=Decimal("1.0"),
                 trade_type=TradeType.BUY,
                 order_type=OrderType.MARKET,
-                price=Decimal("1"),
-            )
+                price=Decimal("1"))
 
         # Verify the exception was raised and contains the expected message
         self.assertTrue(
             "Order None (test_order) creation failed: Test exception during autofill" in str(context.exception)
         )
 
-    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient")
+    @patch('hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient')
     @patch("hummingbot.connector.exchange_py_base.ExchangePyBase._sleep")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._verify_transaction_result")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_autofill")
@@ -1185,7 +1176,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         autofill_mock,
         verify_transaction_result_mock,
         sleep_mock,
-        mock_async_websocket_client,
+        mock_async_websocket_client
     ):
         # Create a mock client to be returned by the context manager
         mock_client = AsyncMock()
@@ -1208,8 +1199,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
                 Decimal("12345.12345678901234567"),
                 TradeType.SELL,
                 OrderType.LIMIT,
-                Decimal("1234567.123456789"),
-            )
+                Decimal("1234567.123456789"))
 
         # # Verify the exception was raised and contains the expected message
         self.assertTrue(
@@ -1217,7 +1207,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
             in str(context.exception)
         )
 
-    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient")
+    @patch('hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient')
     @patch("hummingbot.connector.exchange_py_base.ExchangePyBase._sleep")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._verify_transaction_result")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_autofill")
@@ -1234,7 +1224,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         autofill_mock,
         verify_transaction_result_mock,
         sleep_mock,
-        mock_async_websocket_client,
+        mock_async_websocket_client
     ):
         # Create a mock client to be returned by the context manager
         mock_client = AsyncMock()
@@ -1257,13 +1247,12 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
                 Decimal("12345.12345678901234567"),
                 TradeType.SELL,
                 OrderType.LIMIT,
-                Decimal("1234567.123456789"),
-            )
+                Decimal("1234567.123456789"))
 
         # # Verify the exception was raised and contains the expected message
         self.assertTrue("Order 1-1 (hbot) creation failed: Failed to place order hbot (1-1)" in str(context.exception))
 
-    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient")
+    @patch('hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient')
     @patch("hummingbot.connector.exchange_py_base.ExchangePyBase._sleep")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._verify_transaction_result")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_autofill")
@@ -1280,7 +1269,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         autofill_mock,
         verify_transaction_result_mock,
         sleep_mock,
-        mock_async_websocket_client,
+        mock_async_websocket_client
     ):
         # Create a mock client to be returned by the context manager
         mock_client = AsyncMock()
@@ -1303,13 +1292,12 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
                 Decimal("12345.12345678901234567"),
                 TradeType.SELL,
                 OrderType.LIMIT,
-                Decimal("1234567.123456789"),
-            )
+                Decimal("1234567.123456789"))
 
         # # Verify the exception was raised and contains the expected message
         self.assertTrue("Order 1-1 (hbot) creation failed: Failed to place order hbot (1-1)" in str(context.exception))
 
-    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient")
+    @patch('hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient')
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_autofill")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_sign")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_submit")
@@ -1348,7 +1336,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         self.assertTrue(autofill_mock.called)
         self.assertTrue(sign_mock.called)
 
-    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient")
+    @patch('hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient')
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._verify_transaction_result")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_autofill")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_sign")
@@ -1409,7 +1397,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         self.assertTrue(process_trade_fills_mock.called)
         self.assertEqual("1-1", exchange_order_id)
 
-    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient")
+    @patch('hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient')
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._verify_transaction_result")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_autofill")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_sign")
@@ -1671,9 +1659,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         transaction_mock.get_hash.return_value = "hash"
         transaction_mock.last_ledger_sequence = 12345
 
-        result, response = await self.connector._verify_transaction_result(
-            {"transaction": transaction_mock, "prelim_result": "tesSUCCESS"}
-        )
+        result, response = await self.connector._verify_transaction_result({"transaction": transaction_mock, "prelim_result": "tesSUCCESS"})
         self.assertTrue(result)
         self.assertIsNotNone(response)
 
@@ -1687,8 +1673,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
 
         with self.assertLogs(level="ERROR") as log:
             result, response = await self.connector._verify_transaction_result(
-                {"transaction": transaction_mock, "prelim_result": "tesSUCCESS"}
-            )
+                {"transaction": transaction_mock, "prelim_result": "tesSUCCESS"})
 
         log_output = log.output[0]
         self.assertEqual(
@@ -1711,29 +1696,20 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         with self.assertLogs(level="ERROR") as log:
             await self.connector._verify_transaction_result(
                 {
-                    "transaction": Transaction(
-                        account="r1234", transaction_type=TransactionType.ACCOUNT_SET
-                    ),  # noqa: mock
-                    "prelim_result": "tesSUCCESS",
-                }
-            )
+                    "transaction": Transaction(account="r1234", transaction_type=TransactionType.ACCOUNT_SET),  # noqa: mock
+                    "prelim_result": "tesSUCCESS"
+                })
 
         log_output = log.output[0]
-        self.assertEqual(
-            log_output,
-            "ERROR:hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange:Max retries reached. Verify transaction failed due to timeout.",
-        )
+        self.assertEqual(log_output,
+                         "ERROR:hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange:Max retries reached. Verify transaction failed due to timeout.",)
 
         with self.assertLogs(level="ERROR") as log:
             await self.connector._verify_transaction_result(
                 {
-                    "transaction": Transaction(
-                        account="r1234", transaction_type=TransactionType.ACCOUNT_SET
-                    ),  # noqa: mock
-                    "prelim_result": "tesSUCCESS",
-                },
-                try_count=CONSTANTS.VERIFY_TRANSACTION_MAX_RETRY,
-            )
+                    "transaction": Transaction(account="r1234", transaction_type=TransactionType.ACCOUNT_SET),  # noqa: mock
+                    "prelim_result": "tesSUCCESS"},
+                try_count=CONSTANTS.VERIFY_TRANSACTION_MAX_RETRY)
 
         log_output = log.output[0]
         self.assertEqual(
@@ -1750,9 +1726,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         transaction_mock.last_ledger_sequence = 12345
 
         with self.assertLogs(level="ERROR") as log:
-            result, response = await self.connector._verify_transaction_result(
-                {"transaction": transaction_mock, "prelim_result": None}
-            )
+            result, response = await self.connector._verify_transaction_result({"transaction": transaction_mock, "prelim_result": None})
 
         log_output = log.output[0]
         self.assertEqual(

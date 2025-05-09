@@ -12,15 +12,18 @@ HBOT_ORDER_ID_PREFIX = "11111"
 MAX_ORDER_ID_LEN = 32
 
 # Base URL
-REST_URL = {"live": "https://api.cube.exchange", "staging": "https://staging.cube.exchange"}
+REST_URL = {"live": "https://api.cube.exchange",
+            "staging": "https://staging.cube.exchange"}
 
 # INFO_REQUEST_URL = "/ir/v0"
 TRADE_REQUEST_URL = "/os/v0"
 MARKET_DATA_REQUEST_URL = "/md/v0"
 
-WSS_MARKET_DATA_URL = {"live": "wss://api.cube.exchange/md", "staging": "wss://staging.cube.exchange/md"}
+WSS_MARKET_DATA_URL = {"live": "wss://api.cube.exchange/md",
+                       "staging": "wss://staging.cube.exchange/md"}
 
-WSS_TRADE_URL = {"live": "wss://api.cube.exchange/os", "staging": "wss://staging.cube.exchange/os"}
+WSS_TRADE_URL = {"live": "wss://api.cube.exchange/os",
+                 "staging": "wss://staging.cube.exchange/os"}
 
 EXCHANGE_INFO_PATH_URL = "/ir/v0/markets"
 PING_PATH_URL = "/md/v0/parsed/tickers"

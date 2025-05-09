@@ -19,16 +19,14 @@ class HeadersContentRESTPreProcessor(RESTPreProcessorBase):
 
 
 def build_api_factory(
-    throttler: Optional[AsyncThrottler] = None,
-    time_synchronizer: Optional[TimeSynchronizer] = None,
-    time_provider: Optional[Callable] = None,
-    auth: Optional[AuthBase] = None,
+        throttler: Optional[AsyncThrottler] = None,
+        time_synchronizer: Optional[TimeSynchronizer] = None,
+        time_provider: Optional[Callable] = None,
+        auth: Optional[AuthBase] = None,
 ) -> WebAssistantsFactory:
     throttler = throttler or create_throttler()
     time_synchronizer = time_synchronizer or TimeSynchronizer()
-    time_provider = time_provider or (
-        lambda: get_current_server_time(throttler=throttler, domain=CONSTANTS.DEFAULT_DOMAIN)
-    )
+    time_provider = time_provider or (lambda: get_current_server_time(throttler=throttler, domain=CONSTANTS.DEFAULT_DOMAIN))
     api_factory = WebAssistantsFactory(
         throttler=throttler,
         auth=auth,
@@ -45,9 +43,8 @@ def create_throttler(trading_pairs: List[str] = None) -> AsyncThrottler:
     return throttler
 
 
-async def get_current_server_time(
-    throttler: Optional[AsyncThrottler] = None, domain: str = CONSTANTS.DEFAULT_DOMAIN
-) -> float:
+async def get_current_server_time(throttler: Optional[AsyncThrottler] = None,
+                                  domain: str = CONSTANTS.DEFAULT_DOMAIN) -> float:
     """
     Transaction Timeouts (https://www.okx.com/docs-v5/en/?shell#overview-general-info)
     Orders may not be processed in time due to network delay or busy OKX servers.
@@ -65,9 +62,8 @@ async def get_current_server_time(
     rest_assistant = await api_factory.get_rest_assistant()
     endpoint = CONSTANTS.REST_SERVER_TIME[CONSTANTS.ENDPOINT]
     url = get_rest_url_for_endpoint(endpoint=endpoint, domain=domain)
-    limit_id = get_rest_api_limit_id_for_endpoint(
-        method=CONSTANTS.REST_SERVER_TIME[CONSTANTS.METHOD], endpoint=endpoint
-    )
+    limit_id = get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_SERVER_TIME[CONSTANTS.METHOD],
+                                                  endpoint=endpoint)
     response = await rest_assistant.execute_request(
         url=url,
         throttler_limit_id=limit_id,
@@ -101,7 +97,10 @@ def build_api_factory_without_time_synchronizer_pre_processor(throttler: AsyncTh
     return api_factory
 
 
-def get_rest_url_for_endpoint(endpoint: str, domain: str = CONSTANTS.DEFAULT_DOMAIN):
+def get_rest_url_for_endpoint(
+        endpoint: str,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN
+):
     variant = domain if domain else CONSTANTS.DEFAULT_DOMAIN
     return CONSTANTS.REST_URLS.get(variant) + endpoint
 
@@ -162,37 +161,29 @@ def _build_websocket_rate_limits(domain: str) -> List[RateLimit]:
 def _build_public_rate_limits():
     public_rate_limits = [
         RateLimit(
-            limit_id=get_rest_api_limit_id_for_endpoint(
-                method=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION[CONSTANTS.METHOD],
-                endpoint=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION[CONSTANTS.ENDPOINT],
-            ),
+            limit_id=get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION[CONSTANTS.METHOD],
+                                                        endpoint=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION[CONSTANTS.ENDPOINT]),
             limit=20,
             time_interval=2,
         ),
         RateLimit(
-            limit_id=get_rest_api_limit_id_for_endpoint(
-                method=CONSTANTS.REST_ORDER_BOOK[CONSTANTS.METHOD],
-                endpoint=CONSTANTS.REST_ORDER_BOOK[CONSTANTS.ENDPOINT],
-            ),
+            limit_id=get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_ORDER_BOOK[CONSTANTS.METHOD],
+                                                        endpoint=CONSTANTS.REST_ORDER_BOOK[CONSTANTS.ENDPOINT]),
             limit=40,
             time_interval=2,
         ),
         RateLimit(
-            limit_id=get_rest_api_limit_id_for_endpoint(
-                method=CONSTANTS.REST_SERVER_TIME[CONSTANTS.METHOD],
-                endpoint=CONSTANTS.REST_SERVER_TIME[CONSTANTS.ENDPOINT],
-            ),
+            limit_id=get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_SERVER_TIME[CONSTANTS.METHOD],
+                                                        endpoint=CONSTANTS.REST_SERVER_TIME[CONSTANTS.ENDPOINT]),
             limit=10,
             time_interval=2,
         ),
         RateLimit(
-            limit_id=get_rest_api_limit_id_for_endpoint(
-                method=CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.METHOD],
-                endpoint=CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.ENDPOINT],
-            ),
+            limit_id=get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.METHOD],
+                                                        endpoint=CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.ENDPOINT]),
             limit=20,
             time_interval=2,
-        ),
+        )
     ]
     return public_rate_limits
 
@@ -209,29 +200,23 @@ def _build_private_pair_specific_rate_limits(trading_pairs: List[str]) -> List[R
     for trading_pair in trading_pairs:
         trading_pair_rate_limits = [
             RateLimit(
-                limit_id=get_pair_specific_limit_id(
-                    method=CONSTANTS.REST_FUNDING_RATE_INFO[CONSTANTS.METHOD],
-                    endpoint=CONSTANTS.REST_FUNDING_RATE_INFO[CONSTANTS.ENDPOINT],
-                    trading_pair=trading_pair,
-                ),
+                limit_id=get_pair_specific_limit_id(method=CONSTANTS.REST_FUNDING_RATE_INFO[CONSTANTS.METHOD],
+                                                    endpoint=CONSTANTS.REST_FUNDING_RATE_INFO[CONSTANTS.ENDPOINT],
+                                                    trading_pair=trading_pair),
                 limit=20,
                 time_interval=2,
             ),
             RateLimit(
-                limit_id=get_pair_specific_limit_id(
-                    method=CONSTANTS.REST_MARK_PRICE[CONSTANTS.METHOD],
-                    endpoint=CONSTANTS.REST_MARK_PRICE[CONSTANTS.ENDPOINT],
-                    trading_pair=trading_pair,
-                ),
+                limit_id=get_pair_specific_limit_id(method=CONSTANTS.REST_MARK_PRICE[CONSTANTS.METHOD],
+                                                    endpoint=CONSTANTS.REST_MARK_PRICE[CONSTANTS.ENDPOINT],
+                                                    trading_pair=trading_pair),
                 limit=10,
-                time_interval=2,
+                time_interval=2
             ),
             RateLimit(
-                limit_id=get_pair_specific_limit_id(
-                    method=CONSTANTS.REST_INDEX_TICKERS[CONSTANTS.METHOD],
-                    endpoint=CONSTANTS.REST_INDEX_TICKERS[CONSTANTS.ENDPOINT],
-                    trading_pair=trading_pair,
-                ),
+                limit_id=get_pair_specific_limit_id(method=CONSTANTS.REST_INDEX_TICKERS[CONSTANTS.METHOD],
+                                                    endpoint=CONSTANTS.REST_INDEX_TICKERS[CONSTANTS.ENDPOINT],
+                                                    trading_pair=trading_pair),
                 limit=20,
                 time_interval=2,
             ),
@@ -243,75 +228,58 @@ def _build_private_pair_specific_rate_limits(trading_pairs: List[str]) -> List[R
 def _build_private_general_rate_limits() -> List[RateLimit]:
     rate_limits = [
         RateLimit(
-            limit_id=get_rest_api_limit_id_for_endpoint(
-                method=CONSTANTS.REST_QUERY_ACTIVE_ORDER[CONSTANTS.METHOD],
-                endpoint=CONSTANTS.REST_QUERY_ACTIVE_ORDER[CONSTANTS.ENDPOINT],
-            ),
+            limit_id=get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_QUERY_ACTIVE_ORDER[CONSTANTS.METHOD],
+                                                        endpoint=CONSTANTS.REST_QUERY_ACTIVE_ORDER[CONSTANTS.ENDPOINT]),
             limit=60,
             time_interval=2,
         ),
         RateLimit(
-            limit_id=get_rest_api_limit_id_for_endpoint(
-                method=CONSTANTS.REST_PLACE_ACTIVE_ORDER[CONSTANTS.METHOD],
-                endpoint=CONSTANTS.REST_PLACE_ACTIVE_ORDER[CONSTANTS.ENDPOINT],
-            ),
+            limit_id=get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_PLACE_ACTIVE_ORDER[CONSTANTS.METHOD],
+                                                        endpoint=CONSTANTS.REST_PLACE_ACTIVE_ORDER[CONSTANTS.ENDPOINT]),
             limit=60,
             time_interval=2,
         ),
         RateLimit(
-            limit_id=get_rest_api_limit_id_for_endpoint(
-                method=CONSTANTS.REST_CANCEL_ACTIVE_ORDER[CONSTANTS.METHOD],
-                endpoint=CONSTANTS.REST_CANCEL_ACTIVE_ORDER[CONSTANTS.ENDPOINT],
-            ),
+            limit_id=get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_CANCEL_ACTIVE_ORDER[CONSTANTS.METHOD],
+                                                        endpoint=CONSTANTS.REST_CANCEL_ACTIVE_ORDER[CONSTANTS.ENDPOINT]),
             limit=60,
             time_interval=2,
         ),
         RateLimit(
-            limit_id=get_rest_api_limit_id_for_endpoint(
-                method=CONSTANTS.REST_SET_LEVERAGE[CONSTANTS.METHOD],
-                endpoint=CONSTANTS.REST_SET_LEVERAGE[CONSTANTS.ENDPOINT],
-            ),
+            limit_id=get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_SET_LEVERAGE[CONSTANTS.METHOD],
+                                                        endpoint=CONSTANTS.REST_SET_LEVERAGE[CONSTANTS.ENDPOINT]),
             limit=20,
             time_interval=2,
         ),
         RateLimit(
-            limit_id=get_rest_api_limit_id_for_endpoint(
-                method=CONSTANTS.REST_USER_TRADE_RECORDS[CONSTANTS.METHOD],
-                endpoint=CONSTANTS.REST_USER_TRADE_RECORDS[CONSTANTS.ENDPOINT],
-            ),
+            limit_id=get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_USER_TRADE_RECORDS[CONSTANTS.METHOD],
+                                                        endpoint=CONSTANTS.REST_USER_TRADE_RECORDS[CONSTANTS.ENDPOINT]),
             limit=120,
             time_interval=60,
         ),
         RateLimit(
-            limit_id=get_rest_api_limit_id_for_endpoint(
-                CONSTANTS.REST_GET_POSITIONS[CONSTANTS.METHOD], CONSTANTS.REST_GET_POSITIONS[CONSTANTS.ENDPOINT]
-            ),
+            limit_id=get_rest_api_limit_id_for_endpoint(CONSTANTS.REST_GET_POSITIONS[CONSTANTS.METHOD],
+                                                        CONSTANTS.REST_GET_POSITIONS[CONSTANTS.ENDPOINT]),
             limit=10,
             time_interval=2,
         ),
         RateLimit(
-            limit_id=get_rest_api_limit_id_for_endpoint(
-                method=CONSTANTS.REST_GET_WALLET_BALANCE[CONSTANTS.METHOD],
-                endpoint=CONSTANTS.REST_GET_WALLET_BALANCE[CONSTANTS.ENDPOINT],
-            ),
+            limit_id=get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_GET_WALLET_BALANCE[CONSTANTS.METHOD],
+                                                        endpoint=CONSTANTS.REST_GET_WALLET_BALANCE[CONSTANTS.ENDPOINT]),
             limit=10,
             time_interval=2,
         ),
         RateLimit(
-            limit_id=get_rest_api_limit_id_for_endpoint(
-                method=CONSTANTS.REST_SET_POSITION_MODE[CONSTANTS.METHOD],
-                endpoint=CONSTANTS.REST_SET_POSITION_MODE[CONSTANTS.ENDPOINT],
-            ),
+            limit_id=get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_SET_POSITION_MODE[CONSTANTS.METHOD],
+                                                        endpoint=CONSTANTS.REST_SET_POSITION_MODE[CONSTANTS.ENDPOINT]),
             limit=5,
             time_interval=2,
         ),
         RateLimit(
-            limit_id=get_rest_api_limit_id_for_endpoint(
-                method=CONSTANTS.REST_BILLS_DETAILS[CONSTANTS.METHOD],
-                endpoint=CONSTANTS.REST_BILLS_DETAILS[CONSTANTS.ENDPOINT],
-            ),
+            limit_id=get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_BILLS_DETAILS[CONSTANTS.METHOD],
+                                                        endpoint=CONSTANTS.REST_BILLS_DETAILS[CONSTANTS.ENDPOINT]),
             limit=5,
             time_interval=1,
-        ),
+        )
     ]
     return rate_limits

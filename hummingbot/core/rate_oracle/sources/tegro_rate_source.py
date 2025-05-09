@@ -48,7 +48,7 @@ class TegroRateSource(RateSourceBase):
             self._exchange = self._build_tegro_connector_without_private_keys()
 
     @staticmethod
-    def _build_tegro_connector_without_private_keys() -> "TegroExchange":
+    def _build_tegro_connector_without_private_keys() -> 'TegroExchange':
         from hummingbot.client.hummingbot_application import HummingbotApplication
         from hummingbot.connector.exchange.tegro.tegro_exchange import TegroExchange
 
@@ -60,6 +60,6 @@ class TegroRateSource(RateSourceBase):
             tegro_api_secret="",  # noqa: mock
             trading_pairs=[],  # noqa: mock
             tegro_api_key="",
-            chain_name="base",
+            chain_name= "base",
             trading_required=False,
         )

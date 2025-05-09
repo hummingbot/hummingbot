@@ -27,9 +27,7 @@ def async_ttl_cache(ttl: int = 3600, maxsize: int = 1):
 
 
 def map_df_to_str(df: pd.DataFrame) -> pd.DataFrame:
-    return df.apply(
-        lambda series: series.map(lambda x: np.format_float_positional(x, trim="-") if isinstance(x, float) else x)
-    ).astype(str)
+    return df.apply(lambda series: series.map(lambda x: np.format_float_positional(x, trim="-") if isinstance(x, float) else x)).astype(str)
 
 
 def detect_available_port(starting_port: int) -> int:

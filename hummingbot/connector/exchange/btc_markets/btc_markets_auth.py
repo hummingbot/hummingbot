@@ -16,7 +16,6 @@ class BtcMarketsAuth(AuthBase):
     Auth class required by btc_markets API
     Learn more at https://api.btcmarkets.net/doc/v3#section/Authentication/Authentication-process
     """
-
     def __init__(self, api_key: str, secret_key: str, time_provider: TimeSynchronizer):
         self.api_key = api_key
         self.secret_key = secret_key
@@ -33,7 +32,7 @@ class BtcMarketsAuth(AuthBase):
             request.method.name,
             web_utils.get_path_from_url(request.url),
             now,
-            request.data if request.method.name == "POST" else {},
+            request.data if request.method.name == "POST" else {}
         )
 
         headers = self._generate_auth_headers(now, sig)
@@ -55,9 +54,17 @@ class BtcMarketsAuth(AuthBase):
         Generates authentication headers required by BtcMarkets
         :return: a dictionary of auth headers
         """
-        return {"referer": CONSTANTS.HBOT_BROKER_ID}
+        return {
+            "referer": CONSTANTS.HBOT_BROKER_ID
+        }
 
-    def get_signature(self, method: str, path_url: str, nonce: int, data: Dict[str, Any] = None):
+    def get_signature(
+        self,
+        method: str,
+        path_url: str,
+        nonce: int,
+        data: Dict[str, Any] = None
+    ):
         """
         Generates authentication signature and return it in a dictionary along with other inputs
         :return: a dictionary of request info including the request signature
@@ -82,7 +89,7 @@ class BtcMarketsAuth(AuthBase):
             "Content-Type": "application/json",
             "BM-AUTH-APIKEY": self.api_key,
             "BM-AUTH-TIMESTAMP": str(nonce),
-            "BM-AUTH-SIGNATURE": sig,
+            "BM-AUTH-SIGNATURE": sig
         }
 
         return headers
@@ -92,10 +99,9 @@ class BtcMarketsAuth(AuthBase):
         Generates a presigned signature
         :return: a signature of auth params
         """
-        digest = base64.b64encode(
-            hmac.new(base64.b64decode(self.secret_key), payload.encode("utf8"), digestmod=hashlib.sha512).digest()
-        )
-        return digest.decode("utf8")
+        digest = base64.b64encode(hmac.new(
+            base64.b64decode(self.secret_key), payload.encode("utf8"), digestmod=hashlib.sha512).digest())
+        return digest.decode('utf8')
 
     def _generate_auth_dict_ws(self, nonce: int) -> str:
         """

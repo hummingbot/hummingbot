@@ -81,19 +81,14 @@ class PositionHold:
     def get_position_summary(self, mid_price: Decimal):
         # Calculate buy and sell breakeven prices
         buy_breakeven_price = self.buy_amount_quote / self.buy_amount_base if self.buy_amount_base > 0 else Decimal("0")
-        sell_breakeven_price = (
-            self.sell_amount_quote / self.sell_amount_base if self.sell_amount_base > 0 else Decimal("0")
-        )
+        sell_breakeven_price = self.sell_amount_quote / self.sell_amount_base if self.sell_amount_base > 0 else Decimal(
+            "0")
 
         # Calculate matched volume (minimum of buy and sell base amounts)
         matched_amount_base = min(self.buy_amount_base, self.sell_amount_base)
 
         # Calculate realized PnL from matched volume
-        realized_pnl_quote = (
-            (sell_breakeven_price - buy_breakeven_price) * matched_amount_base
-            if matched_amount_base > 0
-            else Decimal("0")
-        )
+        realized_pnl_quote = (sell_breakeven_price - buy_breakeven_price) * matched_amount_base if matched_amount_base > 0 else Decimal("0")
 
         # Calculate net position amount and direction
         net_amount_base = self.buy_amount_base - self.sell_amount_base
@@ -125,15 +120,13 @@ class PositionHold:
             breakeven_price=breakeven_price,
             unrealized_pnl_quote=unrealized_pnl_quote,
             realized_pnl_quote=realized_pnl_quote,
-            cum_fees_quote=self.cum_fees_quote,
-        )
+            cum_fees_quote=self.cum_fees_quote)
 
 
 class ExecutorOrchestrator:
     """
     Orchestrator for various executors.
     """
-
     _logger = None
     _executor_mapping = {
         "position_executor": PositionExecutor,
@@ -151,9 +144,10 @@ class ExecutorOrchestrator:
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(
-        self, strategy: ScriptStrategyBase, executors_update_interval: float = 1.0, executors_max_retries: int = 10
-    ):
+    def __init__(self,
+                 strategy: ScriptStrategyBase,
+                 executors_update_interval: float = 1.0,
+                 executors_max_retries: int = 10):
         self.strategy = strategy
         self.executors_update_interval = executors_update_interval
         self.executors_max_retries = executors_max_retries
@@ -186,9 +180,8 @@ class ExecutorOrchestrator:
         report.realized_pnl_quote += executor_info.net_pnl_quote
         report.volume_traded += executor_info.filled_amount_quote
         if executor_info.close_type:
-            report.close_type_counts[executor_info.close_type] = (
-                report.close_type_counts.get(executor_info.close_type, 0) + 1
-            )
+            report.close_type_counts[executor_info.close_type] = report.close_type_counts.get(executor_info.close_type,
+                                                                                              0) + 1
 
     def stop(self):
         """
@@ -210,8 +203,7 @@ class ExecutorOrchestrator:
         for controller_id, positions_list in self.positions_held.items():
             for position in positions_list:
                 mid_price = self.strategy.market_data_provider.get_price_by_type(
-                    position.connector_name, position.trading_pair, PriceType.MidPrice
-                )
+                    position.connector_name, position.trading_pair, PriceType.MidPrice)
                 position_summary = position.get_position_summary(mid_price)
 
                 # Create a new Position record
@@ -301,8 +293,8 @@ class ExecutorOrchestrator:
         executor_id = action.executor_id
 
         executor = next(
-            (executor for executor in self.active_executors[controller_id] if executor.config.id == executor_id), None
-        )
+            (executor for executor in self.active_executors[controller_id] if executor.config.id == executor_id),
+            None)
         if not executor:
             self.logger().error(f"Executor ID {executor_id} not found for controller {controller_id}.")
             return
@@ -316,8 +308,8 @@ class ExecutorOrchestrator:
         executor_id = action.executor_id
 
         executor = next(
-            (executor for executor in self.active_executors[controller_id] if executor.config.id == executor_id), None
-        )
+            (executor for executor in self.active_executors[controller_id] if executor.config.id == executor_id),
+            None)
         if not executor:
             self.logger().error(f"Executor ID {executor_id} not found for controller {controller_id}.")
             return
@@ -353,8 +345,7 @@ class ExecutorOrchestrator:
             positions_summary = []
             for position in positions_list:
                 mid_price = self.strategy.market_data_provider.get_price_by_type(
-                    position.connector_name, position.trading_pair, PriceType.MidPrice
-                )
+                    position.connector_name, position.trading_pair, PriceType.MidPrice)
                 positions_summary.append(position.get_position_summary(mid_price))
             report[controller_id] = positions_summary
         return report
@@ -372,29 +363,21 @@ class ExecutorOrchestrator:
             if not executor_info.is_done:
                 report.unrealized_pnl_quote += executor_info.net_pnl_quote
                 if side:
-                    report.inventory_imbalance += (
-                        executor_info.filled_amount_quote
-                        if side == TradeType.BUY
-                        else -executor_info.filled_amount_quote
-                    )
+                    report.inventory_imbalance += executor_info.filled_amount_quote \
+                        if side == TradeType.BUY else -executor_info.filled_amount_quote
                 if executor_info.type == "dca_executor":
-                    report.open_order_volume += (
-                        sum(executor_info.config.amounts_quote) - executor_info.filled_amount_quote
-                    )
+                    report.open_order_volume += sum(
+                        executor_info.config.amounts_quote) - executor_info.filled_amount_quote
                 elif executor_info.type == "position_executor":
-                    report.open_order_volume += (
-                        executor_info.config.amount * executor_info.config.entry_price
-                    ) - executor_info.filled_amount_quote
+                    report.open_order_volume += (executor_info.config.amount *
+                                                 executor_info.config.entry_price) - executor_info.filled_amount_quote
             else:
                 report.realized_pnl_quote += executor_info.net_pnl_quote
                 if executor_info.close_type in report.close_type_counts:
                     report.close_type_counts[executor_info.close_type] += 1
                 else:
                     report.close_type_counts[executor_info.close_type] = 1
-                if (
-                    executor_info.close_type == CloseType.POSITION_HOLD
-                    and executor_info.config.id not in self.executors_ids_position_held
-                ):
+                if executor_info.close_type == CloseType.POSITION_HOLD and executor_info.config.id not in self.executors_ids_position_held:
                     self.executors_ids_position_held.append(executor_info.config.id)
                     # Check if this is a perpetual market
                     is_perpetual = "_perpetual" in executor_info.connector_name
@@ -403,49 +386,37 @@ class ExecutorOrchestrator:
                     position_side = None
                     if is_perpetual:
                         market = self.strategy.connectors[executor_info.connector_name]
-                        if hasattr(market, "position_mode"):
+                        if hasattr(market, 'position_mode'):
                             position_mode = market.position_mode
                         if hasattr(executor_info.config, "position_action") and position_mode == PositionMode.HEDGE:
-                            opposite_side = (
-                                TradeType.BUY if executor_info.config.side == TradeType.SELL else TradeType.SELL
-                            )
-                            position_side = (
-                                opposite_side
-                                if executor_info.config.position_action == PositionAction.CLOSE
-                                else executor_info.config.side
-                            )
+                            opposite_side = TradeType.BUY if executor_info.config.side == TradeType.SELL else TradeType.SELL
+                            position_side = opposite_side if executor_info.config.position_action == PositionAction.CLOSE else executor_info.config.side
                         else:
                             position_side = executor_info.config.side
 
                     if position_side:
                         # Find existing position for this trading pair
                         existing_position = next(
-                            (
-                                position
-                                for position in positions
-                                if position.trading_pair == executor_info.trading_pair
-                                and position.connector_name == executor_info.connector_name
-                                and position.side == position_side
-                            ),
-                            None,
+                            (position for position in positions if
+                             position.trading_pair == executor_info.trading_pair and
+                             position.connector_name == executor_info.connector_name and
+                             position.side == position_side), None
                         )
                     else:
                         # Find existing position for this trading pair
                         existing_position = next(
-                            (
-                                position
-                                for position in positions
-                                if position.trading_pair == executor_info.trading_pair
-                                and position.connector_name == executor_info.connector_name
-                            ),
-                            None,
+                            (position for position in positions if
+                             position.trading_pair == executor_info.trading_pair and
+                             position.connector_name == executor_info.connector_name), None
                         )
                     if existing_position:
                         existing_position.add_orders_from_executor(executor_info)
                     else:
                         # Create new position
                         position = PositionHold(
-                            executor_info.connector_name, executor_info.trading_pair, executor_info.config.side
+                            executor_info.connector_name,
+                            executor_info.trading_pair,
+                            executor_info.config.side
                         )
                         position.add_orders_from_executor(executor_info)
                         positions.append(position)
@@ -455,8 +426,7 @@ class ExecutorOrchestrator:
         # Add data from positions held
         for position in positions:
             mid_price = self.strategy.market_data_provider.get_price_by_type(
-                position.connector_name, position.trading_pair, PriceType.MidPrice
-            )
+                position.connector_name, position.trading_pair, PriceType.MidPrice)
             position_summary = position.get_position_summary(mid_price)
 
             # Update report with position data
@@ -471,16 +441,10 @@ class ExecutorOrchestrator:
 
         # Calculate global PNL values
         report.global_pnl_quote = report.unrealized_pnl_quote + report.realized_pnl_quote
-        report.global_pnl_pct = (
-            (report.global_pnl_quote / report.volume_traded) * 100 if report.volume_traded != 0 else Decimal(0)
-        )
+        report.global_pnl_pct = (report.global_pnl_quote / report.volume_traded) * 100 if report.volume_traded != 0 else Decimal(0)
 
         # Calculate individual PNL percentages
-        report.unrealized_pnl_pct = (
-            (report.unrealized_pnl_quote / report.volume_traded) * 100 if report.volume_traded != 0 else Decimal(0)
-        )
-        report.realized_pnl_pct = (
-            (report.realized_pnl_quote / report.volume_traded) * 100 if report.volume_traded != 0 else Decimal(0)
-        )
+        report.unrealized_pnl_pct = (report.unrealized_pnl_quote / report.volume_traded) * 100 if report.volume_traded != 0 else Decimal(0)
+        report.realized_pnl_pct = (report.realized_pnl_quote / report.volume_traded) * 100 if report.volume_traded != 0 else Decimal(0)
 
         return report

@@ -56,5 +56,5 @@ ORDER_STATE = {
     "partially_filled": OrderState.PARTIALLY_FILLED,
     "filled": OrderState.FILLED,
     "partially_canceled": OrderState.CANCELED,
-    "canceled": OrderState.CANCELED,
+    "canceled": OrderState.CANCELED
 }

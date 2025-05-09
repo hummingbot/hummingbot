@@ -25,9 +25,9 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     def __init__(
         self,
         trading_pairs: List[str],
-        connector: "BybitPerpetualDerivative",
+        connector: 'BybitPerpetualDerivative',
         api_factory: WebAssistantsFactory,
-        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN
     ):
         super().__init__(trading_pairs)
         self._connector = connector
@@ -46,9 +46,8 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
         rest_assistant = await self._api_factory.get_rest_assistant()
         endpoint_info = CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT
-        url_info = web_utils.get_rest_url_for_endpoint(
-            endpoint=endpoint_info, trading_pair=trading_pair, domain=self._domain
-        )
+        url_info = web_utils.get_rest_url_for_endpoint(endpoint=endpoint_info, trading_pair=trading_pair,
+                                                       domain=self._domain)
         limit_id = web_utils.get_rest_api_limit_id_for_endpoint(endpoint_info)
         funding_info_response = await rest_assistant.execute_request(
             url=url_info,
@@ -82,17 +81,13 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
             tasks = []
             if linear_trading_pairs:
-                tasks.append(
-                    self._listen_for_subscriptions_on_url(
-                        url=web_utils.wss_linear_public_url(self._domain), trading_pairs=linear_trading_pairs
-                    )
-                )
+                tasks.append(self._listen_for_subscriptions_on_url(
+                    url=web_utils.wss_linear_public_url(self._domain),
+                    trading_pairs=linear_trading_pairs))
             if non_linear_trading_pairs:
-                tasks.append(
-                    self._listen_for_subscriptions_on_url(
-                        url=web_utils.wss_non_linear_public_url(self._domain), trading_pairs=non_linear_trading_pairs
-                    )
-                )
+                tasks.append(self._listen_for_subscriptions_on_url(
+                    url=web_utils.wss_non_linear_public_url(self._domain),
+                    trading_pairs=non_linear_trading_pairs))
 
             if tasks:
                 tasks_future = asyncio.gather(*tasks)
@@ -127,7 +122,9 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _get_connected_websocket_assistant(self, ws_url: str) -> WSAssistant:
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        await ws.connect(ws_url=ws_url, message_timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE)
+        await ws.connect(
+            ws_url=ws_url, message_timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE
+        )
         return ws
 
     async def _subscribe_to_channels(self, ws: WSAssistant, trading_pairs: List[str]):
@@ -291,15 +288,21 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     @staticmethod
     def _get_bids_and_asks_from_rest_msg_data(
-        snapshot: List[Dict[str, Union[str, int, float]]],
+        snapshot: List[Dict[str, Union[str, int, float]]]
     ) -> Tuple[List[Tuple[float, float]], List[Tuple[float, float]]]:
-        bids = [(float(row[0]), float(row[1])) for row in snapshot["b"]]
-        asks = [(float(row[0]), float(row[1])) for row in snapshot["a"]]
+        bids = [
+            (float(row[0]), float(row[1]))
+            for row in snapshot["b"]
+        ]
+        asks = [
+            (float(row[0]), float(row[1]))
+            for row in snapshot["a"]
+        ]
         return bids, asks
 
     @staticmethod
     def _get_bids_and_asks_from_ws_msg_data(
-        snapshot: Dict[str, Union[List[List[str]], str, int]],
+            snapshot: Dict[str, Union[List[List[str]], str, int]]
     ) -> Tuple[List[Tuple[float, float]], List[Tuple[float, float]]]:
         """
         This method processes snapshot data from the websocket message and returns

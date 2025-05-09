@@ -42,7 +42,8 @@ class MexcAuth(AuthBase):
         """
         return request  # pass-through
 
-    def add_auth_to_params(self, params: Dict[str, Any]):
+    def add_auth_to_params(self,
+                           params: Dict[str, Any]):
         timestamp = int(self.time_provider.time() * 1e3)
 
         request_params = OrderedDict(params or {})

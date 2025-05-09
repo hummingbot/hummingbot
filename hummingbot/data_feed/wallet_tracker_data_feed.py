@@ -95,19 +95,26 @@ class WalletTrackerDataFeed(NetworkBase):
                 raise
             except Exception as e:
                 self.logger().error(
-                    f"Error getting data from {self.name}" f"Check network connection. Error: {e}",
+                    f"Error getting data from {self.name}"
+                    f"Check network connection. Error: {e}",
                 )
             await self._async_sleep(self._update_interval)
 
     async def _fetch_data(self) -> None:
         wallet_balances_tasks = [
-            asyncio.create_task(self._update_balances_by_wallet(wallet)) for wallet in self._wallet_balances.keys()
+            asyncio.create_task(self._update_balances_by_wallet(wallet))
+            for wallet in self._wallet_balances.keys()
         ]
         await asyncio.gather(*wallet_balances_tasks)
 
     async def _update_balances_by_wallet(self, wallet: str) -> None:
-        data = await self.gateway_client.get_balances(self.chain, self.network, wallet, list(self._tokens))
-        self._wallet_balances[wallet] = {token: Decimal(balance) for token, balance in data["balances"].items()}
+        data = await self.gateway_client.get_balances(
+            self.chain,
+            self.network,
+            wallet,
+            list(self._tokens)
+        )
+        self._wallet_balances[wallet] = {token: Decimal(balance) for token, balance in data['balances'].items()}
 
     @staticmethod
     async def _async_sleep(delay: float) -> None:

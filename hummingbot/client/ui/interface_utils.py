@@ -46,19 +46,17 @@ async def start_process_monitor(process_monitor):
     while True:
         with hb_process.oneshot():
             threads = hb_process.num_threads()
-            process_monitor.log(
-                "CPU: {:>5}%, ".format(hb_process.cpu_percent())
-                + "Mem: {:>10} ({}), ".format(
-                    format_bytes(hb_process.memory_info().vms / threads), format_bytes(hb_process.memory_info().rss)
-                )
-                + "Threads: {:>3}, ".format(threads)
-            )
+            process_monitor.log("CPU: {:>5}%, ".format(hb_process.cpu_percent()) +
+                                "Mem: {:>10} ({}), ".format(
+                                    format_bytes(hb_process.memory_info().vms / threads),
+                                    format_bytes(hb_process.memory_info().rss)) +
+                                "Threads: {:>3}, ".format(threads)
+                                )
         await _sleep(1)
 
 
 async def start_trade_monitor(trade_monitor):
     from hummingbot.client.hummingbot_application import HummingbotApplication
-
     hb = HummingbotApplication.main_application()
     trade_monitor.log("Trades: 0, Total P&L: 0.00, Return %: 0.00%")
     return_pcts = []
@@ -70,8 +68,9 @@ async def start_trade_monitor(trade_monitor):
                 if all(market.ready for market in hb.markets.values()):
                     with hb.trade_fill_db.get_new_session() as session:
                         trades: List[TradeFill] = hb._get_trades_from_session(
-                            int(hb.init_time * 1e3), session=session, config_file_path=hb.strategy_file_name
-                        )
+                            int(hb.init_time * 1e3),
+                            session=session,
+                            config_file_path=hb.strategy_file_name)
                         if len(trades) > 0:
                             market_info: Set[Tuple[str, str]] = set((t.market, t.symbol) for t in trades)
                             for market, symbol in market_info:
@@ -86,9 +85,8 @@ async def start_trade_monitor(trade_monitor):
                                 total_pnls = f"{PerformanceMetrics.smart_round(sum(pnls))} {list(quote_assets)[0]}"
                             else:
                                 total_pnls = "N/A"
-                            trade_monitor.log(
-                                f"Trades: {len(trades)}, Total P&L: {total_pnls}, " f"Return %: {avg_return:.2%}"
-                            )
+                            trade_monitor.log(f"Trades: {len(trades)}, Total P&L: {total_pnls}, "
+                                              f"Return %: {avg_return:.2%}")
                             return_pcts.clear()
                             pnls.clear()
             await _sleep(2)  # sleeping for longer to manage resources
@@ -104,7 +102,9 @@ def format_df_for_printout(
     if max_col_width is not None:  # in anticipation of the next release of tabulate which will include maxcolwidth
         max_col_width = max(max_col_width, 4)
         df = df.astype(str).apply(
-            lambda s: s.apply(lambda e: e if len(e) < max_col_width else f"{e[:max_col_width - 3]}...")
+            lambda s: s.apply(
+                lambda e: e if len(e) < max_col_width else f"{e[:max_col_width - 3]}..."
+            )
         )
         df.columns = [c if len(c) < max_col_width else f"{c[:max_col_width - 3]}..." for c in df.columns]
 

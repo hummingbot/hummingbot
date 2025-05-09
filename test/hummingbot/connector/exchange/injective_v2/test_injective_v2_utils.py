@@ -108,7 +108,8 @@ class InjectiveConfigMapTests(TestCase):
         config = InjectiveVaultAccountMode(
             private_key=private_key.to_hex(),
             subaccount_index=0,
-            vault_contract_address=Address(bytes.fromhex(private_key.to_public_key().to_hex())).to_acc_bech32(),
+            vault_contract_address=Address(
+                bytes.fromhex(private_key.to_public_key().to_hex())).to_acc_bech32(),
         )
 
         data_source = config.create_data_source(
@@ -156,5 +157,5 @@ class InjectiveConfigMapTests(TestCase):
 
         self.assertEqual(
             f"Invalid fee calculator, please choose a value from {list(FEE_CALCULATOR_MODES.keys())}.",
-            str(ex_context.exception.args[0][0].exc),
+            str(ex_context.exception.args[0][0].exc)
         )

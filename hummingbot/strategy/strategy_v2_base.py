@@ -39,27 +39,25 @@ class StrategyV2ConfigBase(BaseClientModel):
     """
     Base class for version 2 strategy configurations.
     """
-
     markets: Dict[str, Set[str]] = Field(
         default=...,
         json_schema_extra={
             "prompt": "Enter markets in format 'exchange1.tp1,tp2:exchange2.tp1,tp2':",
-            "prompt_on_new": True,
-        },
+            "prompt_on_new": True}
     )
     candles_config: List[CandlesConfig] = Field(
         default=...,
         json_schema_extra={
             "prompt": "Enter candle configs in format 'exchange1.tp1.interval1.max_records:exchange2.tp2.interval2.max_records':",
             "prompt_on_new": True,
-        },
+        }
     )
     controllers_config: List[str] = Field(
         default=[],
         json_schema_extra={
             "prompt": "Enter controller configurations (comma-separated file paths), leave it empty if none: ",
             "prompt_on_new": True,
-        },
+        }
     )
 
     @field_validator("controllers_config", mode="before")
@@ -69,7 +67,7 @@ class StrategyV2ConfigBase(BaseClientModel):
         if isinstance(v, str):
             if v == "":
                 return []
-            return [item.strip() for item in v.split(",") if item.strip()]
+            return [item.strip() for item in v.split(',') if item.strip()]
         if v is None:
             return []
         return v
@@ -78,11 +76,11 @@ class StrategyV2ConfigBase(BaseClientModel):
         loaded_configs = []
         for config_path in self.controllers_config:
             full_path = os.path.join(settings.CONTROLLERS_CONF_DIR_PATH, config_path)
-            with open(full_path, "r") as file:
+            with open(full_path, 'r') as file:
                 config_data = yaml.safe_load(file)
 
-            controller_type = config_data.get("controller_type")
-            controller_name = config_data.get("controller_name")
+            controller_type = config_data.get('controller_type')
+            controller_name = config_data.get('controller_name')
 
             if not controller_type or not controller_name:
                 raise ValueError(f"Missing controller_type or controller_name in {config_path}")
@@ -90,21 +88,11 @@ class StrategyV2ConfigBase(BaseClientModel):
             module_path = f"{settings.CONTROLLERS_MODULE}.{controller_type}.{controller_name}"
             module = importlib.import_module(module_path)
 
-            config_class = next(
-                (
-                    member
-                    for member_name, member in inspect.getmembers(module)
-                    if inspect.isclass(member)
-                    and member
-                    not in [
-                        ControllerConfigBase,
-                        MarketMakingControllerConfigBase,
-                        DirectionalTradingControllerConfigBase,
-                    ]
-                    and (issubclass(member, ControllerConfigBase))
-                ),
-                None,
-            )
+            config_class = next((member for member_name, member in inspect.getmembers(module)
+                                 if inspect.isclass(member) and member not in [ControllerConfigBase,
+                                                                               MarketMakingControllerConfigBase,
+                                                                               DirectionalTradingControllerConfigBase]
+                                 and (issubclass(member, ControllerConfigBase))), None)
             if not config_class:
                 raise InvalidController(f"No configuration class found in the module {controller_name}.")
 
@@ -112,7 +100,7 @@ class StrategyV2ConfigBase(BaseClientModel):
 
         return loaded_configs
 
-    @field_validator("markets", mode="before")
+    @field_validator('markets', mode="before")
     @classmethod
     def parse_markets(cls, v) -> Dict[str, Set[str]]:
         if isinstance(v, str):
@@ -125,18 +113,17 @@ class StrategyV2ConfigBase(BaseClientModel):
     def parse_markets_str(v: str) -> Dict[str, Set[str]]:
         markets_dict = {}
         if v.strip():
-            exchanges = v.split(":")
+            exchanges = v.split(':')
             for exchange in exchanges:
-                parts = exchange.split(".")
+                parts = exchange.split('.')
                 if len(parts) != 2 or not parts[1]:
-                    raise ValueError(
-                        f"Invalid market format in segment '{exchange}'. " "Expected format: 'exchange.tp1,tp2'"
-                    )
+                    raise ValueError(f"Invalid market format in segment '{exchange}'. "
+                                     "Expected format: 'exchange.tp1,tp2'")
                 exchange_name, trading_pairs = parts
-                markets_dict[exchange_name] = set(trading_pairs.split(","))
+                markets_dict[exchange_name] = set(trading_pairs.split(','))
         return markets_dict
 
-    @field_validator("candles_config", mode="before")
+    @field_validator('candles_config', mode="before")
     @classmethod
     def parse_candles_config(cls, v) -> List[CandlesConfig]:
         if isinstance(v, str):
@@ -149,24 +136,23 @@ class StrategyV2ConfigBase(BaseClientModel):
     def parse_candles_config_str(v: str) -> List[CandlesConfig]:
         configs = []
         if v.strip():
-            entries = v.split(":")
+            entries = v.split(':')
             for entry in entries:
-                parts = entry.split(".")
+                parts = entry.split('.')
                 if len(parts) != 4:
-                    raise ValueError(
-                        f"Invalid candles config format in segment '{entry}'. "
-                        "Expected format: 'exchange.tradingpair.interval.maxrecords'"
-                    )
+                    raise ValueError(f"Invalid candles config format in segment '{entry}'. "
+                                     "Expected format: 'exchange.tradingpair.interval.maxrecords'")
                 connector, trading_pair, interval, max_records_str = parts
                 try:
                     max_records = int(max_records_str)
                 except ValueError:
-                    raise ValueError(
-                        f"Invalid max_records value '{max_records_str}' in segment '{entry}'. "
-                        "max_records should be an integer."
-                    )
+                    raise ValueError(f"Invalid max_records value '{max_records_str}' in segment '{entry}'. "
+                                     "max_records should be an integer.")
                 config = CandlesConfig(
-                    connector=connector, trading_pair=trading_pair, interval=interval, max_records=max_records
+                    connector=connector,
+                    trading_pair=trading_pair,
+                    interval=interval,
+                    max_records=max_records
                 )
                 configs.append(config)
         return configs
@@ -176,7 +162,6 @@ class StrategyV2Base(ScriptStrategyBase):
     """
     V2StrategyBase is a base class for strategies that use the new smart components architecture.
     """
-
     markets: Dict[str, Set[str]]
     _last_config_update_ts: float = 0
     closed_executors_buffer: int = 100
@@ -330,14 +315,12 @@ class StrategyV2Base(ScriptStrategyBase):
         Create a list of actions to store the executors that have been stopped.
         """
         potential_executors_to_store = self.filter_executors(
-            executors=self.get_all_executors(), filter_func=lambda x: x.is_done
-        )
+            executors=self.get_all_executors(),
+            filter_func=lambda x: x.is_done)
         sorted_executors = sorted(potential_executors_to_store, key=lambda x: x.timestamp, reverse=True)
         if len(sorted_executors) > self.closed_executors_buffer:
-            return [
-                StoreExecutorAction(executor_id=executor.id, controller_id=executor.controller_id)
-                for executor in sorted_executors[self.closed_executors_buffer :]
-            ]
+            return [StoreExecutorAction(executor_id=executor.id, controller_id=executor.controller_id) for executor in
+                    sorted_executors[self.closed_executors_buffer:]]
         return []
 
     def get_executors_by_controller(self, controller_id: str) -> List[ExecutorInfo]:
@@ -353,9 +336,7 @@ class StrategyV2Base(ScriptStrategyBase):
         self.connectors[connector].set_position_mode(position_mode)
 
     @staticmethod
-    def filter_executors(
-        executors: List[ExecutorInfo], filter_func: Callable[[ExecutorInfo], bool]
-    ) -> List[ExecutorInfo]:
+    def filter_executors(executors: List[ExecutorInfo], filter_func: Callable[[ExecutorInfo], bool]) -> List[ExecutorInfo]:
         return [executor for executor in executors if filter_func(executor)]
 
     @staticmethod
@@ -365,13 +346,13 @@ class StrategyV2Base(ScriptStrategyBase):
         """
         df = pd.DataFrame([ei.to_dict() for ei in executors_info])
         # Convert the enum values to integers
-        df["status"] = df["status"].apply(lambda x: x.value)
+        df['status'] = df['status'].apply(lambda x: x.value)
 
         # Sort the DataFrame
-        df.sort_values(by="status", ascending=True, inplace=True)
+        df.sort_values(by='status', ascending=True, inplace=True)
 
         # Convert back to enums for display
-        df["status"] = df["status"].apply(RunnableStatus)
+        df['status'] = df['status'].apply(RunnableStatus)
         return df
 
     def format_status(self) -> str:
@@ -389,18 +370,8 @@ class StrategyV2Base(ScriptStrategyBase):
             lines.extend(["", "  Orders:"] + ["    " + line for line in df.to_string(index=False).split("\n")])
         except ValueError:
             lines.extend(["", "  No active maker orders."])
-        columns_to_show = [
-            "type",
-            "side",
-            "status",
-            "net_pnl_pct",
-            "net_pnl_quote",
-            "cum_fees_quote",
-            "filled_amount_quote",
-            "is_trading",
-            "close_type",
-            "age",
-        ]
+        columns_to_show = ["type", "side", "status", "net_pnl_pct", "net_pnl_quote", "cum_fees_quote",
+                           "filled_amount_quote", "is_trading", "close_type", "age"]
 
         # Initialize global performance metrics
         global_realized_pnl_quote = Decimal(0)
@@ -429,7 +400,7 @@ class StrategyV2Base(ScriptStrategyBase):
             controller_performance_info = [
                 f"Realized PNL (Quote): {performance_report.realized_pnl_quote:.2f} | Unrealized PNL (Quote): {performance_report.unrealized_pnl_quote:.2f}"
                 f"--> Global PNL (Quote): {performance_report.global_pnl_quote:.2f} | Global PNL (%): {performance_report.global_pnl_pct:.2f}%",
-                f"Total Volume Traded: {performance_report.volume_traded:.2f}",
+                f"Total Volume Traded: {performance_report.volume_traded:.2f}"
             ]
 
             # Add position summary if available
@@ -500,7 +471,7 @@ class StrategyV2Base(ScriptStrategyBase):
 
         global_performance_summary = [
             "\n\nGlobal Performance Summary:",
-            f"Global PNL (Quote): {global_pnl_quote:.2f} | Global PNL (%): {global_pnl_pct:.2f}% | Total Volume Traded (Global): {global_volume_traded:.2f}",
+            f"Global PNL (Quote): {global_pnl_quote:.2f} | Global PNL (%): {global_pnl_pct:.2f}% | Total Volume Traded (Global): {global_volume_traded:.2f}"
         ]
 
         # Append global close type counts

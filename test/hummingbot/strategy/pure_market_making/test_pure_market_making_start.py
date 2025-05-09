@@ -24,8 +24,8 @@ class PureMarketMakingStartTest(unittest.TestCase):
         c_map.get("market").value = "ETH-USDT"
 
         c_map.get("order_amount").value = Decimal("1")
-        c_map.get("order_refresh_time").value = 60.0
-        c_map.get("max_order_age").value = 300.0
+        c_map.get("order_refresh_time").value = 60.
+        c_map.get("max_order_age").value = 300.
         c_map.get("bid_spread").value = Decimal("1")
         c_map.get("ask_spread").value = Decimal("2")
         c_map.get("minimum_spread").value = Decimal("0.5")
@@ -38,7 +38,7 @@ class PureMarketMakingStartTest(unittest.TestCase):
         c_map.get("inventory_skew_enabled").value = True
         c_map.get("inventory_target_base_pct").value = Decimal("50")
         c_map.get("inventory_range_multiplier").value = Decimal("2")
-        c_map.get("filled_order_delay").value = 45.0
+        c_map.get("filled_order_delay").value = 45.
         c_map.get("hanging_orders_enabled").value = True
         c_map.get("hanging_orders_cancel_pct").value = Decimal("6")
         c_map.get("order_optimization_enabled").value = False
@@ -76,8 +76,8 @@ class PureMarketMakingStartTest(unittest.TestCase):
     def test_strategy_creation(self):
         strategy_start.start(self)
         self.assertEqual(self.strategy.order_amount, Decimal("1"))
-        self.assertEqual(self.strategy.order_refresh_time, 60.0)
-        self.assertEqual(self.strategy.max_order_age, 300.0)
+        self.assertEqual(self.strategy.order_refresh_time, 60.)
+        self.assertEqual(self.strategy.max_order_age, 300.)
         self.assertEqual(self.strategy.bid_spread, Decimal("0.01"))
         self.assertEqual(self.strategy.ask_spread, Decimal("0.02"))
         self.assertEqual(self.strategy.minimum_spread, Decimal("0.005"))
@@ -90,7 +90,7 @@ class PureMarketMakingStartTest(unittest.TestCase):
         self.assertEqual(self.strategy.inventory_skew_enabled, True)
         self.assertEqual(self.strategy.inventory_target_base_pct, Decimal("0.5"))
         self.assertEqual(self.strategy.inventory_range_multiplier, Decimal("2"))
-        self.assertEqual(self.strategy.filled_order_delay, 45.0)
+        self.assertEqual(self.strategy.filled_order_delay, 45.)
         self.assertEqual(self.strategy.hanging_orders_enabled, True)
         self.assertEqual(self.strategy.hanging_orders_cancel_pct, Decimal("0.06"))
         self.assertEqual(self.strategy.order_optimization_enabled, False)
@@ -102,10 +102,6 @@ class PureMarketMakingStartTest(unittest.TestCase):
         self.assertEqual(self.strategy.split_order_levels_enabled, True)
         self.assertEqual(self.strategy.bid_order_level_spreads, [Decimal("1"), Decimal("2")])
         self.assertEqual(self.strategy.ask_order_level_spreads, [Decimal("1"), Decimal("2")])
-        self.assertEqual(
-            self.strategy.order_override,
-            {
-                "split_level_0": ["buy", Decimal("1"), Decimal("1")],
-                "split_level_1": ["buy", Decimal("2"), Decimal("2")],
-            },
-        )
+        self.assertEqual(self.strategy.order_override, {"split_level_0": ['buy', Decimal("1"), Decimal("1")],
+                                                        "split_level_1": ['buy', Decimal("2"), Decimal("2")],
+                                                        })

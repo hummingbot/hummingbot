@@ -21,9 +21,9 @@ class TestAscendExSpotCandles(TestCandlesBase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.data_feed = AscendExSpotCandles(
-            trading_pair=self.trading_pair, interval=self.interval, max_records=self.max_records
-        )
+        self.data_feed = AscendExSpotCandles(trading_pair=self.trading_pair,
+                                             interval=self.interval,
+                                             max_records=self.max_records)
         self.data_feed.logger().setLevel(1)
         self.data_feed.logger().addHandler(self)
 
@@ -46,8 +46,8 @@ class TestAscendExSpotCandles(TestCandlesBase):
                         "c": "30099.41",
                         "h": "30115.58",
                         "l": "30098.19",
-                        "v": "0.13736",
-                    },
+                        "v": "0.13736"
+                    }
                 },
                 {
                     "m": "bar",
@@ -59,8 +59,8 @@ class TestAscendExSpotCandles(TestCandlesBase):
                         "c": "30097.88",
                         "h": "30115.67",
                         "l": "30096.84",
-                        "v": "0.16625",
-                    },
+                        "v": "0.16625"
+                    }
                 },
                 {
                     "m": "bar",
@@ -72,8 +72,8 @@ class TestAscendExSpotCandles(TestCandlesBase):
                         "c": "30087.11",
                         "h": "30115.97",
                         "l": "30087.11",
-                        "v": "0.06992",
-                    },
+                        "v": "0.06992"
+                    }
                 },
                 {
                     "m": "bar",
@@ -85,8 +85,8 @@ class TestAscendExSpotCandles(TestCandlesBase):
                         "c": "30102.34",
                         "h": "30102.34",
                         "l": "30082.68",
-                        "v": "0.14145",
-                    },
+                        "v": "0.14145"
+                    }
                 },
                 {
                     "m": "bar",
@@ -98,21 +98,19 @@ class TestAscendExSpotCandles(TestCandlesBase):
                         "c": "30085.25",
                         "h": "30103.04",
                         "l": "30077.94",
-                        "v": "0.15819",
-                    },
-                },
-            ],
+                        "v": "0.15819"
+                    }
+                }
+            ]
         }
         return data
 
     def get_fetch_candles_data_mock(self):
-        return [
-            [1688973840.0, "30105.52", "30099.41", "30115.58", "30098.19", 0, "0.13736", 0, 0, 0],
-            [1688977440.0, "30096.84", "30115.67", "30096.84", "30097.88", 0, "0.16625", 0, 0, 0],
-            [1688981040.0, "30092.53", "30115.97", "30087.11", "30087.11", 0, "0.06992", 0, 0, 0],
-            [1688984640.0, "30086.51", "30102.34", "30082.68", "30102.34", 0, "0.14145", 0, 0, 0],
-            [1688988240.0, "30095.93", "30103.04", "30077.94", "30085.25", 0, "0.15819", 0, 0, 0],
-        ]
+        return [[1688973840.0, '30105.52', '30099.41', '30115.58', '30098.19', 0, '0.13736', 0, 0, 0],
+                [1688977440.0, '30096.84', '30115.67', '30096.84', '30097.88', 0, '0.16625', 0, 0, 0],
+                [1688981040.0, '30092.53', '30115.97', '30087.11', '30087.11', 0, '0.06992', 0, 0, 0],
+                [1688984640.0, '30086.51', '30102.34', '30082.68', '30102.34', 0, '0.14145', 0, 0, 0],
+                [1688988240.0, '30095.93', '30103.04', '30077.94', '30085.25', 0, '0.15819', 0, 0, 0],]
 
     @staticmethod
     def get_candles_ws_data_mock_1():
@@ -126,8 +124,8 @@ class TestAscendExSpotCandles(TestCandlesBase):
                 "c": "0.04970",
                 "h": "0.04993",
                 "l": "0.04970",
-                "v": "8052",
-            },
+                "v": "8052"
+            }
         }
         return data
 
@@ -143,8 +141,8 @@ class TestAscendExSpotCandles(TestCandlesBase):
                 "c": "0.04970",
                 "h": "0.04993",
                 "l": "0.04970",
-                "v": "8052",
-            },
+                "v": "8052"
+            }
         }
         return data
 

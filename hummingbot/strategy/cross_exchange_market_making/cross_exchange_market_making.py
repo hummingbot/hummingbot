@@ -61,7 +61,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         LogOption.CREATE_ORDER,
         LogOption.MAKER_ORDER_FILLED,
         LogOption.STATUS_REPORT,
-        LogOption.MAKER_ORDER_HEDGED,
+        LogOption.MAKER_ORDER_HEDGED
     )
 
     ORDER_ADJUST_SAMPLE_INTERVAL = 5
@@ -77,14 +77,13 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             s_logger = logging.getLogger(__name__)
         return s_logger
 
-    def init_params(
-        self,
-        config_map: CrossExchangeMarketMakingConfigMap,
-        market_pairs: List[MakerTakerMarketPair],
-        status_report_interval: float = 900,
-        logging_options: int = OPTION_LOG_ALL,
-        hb_app_notification: bool = False,
-    ):
+    def init_params(self,
+                    config_map: CrossExchangeMarketMakingConfigMap,
+                    market_pairs: List[MakerTakerMarketPair],
+                    status_report_interval: float = 900,
+                    logging_options: int = OPTION_LOG_ALL,
+                    hb_app_notification: bool = False
+                    ):
         """
         Initializes a cross exchange market making strategy object.
 
@@ -95,7 +94,8 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         """
         self._config_map = config_map
         self._market_pairs = {
-            (market_pair.maker.market, market_pair.maker.trading_pair): market_pair for market_pair in market_pairs
+            (market_pair.maker.market, market_pair.maker.trading_pair): market_pair
+            for market_pair in market_pairs
         }
         self._maker_markets = set([market_pair.maker.market for market_pair in market_pairs])
         self._taker_markets = set([market_pair.taker.market for market_pair in market_pairs])
@@ -195,11 +195,8 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
 
     @property
     def active_maker_limit_orders(self) -> List[Tuple[ExchangeBase, LimitOrder]]:
-        return [
-            (ex, order, order.client_order_id)
-            for ex, order in self._sb_order_tracker.active_limit_orders
-            if order.client_order_id in self._maker_to_taker_order_ids.keys()
-        ]
+        return [(ex, order, order.client_order_id) for ex, order in self._sb_order_tracker.active_limit_orders
+                if order.client_order_id in self._maker_to_taker_order_ids.keys()]
 
     @property
     def cached_limit_orders(self) -> List[Tuple[ExchangeBase, LimitOrder]]:
@@ -207,19 +204,13 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
 
     @property
     def active_maker_bids(self) -> List[Tuple[ExchangeBase, LimitOrder]]:
-        return [
-            (market, limit_order)
-            for market, limit_order, order_id in self.active_maker_limit_orders
-            if limit_order.is_buy
-        ]
+        return [(market, limit_order) for market, limit_order, order_id in self.active_maker_limit_orders
+                if limit_order.is_buy]
 
     @property
     def active_maker_asks(self) -> List[Tuple[ExchangeBase, LimitOrder]]:
-        return [
-            (market, limit_order)
-            for market, limit_order, order_id in self.active_maker_limit_orders
-            if not limit_order.is_buy
-        ]
+        return [(market, limit_order) for market, limit_order, order_id in self.active_maker_limit_orders
+                if not limit_order.is_buy]
 
     @property
     def active_order_canceling(self):
@@ -251,96 +242,48 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         return market_info.market.name in AllConnectorSettings.get_gateway_amm_connector_names()
 
     def get_conversion_rates(self, market_pair: MarketTradingPairTuple):
-        (
-            quote_pair,
-            quote_rate_source,
-            quote_rate,
-            base_pair,
-            base_rate_source,
-            base_rate,
-            gas_pair,
-            gas_rate_source,
-            gas_rate,
-        ) = self._config_map.conversion_rate_mode.get_conversion_rates(market_pair)
+        quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate, gas_pair, gas_rate_source, \
+            gas_rate = self._config_map.conversion_rate_mode.get_conversion_rates(market_pair)
         if quote_rate is None:
             self.logger().warning(f"Can't find a conversion rate for {quote_pair}")
         if base_rate is None:
             self.logger().warning(f"Can't find a conversion rate for {base_pair}")
         if gas_rate is None:
             self.logger().warning(f"Can't find a conversion rate for {gas_pair}")
-        return (
-            quote_pair,
-            quote_rate_source,
-            quote_rate,
-            base_pair,
-            base_rate_source,
-            base_rate,
-            gas_pair,
-            gas_rate_source,
-            gas_rate,
-        )
+        return quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate, gas_pair, \
+            gas_rate_source, gas_rate
 
     def log_conversion_rates(self):
         for market_pair in self._market_pairs.values():
-            (
-                quote_pair,
-                quote_rate_source,
-                quote_rate,
-                base_pair,
-                base_rate_source,
-                base_rate,
-                gas_pair,
-                gas_rate_source,
-                gas_rate,
-            ) = self.get_conversion_rates(market_pair)
+            quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate, gas_pair, \
+                gas_rate_source, gas_rate = self.get_conversion_rates(market_pair)
             if quote_pair.split("-")[0] != quote_pair.split("-")[1]:
-                self.logger().info(
-                    f"{quote_pair} ({quote_rate_source}) conversion rate: {PerformanceMetrics.smart_round(quote_rate)}"
-                )
+                self.logger().info(f"{quote_pair} ({quote_rate_source}) conversion rate: {PerformanceMetrics.smart_round(quote_rate)}")
             if base_pair.split("-")[0] != base_pair.split("-")[1]:
-                self.logger().info(
-                    f"{base_pair} ({base_rate_source}) conversion rate: {PerformanceMetrics.smart_round(base_rate)}"
-                )
+                self.logger().info(f"{base_pair} ({base_rate_source}) conversion rate: {PerformanceMetrics.smart_round(base_rate)}")
             if self.is_gateway_market(market_pair.taker):
                 if gas_pair is not None and gas_pair.split("-")[0] != gas_pair.split("-")[1]:
-                    self.logger().info(
-                        f"{gas_pair} ({gas_rate_source}) conversion rate: {PerformanceMetrics.smart_round(gas_rate)}"
-                    )
+                    self.logger().info(f"{gas_pair} ({gas_rate_source}) conversion rate: {PerformanceMetrics.smart_round(gas_rate)}")
 
     def oracle_status_df(self):
         columns = ["Source", "Pair", "Rate"]
         data = []
         for market_pair in self._market_pairs.values():
-            (
-                quote_pair,
-                quote_rate_source,
-                quote_rate,
-                base_pair,
-                base_rate_source,
-                base_rate,
-                gas_pair,
-                gas_rate_source,
-                gas_rate,
-            ) = self.get_conversion_rates(market_pair)
+            quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate, gas_pair, \
+                gas_rate_source, gas_rate = self.get_conversion_rates(market_pair)
             if quote_pair.split("-")[0] != quote_pair.split("-")[1]:
-                data.extend(
-                    [
-                        [quote_rate_source, quote_pair, PerformanceMetrics.smart_round(quote_rate)],
-                    ]
-                )
+                data.extend([
+                    [quote_rate_source, quote_pair, PerformanceMetrics.smart_round(quote_rate)],
+                ])
             if base_pair.split("-")[0] != base_pair.split("-")[1]:
-                data.extend(
-                    [
-                        [base_rate_source, base_pair, PerformanceMetrics.smart_round(base_rate)],
-                    ]
-                )
+                data.extend([
+                    [base_rate_source, base_pair, PerformanceMetrics.smart_round(base_rate)],
+                ])
             if self.is_gateway_market(market_pair.taker):
                 if gas_pair is not None and gas_pair.split("-")[0] != gas_pair.split("-")[1]:
-                    data.extend(
-                        [
-                            [gas_rate_source, gas_pair, PerformanceMetrics.smart_round(gas_rate)],
-                        ]
-                    )
+                    data.extend([
+                        [gas_rate_source, gas_pair, PerformanceMetrics.smart_round(gas_rate)],
+                    ])
         return pd.DataFrame(data=data, columns=columns)
 
     def format_status(self) -> str:
@@ -376,18 +319,21 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     "Market": market_pair.taker.trading_pair,
                     "Best Bid Price": bid_price,
                     "Best Ask Price": ask_price,
-                    "Mid Price": mid_price,
+                    "Mid Price": mid_price
                 }
                 if markets_df is not None:
                     markets_df = markets_df.append(taker_data, ignore_index=True)
-            lines.extend(["", "  Markets:"] + ["    " + line for line in str(markets_df).split("\n")])
+            lines.extend(["", "  Markets:"] +
+                         ["    " + line for line in str(markets_df).split("\n")])
 
             oracle_df = self.oracle_status_df()
             if not oracle_df.empty:
-                lines.extend(["", "  Rate conversion:"] + ["    " + line for line in str(oracle_df).split("\n")])
+                lines.extend(["", "  Rate conversion:"] +
+                             ["    " + line for line in str(oracle_df).split("\n")])
 
             assets_df = self.wallet_balance_data_frame([market_pair.maker, market_pair.taker])
-            lines.extend(["", "  Assets:"] + ["    " + line for line in str(assets_df).split("\n")])
+            lines.extend(["", "  Assets:"] +
+                         ["    " + line for line in str(assets_df).split("\n")])
 
             # See if there're any open orders.
             if market_pair in tracked_maker_orders and len(tracked_maker_orders[market_pair]) > 0:
@@ -396,7 +342,8 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                 mid_price = (bid + ask) / 2
                 df = LimitOrder.to_pandas(limit_orders, float(mid_price))
                 df_lines = str(df).split("\n")
-                lines.extend(["", "  Active maker market orders:"] + ["    " + line for line in df_lines])
+                lines.extend(["", "  Active maker market orders:"] +
+                             ["    " + line for line in df_lines])
             else:
                 lines.extend(["", "  No active maker market orders."])
 
@@ -420,9 +367,11 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
 
         :param timestamp: current tick timestamp
         """
-        current_tick = timestamp // self._status_report_interval
-        last_tick = self._last_timestamp // self._status_report_interval
-        should_report_warnings = (current_tick > last_tick) and (LogOption.STATUS_REPORT in self.logging_options)
+        current_tick = (timestamp // self._status_report_interval)
+        last_tick = (self._last_timestamp // self._status_report_interval)
+        should_report_warnings = ((current_tick > last_tick) and
+                                  (LogOption.STATUS_REPORT in self.logging_options)
+                                  )
 
         # Perform clock tick with the market pair tracker.
         self._market_pair_tracker.tick(timestamp)
@@ -455,10 +404,8 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         if should_report_warnings:
             # Check if all markets are still connected or not. If not, log a warning.
             if not all([market.network_status is NetworkStatus.CONNECTED for market in self.active_markets]):
-                self.logger().warning(
-                    "WARNING: Some markets are not connected or are down at the moment. Market "
-                    "making may be dangerous when markets or networks are unstable."
-                )
+                self.logger().warning("WARNING: Some markets are not connected or are down at the moment. Market "
+                                      "making may be dangerous when markets or networks are unstable.")
 
         if self._gateway_quotes_task is None or self._gateway_quotes_task.done():
             self._gateway_quotes_task = safe_ensure_future(self.get_gateway_quotes())
@@ -475,17 +422,13 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             for maker_market, limit_order, order_id in self.active_maker_limit_orders:
                 market_pair = self._market_pairs.get((maker_market, limit_order.trading_pair))
                 if market_pair is None:
-                    self.log_with_clock(
-                        logging.WARNING,
-                        f"The in-flight maker order in for the trading pair '{limit_order.trading_pair}' "
-                        f"does not correspond to any whitelisted trading pairs. Skipping.",
-                    )
+                    self.log_with_clock(logging.WARNING,
+                                        f"The in-flight maker order in for the trading pair '{limit_order.trading_pair}' "
+                                        f"does not correspond to any whitelisted trading pairs. Skipping.")
                     continue
 
-                if (
-                    not self._sb_order_tracker.has_in_flight_cancel(limit_order.client_order_id)
-                    and limit_order.client_order_id in self._maker_to_taker_order_ids.keys()
-                ):
+                if not self._sb_order_tracker.has_in_flight_cancel(limit_order.client_order_id) and \
+                        limit_order.client_order_id in self._maker_to_taker_order_ids.keys():
                     market_pair_to_active_orders[market_pair].append(limit_order)
 
             # Process each market pair independently.
@@ -493,7 +436,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                 await self.process_market_pair(timestamp, market_pair, market_pair_to_active_orders[market_pair])
 
             # log conversion rates every 5 minutes
-            if self._last_conv_rates_logged + (60.0 * 5) < timestamp:
+            if self._last_conv_rates_logged + (60. * 5) < timestamp:
                 self.log_conversion_rates()
                 self._last_conv_rates_logged = timestamp
         finally:
@@ -505,11 +448,15 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                 _, _, quote_rate, _, _, base_rate, _, _, _ = self.get_conversion_rates(market_pair)
                 order_amount = self._config_map.order_amount * base_rate
                 order_price = await market_pair.taker.market.get_order_price(
-                    market_pair.taker.trading_pair, True, order_amount
+                    market_pair.taker.trading_pair,
+                    True,
+                    order_amount
                 )
                 self._last_taker_buy_price = order_price
                 order_price = await market_pair.taker.market.get_order_price(
-                    market_pair.taker.trading_pair, False, order_amount
+                    market_pair.taker.trading_pair,
+                    False,
+                    order_amount
                 )
                 self._last_taker_sell_price = order_price
 
@@ -568,7 +515,9 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             # Suppose the active order is hedged on the taker market right now, what's the average price the hedge
             # would happen?
             current_hedging_price = await self.calculate_effective_hedging_price(
-                market_pair, is_buy, active_order.quantity
+                market_pair,
+                is_buy,
+                active_order.quantity
             )
 
             # See if it's still profitable to keep the order on maker market. If not, remove it.
@@ -606,7 +555,9 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         # See if it's profitable to place a limit order on maker market.
         await self.check_and_create_new_orders(market_pair, has_active_bid, has_active_ask)
 
-    async def hedge_filled_maker_order(self, maker_order_id: str, order_filled_event: OrderFilledEvent):
+    async def hedge_filled_maker_order(self,
+                                       maker_order_id: str,
+                                       order_filled_event: OrderFilledEvent):
         """
         If a limit order previously made to the maker side has been filled, hedge it on the taker side.
         :param order_filled_event: event object
@@ -631,7 +582,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     self.log_with_clock(
                         logging.INFO,
                         f"({market_pair.maker.trading_pair}) Maker buy order of "
-                        f"{order_filled_event.amount} {market_pair.maker.base_asset} filled.",
+                        f"{order_filled_event.amount} {market_pair.maker.base_asset} filled."
                     )
 
             else:
@@ -644,7 +595,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     self.log_with_clock(
                         logging.INFO,
                         f"({market_pair.maker.trading_pair}) Maker sell order of "
-                        f"{order_filled_event.amount} {market_pair.maker.base_asset} filled.",
+                        f"{order_filled_event.amount} {market_pair.maker.base_asset} filled."
                     )
 
             # Call check_and_hedge_orders() to emit the orders on the taker side.
@@ -666,7 +617,9 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
 
         # Resubmit hedging order
         self.hedge_tasks_cleanup()
-        self._hedge_maker_order_tasks += [safe_ensure_future(self.check_and_hedge_orders(order_id, market_pair))]
+        self._hedge_maker_order_tasks += [safe_ensure_future(
+            self.check_and_hedge_orders(order_id, market_pair)
+        )]
 
         # Remove the cancelled, failed or expired taker order
         del self._taker_to_maker_order_ids[order_event.order_id]
@@ -717,7 +670,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     logging.INFO,
                     f"({market_pair.maker.trading_pair}) Maker buy order {order_id} "
                     f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
-                    f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled.",
+                    f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
                 )
                 self.notify_hb_app_with_timestamp(
                     f"Maker BUY order ({limit_order_record.quantity} {limit_order_record.base_currency} @ "
@@ -732,7 +685,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                 self.log_with_clock(
                     logging.INFO,
                     f"({market_pair.taker.trading_pair}) Taker buy order {order_id} for "
-                    f"({order_completed_event.base_asset_amount} {order_completed_event.base_asset} has been completely filled.",
+                    f"({order_completed_event.base_asset_amount} {order_completed_event.base_asset} has been completely filled."
                 )
                 self.notify_hb_app_with_timestamp(
                     f"Taker BUY order ({order_completed_event.base_asset_amount} {order_completed_event.base_asset} "
@@ -742,9 +695,8 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                 # Remove the completed taker order
                 del self._taker_to_maker_order_ids[order_id]
                 # Get all active taker order ids for the maker order id
-                active_taker_ids = set(self._taker_to_maker_order_ids.keys()).intersection(
-                    set(self._maker_to_taker_order_ids[maker_order_id])
-                )
+                active_taker_ids = set(self._taker_to_maker_order_ids.keys()).intersection(set(
+                    self._maker_to_taker_order_ids[maker_order_id]))
                 if len(active_taker_ids) == 0:
                     # Was maker order fully filled?
                     maker_order_ids = list(order_id for market, limit_order, order_id in self.active_maker_limit_orders)
@@ -784,7 +736,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     logging.INFO,
                     f"({market_pair.maker.trading_pair}) Maker sell order {order_id} "
                     f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
-                    f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled.",
+                    f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
                 )
                 self.notify_hb_app_with_timestamp(
                     f"Maker sell order ({limit_order_record.quantity} {limit_order_record.base_currency} @ "
@@ -800,7 +752,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     logging.INFO,
                     f"({market_pair.taker.trading_pair}) Taker sell order {order_id} for "
                     f"({order_completed_event.base_asset_amount} {order_completed_event.base_asset} "
-                    f"has been completely filled.",
+                    f"has been completely filled."
                 )
                 self.notify_hb_app_with_timestamp(
                     f"Taker SELL order ({order_completed_event.base_asset_amount} {order_completed_event.base_asset} "
@@ -810,9 +762,8 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                 # Remove the completed taker order
                 del self._taker_to_maker_order_ids[order_id]
                 # Get all active taker order ids for the maker order id
-                active_taker_ids = set(self._taker_to_maker_order_ids.keys()).intersection(
-                    set(self._maker_to_taker_order_ids[maker_order_id])
-                )
+                active_taker_ids = set(self._taker_to_maker_order_ids.keys()).intersection(set(
+                    self._maker_to_taker_order_ids[maker_order_id]))
                 if len(active_taker_ids) == 0:
                     # Was maker order fully filled?
                     maker_order_ids = list(order_id for market, limit_order, order_id in self.active_maker_limit_orders)
@@ -863,19 +814,19 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     f"({market_pair.maker.trading_pair}) The current limit {'bid' if is_buy else 'ask'} order for "
                     f"{active_order.quantity} {market_pair.maker.base_asset} at "
                     f"{order_price:.8g} {market_pair.maker.quote_asset} is now below the suggested order "
-                    f"price at {suggested_price}. Going to cancel the old order and create a new one...",
+                    f"price at {suggested_price}. Going to cancel the old order and create a new one..."
                 )
             self.cancel_maker_order(market_pair, active_order.client_order_id)
-            self.log_with_clock(
-                logging.DEBUG,
-                f"Current {'buy' if is_buy else 'sell'} order price={order_price}, "
-                f"suggested order price={suggested_price}",
-            )
+            self.log_with_clock(logging.DEBUG,
+                                f"Current {'buy' if is_buy else 'sell'} order price={order_price}, "
+                                f"suggested order price={suggested_price}")
             return False
 
         return True
 
-    async def check_and_hedge_orders(self, maker_order_id: str, market_pair: MakerTakerMarketPair):
+    async def check_and_hedge_orders(self,
+                                     maker_order_id: str,
+                                     market_pair: MakerTakerMarketPair):
         """
         Look into the stored and un-hedged limit order fill events, and emit orders to hedge them, depending on
         availability of funds on the taker market.
@@ -902,21 +853,20 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
 
             hedged_order_quantity = min(
                 buy_fill_quantity / base_rate,
-                taker_market.get_available_balance(market_pair.taker.base_asset) * self.order_size_taker_balance_factor,
+                taker_market.get_available_balance(market_pair.taker.base_asset) *
+                self.order_size_taker_balance_factor
             )
-            quantized_hedge_amount = taker_market.quantize_order_amount(
-                taker_trading_pair, Decimal(hedged_order_quantity)
-            )
+            quantized_hedge_amount = taker_market.quantize_order_amount(taker_trading_pair, Decimal(hedged_order_quantity))
 
-            avg_fill_price = sum([r.price * r.amount for _, r in buy_fill_records]) / sum(
-                [r.amount for _, r in buy_fill_records]
-            )
+            avg_fill_price = (sum([r.price * r.amount for _, r in buy_fill_records]) /
+                              sum([r.amount for _, r in buy_fill_records]))
 
             self.check_multiple_buy_orders(buy_fill_records)
             if self.is_gateway_market(market_pair.taker):
                 order_price = await market_pair.taker.market.get_order_price(
-                    taker_trading_pair, False, quantized_hedge_amount
-                )
+                    taker_trading_pair,
+                    False,
+                    quantized_hedge_amount)
                 if order_price is None:
                     self.logger().warning("Gateway: failed to obtain order price. No hedging order will be submitted.")
                     return
@@ -934,7 +884,13 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
 
             if quantized_hedge_amount > s_decimal_zero:
                 self.place_order(
-                    market_pair, False, False, quantized_hedge_amount, order_price, maker_order_id, buy_fill_records
+                    market_pair,
+                    False,
+                    False,
+                    quantized_hedge_amount,
+                    order_price,
+                    maker_order_id,
+                    buy_fill_records
                 )
 
                 if LogOption.MAKER_ORDER_HEDGED in self.logging_options:
@@ -942,14 +898,14 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                         logging.INFO,
                         f"({market_pair.maker.trading_pair}) Hedged maker buy order(s) of "
                         f"{buy_fill_quantity} {market_pair.maker.base_asset} on taker market to lock in profits. "
-                        f"(maker avg price={avg_fill_price}, taker top={taker_top})",
+                        f"(maker avg price={avg_fill_price}, taker top={taker_top})"
                     )
             else:
                 self.log_with_clock(
                     logging.INFO,
                     f"({market_pair.maker.trading_pair}) Current maker buy fill amount of "
                     f"{buy_fill_quantity} {market_pair.maker.base_asset} is less than the minimum order amount "
-                    f"allowed on the taker market. No hedging possible yet.",
+                    f"allowed on the taker market. No hedging possible yet."
                 )
 
         if sell_fill_quantity > 0:
@@ -959,35 +915,39 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
 
             if self.is_gateway_market(market_pair.taker):
                 taker_price = await market_pair.taker.market.get_order_price(
-                    taker_trading_pair, True, sell_fill_quantity / base_rate
+                    taker_trading_pair,
+                    True,
+                    sell_fill_quantity / base_rate
                 )
                 if taker_price is None:
                     self.logger().warning("Gateway: failed to obtain order price. No hedging order will be submitted.")
                     return
             else:
                 taker_price = taker_market.get_price_for_volume(
-                    taker_trading_pair, True, sell_fill_quantity / base_rate
+                    taker_trading_pair,
+                    True,
+                    sell_fill_quantity / base_rate
                 ).result_price
 
             hedged_order_quantity = min(
                 sell_fill_quantity / base_rate,
-                taker_market.get_available_balance(market_pair.taker.quote_asset)
-                / taker_price
-                * self.order_size_taker_balance_factor,
+                taker_market.get_available_balance(market_pair.taker.quote_asset) /
+                taker_price * self.order_size_taker_balance_factor
             )
             quantized_hedge_amount = taker_market.quantize_order_amount(
-                taker_trading_pair, Decimal(hedged_order_quantity)
+                taker_trading_pair,
+                Decimal(hedged_order_quantity)
             )
 
-            avg_fill_price = sum([r.price * r.amount for _, r in sell_fill_records]) / sum(
-                [r.amount for _, r in sell_fill_records]
-            )
+            avg_fill_price = (sum([r.price * r.amount for _, r in sell_fill_records]) /
+                              sum([r.amount for _, r in sell_fill_records]))
 
             self.check_multiple_sell_orders(sell_fill_records)
             if self.is_gateway_market(market_pair.taker):
                 order_price = await market_pair.taker.market.get_order_price(
-                    taker_trading_pair, True, quantized_hedge_amount
-                )
+                    taker_trading_pair,
+                    True,
+                    quantized_hedge_amount)
                 if order_price is None:
                     self.logger().warning("Gateway: failed to obtain order price. No hedging order will be submitted.")
                     return
@@ -1019,14 +979,14 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                         logging.INFO,
                         f"({market_pair.maker.trading_pair}) Hedged maker sell order(s) of "
                         f"{sell_fill_quantity} {market_pair.maker.base_asset} on taker market to lock in profits. "
-                        f"(maker avg price={avg_fill_price}, taker top={taker_top})",
+                        f"(maker avg price={avg_fill_price}, taker top={taker_top})"
                     )
             else:
                 self.log_with_clock(
                     logging.INFO,
                     f"({market_pair.maker.trading_pair}) Current maker sell fill amount of "
                     f"{sell_fill_quantity} {market_pair.maker.base_asset} is less than the minimum order amount "
-                    f"allowed on the taker market. No hedging possible yet.",
+                    f"allowed on the taker market. No hedging possible yet."
                 )
 
     def get_adjusted_limit_order_size(self, market_pair: MakerTakerMarketPair) -> Tuple[Decimal, Decimal]:
@@ -1064,15 +1024,16 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         trading_pair = market_pair.maker.trading_pair
         base_balance = maker_market.get_balance(market_pair.maker.base_asset)
         quote_balance = maker_market.get_balance(market_pair.maker.quote_asset)
-        current_price = (
-            maker_market.get_price(trading_pair, True) + maker_market.get_price(trading_pair, False)
-        ) * Decimal(0.5)
+        current_price = (maker_market.get_price(trading_pair, True) +
+                         maker_market.get_price(trading_pair, False)) * Decimal(0.5)
         maker_portfolio_value = base_balance + quote_balance / current_price
         adjusted_order_size = maker_portfolio_value * self.order_size_portfolio_ratio_limit
 
         return maker_market.quantize_order_amount(trading_pair, Decimal(adjusted_order_size))
 
-    async def get_market_making_size(self, market_pair: MakerTakerMarketPair, is_bid: bool):
+    async def get_market_making_size(self,
+                                     market_pair: MakerTakerMarketPair,
+                                     is_bid: bool):
         """
         Get the ideal market making order size given a market pair and a side.
 
@@ -1100,20 +1061,22 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             # Maker buy
             # Taker sell
             maker_balance_in_quote = maker_market.get_available_balance(market_pair.maker.quote_asset)
-            taker_balance = (
-                taker_market.get_available_balance(market_pair.taker.base_asset) * self.order_size_taker_balance_factor
-            )
+            taker_balance = taker_market.get_available_balance(market_pair.taker.base_asset) * \
+                self.order_size_taker_balance_factor
 
             if self.is_gateway_market(market_pair.taker):
-                taker_price = await taker_market.get_order_price(taker_trading_pair, False, taker_size)
+                taker_price = await taker_market.get_order_price(taker_trading_pair,
+                                                                 False,
+                                                                 taker_size)
                 if taker_price is None:
-                    self.logger().warning(
-                        "Gateway: failed to obtain order price." "No market making order will be submitted."
-                    )
+                    self.logger().warning("Gateway: failed to obtain order price."
+                                          "No market making order will be submitted.")
                     return s_decimal_zero
             else:
                 try:
-                    taker_price = taker_market.get_vwap_for_volume(taker_trading_pair, False, taker_size).result_price
+                    taker_price = taker_market.get_vwap_for_volume(
+                        taker_trading_pair, False, taker_size
+                    ).result_price
                 except ZeroDivisionError:
                     assert size == s_decimal_zero
                     return s_decimal_zero
@@ -1122,9 +1085,8 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                 self.logger().warning("Failed to obtain a taker sell order price. No order will be submitted.")
                 order_amount = Decimal("0")
             else:
-                maker_balance = maker_balance_in_quote / (
-                    taker_price * self.markettaker_to_maker_base_conversion_rate(market_pair)
-                )
+                maker_balance = maker_balance_in_quote / \
+                    (taker_price * self.markettaker_to_maker_base_conversion_rate(market_pair))
                 taker_balance *= base_rate
                 order_amount = min(maker_balance, taker_balance, size)
 
@@ -1134,16 +1096,16 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             # Maker sell
             # Taker buy
             maker_balance = maker_market.get_available_balance(market_pair.maker.base_asset)
-            taker_balance_in_quote = (
-                taker_market.get_available_balance(market_pair.taker.quote_asset) * self.order_size_taker_balance_factor
-            )
+            taker_balance_in_quote = taker_market.get_available_balance(market_pair.taker.quote_asset) * \
+                self.order_size_taker_balance_factor
 
             if self.is_gateway_market(market_pair.taker):
-                taker_price = await taker_market.get_order_price(taker_trading_pair, True, size)
+                taker_price = await taker_market.get_order_price(taker_trading_pair,
+                                                                 True,
+                                                                 size)
                 if taker_price is None:
-                    self.logger().warning(
-                        "Gateway: failed to obtain order price." "No market making order will be submitted."
-                    )
+                    self.logger().warning("Gateway: failed to obtain order price."
+                                          "No market making order will be submitted.")
                     return s_decimal_zero
             else:
                 try:
@@ -1165,7 +1127,10 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
 
             return maker_market.quantize_order_amount(market_pair.maker.trading_pair, Decimal(order_amount))
 
-    async def get_market_making_price(self, market_pair: MarketTradingPairTuple, is_bid: bool, size: Decimal):
+    async def get_market_making_price(self,
+                                      market_pair: MarketTradingPairTuple,
+                                      is_bid: bool,
+                                      size: Decimal):
         """
         Get the ideal market making order price given a market pair, side and size.
 
@@ -1195,15 +1160,19 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             # Taker sell
             if not Decimal.is_nan(top_bid_price):
                 # Calculate the next price above top bid
-                price_quantum = maker_market.get_order_price_quantum(market_pair.maker.trading_pair, top_bid_price)
+                price_quantum = maker_market.get_order_price_quantum(
+                    market_pair.maker.trading_pair,
+                    top_bid_price
+                )
                 price_above_bid = (ceil(top_bid_price / price_quantum) + 1) * price_quantum
 
             if self.is_gateway_market(market_pair.taker):
-                taker_price = await taker_market.get_order_price(taker_trading_pair, False, size)
+                taker_price = await taker_market.get_order_price(taker_trading_pair,
+                                                                 False,
+                                                                 size)
                 if taker_price is None:
-                    self.logger().warning(
-                        "Gateway: failed to obtain order price." "No market making order will be submitted."
-                    )
+                    self.logger().warning("Gateway: failed to obtain order price."
+                                          "No market making order will be submitted.")
                     return s_decimal_nan
             else:
                 try:
@@ -1226,7 +1195,10 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                 if not Decimal.is_nan(price_above_bid):
                     maker_price = min(maker_price, price_above_bid)
 
-            price_quantum = maker_market.get_order_price_quantum(market_pair.maker.trading_pair, maker_price)
+            price_quantum = maker_market.get_order_price_quantum(
+                market_pair.maker.trading_pair,
+                maker_price
+            )
 
             # Rounds down for ensuring profitability
             maker_price = (floor(maker_price / price_quantum)) * price_quantum
@@ -1237,15 +1209,19 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             # Taker buy
             if not Decimal.is_nan(top_ask_price):
                 # Calculate the next price below top ask
-                price_quantum = maker_market.get_order_price_quantum(market_pair.maker.trading_pair, top_ask_price)
+                price_quantum = maker_market.get_order_price_quantum(
+                    market_pair.maker.trading_pair,
+                    top_ask_price
+                )
                 next_price_below_top_ask = (floor(top_ask_price / price_quantum) - 1) * price_quantum
 
             if self.is_gateway_market(market_pair.taker):
-                taker_price = await taker_market.get_order_price(taker_trading_pair, True, size)
+                taker_price = await taker_market.get_order_price(taker_trading_pair,
+                                                                 True,
+                                                                 size)
                 if taker_price is None:
-                    self.logger().warning(
-                        "Gateway: failed to obtain order price." "No market making order will be submitted."
-                    )
+                    self.logger().warning("Gateway: failed to obtain order price."
+                                          "No market making order will be submitted.")
                     return s_decimal_nan
             else:
                 try:
@@ -1264,14 +1240,20 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                 if not Decimal.is_nan(next_price_below_top_ask):
                     maker_price = max(maker_price, next_price_below_top_ask)
 
-            price_quantum = maker_market.get_order_price_quantum(market_pair.maker.trading_pair, maker_price)
+            price_quantum = maker_market.get_order_price_quantum(
+                market_pair.maker.trading_pair,
+                maker_price
+            )
 
             # Rounds up for ensuring profitability
             maker_price = (ceil(maker_price / price_quantum)) * price_quantum
 
             return maker_price
 
-    async def calculate_effective_hedging_price(self, market_pair: MarketTradingPairTuple, is_bid: bool, size: Decimal):
+    async def calculate_effective_hedging_price(self,
+                                                market_pair: MarketTradingPairTuple,
+                                                is_bid: bool,
+                                                size: Decimal):
         """
         Returns current possible taker price expressed in units of the maker market quote asset
         :param market_pair: The cross exchange market pair to calculate order price/size limits.
@@ -1291,11 +1273,12 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             # Maker buy
             # Taker sell
             if self.is_gateway_market(market_pair.taker):
-                taker_price = await taker_market.get_order_price(taker_trading_pair, False, size)
+                taker_price = await taker_market.get_order_price(taker_trading_pair,
+                                                                 False,
+                                                                 size)
                 if taker_price is None:
-                    self.logger().warning(
-                        "Gateway: failed to obtain order price." "Failed to calculate effective hedging price."
-                    )
+                    self.logger().warning("Gateway: failed to obtain order price."
+                                          "Failed to calculate effective hedging price.")
                     return s_decimal_nan
             else:
                 try:
@@ -1311,11 +1294,12 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             # Maker sell
             # Taker buy
             if self.is_gateway_market(market_pair.taker):
-                taker_price = await taker_market.get_order_price(taker_trading_pair, True, size)
+                taker_price = await taker_market.get_order_price(taker_trading_pair,
+                                                                 True,
+                                                                 size)
                 if taker_price is None:
-                    self.logger().warning(
-                        "Gateway: failed to obtain order price." "Failed to calculate effective hedging price."
-                    )
+                    self.logger().warning("Gateway: failed to obtain order price."
+                                          "Failed to calculate effective hedging price.")
                     return s_decimal_nan
             else:
                 try:
@@ -1355,14 +1339,14 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
 
         else:
             # Use bid entries in maker order book
-            top_bid_price = maker_market.get_price_for_volume(
-                trading_pair, False, self._config_map.top_depth_tolerance
-            ).result_price
+            top_bid_price = maker_market.get_price_for_volume(trading_pair,
+                                                              False,
+                                                              self._config_map.top_depth_tolerance).result_price
 
             # Use ask entries in maker order book
-            top_ask_price = maker_market.get_price_for_volume(
-                trading_pair, True, self._config_map.top_depth_tolerance
-            ).result_price
+            top_ask_price = maker_market.get_price_for_volume(trading_pair,
+                                                              True,
+                                                              self._config_map.top_depth_tolerance).result_price
 
         return top_bid_price, top_ask_price
 
@@ -1375,9 +1359,8 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
 
         :param market_pair: cross exchange market pair
         """
-        if (self._last_timestamp // self.ORDER_ADJUST_SAMPLE_INTERVAL) < (
-            timestamp // self.ORDER_ADJUST_SAMPLE_INTERVAL
-        ):
+        if ((self._last_timestamp // self.ORDER_ADJUST_SAMPLE_INTERVAL) <
+                (timestamp // self.ORDER_ADJUST_SAMPLE_INTERVAL)):
             if market_pair not in self._suggested_price_samples:
                 self._suggested_price_samples[market_pair] = (deque(), deque())
 
@@ -1415,7 +1398,10 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
 
         return top_bid_price, top_ask_price
 
-    async def check_if_still_profitable(self, market_pair, active_order: LimitOrder, current_hedging_price: Decimal):
+    async def check_if_still_profitable(self,
+                                        market_pair,
+                                        active_order: LimitOrder,
+                                        current_hedging_price: Decimal):
         """
         Check whether a currently active limit order should be canceled or not, according to profitability metric.
 
@@ -1442,7 +1428,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     logging.INFO,
                     f"({market_pair.maker.trading_pair}) Limit {limit_order_type_str} order at "
                     f"{order_price:.8g} {market_pair.maker.quote_asset} is no longer profitable. "
-                    f"Removing the order.",
+                    f"Removing the order."
                 )
             self.cancel_maker_order(market_pair, active_order.client_order_id)
             return False
@@ -1467,52 +1453,47 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     # Taker sell
                     hedged_order_quantity = min(
                         quantity_remaining * base_rate,
-                        market_pair.taker.market.get_available_balance(market_pair.taker.base_asset)
-                        * self.order_size_taker_balance_factor,
+                        market_pair.taker.market.get_available_balance(market_pair.taker.base_asset) *
+                        self.order_size_taker_balance_factor
                     )
                     # Convert from taker to maker order amount
                     hedged_order_quantity = hedged_order_quantity / base_rate
                     # Calculate P/L including potential gas fees (if gateway)
-                    pl = (
-                        hedged_order_quantity * current_hedging_price
-                        - quantity_remaining * active_order.price
-                        - transaction_fee
-                    )
+                    pl = hedged_order_quantity * current_hedging_price - \
+                        quantity_remaining * active_order.price - \
+                        transaction_fee
                 else:
                     # Maker sell
                     # Taker buy
                     taker_price = await market_pair.taker.market.get_order_price(
-                        market_pair.taker.trading_pair, True, quantity_remaining * base_rate
+                        market_pair.taker.trading_pair,
+                        True,
+                        quantity_remaining * base_rate
                     )
                     hedged_order_quantity = min(
                         quantity_remaining * base_rate,
-                        market_pair.taker.market.get_available_balance(market_pair.taker.quote_asset)
-                        / taker_price
-                        * self.order_size_taker_balance_factor,
+                        market_pair.taker.market.get_available_balance(market_pair.taker.quote_asset) /
+                        taker_price * self.order_size_taker_balance_factor
                     )
                     # Convert from taker to maker order amount
                     hedged_order_quantity = hedged_order_quantity / base_rate
                     # Calculate P/L including potential gas fees (if gateway)
-                    pl = (
-                        quantity_remaining * active_order.price
-                        - hedged_order_quantity * current_hedging_price
-                        - transaction_fee
-                    )
+                    pl = quantity_remaining * active_order.price - \
+                        hedged_order_quantity * current_hedging_price - \
+                        transaction_fee
 
         # Profitability based on a price multiplier (cancel_order_threshold)
         # Profitability based on absolute P/L including fees
-        if (
-            (is_buy and current_hedging_price < order_price * (1 + cancel_order_threshold))
-            or (not is_buy and order_price < current_hedging_price * (1 + cancel_order_threshold))
-            or pl < 0
-        ):
+        if ((is_buy and current_hedging_price < order_price * (1 + cancel_order_threshold)) or
+                (not is_buy and order_price < current_hedging_price * (1 + cancel_order_threshold)) or
+                pl < 0):
 
             if LogOption.REMOVING_ORDER in self.logging_options:
                 self.log_with_clock(
                     logging.INFO,
                     f"({market_pair.maker.trading_pair}) Limit {limit_order_type_str} order at "
                     f"{order_price:.8g} {market_pair.maker.quote_asset} is no longer profitable. "
-                    f"Removing the order.",
+                    f"Removing the order."
                 )
             self.cancel_maker_order(market_pair, active_order.client_order_id)
             return False
@@ -1542,17 +1523,8 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         size /= base_rate
 
         taker_market = market_pair.taker.market
-        (
-            quote_pair,
-            quote_rate_source,
-            quote_rate,
-            base_pair,
-            base_rate_source,
-            base_rate,
-            gas_pair,
-            gas_rate_source,
-            gas_rate,
-        ) = self.get_conversion_rates(market_pair)
+        quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate, gas_pair, gas_rate_source, gas_rate = \
+            self.get_conversion_rates(market_pair)
 
         if is_buy:
             # Maker buy
@@ -1572,11 +1544,12 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             quote_asset_amount = taker_market.get_balance(market_pair.taker.quote_asset)
 
             if self.is_gateway_market(market_pair.taker):
-                taker_price = await taker_market.get_order_price(taker_trading_pair, True, size)
+                taker_price = await taker_market.get_order_price(taker_trading_pair,
+                                                                 True,
+                                                                 size)
                 if taker_price is None:
-                    self.logger().warning(
-                        "Gateway: failed to obtain order price." "Failed to determine sufficient balance."
-                    )
+                    self.logger().warning("Gateway: failed to obtain order price."
+                                          "Failed to determine sufficient balance.")
                     return False
             else:
                 taker_price = taker_market.get_price_for_quote_volume(
@@ -1594,7 +1567,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     logging.INFO,
                     f"({market_pair.maker.trading_pair}) Order size limit ({order_size_limit:.8g}) "
                     f"is now less than the current active order amount ({active_order.quantity:.8g}). "
-                    f"Going to adjust the order.",
+                    f"Going to adjust the order."
                 )
             self.cancel_maker_order(market_pair, active_order.client_order_id)
             return False
@@ -1614,9 +1587,10 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         #     base_rate = RateOracle.get_instance().rate(base_pair)
         #     return quote_rate / base_rate
 
-    async def check_and_create_new_orders(
-        self, market_pair: MarketTradingPairTuple, has_active_bid: bool, has_active_ask: bool
-    ):
+    async def check_and_create_new_orders(self,
+                                          market_pair: MarketTradingPairTuple,
+                                          has_active_bid: bool,
+                                          has_active_ask: bool):
         """
         Check and account for all applicable conditions for creating new limit orders (e.g. profitability, what's the
         right price given depth tolerance and transient orders on the market, account balances, etc.), and create new
@@ -1634,10 +1608,13 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             if bid_size > s_decimal_zero:
                 bid_price = await self.get_market_making_price(market_pair, True, bid_size)
                 if not Decimal.is_nan(bid_price):
-                    effective_hedging_price = await self.calculate_effective_hedging_price(market_pair, True, bid_size)
-                    effective_hedging_price_adjusted = (
-                        effective_hedging_price / self.markettaker_to_maker_base_conversion_rate(market_pair)
+                    effective_hedging_price = await self.calculate_effective_hedging_price(
+                        market_pair,
+                        True,
+                        bid_size
                     )
+                    effective_hedging_price_adjusted = effective_hedging_price / \
+                        self.markettaker_to_maker_base_conversion_rate(market_pair)
                     if LogOption.CREATE_ORDER in self.logging_options:
                         self.log_with_clock(
                             logging.INFO,
@@ -1645,7 +1622,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                             f"{bid_size} {market_pair.maker.base_asset} at "
                             f"{bid_price} {market_pair.maker.quote_asset}. "
                             f"Current hedging price: {effective_hedging_price:.8f} {market_pair.maker.quote_asset} "
-                            f"(Rate adjusted: {effective_hedging_price_adjusted:.8f} {market_pair.taker.quote_asset}).",
+                            f"(Rate adjusted: {effective_hedging_price_adjusted:.8f} {market_pair.taker.quote_asset})."
                         )
                     self.place_order(market_pair, True, True, bid_size, bid_price)
                 else:
@@ -1654,14 +1631,14 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                             logging.WARNING,
                             f"({market_pair.maker.trading_pair})"
                             f"Order book on taker is too thin to place order for size: {bid_size}"
-                            f"Reduce order_size_portfolio_ratio_limit",
+                            f"Reduce order_size_portfolio_ratio_limit"
                         )
             else:
                 if LogOption.NULL_ORDER_SIZE in self.logging_options:
                     self.log_with_clock(
                         logging.WARNING,
                         f"({market_pair.maker.trading_pair}) Attempting to place a limit bid but the "
-                        f"bid size is 0. Skipping. Check available balance.",
+                        f"bid size is 0. Skipping. Check available balance."
                     )
         # if there is no active ask, place ask again
         if not has_active_ask:
@@ -1670,10 +1647,13 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             if ask_size > s_decimal_zero:
                 ask_price = await self.get_market_making_price(market_pair, False, ask_size)
                 if not Decimal.is_nan(ask_price):
-                    effective_hedging_price = await self.calculate_effective_hedging_price(market_pair, False, ask_size)
-                    effective_hedging_price_adjusted = (
-                        effective_hedging_price / self.markettaker_to_maker_base_conversion_rate(market_pair)
+                    effective_hedging_price = await self.calculate_effective_hedging_price(
+                        market_pair,
+                        False,
+                        ask_size
                     )
+                    effective_hedging_price_adjusted = effective_hedging_price / \
+                        self.markettaker_to_maker_base_conversion_rate(market_pair)
                     if LogOption.CREATE_ORDER in self.logging_options:
                         self.log_with_clock(
                             logging.INFO,
@@ -1681,7 +1661,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                             f"{ask_size} {market_pair.maker.base_asset} at "
                             f"{ask_price} {market_pair.maker.quote_asset}. "
                             f"Current hedging price: {effective_hedging_price:.8f} {market_pair.maker.quote_asset} "
-                            f"(Rate adjusted: {effective_hedging_price_adjusted:.8f} {market_pair.taker.quote_asset}).",
+                            f"(Rate adjusted: {effective_hedging_price_adjusted:.8f} {market_pair.taker.quote_asset})."
                         )
                     self.place_order(market_pair, False, True, ask_size, ask_price)
                 else:
@@ -1690,14 +1670,14 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                             logging.WARNING,
                             f"({market_pair.maker.trading_pair})"
                             f"Order book on taker is too thin to place order for size: {ask_size}"
-                            f"Reduce order_size_portfolio_ratio_limit",
+                            f"Reduce order_size_portfolio_ratio_limit"
                         )
             else:
                 if LogOption.NULL_ORDER_SIZE in self.logging_options:
                     self.log_with_clock(
                         logging.WARNING,
                         f"({market_pair.maker.trading_pair}) Attempting to place a limit ask but the "
-                        f"ask size is 0. Skipping. Check available balance.",
+                        f"ask size is 0. Skipping. Check available balance."
                     )
 
     def place_order(
@@ -1713,31 +1693,28 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         expiration_seconds = s_float_nan
         market_info = market_pair.maker if is_maker else market_pair.taker
         # Market orders are not being submitted as taker orders, limit orders are preferred at all times
-        order_type = market_info.market.get_maker_order_type() if is_maker else OrderType.LIMIT
+        order_type = market_info.market.get_maker_order_type() if is_maker else \
+            OrderType.LIMIT
         if order_type is OrderType.MARKET:
             price = s_decimal_nan
         expiration_seconds = self._config_map.order_refresh_mode.get_expiration_seconds()
         order_id = None
         if is_buy:
             try:
-                order_id = self.buy_with_specific_market(
-                    market_info, amount, order_type=order_type, price=price, expiration_seconds=expiration_seconds
-                )
+                order_id = self.buy_with_specific_market(market_info, amount,
+                                                         order_type=order_type, price=price,
+                                                         expiration_seconds=expiration_seconds)
             except ValueError as e:
-                self.logger().warning(
-                    f"Placing an order on market {str(market_info.market.name)} "
-                    f"failed with the following error: {str(e)}"
-                )
+                self.logger().warning(f"Placing an order on market {str(market_info.market.name)} "
+                                      f"failed with the following error: {str(e)}")
         else:
             try:
-                order_id = self.sell_with_specific_market(
-                    market_info, amount, order_type=order_type, price=price, expiration_seconds=expiration_seconds
-                )
+                order_id = self.sell_with_specific_market(market_info, amount,
+                                                          order_type=order_type, price=price,
+                                                          expiration_seconds=expiration_seconds)
             except ValueError as e:
-                self.logger().warning(
-                    f"Placing an order on market {str(market_info.market.name)} "
-                    f"failed with the following error: {str(e)}"
-                )
+                self.logger().warning(f"Placing an order on market {str(market_info.market.name)} "
+                                      f"failed with the following error: {str(e)}")
         if order_id is None:
             return
         self._sb_order_tracker.add_create_order_pending(order_id)
@@ -1753,7 +1730,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
     def cancel_maker_order(self, market_pair: MakerTakerMarketPair, order_id: str):
         market_trading_pair_tuple = self._market_pair_tracker.get_market_pair_from_order_id(order_id)
         super().cancel_order(market_trading_pair_tuple.maker, order_id)
-
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
 
@@ -1767,7 +1743,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
     def stop_tracking_market_order(self, market_trading_pair_tuple, order_id: str):
         self._market_pair_tracker.stop_tracking_order_id(order_id)
         self.stop_tracking_market_order(self, market_trading_pair_tuple, order_id)
-
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
 
@@ -1805,7 +1780,11 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         return self.get_unhedged_events(sell_fill_records)
 
     def get_unhedged_events(self, fill_records: List[OrderFilledEvent]) -> List[OrderFilledEvent]:
-        return [fill_event for fill_event in fill_records if (not self.is_fill_event_in_ongoing_hedging(fill_event))]
+        return [
+            fill_event for fill_event in fill_records if (
+                not self.is_fill_event_in_ongoing_hedging(fill_event)
+            )
+        ]
 
     def is_fill_event_in_ongoing_hedging(self, fill_event: OrderFilledEvent) -> bool:
         trade_id = fill_event[1].exchange_trade_id

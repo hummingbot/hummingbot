@@ -20,9 +20,9 @@ class TestOKXPerpetualCandles(TestCandlesBase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.data_feed = OKXPerpetualCandles(
-            trading_pair=self.trading_pair, interval=self.interval, max_records=self.max_records
-        )
+        self.data_feed = OKXPerpetualCandles(trading_pair=self.trading_pair,
+                                             interval=self.interval,
+                                             max_records=self.max_records)
         self.data_feed.logger().setLevel(1)
         self.data_feed.logger().addHandler(self)
 
@@ -45,7 +45,7 @@ class TestOKXPerpetualCandles(TestCandlesBase):
                     "201605.6",
                     "2016.056",
                     "134181486.8892",
-                    "1",
+                    "1"
                 ],
                 [
                     "1718654400000",
@@ -56,7 +56,7 @@ class TestOKXPerpetualCandles(TestCandlesBase):
                     "532566.8",
                     "5325.668",
                     "353728101.5321",
-                    "1",
+                    "1"
                 ],
                 [
                     "1718650800000",
@@ -67,7 +67,7 @@ class TestOKXPerpetualCandles(TestCandlesBase):
                     "449946.1",
                     "4499.461",
                     "300581935.693",
-                    "1",
+                    "1"
                 ],
                 [
                     "1718647200000",
@@ -78,56 +78,50 @@ class TestOKXPerpetualCandles(TestCandlesBase):
                     "1345995.9",
                     "13459.959",
                     "900743428.1363",
-                    "1",
-                ],
-            ],
+                    "1"
+                ]
+            ]
         }
         return data
 
     def get_fetch_candles_data_mock(self):
-        return [
-            [1718647200.0, "66602", "67320", "66543.3", "67087", "13459.959", "900743428.1363", 0.0, 0.0, 0.0],
-            [1718650800.0, "67087.1", "67099.8", "66560", "66683.9", "4499.461", "300581935.693", 0.0, 0.0, 0.0],
-            [1718654400.0, "66684", "66765.1", "66171.3", "66400.6", "5325.668", "353728101.5321", 0.0, 0.0, 0.0],
-            [1718658000.0, "66401", "66734", "66310.1", "66575.3", "2016.056", "134181486.8892", 0.0, 0.0, 0.0],
-        ]
+        return [[1718647200.0, '66602', '67320', '66543.3', '67087', '13459.959', '900743428.1363', 0.0, 0.0, 0.0],
+                [1718650800.0, '67087.1', '67099.8', '66560', '66683.9', '4499.461', '300581935.693', 0.0, 0.0, 0.0],
+                [1718654400.0, '66684', '66765.1', '66171.3', '66400.6', '5325.668', '353728101.5321', 0.0, 0.0, 0.0],
+                [1718658000.0, '66401', '66734', '66310.1', '66575.3', '2016.056', '134181486.8892', 0.0, 0.0, 0.0]]
 
     def get_candles_ws_data_mock_1(self):
         data = {
-            "arg": {"channel": "candle1H", "instId": self.ex_trading_pair},
+            "arg": {
+                "channel": "candle1H",
+                "instId": self.ex_trading_pair},
             "data": [
-                [
-                    "1705420800000",
-                    "43253.6",
-                    "43440.2",
-                    "43000",
-                    "43250.9",
-                    "942.87870026",
-                    "40743115.773175484",
-                    "40743115.773175484",
-                    "1",
-                ]
-            ],
-        }
+                ["1705420800000",
+                 "43253.6",
+                 "43440.2",
+                 "43000",
+                 "43250.9",
+                 "942.87870026",
+                 "40743115.773175484",
+                 "40743115.773175484",
+                 "1"]]}
         return data
 
     def get_candles_ws_data_mock_2(self):
         data = {
-            "arg": {"channel": "candle1H", "instId": self.ex_trading_pair},
+            "arg": {
+                "channel": "candle1H",
+                "instId": self.ex_trading_pair},
             "data": [
-                [
-                    "1705435200000",
-                    "43169.8",
-                    "43370",
-                    "43168",
-                    "43239",
-                    "297.60067612",
-                    "12874025.740848533",
-                    "12874025.740848533",
-                    "0",
-                ]
-            ],
-        }
+                ["1705435200000",
+                 "43169.8",
+                 "43370",
+                 "43168",
+                 "43239",
+                 "297.60067612",
+                 "12874025.740848533",
+                 "12874025.740848533",
+                 "0"]]}
         return data
 
     @staticmethod

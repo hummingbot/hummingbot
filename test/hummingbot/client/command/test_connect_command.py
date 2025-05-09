@@ -34,7 +34,6 @@ class ConnectCommandTest(unittest.TestCase):
     def get_async_sleep_fn(delay: float):
         async def async_sleep(*_, **__):
             await asyncio.sleep(delay)
-
         return async_sleep
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
@@ -159,10 +158,10 @@ class ConnectCommandTest(unittest.TestCase):
         notify_mock.side_effect = lambda s: captures.append(s)
 
         connections_df = pd.DataFrame(
-            columns=pd.Index(["Exchange", "  Keys Added", "  Keys Confirmed", "  Status"], dtype="object"),
+            columns=pd.Index(['Exchange', '  Keys Added', '  Keys Confirmed', '  Status'], dtype='object'),
             data=[
                 ["ascend_ex", "Yes", "Yes", "&cYELLOW"],
-            ],
+            ]
         )
         connection_df_mock.return_value = (connections_df, [])
 

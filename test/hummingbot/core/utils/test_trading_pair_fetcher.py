@@ -74,7 +74,7 @@ class TestTradingPairFetcher(unittest.TestCase):
         def uses_gateway_generic_connector(self) -> bool:
             return False
 
-        def non_trading_connector_instance_with_default_configuration(self, trading_pairs=None):
+        def non_trading_connector_instance_with_default_configuration(self, trading_pairs = None):
             return self._connector
 
     @classmethod
@@ -93,7 +93,7 @@ class TestTradingPairFetcher(unittest.TestCase):
         connector.all_trading_pairs.return_value = ["MOCK-HBOT"]
         mock_connector_settings.return_value = {
             "mock_exchange_1": self.MockConnectorSetting(name="mockConnector", connector=connector),
-            "mock_paper_trade": self.MockConnectorSetting(name="mock_paper_trade", parent_name="mock_exchange_1"),
+            "mock_paper_trade": self.MockConnectorSetting(name="mock_paper_trade", parent_name="mock_exchange_1")
         }
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
@@ -113,7 +113,7 @@ class TestTradingPairFetcher(unittest.TestCase):
         connector.all_trading_pairs.return_value = ["MOCK-HBOT"]
         mock_connector_settings.return_value = {
             "mock_exchange_1": self.MockConnectorSetting(name="binance", connector=connector),
-            "mock_paper_trade": self.MockConnectorSetting(name="mock_paper_trade", parent_name="mock_exchange_1"),
+            "mock_paper_trade": self.MockConnectorSetting(name="mock_paper_trade", parent_name="mock_exchange_1")
         }
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
@@ -132,28 +132,25 @@ class TestTradingPairFetcher(unittest.TestCase):
         client_config_map.fetch_pairs_from_all_exchanges = True
         all_connector_settings_mock.return_value = {
             "binance": ConnectorSetting(
-                name="binance",
+                name='binance',
                 type=ConnectorType.Exchange,
-                example_pair="ZRX-ETH",
+                example_pair='ZRX-ETH',
                 centralised=True,
                 use_ethereum_wallet=False,
                 trade_fee_schema=TradeFeeSchema(
                     percent_fee_token=None,
-                    maker_percent_fee_decimal=Decimal("0.001"),
-                    taker_percent_fee_decimal=Decimal("0.001"),
+                    maker_percent_fee_decimal=Decimal('0.001'),
+                    taker_percent_fee_decimal=Decimal('0.001'),
                     buy_percent_fee_deducted_from_returns=False,
                     maker_fixed_fees=[],
-                    taker_fixed_fees=[],
-                ),
+                    taker_fixed_fees=[]),
                 config_keys={
-                    "binance_api_key": ConfigVar(key="binance_api_key", prompt=""),
-                    "binance_api_secret": ConfigVar(key="binance_api_secret", prompt=""),
-                },
+                    'binance_api_key': ConfigVar(key='binance_api_key', prompt=""),
+                    'binance_api_secret': ConfigVar(key='binance_api_secret', prompt="")},
                 is_sub_domain=False,
                 parent_name=None,
                 domain_parameter=None,
-                use_eth_gas_lookup=False,
-            ),
+                use_eth_gas_lookup=False),
         }
 
         url = binance_web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL)
@@ -173,14 +170,23 @@ class TestTradingPairFetcher(unittest.TestCase):
                     "quoteAssetPrecision": 8,
                     "baseCommissionPrecision": 8,
                     "quoteCommissionPrecision": 8,
-                    "orderTypes": ["LIMIT", "LIMIT_MAKER", "MARKET", "STOP_LOSS_LIMIT", "TAKE_PROFIT_LIMIT"],
+                    "orderTypes": [
+                        "LIMIT",
+                        "LIMIT_MAKER",
+                        "MARKET",
+                        "STOP_LOSS_LIMIT",
+                        "TAKE_PROFIT_LIMIT"
+                    ],
                     "icebergAllowed": True,
                     "ocoAllowed": True,
                     "quoteOrderQtyMarketAllowed": True,
                     "isSpotTradingAllowed": True,
                     "isMarginTradingAllowed": True,
                     "filters": [],
-                    "permissionSets": [["SPOT", "MARGIN"]],
+                    "permissionSets": [[
+                        "SPOT",
+                        "MARGIN"
+                    ]]
                 },
                 {
                     "symbol": "LTCBTC",
@@ -192,14 +198,23 @@ class TestTradingPairFetcher(unittest.TestCase):
                     "quoteAssetPrecision": 8,
                     "baseCommissionPrecision": 8,
                     "quoteCommissionPrecision": 8,
-                    "orderTypes": ["LIMIT", "LIMIT_MAKER", "MARKET", "STOP_LOSS_LIMIT", "TAKE_PROFIT_LIMIT"],
+                    "orderTypes": [
+                        "LIMIT",
+                        "LIMIT_MAKER",
+                        "MARKET",
+                        "STOP_LOSS_LIMIT",
+                        "TAKE_PROFIT_LIMIT"
+                    ],
                     "icebergAllowed": True,
                     "ocoAllowed": True,
                     "quoteOrderQtyMarketAllowed": True,
                     "isSpotTradingAllowed": True,
                     "isMarginTradingAllowed": True,
                     "filters": [],
-                    "permissionSets": [["SPOT", "MARGIN"]],
+                    "permissionSets": [[
+                        "SPOT",
+                        "MARGIN"
+                    ]]
                 },
                 {
                     "symbol": "BNBBTC",
@@ -211,16 +226,24 @@ class TestTradingPairFetcher(unittest.TestCase):
                     "quoteAssetPrecision": 8,
                     "baseCommissionPrecision": 8,
                     "quoteCommissionPrecision": 8,
-                    "orderTypes": ["LIMIT", "LIMIT_MAKER", "MARKET", "STOP_LOSS_LIMIT", "TAKE_PROFIT_LIMIT"],
+                    "orderTypes": [
+                        "LIMIT",
+                        "LIMIT_MAKER",
+                        "MARKET",
+                        "STOP_LOSS_LIMIT",
+                        "TAKE_PROFIT_LIMIT"
+                    ],
                     "icebergAllowed": True,
                     "ocoAllowed": True,
                     "quoteOrderQtyMarketAllowed": True,
                     "isSpotTradingAllowed": True,
                     "isMarginTradingAllowed": True,
                     "filters": [],
-                    "permissionSets": [["MARGIN"]],
+                    "permissionSets": [[
+                        "MARGIN"
+                    ]]
                 },
-            ],
+            ]
         }
         mock_api.get(url, body=json.dumps(mock_response))
 

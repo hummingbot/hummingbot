@@ -41,7 +41,7 @@ class GateIoRateSourceTest(IsolatedAsyncioWrapperTestCase):
                 "quote": "BTC",
                 "fee": "0.2",
                 "trade_status": "tradable",
-            },
+            }
         ]
         mock_api.get(url=symbols_url, body=json.dumps(symbols_response))
         prices_url = f"{CONSTANTS.REST_URL}/{CONSTANTS.TICKER_PATH_URL}"
@@ -59,7 +59,7 @@ class GateIoRateSourceTest(IsolatedAsyncioWrapperTestCase):
                 "etf_net_value": "2.46316141",
                 "etf_pre_net_value": "2.43201848",
                 "etf_pre_timestamp": 1611244800,
-                "etf_leverage": "2.2803019447281203",
+                "etf_leverage": "2.2803019447281203"
             },
             {
                 "currency_pair": "KCS_BTC",
@@ -73,7 +73,7 @@ class GateIoRateSourceTest(IsolatedAsyncioWrapperTestCase):
                 "etf_net_value": "2.46316141",
                 "etf_pre_net_value": "2.43201848",
                 "etf_pre_timestamp": 1611244800,
-                "etf_leverage": "2.2803019447281203",
+                "etf_leverage": "2.2803019447281203"
             },
             {
                 "currency_pair": self.ignored_trading_pair,
@@ -87,7 +87,7 @@ class GateIoRateSourceTest(IsolatedAsyncioWrapperTestCase):
                 "etf_net_value": "2.46316141",
                 "etf_pre_net_value": "2.43201848",
                 "etf_pre_timestamp": 1611244800,
-                "etf_leverage": "2.2803019447281203",
+                "etf_leverage": "2.2803019447281203"
             },
         ]
         mock_api.get(url=prices_url, body=json.dumps(prices_response))

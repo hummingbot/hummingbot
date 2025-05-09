@@ -36,7 +36,6 @@ class WideningEMABands(DirectionalStrategyBase):
     Inherits from:
         DirectionalStrategyBase: Base class for creating directional strategies using the PositionExecutor.
     """
-
     directional_strategy_name: str = "Widening_EMA_Bands"
     # Define the trading pair and exchange that we want to use and the csv where we are going to store the entries
     trading_pair: str = "LINA-USDT"
@@ -52,11 +51,7 @@ class WideningEMABands(DirectionalStrategyBase):
     trailing_stop_activation_delta = 0.008
     trailing_stop_trailing_delta = 0.003
 
-    candles = [
-        CandlesFactory.get_candle(
-            CandlesConfig(connector=exchange, trading_pair=trading_pair, interval="3m", max_records=1000)
-        )
-    ]
+    candles = [CandlesFactory.get_candle(CandlesConfig(connector=exchange, trading_pair=trading_pair, interval="3m", max_records=1000))]
     markets = {exchange: {trading_pair}}
 
     def get_signal(self):

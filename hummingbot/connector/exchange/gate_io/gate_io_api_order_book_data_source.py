@@ -20,13 +20,11 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(
-        self,
-        trading_pairs: List[str],
-        connector: "GateIoExchange",
-        api_factory: WebAssistantsFactory,
-        domain: str = CONSTANTS.DEFAULT_DOMAIN,
-    ):
+    def __init__(self,
+                 trading_pairs: List[str],
+                 connector: 'GateIoExchange',
+                 api_factory: WebAssistantsFactory,
+                 domain: str = CONSTANTS.DEFAULT_DOMAIN):
         super().__init__(trading_pairs)
         self._connector = connector
         self._api_factory = api_factory
@@ -34,7 +32,9 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
 
-    async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
+    async def get_last_traded_prices(self,
+                                     trading_pairs: List[str],
+                                     domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
@@ -48,8 +48,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 "bids": snapshot_response["bids"],
                 "asks": snapshot_response["asks"],
             },
-            timestamp=snapshot_timestamp,
-        )
+            timestamp=snapshot_timestamp)
         return snapshot_msg
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
@@ -62,7 +61,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         params = {
             "currency_pair": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
-            "with_id": json.dumps(True),
+            "with_id": json.dumps(True)
         }
 
         rest_assistant = await self._api_factory.get_rest_assistant()
@@ -77,19 +76,21 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         trade_data: Dict[str, Any] = raw_message["result"]
         trade_timestamp: float = float(trade_data["create_time_ms"]) * 1e-3
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-            symbol=trade_data["currency_pair"]
-        )
+            symbol=trade_data["currency_pair"])
         message_content = {
             "trading_pair": trading_pair,
-            "trade_type": (float(TradeType.SELL.value) if trade_data["side"] == "sell" else float(TradeType.BUY.value)),
+            "trade_type": (float(TradeType.SELL.value)
+                           if trade_data["side"] == "sell"
+                           else float(TradeType.BUY.value)),
             "trade_id": trade_data["id"],
             "update_id": trade_timestamp,
             "price": trade_data["price"],
             "amount": trade_data["amount"],
         }
         trade_message: Optional[OrderBookMessage] = OrderBookMessage(
-            message_type=OrderBookMessageType.TRADE, content=message_content, timestamp=trade_timestamp
-        )
+            message_type=OrderBookMessageType.TRADE,
+            content=message_content,
+            timestamp=trade_timestamp)
 
         message_queue.put_nowait(trade_message)
 
@@ -108,8 +109,9 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "asks": diff_data["a"],
         }
         diff_message: OrderBookMessage = OrderBookMessage(
-            OrderBookMessageType.DIFF, order_book_message_content, timestamp
-        )
+            OrderBookMessageType.DIFF,
+            order_book_message_content,
+            timestamp)
 
         message_queue.put_nowait(diff_message)
 
@@ -127,7 +129,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     "time": int(self._time()),
                     "channel": CONSTANTS.TRADES_ENDPOINT_NAME,
                     "event": "subscribe",
-                    "payload": [symbol],
+                    "payload": [symbol]
                 }
                 subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trades_payload)
 
@@ -135,7 +137,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     "time": int(self._time()),
                     "channel": CONSTANTS.ORDERS_UPDATE_ENDPOINT_NAME,
                     "event": "subscribe",
-                    "payload": [symbol, "100ms"],
+                    "payload": [symbol, "100ms"]
                 }
                 subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=order_book_payload)
 

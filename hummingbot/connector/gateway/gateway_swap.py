@@ -20,12 +20,12 @@ class GatewaySwap(GatewayBase):
 
     @async_ttl_cache(ttl=5, maxsize=10)
     async def get_quote_price(
-        self,
-        trading_pair: str,
-        is_buy: bool,
-        amount: Decimal,
-        slippage_pct: Optional[Decimal] = None,
-        pool_address: Optional[str] = None,
+            self,
+            trading_pair: str,
+            is_buy: bool,
+            amount: Decimal,
+            slippage_pct: Optional[Decimal] = None,
+            pool_address: Optional[str] = None
     ) -> Optional[Decimal]:
         """
         Retrieves the volume weighted average price. For an AMM DEX connectors, this is the swap price for a given amount.
@@ -48,7 +48,7 @@ class GatewaySwap(GatewayBase):
                 amount=amount,
                 side=side,
                 slippage_pct=slippage_pct,
-                pool_address=pool_address,
+                pool_address=pool_address
             )
             return self.parse_price_response(base, quote, amount, side, price_response=resp)
         except asyncio.CancelledError:
@@ -57,14 +57,14 @@ class GatewaySwap(GatewayBase):
             self.logger().network(
                 f"Error getting quote price for {trading_pair} {side} order for {amount} amount.",
                 exc_info=True,
-                app_warning_msg=str(e),
+                app_warning_msg=str(e)
             )
 
     async def get_order_price(
-        self,
-        trading_pair: str,
-        is_buy: bool,
-        amount: Decimal,
+            self,
+            trading_pair: str,
+            is_buy: bool,
+            amount: Decimal,
     ) -> Decimal:
         """
         Retreives the price required for an order of a given amount. For AMM DEX connectors, this equals the quote price.
@@ -78,7 +78,7 @@ class GatewaySwap(GatewayBase):
         amount: Decimal,
         side: TradeType,
         price_response: Dict[str, Any],
-        process_exception: bool = True,
+        process_exception: bool = True
     ) -> Optional[Decimal]:
         """
         Parses price response
@@ -94,9 +94,7 @@ class GatewaySwap(GatewayBase):
             if "info" in price_response.keys():
                 self.logger().info(f"Unable to get price. {price_response['info']}")
             else:
-                self.logger().info(
-                    f"Missing data from price result. Incomplete return result for ({price_response.keys()})"
-                )
+                self.logger().info(f"Missing data from price result. Incomplete return result for ({price_response.keys()})")
         else:
             gas_price_token: str = self._native_currency
             gas_cost: Decimal = Decimal(str(price_response["gasCost"]))
@@ -112,7 +110,7 @@ class GatewaySwap(GatewayBase):
                     "side": side,
                     "gas_limit": gas_limit,
                     "gas_cost": gas_cost,
-                    "gas_asset": gas_price_token,
+                    "gas_asset": gas_price_token
                 }
                 # Add allowances for Ethereum
                 if self.chain == "ethereum":
@@ -165,7 +163,13 @@ class GatewaySwap(GatewayBase):
         return order_id
 
     async def _create_order(
-        self, trade_type: TradeType, order_id: str, trading_pair: str, amount: Decimal, price: Decimal, **request_args
+            self,
+            trade_type: TradeType,
+            order_id: str,
+            trading_pair: str,
+            amount: Decimal,
+            price: Decimal,
+            **request_args
     ):
         """
         Calls buy or sell API end point to place an order, starts tracking the order and triggers relevant order events.
@@ -180,9 +184,11 @@ class GatewaySwap(GatewayBase):
         price = self.quantize_order_price(trading_pair, price)
 
         base, quote = trading_pair.split("-")
-        self.start_tracking_order(
-            order_id=order_id, trading_pair=trading_pair, trade_type=trade_type, price=price, amount=amount
-        )
+        self.start_tracking_order(order_id=order_id,
+                                  trading_pair=trading_pair,
+                                  trade_type=trade_type,
+                                  price=price,
+                                  amount=amount)
         try:
             order_result: Dict[str, Any] = await self._get_gateway_instance().execute_swap(
                 self.network,
@@ -193,7 +199,7 @@ class GatewaySwap(GatewayBase):
                 trade_type,
                 amount,
                 # limit_price=price,
-                **request_args,
+                **request_args
             )
             transaction_hash: Optional[str] = order_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
@@ -210,8 +216,8 @@ class GatewaySwap(GatewayBase):
                         "gas_limit": int(order_result.get("gasLimit", 0)),
                         "gas_cost": Decimal(order_result.get("fee", 0)),
                         "gas_price_token": self._native_currency,
-                        "fee_asset": self._native_currency,
-                    },
+                        "fee_asset": self._native_currency
+                    }
                 )
                 self._order_tracker.process_order_update(order_update)
             else:
@@ -224,18 +230,20 @@ class GatewaySwap(GatewayBase):
                 f"Error submitting {trade_type.name} swap order to {self.connector_name} on {self.network} for "
                 f"{amount} {trading_pair} "
                 f"{price}.",
-                exc_info=True,
+                exc_info=True
             )
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=order_id,
                 trading_pair=trading_pair,
                 update_timestamp=self.current_timestamp,
-                new_state=OrderState.FAILED,
+                new_state=OrderState.FAILED
             )
             self._order_tracker.process_order_update(order_update)
 
     def process_trade_fill_update(self, tracked_order: GatewayInFlightOrder, fee: Decimal):
-        trade_fee: TradeFeeBase = AddedToCostTradeFee(flat_fees=[TokenAmount(tracked_order.fee_asset, fee)])
+        trade_fee: TradeFeeBase = AddedToCostTradeFee(
+            flat_fees=[TokenAmount(tracked_order.fee_asset, fee)]
+        )
 
         trade_update: TradeUpdate = TradeUpdate(
             trade_id=tracked_order.exchange_order_id,
@@ -246,7 +254,7 @@ class GatewaySwap(GatewayBase):
             fill_price=tracked_order.price,
             fill_base_amount=tracked_order.amount,
             fill_quote_amount=tracked_order.amount * tracked_order.price,
-            fee=trade_fee,
+            fee=trade_fee
         )
 
         self._order_tracker.process_trade_update(trade_update)

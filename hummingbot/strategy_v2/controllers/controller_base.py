@@ -31,10 +31,7 @@ class ControllerConfigBase(BaseClientModel):
         controller_name (str): The name of the trading strategy that the controller will use.
         candles_config (List[CandlesConfig]): A list of configurations for the candles data feed.
     """
-
-    id: str = Field(
-        default=None,
-    )
+    id: str = Field(default=None,)
     controller_name: str
     controller_type: str = "generic"
     total_amount_quote: Decimal = Field(
@@ -42,21 +39,23 @@ class ControllerConfigBase(BaseClientModel):
         json_schema_extra={
             "prompt": "Enter the total amount in quote asset to use for trading (e.g., 1000): ",
             "prompt_on_new": True,
-            "is_updatable": True,
-        },
+            "is_updatable": True
+        }
     )
     manual_kill_switch: bool = Field(default=False, json_schema_extra={"is_updatable": True})
-    candles_config: List[CandlesConfig] = Field(default=[], json_schema_extra={"is_updatable": True})
+    candles_config: List[CandlesConfig] = Field(
+        default=[],
+        json_schema_extra={"is_updatable": True})
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    @field_validator("id", mode="before")
+    @field_validator('id', mode="before")
     @classmethod
     def set_id(cls, v):
         if v is None or v.strip() == "":
             return generate_unique_id()
         return v
 
-    @field_validator("candles_config", mode="before")
+    @field_validator('candles_config', mode="before")
     @classmethod
     def parse_candles_config(cls, v) -> List[CandlesConfig]:
         if isinstance(v, str):
@@ -69,24 +68,23 @@ class ControllerConfigBase(BaseClientModel):
     def parse_candles_config_str(v: str) -> List[CandlesConfig]:
         configs = []
         if v.strip():
-            entries = v.split(":")
+            entries = v.split(':')
             for entry in entries:
-                parts = entry.split(".")
+                parts = entry.split('.')
                 if len(parts) != 4:
-                    raise ValueError(
-                        f"Invalid candles config format in segment '{entry}'. "
-                        "Expected format: 'exchange.tradingpair.interval.maxrecords'"
-                    )
+                    raise ValueError(f"Invalid candles config format in segment '{entry}'. "
+                                     "Expected format: 'exchange.tradingpair.interval.maxrecords'")
                 connector, trading_pair, interval, max_records_str = parts
                 try:
                     max_records = int(max_records_str)
                 except ValueError:
-                    raise ValueError(
-                        f"Invalid max_records value '{max_records_str}' in segment '{entry}'. "
-                        "max_records should be an integer."
-                    )
+                    raise ValueError(f"Invalid max_records value '{max_records_str}' in segment '{entry}'. "
+                                     "max_records should be an integer.")
                 config = CandlesConfig(
-                    connector=connector, trading_pair=trading_pair, interval=interval, max_records=max_records
+                    connector=connector,
+                    trading_pair=trading_pair,
+                    interval=interval,
+                    max_records=max_records
                 )
                 configs.append(config)
         return configs
@@ -117,14 +115,8 @@ class ControllerBase(RunnableBase):
     """
     Base class for controllers.
     """
-
-    def __init__(
-        self,
-        config: ControllerConfigBase,
-        market_data_provider: MarketDataProvider,
-        actions_queue: asyncio.Queue,
-        update_interval: float = 1.0,
-    ):
+    def __init__(self, config: ControllerConfigBase, market_data_provider: MarketDataProvider,
+                 actions_queue: asyncio.Queue, update_interval: float = 1.0):
         super().__init__(update_interval=update_interval)
         self.config = config
         self.executors_info: List[ExecutorInfo] = []
@@ -180,9 +172,7 @@ class ControllerBase(RunnableBase):
             self.executors_update_event.clear()  # Clear the event after sending the actions
 
     @staticmethod
-    def filter_executors(
-        executors: List[ExecutorInfo], filter_func: Callable[[ExecutorInfo], bool]
-    ) -> List[ExecutorInfo]:
+    def filter_executors(executors: List[ExecutorInfo], filter_func: Callable[[ExecutorInfo], bool]) -> List[ExecutorInfo]:
         return [executor for executor in executors if filter_func(executor)]
 
     async def update_processed_data(self):

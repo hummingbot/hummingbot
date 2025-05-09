@@ -33,7 +33,7 @@ class TwapStartTest(unittest.TestCase):
     def _initialize_market_assets(self, market, trading_pairs):
         if self.raise_exception_for_market_assets_initialization:
             raise ValueError("ValueError for testing")
-        return [trading_pair.split("-") for trading_pair in trading_pairs]
+        return [trading_pair.split('-') for trading_pair in trading_pairs]
 
     def _initialize_markets(self, market_names):
         if self.raise_exception_for_market_initialization:
@@ -48,7 +48,7 @@ class TwapStartTest(unittest.TestCase):
     def error(self, message, exc_info):
         self.log_errors.append(message)
 
-    @unittest.mock.patch("hummingbot.strategy.twap.twap.TwapTradeStrategy.add_markets")
+    @unittest.mock.patch('hummingbot.strategy.twap.twap.TwapTradeStrategy.add_markets')
     def test_twap_strategy_creation(self, add_markets_mock):
         twap_start_module.start(self)
 
@@ -59,7 +59,7 @@ class TwapStartTest(unittest.TestCase):
         self.assertEqual(self.strategy._order_delay_time, 10)
         self.assertEqual(self.strategy._cancel_order_wait_time, Decimal(60))
 
-    @unittest.mock.patch("hummingbot.strategy.twap.twap.TwapTradeStrategy.add_markets")
+    @unittest.mock.patch('hummingbot.strategy.twap.twap.TwapTradeStrategy.add_markets')
     def test_twap_strategy_creation_with_time_span_execution(self, add_markets_mock):
         twap_config_map_module.twap_config_map.get("is_time_span_execution").value = True
         twap_config_map_module.twap_config_map.get("start_datetime").value = "2021-06-23 10:00:00"
@@ -75,7 +75,7 @@ class TwapStartTest(unittest.TestCase):
         self.assertEqual(self.strategy._order_delay_time, 360)
         self.assertEqual(self.strategy._cancel_order_wait_time, Decimal(60))
 
-    @unittest.mock.patch("hummingbot.strategy.twap.twap.TwapTradeStrategy.add_markets")
+    @unittest.mock.patch('hummingbot.strategy.twap.twap.TwapTradeStrategy.add_markets')
     def test_twap_strategy_creation_with_delayed_start_execution(self, add_markets_mock):
         twap_config_map_module.twap_config_map.get("is_delayed_start_execution").value = True
         twap_config_map_module.twap_config_map.get("start_datetime").value = "2021-06-23 10:00:00"

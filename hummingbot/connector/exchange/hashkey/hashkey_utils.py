@@ -32,7 +32,7 @@ class HashkeyGlobalConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        },
+        }
     )
     hashkey_api_secret: SecretStr = Field(
         default=...,
@@ -41,7 +41,7 @@ class HashkeyGlobalConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        },
+        }
     )
     model_config = ConfigDict(title="hashkey")
 
@@ -69,7 +69,7 @@ class HashkeyGlobalTestnetConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        },
+        }
     )
     hashkey_api_secret: SecretStr = Field(
         default=...,
@@ -78,7 +78,7 @@ class HashkeyGlobalTestnetConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        },
+        }
     )
     model_config = ConfigDict(title="hashkey_global_testnet")
 

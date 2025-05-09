@@ -35,58 +35,47 @@ class HtxAuth(AuthBase):
         return request  # pass-through
 
     def generate_auth_params_for_REST(self, request: RESTRequest) -> Dict[str, Any]:
-        timestamp = datetime.datetime.fromtimestamp(self.time_provider.time(), datetime.UTC).strftime(
-            "%Y-%m-%dT%H:%M:%S"
-        )
+        timestamp = datetime.datetime.fromtimestamp(self.time_provider.time(), datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S")
         path_url = f"/v1{request.url.split('v1')[-1]}"
         params = request.params or {}
-        params.update(
-            {
-                "AccessKeyId": self.api_key,
-                "SignatureMethod": "HmacSHA256",
-                "SignatureVersion": "2",
-                "Timestamp": timestamp,
-            }
-        )
+        params.update({
+            "AccessKeyId": self.api_key,
+            "SignatureMethod": "HmacSHA256",
+            "SignatureVersion": "2",
+            "Timestamp": timestamp
+        })
         sorted_params = self.keysort(params)
-        signature = self.generate_signature(
-            method=request.method.value.upper(),
-            path_url=path_url,
-            params=sorted_params,
-        )
+        signature = self.generate_signature(method=request.method.value.upper(),
+                                            path_url=path_url,
+                                            params=sorted_params,
+                                            )
         sorted_params["Signature"] = signature
         return sorted_params
 
     def generate_auth_params_for_WS(self, request: WSJSONRequest) -> Dict[str, Any]:
-        timestamp = datetime.datetime.fromtimestamp(self.time_provider.time(), datetime.UTC).strftime(
-            "%Y-%m-%dT%H:%M:%S"
-        )
+        timestamp = datetime.datetime.fromtimestamp(self.time_provider.time(), datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S")
         path_url = "/ws/v2"
         params = request.payload.get("params") or {}
-        params.update(
-            {
-                "accessKey": self.api_key,
-                "signatureMethod": "HmacSHA256",
-                "signatureVersion": "2.1",
-                "timestamp": timestamp,
-            }
-        )
+        params.update({
+            "accessKey": self.api_key,
+            "signatureMethod": "HmacSHA256",
+            "signatureVersion": "2.1",
+            "timestamp": timestamp
+        })
         sorted_params = self.keysort(params)
-        signature = self.generate_signature(
-            method="get",
-            path_url=path_url,
-            params=sorted_params,
-        )
+        signature = self.generate_signature(method="get",
+                                            path_url=path_url,
+                                            params=sorted_params,
+                                            )
         sorted_params["signature"] = signature
         sorted_params["authType"] = "api"
         return sorted_params
 
-    def generate_signature(
-        self,
-        method: str,
-        path_url: str,
-        params: Dict[str, Any],
-    ) -> str:
+    def generate_signature(self,
+                           method: str,
+                           path_url: str,
+                           params: Dict[str, Any],
+                           ) -> str:
 
         query_endpoint = path_url
         encoded_params_str = urlencode(params)

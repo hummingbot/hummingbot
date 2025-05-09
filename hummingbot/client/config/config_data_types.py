@@ -16,7 +16,7 @@ class ClientConfigEnum(Enum):
 
 @dataclass()
 class ClientFieldData:
-    prompt: Optional[Callable[["BaseClientModel"], str]] = None
+    prompt: Optional[Callable[['BaseClientModel'], str]] = None
     prompt_on_new: bool = False
     is_secure: bool = False
     is_connect_key: bool = False
@@ -24,14 +24,9 @@ class ClientFieldData:
 
 
 class BaseClientModel(BaseModel):
-    model_config = ConfigDict(
-        validate_assignment=True,
-        title=None,
-        extra="forbid",
-        json_encoders={
-            datetime: lambda dt: dt.strftime("%Y-%m-%d %H:%M:%S"),
-        },
-    )
+    model_config = ConfigDict(validate_assignment=True, title=None, extra="forbid", json_encoders={
+        datetime: lambda dt: dt.strftime("%Y-%m-%d %H:%M:%S"),
+    })
 
     @classmethod
     def _clear_schema_cache(cls):
@@ -43,20 +38,20 @@ class BaseClientModel(BaseModel):
         by_alias: bool = True,
         ref_template: str = DEFAULT_REF_TEMPLATE,
         schema_generator: type[GenerateJsonSchema] = GenerateJsonSchema,
-        mode: JsonSchemaMode = "validation",
+        mode: JsonSchemaMode = 'validation',
     ) -> dict[str, Any]:
         """Generates a JSON schema for a model class.
 
-        Args:
-            by_alias: Whether to use attribute aliases or not.
-            ref_template: The reference template.
-            schema_generator: To override the logic used to generate the JSON schema, as a subclass of
-                `GenerateJsonSchema` with your desired modifications
-            mode: The mode in which to generate the schema.
+               Args:
+                   by_alias: Whether to use attribute aliases or not.
+                   ref_template: The reference template.
+                   schema_generator: To override the logic used to generate the JSON schema, as a subclass of
+                       `GenerateJsonSchema` with your desired modifications
+                   mode: The mode in which to generate the schema.
 
-        Returns:
-            The JSON schema for the given model class.
-        """
+               Returns:
+                   The JSON schema for the given model class.
+               """
         # Check if in json_schema_extra we have functions defined as values that can produce errors when serializing
         # the schema. We need to remove them.
         for key, value in cls.model_fields.items():
@@ -68,11 +63,8 @@ class BaseClientModel(BaseModel):
 
     def is_required(self, attr: str) -> bool:
         default = self.model_fields[attr].default
-        if (
-            hasattr(self.model_fields[attr].annotation, "_name")
-            and self.model_fields[attr].annotation._name != "Optional"
-            and (default is None or default == Ellipsis)
-        ):
+        if (hasattr(self.model_fields[attr].annotation, "_name") and
+                self.model_fields[attr].annotation._name != "Optional" and (default is None or default == Ellipsis)):
             return True
         else:
             return False

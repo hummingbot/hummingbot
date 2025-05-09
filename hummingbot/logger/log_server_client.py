@@ -42,7 +42,8 @@ class LogServerClient(NetworkBase):
     async def send_log(self, session: aiohttp.ClientSession, request_dict: Dict[str, Any]):
         async with session.request(request_dict["method"], request_dict["url"], **request_dict["request_obj"]) as resp:
             resp_text = await resp.text()
-            self.logger().debug(f"Sent logs: {resp.status} {resp.url} {resp_text} ", extra={"do_not_send": True})
+            self.logger().debug(f"Sent logs: {resp.status} {resp.url} {resp_text} ",
+                                extra={"do_not_send": True})
             if resp.status != 200 and resp.status not in {404, 405, 400}:
                 raise EnvironmentError("Failed sending logs to log server.")
 
@@ -65,16 +66,14 @@ class LogServerClient(NetworkBase):
         while True:
             loop = asyncio.get_event_loop()
             try:
-                async with aiohttp.ClientSession(
-                    loop=loop, connector=aiohttp.TCPConnector(verify_ssl=False)
-                ) as session:
+                async with aiohttp.ClientSession(loop=loop,
+                                                 connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
                     await self.consume_queue(session)
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().network(
-                    "Unexpected error running logging task.", exc_info=True, extra={"do_not_send": True}
-                )
+                self.logger().network("Unexpected error running logging task.",
+                                      exc_info=True, extra={"do_not_send": True})
                 await asyncio.sleep(5.0)
 
     async def start_network(self):
@@ -88,7 +87,8 @@ class LogServerClient(NetworkBase):
     async def check_network(self) -> NetworkStatus:
         try:
             loop = asyncio.get_event_loop()
-            async with aiohttp.ClientSession(loop=loop, connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
+            async with aiohttp.ClientSession(loop=loop,
+                                             connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
                 async with session.get(self.log_server_url) as resp:
                     if resp.status != 200:
                         raise Exception("Log proxy server is down.")

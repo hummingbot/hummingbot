@@ -10,7 +10,6 @@ class CandlesConfig(BaseModel):
     - interval: str
     - max_records: int
     """
-
     connector: str
     trading_pair: str
     interval: str = "1m"

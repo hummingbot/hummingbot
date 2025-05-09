@@ -18,7 +18,7 @@ class BitstampRESTPreProcessor(RESTPreProcessorBase):
 
         if not request.data and self.CONTENT_TYPE_HEADER in request.headers:
             # aiohttp adds the Content-Type header which is not allowed by bitstamp when sending an empty body.
-            request.headers[self.CONTENT_TYPE_HEADER] = ""
+            request.headers[self.CONTENT_TYPE_HEADER] = ''
             return request
 
         if request.method != RESTMethod.GET:
@@ -52,12 +52,11 @@ def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> s
 
 
 def build_api_factory(
-    throttler: Optional[AsyncThrottler] = None,
-    time_synchronizer: Optional[TimeSynchronizer] = None,
-    domain: str = CONSTANTS.DEFAULT_DOMAIN,
-    time_provider: Optional[Callable] = None,
-    auth: Optional[AuthBase] = None,
-) -> WebAssistantsFactory:
+        throttler: Optional[AsyncThrottler] = None,
+        time_synchronizer: Optional[TimeSynchronizer] = None,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+        time_provider: Optional[Callable] = None,
+        auth: Optional[AuthBase] = None, ) -> WebAssistantsFactory:
     time_synchronizer = time_synchronizer or TimeSynchronizer()
     time_provider = time_provider or (lambda: get_current_server_time(throttler=throttler))
     api_factory = WebAssistantsFactory(
@@ -81,8 +80,8 @@ def create_throttler() -> AsyncThrottler:
 
 
 async def get_current_server_time(
-    throttler: Optional[AsyncThrottler] = None,
-    domain: str = CONSTANTS.DEFAULT_DOMAIN,
+        throttler: Optional[AsyncThrottler] = None,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
 ) -> float:
     throttler = throttler or create_throttler()
     api_factory = build_api_factory_without_time_synchronizer_pre_processor(throttler=throttler)

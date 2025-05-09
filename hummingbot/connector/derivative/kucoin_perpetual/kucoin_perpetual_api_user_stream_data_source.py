@@ -22,7 +22,7 @@ class KucoinPerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
     def __init__(
         self,
         trading_pairs: List[str],
-        connector: "KucoinPerpetualDerivative",
+        connector: 'KucoinPerpetualDerivative',
         auth: KucoinPerpetualAuth,
         api_factory: WebAssistantsFactory,
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
@@ -65,7 +65,9 @@ class KucoinPerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
         try:
             tasks = []
             tasks.append(
-                self._listen_for_user_stream_on_url(url=web_utils.wss_private_url(self._domain), output=output)
+                self._listen_for_user_stream_on_url(
+                    url=web_utils.wss_private_url(self._domain), output=output
+                )
             )
 
             tasks_future = asyncio.gather(*tasks)
@@ -110,9 +112,7 @@ class KucoinPerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
         token = connection_info["data"]["token"]
 
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        await ws.connect(
-            ws_url=f"{ws_url}?token={token}", ping_timeout=self._ping_interval, message_timeout=message_timeout
-        )
+        await ws.connect(ws_url=f"{ws_url}?token={token}", ping_timeout=self._ping_interval, message_timeout=message_timeout)
         return ws
 
     async def _subscribe_to_channels(self, ws: WSAssistant, url: str, trading_pairs: List[str]):
@@ -153,7 +153,9 @@ class KucoinPerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
             await ws.send(subscribe_positions_request)
             await ws.send(subscribe_wallet_request)
 
-            self.logger().info(f"Subscribed to private account and orders channels {url}...")
+            self.logger().info(
+                f"Subscribed to private account and orders channels {url}..."
+            )
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -165,10 +167,10 @@ class KucoinPerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant, queue: asyncio.Queue):
         while True:
             try:
-                await asyncio.wait_for(
-                    super()._process_websocket_messages(websocket_assistant=websocket_assistant, queue=queue),
-                    timeout=CONSTANTS.WS_CONNECTION_TIME_INTERVAL,
-                )
+                await asyncio.wait_for(super()._process_websocket_messages(
+                    websocket_assistant=websocket_assistant,
+                    queue=queue),
+                    timeout=CONSTANTS.WS_CONNECTION_TIME_INTERVAL)
             except asyncio.TimeoutError:
                 payload = {
                     "id": web_utils.next_message_id(),

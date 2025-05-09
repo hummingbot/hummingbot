@@ -17,7 +17,7 @@ class OrderFilledEventTests(TestCase):
             trade_type=TradeType.BUY,
             order_type=OrderType.LIMIT,
             trade_fee=AddedToCostTradeFee(),
-            order_book_rows=rows,
+            order_book_rows=rows
         )
 
         self.assertEqual("OID1_0", fill_events[0].exchange_trade_id)

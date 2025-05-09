@@ -42,12 +42,10 @@ class TestKrakenSpotCandles(TestCandlesBase):
         self.resume_test_event = asyncio.Event()
 
     def _candles_data_mock(self):
-        return [
-            [1716127200, "66934.0", "66951.8", "66800.0", "66901.6", "28.50228560", 1906800.0564114398, 0, 0, 0],
-            [1716130800, "66901.7", "66989.3", "66551.7", "66669.9", "53.13722207", 3546489.7891181475, 0, 0, 0],
-            [1716134400, "66669.9", "66797.5", "66595.1", "66733.4", "40.08457819", 2673585.246863534, 0, 0, 0],
-            [1716138000, "66733.4", "66757.4", "66550.0", "66575.4", "21.05882277", 1403517.8905635749, 0, 0, 0],
-        ]
+        return [[1716127200, '66934.0', '66951.8', '66800.0', '66901.6', '28.50228560', 1906800.0564114398, 0, 0, 0],
+                [1716130800, '66901.7', '66989.3', '66551.7', '66669.9', '53.13722207', 3546489.7891181475, 0, 0, 0],
+                [1716134400, '66669.9', '66797.5', '66595.1', '66733.4', '40.08457819', 2673585.246863534, 0, 0, 0],
+                [1716138000, '66733.4', '66757.4', '66550.0', '66575.4', '21.05882277', 1403517.8905635749, 0, 0, 0]]
 
     def get_candles_rest_data_mock(self):
         data = {
@@ -62,7 +60,7 @@ class TestKrakenSpotCandles(TestCandlesBase):
                         "66901.6",
                         "66899.9",
                         "28.50228560",
-                        763,
+                        763
                     ],
                     [
                         self._time - self._interval_in_seconds * 2,
@@ -72,7 +70,7 @@ class TestKrakenSpotCandles(TestCandlesBase):
                         "66669.9",
                         "66742.1",
                         "53.13722207",
-                        1022,
+                        1022
                     ],
                     [
                         self._time - self._interval_in_seconds,
@@ -82,12 +80,21 @@ class TestKrakenSpotCandles(TestCandlesBase):
                         "66733.4",
                         "66698.6",
                         "40.08457819",
-                        746,
+                        746
                     ],
-                    [self._time, "66733.4", "66757.4", "66550.0", "66575.4", "66647.5", "21.05882277", 702],
+                    [
+                        self._time,
+                        "66733.4",
+                        "66757.4",
+                        "66550.0",
+                        "66575.4",
+                        "66647.5",
+                        "21.05882277",
+                        702
+                    ],
                 ],
-                "last": 1718715600,
-            },
+                "last": 1718715600
+            }
         }
         return data
 
@@ -99,14 +106,10 @@ class TestKrakenSpotCandles(TestCandlesBase):
         start_time = self._time - self._interval_in_seconds * 100000
         end_time = self._time
 
-        config = HistoricalCandlesConfig(
-            start_time=start_time,
-            end_time=end_time,
-            interval=self.interval,
-            connector_name=self.data_feed.name,
-            trading_pair=self.trading_pair,
-        )
-        with self.assertRaises(ValueError, msg="Kraken REST API does not support fetching more than 720 candles ago."):
+        config = HistoricalCandlesConfig(start_time=start_time, end_time=end_time, interval=self.interval,
+                                         connector_name=self.data_feed.name, trading_pair=self.trading_pair)
+        with self.assertRaises(ValueError,
+                               msg="Kraken REST API does not support fetching more than 720 candles ago."):
             self.run_async_with_timeout(self.data_feed.get_historical_candles(config))
 
     @aioresponses()
@@ -116,9 +119,9 @@ class TestKrakenSpotCandles(TestCandlesBase):
         mock_api.get(url=regex_url, body=json.dumps(data_mock))
         self.start_time = self._time - self._interval_in_seconds * 3
         self.end_time = self._time
-        candles = self.run_async_with_timeout(
-            self.data_feed.fetch_candles(start_time=self.start_time, end_time=self.end_time, limit=4)
-        )
+        candles = self.run_async_with_timeout(self.data_feed.fetch_candles(start_time=self.start_time,
+                                                                           end_time=self.end_time,
+                                                                           limit=4))
         self.assertEqual(len(candles), len(data_mock["result"][self.ex_trading_pair]))
 
     def get_candles_ws_data_mock_1(self):
@@ -133,10 +136,10 @@ class TestKrakenSpotCandles(TestCandlesBase):
                 "3586.60000",
                 "3586.68894",
                 "0.03373000",
-                2,
+                2
             ],
             "ohlc-60",
-            "XBT/USDT",
+            "XBT/USDT"
         ]
         return data
 
@@ -152,10 +155,10 @@ class TestKrakenSpotCandles(TestCandlesBase):
                 "3586.60000",
                 "3586.68894",
                 "0.03373000",
-                2,
+                2
             ],
             "ohlc-60",
-            "XBT/USDT",
+            "XBT/USDT"
         ]
         return data
 

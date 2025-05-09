@@ -35,7 +35,7 @@ class InterfaceUtilsTest(unittest.TestCase):
         return ret
 
     def test_format_bytes(self):
-        size = 1024.0
+        size = 1024.
         self.assertEqual("1.00 KB", format_bytes(size))
         self.assertEqual("157.36 GB", format_bytes(168963795964))
 
@@ -45,8 +45,8 @@ class InterfaceUtilsTest(unittest.TestCase):
         mock_sleep.side_effect = [None, ExpectedException()]
         with self.assertRaises(ExpectedException):
             self.async_run_with_timeout(start_timer(mock_timer))
-        self.assertEqual("Uptime:   0 day(s), 00:00:02", mock_timer.log.call_args_list[0].args[0])
-        self.assertEqual("Uptime:   0 day(s), 00:00:03", mock_timer.log.call_args_list[1].args[0])
+        self.assertEqual('Uptime:   0 day(s), 00:00:02', mock_timer.log.call_args_list[0].args[0])
+        self.assertEqual('Uptime:   0 day(s), 00:00:03', mock_timer.log.call_args_list[1].args[0])
 
     @patch("hummingbot.client.ui.interface_utils._sleep", new_callable=AsyncMock)
     @patch("psutil.Process")
@@ -64,8 +64,8 @@ class InterfaceUtilsTest(unittest.TestCase):
         with self.assertRaises(asyncio.CancelledError):
             self.async_run_with_timeout(start_process_monitor(mock_monitor))
         self.assertEqual(
-            "CPU:    30%, Mem:   512.00 B (1.00 KB), Threads:   2, ", mock_monitor.log.call_args_list[0].args[0]
-        )
+            "CPU:    30%, Mem:   512.00 B (1.00 KB), Threads:   2, ",
+            mock_monitor.log.call_args_list[0].args[0])
 
     @patch("hummingbot.client.ui.interface_utils._sleep", new_callable=AsyncMock)
     @patch("hummingbot.client.ui.interface_utils.PerformanceMetrics.create", new_callable=AsyncMock)
@@ -77,17 +77,15 @@ class InterfaceUtilsTest(unittest.TestCase):
         mock_app.markets.return_values = {"a": MagicMock(ready=True)}
         mock_app._get_trades_from_session.return_value = [MagicMock(market="ExchangeA", symbol="HBOT-USDT")]
         mock_app.get_current_balances = AsyncMock()
-        mock_perf.side_effect = [
-            MagicMock(return_pct=Decimal("0.01"), total_pnl=Decimal("2")),
-            MagicMock(return_pct=Decimal("0.02"), total_pnl=Decimal("2")),
-        ]
+        mock_perf.side_effect = [MagicMock(return_pct=Decimal("0.01"), total_pnl=Decimal("2")),
+                                 MagicMock(return_pct=Decimal("0.02"), total_pnl=Decimal("2"))]
         mock_sleep.side_effect = [None, asyncio.CancelledError()]
         with self.assertRaises(asyncio.CancelledError):
             self.async_run_with_timeout(start_trade_monitor(mock_result))
         self.assertEqual(3, mock_result.log.call_count)
-        self.assertEqual("Trades: 0, Total P&L: 0.00, Return %: 0.00%", mock_result.log.call_args_list[0].args[0])
-        self.assertEqual("Trades: 1, Total P&L: 2.00 USDT, Return %: 1.00%", mock_result.log.call_args_list[1].args[0])
-        self.assertEqual("Trades: 1, Total P&L: 2.00 USDT, Return %: 2.00%", mock_result.log.call_args_list[2].args[0])
+        self.assertEqual('Trades: 0, Total P&L: 0.00, Return %: 0.00%', mock_result.log.call_args_list[0].args[0])
+        self.assertEqual('Trades: 1, Total P&L: 2.00 USDT, Return %: 1.00%', mock_result.log.call_args_list[1].args[0])
+        self.assertEqual('Trades: 1, Total P&L: 2.00 USDT, Return %: 2.00%', mock_result.log.call_args_list[2].args[0])
 
     @patch("hummingbot.client.ui.interface_utils._sleep", new_callable=AsyncMock)
     @patch("hummingbot.client.ui.interface_utils.PerformanceMetrics.create", new_callable=AsyncMock)
@@ -99,19 +97,17 @@ class InterfaceUtilsTest(unittest.TestCase):
         mock_app.markets.return_values = {"a": MagicMock(ready=True)}
         mock_app._get_trades_from_session.return_value = [
             MagicMock(market="ExchangeA", symbol="HBOT-USDT"),
-            MagicMock(market="ExchangeA", symbol="HBOT-BTC"),
+            MagicMock(market="ExchangeA", symbol="HBOT-BTC")
         ]
         mock_app.get_current_balances = AsyncMock()
-        mock_perf.side_effect = [
-            MagicMock(return_pct=Decimal("0.01"), total_pnl=Decimal("2")),
-            MagicMock(return_pct=Decimal("0.02"), total_pnl=Decimal("3")),
-        ]
+        mock_perf.side_effect = [MagicMock(return_pct=Decimal("0.01"), total_pnl=Decimal("2")),
+                                 MagicMock(return_pct=Decimal("0.02"), total_pnl=Decimal("3"))]
         mock_sleep.side_effect = asyncio.CancelledError()
         with self.assertRaises(asyncio.CancelledError):
             self.async_run_with_timeout(start_trade_monitor(mock_result))
         self.assertEqual(2, mock_result.log.call_count)
-        self.assertEqual("Trades: 0, Total P&L: 0.00, Return %: 0.00%", mock_result.log.call_args_list[0].args[0])
-        self.assertEqual("Trades: 2, Total P&L: N/A, Return %: 1.50%", mock_result.log.call_args_list[1].args[0])
+        self.assertEqual('Trades: 0, Total P&L: 0.00, Return %: 0.00%', mock_result.log.call_args_list[0].args[0])
+        self.assertEqual('Trades: 2, Total P&L: N/A, Return %: 1.50%', mock_result.log.call_args_list[1].args[0])
 
     @patch("hummingbot.client.ui.interface_utils._sleep", new_callable=AsyncMock)
     @patch("hummingbot.client.ui.interface_utils.PerformanceMetrics.create", new_callable=AsyncMock)
@@ -123,19 +119,17 @@ class InterfaceUtilsTest(unittest.TestCase):
         mock_app.markets.return_values = {"a": MagicMock(ready=True)}
         mock_app._get_trades_from_session.return_value = [
             MagicMock(market="ExchangeA", symbol="HBOT-USDT"),
-            MagicMock(market="ExchangeA", symbol="BTC-USDT"),
+            MagicMock(market="ExchangeA", symbol="BTC-USDT")
         ]
         mock_app.get_current_balances = AsyncMock()
-        mock_perf.side_effect = [
-            MagicMock(return_pct=Decimal("0.01"), total_pnl=Decimal("2")),
-            MagicMock(return_pct=Decimal("0.02"), total_pnl=Decimal("3")),
-        ]
+        mock_perf.side_effect = [MagicMock(return_pct=Decimal("0.01"), total_pnl=Decimal("2")),
+                                 MagicMock(return_pct=Decimal("0.02"), total_pnl=Decimal("3"))]
         mock_sleep.side_effect = asyncio.CancelledError()
         with self.assertRaises(asyncio.CancelledError):
             self.async_run_with_timeout(start_trade_monitor(mock_result))
         self.assertEqual(2, mock_result.log.call_count)
-        self.assertEqual("Trades: 0, Total P&L: 0.00, Return %: 0.00%", mock_result.log.call_args_list[0].args[0])
-        self.assertEqual("Trades: 2, Total P&L: 5.00 USDT, Return %: 1.50%", mock_result.log.call_args_list[1].args[0])
+        self.assertEqual('Trades: 0, Total P&L: 0.00, Return %: 0.00%', mock_result.log.call_args_list[0].args[0])
+        self.assertEqual('Trades: 2, Total P&L: 5.00 USDT, Return %: 1.50%', mock_result.log.call_args_list[1].args[0])
 
     @patch("hummingbot.client.ui.interface_utils._sleep", new_callable=AsyncMock)
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
@@ -148,7 +142,7 @@ class InterfaceUtilsTest(unittest.TestCase):
         with self.assertRaises(asyncio.CancelledError):
             self.async_run_with_timeout(start_trade_monitor(mock_result))
         self.assertEqual(1, mock_result.log.call_count)
-        self.assertEqual("Trades: 0, Total P&L: 0.00, Return %: 0.00%", mock_result.log.call_args_list[0].args[0])
+        self.assertEqual('Trades: 0, Total P&L: 0.00, Return %: 0.00%', mock_result.log.call_args_list[0].args[0])
 
     @patch("hummingbot.client.ui.interface_utils._sleep", new_callable=AsyncMock)
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
@@ -162,7 +156,7 @@ class InterfaceUtilsTest(unittest.TestCase):
         with self.assertRaises(asyncio.CancelledError):
             self.async_run_with_timeout(start_trade_monitor(mock_result))
         self.assertEqual(1, mock_result.log.call_count)
-        self.assertEqual("Trades: 0, Total P&L: 0.00, Return %: 0.00%", mock_result.log.call_args_list[0].args[0])
+        self.assertEqual('Trades: 0, Total P&L: 0.00, Return %: 0.00%', mock_result.log.call_args_list[0].args[0])
 
     @patch("hummingbot.client.ui.interface_utils._sleep", new_callable=AsyncMock)
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
@@ -239,6 +233,11 @@ class InterfaceUtilsTest(unittest.TestCase):
         self.assertEqual(target_str, df_str)
 
         df_str = format_df_for_printout(df, table_format="simple")
-        target_str = "  first    second" "\n-------  --------" "\n      1     12345" "\n      2     67890"
+        target_str = (
+            "  first    second"
+            "\n-------  --------"
+            "\n      1     12345"
+            "\n      2     67890"
+        )
 
         self.assertEqual(target_str, df_str)

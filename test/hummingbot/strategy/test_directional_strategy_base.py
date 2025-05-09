@@ -19,9 +19,8 @@ class DirectionalStrategyBaseTest(unittest.TestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(
-            record.levelname == log_level and record.getMessage().startswith(message) for record in self.log_records
-        )
+        return any(record.levelname == log_level and record.getMessage().startswith(message)
+                   for record in self.log_records)
 
     def setUp(self):
         self.log_records = []
@@ -37,18 +36,22 @@ class DirectionalStrategyBaseTest(unittest.TestCase):
         self.initial_mid_price: int = 100
         self.clock_tick_size = 1
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
-        self.connector: MockPaperExchange = MockPaperExchange(client_config_map=ClientConfigAdapter(ClientConfigMap()))
-        self.connector.set_balanced_order_book(
-            trading_pair=self.trading_pair,
-            mid_price=100,
-            min_price=50,
-            max_price=150,
-            price_step_size=1,
-            volume_step_size=10,
+        self.connector: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
         )
+        self.connector.set_balanced_order_book(trading_pair=self.trading_pair,
+                                               mid_price=100,
+                                               min_price=50,
+                                               max_price=150,
+                                               price_step_size=1,
+                                               volume_step_size=10)
         self.connector.set_balance(self.base_asset, self.base_balance)
         self.connector.set_balance(self.quote_asset, self.quote_balance)
-        self.connector.set_quantization_param(QuantizationParams(self.trading_pair, 6, 6, 6, 6))
+        self.connector.set_quantization_param(
+            QuantizationParams(
+                self.trading_pair, 6, 6, 6, 6
+            )
+        )
         self.clock.add_iterator(self.connector)
         DirectionalStrategyBase.markets = {self.connector_name: {self.trading_pair}}
         DirectionalStrategyBase.candles = []
@@ -72,9 +75,9 @@ class DirectionalStrategyBaseTest(unittest.TestCase):
 
     def test_candles_formatted_list(self):
         columns = ["timestamp", "open", "low", "high", "close", "volume"]
-        candles_df = pd.DataFrame(
-            columns=columns, data=[[self.start_timestamp, 1, 2, 3, 4, 5], [self.start_timestamp + 1, 2, 3, 4, 5, 6]]
-        )
+        candles_df = pd.DataFrame(columns=columns,
+                                  data=[[self.start_timestamp, 1, 2, 3, 4, 5],
+                                        [self.start_timestamp + 1, 2, 3, 4, 5, 6]])
         candles_status = self.strategy.candles_formatted_list(candles_df, columns)
         self.assertTrue("timestamp" in candles_status[0])
 

@@ -769,11 +769,8 @@ class TestVertexExchange(unittest.TestCase):
         self.assertEqual("ABC1", create_event.order_id)
 
         self.assertTrue(
-            self._is_logged(
-                "INFO",
-                f"Created LIMIT BUY order ABC1 for {Decimal('100.000000')} {self.trading_pair} "
-                f"at {Decimal('10000.0000')}.",
-            )
+            self._is_logged("INFO", f"Created LIMIT BUY order ABC1 for {Decimal('100.000000')} {self.trading_pair} "
+                                    f"at {Decimal('10000.0000')}.")
         )
 
     @aioresponses()
@@ -825,9 +822,8 @@ class TestVertexExchange(unittest.TestCase):
 
         self.assertTrue(
             self._is_logged(
-                "INFO",
-                f"Created LIMIT_MAKER BUY order ABC1 for {Decimal('100.000000')} {self.trading_pair} "
-                f"at {Decimal('10000.0000')}.",
+                "INFO", f"Created LIMIT_MAKER BUY order ABC1 for {Decimal('100.000000')} {self.trading_pair} "
+                        f"at {Decimal('10000.0000')}."
             )
         )
 
@@ -879,11 +875,8 @@ class TestVertexExchange(unittest.TestCase):
         self.assertEqual("ABC1", create_event.order_id)
 
         self.assertTrue(
-            self._is_logged(
-                "INFO",
-                f"Created MARKET SELL order ABC1 for {Decimal('100.000000')} {self.trading_pair} "
-                f"at {Decimal('10000')}.",
-            )
+            self._is_logged("INFO", f"Created MARKET SELL order ABC1 for {Decimal('100.000000')} {self.trading_pair} "
+                                    f"at {Decimal('10000')}.")
         )
 
     @aioresponses()
@@ -973,7 +966,7 @@ class TestVertexExchange(unittest.TestCase):
                 "WARNING",
                 "Buy order amount 0.0001 is lower than the minimum order "
                 "size 0.01. The order will not be created, increase the "
-                "amount to be higher than the minimum order size.",
+                "amount to be higher than the minimum order size."
             )
         )
         self.assertTrue(

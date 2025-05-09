@@ -8,7 +8,7 @@ from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 DEFAULT_FEES = TradeFeeSchema(
     maker_percent_fee_decimal=Decimal("0.0002"),
     taker_percent_fee_decimal=Decimal("0.0006"),
-    buy_percent_fee_deducted_from_returns=True,
+    buy_percent_fee_deducted_from_returns=True
 )
 
 CENTRALIZED = True
@@ -26,8 +26,8 @@ class BitmartPerpetualConfigMap(BaseConnectorConfigMap):
             "prompt": "Enter your Bitmart Perpetual API key",
             "is_secure": True,
             "is_connect_key": True,
-            "prompt_on_new": True,
-        },
+            "prompt_on_new": True
+        }
     )
     bitmart_perpetual_api_secret: SecretStr = Field(
         default=...,
@@ -35,8 +35,8 @@ class BitmartPerpetualConfigMap(BaseConnectorConfigMap):
             "prompt": "Enter your Bitmart Perpetual API secret",
             "is_secure": True,
             "is_connect_key": True,
-            "prompt_on_new": True,
-        },
+            "prompt_on_new": True
+        }
     )
     bitmart_perpetual_memo: SecretStr = Field(
         default=...,
@@ -44,7 +44,7 @@ class BitmartPerpetualConfigMap(BaseConnectorConfigMap):
             "prompt": "Enter your Bitmart Perpetual Memo",
             "is_secure": True,
             "is_connect_key": True,
-            "prompt_on_new": True,
+            "prompt_on_new": True
         },
     )
 

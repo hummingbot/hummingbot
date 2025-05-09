@@ -13,6 +13,5 @@ class MakerTakerMarketPair(NamedTuple):
          MakerTakerMarketPair(ddex, "WETH-DAI", "WETH", "DAI",
                           binance, "ETHUSDT", "ETH", "USDT")
     """
-
     maker: MarketTradingPairTuple
     taker: MarketTradingPairTuple

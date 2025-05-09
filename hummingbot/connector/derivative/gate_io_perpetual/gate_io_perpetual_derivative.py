@@ -40,7 +40,6 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
     GateIoPerpetualExchange connects with Gate.io Derivative and provides order book pricing, user account tracking and
     trading functionality.
     """
-
     DEFAULT_DOMAIN = ""
 
     # Using 120 seconds here as Gate.io websocket is quiet
@@ -51,16 +50,14 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
     # ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
     # ORDER_NOT_EXIST_CANCEL_COUNT = 2
 
-    def __init__(
-        self,
-        client_config_map: "ClientConfigAdapter",
-        gate_io_perpetual_api_key: str,
-        gate_io_perpetual_secret_key: str,
-        gate_io_perpetual_user_id: str,
-        trading_pairs: Optional[List[str]] = None,
-        trading_required: bool = True,
-        domain: str = DEFAULT_DOMAIN,
-    ):
+    def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
+                 gate_io_perpetual_api_key: str,
+                 gate_io_perpetual_secret_key: str,
+                 gate_io_perpetual_user_id: str,
+                 trading_pairs: Optional[List[str]] = None,
+                 trading_required: bool = True,
+                 domain: str = DEFAULT_DOMAIN):
         """
         :param gate_io_perpetual_api_key: The API key to connect to private Gate.io APIs.
         :param gate_io_perpetual_secret_key: The API secret.
@@ -82,8 +79,8 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
     @property
     def authenticator(self):
         return GateIoPerpetualAuth(
-            api_key=self._gate_io_perpetual_api_key, secret_key=self._gate_io_perpetual_secret_key
-        )
+            api_key=self._gate_io_perpetual_api_key,
+            secret_key=self._gate_io_perpetual_secret_key)
 
     @property
     def name(self) -> str:
@@ -191,7 +188,9 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
         return False
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
-        return web_utils.build_api_factory(throttler=self._throttler, auth=self._auth)
+        return web_utils.build_api_factory(
+            throttler=self._throttler,
+            auth=self._auth)
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         return GateIoPerpetualAPIOrderBookDataSource(
@@ -280,51 +279,44 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
                 min_price_inc = Decimal(f"{rule['order_price_round']}")
                 min_amount = min_amount_inc
                 min_notional = Decimal(str(1))
-                result[trading_pair] = TradingRule(
-                    trading_pair,
-                    min_order_size=min_amount,
-                    min_price_increment=min_price_inc,
-                    min_base_amount_increment=min_amount_inc,
-                    min_notional_size=min_notional,
-                    min_order_value=min_notional,
-                )
+                result[trading_pair] = TradingRule(trading_pair,
+                                                   min_order_size=min_amount,
+                                                   min_price_increment=min_price_inc,
+                                                   min_base_amount_increment=min_amount_inc,
+                                                   min_notional_size=min_notional,
+                                                   min_order_value=min_notional,
+                                                   )
             except Exception:
                 self.logger().error(f"Error parsing the trading pair rule {rule}. Skipping.", exc_info=True)
         return list(result.values())
 
-    async def _place_order(
-        self,
-        order_id: str,
-        trading_pair: str,
-        amount: Decimal,
-        trade_type: TradeType,
-        order_type: OrderType,
-        price: Decimal,
-        **kwargs,
-    ) -> Tuple[str, float]:
+    async def _place_order(self,
+                           order_id: str,
+                           trading_pair: str,
+                           amount: Decimal,
+                           trade_type: TradeType,
+                           order_type: OrderType,
+                           price: Decimal,
+                           **kwargs) -> Tuple[str, float]:
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         size = self._format_amount_to_size(trading_pair, amount)
         data = {
             "text": order_id,
             "contract": symbol,
-            "size": float(-size) if trade_type.name.lower() == "sell" else float(size),
+            "size": float(-size) if trade_type.name.lower() == 'sell' else float(size),
         }
         if order_type.is_limit_type():
-            data.update(
-                {
-                    "price": f"{price:f}",
-                    "tif": "gtc",
-                }
-            )
+            data.update({
+                "price": f"{price:f}",
+                "tif": "gtc",
+            })
             if order_type is OrderType.LIMIT_MAKER:
                 data.update({"tif": "poc"})
         else:
-            data.update(
-                {
-                    "price": "0",
-                    "tif": "ioc",
-                }
-            )
+            data.update({
+                "price": "0",
+                "tif": "ioc",
+            })
 
         # RESTRequest does not support json, and if we pass a dict
         # the underlying aiohttp will encode it to params
@@ -336,7 +328,7 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
             is_auth_required=True,
             limit_id=endpoint,
         )
-        if order_result.get("finish_as") in {"cancelled", "expired", "failed", "ioc"}:
+        if order_result.get('finish_as') in {"cancelled", "expired", "failed", "ioc"}:
             raise IOError({"label": "ORDER_REJECTED", "message": "Order rejected."})
         exchange_order_id = str(order_result["id"])
         return exchange_order_id, self.current_timestamp
@@ -365,15 +357,13 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
             account_info = await self._api_get(
                 path_url=CONSTANTS.USER_BALANCES_PATH_URL,
                 is_auth_required=True,
-                limit_id=CONSTANTS.USER_BALANCES_PATH_URL,
+                limit_id=CONSTANTS.USER_BALANCES_PATH_URL
             )
             self._process_balance_message(account_info)
         except Exception as e:
             self.logger().network(
-                f"Unexpected error while fetching balance update - {str(e)}",
-                exc_info=True,
-                app_warning_msg=(f"Could not fetch balance update from {self.name_cap}"),
-            )
+                f"Unexpected error while fetching balance update - {str(e)}", exc_info=True,
+                app_warning_msg=(f"Could not fetch balance update from {self.name_cap}"))
             raise e
         return account_info
 
@@ -406,8 +396,7 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
         for account in balance_update:
             asset_name = "USDT"
             self._account_available_balances[asset_name] = Decimal(str(account["balance"])) - Decimal(
-                str(account["change"])
-            )
+                str(account["change"]))
             self._account_balances[asset_name] = Decimal(str(account["balance"]))
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
@@ -418,30 +407,39 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
             trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
             all_fills_response = await self._api_get(
                 path_url=CONSTANTS.MY_TRADES_PATH_URL,
-                params={"contract": trading_pair, "order": exchange_order_id},
+                params={
+                    "contract": trading_pair,
+                    "order": exchange_order_id
+                },
                 is_auth_required=True,
-                limit_id=CONSTANTS.MY_TRADES_PATH_URL,
-            )
+                limit_id=CONSTANTS.MY_TRADES_PATH_URL)
 
             for trade_fill in all_fills_response:
-                trade_update = self._create_trade_update_with_order_fill_data(order_fill=trade_fill, order=order)
+                trade_update = self._create_trade_update_with_order_fill_data(
+                    order_fill=trade_fill,
+                    order=order)
                 trade_updates.append(trade_update)
 
         except asyncio.TimeoutError:
-            raise IOError(
-                f"Skipped order update with order fills for {order.client_order_id} " "- waiting for exchange order id."
-            )
+            raise IOError(f"Skipped order update with order fills for {order.client_order_id} "
+                          "- waiting for exchange order id.")
 
         return trade_updates
 
-    def _create_trade_update_with_order_fill_data(self, order_fill: Dict[str, Any], order: InFlightOrder):
+    def _create_trade_update_with_order_fill_data(
+            self,
+            order_fill: Dict[str, Any],
+            order: InFlightOrder):
         fee_asset = order.quote_asset
         # no "position_action" in return, should use AddedToCostTradeFee, same as new_spot_fee
         fee = TradeFeeBase.new_spot_fee(
             fee_schema=self.trade_fee_schema(),
             trade_type=order.trade_type,
             percent_token=fee_asset,
-            flat_fees=[TokenAmount(amount=Decimal(order_fill["fee"]), token=fee_asset)],
+            flat_fees=[TokenAmount(
+                amount=Decimal(order_fill["fee"]),
+                token=fee_asset
+            )]
         )
 
         trade_update = TradeUpdate(
@@ -452,9 +450,8 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
             fee=fee,
             fill_base_amount=abs(self._format_size_to_amount(order.trading_pair, (Decimal(str(order_fill["size"]))))),
             fill_quote_amount=abs(
-                self._format_size_to_amount(order.trading_pair, (Decimal(str(order_fill["size"]))))
-                * Decimal(order_fill["price"])
-            ),
+                self._format_size_to_amount(order.trading_pair, (Decimal(str(order_fill["size"])))) * Decimal(
+                    order_fill["price"])),
             fill_price=Decimal(order_fill["price"]),
             fill_timestamp=order_fill["create_time"],
         )
@@ -466,16 +463,14 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
             updated_order_data = await self._api_get(
                 path_url=CONSTANTS.ORDER_STATUS_PATH_URL.format(id=exchange_order_id),
                 is_auth_required=True,
-                limit_id=CONSTANTS.ORDER_STATUS_LIMIT_ID,
-            )
+                limit_id=CONSTANTS.ORDER_STATUS_LIMIT_ID)
 
             order_update = self._create_order_update_with_order_status_data(
-                order_status=updated_order_data, order=tracked_order
-            )
+                order_status=updated_order_data,
+                order=tracked_order)
         except asyncio.TimeoutError:
-            raise IOError(
-                f"Skipped order status update for {tracked_order.client_order_id}" f" - waiting for exchange order id."
-            )
+            raise IOError(f"Skipped order status update for {tracked_order.client_order_id}"
+                          f" - waiting for exchange order id.")
 
         return order_update
 
@@ -505,7 +500,7 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
         finish_as = order_msg.get("finish_as")
         size = Decimal(str(order_msg.get("size")))
         if status == "finished":
-            if finish_as == "filled":
+            if finish_as == 'filled':
                 state = OrderState.FILLED
             else:
                 state = OrderState.CANCELED
@@ -516,16 +511,14 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
 
     # use bybitperpetual sample,not gateio sample
 
-    def _get_fee(
-        self,
-        base_currency: str,
-        quote_currency: str,
-        order_type: OrderType,
-        order_side: TradeType,
-        amount: Decimal,
-        price: Decimal = s_decimal_NaN,
-        is_maker: Optional[bool] = None,
-    ) -> TradeFeeBase:
+    def _get_fee(self,
+                 base_currency: str,
+                 quote_currency: str,
+                 order_type: OrderType,
+                 order_side: TradeType,
+                 amount: Decimal,
+                 price: Decimal = s_decimal_NaN,
+                 is_maker: Optional[bool] = None) -> TradeFeeBase:
         is_maker = is_maker or False
         fee = build_trade_fee(
             self.name,
@@ -566,7 +559,8 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
                 else:
                     raise Exception(event_message)
                 if channel not in user_channels:
-                    self.logger().error(f"Unexpected message in user stream: {event_message}.", exc_info=True)
+                    self.logger().error(
+                        f"Unexpected message in user stream: {event_message}.", exc_info=True)
                     continue
 
                 if channel == CONSTANTS.USER_TRADES_ENDPOINT_NAME:
@@ -583,7 +577,8 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
+                self.logger().error(
+                    "Unexpected error in user stream listener loop.", exc_info=True)
                 await self._sleep(5.0)
 
     def _process_trade_message(self, trade: Dict[str, Any], client_order_id: Optional[str] = None):
@@ -599,7 +594,9 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
         if tracked_order is None:
             self.logger().debug(f"Ignoring trade message with id {client_order_id}: not in in_flight_orders.")
         else:
-            trade_update = self._create_trade_update_with_order_fill_data(order_fill=trade, order=tracked_order)
+            trade_update = self._create_trade_update_with_order_fill_data(
+                order_fill=trade,
+                order=tracked_order)
             self._order_tracker.process_trade_update(trade_update)
 
     async def _process_account_position_message(self, position_msg: Dict[str, Any]):
@@ -620,12 +617,10 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
             if amount == Decimal("0"):
                 self._perpetual_trading.remove_position(pos_key)
             else:
-                position.update_position(
-                    position_side=position_side,
-                    unrealized_pnl=None,
-                    entry_price=entry_price,
-                    amount=amount * amount_precision,
-                )
+                position.update_position(position_side=position_side,
+                                         unrealized_pnl=None,
+                                         entry_price=entry_price,
+                                         amount=amount * amount_precision)
         else:
             await self._update_positions()
 
@@ -651,8 +646,8 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
         mapping = bidict()
         for symbol_data in filter(web_utils.is_exchange_information_valid, exchange_info):
             exchange_symbol = symbol_data["name"]
-            base = symbol_data["name"].split("_")[0]
-            quote = symbol_data["name"].split("_")[1]
+            base = symbol_data["name"].split('_')[0]
+            quote = symbol_data["name"].split('_')[1]
             trading_pair = combine_to_hb_trading_pair(base, quote)
             if trading_pair in mapping.inverse:
                 self._resolve_trading_pair_symbols_duplicate(mapping, exchange_symbol, base, quote)
@@ -676,14 +671,19 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
             mapping[new_exchange_symbol] = trading_pair
         else:
             self.logger().error(
-                f"Could not resolve the exchange symbols {new_exchange_symbol} and {current_exchange_symbol}"
-            )
+                f"Could not resolve the exchange symbols {new_exchange_symbol} and {current_exchange_symbol}")
             mapping.pop(current_exchange_symbol)
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
-        params = {"contract": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)}
+        params = {
+            "contract": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+        }
 
-        resp_json = await self._api_request(method=RESTMethod.GET, path_url=CONSTANTS.TICKER_PATH_URL, params=params)
+        resp_json = await self._api_request(
+            method=RESTMethod.GET,
+            path_url=CONSTANTS.TICKER_PATH_URL,
+            params=params
+        )
 
         return float(resp_json[0]["last"])
 
@@ -695,7 +695,7 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
         positions = await self._api_get(
             path_url=CONSTANTS.POSITION_INFORMATION_URL,
             is_auth_required=True,
-            limit_id=CONSTANTS.POSITION_INFORMATION_URL,
+            limit_id=CONSTANTS.POSITION_INFORMATION_URL
         )
 
         for position in positions:
@@ -704,7 +704,7 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
 
             amount = Decimal(position.get("size"))
             ex_mode = position.get("mode")
-            if ex_mode == "single":
+            if ex_mode == 'single':
                 mode = PositionMode.ONEWAY
                 position_side = PositionSide.LONG if Decimal(position.get("size")) > 0 else PositionSide.SHORT
             else:
@@ -737,16 +737,14 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
             response = await self._api_get(
                 path_url=CONSTANTS.POSITION_INFORMATION_URL,
                 is_auth_required=True,
-                limit_id=CONSTANTS.POSITION_INFORMATION_URL,
+                limit_id=CONSTANTS.POSITION_INFORMATION_URL
             )
-            self._position_mode = PositionMode.ONEWAY if response[0]["mode"] == "single" else PositionMode.HEDGE
+            self._position_mode = PositionMode.ONEWAY if response[0]["mode"] == 'single' else PositionMode.HEDGE
         return self._position_mode
 
     async def _execute_set_position_mode_for_pairs(
-        # To-do: ensure there's no active order or contract before changing position mode
-        self,
-        mode: PositionMode,
-        trading_pairs: List[str],
+            # To-do: ensure there's no active order or contract before changing position mode
+            self, mode: PositionMode, trading_pairs: List[str]
     ) -> Tuple[bool, List[str], str]:
         successful_pairs = []
         success = True
@@ -769,7 +767,7 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
         msg = ""
         success = True
 
-        dual_mode = "true" if mode is PositionMode.HEDGE else "false"
+        dual_mode = 'true' if mode is PositionMode.HEDGE else 'false'
 
         data = {"dual_mode": dual_mode}
 
@@ -779,9 +777,9 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
             is_auth_required=True,
             limit_id=CONSTANTS.SET_POSITION_MODE_URL,
         )
-        if "detail" in response:
+        if 'detail' in response:
             success = False
-            msg = response["detail"]
+            msg = response['detail']
         return success, msg
 
     async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:
@@ -802,9 +800,9 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
             limit_id=CONSTANTS.ONEWAY_SET_LEVERAGE_PATH_URL,
         )
         if isinstance(resp, dict):
-            return_leverage = resp["leverage"]
+            return_leverage = resp['leverage']
         else:
-            return_leverage = resp[0]["leverage"]
+            return_leverage = resp[0]['leverage']
         if int(return_leverage) != leverage:
             success = False
             msg = "leverage is diff"

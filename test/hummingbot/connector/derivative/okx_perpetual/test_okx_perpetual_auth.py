@@ -36,40 +36,41 @@ class OkxPerpetualAuthTests(TestCase):
 
     @staticmethod
     def _get_timestamp():
-        return datetime.datetime.utcnow().isoformat(timespec="milliseconds") + "Z"
+        return datetime.datetime.utcnow().isoformat(timespec='milliseconds') + 'Z'
 
     @staticmethod
     def _format_timestamp(timestamp: int) -> str:
-        return datetime.datetime.utcfromtimestamp(timestamp).isoformat(timespec="milliseconds") + "Z"
+        return datetime.datetime.utcfromtimestamp(timestamp).isoformat(timespec="milliseconds") + 'Z'
 
     @staticmethod
     def _sign(message: str, key: str) -> str:
         signed_message = base64.b64encode(
-            hmac.new(key.encode("utf-8"), message.encode("utf-8"), hashlib.sha256).digest()
-        )
+            hmac.new(
+                key.encode("utf-8"),
+                message.encode("utf-8"),
+                hashlib.sha256).digest())
         return signed_message.decode("utf-8")
 
     def generate_signature_from_payload(self, timestamp: str, method: RESTMethod, url: str, body: Optional[str] = None):
         str_body = ""
         if body is not None:
             str_body = str(body).replace("'", '"')
-        pattern = re.compile(r"https://www.okx.com")
-        path_url = re.sub(pattern, "", url)
+        pattern = re.compile(r'https://www.okx.com')
+        path_url = re.sub(pattern, '', url)
         raw_signature = str(timestamp) + str.upper(method.value) + path_url + str_body
-        mac = hmac.new(
-            bytes(self.api_secret, encoding="utf8"), bytes(raw_signature, encoding="utf-8"), digestmod="sha256"
-        )
+        mac = hmac.new(bytes(self.api_secret, encoding='utf8'), bytes(raw_signature, encoding='utf-8'),
+                       digestmod='sha256')
         d = mac.digest()
-        return str(base64.b64encode(d), encoding="utf-8")
+        return str(base64.b64encode(d), encoding='utf-8')
 
     @patch("hummingbot.connector.derivative.okx_perpetual.okx_perpetual_auth.OkxPerpetualAuth._get_timestamp")
     def test_add_auth_to_rest_request_with_params(self, ts_mock: MagicMock):
         request = RESTRequest(
             method=RESTMethod.GET,
             url="https://test.url/api/endpoint",
-            params={"ordId": "123", "instId": "BTC-USDT"},
+            params={'ordId': '123', 'instId': 'BTC-USDT'},
             is_auth_required=True,
-            throttler_limit_id="/api/endpoint",
+            throttler_limit_id="/api/endpoint"
         )
 
         self.async_run_with_timeout(self.auth.rest_authenticate(request))
@@ -77,9 +78,8 @@ class OkxPerpetualAuthTests(TestCase):
         expected_timestamp = self._format_timestamp(timestamp=1000)
         self.assertEqual(self.api_key, request.headers["OK-ACCESS-KEY"])
         self.assertEqual(expected_timestamp, request.headers["OK-ACCESS-TIMESTAMP"])
-        expected_signature = self._sign(
-            expected_timestamp + "GET" + f"{request.throttler_limit_id}?ordId=123&instId=BTC-USDT", key=self.api_secret
-        )
+        expected_signature = self._sign(expected_timestamp + "GET" + f"{request.throttler_limit_id}?ordId=123&instId=BTC-USDT",
+                                        key=self.api_secret)
         self.assertEqual(expected_signature, request.headers["OK-ACCESS-SIGN"])
         expected_passphrase = self.api_passphrase
         self.assertEqual(expected_passphrase, request.headers["OK-ACCESS-PASSPHRASE"])
@@ -90,7 +90,7 @@ class OkxPerpetualAuthTests(TestCase):
             method=RESTMethod.GET,
             url="https://test.url/api/endpoint",
             is_auth_required=True,
-            throttler_limit_id="/api/endpoint",
+            throttler_limit_id="/api/endpoint"
         )
 
         self.async_run_with_timeout(self.auth.rest_authenticate(request))
@@ -110,9 +110,9 @@ class OkxPerpetualAuthTests(TestCase):
 
         ws_auth_url = "https://www.okx.com/users/self/verify"
 
-        expected_signature = self.generate_signature_from_payload(
-            timestamp=timestamp, method=RESTMethod.GET, url=ws_auth_url
-        )
+        expected_signature = self.generate_signature_from_payload(timestamp=timestamp,
+                                                                  method=RESTMethod.GET,
+                                                                  url=ws_auth_url)
 
         payload = self.auth.get_ws_auth_args()
 
@@ -144,13 +144,13 @@ class OkxPerpetualAuthTests(TestCase):
         self.assertIs(result, mock_request)
 
     def test_get_path_from_url(self):
-        url = "https://www.okx.com/api/v5/account/balance"
-        expected_path = "/api/v5/account/balance"
+        url = 'https://www.okx.com/api/v5/account/balance'
+        expected_path = '/api/v5/account/balance'
         result = self.auth.get_path_from_url(url)
         self.assertEqual(result, expected_path)
 
     def test_get_path_from_url_no_match(self):
-        url = "https://example.com/api/v1/users"
-        expected_path = "https://example.com/api/v1/users"
+        url = 'https://example.com/api/v1/users'
+        expected_path = 'https://example.com/api/v1/users'
         result = self.auth.get_path_from_url(url)
         self.assertEqual(result, expected_path)

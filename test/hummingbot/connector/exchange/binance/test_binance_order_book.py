@@ -8,9 +8,17 @@ class BinanceOrderBookTests(TestCase):
 
     def test_snapshot_message_from_exchange(self):
         snapshot_message = BinanceOrderBook.snapshot_message_from_exchange(
-            msg={"lastUpdateId": 1, "bids": [["4.00000000", "431.00000000"]], "asks": [["4.00000200", "12.00000000"]]},
+            msg={
+                "lastUpdateId": 1,
+                "bids": [
+                    ["4.00000000", "431.00000000"]
+                ],
+                "asks": [
+                    ["4.00000200", "12.00000000"]
+                ]
+            },
             timestamp=1640000000.0,
-            metadata={"trading_pair": "COINALPHA-HBOT"},
+            metadata={"trading_pair": "COINALPHA-HBOT"}
         )
 
         self.assertEqual("COINALPHA-HBOT", snapshot_message.trading_pair)
@@ -35,11 +43,21 @@ class BinanceOrderBookTests(TestCase):
                 "s": "COINALPHAHBOT",
                 "U": 1,
                 "u": 2,
-                "b": [["0.0024", "10"]],
-                "a": [["0.0026", "100"]],
+                "b": [
+                    [
+                        "0.0024",
+                        "10"
+                    ]
+                ],
+                "a": [
+                    [
+                        "0.0026",
+                        "100"
+                    ]
+                ]
             },
             timestamp=1640000000.0,
-            metadata={"trading_pair": "COINALPHA-HBOT"},
+            metadata={"trading_pair": "COINALPHA-HBOT"}
         )
 
         self.assertEqual("COINALPHA-HBOT", diff_msg.trading_pair)
@@ -69,11 +87,12 @@ class BinanceOrderBookTests(TestCase):
             "a": 50,
             "T": 123456785,
             "m": True,
-            "M": True,
+            "M": True
         }
 
         trade_message = BinanceOrderBook.trade_message_from_exchange(
-            msg=trade_update, metadata={"trading_pair": "COINALPHA-HBOT"}
+            msg=trade_update,
+            metadata={"trading_pair": "COINALPHA-HBOT"}
         )
 
         self.assertEqual("COINALPHA-HBOT", trade_message.trading_pair)

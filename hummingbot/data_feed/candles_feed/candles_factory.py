@@ -26,7 +26,6 @@ class UnsupportedConnectorException(Exception):
     """
     Exception raised when an unsupported connector is requested.
     """
-
     def __init__(self, connector: str):
         message = f"The connector {connector} is not available. Please select another one."
         super().__init__(message)
@@ -37,7 +36,6 @@ class CandlesFactory:
     The CandlesFactory class creates and returns a Candle object based on the specified configuration.
     It uses a mapping of connector names to their respective candle classes.
     """
-
     _candles_map: Dict[str, Type[CandlesBase]] = {
         "binance_perpetual": BinancePerpetualCandles,
         "binance": BinanceSpotCandles,
@@ -54,7 +52,7 @@ class CandlesFactory:
         "bybit": BybitSpotCandles,
         "bybit_perpetual": BybitPerpetualCandles,
         "hyperliquid": HyperliquidSpotCandles,
-        "hyperliquid_perpetual": HyperliquidPerpetualCandles,
+        "hyperliquid_perpetual": HyperliquidPerpetualCandles
     }
 
     @classmethod
@@ -68,6 +66,10 @@ class CandlesFactory:
         """
         connector_class = cls._candles_map.get(candles_config.connector)
         if connector_class:
-            return connector_class(candles_config.trading_pair, candles_config.interval, candles_config.max_records)
+            return connector_class(
+                candles_config.trading_pair,
+                candles_config.interval,
+                candles_config.max_records
+            )
         else:
             raise UnsupportedConnectorException(candles_config.connector)

@@ -21,13 +21,20 @@ class BtcMarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(self, trading_pairs: List[str], connector: "BtcMarketsExchange", api_factory: WebAssistantsFactory):
+    def __init__(
+            self,
+            trading_pairs: List[str],
+            connector: 'BtcMarketsExchange',
+            api_factory: WebAssistantsFactory
+    ):
         super().__init__(trading_pairs)
         self._connector: BtcMarketsExchange = connector
         self._domain = CONSTANTS.DEFAULT_DOMAIN
         self._api_factory = api_factory
 
-    async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
+    async def get_last_traded_prices(self,
+                                     trading_pairs: List[str],
+                                     domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
@@ -39,8 +46,8 @@ class BtcMarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
         websocket_assistant: WSAssistant = await self._api_factory.get_ws_assistant()
 
         await websocket_assistant.connect(
-            ws_url=CONSTANTS.WSS_V1_PUBLIC_URL[self._domain], ping_timeout=CONSTANTS.WS_PING_TIMEOUT
-        )
+            ws_url=CONSTANTS.WSS_V1_PUBLIC_URL[self._domain],
+            ping_timeout=CONSTANTS.WS_PING_TIMEOUT)
 
         return websocket_assistant
 
@@ -60,12 +67,7 @@ class BtcMarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
             subscription_payload = {
                 "messageType": "subscribe",
                 "marketIds": marketIds,
-                "channels": [
-                    CONSTANTS.DIFF_EVENT_TYPE,
-                    CONSTANTS.SNAPSHOT_EVENT_TYPE,
-                    CONSTANTS.TRADE_EVENT_TYPE,
-                    CONSTANTS.HEARTBEAT,
-                ],
+                "channels": [CONSTANTS.DIFF_EVENT_TYPE, CONSTANTS.SNAPSHOT_EVENT_TYPE, CONSTANTS.TRADE_EVENT_TYPE, CONSTANTS.HEARTBEAT]
             }
 
             subscription_request: WSJSONRequest = WSJSONRequest(payload=subscription_payload)
@@ -78,7 +80,8 @@ class BtcMarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
             raise
         except Exception:
             self.logger().error(
-                "Unexpected error occurred subscribing to order book trading and delta streams...", exc_info=True
+                "Unexpected error occurred subscribing to order book trading and delta streams...",
+                exc_info=True
             )
             raise
 
@@ -104,11 +107,7 @@ class BtcMarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
             data: Dict[str, Any] = ws_response.data
 
             channel: str = self._channel_originating_message(event_message=data)
-            if channel in [
-                self._diff_messages_queue_key,
-                self._trade_messages_queue_key,
-                self._snapshot_messages_queue_key,
-            ]:
+            if channel in [self._diff_messages_queue_key, self._trade_messages_queue_key, self._snapshot_messages_queue_key]:
                 self._message_queue[channel].put_nowait(data)
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
@@ -123,8 +122,7 @@ class BtcMarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
             timestamp: float = float(dateparse(raw_message["timestamp"]).timestamp())
 
             trade_message: Optional[OrderBookMessage] = BtcMarketsOrderBook.trade_message_from_exchange(
-                raw_message, timestamp, {"marketId": trading_pair}
-            )
+                raw_message, timestamp, {"marketId": trading_pair})
 
             message_queue.put_nowait(trade_message)
 
@@ -145,8 +143,7 @@ class BtcMarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
             timestamp: float = float(dateparse(raw_message["timestamp"]).timestamp())
 
             diff_message: Optional[OrderBookMessage] = BtcMarketsOrderBook.diff_message_from_exchange(
-                raw_message, timestamp, {"marketId": trading_pair}
-            )
+                raw_message, timestamp, {"marketId": trading_pair})
 
             message_queue.put_nowait(diff_message)
 
@@ -163,8 +160,7 @@ class BtcMarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
             timestamp: float = float(dateparse(raw_message["timestamp"]).timestamp())
 
             snapshot_message: Optional[OrderBookMessage] = BtcMarketsOrderBook.snapshot_message_from_exchange_rest(
-                raw_message, timestamp, {"marketId": trading_pair}
-            )
+                raw_message, timestamp, {"marketId": trading_pair})
 
             message_queue.put_nowait(snapshot_message)
 
@@ -181,7 +177,9 @@ class BtcMarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
             snapshot_timestamp: float = float(snapshot["snapshotId"])
 
             return BtcMarketsOrderBook.snapshot_message_from_exchange_rest(
-                snapshot, snapshot_timestamp, metadata={"marketId": trading_pair}
+                snapshot,
+                snapshot_timestamp,
+                metadata={"marketId": trading_pair}
             )
         except asyncio.CancelledError:
             raise
@@ -190,9 +188,9 @@ class BtcMarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
             await self._sleep(5.0)
 
     async def get_snapshot(
-        self,
-        trading_pair: str,
-        limit: int = 1000,
+            self,
+            trading_pair: str,
+            limit: int = 1000,
     ) -> Dict[str, Any]:
         """
         Retrieves a copy of the full order book from the exchange, for a particular trading pair.

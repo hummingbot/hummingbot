@@ -15,7 +15,6 @@ class KrakenAPITier(Enum):
     """
     Kraken's Private Endpoint Rate Limit Tiers, based on the Account Verification level.
     """
-
     STARTER = "STARTER"
     INTERMEDIATE = "INTERMEDIATE"
     PRO = "PRO"
@@ -119,5 +118,7 @@ PUBLIC_API_LIMITS = [
         linked_limits=[LinkedLimitWeightPair(PUBLIC_ENDPOINT_LIMIT_ID)],
     ),
     # WebSocket Connection Limit
-    RateLimit(limit_id=WS_CONNECTION_LIMIT_ID, limit=150, time_interval=60 * 10),
+    RateLimit(limit_id=WS_CONNECTION_LIMIT_ID,
+              limit=150,
+              time_interval=60 * 10),
 ]

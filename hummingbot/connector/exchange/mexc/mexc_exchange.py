@@ -31,15 +31,14 @@ class MexcExchange(ExchangePyBase):
 
     web_utils = web_utils
 
-    def __init__(
-        self,
-        client_config_map: "ClientConfigAdapter",
-        mexc_api_key: str,
-        mexc_api_secret: str,
-        trading_pairs: Optional[List[str]] = None,
-        trading_required: bool = True,
-        domain: str = CONSTANTS.DEFAULT_DOMAIN,
-    ):
+    def __init__(self,
+                 client_config_map: "ClientConfigAdapter",
+                 mexc_api_key: str,
+                 mexc_api_secret: str,
+                 trading_pairs: Optional[List[str]] = None,
+                 trading_required: bool = True,
+                 domain: str = CONSTANTS.DEFAULT_DOMAIN,
+                 ):
         self.api_key = mexc_api_key
         self.secret_key = mexc_api_secret
         self._domain = domain
@@ -58,7 +57,10 @@ class MexcExchange(ExchangePyBase):
 
     @property
     def authenticator(self):
-        return MexcAuth(api_key=self.api_key, secret_key=self.secret_key, time_provider=self._time_synchronizer)
+        return MexcAuth(
+            api_key=self.api_key,
+            secret_key=self.secret_key,
+            time_provider=self._time_synchronizer)
 
     @property
     def name(self) -> str:
@@ -111,9 +113,7 @@ class MexcExchange(ExchangePyBase):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
     async def get_all_pairs_prices(self) -> List[Dict[str, str]]:
-        pairs_prices = await self._api_get(
-            path_url=CONSTANTS.TICKER_BOOK_PATH_URL, headers={"Content-Type": "application/json"}
-        )
+        pairs_prices = await self._api_get(path_url=CONSTANTS.TICKER_BOOK_PATH_URL, headers={"Content-Type": "application/json"})
         return pairs_prices
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
@@ -133,16 +133,17 @@ class MexcExchange(ExchangePyBase):
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
-            throttler=self._throttler, time_synchronizer=self._time_synchronizer, domain=self._domain, auth=self._auth
-        )
+            throttler=self._throttler,
+            time_synchronizer=self._time_synchronizer,
+            domain=self._domain,
+            auth=self._auth)
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         return MexcAPIOrderBookDataSource(
             trading_pairs=self._trading_pairs,
             connector=self,
             domain=self.domain,
-            api_factory=self._web_assistants_factory,
-        )
+            api_factory=self._web_assistants_factory)
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         return MexcAPIUserStreamDataSource(
@@ -153,57 +154,50 @@ class MexcExchange(ExchangePyBase):
             domain=self.domain,
         )
 
-    def _get_fee(
-        self,
-        base_currency: str,
-        quote_currency: str,
-        order_type: OrderType,
-        order_side: TradeType,
-        amount: Decimal,
-        price: Decimal = s_decimal_NaN,
-        is_maker: Optional[bool] = None,
-    ) -> TradeFeeBase:
+    def _get_fee(self,
+                 base_currency: str,
+                 quote_currency: str,
+                 order_type: OrderType,
+                 order_side: TradeType,
+                 amount: Decimal,
+                 price: Decimal = s_decimal_NaN,
+                 is_maker: Optional[bool] = None) -> TradeFeeBase:
         is_maker = order_type is OrderType.LIMIT_MAKER
         return DeductedFromReturnsTradeFee(percent=self.estimate_fee_pct(is_maker))
 
-    async def _place_order(
-        self,
-        order_id: str,
-        trading_pair: str,
-        amount: Decimal,
-        trade_type: TradeType,
-        order_type: OrderType,
-        price: Decimal,
-        **kwargs,
-    ) -> Tuple[str, float]:
+    async def _place_order(self,
+                           order_id: str,
+                           trading_pair: str,
+                           amount: Decimal,
+                           trade_type: TradeType,
+                           order_type: OrderType,
+                           price: Decimal,
+                           **kwargs) -> Tuple[str, float]:
         order_result = None
         amount_str = f"{amount:f}"
         type_str = MexcExchange.mexc_order_type(order_type)
         side_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        api_params = {
-            "symbol": symbol,
-            "side": side_str,
-            "quantity": amount_str,
-            "type": type_str,
-            "newClientOrderId": order_id,
-        }
+        api_params = {"symbol": symbol,
+                      "side": side_str,
+                      "quantity": amount_str,
+                      "type": type_str,
+                      "newClientOrderId": order_id}
         if order_type.is_limit_type():
             price_str = f"{price:f}"
             api_params["price"] = price_str
             api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_GTC
         try:
             order_result = await self._api_post(
-                path_url=CONSTANTS.ORDER_PATH_URL, data=api_params, is_auth_required=True
-            )
+                path_url=CONSTANTS.ORDER_PATH_URL,
+                data=api_params,
+                is_auth_required=True)
             o_id = str(order_result["orderId"])
             transact_time = order_result["transactTime"] * 1e-3
         except IOError as e:
             error_description = str(e)
-            is_server_overloaded = (
-                "status is 503" in error_description
-                and "Unknown error, please check your request or try again later." in error_description
-            )
+            is_server_overloaded = ("status is 503" in error_description
+                                    and "Unknown error, please check your request or try again later." in error_description)
             if is_server_overloaded:
                 o_id = "UNKNOWN"
                 transact_time = self._time_synchronizer.time()
@@ -218,8 +212,9 @@ class MexcExchange(ExchangePyBase):
             "origClientOrderId": order_id,
         }
         cancel_result = await self._api_delete(
-            path_url=CONSTANTS.ORDER_PATH_URL, params=api_params, is_auth_required=True
-        )
+            path_url=CONSTANTS.ORDER_PATH_URL,
+            params=api_params,
+            is_auth_required=True)
         if cancel_result.get("status") == "NEW":
             return True
         return False
@@ -233,16 +228,13 @@ class MexcExchange(ExchangePyBase):
                 min_order_size = Decimal(rule.get("baseSizePrecision"))
                 min_price_inc = Decimal(f"1e-{rule['quotePrecision']}")
                 min_amount_inc = Decimal(f"1e-{rule['baseAssetPrecision']}")
-                min_notional = Decimal(rule["quoteAmountPrecision"])
+                min_notional = Decimal(rule['quoteAmountPrecision'])
                 retval.append(
-                    TradingRule(
-                        trading_pair,
-                        min_order_size=min_order_size,
-                        min_price_increment=min_price_inc,
-                        min_base_amount_increment=min_amount_inc,
-                        min_notional_size=min_notional,
-                    )
-                )
+                    TradingRule(trading_pair,
+                                min_order_size=min_order_size,
+                                min_price_increment=min_price_inc,
+                                min_base_amount_increment=min_amount_inc,
+                                min_notional_size=min_notional))
 
             except Exception:
                 self.logger().exception(f"Error parsing the trading pair rule {rule}. Skipping.")
@@ -273,7 +265,8 @@ class MexcExchange(ExchangePyBase):
                 channel: str = event_message.get("c", None)
                 results: Dict[str, Any] = event_message.get("d", {})
                 if "code" not in event_message and channel not in user_channels:
-                    self.logger().error(f"Unexpected message in user stream: {event_message}.", exc_info=True)
+                    self.logger().error(
+                        f"Unexpected message in user stream: {event_message}.", exc_info=True)
                     continue
                 if channel == CONSTANTS.USER_TRADES_ENDPOINT_NAME:
                     self._process_trade_message(results)
@@ -285,7 +278,8 @@ class MexcExchange(ExchangePyBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
+                self.logger().error(
+                    "Unexpected error in user stream listener loop.", exc_info=True)
                 await self._sleep(5.0)
 
     def _process_balance_message_ws(self, account):
@@ -293,13 +287,19 @@ class MexcExchange(ExchangePyBase):
         self._account_available_balances[asset_name] = Decimal(str(account["f"]))
         self._account_balances[asset_name] = Decimal(str(account["f"])) + Decimal(str(account["l"]))
 
-    def _create_trade_update_with_order_fill_data(self, order_fill: Dict[str, Any], order: InFlightOrder):
+    def _create_trade_update_with_order_fill_data(
+            self,
+            order_fill: Dict[str, Any],
+            order: InFlightOrder):
 
         fee = TradeFeeBase.new_spot_fee(
             fee_schema=self.trade_fee_schema(),
             trade_type=order.trade_type,
             percent_token=order_fill["N"],
-            flat_fees=[TokenAmount(amount=Decimal(order_fill["n"]), token=order_fill["N"])],
+            flat_fees=[TokenAmount(
+                amount=Decimal(order_fill["n"]),
+                token=order_fill["N"]
+            )]
         )
         trade_update = TradeUpdate(
             trade_id=str(order_fill["t"]),
@@ -320,7 +320,9 @@ class MexcExchange(ExchangePyBase):
         if tracked_order is None:
             self.logger().debug(f"Ignoring trade message with id {client_order_id}: not in in_flight_orders.")
         else:
-            trade_update = self._create_trade_update_with_order_fill_data(order_fill=trade, order=tracked_order)
+            trade_update = self._create_trade_update_with_order_fill_data(
+                order_fill=trade,
+                order=tracked_order)
             self._order_tracker.process_trade_update(trade_update)
 
     def _create_order_update_with_order_status_data(self, order_status: Dict[str, Any], order: InFlightOrder):
@@ -359,9 +361,8 @@ class MexcExchange(ExchangePyBase):
         long_interval_last_tick = self._last_poll_timestamp / self.LONG_POLL_INTERVAL
         long_interval_current_tick = self.current_timestamp / self.LONG_POLL_INTERVAL
 
-        if long_interval_current_tick > long_interval_last_tick or (
-            self.in_flight_orders and small_interval_current_tick > small_interval_last_tick
-        ):
+        if (long_interval_current_tick > long_interval_last_tick
+                or (self.in_flight_orders and small_interval_current_tick > small_interval_last_tick)):
             query_time = int(self._last_trades_poll_mexc_timestamp * 1e3)
             self._last_trades_poll_mexc_timestamp = self._time_synchronizer.time()
             order_by_exchange_id_map = {}
@@ -371,17 +372,16 @@ class MexcExchange(ExchangePyBase):
             tasks = []
             trading_pairs = self.trading_pairs
             for trading_pair in trading_pairs:
-                params = {"symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)}
+                params = {
+                    "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+                }
                 if self._last_poll_timestamp > 0:
                     params["startTime"] = query_time
-                tasks.append(
-                    self._api_get(
-                        path_url=CONSTANTS.MY_TRADES_PATH_URL,
-                        params=params,
-                        is_auth_required=True,
-                        headers={"Content-Type": "application/json"},
-                    )
-                )
+                tasks.append(self._api_get(
+                    path_url=CONSTANTS.MY_TRADES_PATH_URL,
+                    params=params,
+                    is_auth_required=True,
+                    headers={"Content-Type": "application/json"}))
 
             self.logger().debug(f"Polling for order fills of {len(tasks)} trading pairs.")
             results = await safe_gather(*tasks, return_exceptions=True)
@@ -391,7 +391,7 @@ class MexcExchange(ExchangePyBase):
                 if isinstance(trades, Exception):
                     self.logger().network(
                         f"Error fetching trades update for the order {trading_pair}: {trades}.",
-                        app_warning_msg=f"Failed to fetch trade update for {trading_pair}.",
+                        app_warning_msg=f"Failed to fetch trade update for {trading_pair}."
                     )
                     continue
                 for trade in trades:
@@ -403,9 +403,7 @@ class MexcExchange(ExchangePyBase):
                             fee_schema=self.trade_fee_schema(),
                             trade_type=tracked_order.trade_type,
                             percent_token=trade["commissionAsset"],
-                            flat_fees=[
-                                TokenAmount(amount=Decimal(trade["commission"]), token=trade["commissionAsset"])
-                            ],
+                            flat_fees=[TokenAmount(amount=Decimal(trade["commission"]), token=trade["commissionAsset"])]
                         )
                         trade_update = TradeUpdate(
                             trade_id=str(trade["id"]),
@@ -421,11 +419,10 @@ class MexcExchange(ExchangePyBase):
                         self._order_tracker.process_trade_update(trade_update)
                     elif self.is_confirmed_new_order_filled_event(str(trade["id"]), exchange_order_id, trading_pair):
                         # This is a fill of an order registered in the DB but not tracked any more
-                        self._current_trade_fills.add(
-                            TradeFillOrderDetails(
-                                market=self.display_name, exchange_trade_id=str(trade["id"]), symbol=trading_pair
-                            )
-                        )
+                        self._current_trade_fills.add(TradeFillOrderDetails(
+                            market=self.display_name,
+                            exchange_trade_id=str(trade["id"]),
+                            symbol=trading_pair))
                         self.trigger_event(
                             MarketEvent.OrderFilled,
                             OrderFilledEvent(
@@ -437,11 +434,15 @@ class MexcExchange(ExchangePyBase):
                                 price=Decimal(trade["price"]),
                                 amount=Decimal(trade["qty"]),
                                 trade_fee=DeductedFromReturnsTradeFee(
-                                    flat_fees=[TokenAmount(trade["commissionAsset"], Decimal(trade["commission"]))]
+                                    flat_fees=[
+                                        TokenAmount(
+                                            trade["commissionAsset"],
+                                            Decimal(trade["commission"])
+                                        )
+                                    ]
                                 ),
-                                exchange_trade_id=str(trade["id"]),
-                            ),
-                        )
+                                exchange_trade_id=str(trade["id"])
+                            ))
                         self.logger().info(f"Recreating missing trade in TradeFill: {trade}")
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
@@ -452,11 +453,13 @@ class MexcExchange(ExchangePyBase):
             trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
             all_fills_response = await self._api_get(
                 path_url=CONSTANTS.MY_TRADES_PATH_URL,
-                params={"symbol": trading_pair, "orderId": exchange_order_id},
+                params={
+                    "symbol": trading_pair,
+                    "orderId": exchange_order_id
+                },
                 is_auth_required=True,
                 limit_id=CONSTANTS.MY_TRADES_PATH_URL,
-                headers={"Content-Type": "application/json"},
-            )
+                headers={"Content-Type": "application/json"})
 
             for trade in all_fills_response:
                 exchange_order_id = str(trade["orderId"])
@@ -464,7 +467,7 @@ class MexcExchange(ExchangePyBase):
                     fee_schema=self.trade_fee_schema(),
                     trade_type=order.trade_type,
                     percent_token=trade["commissionAsset"],
-                    flat_fees=[TokenAmount(amount=Decimal(trade["commission"]), token=trade["commissionAsset"])],
+                    flat_fees=[TokenAmount(amount=Decimal(trade["commission"]), token=trade["commissionAsset"])]
                 )
                 trade_update = TradeUpdate(
                     trade_id=str(trade["id"]),
@@ -485,10 +488,11 @@ class MexcExchange(ExchangePyBase):
         trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
         updated_order_data = await self._api_get(
             path_url=CONSTANTS.ORDER_PATH_URL,
-            params={"symbol": trading_pair, "origClientOrderId": tracked_order.client_order_id},
+            params={
+                "symbol": trading_pair,
+                "origClientOrderId": tracked_order.client_order_id},
             is_auth_required=True,
-            headers={"Content-Type": "application/json"},
-        )
+            headers={"Content-Type": "application/json"})
 
         new_state = CONSTANTS.ORDER_STATE[updated_order_data["status"]]
 
@@ -507,8 +511,9 @@ class MexcExchange(ExchangePyBase):
         remote_asset_names = set()
 
         account_info = await self._api_get(
-            path_url=CONSTANTS.ACCOUNTS_PATH_URL, is_auth_required=True, headers={"Content-Type": "application/json"}
-        )
+            path_url=CONSTANTS.ACCOUNTS_PATH_URL,
+            is_auth_required=True,
+            headers={"Content-Type": "application/json"})
 
         balances = account_info["balances"]
         for balance_entry in balances:
@@ -527,19 +532,20 @@ class MexcExchange(ExchangePyBase):
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
         for symbol_data in filter(mexc_utils.is_exchange_information_valid, exchange_info["symbols"]):
-            mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(
-                base=symbol_data["baseAsset"], quote=symbol_data["quoteAsset"]
-            )
+            mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(base=symbol_data["baseAsset"],
+                                                                        quote=symbol_data["quoteAsset"])
         self._set_trading_pair_symbol_map(mapping)
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
-        params = {"symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)}
+        params = {
+            "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+        }
 
         resp_json = await self._api_request(
             method=RESTMethod.GET,
             path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
             params=params,
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json"}
         )
 
         return float(resp_json["lastPrice"])
@@ -548,13 +554,9 @@ class MexcExchange(ExchangePyBase):
         await self._api_get(path_url=self.check_network_request_path, headers={"Content-Type": "application/json"})
 
     async def _make_trading_rules_request(self) -> Any:
-        exchange_info = await self._api_get(
-            path_url=self.trading_rules_request_path, headers={"Content-Type": "application/json"}
-        )
+        exchange_info = await self._api_get(path_url=self.trading_rules_request_path, headers={"Content-Type": "application/json"})
         return exchange_info
 
     async def _make_trading_pairs_request(self) -> Any:
-        exchange_info = await self._api_get(
-            path_url=self.trading_pairs_request_path, headers={"Content-Type": "application/json"}
-        )
+        exchange_info = await self._api_get(path_url=self.trading_pairs_request_path, headers={"Content-Type": "application/json"})
         return exchange_info

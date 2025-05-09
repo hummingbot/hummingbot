@@ -43,8 +43,14 @@ class DexalotClientTests(TestCase):
             "base_evmdecimals": Decimal(6),
             "quote_evmdecimals": Decimal(18),
         }
-        self._tx_client = DexalotClient(self.api_secret, self.exchange)
-        self._tx_client.balance_evm_params = {"AVAX": {"token_evmdecimals": "18"}, "USDC": {"token_evmdecimals": "6"}}
+        self._tx_client = DexalotClient(
+            self.api_secret,
+            self.exchange
+        )
+        self._tx_client.balance_evm_params = {
+            "AVAX": {"token_evmdecimals": "18"},
+            "USDC": {"token_evmdecimals": "6"}
+        }
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
         ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -52,35 +58,25 @@ class DexalotClientTests(TestCase):
 
     @property
     def _token_info_request_successful_mock_response(self):
-        return [
-            {
-                "env": "production-multi-avax",
-                "symbol": "AVAX",
-                "subnet_symbol": "AVAX",
-                "name": "Avalanche",
-                "isnative": True,
-                "address": "0x0000000000000000000000000000000000000000",  # noqa: mock
-                "evmdecimals": 18,
-                "isvirtual": False,
-                "chain_id": 43114,
-                "status": "deployed",
-                "old_symbol": None,
-                "auctionmode": 0,
-                "auctionendtime": None,
-                "min_depositamnt": "0.0246467720588235293",
-            }
-        ]
+        return [{
+            'env': 'production-multi-avax', 'symbol': 'AVAX', 'subnet_symbol': 'AVAX', 'name': 'Avalanche',
+            'isnative': True,
+            'address': '0x0000000000000000000000000000000000000000',  # noqa: mock
+            'evmdecimals': 18, 'isvirtual': False,
+            'chain_id': 43114,
+            'status': 'deployed', 'old_symbol': None, 'auctionmode': 0, 'auctionendtime': None,
+            'min_depositamnt': '0.0246467720588235293'
+        }]
 
     @property
     def _get_balances_request_successful_mock_response(self):
-        return [
-            [
-                b"AVAX\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
-                b"USDC\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
-            ],
-            [23191212271166640, 15890000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [23191212271166640, 15890000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        ]
+        return [[
+            b'AVAX\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+            b'USDC\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'],
+            [23191212271166640, 15890000, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+             0, 0, 0, 0, 0],
+            [23191212271166640, 15890000, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+             0, 0, 0, 0, 0]]
 
     @property
     def _order_cancelation_request_successful_mock_response(self):
@@ -97,13 +93,12 @@ class DexalotClientTests(TestCase):
         mock_web3.eth.contract.functions = AsyncMock()
         mock_web3.eth.contract.functions.getBalances = AsyncMock
         mock_web3.eth.contract.functions.getBalances.call = AsyncMock()
-        mock_web3.eth.contract.functions.getBalances.call.return_value = (
+        mock_web3.eth.contract.functions.getBalances.call.return_value = \
             self._get_balances_request_successful_mock_response
-        )
         self._tx_client.portfolio_sub_manager = mock_web3.eth.contract
         result = self.async_run_with_timeout(self._tx_client.get_balances({}, {}))
-        self.assertEqual(result[0]["AVAX"], Decimal("0.023191212271166640"))
-        self.assertEqual(result[1]["USDC"], Decimal("15.890000"))
+        self.assertEqual(result[0]["AVAX"], Decimal('0.023191212271166640'))
+        self.assertEqual(result[1]["USDC"], Decimal('15.890000'))
 
     @aioresponses()
     def test_get_token_info(self, mock_api):
@@ -114,7 +109,8 @@ class DexalotClientTests(TestCase):
         self.async_run_with_timeout(self._tx_client._get_token_info())
         self.assertIsNotNone(self._tx_client.balance_evm_params)
 
-    @patch("hummingbot.connector.exchange.dexalot.data_sources.dexalot_data_source.DexalotClient._build_and_send_tx")
+    @patch(
+        "hummingbot.connector.exchange.dexalot.data_sources.dexalot_data_source.DexalotClient._build_and_send_tx")
     def test_cancel_order(self, send_tx_sync_mode_mock):
         send_tx_sync_mode_mock.return_value = self._order_cancelation_request_successful_mock_response
         order = GatewayInFlightOrder(
@@ -130,7 +126,8 @@ class DexalotClientTests(TestCase):
         result = self.async_run_with_timeout(self._tx_client.cancel_order_list([order]))
         self.assertEqual("79DBF373DE9C534EE2DC9D009F32B850DA8D0C73833FAA0FD52C6AE8989EC659", result)  # noqa: mock
 
-    @patch("hummingbot.connector.exchange.dexalot.data_sources.dexalot_data_source.DexalotClient._build_and_send_tx")
+    @patch(
+        "hummingbot.connector.exchange.dexalot.data_sources.dexalot_data_source.DexalotClient._build_and_send_tx")
     def test_cancel_add_order(self, send_tx_sync_mode_mock):
         send_tx_sync_mode_mock.return_value = self._order_cancelation_request_successful_mock_response
         order = GatewayInFlightOrder(

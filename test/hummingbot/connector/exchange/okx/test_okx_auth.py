@@ -36,19 +36,21 @@ class OkxAuthTests(TestCase):
 
     def _sign(self, message: str, key: str) -> str:
         signed_message = base64.b64encode(
-            hmac.new(key.encode("utf-8"), message.encode("utf-8"), hashlib.sha256).digest()
-        )
+            hmac.new(
+                key.encode("utf-8"),
+                message.encode("utf-8"),
+                hashlib.sha256).digest())
         return signed_message.decode("utf-8")
 
     def _format_timestamp(self, timestamp: int) -> str:
-        return datetime.datetime.utcfromtimestamp(timestamp).isoformat(timespec="milliseconds") + "Z"
+        return datetime.datetime.utcfromtimestamp(timestamp).isoformat(timespec="milliseconds") + 'Z'
 
     def test_add_auth_headers_to_get_request_without_params(self):
         request = RESTRequest(
             method=RESTMethod.GET,
             url="https://test.url/api/endpoint",
             is_auth_required=True,
-            throttler_limit_id="/api/endpoint",
+            throttler_limit_id="/api/endpoint"
         )
 
         self.async_run_with_timeout(self.auth.rest_authenticate(request))
@@ -65,9 +67,9 @@ class OkxAuthTests(TestCase):
         request = RESTRequest(
             method=RESTMethod.GET,
             url="https://test.url/api/endpoint",
-            params={"ordId": "123", "instId": "BTC-USDT"},
+            params = {'ordId': '123', 'instId': 'BTC-USDT'},
             is_auth_required=True,
-            throttler_limit_id="/api/endpoint",
+            throttler_limit_id="/api/endpoint"
         )
 
         self.async_run_with_timeout(self.auth.rest_authenticate(request))
@@ -75,9 +77,7 @@ class OkxAuthTests(TestCase):
         expected_timestamp = self._format_timestamp(timestamp=1000)
         self.assertEqual(self.api_key, request.headers["OK-ACCESS-KEY"])
         self.assertEqual(expected_timestamp, request.headers["OK-ACCESS-TIMESTAMP"])
-        expected_signature = self._sign(
-            expected_timestamp + "GET" + f"{request.throttler_limit_id}?ordId=123&instId=BTC-USDT", key=self.secret_key
-        )
+        expected_signature = self._sign(expected_timestamp + "GET" + f"{request.throttler_limit_id}?ordId=123&instId=BTC-USDT", key=self.secret_key)
         self.assertEqual(expected_signature, request.headers["OK-ACCESS-SIGN"])
         expected_passphrase = self.passphrase
         self.assertEqual(expected_passphrase, request.headers["OK-ACCESS-PASSPHRASE"])
@@ -89,7 +89,7 @@ class OkxAuthTests(TestCase):
             url="https://test.url/api/endpoint",
             data=json.dumps(body),
             is_auth_required=True,
-            throttler_limit_id="/api/endpoint",
+            throttler_limit_id="/api/endpoint"
         )
 
         self.async_run_with_timeout(self.auth.rest_authenticate(request))
@@ -97,9 +97,8 @@ class OkxAuthTests(TestCase):
         expected_timestamp = self._format_timestamp(timestamp=1000)
         self.assertEqual(self.api_key, request.headers["OK-ACCESS-KEY"])
         self.assertEqual(expected_timestamp, request.headers["OK-ACCESS-TIMESTAMP"])
-        expected_signature = self._sign(
-            expected_timestamp + "POST" + request.throttler_limit_id + json.dumps(body), key=self.secret_key
-        )
+        expected_signature = self._sign(expected_timestamp + "POST" + request.throttler_limit_id + json.dumps(body),
+                                        key=self.secret_key)
         self.assertEqual(expected_signature, request.headers["OK-ACCESS-SIGN"])
         expected_passphrase = self.passphrase
         self.assertEqual(expected_passphrase, request.headers["OK-ACCESS-PASSPHRASE"])

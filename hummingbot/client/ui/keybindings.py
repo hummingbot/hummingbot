@@ -95,11 +95,11 @@ def load_key_bindings(hb) -> KeyBindings:
     def toggle_logs(event):
         hb.app.toggle_right_pane()
 
-    @bindings.add("c-b")
+    @bindings.add('c-b')
     def do_tab_navigate_left(event):
         hb.app.tab_navigate_left()
 
-    @bindings.add("c-n")
+    @bindings.add('c-n')
     def do_tab_navigate_right(event):
         hb.app.tab_navigate_right()
 

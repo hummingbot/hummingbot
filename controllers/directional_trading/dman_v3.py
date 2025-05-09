@@ -23,23 +23,20 @@ class DManV3ControllerConfig(DirectionalTradingControllerConfigBase):
         default=None,
         json_schema_extra={
             "prompt": "Enter the connector for the candles data, leave empty to use the same exchange as the connector: ",
-            "prompt_on_new": True,
-        },
-    )
+            "prompt_on_new": True})
     candles_trading_pair: str = Field(
         default=None,
         json_schema_extra={
             "prompt": "Enter the trading pair for the candles data, leave empty to use the same trading pair as the connector: ",
-            "prompt_on_new": True,
-        },
-    )
+            "prompt_on_new": True})
     interval: str = Field(
         default="3m",
-        json_schema_extra={"prompt": "Enter the candle interval (e.g., 1m, 5m, 1h, 1d): ", "prompt_on_new": True},
-    )
+        json_schema_extra={
+            "prompt": "Enter the candle interval (e.g., 1m, 5m, 1h, 1d): ",
+            "prompt_on_new": True})
     bb_length: int = Field(
-        default=100, json_schema_extra={"prompt": "Enter the Bollinger Bands length: ", "prompt_on_new": True}
-    )
+        default=100,
+        json_schema_extra={"prompt": "Enter the Bollinger Bands length: ", "prompt_on_new": True})
     bb_std: float = Field(default=2.0)
     bb_long_threshold: float = Field(default=0.0)
     bb_short_threshold: float = Field(default=1.0)
@@ -48,39 +45,35 @@ class DManV3ControllerConfig(DirectionalTradingControllerConfigBase):
         json_schema_extra={
             "prompt": "Enter the trailing stop parameters (activation_price, trailing_delta) as a comma-separated list: ",
             "prompt_on_new": True,
-        },
+        }
     )
     dca_spreads: List[Decimal] = Field(
         default="0.001,0.018,0.15,0.25",
         json_schema_extra={
             "prompt": "Enter the spreads for each DCA level (comma-separated) if dynamic_spread=True this value "
-            "will multiply the Bollinger Bands width, e.g. if the Bollinger Bands width is 0.1 (10%)"
-            "and the spread is 0.2, the distance of the order to the current price will be 0.02 (2%) ",
-            "prompt_on_new": True,
-        },
+                      "will multiply the Bollinger Bands width, e.g. if the Bollinger Bands width is 0.1 (10%)"
+                      "and the spread is 0.2, the distance of the order to the current price will be 0.02 (2%) ",
+            "prompt_on_new": True},
     )
     dca_amounts_pct: List[Decimal] = Field(
         default=None,
         json_schema_extra={
             "prompt": "Enter the amounts for each DCA level (as a percentage of the total balance, "
-            "comma-separated). Don't worry about the final sum, it will be normalized. ",
-            "prompt_on_new": True,
-        },
+                      "comma-separated). Don't worry about the final sum, it will be normalized. ",
+            "prompt_on_new": True},
     )
     dynamic_order_spread: bool = Field(
         default=None,
-        json_schema_extra={"prompt": "Do you want to make the spread dynamic? (Yes/No) ", "prompt_on_new": True},
-    )
+        json_schema_extra={"prompt": "Do you want to make the spread dynamic? (Yes/No) ", "prompt_on_new": True})
     dynamic_target: bool = Field(
         default=None,
-        json_schema_extra={"prompt": "Do you want to make the target dynamic? (Yes/No) ", "prompt_on_new": True},
-    )
+        json_schema_extra={"prompt": "Do you want to make the target dynamic? (Yes/No) ", "prompt_on_new": True})
     activation_bounds: Optional[List[Decimal]] = Field(
         default=None,
         json_schema_extra={
             "prompt": "Enter the activation bounds for the orders (e.g., 0.01 activates the next order when the price is closer than 1%): ",
             "prompt_on_new": True,
-        },
+        }
     )
 
     @field_validator("activation_bounds", mode="before")
@@ -94,26 +87,26 @@ class DManV3ControllerConfig(DirectionalTradingControllerConfigBase):
             return [Decimal(val) for val in v]
         return v
 
-    @field_validator("dca_spreads", mode="before")
+    @field_validator('dca_spreads', mode="before")
     @classmethod
     def validate_spreads(cls, v):
         if isinstance(v, str):
             return [Decimal(val) for val in v.split(",")]
         return v
 
-    @field_validator("dca_amounts_pct", mode="before")
+    @field_validator('dca_amounts_pct', mode="before")
     @classmethod
     def validate_amounts(cls, v, validation_info: ValidationInfo):
         spreads = validation_info.data.get("dca_spreads")
         if isinstance(v, str):
             if v == "":
-                return [Decimal("1.0") / len(spreads) for _ in spreads]
+                return [Decimal('1.0') / len(spreads) for _ in spreads]
             amounts = [Decimal(val) for val in v.split(",")]
             if len(amounts) != len(spreads):
                 raise ValueError("Amounts and spreads must have the same length")
             return amounts
         if v is None:
-            return [Decimal("1.0") / len(spreads) for _ in spreads]
+            return [Decimal('1.0') / len(spreads) for _ in spreads]
         return v
 
     @field_validator("candles_connector", mode="before")
@@ -130,14 +123,12 @@ class DManV3ControllerConfig(DirectionalTradingControllerConfigBase):
             return validation_info.data.get("trading_pair")
         return v
 
-    def get_spreads_and_amounts_in_quote(
-        self, trade_type: TradeType, total_amount_quote: Decimal
-    ) -> Tuple[List[Decimal], List[Decimal]]:
+    def get_spreads_and_amounts_in_quote(self, trade_type: TradeType, total_amount_quote: Decimal) -> Tuple[List[Decimal], List[Decimal]]:
         amounts_pct = self.dca_amounts_pct
         if amounts_pct is None:
             # Equally distribute if amounts_pct is not set
             spreads = self.dca_spreads
-            normalized_amounts_pct = [Decimal("1.0") / len(spreads) for _ in spreads]
+            normalized_amounts_pct = [Decimal('1.0') / len(spreads) for _ in spreads]
         else:
             if trade_type == TradeType.BUY:
                 normalized_amounts_pct = [amt_pct / sum(amounts_pct) for amt_pct in amounts_pct]
@@ -152,28 +143,23 @@ class DManV3Controller(DirectionalTradingControllerBase):
     Mean reversion strategy with Grid execution making use of Bollinger Bands indicator to make spreads dynamic
     and shift the mid-price.
     """
-
     def __init__(self, config: DManV3ControllerConfig, *args, **kwargs):
         self.config = config
         self.max_records = config.bb_length
         if len(self.config.candles_config) == 0:
-            self.config.candles_config = [
-                CandlesConfig(
-                    connector=config.candles_connector,
-                    trading_pair=config.candles_trading_pair,
-                    interval=config.interval,
-                    max_records=self.max_records,
-                )
-            ]
+            self.config.candles_config = [CandlesConfig(
+                connector=config.candles_connector,
+                trading_pair=config.candles_trading_pair,
+                interval=config.interval,
+                max_records=self.max_records
+            )]
         super().__init__(config, *args, **kwargs)
 
     async def update_processed_data(self):
-        df = self.market_data_provider.get_candles_df(
-            connector_name=self.config.candles_connector,
-            trading_pair=self.config.candles_trading_pair,
-            interval=self.config.interval,
-            max_records=self.max_records,
-        )
+        df = self.market_data_provider.get_candles_df(connector_name=self.config.candles_connector,
+                                                      trading_pair=self.config.candles_trading_pair,
+                                                      interval=self.config.interval,
+                                                      max_records=self.max_records)
         # Add indicators
         df.ta.bbands(length=self.config.bb_length, std=self.config.bb_std, append=True)
 
@@ -210,8 +196,7 @@ class DManV3Controller(DirectionalTradingControllerBase):
             if self.config.trailing_stop:
                 trailing_stop = TrailingStop(
                     activation_price=self.config.trailing_stop.activation_price * spread_multiplier,
-                    trailing_delta=self.config.trailing_stop.trailing_delta * spread_multiplier,
-                )
+                    trailing_delta=self.config.trailing_stop.trailing_delta * spread_multiplier)
             else:
                 trailing_stop = None
         else:

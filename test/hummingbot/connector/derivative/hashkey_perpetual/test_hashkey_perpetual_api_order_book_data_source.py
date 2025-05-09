@@ -48,8 +48,7 @@ class TestHashkeyPerpetualAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase)
             client_config_map=client_config_map,
             hashkey_perpetual_api_key="",
             hashkey_perpetual_secret_key="",
-            trading_pairs=[self.trading_pair],
-        )
+            trading_pairs=[self.trading_pair])
 
         self.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         self.time_synchronnizer = TimeSynchronizer()
@@ -59,8 +58,7 @@ class TestHashkeyPerpetualAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase)
             throttler=self.throttler,
             connector=self.connector,
             api_factory=self.connector._web_assistants_factory,
-            time_synchronizer=self.time_synchronnizer,
-        )
+            time_synchronizer=self.time_synchronnizer)
 
         self._original_full_order_book_reset_time = self.ob_data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS
         self.ob_data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = -1
@@ -85,7 +83,8 @@ class TestHashkeyPerpetualAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase)
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message
+                   for record in self.log_records)
 
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
@@ -94,25 +93,37 @@ class TestHashkeyPerpetualAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase)
     def get_exchange_rules_mock(self) -> Dict:
         exchange_rules = {
             "filters": [
-                {"minPrice": "0.1", "maxPrice": "100000.00000000", "tickSize": "0.1", "filterType": "PRICE_FILTER"},
+                {
+                    "minPrice": "0.1",
+                    "maxPrice": "100000.00000000",
+                    "tickSize": "0.1",
+                    "filterType": "PRICE_FILTER"
+                },
                 {
                     "minQty": "0.001",
                     "maxQty": "10",
                     "stepSize": "0.001",
                     "marketOrderMinQty": "0",
                     "marketOrderMaxQty": "0",
-                    "filterType": "LOT_SIZE",
+                    "filterType": "LOT_SIZE"
                 },
-                {"minNotional": "0", "filterType": "MIN_NOTIONAL"},
+                {
+                    "minNotional": "0",
+                    "filterType": "MIN_NOTIONAL"
+                },
                 {
                     "maxSellPrice": "999999",
                     "buyPriceUpRate": "0.05",
                     "sellPriceDownRate": "0.05",
                     "maxEntrustNum": 200,
                     "maxConditionNum": 200,
-                    "filterType": "LIMIT_TRADING",
+                    "filterType": "LIMIT_TRADING"
                 },
-                {"buyPriceUpRate": "0.05", "sellPriceDownRate": "0.05", "filterType": "MARKET_TRADING"},
+                {
+                    "buyPriceUpRate": "0.05",
+                    "sellPriceDownRate": "0.05",
+                    "filterType": "MARKET_TRADING"
+                },
                 {
                     "noAllowMarketStartTime": "0",
                     "noAllowMarketEndTime": "0",
@@ -120,8 +131,8 @@ class TestHashkeyPerpetualAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase)
                     "limitOrderEndTime": "0",
                     "limitMinPrice": "0",
                     "limitMaxPrice": "0",
-                    "filterType": "OPEN_QUOTE",
-                },
+                    "filterType": "OPEN_QUOTE"
+                }
             ],
             "exchangeId": "301",
             "symbol": "BTCUSDT-PERPETUAL",
@@ -144,9 +155,9 @@ class TestHashkeyPerpetualAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase)
                     "quantity": "1000.00",
                     "initialMargin": "0.10",
                     "maintMargin": "0.005",
-                    "isWhite": False,
+                    "isWhite": False
                 }
-            ],
+            ]
         }
         return exchange_rules
 
@@ -155,11 +166,22 @@ class TestHashkeyPerpetualAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase)
     def _snapshot_response() -> Dict:
         snapshot = {
             "t": 1703613017099,
-            "b": [["2500", "1000"]],
-            "a": [
-                ["25981.04", "1000"],
-                ["25981.76", "2000"],
+            "b": [
+                [
+                    "2500",
+                    "1000"
+                ]
             ],
+            "a": [
+                [
+                    "25981.04",
+                    "1000"
+                ],
+                [
+                    "25981.76",
+                    "2000"
+                ],
+            ]
         }
         return snapshot
 
@@ -167,11 +189,22 @@ class TestHashkeyPerpetualAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase)
     def _snapshot_response_processed() -> Dict:
         snapshot_processed = {
             "t": 1703613017099,
-            "b": [["2500", "1000"]],
-            "a": [
-                ["25981.04", "1000"],
-                ["25981.76", "2000"],
+            "b": [
+                [
+                    "2500",
+                    "1000"
+                ]
             ],
+            "a": [
+                [
+                    "25981.04",
+                    "1000"
+                ],
+                [
+                    "25981.76",
+                    "2000"
+                ],
+            ]
         }
         return snapshot_processed
 
@@ -238,7 +271,7 @@ class TestHashkeyPerpetualAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase)
             "f": True,
             "sendTime": 1688198964293,
             "shared": False,
-            "id": "1",
+            "id": "1"
         }
 
         result_subscribe_depth = {
@@ -252,40 +285,40 @@ class TestHashkeyPerpetualAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase)
             "f": True,
             "sendTime": 1688198964293,
             "shared": False,
-            "id": "1",
+            "id": "1"
         }
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe_trades)
-        )
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(result_subscribe_trades))
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe_depth)
-        )
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(result_subscribe_depth))
 
         self.listening_task = self.local_event_loop.create_task(self.ob_data_source.listen_for_subscriptions())
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
-            websocket_mock=ws_connect_mock.return_value
-        )
+            websocket_mock=ws_connect_mock.return_value)
 
         self.assertEqual(2, len(sent_subscription_messages))
         expected_trade_subscription = {
             "topic": "trade",
             "event": "sub",
             "symbol": self.ex_trading_pair,
-            "params": {"binary": False},
+            "params": {
+                "binary": False
+            }
         }
         self.assertEqual(expected_trade_subscription, sent_subscription_messages[0])
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    @patch(
-        "hummingbot.connector.derivative.hashkey_perpetual.hashkey_perpetual_api_order_book_data_source.HashkeyPerpetualAPIOrderBookDataSource._time"
-    )
+    @patch("hummingbot.connector.derivative.hashkey_perpetual.hashkey_perpetual_api_order_book_data_source.HashkeyPerpetualAPIOrderBookDataSource._time")
     async def test_listen_for_subscriptions_sends_ping_message_before_ping_interval_finishes(
-        self, time_mock, ws_connect_mock
-    ):
+            self,
+            time_mock,
+            ws_connect_mock):
 
         time_mock.side_effect = [1000, 1100, 1101, 1102]  # Simulate first ping interval is already due
 
@@ -300,7 +333,7 @@ class TestHashkeyPerpetualAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase)
                 "binary": False,
                 "realtimeInterval": "24h",
             },
-            "id": "1",
+            "id": "1"
         }
 
         result_subscribe_depth = {
@@ -311,24 +344,25 @@ class TestHashkeyPerpetualAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase)
             "params": {
                 "binary": False,
             },
-            "id": "1",
+            "id": "1"
         }
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe_trades)
-        )
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(result_subscribe_trades))
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe_depth)
-        )
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(result_subscribe_depth))
 
         self.listening_task = self.local_event_loop.create_task(self.ob_data_source.listen_for_subscriptions())
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
         sent_messages = self.mocking_assistant.json_messages_sent_through_websocket(
-            websocket_mock=ws_connect_mock.return_value
-        )
+            websocket_mock=ws_connect_mock.return_value)
 
-        expected_ping_message = {"ping": int(1101 * 1e3)}
+        expected_ping_message = {
+            "ping": int(1101 * 1e3)
+        }
         self.assertEqual(expected_ping_message, sent_messages[-1])
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -349,9 +383,8 @@ class TestHashkeyPerpetualAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase)
 
         self.assertTrue(
             self._is_logged(
-                "ERROR", "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
-            )
-        )
+                "ERROR",
+                "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."))
 
     async def test_listen_for_trades_cancelled_when_listening(self):
         mock_queue = MagicMock()
@@ -381,8 +414,14 @@ class TestHashkeyPerpetualAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase)
                     "q": "1",
                     "m": False,
                 },
-                {"v": "1447337171483901952", "t": 1687272035953, "p": "10001.1", "q": "10", "m": True},
-            ],
+                {
+                    "v": "1447337171483901952",
+                    "t": 1687272035953,
+                    "p": "10001.1",
+                    "q": "10",
+                    "m": True
+                },
+            ]
         }
 
         mock_queue = AsyncMock()
@@ -400,11 +439,22 @@ class TestHashkeyPerpetualAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase)
             "symbol": self.ex_trading_pair,
             "symbolName": self.ex_trading_pair,
             "topic": "trade",
-            "params": {"realtimeInterval": "24h", "binary": "false"},
-            "data": [{"v": "929681067596857345", "t": 1625562619577, "p": "34924.15", "q": "100", "m": True}],
+            "params": {
+                "realtimeInterval": "24h",
+                "binary": "false"
+            },
+            "data": [
+                {
+                    "v": "929681067596857345",
+                    "t": 1625562619577,
+                    "p": "34924.15",
+                    "q": "100",
+                    "m": True
+                }
+            ],
             "f": True,
             "sendTime": 1626249138535,
-            "shared": False,
+            "shared": False
         }
         mock_queue.get.side_effect = [trade_event, asyncio.CancelledError()]
         self.ob_data_source._message_queue[CONSTANTS.TRADE_EVENT_TYPE] = mock_queue
@@ -436,7 +486,7 @@ class TestHashkeyPerpetualAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase)
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     async def test_listen_for_order_book_snapshots_log_exception(self, mock_api, sleep_mock):
         mock_queue = AsyncMock()
-        mock_queue.get.side_effect = ["ERROR", asyncio.CancelledError]
+        mock_queue.get.side_effect = ['ERROR', asyncio.CancelledError]
         self.ob_data_source._message_queue[CONSTANTS.SNAPSHOT_EVENT_TYPE] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
@@ -474,43 +524,43 @@ class TestHashkeyPerpetualAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase)
             "symbol": self.ex_trading_pair,
             "symbolName": self.ex_trading_pair,
             "topic": "depth",
-            "params": {"realtimeInterval": "24h", "binary": "false"},
-            "data": [
-                {
-                    "e": 301,
-                    "s": self.ex_trading_pair,
-                    "t": 1565600357643,
-                    "v": "112801745_18",
-                    "b": [
-                        ["11371.49", "14"],
-                        ["11371.12", "200"],
-                        ["11369.97", "35"],
-                        ["11369.96", "500"],
-                        ["11369.95", "93"],
-                        ["11369.94", "1680"],
-                        ["11369.6", "47"],
-                        ["11369.17", "300"],
-                        ["11369.16", "200"],
-                        ["11369.04", "1320"],
-                    ],
-                    "a": [
-                        ["11375.41", "53"],
-                        ["11375.42", "43"],
-                        ["11375.48", "52"],
-                        ["11375.58", "541"],
-                        ["11375.7", "386"],
-                        ["11375.71", "200"],
-                        ["11377", "2069"],
-                        ["11377.01", "167"],
-                        ["11377.12", "1500"],
-                        ["11377.61", "300"],
-                    ],
-                    "o": 0,
-                }
-            ],
+            "params": {
+                "realtimeInterval": "24h",
+                "binary": "false"
+            },
+            "data": [{
+                "e": 301,
+                "s": self.ex_trading_pair,
+                "t": 1565600357643,
+                "v": "112801745_18",
+                "b": [
+                    ["11371.49", "14"],
+                    ["11371.12", "200"],
+                    ["11369.97", "35"],
+                    ["11369.96", "500"],
+                    ["11369.95", "93"],
+                    ["11369.94", "1680"],
+                    ["11369.6", "47"],
+                    ["11369.17", "300"],
+                    ["11369.16", "200"],
+                    ["11369.04", "1320"]],
+                "a": [
+                    ["11375.41", "53"],
+                    ["11375.42", "43"],
+                    ["11375.48", "52"],
+                    ["11375.58", "541"],
+                    ["11375.7", "386"],
+                    ["11375.71", "200"],
+                    ["11377", "2069"],
+                    ["11377.01", "167"],
+                    ["11377.12", "1500"],
+                    ["11377.61", "300"]
+                ],
+                "o": 0
+            }],
             "f": True,
             "sendTime": 1626253839401,
-            "shared": False,
+            "shared": False
         }
         mock_queue.get.side_effect = [snapshot_event, asyncio.CancelledError()]
         self.ob_data_source._message_queue[CONSTANTS.SNAPSHOT_EVENT_TYPE] = mock_queue

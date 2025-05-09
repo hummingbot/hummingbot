@@ -8,9 +8,17 @@ class MexcOrderBookTests(TestCase):
 
     def test_snapshot_message_from_exchange(self):
         snapshot_message = MexcOrderBook.snapshot_message_from_exchange(
-            msg={"lastUpdateId": 1, "bids": [["4.00000000", "431.00000000"]], "asks": [["4.00000200", "12.00000000"]]},
+            msg={
+                "lastUpdateId": 1,
+                "bids": [
+                    ["4.00000000", "431.00000000"]
+                ],
+                "asks": [
+                    ["4.00000200", "12.00000000"]
+                ]
+            },
             timestamp=1640000000.0,
-            metadata={"trading_pair": "COINALPHA-HBOT"},
+            metadata={"trading_pair": "COINALPHA-HBOT"}
         )
 
         self.assertEqual("COINALPHA-HBOT", snapshot_message.trading_pair)
@@ -32,16 +40,19 @@ class MexcOrderBookTests(TestCase):
             msg={
                 "c": "spot@public.increase.depth.v3.api@BTCUSDT",
                 "d": {
-                    "asks": [{"p": "0.0026", "v": "100"}],
-                    "bids": [{"p": "0.0024", "v": "10"}],
+                    "asks": [{
+                        "p": "0.0026",
+                        "v": "100"}],
+                    "bids": [{
+                        "p": "0.0024",
+                        "v": "10"}],
                     "e": "spot@public.increase.depth.v3.api",
-                    "r": "3407459756",
-                },
+                    "r": "3407459756"},
                 "s": "COINALPHAHBOT",
-                "t": 1661932660144,
+                "t": 1661932660144
             },
             timestamp=1640000000000,
-            metadata={"trading_pair": "COINALPHA-HBOT"},
+            metadata={"trading_pair": "COINALPHA-HBOT"}
         )
 
         self.assertEqual("COINALPHA-HBOT", diff_msg.trading_pair)
@@ -59,10 +70,17 @@ class MexcOrderBookTests(TestCase):
         self.assertEqual(3407459756, diff_msg.asks[0].update_id)
 
     def test_trade_message_from_exchange(self):
-        trade_update = {"S": 2, "p": "0.001", "t": 1661927587825, "v": "100"}
+        trade_update = {
+            "S": 2,
+            "p": "0.001",
+            "t": 1661927587825,
+            "v": "100"
+        }
 
         trade_message = MexcOrderBook.trade_message_from_exchange(
-            msg=trade_update, metadata={"trading_pair": "COINALPHA-HBOT"}, timestamp=1661927587836
+            msg=trade_update,
+            metadata={"trading_pair": "COINALPHA-HBOT"},
+            timestamp=1661927587836
         )
 
         self.assertEqual("COINALPHA-HBOT", trade_message.trading_pair)

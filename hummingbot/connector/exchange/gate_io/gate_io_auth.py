@@ -17,7 +17,6 @@ class GateIoAuth(AuthBase):
     Auth Gate.io API
     https://www.gate.io/docs/apiv4/en/#authentication
     """
-
     def __init__(self, api_key: str, secret_key: str, time_provider: TimeSynchronizer):
         self.api_key = api_key
         self.secret_key = secret_key
@@ -41,7 +40,7 @@ class GateIoAuth(AuthBase):
 
         :return: a dictionary with headers
         """
-        sig = self._sign_payload_ws(payload["channel"], payload["event"], payload["time"])
+        sig = self._sign_payload_ws(payload['channel'], payload['event'], payload['time'])
         headers = {
             "method": "api_key",
             "KEY": f"{self.api_key}",
@@ -79,7 +78,7 @@ class GateIoAuth(AuthBase):
         if body is not None:
             if not isinstance(r.data, six.string_types):
                 body = json.dumps(r.data)
-            m.update(body.encode("utf-8"))
+            m.update(body.encode('utf-8'))
         body_hash = m.hexdigest()
 
         if r.params:
@@ -88,8 +87,11 @@ class GateIoAuth(AuthBase):
                 qs.append(f"{k}={v}")
             query_string = "&".join(qs)
 
-        s = f"{r.method}\n{path}\n{query_string}\n{body_hash}\n{ts}"
+        s = f'{r.method}\n{path}\n{query_string}\n{body_hash}\n{ts}'
         return self._sign(s), ts
 
     def _sign(self, payload) -> str:
-        return hmac.new(self.secret_key.encode("utf-8"), payload.encode("utf-8"), hashlib.sha512).hexdigest()
+        return hmac.new(
+            self.secret_key.encode('utf-8'),
+            payload.encode('utf-8'),
+            hashlib.sha512).hexdigest()

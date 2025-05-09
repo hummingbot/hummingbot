@@ -93,9 +93,10 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
         # Simulate Order Cancellation request sent
         self._simulate_cancel_order_request_sent(order)
 
-        self.assertTrue(
-            order.is_pending_cancel_confirmation and order.is_open and not order.is_cancelled and not order.is_done
-        )
+        self.assertTrue(order.is_pending_cancel_confirmation
+                        and order.is_open
+                        and not order.is_cancelled
+                        and not order.is_done)
 
         # Simulate Order Cancelled
         self._simulate_order_cancelled(order)
@@ -185,8 +186,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             fill_base_amount=(order_1.amount / Decimal("2.0")),
             fill_quote_amount=(order_1.price * (order_1.amount / Decimal("2.0"))),
             fee=AddedToCostTradeFee(
-                flat_fees=[TokenAmount(self.base_asset, Decimal(0.01) * (order_1.amount / Decimal("2.0")))]
-            ),
+                flat_fees=[TokenAmount(self.base_asset, Decimal(0.01) * (order_1.amount / Decimal("2.0")))]),
             fill_timestamp=time.time(),
         )
 
@@ -199,8 +199,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             fill_base_amount=(order_1.amount / Decimal("2.0")),
             fill_quote_amount=(order_1.price * (order_1.amount / Decimal("2.0"))),
             fee=AddedToCostTradeFee(
-                flat_fees=[TokenAmount(self.base_asset, Decimal(0.01) * (order_1.amount / Decimal("2.0")))]
-            ),
+                flat_fees=[TokenAmount(self.base_asset, Decimal(0.01) * (order_1.amount / Decimal("2.0")))]),
             fill_timestamp=time.time(),
         )
 
@@ -240,7 +239,10 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
         self.assertTrue(order.exchange_order_id_update_event.is_set())
 
     def test_from_json(self):
-        fee = AddedToCostTradeFee(percent=Decimal("0.5"), percent_token=self.quote_asset)
+        fee = AddedToCostTradeFee(
+            percent=Decimal("0.5"),
+            percent_token=self.quote_asset
+        )
         trade_update = TradeUpdate(
             trade_id="12345",
             client_order_id=self.client_order_id,
@@ -270,7 +272,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             "position": "NIL",
             "creation_timestamp": 1640001112.0,
             "last_update_timestamp": 1640001113.0,
-            "order_fills": {"1": trade_update.to_json()},
+            "order_fills": {"1": trade_update.to_json()}
         }
 
         expected_order: InFlightOrder = InFlightOrder(
@@ -309,7 +311,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             "last_state": "0",
             "leverage": "1",
             "position": PositionAction.NIL.value,
-            "creation_timestamp": 1640001112,
+            "creation_timestamp": 1640001112
         }
 
         expected_order: InFlightOrder = InFlightOrder(
@@ -366,7 +368,10 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
     @patch.object(RateOracle, "get_pair_rate")
     def test_to_json(self, mock_get_pair_rate):
         mock_get_pair_rate.return_value = Decimal("1.0")
-        fee = AddedToCostTradeFee(percent=Decimal("0.5"), percent_token=self.quote_asset)
+        fee = AddedToCostTradeFee(
+            percent=Decimal("0.5"),
+            percent_token=self.quote_asset
+        )
         trade_update = TradeUpdate(
             trade_id="12345",
             client_order_id=self.client_order_id,
@@ -430,7 +435,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             price=Decimal("1.0"),
             quantity=Decimal("1000.0"),
             filled_quantity=Decimal("0"),
-            creation_timestamp=1640001112223334,
+            creation_timestamp=1640001112223334
         )
 
         limit_order = order.to_limit_order()
@@ -615,8 +620,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             fill_base_amount=Decimal("500.0"),
             fill_quote_amount=Decimal("500.0"),
             fee=AddedToCostTradeFee(
-                flat_fees=[TokenAmount(token=self.quote_asset, amount=self.trade_fee_percent * Decimal("500.0"))]
-            ),
+                flat_fees=[TokenAmount(token=self.quote_asset, amount=self.trade_fee_percent * Decimal("500.0"))]),
             fill_timestamp=1,
         )
 
@@ -652,8 +656,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             fill_base_amount=initial_fill_amount,
             fill_quote_amount=initial_fill_price * initial_fill_amount,
             fee=AddedToCostTradeFee(
-                flat_fees=[TokenAmount(token=self.quote_asset, amount=self.trade_fee_percent * initial_fill_amount)]
-            ),
+                flat_fees=[TokenAmount(token=self.quote_asset, amount=self.trade_fee_percent * initial_fill_amount)]),
             fill_timestamp=1,
         )
 
@@ -668,8 +671,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             fill_base_amount=subsequent_fill_amount,
             fill_quote_amount=subsequent_fill_price * subsequent_fill_amount,
             fee=AddedToCostTradeFee(
-                flat_fees=[TokenAmount(token=self.quote_asset, amount=self.trade_fee_percent * subsequent_fill_amount)]
-            ),
+                flat_fees=[TokenAmount(token=self.quote_asset, amount=self.trade_fee_percent * subsequent_fill_amount)]),
             fill_timestamp=2,
         )
 
@@ -718,8 +720,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             fill_base_amount=Decimal("500.0"),
             fill_quote_amount=Decimal("500.0"),
             fee=AddedToCostTradeFee(
-                flat_fees=[TokenAmount(token=self.quote_asset, amount=self.trade_fee_percent * Decimal("500.0"))]
-            ),
+                flat_fees=[TokenAmount(token=self.quote_asset, amount=self.trade_fee_percent * Decimal("500.0"))]),
             fill_timestamp=1,
         )
 

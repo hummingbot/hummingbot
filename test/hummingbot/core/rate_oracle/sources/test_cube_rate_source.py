@@ -37,8 +37,10 @@ class CubeRateSourceTest(IsolatedAsyncioWrapperTestCase):
                         "settles": "true",
                         "assetType": "Crypto",
                         "sourceId": 3,
-                        "metadata": {"dustAmount": 0},
-                        "status": 1,
+                        "metadata": {
+                            "dustAmount": 0
+                        },
+                        "status": 1
                     },
                     {
                         "assetId": 7,
@@ -48,8 +50,10 @@ class CubeRateSourceTest(IsolatedAsyncioWrapperTestCase):
                         "settles": "true",
                         "assetType": "Crypto",
                         "sourceId": 3,
-                        "metadata": {"mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"},
-                        "status": 1,
+                        "metadata": {
+                            "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+                        },
+                        "status": 1
                     },
                     {
                         "assetId": 80005,
@@ -59,8 +63,10 @@ class CubeRateSourceTest(IsolatedAsyncioWrapperTestCase):
                         "settles": "true",
                         "assetType": "Crypto",
                         "sourceId": 103,
-                        "metadata": {"dustAmount": 0},
-                        "status": 1,
+                        "metadata": {
+                            "dustAmount": 0
+                        },
+                        "status": 1
                     },
                     {
                         "assetId": 80007,
@@ -70,9 +76,11 @@ class CubeRateSourceTest(IsolatedAsyncioWrapperTestCase):
                         "settles": "true",
                         "assetType": "Crypto",
                         "sourceId": 103,
-                        "metadata": {"mint": "BD3N3usiKUecAMRcnQJMaoZXG7RzaxeN58Qqkd3oNKrb"},
-                        "status": 1,
-                    },
+                        "metadata": {
+                            "mint": "BD3N3usiKUecAMRcnQJMaoZXG7RzaxeN58Qqkd3oNKrb"
+                        },
+                        "status": 1
+                    }
                 ],
                 "sources": [
                     {
@@ -80,7 +88,11 @@ class CubeRateSourceTest(IsolatedAsyncioWrapperTestCase):
                         "name": "solana",
                         "transactionExplorer": "https://explorer.solana.com/tx/{}",
                         "addressExplorer": "https://explorer.solana.com/address/{}",
-                        "metadata": {"chainId": "solana:mainnet", "scope": "solana", "type": "mainnet"},
+                        "metadata": {
+                            "chainId": "solana:mainnet",
+                            "scope": "solana",
+                            "type": "mainnet"
+                        }
                     }
                 ],
                 "markets": [
@@ -100,7 +112,7 @@ class CubeRateSourceTest(IsolatedAsyncioWrapperTestCase):
                         "priceTickSize": "0.01",
                         "quantityTickSize": "0.01",
                         "status": 1,
-                        "feeTableId": 2,
+                        "feeTableId": 2
                     },
                     {
                         "marketId": 200008,
@@ -118,7 +130,7 @@ class CubeRateSourceTest(IsolatedAsyncioWrapperTestCase):
                         "priceTickSize": "0.01",
                         "quantityTickSize": "0.01",
                         "status": 1,
-                        "feeTableId": 2,
+                        "feeTableId": 2
                     },
                     {
                         "marketId": 100006,
@@ -134,13 +146,31 @@ class CubeRateSourceTest(IsolatedAsyncioWrapperTestCase):
                         "priceTickSize": "0.01",
                         "quantityTickSize": "0.01",
                         "status": 1,
-                        "feeTableId": 2,
-                    },
+                        "feeTableId": 2
+                    }
                 ],
                 "feeTables": [
-                    {"feeTableId": 1, "feeTiers": [{"priority": 0, "makerFeeRatio": 0.0, "takerFeeRatio": 0.0}]},
-                    {"feeTableId": 2, "feeTiers": [{"priority": 0, "makerFeeRatio": 0.0004, "takerFeeRatio": 0.0008}]},
-                ],
+                    {
+                        "feeTableId": 1,
+                        "feeTiers": [
+                            {
+                                "priority": 0,
+                                "makerFeeRatio": 0.0,
+                                "takerFeeRatio": 0.0
+                            }
+                        ]
+                    },
+                    {
+                        "feeTableId": 2,
+                        "feeTiers": [
+                            {
+                                "priority": 0,
+                                "makerFeeRatio": 0.0004,
+                                "takerFeeRatio": 0.0008
+                            }
+                        ]
+                    }
+                ]
             }
         }
         cube_prices_test_url = web_utils.public_rest_url(path_url=CONSTANTS.TICKER_BOOK_PATH_URL, domain="staging")
@@ -158,7 +188,7 @@ class CubeRateSourceTest(IsolatedAsyncioWrapperTestCase):
                     "ask": expected_rate,
                     "high": expected_rate,
                     "low": expected_rate,
-                    "open": expected_rate,
+                    "open": expected_rate
                 }
             ]
         }
@@ -176,7 +206,7 @@ class CubeRateSourceTest(IsolatedAsyncioWrapperTestCase):
                     "ask": expected_rate,
                     "high": expected_rate,
                     "low": expected_rate,
-                    "open": expected_rate,
+                    "open": expected_rate
                 }
             ]
         }

@@ -45,9 +45,7 @@ class GatewayChainApiManager:
         """
         with begin_placeholder_mode(self):
             while True:
-                node_url: str = await self.app.prompt(
-                    prompt=f"Enter a node url (with API key if necessary) for {chain}-{network}: >>> "
-                )
+                node_url: str = await self.app.prompt(prompt=f"Enter a node url (with API key if necessary) for {chain}-{network}: >>> ")
 
                 self.app.clear_input()
                 self.app.change_prompt(prompt="")
@@ -77,9 +75,7 @@ class GatewayChainApiManager:
                 except Exception:
                     self.notify(f"Error occured when trying to ping the node URL: {node_url}.")
 
-    async def _test_node_url_from_gateway_config(
-        self, chain: str, network: str, attempt_connection: bool = True
-    ) -> bool:
+    async def _test_node_url_from_gateway_config(self, chain: str, network: str, attempt_connection: bool = True) -> bool:
         """
         Check if gateway node URL for a chain and network works
         """
@@ -93,9 +89,7 @@ class GatewayChainApiManager:
                     node_url: Optional[str] = network_config.get("nodeURL")
                     if not attempt_connection:
                         while True:
-                            change_node: str = await self.app.prompt(
-                                prompt=f"Do you want to continue to use node url '{node_url}' for {chain}-{network}? (Yes/No) "
-                            )
+                            change_node: str = await self.app.prompt(prompt=f"Do you want to continue to use node url '{node_url}' for {chain}-{network}? (Yes/No) ")
                             if self.app.to_stop_config:
                                 return
                             if change_node in ["Y", "y", "Yes", "yes", "N", "n", "No", "no"]:
@@ -105,9 +99,7 @@ class GatewayChainApiManager:
                         self.app.clear_input()
                         # they use an existing wallet
                         if change_node is not None and change_node in ["N", "n", "No", "no"]:
-                            node_url: str = await self.app.prompt(
-                                prompt=f"Enter a new node url (with API key if necessary) for {chain}-{network}: >>> "
-                            )
+                            node_url: str = await self.app.prompt(prompt=f"Enter a new node url (with API key if necessary) for {chain}-{network}: >>> ")
                             await self._update_gateway_chain_network_node_url(chain, network, node_url)
                             self.notify("Restarting gateway to update with new node url...")
                             # wait about 30 seconds for the gateway to restart
@@ -118,9 +110,7 @@ class GatewayChainApiManager:
                         try:
                             return await self._test_node_url(chain, network)
                         except Exception:
-                            self.notify(
-                                f"Unable to successfully ping the node url for {chain}-{network}: {node_url}. Please try again (it may require an API key)."
-                            )
+                            self.notify(f"Unable to successfully ping the node url for {chain}-{network}: {node_url}. Please try again (it may require an API key).")
                             return False
                 else:
                     self.notify(f"{chain}.networks.{network} was not found in the gateway config.")

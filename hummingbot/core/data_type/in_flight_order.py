@@ -79,14 +79,12 @@ class TradeUpdate(NamedTuple):
 
     def to_json(self) -> Dict[str, Any]:
         json_dict = self._asdict()
-        json_dict.update(
-            {
-                "fill_price": str(self.fill_price),
-                "fill_base_amount": str(self.fill_base_amount),
-                "fill_quote_amount": str(self.fill_quote_amount),
-                "fee": self.fee.to_json(),
-            }
-        )
+        json_dict.update({
+            "fill_price": str(self.fill_price),
+            "fill_base_amount": str(self.fill_base_amount),
+            "fill_quote_amount": str(self.fill_quote_amount),
+            "fee": self.fee.to_json(),
+        })
         return json_dict
 
 
@@ -94,18 +92,18 @@ class InFlightOrder:
     _logger: Optional[HummingbotLogger] = None
 
     def __init__(
-        self,
-        client_order_id: str,
-        trading_pair: str,
-        order_type: OrderType,
-        trade_type: TradeType,
-        amount: Decimal,
-        creation_timestamp: float,
-        price: Optional[Decimal] = None,
-        exchange_order_id: Optional[str] = None,
-        initial_state: OrderState = OrderState.PENDING_CREATE,
-        leverage: int = 1,
-        position: PositionAction = PositionAction.NIL,
+            self,
+            client_order_id: str,
+            trading_pair: str,
+            order_type: OrderType,
+            trade_type: TradeType,
+            amount: Decimal,
+            creation_timestamp: float,
+            price: Optional[Decimal] = None,
+            exchange_order_id: Optional[str] = None,
+            initial_state: OrderState = OrderState.PENDING_CREATE,
+            leverage: int = 1,
+            position: PositionAction = PositionAction.NIL,
     ) -> None:
         self.client_order_id = client_order_id
         self.creation_timestamp = creation_timestamp
@@ -185,8 +183,7 @@ class InFlightOrder:
             OrderState.PENDING_CREATE,
             OrderState.OPEN,
             OrderState.PARTIALLY_FILLED,
-            OrderState.PENDING_CANCEL,
-        }
+            OrderState.PENDING_CANCEL}
 
     @property
     def is_done(self) -> bool:
@@ -198,9 +195,12 @@ class InFlightOrder:
 
     @property
     def is_filled(self) -> bool:
-        return self.current_state == OrderState.FILLED or (
-            self.amount != s_decimal_0
-            and (math.isclose(self.executed_amount_base, self.amount) or self.executed_amount_base >= self.amount)
+        return (
+            self.current_state == OrderState.FILLED
+            or (self.amount != s_decimal_0
+                and (math.isclose(self.executed_amount_base, self.amount)
+                     or self.executed_amount_base >= self.amount)
+                )
         )
 
     @property
@@ -240,13 +240,13 @@ class InFlightOrder:
             initial_state=OrderState(int(data["last_state"])),
             leverage=int(data["leverage"]),
             position=PositionAction(data["position"]),
-            creation_timestamp=data.get("creation_timestamp", -1),
+            creation_timestamp=data.get("creation_timestamp", -1)
         )
         order.executed_amount_base = Decimal(data["executed_amount_base"])
         order.executed_amount_quote = Decimal(data["executed_amount_quote"])
-        order.order_fills.update(
-            {key: TradeUpdate.from_json(value) for key, value in data.get("order_fills", {}).items()}
-        )
+        order.order_fills.update({key: TradeUpdate.from_json(value)
+                                  for key, value
+                                  in data.get("order_fills", {}).items()})
         order.last_update_timestamp = data.get("last_update_timestamp", order.creation_timestamp)
 
         order.check_filled_condition()
@@ -293,7 +293,7 @@ class InFlightOrder:
             price=self.price,
             quantity=self.amount,
             filled_quantity=self.executed_amount_base,
-            creation_timestamp=int(self.creation_timestamp * 1e6),
+            creation_timestamp=int(self.creation_timestamp * 1e6)
         )
 
     def update_exchange_order_id(self, exchange_order_id: str):
@@ -306,7 +306,7 @@ class InFlightOrder:
                 await self.exchange_order_id_update_event.wait()
         return self.exchange_order_id
 
-    def cumulative_fee_paid(self, token: str, exchange: Optional["ExchangeBase"] = None) -> Decimal:
+    def cumulative_fee_paid(self, token: str, exchange: Optional['ExchangeBase'] = None) -> Decimal:
         """
         Returns the total amount of fee paid for each trade update, expressed in the specified token
         :param token: The token all partial fills' fees should be transformed to before summing them
@@ -321,7 +321,7 @@ class InFlightOrder:
                     price=trade_update.fill_price,
                     order_amount=trade_update.fill_base_amount,
                     token=token,
-                    exchange=exchange,
+                    exchange=exchange
                 )
         except Exception as e:
             self.logger().error(f"Error calculating fee paid in {token}: {e}")
@@ -332,10 +332,8 @@ class InFlightOrder:
         Updates the in flight order with an order update (from REST API or WS API)
         return: True if the order gets updated otherwise False
         """
-        if (
-            order_update.client_order_id != self.client_order_id
-            and order_update.exchange_order_id != self.exchange_order_id
-        ):
+        if (order_update.client_order_id != self.client_order_id
+                and order_update.exchange_order_id != self.exchange_order_id):
             return False
 
         prev_data = (self.exchange_order_id, self.current_state)
@@ -360,10 +358,9 @@ class InFlightOrder:
         """
         trade_id: str = trade_update.trade_id
 
-        if trade_id in self.order_fills or (
-            self.client_order_id != trade_update.client_order_id
-            and self.exchange_order_id != trade_update.exchange_order_id
-        ):
+        if (trade_id in self.order_fills
+                or (self.client_order_id != trade_update.client_order_id
+                    and self.exchange_order_id != trade_update.exchange_order_id)):
             return False
 
         self.order_fills[trade_id] = trade_update
@@ -377,7 +374,7 @@ class InFlightOrder:
         return True
 
     def check_filled_condition(self):
-        if (abs(self.amount) - self.executed_amount_base).quantize(Decimal("1e-8")) <= 0:
+        if (abs(self.amount) - self.executed_amount_base).quantize(Decimal('1e-8')) <= 0:
             self.completely_filled_event.set()
 
     async def wait_until_completely_filled(self):

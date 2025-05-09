@@ -51,7 +51,9 @@ class HtxExchange(ExchangePyBase):
 
     @property
     def authenticator(self):
-        return HtxAuth(api_key=self.htx_api_key, secret_key=self.htx_secret_key, time_provider=self._time_synchronizer)
+        return HtxAuth(
+            api_key=self.htx_api_key, secret_key=self.htx_secret_key, time_provider=self._time_synchronizer
+        )
 
     @property
     def rate_limits_rules(self):

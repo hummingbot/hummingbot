@@ -41,7 +41,7 @@ class AscendExConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        },
+        }
     )
     ascend_ex_secret_key: SecretStr = Field(
         default=...,
@@ -50,7 +50,7 @@ class AscendExConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        },
+        }
     )
     ascend_ex_group_id: SecretStr = Field(
         default=...,
@@ -59,7 +59,7 @@ class AscendExConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        },
+        }
     )
     model_config = ConfigDict(title="ascend_ex")
 

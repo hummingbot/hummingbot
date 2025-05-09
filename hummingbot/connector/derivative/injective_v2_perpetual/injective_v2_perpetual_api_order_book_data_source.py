@@ -44,10 +44,8 @@ class InjectiveV2PerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
     async def listen_for_subscriptions(self):
         # Subscriptions to streams is handled by the data_source
         # Here we just make sure the data_source is listening to the streams
-        market_ids = [
-            await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-            for trading_pair in self._trading_pairs
-        ]
+        market_ids = [await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+                      for trading_pair in self._trading_pairs]
         await self._data_source.start(market_ids=market_ids)
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
@@ -73,7 +71,9 @@ class InjectiveV2PerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
     def _configure_event_forwarders(self):
         event_forwarder = EventForwarder(to_function=self._process_order_book_event)
         self._forwarders.append(event_forwarder)
-        self._data_source.add_listener(event_tag=OrderBookDataSourceEvent.DIFF_EVENT, listener=event_forwarder)
+        self._data_source.add_listener(
+            event_tag=OrderBookDataSourceEvent.DIFF_EVENT, listener=event_forwarder
+        )
 
         event_forwarder = EventForwarder(to_function=self._process_public_trade_event)
         self._forwarders.append(event_forwarder)

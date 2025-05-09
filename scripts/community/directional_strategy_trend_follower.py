@@ -23,11 +23,7 @@ class TrendFollowingStrategy(DirectionalStrategyBase):
     take_profit_order_type: OrderType = OrderType.MARKET
     trailing_stop_activation_delta = 0.01
     trailing_stop_trailing_delta = 0.003
-    candles = [
-        CandlesFactory.get_candle(
-            CandlesConfig(connector=exchange, trading_pair=trading_pair, interval="3m", max_records=1000)
-        )
-    ]
+    candles = [CandlesFactory.get_candle(CandlesConfig(connector=exchange, trading_pair=trading_pair, interval="3m", max_records=1000))]
     markets = {exchange: {trading_pair}}
 
     def get_signal(self):

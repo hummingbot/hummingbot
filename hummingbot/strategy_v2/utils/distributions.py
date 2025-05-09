@@ -24,10 +24,7 @@ class Distributions:
         if n_levels == 1:
             return [Decimal(start)]
 
-        return [
-            Decimal(start) + (Decimal(end) - Decimal(start)) * Decimal(i) / (Decimal(n_levels) - 1)
-            for i in range(n_levels)
-        ]
+        return [Decimal(start) + (Decimal(end) - Decimal(start)) * Decimal(i) / (Decimal(n_levels) - 1) for i in range(n_levels)]
 
     @classmethod
     def fibonacci(cls, n_levels: int, start: float = 0.01) -> List[Decimal]:
@@ -61,9 +58,8 @@ class Distributions:
         return fib_sequence[:n_levels]
 
     @classmethod
-    def logarithmic(
-        cls, n_levels: int, base: float = exp(1), scaling_factor: float = 1.0, start: float = 0.4
-    ) -> List[Decimal]:
+    def logarithmic(cls, n_levels: int, base: float = exp(1), scaling_factor: float = 1.0,
+                    start: float = 0.4) -> List[Decimal]:
         """
         Generate a logarithmic sequence of spreads.
 
@@ -109,7 +105,6 @@ class Distributions:
         """
         if ratio <= 1:
             raise ValueError(
-                "Ratio for modified geometric distribution should be greater than 1 for increasing spreads."
-            )
+                "Ratio for modified geometric distribution should be greater than 1 for increasing spreads.")
 
         return [Decimal(start) * Decimal(ratio) ** Decimal(i) for i in range(n_levels)]

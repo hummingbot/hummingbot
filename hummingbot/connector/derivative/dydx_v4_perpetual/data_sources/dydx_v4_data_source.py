@@ -27,11 +27,11 @@ from hummingbot.connector.derivative.dydx_v4_perpetual.data_sources.tx import Si
 class DydxPerpetualV4Client:
 
     def __init__(
-        self,
-        secret_phrase: str,
-        dydx_v4_chain_address: str,
-        connector,
-        subaccount_num=0,
+            self,
+            secret_phrase: str,
+            dydx_v4_chain_address: str,
+            connector,
+            subaccount_num=0,
     ):
         self._private_key = PrivateKey.from_mnemonic(secret_phrase)
         self._dydx_v4_chain_address = dydx_v4_chain_address
@@ -44,36 +44,41 @@ class DydxPerpetualV4Client:
 
         with open(certifi.where(), "rb") as f:
             trusted_certs = f.read()
-        credentials = grpc.ssl_channel_credentials(root_certificates=trusted_certs)
+        credentials = grpc.ssl_channel_credentials(
+            root_certificates=trusted_certs
+        )
 
         host_and_port = CONSTANTS.DYDX_V4_AERIAL_CONFIG_URL
         grpc_client = (
             grpc.aio.secure_channel(host_and_port, credentials)
-            if credentials is not None
-            else grpc.aio.insecure_channel(host_and_port)
+            if credentials is not None else grpc.aio.insecure_channel(host_and_port)
         )
         query_grpc_client = (
             grpc.aio.secure_channel(CONSTANTS.DYDX_V4_QUERY_AERIAL_CONFIG_URL, credentials)
-            if credentials is not None
-            else grpc.aio.insecure_channel(host_and_port)
+            if credentials is not None else grpc.aio.insecure_channel(host_and_port)
         )
         self.stubBank = bank_query_grpc.QueryStub(grpc_client)
         self.auth_client = AuthGrpcClient(query_grpc_client)
         self.txs = TxGrpcClient(grpc_client)
-        self.stubCosmosTendermint = tendermint_query_grpc.ServiceStub(grpc_client)
+        self.stubCosmosTendermint = tendermint_query_grpc.ServiceStub(
+            grpc_client
+        )
 
     @staticmethod
     def calculate_quantums(
-        size: float,
-        atomic_resolution: int,
-        step_base_quantums: int,
+            size: float,
+            atomic_resolution: int,
+            step_base_quantums: int,
     ):
         raw_quantums = size * 10 ** (-1 * atomic_resolution)
         return int(max(raw_quantums, step_base_quantums))
 
     @staticmethod
     def calculate_subticks(
-        price: float, atomic_resolution: int, quantum_conversion_exponent: int, subticks_per_tick: int
+            price: float,
+            atomic_resolution: int,
+            quantum_conversion_exponent: int,
+            subticks_per_tick: int
     ):
         exponent = atomic_resolution - quantum_conversion_exponent - CONSTANTS.QUOTE_QUANTUMS_ATOMIC_RESOLUTION
         raw_subticks = price * 10 ** (exponent)
@@ -108,10 +113,10 @@ class DydxPerpetualV4Client:
         self._is_trading_account_initialized = True
 
     def generate_good_til_fields(
-        self,
-        order_flags: int,
-        good_til_block: int,
-        good_til_time_in_seconds: int,
+            self,
+            order_flags: int,
+            good_til_block: int,
+            good_til_time_in_seconds: int,
     ) -> Tuple[int, int]:
         if order_flags == CONSTANTS.ORDER_FLAGS_LONG_TERM:
             return 0, self.calculate_good_til_block_time(good_til_time_in_seconds)
@@ -119,17 +124,19 @@ class DydxPerpetualV4Client:
             return good_til_block, 0
 
     async def latest_block(self) -> tendermint_query.GetLatestBlockResponse:
-        """
+        '''
         Get lastest block
 
         :returns: Response, containing block information
 
-        """
-        return await self.stubCosmosTendermint.GetLatestBlock(tendermint_query.GetLatestBlockRequest())
+        '''
+        return await self.stubCosmosTendermint.GetLatestBlock(
+            tendermint_query.GetLatestBlockRequest()
+        )
 
     async def send_message(
-        self,
-        msg: _message.Message,
+            self,
+            msg: _message.Message,
     ):
         tx = Transaction()
         tx.add_message(msg)
@@ -139,32 +146,38 @@ class DydxPerpetualV4Client:
         )
 
     async def cancel_order(
-        self,
-        client_id: int,
-        clob_pair_id: int,
-        order_flags: int,
-        good_til_block_time: int,
+            self,
+            client_id: int,
+            clob_pair_id: int,
+            order_flags: int,
+            good_til_block_time: int,
     ):
 
         subaccount_id = SubaccountId(owner=self._dydx_v4_chain_address, number=self._subaccount_num)
         order_id = OrderId(
-            subaccount_id=subaccount_id, client_id=client_id, order_flags=order_flags, clob_pair_id=int(clob_pair_id)
+            subaccount_id=subaccount_id,
+            client_id=client_id,
+            order_flags=order_flags,
+            clob_pair_id=int(clob_pair_id)
         )
-        msg = MsgCancelOrder(order_id=order_id, good_til_block_time=good_til_block_time)
+        msg = MsgCancelOrder(
+            order_id=order_id,
+            good_til_block_time=good_til_block_time
+        )
         result = await self.send_message(msg)
         return result
 
     async def place_order(
-        self,
-        market,
-        type,
-        side,
-        price,
-        size,
-        client_id: int,
-        post_only: bool,
-        reduce_only: bool = False,
-        good_til_time_in_seconds: int = 6000,
+            self,
+            market,
+            type,
+            side,
+            price,
+            size,
+            client_id: int,
+            post_only: bool,
+            reduce_only: bool = False,
+            good_til_time_in_seconds: int = 6000,
     ):
 
         clob_pair_id = self._connector._margin_fractions[market]["clob_pair_id"]
@@ -201,34 +214,33 @@ class DydxPerpetualV4Client:
         subaccount_id = SubaccountId(owner=self._dydx_v4_chain_address, number=self._subaccount_num)
 
         order_id = OrderId(
-            subaccount_id=subaccount_id, client_id=client_id, order_flags=order_flags, clob_pair_id=int(clob_pair_id)
+            subaccount_id=subaccount_id,
+            client_id=client_id,
+            order_flags=order_flags,
+            clob_pair_id=int(clob_pair_id)
         )
-        order = (
-            Order(
-                order_id=order_id,
-                side=order_side,
-                quantums=quantums,
-                subticks=subticks,
-                good_til_block=good_til_block,
-                time_in_force=time_in_force,
-                reduce_only=reduce_only,
-                client_metadata=client_metadata,
-                condition_type=condition_type,
-                conditional_order_trigger_subticks=conditional_order_trigger_subticks,
-            )
-            if (good_til_block != 0)
-            else Order(
-                order_id=order_id,
-                side=order_side,
-                quantums=quantums,
-                subticks=subticks,
-                good_til_block_time=good_til_block_time,
-                time_in_force=time_in_force,
-                reduce_only=reduce_only,
-                client_metadata=client_metadata,
-                condition_type=condition_type,
-                conditional_order_trigger_subticks=conditional_order_trigger_subticks,
-            )
+        order = Order(
+            order_id=order_id,
+            side=order_side,
+            quantums=quantums,
+            subticks=subticks,
+            good_til_block=good_til_block,
+            time_in_force=time_in_force,
+            reduce_only=reduce_only,
+            client_metadata=client_metadata,
+            condition_type=condition_type,
+            conditional_order_trigger_subticks=conditional_order_trigger_subticks,
+        ) if (good_til_block != 0) else Order(
+            order_id=order_id,
+            side=order_side,
+            quantums=quantums,
+            subticks=subticks,
+            good_til_block_time=good_til_block_time,
+            time_in_force=time_in_force,
+            reduce_only=reduce_only,
+            client_metadata=client_metadata,
+            condition_type=condition_type,
+            conditional_order_trigger_subticks=conditional_order_trigger_subticks,
         )
         msg = MsgPlaceOrder(order=order)
         return await self.send_message(msg=msg)
@@ -246,9 +258,9 @@ class DydxPerpetualV4Client:
         return account.sequence, account.account_number
 
     async def prepare_and_broadcast_basic_transaction(
-        self,
-        tx: "Transaction",  # type: ignore # noqa: F821
-        memo: Optional[str] = None,
+            self,
+            tx: "Transaction",  # type: ignore # noqa: F821
+            memo: Optional[str] = None,
     ):
         async with self.transaction_lock:
             # query the account information for the sender

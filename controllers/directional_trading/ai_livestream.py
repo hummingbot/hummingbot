@@ -72,8 +72,7 @@ class AILivestreamController(DirectionalTradingControllerBase):
             entry_price=price,
             amount=amount,
             triple_barrier_config=self.config.triple_barrier_config.new_instance_with_adjusted_volatility(
-                volatility_factor=self.processed_data["features"].get("target_pct", 0.01)
-            ),
+                volatility_factor=self.processed_data["features"].get("target_pct", 0.01)),
             leverage=self.config.leverage,
         )
 

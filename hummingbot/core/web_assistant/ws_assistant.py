@@ -47,8 +47,7 @@ class WSAssistant:
             ws_headers=ws_headers,
             ping_timeout=ping_timeout,
             message_timeout=message_timeout,
-            max_msg_size=max_msg_size,
-        )
+            max_msg_size=max_msg_size)
 
     async def disconnect(self):
         await self._connection.disconnect()

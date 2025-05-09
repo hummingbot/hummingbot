@@ -55,9 +55,8 @@ class OkxPerpetualDerivativeTests(
 
     @property
     def latest_prices_url(self):
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION[CONSTANTS.ENDPOINT],
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
@@ -144,7 +143,7 @@ class OkxPerpetualDerivativeTests(
                     "uly": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
                 }
             ],
-            "msg": "",
+            "msg": ""
         }
 
     @property
@@ -173,18 +172,17 @@ class OkxPerpetualDerivativeTests(
                     "state": "live",
                     "stk": "",
                     "tickSz": "0.001",
-                    "uly": "",
+                    "uly": ""
                 },
-            ],
+            ]
         }
 
         return "INVALID-PAIR", response
 
     @property
     def trading_rules_url(self):
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.ENDPOINT],
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
@@ -226,7 +224,7 @@ class OkxPerpetualDerivativeTests(
                     "uly": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
                 }
             ],
-            "msg": "",
+            "msg": ""
         }
         return response
 
@@ -244,9 +242,9 @@ class OkxPerpetualDerivativeTests(
                     "ctValCcy": self.base_asset,
                     "settleCcy": "",
                     "ctType": "linear",
-                    "state": "live",
+                    "state": "live"
                 }
-            ],
+            ]
         }
         return response
 
@@ -274,9 +272,10 @@ class OkxPerpetualDerivativeTests(
         self._simulate_trading_rules_initialized()
         self.run_async_with_timeout(self.exchange._format_trading_rules(mocked_response))
 
-        self.assertTrue(
-            self._is_logged("ERROR", f"Error parsing the trading pair rule: {mocked_response['data'][0]}. Skipping...")
-        )
+        self.assertTrue(self._is_logged(
+            "ERROR",
+            f"Error parsing the trading pair rule: {mocked_response['data'][0]}. Skipping..."
+        ))
 
     @property
     def latest_prices_request_mock_response(self):
@@ -300,14 +299,22 @@ class OkxPerpetualDerivativeTests(
                     "vol24h": "2222",
                     "sodUtc0": "2222",
                     "sodUtc8": "2222",
-                    "ts": "1597026383085",
+                    "ts": "1597026383085"
                 }
-            ],
+            ]
         }
 
     @property
     def network_status_request_successful_mock_response(self):
-        return {"code": "0", "msg": "", "data": [{"ts": "1597026383085"}]}
+        return {
+            "code": "0",
+            "msg": "",
+            "data": [
+                {
+                    "ts": "1597026383085"
+                }
+            ]
+        }
 
     @property
     def order_creation_request_successful_mock_response(self):
@@ -315,8 +322,14 @@ class OkxPerpetualDerivativeTests(
             "code": "0",
             "msg": "",
             "data": [
-                {"clOrdId": "oktswap6", "ordId": self.expected_exchange_order_id, "tag": "", "sCode": "0", "sMsg": ""}
-            ],
+                {
+                    "clOrdId": "oktswap6",
+                    "ordId": self.expected_exchange_order_id,
+                    "tag": "",
+                    "sCode": "0",
+                    "sMsg": ""
+                }
+            ]
         }
 
     @property
@@ -350,7 +363,7 @@ class OkxPerpetualDerivativeTests(
                             "uTime": "1620722938250",
                             "upl": "0",
                             "uplLiab": "0",
-                            "stgyEq": "0",
+                            "stgyEq": "0"
                         },
                         {
                             "availBal": "",
@@ -375,8 +388,8 @@ class OkxPerpetualDerivativeTests(
                             "uTime": "1620722938250",
                             "upl": "0.570822125136023",
                             "uplLiab": "0",
-                            "stgyEq": "0",
-                        },
+                            "stgyEq": "0"
+                        }
                     ],
                     "imr": "3372.2942371050594217",
                     "isoEq": "0",
@@ -385,9 +398,9 @@ class OkxPerpetualDerivativeTests(
                     "notionalUsd": "33722.9423710505978888",
                     "ordFroz": "0",
                     "totalEq": "11172992.1657531589092577",
-                    "uTime": "1623392334718",
+                    "uTime": "1623392334718"
                 }
-            ],
+            ]
         }
 
     @property
@@ -421,7 +434,7 @@ class OkxPerpetualDerivativeTests(
                             "uTime": "1620722938250",
                             "upl": "0",
                             "uplLiab": "0",
-                            "stgyEq": "0",
+                            "stgyEq": "0"
                         },
                     ],
                     "imr": "3372.2942371050594217",
@@ -431,16 +444,19 @@ class OkxPerpetualDerivativeTests(
                     "notionalUsd": "33722.9423710505978888",
                     "ordFroz": "0",
                     "totalEq": "11172992.1657531589092577",
-                    "uTime": "1623392334718",
+                    "uTime": "1623392334718"
                 }
             ],
-            "msg": "",
+            "msg": ""
         }
 
     @property
     def balance_event_websocket_update(self):
         return {
-            "arg": {"channel": "account", "ccy": "BTC"},
+            "arg": {
+                "channel": "account",
+                "ccy": "BTC"
+            },
             "data": [
                 {
                     "uTime": "1597026383085",
@@ -476,11 +492,11 @@ class OkxPerpetualDerivativeTests(
                             "isoLiab": "0",
                             "coinUsdPrice": "60000",
                             "stgyEq": "0",
-                            "isoUpl": "",
+                            "isoUpl": ""
                         }
-                    ],
+                    ]
                 }
-            ],
+            ]
         }
 
     @property
@@ -520,8 +536,8 @@ class OkxPerpetualDerivativeTests(
     @property
     def expected_fill_fee(self) -> TradeFeeBase:
         return AddedToCostTradeFee(
-            percent_token=self.quote_asset, flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("30"))]
-        )
+            percent_token=self.quote_asset,
+            flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("30"))])
 
     @property
     def expected_fill_trade_id(self) -> str:
@@ -551,7 +567,9 @@ class OkxPerpetualDerivativeTests(
         return exchange
 
     def _simulate_contract_sizes_initialized(self):
-        self.exchange._contract_sizes = {self.trading_pair: Decimal("1")}
+        self.exchange._contract_sizes = {
+            self.trading_pair: Decimal("1")
+        }
 
     def _format_amount_to_size(self, amount: Decimal) -> Decimal:
         self._simulate_contract_sizes_initialized()
@@ -563,7 +581,11 @@ class OkxPerpetualDerivativeTests(
 
     @property
     def empty_funding_payment_mock_response(self):
-        return {"code": "0", "msg": "", "data": []}
+        return {
+            "code": "0",
+            "msg": "",
+            "data": []
+        }
 
     @property
     def funding_payment_mock_response(self):
@@ -603,9 +625,9 @@ class OkxPerpetualDerivativeTests(
                     "to": "",
                     "tradeId": "586760148",
                     "ts": str(self.target_funding_payment_timestamp),
-                    "type": CONSTANTS.FUNDING_PAYMENT_TYPE,
+                    "type": CONSTANTS.FUNDING_PAYMENT_TYPE
                 }
-            ],
+            ]
         }
 
     @property
@@ -626,10 +648,10 @@ class OkxPerpetualDerivativeTests(
                     "settFundingRate": "0.0001418433662153",
                     "settState": "settled",
                     # TODO: Check if use with target_funding_info_next_funding_utc_str
-                    "ts": "1703070685309",
+                    "ts": "1703070685309"
                 }
             ],
-            "msg": "",
+            "msg": ""
         }
 
     @property
@@ -637,16 +659,16 @@ class OkxPerpetualDerivativeTests(
         return {
             "arg": {
                 "channel": "mark-price",
-                "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset)
             },
             "data": [
                 {
                     "instType": "SWAP",
                     "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
                     "markPx": "2",
-                    "ts": "1597026383085",
+                    "ts": "1597026383085"
                 }
-            ],
+            ]
         }
 
     @property
@@ -654,7 +676,7 @@ class OkxPerpetualDerivativeTests(
         return {
             "arg": {
                 "channel": "index-tickers",
-                "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset)
             },
             "data": [
                 {
@@ -665,9 +687,9 @@ class OkxPerpetualDerivativeTests(
                     "open24h": "0.1",
                     "sodUtc0": "0.1",
                     "sodUtc8": "0.1",
-                    "ts": "1597026383085",
+                    "ts": "1597026383085"
                 }
-            ],
+            ]
         }
 
     @property
@@ -680,27 +702,25 @@ class OkxPerpetualDerivativeTests(
 
     @property
     def target_funding_info_next_funding_utc_str(self):
-        datetime_str = (
-            str(pd.Timestamp.utcfromtimestamp(self.target_funding_info_next_funding_utc_timestamp)).replace(" ", "T")
-            + "Z"
-        )
+        datetime_str = str(
+            pd.Timestamp.utcfromtimestamp(
+                self.target_funding_info_next_funding_utc_timestamp)
+        ).replace(" ", "T") + "Z"
         return datetime_str
 
     @property
     def target_funding_info_next_funding_utc_str_ws_updated(self):
-        datetime_str = (
-            str(pd.Timestamp.utcfromtimestamp(self.target_funding_info_next_funding_utc_timestamp_ws_updated)).replace(
-                " ", "T"
-            )
-            + "Z"
-        )
+        datetime_str = str(
+            pd.Timestamp.utcfromtimestamp(
+                self.target_funding_info_next_funding_utc_timestamp_ws_updated)
+        ).replace(" ", "T") + "Z"
         return datetime_str
 
     @property
     def target_funding_payment_timestamp_str(self):
-        datetime_str = pd.Timestamp.fromtimestamp(self.target_funding_payment_timestamp, tz="UTC").strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
+        datetime_str = pd.Timestamp.fromtimestamp(
+            self.target_funding_payment_timestamp, tz='UTC'
+        ).strftime('%Y-%m-%dT%H:%M:%SZ')
         return datetime_str
 
     @property
@@ -719,7 +739,8 @@ class OkxPerpetualDerivativeTests(
     def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
         self._simulate_trading_rules_initialized()
         request_data = json.loads(request_call.kwargs["data"])
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset), request_data["instId"])
+        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                         request_data["instId"])
         self.assertEqual("cross", request_data["tdMode"])
         self.assertEqual(order.trade_type.name.lower(), request_data["side"])
         self.assertEqual(order.order_type.name.lower(), request_data["ordType"])
@@ -729,12 +750,14 @@ class OkxPerpetualDerivativeTests(
 
     def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = json.loads(request_call.kwargs["data"])
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset), request_data["instId"])
+        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                         request_data["instId"])
         self.assertEqual(order.client_order_id, request_data["clOrdId"])
 
     def validate_order_status_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset), request_params["instId"])
+        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                         request_params["instId"])
         self.assertEqual(order.client_order_id, request_params["clOrdId"])
 
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
@@ -776,9 +799,9 @@ class OkxPerpetualDerivativeTests(
                     "clOrdId": order.client_order_id,
                     "ordId": order.exchange_order_id or "dummyExchangeOrderId",
                     "sCode": "1",
-                    "sMsg": "Error",
+                    "sMsg": "Error"
                 }
-            ],
+            ]
         }
         mock_api.post(regex_url, body=json.dumps(response), callback=callback)
         return url
@@ -800,24 +823,27 @@ class OkxPerpetualDerivativeTests(
         return all_urls
 
     def configure_order_not_found_error_cancelation_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         # Implement the expected not found response when enabling test_cancel_order_not_found_in_the_exchange
         raise NotImplementedError
 
     def configure_order_not_found_error_order_status_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
         # Implement the expected not found response when enabling
         # test_lost_order_removed_if_not_found_during_order_status_update
         raise NotImplementedError
 
     def configure_completely_filled_order_status_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> str:
-        url = web_utils.get_rest_url_for_endpoint(
-            CONSTANTS.REST_QUERY_ACTIVE_ORDER[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
-        )
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.get_rest_url_for_endpoint(CONSTANTS.REST_QUERY_ACTIVE_ORDER[CONSTANTS.ENDPOINT],
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_status_request_completely_filled_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
@@ -926,7 +952,15 @@ class OkxPerpetualDerivativeTests(
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ):
         url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_SET_POSITION_MODE[CONSTANTS.ENDPOINT])
-        response = {"code": "0", "data": [{"posMode": "long_short_mode"}], "msg": ""}
+        response = {
+            "code": "0",
+            "data": [
+                {
+                    "posMode": "long_short_mode"
+                }
+            ],
+            "msg": ""
+        }
         mock_api.post(url, body=json.dumps(response), callback=callback)
         return url
 
@@ -934,16 +968,19 @@ class OkxPerpetualDerivativeTests(
         self,
         position_mode: PositionMode,
         mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+        callback: Optional[Callable] = lambda *args, **kwargs: None
     ):
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.REST_SET_POSITION_MODE[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_SET_POSITION_MODE[CONSTANTS.ENDPOINT],
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
         regex_url = re.compile(f"^{url}")
 
         error_code = 1_000
         error_msg = "Some problem"
-        mock_response = {"code": str(error_code), "data": [], "msg": error_msg}
+        mock_response = {
+            "code": str(error_code),
+            "data": [],
+            "msg": error_msg
+        }
         mock_api.post(regex_url, body=json.dumps(mock_response), callback=callback)
 
         return url, f"ret_code <{error_code}> - {error_msg}"
@@ -961,7 +998,11 @@ class OkxPerpetualDerivativeTests(
 
         err_code = 1
         err_msg = "Some problem"
-        mock_response = {"code": err_code, "data": [], "msg": err_msg}
+        mock_response = {
+            "code": err_code,
+            "data": [],
+            "msg": err_msg
+        }
         mock_api.post(regex_url, body=json.dumps(mock_response), callback=callback)
 
         return url, f"ret_code <{err_code}> - {err_msg}"
@@ -984,10 +1025,10 @@ class OkxPerpetualDerivativeTests(
                     "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
                     "lever": "5",
                     "mgnMode": "isolated",
-                    "posSide": "long",
+                    "posSide": "long"
                 }
             ],
-            "msg": "",
+            "msg": ""
         }
 
         mock_api.post(regex_url, body=json.dumps(mock_response), callback=callback)
@@ -1001,7 +1042,7 @@ class OkxPerpetualDerivativeTests(
                 "channel": "orders",
                 "uid": "77982378738415879",
                 "instType": "SWAP",
-                "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
+                "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset)
             },
             "data": [
                 {
@@ -1049,9 +1090,9 @@ class OkxPerpetualDerivativeTests(
                     "reqId": "",
                     "amendResult": "",
                     "code": "0",
-                    "msg": "",
+                    "msg": ""
                 }
-            ],
+            ]
         }
 
     def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
@@ -1061,7 +1102,7 @@ class OkxPerpetualDerivativeTests(
                 "channel": "orders",
                 "uid": "77982378738415879",
                 "instType": "SWAP",
-                "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
+                "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset)
             },
             "data": [
                 {
@@ -1108,9 +1149,9 @@ class OkxPerpetualDerivativeTests(
                     "reqId": "",
                     "amendResult": "",
                     "code": "0",
-                    "msg": "",
+                    "msg": ""
                 }
-            ],
+            ]
         }
 
     def order_event_for_full_fill_websocket_update(self, order: InFlightOrder):
@@ -1120,7 +1161,7 @@ class OkxPerpetualDerivativeTests(
                 "channel": "orders",
                 "uid": "77982378738415879",
                 "instType": "SWAP",
-                "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
+                "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset)
             },
             "data": [
                 {
@@ -1135,12 +1176,8 @@ class OkxPerpetualDerivativeTests(
                     "notionalUsd": "",
                     "ordType": "limit",
                     "side": order.trade_type.name.lower(),
-                    "posSide": (
-                        "short"
-                        if (order.trade_type == TradeType.SELL and order.position == PositionAction.OPEN)
-                        or (order.trade_type == TradeType.BUY and order.position == PositionAction.CLOSE)
-                        else "long"
-                    ),
+                    "posSide": "short" if (order.trade_type == TradeType.SELL and order.position == PositionAction.OPEN)
+                    or (order.trade_type == TradeType.BUY and order.position == PositionAction.CLOSE) else "long",
                     "tdMode": "cross",
                     "tgtCcy": "",
                     "fillSz": self._format_amount_to_size(Decimal(order.amount)),
@@ -1173,9 +1210,9 @@ class OkxPerpetualDerivativeTests(
                     "reqId": "",
                     "amendResult": "",
                     "code": "0",
-                    "msg": "",
+                    "msg": ""
                 }
-            ],
+            ]
         }
 
     @aioresponses()
@@ -1204,10 +1241,8 @@ class OkxPerpetualDerivativeTests(
             self.assertIsInstance(data, dict, "Parsed response is not a dictionary")
 
             # Assert that each parsed response has 'ts', 'tradeId', 'fillSz', and 'fillPx' keys
-            self.assertTrue(
-                all(key in data for key in ["ts", "tradeId", "fillSz", "fillPx"]),
-                "Parsed response does not contain expected keys",
-            )
+            self.assertTrue(all(key in data for key in ["ts", "tradeId", "fillSz", "fillPx"]),
+                            "Parsed response does not contain expected keys")
 
             # Assert that amount is not None and is a Decimal
             self.assertIsNotNone(amount, "Amount is None")
@@ -1242,10 +1277,8 @@ class OkxPerpetualDerivativeTests(
             self.assertIsInstance(data, dict, "Parsed response is not a dictionary")
 
             # Assert that each parsed response has 'instId', 'upl', 'avgPx', and 'lever' keys
-            self.assertTrue(
-                all(key in data for key in ["instId", "upl", "avgPx", "lever"]),
-                "Parsed response does not contain expected keys",
-            )
+            self.assertTrue(all(key in data for key in ["instId", "upl", "avgPx", "lever"]),
+                            "Parsed response does not contain expected keys")
 
             # Assert that amount is not None and is a Decimal
             self.assertIsNotNone(amount, "Amount is None")
@@ -1254,7 +1287,11 @@ class OkxPerpetualDerivativeTests(
     def position_event_for_full_fill_websocket_update(self, order: InFlightOrder, unrealized_pnl: float):
         # position_value = unrealized_pnl + order.amount * order.price * order.leverage
         return {
-            "arg": {"channel": "positions", "uid": order.exchange_order_id, "instType": "SWAP"},
+            "arg": {
+                "channel": "positions",
+                "uid": order.exchange_order_id,
+                "instType": "SWAP"
+            },
             "data": [
                 {
                     "adl": "1",
@@ -1291,12 +1328,8 @@ class OkxPerpetualDerivativeTests(
                     "quoteInterest": "",
                     "posCcy": "",
                     "posId": "307173036051017730",
-                    "posSide": (
-                        "short"
-                        if (order.trade_type == TradeType.SELL and order.position == PositionAction.OPEN)
-                        or (order.trade_type == TradeType.BUY and order.position == PositionAction.CLOSE)
-                        else "long"
-                    ),
+                    "posSide": "short" if (order.trade_type == TradeType.SELL and order.position == PositionAction.OPEN)
+                    or (order.trade_type == TradeType.BUY and order.position == PositionAction.CLOSE) else "long",
                     "spotInUseAmt": "",
                     "bizRefId": "",
                     "bizRefType": "",
@@ -1323,7 +1356,7 @@ class OkxPerpetualDerivativeTests(
                             "slTriggerPxType": "mark",
                             "tpTriggerPx": "123",
                             "tpTriggerPxType": "mark",
-                            "closeFraction": "0.6",
+                            "closeFraction": "0.6"
                         },
                         {
                             "algoId": "123",
@@ -1331,11 +1364,11 @@ class OkxPerpetualDerivativeTests(
                             "slTriggerPxType": "mark",
                             "tpTriggerPx": "123",
                             "tpTriggerPxType": "mark",
-                            "closeFraction": "0.4",
-                        },
-                    ],
+                            "closeFraction": "0.4"
+                        }
+                    ]
                 }
-            ],
+            ]
         }
 
     def funding_info_event_for_websocket_update(self):
@@ -1357,9 +1390,9 @@ class OkxPerpetualDerivativeTests(
                     "nextFundingTime": "1700755200000",
                     "settFundingRate": "0.0001699799259033",
                     "settState": "settled",
-                    "ts": "1700724675402",
+                    "ts": "1700724675402"
                 }
-            ],
+            ]
         }
 
     def mark_price_event_for_websocket_update(self):
@@ -1373,9 +1406,9 @@ class OkxPerpetualDerivativeTests(
                     "instType": "SWAP",
                     "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
                     "markPx": "0.1",
-                    "ts": "1597026383085",
+                    "ts": "1597026383085"
                 }
-            ],
+            ]
         }
 
     def index_price_event_for_websocket_update(self):
@@ -1393,9 +1426,9 @@ class OkxPerpetualDerivativeTests(
                     "open24h": "0.1",
                     "sodUtc0": "0.1",
                     "sodUtc8": "0.1",
-                    "ts": "1597026383085",
+                    "ts": "1597026383085"
                 }
-            ],
+            ]
         }
 
     def test_create_order_with_invalid_position_action_raises_value_error(self):
@@ -1416,7 +1449,7 @@ class OkxPerpetualDerivativeTests(
 
         self.assertEqual(
             f"Invalid position action {PositionAction.NIL}. Must be one of {[PositionAction.OPEN, PositionAction.CLOSE]}",
-            str(exception_context.exception),
+            str(exception_context.exception)
         )
 
     @aioresponses()
@@ -1484,16 +1517,12 @@ class OkxPerpetualDerivativeTests(
         self.assertEqual(self.quote_asset, linear_sell_collateral_token)
 
     def test_time_synchronizer_related_request_error_detection(self):
-        exception = IOError(
-            "Error executing request POST https://okx.com/api/v5/order. HTTP status is 401. "
-            'Error: {"code":"50113","msg":"message"}'
-        )
+        exception = IOError("Error executing request POST https://okx.com/api/v5/order. HTTP status is 401. "
+                            'Error: {"code":"50113","msg":"message"}')
         self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
-        exception = IOError(
-            "Error executing request POST https://okx.com/api/v5/order. HTTP status is 401. "
-            'Error: {"code":"50114","msg":"message"}'
-        )
+        exception = IOError("Error executing request POST https://okx.com/api/v5/order. HTTP status is 401. "
+                            'Error: {"code":"50114","msg":"message"}')
         self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
     @aioresponses()
@@ -1524,7 +1553,9 @@ class OkxPerpetualDerivativeTests(
         self.assertEqual(self.trading_pair, funding_info.trading_pair)
         self.assertEqual(self.target_funding_info_index_price, funding_info.index_price)
         self.assertEqual(self.target_funding_info_mark_price, funding_info.mark_price)
-        self.assertEqual(self.target_funding_info_next_funding_utc_timestamp, funding_info.next_funding_utc_timestamp)
+        self.assertEqual(
+            self.target_funding_info_next_funding_utc_timestamp, funding_info.next_funding_utc_timestamp
+        )
         self.assertEqual(self.target_funding_info_rate, funding_info.rate)
 
     @aioresponses()
@@ -1548,7 +1579,8 @@ class OkxPerpetualDerivativeTests(
         mock_queue_get.side_effect = event_messages
 
         try:
-            self.run_async_with_timeout(self.exchange._listen_for_funding_info())
+            self.run_async_with_timeout(
+                self.exchange._listen_for_funding_info())
         except asyncio.CancelledError:
             pass
 
@@ -1576,9 +1608,9 @@ class OkxPerpetualDerivativeTests(
                     "clOrdId": order.client_order_id,
                     "ordId": order.exchange_order_id or "dummyOrdId",
                     "sCode": str(response_scode),
-                    "sMsg": "",
+                    "sMsg": ""
                 }
-            ],
+            ]
         }
 
     def _order_status_request_completely_filled_mock_response(self, order: InFlightOrder) -> Any:
@@ -1599,12 +1631,8 @@ class OkxPerpetualDerivativeTests(
                     "pnl": "5",
                     "ordType": "limit",
                     "side": order.trade_type.name.lower(),
-                    "posSide": (
-                        "short"
-                        if (order.trade_type == TradeType.SELL and order.position == PositionAction.OPEN)
-                        or (order.trade_type == TradeType.BUY and order.position == PositionAction.CLOSE)
-                        else "long"
-                    ),
+                    "posSide": "short" if (order.trade_type == TradeType.SELL and order.position == PositionAction.OPEN)
+                    or (order.trade_type == TradeType.BUY and order.position == PositionAction.CLOSE) else "long",
                     "tdMode": "cross",
                     "accFillSz": "0",
                     "fillPx": str(order.price),
@@ -1627,9 +1655,9 @@ class OkxPerpetualDerivativeTests(
                     "tgtCcy": "",
                     "category": "",
                     "uTime": "1597026383085",
-                    "cTime": "1597026383085",
+                    "cTime": "1597026383085"
                 }
-            ],
+            ]
         }
 
     def _order_status_request_canceled_mock_response(self, order: InFlightOrder) -> Any:
@@ -1671,18 +1699,14 @@ class OkxPerpetualDerivativeTests(
                     "fillPx": str(self.expected_partial_fill_price),
                     "fillSz": str(self._format_amount_to_size(self.expected_partial_fill_amount)),
                     "side": order.order_type.name.lower(),
-                    "posSide": (
-                        "short"
-                        if (order.trade_type == TradeType.SELL and order.position == PositionAction.OPEN)
-                        or (order.trade_type == TradeType.BUY and order.position == PositionAction.CLOSE)
-                        else "long"
-                    ),
+                    "posSide": "short" if (order.trade_type == TradeType.SELL and order.position == PositionAction.OPEN)
+                    or (order.trade_type == TradeType.BUY and order.position == PositionAction.CLOSE) else "long",
                     "execType": "M",
                     "feeCcy": self.expected_fill_fee.flat_fees[0].token,
                     "fee": str(-self.expected_fill_fee.flat_fees[0].amount),
-                    "ts": "1597026383085",
+                    "ts": "1597026383085"
                 },
-            ],
+            ]
         }
 
     def _order_fills_request_full_fill_mock_response(self, order: InFlightOrder):
@@ -1702,18 +1726,14 @@ class OkxPerpetualDerivativeTests(
                     "fillPx": str(order.price),
                     "fillSz": str(self._format_amount_to_size(Decimal(order.amount))),
                     "side": order.order_type.name.lower(),
-                    "posSide": (
-                        "short"
-                        if (order.trade_type == TradeType.SELL and order.position == PositionAction.OPEN)
-                        or (order.trade_type == TradeType.BUY and order.position == PositionAction.CLOSE)
-                        else "long"
-                    ),
+                    "posSide": "short" if (order.trade_type == TradeType.SELL and order.position == PositionAction.OPEN)
+                    or (order.trade_type == TradeType.BUY and order.position == PositionAction.CLOSE) else "long",
                     "execType": "M",
                     "feeCcy": self.expected_fill_fee.flat_fees[0].token,
                     "fee": str(-self.expected_fill_fee.flat_fees[0].amount),
-                    "ts": "1597026383085",
+                    "ts": "1597026383085"
                 },
-            ],
+            ]
         }
 
     @aioresponses()
@@ -1739,15 +1759,16 @@ class OkxPerpetualDerivativeTests(
                 order=order,
                 mock_api=mock_api,
                 response_scode=response_scode,
-                callback=lambda *args, **kwargs: request_sent_event.set(),
-            )
+                callback=lambda *args, **kwargs: request_sent_event.set())
 
             self.exchange.cancel(trading_pair=order.trading_pair, client_order_id=order.client_order_id)
             self.run_async_with_timeout(request_sent_event.wait())
 
             cancel_request = self._all_executed_requests(mock_api, url)[0]
             self.validate_auth_credentials_present(cancel_request)
-            self.validate_order_cancelation_request(order=order, request_call=cancel_request)
+            self.validate_order_cancelation_request(
+                order=order,
+                request_call=cancel_request)
 
             if self.exchange.is_cancel_request_in_exchange_synchronous:
                 self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
@@ -1756,7 +1777,12 @@ class OkxPerpetualDerivativeTests(
                 self.assertEqual(self.exchange.current_timestamp, cancel_event.timestamp)
                 self.assertEqual(order.client_order_id, cancel_event.order_id)
 
-                self.assertTrue(self.is_logged("INFO", f"Successfully canceled order {order.client_order_id}."))
+                self.assertTrue(
+                    self.is_logged(
+                        "INFO",
+                        f"Successfully canceled order {order.client_order_id}."
+                    )
+                )
             else:
                 self.assertIn(order.client_order_id, self.exchange.in_flight_orders)
                 self.assertTrue(order.is_pending_cancel_confirmation)
@@ -1783,14 +1809,14 @@ class OkxPerpetualDerivativeTests(
 
         for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
             self.run_async_with_timeout(
-                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id)
-            )
+                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id))
 
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
 
         url = self.configure_erroneous_cancelation_response(
-            order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
-        )
+            order=order,
+            mock_api=mock_api,
+            callback=lambda *args, **kwargs: request_sent_event.set())
 
         self.run_async_with_timeout(self.exchange._cancel_lost_orders())
         self.run_async_with_timeout(request_sent_event.wait())
@@ -1798,12 +1824,17 @@ class OkxPerpetualDerivativeTests(
         if url:
             cancel_request = self._all_executed_requests(mock_api, url)[0]
             self.validate_auth_credentials_present(cancel_request)
-            self.validate_order_cancelation_request(order=order, request_call=cancel_request)
+            self.validate_order_cancelation_request(
+                order=order,
+                request_call=cancel_request)
 
         self.assertIn(order.client_order_id, self.exchange._order_tracker.lost_orders)
         self.assertEqual(0, len(self.order_cancelled_logger.event_log))
         self.assertTrue(
-            any(log.msg.startswith(f"Failed to cancel order {order.client_order_id}") for log in self.log_records)
+            any(
+                log.msg.startswith(f"Failed to cancel order {order.client_order_id}")
+                for log in self.log_records
+            )
         )
 
     @aioresponses()
@@ -1826,14 +1857,14 @@ class OkxPerpetualDerivativeTests(
 
         for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
             self.run_async_with_timeout(
-                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id)
-            )
+                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id))
 
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
 
         url = self.configure_successful_cancelation_response(
-            order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
-        )
+            order=order,
+            mock_api=mock_api,
+            callback=lambda *args, **kwargs: request_sent_event.set())
 
         self.run_async_with_timeout(self.exchange._cancel_lost_orders())
         self.run_async_with_timeout(request_sent_event.wait())
@@ -1841,7 +1872,9 @@ class OkxPerpetualDerivativeTests(
         if url:
             cancel_request = self._all_executed_requests(mock_api, url)[0]
             self.validate_auth_credentials_present(cancel_request)
-            self.validate_order_cancelation_request(order=order, request_call=cancel_request)
+            self.validate_order_cancelation_request(
+                order=order,
+                request_call=cancel_request)
 
         if self.exchange.is_cancel_request_in_exchange_synchronous:
             self.assertNotIn(order.client_order_id, self.exchange._order_tracker.lost_orders)
@@ -1871,8 +1904,9 @@ class OkxPerpetualDerivativeTests(
         order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
         url = self.configure_erroneous_cancelation_response(
-            order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
-        )
+            order=order,
+            mock_api=mock_api,
+            callback=lambda *args, **kwargs: request_sent_event.set())
 
         self.exchange.cancel(trading_pair=self.trading_pair, client_order_id=self.client_order_id_prefix + "1")
         self.run_async_with_timeout(request_sent_event.wait())
@@ -1880,11 +1914,16 @@ class OkxPerpetualDerivativeTests(
         if url != "":
             cancel_request = self._all_executed_requests(mock_api, url)[0]
             self.validate_auth_credentials_present(cancel_request)
-            self.validate_order_cancelation_request(order=order, request_call=cancel_request)
+            self.validate_order_cancelation_request(
+                order=order,
+                request_call=cancel_request)
 
         self.assertEqual(0, len(self.order_cancelled_logger.event_log))
         self.assertTrue(
-            any(log.msg.startswith(f"Failed to cancel order {order.client_order_id}") for log in self.log_records)
+            any(
+                log.msg.startswith(f"Failed to cancel order {order.client_order_id}")
+                for log in self.log_records
+            )
         )
 
     @aioresponses()
@@ -1918,8 +1957,9 @@ class OkxPerpetualDerivativeTests(
         order2 = self.exchange.in_flight_orders["12"]
 
         urls = self.configure_one_successful_one_erroneous_cancel_all_response(
-            successful_order=order1, erroneous_order=order2, mock_api=mock_api
-        )
+            successful_order=order1,
+            erroneous_order=order2,
+            mock_api=mock_api)
 
         cancellation_results = self.run_async_with_timeout(self.exchange.cancel_all(10))
 
@@ -1937,7 +1977,12 @@ class OkxPerpetualDerivativeTests(
             self.assertEqual(self.exchange.current_timestamp, cancel_event.timestamp)
             self.assertEqual(order1.client_order_id, cancel_event.order_id)
 
-            self.assertTrue(self.is_logged("INFO", f"Successfully canceled order {order1.client_order_id}."))
+            self.assertTrue(
+                self.is_logged(
+                    "INFO",
+                    f"Successfully canceled order {order1.client_order_id}."
+                )
+            )
 
     @aioresponses()
     def test_create_order_fails_and_raises_failure_event(self, mock_api):
@@ -1946,7 +1991,9 @@ class OkxPerpetualDerivativeTests(
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
         url = self.order_creation_url
-        mock_api.post(url, status=400, callback=lambda *args, **kwargs: request_sent_event.set())
+        mock_api.post(url,
+                      status=400,
+                      callback=lambda *args, **kwargs: request_sent_event.set())
 
         order_id = self.place_buy_order()
         self.run_async_with_timeout(request_sent_event.wait())
@@ -1961,9 +2008,11 @@ class OkxPerpetualDerivativeTests(
             trade_type=TradeType.BUY,
             amount=Decimal("100"),
             creation_timestamp=self.exchange.current_timestamp,
-            price=Decimal("10000"),
+            price=Decimal("10000")
         )
-        self.validate_order_creation_request(order=order_to_validate_request, request_call=order_request)
+        self.validate_order_creation_request(
+            order=order_to_validate_request,
+            request_call=order_request)
 
         self.assertEqual(0, len(self.buy_order_created_logger.event_log))
         failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
@@ -1976,7 +2025,7 @@ class OkxPerpetualDerivativeTests(
                 "INFO",
                 f"Order {order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)",
+                f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)"
             )
         )
 
@@ -1998,19 +2047,20 @@ class OkxPerpetualDerivativeTests(
 
         for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
             self.run_async_with_timeout(
-                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id)
-            )
+                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id))
 
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
 
         self.configure_completely_filled_order_status_response(
-            order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
-        )
+            order=order,
+            mock_api=mock_api,
+            callback=lambda *args, **kwargs: request_sent_event.set())
 
         if self.is_order_fill_http_update_included_in_status_update:
             trade_url = self.configure_full_fill_trade_response(
-                order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
-            )
+                order=order,
+                mock_api=mock_api,
+                callback=lambda *args, **kwargs: request_sent_event.set())
         else:
             # If the fill events will not be requested with the order status, we need to manually set the event
             # to allow the ClientOrderTracker to process the last status update
@@ -2029,7 +2079,9 @@ class OkxPerpetualDerivativeTests(
             if trade_url:
                 trades_request = self._all_executed_requests(mock_api, trade_url)[0]
                 self.validate_auth_credentials_present(trades_request)
-                self.validate_trades_request(order=order, request_call=trades_request)
+                self.validate_trades_request(
+                    order=order,
+                    request_call=trades_request)
 
             fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
             self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
@@ -2043,14 +2095,20 @@ class OkxPerpetualDerivativeTests(
 
         self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
         self.assertIn(order.client_order_id, self.exchange._order_tracker.all_fillable_orders)
-        self.assertFalse(self.is_logged("INFO", f"BUY order {order.client_order_id} completely filled."))
+        self.assertFalse(
+            self.is_logged(
+                "INFO",
+                f"BUY order {order.client_order_id} completely filled."
+            )
+        )
 
         request_sent_event.clear()
 
         # Configure again the response to the order fills request since it is required by lost orders update logic
         self.configure_full_fill_trade_response(
-            order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
-        )
+            order=order,
+            mock_api=mock_api,
+            callback=lambda *args, **kwargs: request_sent_event.set())
 
         self.run_async_with_timeout(self.exchange._update_lost_orders_status())
         # Execute one more synchronization to ensure the async task that processes the update is finished
@@ -2062,7 +2120,12 @@ class OkxPerpetualDerivativeTests(
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
         self.assertNotIn(order.client_order_id, self.exchange._order_tracker.all_fillable_orders)
-        self.assertFalse(self.is_logged("INFO", f"BUY order {order.client_order_id} completely filled."))
+        self.assertFalse(
+            self.is_logged(
+                "INFO",
+                f"BUY order {order.client_order_id} completely filled."
+            )
+        )
 
     @aioresponses()
     def test_update_order_status_when_canceled(self, mock_api):
@@ -2079,11 +2142,13 @@ class OkxPerpetualDerivativeTests(
         )
         order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
-        urls = self.configure_canceled_order_status_response(order=order, mock_api=mock_api)
+        urls = self.configure_canceled_order_status_response(
+            order=order,
+            mock_api=mock_api)
 
         self.run_async_with_timeout(self.exchange._update_order_status())
 
-        for url in urls if isinstance(urls, list) else [urls]:
+        for url in (urls if isinstance(urls, list) else [urls]):
             order_status_request = self._all_executed_requests(mock_api, url)[0]
             self.validate_auth_credentials_present(order_status_request)
             self.validate_order_status_request(order=order, request_call=order_status_request)
@@ -2093,7 +2158,9 @@ class OkxPerpetualDerivativeTests(
         self.assertEqual(order.client_order_id, cancel_event.order_id)
         self.assertEqual(order.exchange_order_id, cancel_event.exchange_order_id)
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
-        self.assertTrue(self.is_logged("INFO", f"Successfully canceled order {order.client_order_id}."))
+        self.assertTrue(
+            self.is_logged("INFO", f"Successfully canceled order {order.client_order_id}.")
+        )
 
     @aioresponses()
     def test_update_order_status_when_filled_correctly_processed_even_when_trade_fill_update_fails(self, mock_api):
@@ -2110,10 +2177,14 @@ class OkxPerpetualDerivativeTests(
         )
         order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
-        urls = self.configure_completely_filled_order_status_response(order=order, mock_api=mock_api)
+        urls = self.configure_completely_filled_order_status_response(
+            order=order,
+            mock_api=mock_api)
 
         if self.is_order_fill_http_update_included_in_status_update:
-            trade_url = self.configure_erroneous_http_fill_trade_response(order=order, mock_api=mock_api)
+            trade_url = self.configure_erroneous_http_fill_trade_response(
+                order=order,
+                mock_api=mock_api)
 
         # Since the trade fill update will fail we need to manually set the event
         # to allow the ClientOrderTracker to process the last status update
@@ -2122,7 +2193,7 @@ class OkxPerpetualDerivativeTests(
         # Execute one more synchronization to ensure the async task that processes the update is finished
         self.run_async_with_timeout(order.wait_until_completely_filled())
 
-        for url in urls if isinstance(urls, list) else [urls]:
+        for url in (urls if isinstance(urls, list) else [urls]):
             order_status_request = self._all_executed_requests(mock_api, url)[0]
             self.validate_auth_credentials_present(order_status_request)
             self.validate_order_status_request(order=order, request_call=order_status_request)
@@ -2134,7 +2205,9 @@ class OkxPerpetualDerivativeTests(
             if trade_url:
                 trades_request = self._all_executed_requests(mock_api, trade_url)[0]
                 self.validate_auth_credentials_present(trades_request)
-                self.validate_trades_request(order=order, request_call=trades_request)
+                self.validate_trades_request(
+                    order=order,
+                    request_call=trades_request)
 
         self.assertEqual(0, len(self.order_filled_logger.event_log))
 
@@ -2148,7 +2221,12 @@ class OkxPerpetualDerivativeTests(
         self.assertEqual(order.order_type, buy_event.order_type)
         self.assertEqual(order.exchange_order_id, buy_event.exchange_order_id)
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
-        self.assertTrue(self.is_logged("INFO", f"BUY order {order.client_order_id} completely filled."))
+        self.assertTrue(
+            self.is_logged(
+                "INFO",
+                f"BUY order {order.client_order_id} completely filled."
+            )
+        )
 
     @aioresponses()
     def test_update_order_status_when_order_has_not_changed(self, mock_api):
@@ -2165,13 +2243,15 @@ class OkxPerpetualDerivativeTests(
         )
         order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
-        urls = self.configure_open_order_status_response(order=order, mock_api=mock_api)
+        urls = self.configure_open_order_status_response(
+            order=order,
+            mock_api=mock_api)
 
         self.assertTrue(order.is_open)
 
         self.run_async_with_timeout(self.exchange._update_order_status())
 
-        for url in urls if isinstance(urls, list) else [urls]:
+        for url in (urls if isinstance(urls, list) else [urls]):
             order_status_request = self._all_executed_requests(mock_api, url)[0]
             self.validate_auth_credentials_present(order_status_request)
             self.validate_order_status_request(order=order, request_call=order_status_request)
@@ -2195,10 +2275,14 @@ class OkxPerpetualDerivativeTests(
         )
         order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
-        order_url = self.configure_partially_filled_order_status_response(order=order, mock_api=mock_api)
+        order_url = self.configure_partially_filled_order_status_response(
+            order=order,
+            mock_api=mock_api)
 
         if self.is_order_fill_http_update_included_in_status_update:
-            trade_url = self.configure_partial_fill_trade_response(order=order, mock_api=mock_api)
+            trade_url = self.configure_partial_fill_trade_response(
+                order=order,
+                mock_api=mock_api)
 
         self.assertTrue(order.is_open)
 
@@ -2207,7 +2291,9 @@ class OkxPerpetualDerivativeTests(
         if order_url:
             order_status_request = self._all_executed_requests(mock_api, order_url)[0]
             self.validate_auth_credentials_present(order_status_request)
-            self.validate_order_status_request(order=order, request_call=order_status_request)
+            self.validate_order_status_request(
+                order=order,
+                request_call=order_status_request)
 
         self.assertTrue(order.is_open)
         self.assertEqual(OrderState.PARTIALLY_FILLED, order.current_state)
@@ -2216,7 +2302,9 @@ class OkxPerpetualDerivativeTests(
             if trade_url:
                 trades_request = self._all_executed_requests(mock_api, trade_url)[0]
                 self.validate_auth_credentials_present(trades_request)
-                self.validate_trades_request(order=order, request_call=trades_request)
+                self.validate_trades_request(
+                    order=order,
+                    request_call=trades_request)
 
             fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
             self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
@@ -2243,14 +2331,18 @@ class OkxPerpetualDerivativeTests(
         )
         order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
-        url = self.configure_http_error_order_status_response(order=order, mock_api=mock_api)
+        url = self.configure_http_error_order_status_response(
+            order=order,
+            mock_api=mock_api)
 
         self.run_async_with_timeout(self.exchange._update_order_status())
 
         if url:
             order_status_request = self._all_executed_requests(mock_api, url)[0]
             self.validate_auth_credentials_present(order_status_request)
-            self.validate_order_status_request(order=order, request_call=order_status_request)
+            self.validate_order_status_request(
+                order=order,
+                request_call=order_status_request)
 
         self.assertTrue(order.is_open)
         self.assertFalse(order.is_filled)
@@ -2269,9 +2361,9 @@ class OkxPerpetualDerivativeTests(
 
         creation_response = self.order_creation_request_successful_mock_response
 
-        mock_api.post(
-            url, body=json.dumps(creation_response), callback=lambda *args, **kwargs: request_sent_event.set()
-        )
+        mock_api.post(url,
+                      body=json.dumps(creation_response),
+                      callback=lambda *args, **kwargs: request_sent_event.set())
         leverage = 4
         self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
         order_id = self.place_buy_order(position_action=PositionAction.CLOSE)
@@ -2280,16 +2372,20 @@ class OkxPerpetualDerivativeTests(
         order_request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(order_request)
         self.assertIn(order_id, self.exchange.in_flight_orders)
-        self.validate_order_creation_request(order=self.exchange.in_flight_orders[order_id], request_call=order_request)
+        self.validate_order_creation_request(
+            order=self.exchange.in_flight_orders[order_id],
+            request_call=order_request)
 
         create_event: BuyOrderCreatedEvent = self.buy_order_created_logger.event_log[0]
-        self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
+        self.assertEqual(self.exchange.current_timestamp,
+                         create_event.timestamp)
         self.assertEqual(self.trading_pair, create_event.trading_pair)
         self.assertEqual(OrderType.LIMIT, create_event.type)
         self.assertEqual(Decimal("100"), create_event.amount)
         self.assertEqual(Decimal("10000"), create_event.price)
         self.assertEqual(order_id, create_event.order_id)
-        self.assertEqual(str(self.expected_exchange_order_id), create_event.exchange_order_id)
+        self.assertEqual(str(self.expected_exchange_order_id),
+                         create_event.exchange_order_id)
         self.assertEqual(leverage, create_event.leverage)
         self.assertEqual(PositionAction.CLOSE.value, create_event.position)
 
@@ -2298,7 +2394,7 @@ class OkxPerpetualDerivativeTests(
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.BUY.name} order {order_id} for "
                 f"{Decimal('100.000000')} to {PositionAction.CLOSE.name} a {self.trading_pair} position "
-                f"at {Decimal('10000.0000')}.",
+                f"at {Decimal('10000.0000')}."
             )
         )
 
@@ -2312,9 +2408,9 @@ class OkxPerpetualDerivativeTests(
         url = self.order_creation_url
         creation_response = self.order_creation_request_successful_mock_response
 
-        mock_api.post(
-            url, body=json.dumps(creation_response), callback=lambda *args, **kwargs: request_sent_event.set()
-        )
+        mock_api.post(url,
+                      body=json.dumps(creation_response),
+                      callback=lambda *args, **kwargs: request_sent_event.set())
         leverage = 5
         self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
         order_id = self.place_sell_order(position_action=PositionAction.CLOSE)
@@ -2323,7 +2419,9 @@ class OkxPerpetualDerivativeTests(
         order_request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(order_request)
         self.assertIn(order_id, self.exchange.in_flight_orders)
-        self.validate_order_creation_request(order=self.exchange.in_flight_orders[order_id], request_call=order_request)
+        self.validate_order_creation_request(
+            order=self.exchange.in_flight_orders[order_id],
+            request_call=order_request)
 
         create_event: SellOrderCreatedEvent = self.sell_order_created_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
@@ -2341,7 +2439,7 @@ class OkxPerpetualDerivativeTests(
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.SELL.name} order {order_id} for "
                 f"{Decimal('100.000000')} to {PositionAction.CLOSE.name} a {self.trading_pair} position "
-                f"at {Decimal('10000.0000')}.",
+                f"at {Decimal('10000.0000')}."
             )
         )
 
@@ -2357,9 +2455,9 @@ class OkxPerpetualDerivativeTests(
 
         creation_response = self.order_creation_request_successful_mock_response
 
-        mock_api.post(
-            url, body=json.dumps(creation_response), callback=lambda *args, **kwargs: request_sent_event.set()
-        )
+        mock_api.post(url,
+                      body=json.dumps(creation_response),
+                      callback=lambda *args, **kwargs: request_sent_event.set())
 
         leverage = 2
         self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
@@ -2369,16 +2467,20 @@ class OkxPerpetualDerivativeTests(
         order_request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(order_request)
         self.assertIn(order_id, self.exchange.in_flight_orders)
-        self.validate_order_creation_request(order=self.exchange.in_flight_orders[order_id], request_call=order_request)
+        self.validate_order_creation_request(
+            order=self.exchange.in_flight_orders[order_id],
+            request_call=order_request)
 
         create_event: BuyOrderCreatedEvent = self.buy_order_created_logger.event_log[0]
-        self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
+        self.assertEqual(self.exchange.current_timestamp,
+                         create_event.timestamp)
         self.assertEqual(self.trading_pair, create_event.trading_pair)
         self.assertEqual(OrderType.LIMIT, create_event.type)
         self.assertEqual(Decimal("100"), create_event.amount)
         self.assertEqual(Decimal("10000"), create_event.price)
         self.assertEqual(order_id, create_event.order_id)
-        self.assertEqual(str(self.expected_exchange_order_id), create_event.exchange_order_id)
+        self.assertEqual(str(self.expected_exchange_order_id),
+                         create_event.exchange_order_id)
         self.assertEqual(leverage, create_event.leverage)
         self.assertEqual(PositionAction.OPEN.value, create_event.position)
 
@@ -2387,7 +2489,7 @@ class OkxPerpetualDerivativeTests(
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.BUY.name} order {order_id} for "
                 f"{Decimal('100.000000')} to {PositionAction.OPEN.name} a {self.trading_pair} position "
-                f"at {Decimal('10000.0000')}.",
+                f"at {Decimal('10000.0000')}."
             )
         )
 
@@ -2399,9 +2501,13 @@ class OkxPerpetualDerivativeTests(
         self.exchange._set_current_timestamp(1640780000)
 
         url = self.order_creation_url
-        mock_api.post(url, status=400, callback=lambda *args, **kwargs: request_sent_event.set())
+        mock_api.post(url,
+                      status=400,
+                      callback=lambda *args, **kwargs: request_sent_event.set())
 
-        order_id_for_invalid_order = self.place_buy_order(amount=Decimal("0.0001"), price=Decimal("0.0001"))
+        order_id_for_invalid_order = self.place_buy_order(
+            amount=Decimal("0.0001"), price=Decimal("0.0001")
+        )
         # The second order is used only to have the event triggered and avoid using timeouts for tests
         order_id = self.place_buy_order()
         self.run_async_with_timeout(request_sent_event.wait(), timeout=3)
@@ -2420,7 +2526,7 @@ class OkxPerpetualDerivativeTests(
                 "WARNING",
                 "Buy order amount 0.0001 is lower than the minimum order "
                 "size 0.01. The order will not be created, increase the "
-                "amount to be higher than the minimum order size.",
+                "amount to be higher than the minimum order size."
             )
         )
         self.assertTrue(
@@ -2428,7 +2534,7 @@ class OkxPerpetualDerivativeTests(
                 "INFO",
                 f"Order {order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)",
+                f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)"
             )
         )
 
@@ -2443,9 +2549,9 @@ class OkxPerpetualDerivativeTests(
         url = self.order_creation_url
         creation_response = self.order_creation_request_successful_mock_response
 
-        mock_api.post(
-            url, body=json.dumps(creation_response), callback=lambda *args, **kwargs: request_sent_event.set()
-        )
+        mock_api.post(url,
+                      body=json.dumps(creation_response),
+                      callback=lambda *args, **kwargs: request_sent_event.set())
         leverage = 3
         self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
         order_id = self.place_sell_order()
@@ -2454,7 +2560,9 @@ class OkxPerpetualDerivativeTests(
         order_request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(order_request)
         self.assertIn(order_id, self.exchange.in_flight_orders)
-        self.validate_order_creation_request(order=self.exchange.in_flight_orders[order_id], request_call=order_request)
+        self.validate_order_creation_request(
+            order=self.exchange.in_flight_orders[order_id],
+            request_call=order_request)
 
         create_event: SellOrderCreatedEvent = self.sell_order_created_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
@@ -2472,7 +2580,7 @@ class OkxPerpetualDerivativeTests(
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.SELL.name} order {order_id} for "
                 f"{Decimal('100.000000')} to {PositionAction.OPEN.name} a {self.trading_pair} position "
-                f"at {Decimal('10000.0000')}.",
+                f"at {Decimal('10000.0000')}."
             )
         )
 

@@ -1,7 +1,8 @@
 import time
 import unittest
 
-from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, \
+    OrderBookMessageType
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 
 

@@ -13,18 +13,16 @@ KRAKEN_TO_HB_MAP = {
     "XDG": "DOGE",
 }
 
-INTERVALS = bidict(
-    {
-        "1m": "1",
-        "5m": "5",
-        "15m": "15",
-        "30m": "30",
-        "1h": "60",
-        "4h": "240",
-        "1d": "1440",
-        "1w": "10080",
-    }
-)
+INTERVALS = bidict({
+    "1m": "1",
+    "5m": "5",
+    "15m": "15",
+    "30m": "30",
+    "1h": "60",
+    "4h": "240",
+    "1d": "1440",
+    "1w": "10080",
+})
 MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST = MAX_CANDLES_AGO = 720
 PUBLIC_ENDPOINT_LIMIT_ID = "PublicPoints"
 RATE_LIMITS = [
@@ -45,5 +43,5 @@ RATE_LIMITS = [
         limit=1,
         time_interval=1,
         linked_limits=[LinkedLimitWeightPair(PUBLIC_ENDPOINT_LIMIT_ID)],
-    ),
+    )
 ]

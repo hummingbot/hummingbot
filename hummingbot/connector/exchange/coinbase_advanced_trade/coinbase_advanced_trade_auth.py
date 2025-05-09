@@ -26,7 +26,6 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
 
     Coinbase API documentation: https://docs.cdp.coinbase.com/sign-in-with-coinbase/docs/api-key-authentication
     """
-
     TIME_SYNC_UPDATE_S: float = 30
     _time_sync_last_updated_s: float = -1
 
@@ -39,9 +38,9 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         return cls._logger
 
     __slots__ = (
-        "api_key",
-        "secret_key",
-        "time_provider",
+        'api_key',
+        'secret_key',
+        'time_provider',
     )
 
     def __init__(self, api_key: str, secret_key: str, time_provider: TimeSynchronizer):
@@ -89,13 +88,13 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         """
         timestamp: str = str(int(self.time_provider.time()))
 
-        endpoint: str = endpoint_from_url(request.url).split("?")[0]  # ex: /v3/orders
-        message = timestamp + str(request.method) + endpoint + str(request.data or "")
+        endpoint: str = endpoint_from_url(request.url).split('?')[0]  # ex: /v3/orders
+        message = timestamp + str(request.method) + endpoint + str(request.data or '')
         signature: str = self._generate_signature(message=message)
 
         headers: Dict = dict(request.headers or {}) | {
-            "accept": "application/json",
-            "content-type": "application/json",
+            "accept": 'application/json',
+            "content-type": 'application/json',
             "CB-ACCESS-KEY": self.api_key,
             "CB-ACCESS-SIGN": signature,
             "CB-ACCESS-TIMESTAMP": timestamp,
@@ -116,13 +115,13 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         :param request: the request to be configured for authenticated interaction
         :returns: the authenticated request
         """
-        endpoint: str = endpoint_from_url(request.url).split("?")[0]  # ex: /v3/orders
+        endpoint: str = endpoint_from_url(request.url).split('?')[0]  # ex: /v3/orders
         jwt_uri = f"{request.method} {BASE_URL}{endpoint}"
 
         try:
             token = self._build_jwt(jwt_uri)
             headers: Dict = dict(request.headers or {}) | {
-                "content-type": "application/json",
+                "content-type": 'application/json',
                 "Authorization": f"Bearer {token}",
                 "User-Agent": USER_AGENT,
             }
@@ -234,7 +233,9 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         """
         try:
             private_key_bytes = self._secret_key_pem().encode("utf-8")
-            private_key = serialization.load_pem_private_key(private_key_bytes, password=None)
+            private_key = serialization.load_pem_private_key(
+                private_key_bytes, password=None
+            )
         except ValueError as e:
             # This handles errors like incorrect key format
             self.logger().debug("The API key is not PEM format. Falling back to Legacy sign-in.")
@@ -274,18 +275,16 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
             try:
                 # Try to load the key to validate its structure
                 serialization.load_pem_private_key(
-                    private_key_base64.encode(), password=None, backend=default_backend()
+                    private_key_base64.encode(),
+                    password=None,
+                    backend=default_backend()
                 )
             except ValueError:
                 raise ValueError("The secret key is not a valid PEM key.")
             return private_key_base64
 
         # Remove the BEGIN and END lines
-        private_key_base64 = (
-            private_key_base64.replace("-----BEGIN EC PRIVATE" + " KEY-----", "")
-            .replace("-----END EC PRIVATE" + " KEY-----", "")
-            .strip()
-        )
+        private_key_base64 = private_key_base64.replace("-----BEGIN EC PRIVATE" + " KEY-----", "").replace("-----END EC PRIVATE" + " KEY-----", "").strip()
 
         # Verify that the key is a correct base64 string
         try:
@@ -297,20 +296,18 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         wrapped_key = textwrap.wrap(private_key_base64, width=64)
 
         private_key_base64 = (
-            "-----BEGIN"
-            + " EC "
-            + "PRIVATE"
-            + " KEY-----\n"
+            "-----BEGIN" + " EC " + "PRIVATE" + " KEY-----\n"
             + "\n".join(wrapped_key)
-            + "\n-----END"
-            + " EC "
-            + "PRIVATE"
-            + " KEY-----"
+            + "\n-----END" + " EC " + "PRIVATE" + " KEY-----"
         )
 
         try:
             # Try to load the key to validate its structure
-            serialization.load_pem_private_key(private_key_base64.encode(), password=None, backend=default_backend())
+            serialization.load_pem_private_key(
+                private_key_base64.encode(),
+                password=None,
+                backend=default_backend()
+            )
         except ValueError:
             raise ValueError("The secret key is not a valid PEM key.")
         return private_key_base64

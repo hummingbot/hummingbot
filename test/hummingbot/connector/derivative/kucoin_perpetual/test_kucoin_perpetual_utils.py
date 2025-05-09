@@ -66,7 +66,7 @@ class TradingPairUtilsTest(unittest.TestCase):
             "lowPrice": 38040,
             "highPrice": 44948,
             "priceChgPct": 0.1702,
-            "priceChg": 6476,
+            "priceChg": 6476
         }
 
         self.assertTrue(utils.is_exchange_information_valid(exchange_info))
@@ -80,5 +80,5 @@ class TradingPairUtilsTest(unittest.TestCase):
         self.assertFalse(utils.is_exchange_information_valid(exchange_info))
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()

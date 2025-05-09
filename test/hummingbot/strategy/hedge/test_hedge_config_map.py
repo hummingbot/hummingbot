@@ -33,30 +33,30 @@ class HedgeConfigMapPydanticTest(unittest.TestCase):
         self.config_map = ClientConfigAdapter(HedgeConfigMap(**config_settings))
 
     def get_mock_connector_settings(self):
-        conf_var_connector_maker = ConfigVar(key="mock_paper_exchange", prompt="")
-        conf_var_connector_maker.value = "mock_paper_exchange"
+        conf_var_connector_maker = ConfigVar(key='mock_paper_exchange', prompt="")
+        conf_var_connector_maker.value = 'mock_paper_exchange'
 
         settings = {
             "mock_paper_exchange": ConnectorSetting(
-                name="mock_paper_exchange",
+                name='mock_paper_exchange',
                 type=ConnectorType.Exchange,
-                example_pair="BTC-ETH",
+                example_pair='BTC-ETH',
                 centralised=True,
                 use_ethereum_wallet=False,
                 trade_fee_schema=TradeFeeSchema(
                     percent_fee_token=None,
-                    maker_percent_fee_decimal=Decimal("0.001"),
-                    taker_percent_fee_decimal=Decimal("0.001"),
+                    maker_percent_fee_decimal=Decimal('0.001'),
+                    taker_percent_fee_decimal=Decimal('0.001'),
                     buy_percent_fee_deducted_from_returns=False,
                     maker_fixed_fees=[],
-                    taker_fixed_fees=[],
-                ),
-                config_keys={"connector": conf_var_connector_maker},
+                    taker_fixed_fees=[]),
+                config_keys={
+                    'connector': conf_var_connector_maker
+                },
                 is_sub_domain=False,
                 parent_name=None,
                 domain_parameter=None,
-                use_eth_gas_lookup=False,
-            )
+                use_eth_gas_lookup=False)
         }
 
         return settings
@@ -65,11 +65,14 @@ class HedgeConfigMapPydanticTest(unittest.TestCase):
         config_settings = {
             "hedge_connector": self.hedge_connector,
             "hedge_markets": [self.trading_pair],
-            "connector_0": {"connector": self.connector, "markets": [self.trading_pair], "offsets": [0]},
-            "connector_1": "n",
-            "connector_2": "n",
-            "connector_3": "n",
-            "connector_4": "n",
+            "connector_0": {
+                "connector": self.connector,
+                "markets": [self.trading_pair],
+                "offsets": [0]},
+            "connector_1": 'n',
+            "connector_2": 'n',
+            "connector_3": 'n',
+            "connector_4": 'n',
         }
         return config_settings
 
@@ -82,7 +85,11 @@ class HedgeConfigMapPydanticTest(unittest.TestCase):
             "Value mode: ",
         )
         self.config_map.value_mode = False
-        self.assertEqual(self.config_map.hedge_markets_prompt(self.config_map)[:13], "Amount mode: ")
+        self.assertEqual(
+            self.config_map.hedge_markets_prompt(self.config_map)[:13],
+            "Amount mode: "
+
+        )
 
     def test_hedge_offsets_prompt(self):
         self.config_map.hedge_connector = self.connector
@@ -91,18 +98,22 @@ class HedgeConfigMapPydanticTest(unittest.TestCase):
         base = self.trading_pair.split("-")[0]
         self.assertEqual(
             self.config_map.hedge_offsets_prompt(self.config_map),
-            f"Enter the offset for {base}. (Example: 0.1 = +0.1{base} used in calculation of hedged value)",
+            f"Enter the offset for {base}. (Example: 0.1 = +0.1{base} used in calculation of hedged value)"
         )
         self.config_map.value_mode = False
         self.assertEqual(
             self.config_map.hedge_offsets_prompt(self.config_map),
             "Enter the offsets to use to hedge the markets comma seperated. "
             "(Example: 0.1,-0.2 = +0.1BTC,-0.2ETH, 0LTC will be offset for the exchange amount "
-            "if markets is BTC-USDT,ETH-USDT,LTC-USDT)",
+            "if markets is BTC-USDT,ETH-USDT,LTC-USDT)"
         )
 
     def test_trading_pair_prompt(self):
-        connector_map = MarketConfigMap(connector=self.connector, markets=[self.trading_pair], offsets=[Decimal("0")])
+        connector_map = MarketConfigMap(
+            connector=self.connector,
+            markets = [self.trading_pair],
+            offsets = [Decimal("0")]
+        )
         connector_map.trading_pair_prompt(connector_map)
 
     def test_load_configs_from_yaml(self):

@@ -101,25 +101,23 @@ class NetworkMockingAssistant:
 
     def verify_async_init(self):
         if any(
-            attr is None
-            for attr in [
-                self._response_text_queues,
-                self._response_json_queues,
-                self._response_status_queues,
-                self._sent_http_requests,
-                self._incoming_websocket_json_queues,
-                self._all_incoming_websocket_json_delivered_event,
-                self._incoming_websocket_text_queues,
-                self._all_incoming_websocket_text_delivered_event,
-                self._incoming_websocket_aiohttp_queues,
-                self._all_incoming_websocket_aiohttp_delivered_event,
-                self._sent_websocket_json_messages,
-                self._sent_websocket_text_messages,
-            ]
+                attr is None
+                for attr in [
+                    self._response_text_queues,
+                    self._response_json_queues,
+                    self._response_status_queues,
+                    self._sent_http_requests,
+                    self._incoming_websocket_json_queues,
+                    self._all_incoming_websocket_json_delivered_event,
+                    self._incoming_websocket_text_queues,
+                    self._all_incoming_websocket_text_delivered_event,
+                    self._incoming_websocket_aiohttp_queues,
+                    self._all_incoming_websocket_aiohttp_delivered_event,
+                    self._sent_websocket_json_messages,
+                    self._sent_websocket_text_messages
+                ]
         ):
-            raise Exception(
-                "NetworkMockingAssistant must be initialized in async context. Please call async_init() first."
-            )
+            raise Exception("NetworkMockingAssistant must be initialized in async context. Please call async_init() first.")
 
         with contextlib.suppress(RuntimeError):
             if self._loop_id != id(asyncio.get_running_loop()):
@@ -152,9 +150,8 @@ class NetworkMockingAssistant:
     def _handle_http_request(self, http_mock, url, headers=None, params=None, data=None, *args, **kwargs):
         self.verify_async_init()
         response = AsyncMock()
-        type(response).status = PropertyMock(
-            side_effect=functools.partial(self._get_next_api_response_status, http_mock)
-        )
+        type(response).status = PropertyMock(side_effect=functools.partial(
+            self._get_next_api_response_status, http_mock))
         response.json.side_effect = self.async_partial(self._get_next_api_response_json, http_mock)
         response.text.side_effect = self.async_partial(self._get_next_api_response_text, http_mock)
         response.__aenter__.return_value = response
@@ -225,12 +222,10 @@ class NetworkMockingAssistant:
 
         # Set side effects using async_partial with ignore_first_arg if needed.
         ws.send_json.side_effect = lambda sent_message: self._sent_websocket_json_messages[stable_key].append(
-            sent_message
-        )
+            sent_message)
         ws.send.side_effect = lambda sent_message: self._sent_websocket_text_messages[stable_key].append(sent_message)
         ws.send_str.side_effect = lambda sent_message: self._sent_websocket_text_messages[stable_key].append(
-            sent_message
-        )
+            sent_message)
         ws.receive_json.side_effect = self.async_partial(self._get_next_websocket_json_message, stable_key)
         ws.receive_str.side_effect = self.async_partial(self._get_next_websocket_text_message, stable_key)
         ws.receive.side_effect = self.async_partial(self._get_next_websocket_aiohttp_message, stable_key)
@@ -250,7 +245,10 @@ class NetworkMockingAssistant:
         self._all_incoming_websocket_text_delivered_event[key].clear()
 
     def add_websocket_aiohttp_message(
-        self, websocket_mock: AsyncMock, message: str, message_type: aiohttp.WSMsgType = aiohttp.WSMsgType.TEXT
+            self,
+            websocket_mock: AsyncMock,
+            message: str,
+            message_type: aiohttp.WSMsgType = aiohttp.WSMsgType.TEXT
     ):
         self.verify_async_init()
         key: uuid.UUID = get_stable_key(websocket_mock)

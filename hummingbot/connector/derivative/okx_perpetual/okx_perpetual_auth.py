@@ -39,14 +39,14 @@ class OkxPerpetualAuth(AuthBase):
             unsigned_signature += body
 
         signature = base64.b64encode(
-            hmac.new(self._api_secret.encode("utf-8"), unsigned_signature.encode("utf-8"), hashlib.sha256).digest()
-        ).decode()
+            hmac.new(
+                self._api_secret.encode("utf-8"),
+                unsigned_signature.encode("utf-8"),
+                hashlib.sha256).digest()).decode()
         return signature
 
     def authentication_headers(self, request: RESTRequest) -> Dict[str, Any]:
-        timestamp = datetime.datetime.fromtimestamp(self.time_provider.time(), datetime.UTC).isoformat(
-            timespec="milliseconds"
-        )
+        timestamp = datetime.datetime.fromtimestamp(self.time_provider.time(), datetime.UTC).isoformat(timespec="milliseconds")
         timestamp = timestamp.replace("+00:00", "Z")
 
         path_url = f"/api{request.url.split('/api')[-1]}"
@@ -92,8 +92,8 @@ class OkxPerpetualAuth(AuthBase):
             - Example: /api/v5/account/balance
 
         """
-        pattern = re.compile(r"https://www.okx.com")
-        return re.sub(pattern, "", url)
+        pattern = re.compile(r'https://www.okx.com')
+        return re.sub(pattern, '', url)
 
     def get_ws_auth_args(self) -> Dict[str, str]:
         """
@@ -106,20 +106,27 @@ class OkxPerpetualAuth(AuthBase):
         the concatenated string with SecretKey, and then perform Base64 encoding.
         """
         timestamp = int(time.time())
-        _access_sign = self.generate_ws_signature_from_payload(
-            timestamp=timestamp, method=RESTMethod.GET, request_path=CONSTANTS.REST_WS_LOGIN_PATH["ENDPOINT"]
-        )
-        return [{"apiKey": self._api_key, "passphrase": self._passphrase, "timestamp": timestamp, "sign": _access_sign}]
+        _access_sign = self.generate_ws_signature_from_payload(timestamp=timestamp,
+                                                               method=RESTMethod.GET,
+                                                               request_path=CONSTANTS.REST_WS_LOGIN_PATH["ENDPOINT"])
+        return [
+            {
+                "apiKey": self._api_key,
+                "passphrase": self._passphrase,
+                "timestamp": timestamp,
+                "sign": _access_sign
+            }
+        ]
 
     def generate_ws_signature_from_payload(self, timestamp: int, method: RESTMethod, request_path: str) -> str:
         message = str(timestamp) + str.upper(method.value) + request_path
-        mac = hmac.new(bytes(self._api_secret, encoding="utf8"), bytes(message, encoding="utf-8"), digestmod="sha256")
+        mac = hmac.new(bytes(self._api_secret, encoding='utf8'), bytes(message, encoding='utf-8'), digestmod='sha256')
         d = mac.digest()
-        return str(base64.b64encode(d), encoding="utf-8")
+        return str(base64.b64encode(d), encoding='utf-8')
 
     async def ws_authenticate(self, request: WSRequest) -> WSRequest:
         return request  # pass-through
 
     @staticmethod
     def _get_timestamp() -> str:
-        return datetime.datetime.now(datetime.UTC).isoformat(timespec="milliseconds")
+        return datetime.datetime.now(datetime.UTC).isoformat(timespec='milliseconds')

@@ -20,42 +20,27 @@ class VWAPConfig(BaseClientModel):
     """
 
     script_file_name: str = os.path.basename(__file__)
-    connector_name: str = Field(
-        "binance_paper_trade",
-        json_schema_extra={"prompt": lambda mi: "Exchange where the bot will place orders", "prompt_on_new": True},
-    )
-    trading_pair: str = Field(
-        "ETH-USDT",
-        json_schema_extra={"prompt": lambda mi: "Trading pair where the bot will place orders", "prompt_on_new": True},
-    )
-    is_buy: bool = Field(
-        True,
-        json_schema_extra={
-            "prompt": lambda mi: "Buying or selling the base asset? (True for buy, False for sell)",
-            "prompt_on_new": True,
-        },
-    )
-    total_volume_quote: Decimal = Field(
-        1000,
-        json_schema_extra={"prompt": lambda mi: "Total volume to buy/sell (in quote asset)", "prompt_on_new": True},
-    )
-    price_spread: float = Field(
-        0.001,
-        json_schema_extra={
-            "prompt": lambda mi: "Maximum price spread to use when placing orders (0.001 = 0.1%)",
-            "prompt_on_new": True,
-        },
-    )
-    volume_perc: float = Field(
-        0.001,
-        json_schema_extra={
-            "prompt": lambda mi: "Percentage of the order book volume to buy/sell (0.001 = 0.1%)",
-            "prompt_on_new": True,
-        },
-    )
-    order_delay_time: int = Field(
-        10, json_schema_extra={"prompt": lambda mi: "Delay time between orders (in seconds)", "prompt_on_new": True}
-    )
+    connector_name: str = Field("binance_paper_trade", json_schema_extra={
+        "prompt": lambda mi: "Exchange where the bot will place orders",
+        "prompt_on_new": True})
+    trading_pair: str = Field("ETH-USDT", json_schema_extra={
+        "prompt": lambda mi: "Trading pair where the bot will place orders",
+        "prompt_on_new": True})
+    is_buy: bool = Field(True, json_schema_extra={
+        "prompt": lambda mi: "Buying or selling the base asset? (True for buy, False for sell)",
+        "prompt_on_new": True})
+    total_volume_quote: Decimal = Field(1000, json_schema_extra={
+        "prompt": lambda mi: "Total volume to buy/sell (in quote asset)",
+        "prompt_on_new": True})
+    price_spread: float = Field(0.001, json_schema_extra={
+        "prompt": lambda mi: "Maximum price spread to use when placing orders (0.001 = 0.1%)",
+        "prompt_on_new": True})
+    volume_perc: float = Field(0.001, json_schema_extra={
+        "prompt": lambda mi: "Percentage of the order book volume to buy/sell (0.001 = 0.1%)",
+        "prompt_on_new": True})
+    order_delay_time: int = Field(10, json_schema_extra={
+        "prompt": lambda mi: "Delay time between orders (in seconds)",
+        "prompt_on_new": True})
 
 
 class VWAPExample(ScriptStrategyBase):
@@ -76,36 +61,33 @@ class VWAPExample(ScriptStrategyBase):
         super().__init__(connectors)
         self.config = config
         self.initialized = False
-        self.vwap: Dict = {
-            "connector_name": self.config.connector_name,
-            "trading_pair": self.config.trading_pair,
-            "is_buy": self.config.is_buy,
-            "total_volume_quote": self.config.total_volume_quote,
-            "price_spread": self.config.price_spread,
-            "volume_perc": self.config.volume_perc,
-            "order_delay_time": self.config.order_delay_time,
-        }
+        self.vwap: Dict = {"connector_name": self.config.connector_name,
+                           "trading_pair": self.config.trading_pair,
+                           "is_buy": self.config.is_buy,
+                           "total_volume_quote": self.config.total_volume_quote,
+                           "price_spread": self.config.price_spread,
+                           "volume_perc": self.config.volume_perc,
+                           "order_delay_time": self.config.order_delay_time}
 
     last_ordered_ts = 0
 
     def on_tick(self):
         """
-        Every order delay time the strategy will buy or sell the base asset. It will compute the cumulative order book
-        volume until the spread and buy a percentage of that.
-        The input of the strategy is in quote, and we will convert at initial price to get a target base that will be static.
-        - Create proposal (a list of order candidates)
-        - Check the account balance and adjust the proposal accordingly (lower order amount if needed)
-        - Lastly, execute the proposal on the exchange
-        """
+         Every order delay time the strategy will buy or sell the base asset. It will compute the cumulative order book
+         volume until the spread and buy a percentage of that.
+         The input of the strategy is in quote, and we will convert at initial price to get a target base that will be static.
+         - Create proposal (a list of order candidates)
+         - Check the account balance and adjust the proposal accordingly (lower order amount if needed)
+         - Lastly, execute the proposal on the exchange
+         """
         if self.last_ordered_ts < (self.current_timestamp - self.vwap["order_delay_time"]):
             if self.vwap.get("status") is None:
                 self.init_vwap_stats()
             elif self.vwap.get("status") == "ACTIVE":
                 vwap_order: OrderCandidate = self.create_order()
-                vwap_order_adjusted = self.vwap["connector"].budget_checker.adjust_candidate(
-                    vwap_order, all_or_none=False
-                )
-                if math.isclose(vwap_order_adjusted.amount, Decimal("0"), rel_tol=1e-5):
+                vwap_order_adjusted = self.vwap["connector"].budget_checker.adjust_candidate(vwap_order,
+                                                                                             all_or_none=False)
+                if math.isclose(vwap_order_adjusted.amount, Decimal("0"), rel_tol=1E-5):
                     self.logger().info(f"Order adjusted: {vwap_order_adjusted.amount}, too low to place an order")
                 else:
                     self.place_order(
@@ -114,8 +96,7 @@ class VWAPExample(ScriptStrategyBase):
                         is_buy=self.vwap["is_buy"],
                         amount=vwap_order_adjusted.amount,
                         order_type=vwap_order_adjusted.order_type,
-                        price=vwap_order_adjusted.price,
-                    )
+                        price=vwap_order_adjusted.price)
                     self.last_ordered_ts = self.current_timestamp
 
     def init_vwap_stats(self):
@@ -130,9 +111,8 @@ class VWAPExample(ScriptStrategyBase):
         vwap["target_base_volume"] = vwap["total_volume_quote"] / vwap["start_price"]
 
         # Compute market order scenario
-        orderbook_query = vwap["connector"].get_quote_volume_for_base_amount(
-            vwap["trading_pair"], vwap["is_buy"], vwap["target_base_volume"]
-        )
+        orderbook_query = vwap["connector"].get_quote_volume_for_base_amount(vwap["trading_pair"], vwap["is_buy"],
+                                                                             vwap["target_base_volume"])
         vwap["market_order_base_volume"] = orderbook_query.query_volume
         vwap["market_order_quote_volume"] = orderbook_query.result_volume
         vwap["volume_remaining"] = vwap["target_base_volume"]
@@ -141,9 +121,9 @@ class VWAPExample(ScriptStrategyBase):
 
     def create_order(self) -> OrderCandidate:
         """
-        Retrieves the cumulative volume of the order book until the price spread is reached, then takes a percentage
-        of that to use as order amount.
-        """
+         Retrieves the cumulative volume of the order book until the price spread is reached, then takes a percentage
+         of that to use as order amount.
+         """
         # Compute the new price using the max spread allowed
         mid_price = float(self.vwap["connector"].get_mid_price(self.vwap["trading_pair"]))
         price_multiplier = 1 + self.vwap["price_spread"] if self.vwap["is_buy"] else 1 - self.vwap["price_spread"]
@@ -151,8 +131,9 @@ class VWAPExample(ScriptStrategyBase):
 
         # Query the cumulative volume until the price affected by spread
         orderbook_query = self.vwap["connector"].get_volume_for_price(
-            trading_pair=self.vwap["trading_pair"], is_buy=self.vwap["is_buy"], price=price_affected_by_spread
-        )
+            trading_pair=self.vwap["trading_pair"],
+            is_buy=self.vwap["is_buy"],
+            price=price_affected_by_spread)
         volume_for_price = orderbook_query.result_volume
 
         # Check if the volume available is higher than the remaining
@@ -160,9 +141,8 @@ class VWAPExample(ScriptStrategyBase):
 
         # Quantize the order amount and price
         amount = self.vwap["connector"].quantize_order_amount(self.vwap["trading_pair"], amount)
-        price = self.vwap["connector"].quantize_order_price(
-            self.vwap["trading_pair"], Decimal(price_affected_by_spread)
-        )
+        price = self.vwap["connector"].quantize_order_price(self.vwap["trading_pair"],
+                                                            Decimal(price_affected_by_spread))
         # Create the Order Candidate
         vwap_order = OrderCandidate(
             trading_pair=self.vwap["trading_pair"],
@@ -170,19 +150,17 @@ class VWAPExample(ScriptStrategyBase):
             order_type=OrderType.MARKET,
             order_side=self.vwap["trade_type"],
             amount=amount,
-            price=price,
-        )
+            price=price)
         return vwap_order
 
-    def place_order(
-        self,
-        connector_name: str,
-        trading_pair: str,
-        is_buy: bool,
-        amount: Decimal,
-        order_type: OrderType,
-        price=Decimal("NaN"),
-    ):
+    def place_order(self,
+                    connector_name: str,
+                    trading_pair: str,
+                    is_buy: bool,
+                    amount: Decimal,
+                    order_type: OrderType,
+                    price=Decimal("NaN"),
+                    ):
         if is_buy:
             self.buy(connector_name, trading_pair, amount, order_type, price)
         else:
@@ -190,31 +168,28 @@ class VWAPExample(ScriptStrategyBase):
 
     def did_fill_order(self, event: OrderFilledEvent):
         """
-        Listens to fill order event to log it and notify the Hummingbot application.
-        """
+         Listens to fill order event to log it and notify the Hummingbot application.
+         """
         if event.trading_pair == self.vwap["trading_pair"] and event.trade_type == self.vwap["trade_type"]:
             self.vwap["volume_remaining"] -= event.amount
             self.vwap["delta"] = (self.vwap["target_base_volume"] - self.vwap["volume_remaining"]) / self.vwap[
-                "target_base_volume"
-            ]
+                "target_base_volume"]
             self.vwap["real_quote_volume"] += event.price * event.amount
             self.vwap["trades"].append(event)
             if math.isclose(self.vwap["delta"], 1, rel_tol=1e-5):
                 self.vwap["status"] = "COMPLETE"
-        msg = (
-            f"({event.trading_pair}) {event.trade_type.name} order (price: {round(event.price, 2)}) of "
-            f"{round(event.amount, 2)} "
-            f"{split_hb_trading_pair(event.trading_pair)[0]} is filled."
-        )
+        msg = (f"({event.trading_pair}) {event.trade_type.name} order (price: {round(event.price, 2)}) of "
+               f"{round(event.amount, 2)} "
+               f"{split_hb_trading_pair(event.trading_pair)[0]} is filled.")
 
         self.log_with_clock(logging.INFO, msg)
         self.notify_hb_app_with_timestamp(msg)
 
     def format_status(self) -> str:
         """
-        Returns status of the current strategy on user balances and current active orders. This function is called
-        when status command is issued. Override this function to create custom status display output.
-        """
+         Returns status of the current strategy on user balances and current active orders. This function is called
+         when status command is issued. Override this function to create custom status display output.
+         """
         if not self.ready_to_trade:
             return "Market connectors are not ready."
         lines = []
@@ -229,17 +204,11 @@ class VWAPExample(ScriptStrategyBase):
             lines.extend(["", "  Orders:"] + ["    " + line for line in df.to_string(index=False).split("\n")])
         except ValueError:
             lines.extend(["", "  No active maker orders."])
-        lines.extend(
-            ["", "VWAP Info:"]
-            + ["   " + key + ": " + value for key, value in self.vwap.items() if isinstance(value, str)]
-        )
+        lines.extend(["", "VWAP Info:"] + ["   " + key + ": " + value
+                                           for key, value in self.vwap.items()
+                                           if isinstance(value, str)])
 
-        lines.extend(
-            ["", "VWAP Stats:"]
-            + [
-                "   " + key + ": " + str(round(value, 4))
-                for key, value in self.vwap.items()
-                if type(value) in [int, float, Decimal]
-            ]
-        )
+        lines.extend(["", "VWAP Stats:"] + ["   " + key + ": " + str(round(value, 4))
+                                            for key, value in self.vwap.items()
+                                            if type(value) in [int, float, Decimal]])
         return "\n".join(lines)

@@ -122,9 +122,12 @@ class OMSExchange(ExchangePyBase):
         await self._authenticate()
         await super().start_network()
 
-    def buy(
-        self, trading_pair: str, amount: Decimal, order_type=OrderType.LIMIT, price: Decimal = s_decimal_NaN, **kwargs
-    ) -> str:
+    def buy(self,
+            trading_pair: str,
+            amount: Decimal,
+            order_type=OrderType.LIMIT,
+            price: Decimal = s_decimal_NaN,
+            **kwargs) -> str:
         """
         Creates a promise to create a buy order using the parameters
 
@@ -140,26 +143,21 @@ class OMSExchange(ExchangePyBase):
                 nonce_creator=self._nonce_creator, max_id_bit_count=CONSTANTS.MAX_ID_BIT_COUNT
             )
         )
-        safe_ensure_future(
-            self._create_order(
-                trade_type=TradeType.BUY,
-                order_id=order_id,
-                trading_pair=trading_pair,
-                amount=amount,
-                order_type=order_type,
-                price=price,
-            )
-        )
+        safe_ensure_future(self._create_order(
+            trade_type=TradeType.BUY,
+            order_id=order_id,
+            trading_pair=trading_pair,
+            amount=amount,
+            order_type=order_type,
+            price=price))
         return order_id
 
-    def sell(
-        self,
-        trading_pair: str,
-        amount: Decimal,
-        order_type: OrderType = OrderType.LIMIT,
-        price: Decimal = s_decimal_NaN,
-        **kwargs,
-    ) -> str:
+    def sell(self,
+             trading_pair: str,
+             amount: Decimal,
+             order_type: OrderType = OrderType.LIMIT,
+             price: Decimal = s_decimal_NaN,
+             **kwargs) -> str:
         """
         Creates a promise to create a sell order using the parameters.
         :param trading_pair: the token pair to operate with
@@ -173,16 +171,13 @@ class OMSExchange(ExchangePyBase):
                 nonce_creator=self._nonce_creator, max_id_bit_count=CONSTANTS.MAX_ID_BIT_COUNT
             )
         )
-        safe_ensure_future(
-            self._create_order(
-                trade_type=TradeType.SELL,
-                order_id=order_id,
-                trading_pair=trading_pair,
-                amount=amount,
-                order_type=order_type,
-                price=price,
-            )
-        )
+        safe_ensure_future(self._create_order(
+            trade_type=TradeType.SELL,
+            order_id=order_id,
+            trading_pair=trading_pair,
+            amount=amount,
+            order_type=order_type,
+            price=price))
         return order_id
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
@@ -236,7 +231,9 @@ class OMSExchange(ExchangePyBase):
         elif order_id in self._order_not_found_on_cancel_record:
             del self._order_not_found_on_cancel_record[order_id]
 
-        self.logger().debug(f"Cancelation of {tracked_order.client_order_id} at {start_ts} success")
+        self.logger().debug(
+            f"Cancelation of {tracked_order.client_order_id} at {start_ts} success"
+        )
 
         return cancel_success
 
@@ -366,7 +363,9 @@ class OMSExchange(ExchangePyBase):
             CONSTANTS.OMS_ID_FIELD: self.oms_id,
             CONSTANTS.INSTRUMENT_ID_FIELD: instrument_id,
         }
-        response = await self._api_request(path_url=CONSTANTS.REST_GET_L1_ENDPOINT, params=params)
+        response = await self._api_request(
+            path_url=CONSTANTS.REST_GET_L1_ENDPOINT, params=params
+        )
         return response[CONSTANTS.LAST_TRADED_PRICE_FIELD]
 
     async def _update_balances(self):
@@ -403,7 +402,7 @@ class OMSExchange(ExchangePyBase):
                 CONSTANTS.OMS_ID_FIELD: self.oms_id,
                 CONSTANTS.ACCOUNT_ID_FIELD: self._auth.account_id,
                 CONSTANTS.USER_ID_FIELD: self._auth.user_id,
-                CONSTANTS.ORDER_ID_FIELD: exchange_order_id,
+                CONSTANTS.ORDER_ID_FIELD: exchange_order_id
             }
 
             all_fills_response = await self._api_request(
@@ -452,7 +451,7 @@ class OMSExchange(ExchangePyBase):
         amount = Decimal(str(account_position_event[CONSTANTS.AMOUNT_FIELD]))
         on_hold = Decimal(str(account_position_event[CONSTANTS.AMOUNT_ON_HOLD_FIELD]))
         self._account_balances[token] = amount
-        self._account_available_balances[token] = amount - on_hold
+        self._account_available_balances[token] = (amount - on_hold)
 
     def _create_order_update(self, order_msg: Dict[str, Any], order: InFlightOrder):
         status_from_update = order_msg[CONSTANTS.ORDER_STATE_FIELD]
@@ -503,7 +502,9 @@ class OMSExchange(ExchangePyBase):
 
     def _create_web_assistants_factory(self) -> OMSConnectorWebAssistantsFactory:
         """We create a new authenticator to store the new session token."""
-        return ap_web_utils.build_api_factory(throttler=self._throttler, auth=self.authenticator)
+        return ap_web_utils.build_api_factory(
+            throttler=self._throttler, auth=self.authenticator
+        )
 
     async def _api_request(
         self,
@@ -585,7 +586,9 @@ class OMSExchange(ExchangePyBase):
         rest_assistant = await self._web_assistants_factory.get_rest_assistant()
 
         auth_response = await rest_assistant.execute_request(
-            url, throttler_limit_id=CONSTANTS.REST_AUTH_ENDPOINT, headers=auth_headers
+            url,
+            throttler_limit_id=CONSTANTS.REST_AUTH_ENDPOINT,
+            headers=auth_headers
         )
 
         auth_success = self._auth.validate_rest_auth(auth_response)

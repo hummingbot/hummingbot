@@ -44,13 +44,11 @@ class FormattedTextLexer(Lexer):
         self.html_tag_css_style_map: Dict[str, str] = {
             style: css for style, css in load_style(client_config_map).style_rules
         }
-        self.html_tag_css_style_map.update(
-            {
-                ti.attr: ti.value
-                for ti in client_config_map.color.traverse()
-                if ti.attr not in self.html_tag_css_style_map
-            }
-        )
+        self.html_tag_css_style_map.update({
+            ti.attr: ti.value
+            for ti in client_config_map.color.traverse()
+            if ti.attr not in self.html_tag_css_style_map
+        })
 
         # Maps specific text to its corresponding UI styles
         self.text_style_tag_map: Dict[str, str] = text_ui_style
@@ -71,24 +69,21 @@ class FormattedTextLexer(Lexer):
                 if current_line.startswith(self.PROMPT_TEXT):
                     return [(self.get_css_style("primary_label"), current_line)]
 
-                matched_indexes: List[Tuple[int, int, str]] = [
-                    (match.start(), match.end(), style)
-                    for special_word, style in self.text_style_tag_map.items()
-                    for match in list(re.finditer(special_word, current_line))
-                ]
+                matched_indexes: List[Tuple[int, int, str]] = [(match.start(), match.end(), style)
+                                                               for special_word, style in self.text_style_tag_map.items()
+                                                               for match in list(re.finditer(special_word, current_line))
+                                                               ]
                 if len(matched_indexes) == 0:
                     return [("", current_line)]
 
                 previous_idx = 0
                 line_fragments = []
                 for start_idx, end_idx, style in matched_indexes:
-                    line_fragments.extend(
-                        [
-                            ("", current_line[previous_idx:start_idx]),
-                            (self.get_css_style("output_pane"), current_line[start_idx : start_idx + 2]),
-                            (self.get_css_style(style), current_line[start_idx + 2 : end_idx]),
-                        ]
-                    )
+                    line_fragments.extend([
+                        ("", current_line[previous_idx:start_idx]),
+                        (self.get_css_style("output_pane"), current_line[start_idx:start_idx + 2]),
+                        (self.get_css_style(style), current_line[start_idx + 2:end_idx])
+                    ])
                     previous_idx = end_idx
 
                 line_fragments.append(("", current_line[previous_idx:]))
@@ -101,37 +96,15 @@ class FormattedTextLexer(Lexer):
 
 
 class CustomTextArea:
-    def __init__(
-        self,
-        text="",
-        multiline=True,
-        password=False,
-        lexer=None,
-        auto_suggest=None,
-        completer=None,
-        complete_while_typing=True,
-        accept_handler=None,
-        history=None,
-        focusable=True,
-        focus_on_click=False,
-        wrap_lines=True,
-        read_only=False,
-        width=None,
-        height=None,
-        dont_extend_height=False,
-        dont_extend_width=False,
-        line_numbers=False,
-        get_line_prefix=None,
-        scrollbar=False,
-        style="",
-        search_field=None,
-        preview_search=True,
-        prompt="",
-        input_processors=None,
-        max_line_count=1000,
-        initial_text="",
-        align=WindowAlign.LEFT,
-    ):
+    def __init__(self, text='', multiline=True, password=False,
+                 lexer=None, auto_suggest=None, completer=None,
+                 complete_while_typing=True, accept_handler=None, history=None,
+                 focusable=True, focus_on_click=False, wrap_lines=True,
+                 read_only=False, width=None, height=None,
+                 dont_extend_height=False, dont_extend_width=False,
+                 line_numbers=False, get_line_prefix=None, scrollbar=False,
+                 style='', search_field=None, preview_search=True, prompt='',
+                 input_processors=None, max_line_count=1000, initial_text="", align=WindowAlign.LEFT):
         assert isinstance(text, six.text_type)
         assert search_field is None or isinstance(search_field, SearchToolbar)
 
@@ -157,26 +130,29 @@ class CustomTextArea:
             multiline=multiline,
             read_only=Condition(lambda: is_true(self.read_only)),
             completer=DynamicCompleter(lambda: self.completer),
-            complete_while_typing=Condition(lambda: is_true(self.complete_while_typing)),
+            complete_while_typing=Condition(
+                lambda: is_true(self.complete_while_typing)),
             auto_suggest=DynamicAutoSuggest(lambda: self.auto_suggest),
             accept_handler=accept_handler,
-            history=history,
-        )
+            history=history)
 
         self.control = BufferControl(
             buffer=self.buffer,
             lexer=DynamicLexer(lambda: self.lexer),
             input_processors=[
-                ConditionalProcessor(AppendAutoSuggestion(), has_focus(self.buffer) & ~is_done),
-                ConditionalProcessor(processor=PasswordProcessor(), filter=to_filter(password)),
-                BeforeInput(prompt, style="class:text-area.prompt"),
-            ]
-            + input_processors,
+                ConditionalProcessor(
+                    AppendAutoSuggestion(),
+                    has_focus(self.buffer) & ~is_done),
+                ConditionalProcessor(
+                    processor=PasswordProcessor(),
+                    filter=to_filter(password)
+                ),
+                BeforeInput(prompt, style='class:text-area.prompt'),
+            ] + input_processors,
             search_buffer_control=search_control,
             preview_search=preview_search,
             focusable=focusable,
-            focus_on_click=focus_on_click,
-        )
+            focus_on_click=focus_on_click)
 
         if multiline:
             if scrollbar:
@@ -191,7 +167,7 @@ class CustomTextArea:
             left_margins = []
             right_margins = []
 
-        style = "class:text-area " + style
+        style = 'class:text-area ' + style
 
         self.window = Window(
             height=height,
@@ -204,8 +180,7 @@ class CustomTextArea:
             left_margins=left_margins,
             right_margins=right_margins,
             get_line_prefix=get_line_prefix,
-            align=align,
-        )
+            align=align)
 
         self.log_lines: Deque[str] = deque()
         self.log(initial_text)
@@ -254,13 +229,13 @@ class CustomTextArea:
             max_width = self.window.render_info.window_width - 2
 
         # remove simple formatting tags
-        repls = (("<b>", ""), ("</b>", ""), ("<pre>", ""), ("</pre>", ""))
+        repls = (('<b>', ''), ('</b>', ''), ('<pre>', ''), ('</pre>', ''))
         for r in repls:
             text = text.replace(*r)
 
         # Split the string into multiple lines if there is a "\n" or if the string exceeds max window width
         # This operation should not be too expensive because only the newly added lines are processed
-        new_lines_raw: List[str] = str(text).split("\n")
+        new_lines_raw: List[str] = str(text).split('\n')
         new_lines = []
         for line in new_lines_raw:
             while len(line) > max_width:

@@ -77,7 +77,7 @@ for e in _ALL_WS_ENDPOINTS:  # noqa: F821
             limit_id=e,
             limit=WS_REQ_LIMIT,
             time_interval=60,
-            linked_limits=[LinkedLimitWeightPair(limit_id=WS_REQ_LIMIT_ID)],
+            linked_limits=[LinkedLimitWeightPair(limit_id=WS_REQ_LIMIT_ID)]
         )
     )
 
@@ -96,7 +96,9 @@ GTC_TIF = 1
 
 # order types
 LIMIT_ORDER_TYPE = 2
-ORDER_TYPES = {OrderType.LIMIT: LIMIT_ORDER_TYPE}
+ORDER_TYPES = {
+    OrderType.LIMIT: LIMIT_ORDER_TYPE
+}
 
 # order actions
 BUY_ACTION = 0

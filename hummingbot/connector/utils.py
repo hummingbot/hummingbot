@@ -88,7 +88,7 @@ def get_new_numeric_client_order_id(nonce_creator: NonceCreator, max_id_bit_coun
     host_part = int(hexa_hash, 16)
     client_order_id = int(f"{host_part}{nonce_creator.get_tracking_nonce()}")
     if max_id_bit_count:
-        max_int = 2**max_id_bit_count - 1
+        max_int = 2 ** max_id_bit_count - 1
         client_order_id &= max_int
     return client_order_id
 

@@ -6,7 +6,6 @@ class FormatStatusExample(ScriptStrategyBase):
     This example shows how to add a custom format_status to a strategy and query the order book.
     Run the command status --live, once the strategy starts.
     """
-
     markets = {
         "binance_paper_trade": {"ETH-USDT", "BTC-USDT", "POL-USDT", "AVAX-USDT"},
         "kucoin_paper_trade": {"ETH-USDT", "BTC-USDT", "POL-USDT", "AVAX-USDT"},
@@ -27,23 +26,14 @@ class FormatStatusExample(ScriptStrategyBase):
         balance_df = self.get_balance_df()
         lines.extend(["", "  Balances:"] + ["    " + line for line in balance_df.to_string(index=False).split("\n")])
         market_status_df = self.get_market_status_df_with_depth()
-        lines.extend(
-            ["", "  Market Status Data Frame:"]
-            + ["    " + line for line in market_status_df.to_string(index=False).split("\n")]
-        )
+        lines.extend(["", "  Market Status Data Frame:"] + ["    " + line for line in market_status_df.to_string(index=False).split("\n")])
         return "\n".join(lines)
 
     def get_market_status_df_with_depth(self):
         market_status_df = self.market_status_data_frame(self.get_market_trading_pair_tuples())
-        market_status_df["Exchange"] = market_status_df.apply(
-            lambda x: x["Exchange"].strip("PaperTrade") + "paper_trade", axis=1
-        )
-        market_status_df["Volume (+1%)"] = market_status_df.apply(
-            lambda x: self.get_volume_for_percentage_from_mid_price(x, 0.01), axis=1
-        )
-        market_status_df["Volume (-1%)"] = market_status_df.apply(
-            lambda x: self.get_volume_for_percentage_from_mid_price(x, -0.01), axis=1
-        )
+        market_status_df["Exchange"] = market_status_df.apply(lambda x: x["Exchange"].strip("PaperTrade") + "paper_trade", axis=1)
+        market_status_df["Volume (+1%)"] = market_status_df.apply(lambda x: self.get_volume_for_percentage_from_mid_price(x, 0.01), axis=1)
+        market_status_df["Volume (-1%)"] = market_status_df.apply(lambda x: self.get_volume_for_percentage_from_mid_price(x, -0.01), axis=1)
         return market_status_df
 
     def get_volume_for_percentage_from_mid_price(self, row, percentage):

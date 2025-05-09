@@ -115,7 +115,9 @@ class BitmartPerpetualWebUtilsUnitTests(unittest.TestCase):
             "code": 1000,
             "trace": "886fb6ae-456b-4654-b4e0-d681ac05cea1",
             "message": "OK",
-            "data": {"server_time": 1527777538000},
+            "data": {
+                "server_time": 1527777538000
+            }
         }
         url = web_utils.public_rest_url(CONSTANTS.SERVER_TIME_PATH_URL, CONSTANTS.DOMAIN)
         mock_api.get(url, body=json.dumps(response))

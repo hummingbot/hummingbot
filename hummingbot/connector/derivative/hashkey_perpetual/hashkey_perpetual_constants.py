@@ -12,15 +12,11 @@ TESTNET_DOMAIN = "hashkey_perpetual_testnet"
 PERPETUAL_BASE_URL = "https://api-glb.hashkey.com"
 TESTNET_BASE_URL = "https://api-glb.sim.hashkeydev.com"
 
-WSS_PUBLIC_URL = {
-    "hashkey_perpetual": "wss://stream-glb.hashkey.com/quote/ws/v1",
-    "hashkey_perpetual_testnet": "wss://stream.sim.bmuxdc.com/quote/ws/v1",
-}
+WSS_PUBLIC_URL = {"hashkey_perpetual": "wss://stream-glb.hashkey.com/quote/ws/v1",
+                  "hashkey_perpetual_testnet": "wss://stream.sim.bmuxdc.com/quote/ws/v1"}
 
-WSS_PRIVATE_URL = {
-    "hashkey_perpetual": "wss://stream-glb.hashkey.com/api/v1/ws/{listenKey}",
-    "hashkey_perpetual_testnet": "wss://stream.sim.bmuxdc.com/api/v1/ws/{listenKey}",
-}
+WSS_PRIVATE_URL = {"hashkey_perpetual": "wss://stream-glb.hashkey.com/api/v1/ws/{listenKey}",
+                   "hashkey_perpetual_testnet": "wss://stream.sim.bmuxdc.com/api/v1/ws/{listenKey}"}
 
 # Websocket event types
 TRADE_EVENT_TYPE = "trade"
@@ -90,116 +86,42 @@ RATE_LIMITS = [
     RateLimit(limit_id=ORDERS_1MIN, limit=1200, time_interval=ONE_MINUTE),
     RateLimit(limit_id=ORDERS_1SEC, limit=300, time_interval=10),
     # Weight Limits for individual endpoints
-    RateLimit(
-        limit_id=SNAPSHOT_PATH_URL,
-        limit=MAX_REQUEST,
-        time_interval=ONE_MINUTE,
-        linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=20)],
-    ),
-    RateLimit(
-        limit_id=TICKER_PRICE_URL,
-        limit=MAX_REQUEST,
-        time_interval=ONE_MINUTE,
-        linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=2)],
-    ),
-    RateLimit(
-        limit_id=TICKER_PRICE_CHANGE_URL,
-        limit=MAX_REQUEST,
-        time_interval=ONE_MINUTE,
-        linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)],
-    ),
-    RateLimit(
-        limit_id=EXCHANGE_INFO_URL,
-        limit=MAX_REQUEST,
-        time_interval=ONE_MINUTE,
-        linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=40)],
-    ),
-    RateLimit(
-        limit_id=RECENT_TRADES_URL,
-        limit=MAX_REQUEST,
-        time_interval=ONE_MINUTE,
-        linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)],
-    ),
-    RateLimit(
-        limit_id=USER_STREAM_PATH_URL,
-        limit=MAX_REQUEST,
-        time_interval=ONE_MINUTE,
-        linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)],
-    ),
-    RateLimit(
-        limit_id=PING_URL,
-        limit=MAX_REQUEST,
-        time_interval=ONE_MINUTE,
-        linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)],
-    ),
-    RateLimit(
-        limit_id=SERVER_TIME_PATH_URL,
-        limit=MAX_REQUEST,
-        time_interval=ONE_MINUTE,
-        linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)],
-    ),
-    RateLimit(
-        limit_id=ORDER_URL,
-        limit=MAX_REQUEST,
-        time_interval=ONE_MINUTE,
-        linked_limits=[
-            LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1),
-            LinkedLimitWeightPair(ORDERS_1MIN, weight=1),
-            LinkedLimitWeightPair(ORDERS_1SEC, weight=1),
-        ],
-    ),
-    RateLimit(
-        limit_id=CANCEL_ALL_OPEN_ORDERS_URL,
-        limit=MAX_REQUEST,
-        time_interval=ONE_MINUTE,
-        linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)],
-    ),
-    RateLimit(
-        limit_id=ACCOUNT_TRADE_LIST_URL,
-        limit=MAX_REQUEST,
-        time_interval=ONE_MINUTE,
-        linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=5)],
-    ),
-    RateLimit(
-        limit_id=SET_LEVERAGE_URL,
-        limit=MAX_REQUEST,
-        time_interval=ONE_MINUTE,
-        linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)],
-    ),
-    RateLimit(
-        limit_id=ACCOUNT_INFO_URL,
-        limit=MAX_REQUEST,
-        time_interval=ONE_MINUTE,
-        linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=5)],
-    ),
-    RateLimit(
-        limit_id=POSITION_INFORMATION_URL,
-        limit=MAX_REQUEST,
-        time_interval=ONE_MINUTE,
-        weight=5,
-        linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=5)],
-    ),
-    RateLimit(
-        limit_id=MARK_PRICE_URL,
-        limit=MAX_REQUEST,
-        time_interval=ONE_MINUTE,
-        weight=1,
-        linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)],
-    ),
-    RateLimit(
-        limit_id=INDEX_PRICE_URL,
-        limit=MAX_REQUEST,
-        time_interval=ONE_MINUTE,
-        weight=1,
-        linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)],
-    ),
-    RateLimit(
-        limit_id=FUNDING_INFO_URL,
-        limit=MAX_REQUEST,
-        time_interval=ONE_MINUTE,
-        weight=1,
-        linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)],
-    ),
+    RateLimit(limit_id=SNAPSHOT_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=20)]),
+    RateLimit(limit_id=TICKER_PRICE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=2)]),
+    RateLimit(limit_id=TICKER_PRICE_CHANGE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
+    RateLimit(limit_id=EXCHANGE_INFO_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=40)]),
+    RateLimit(limit_id=RECENT_TRADES_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
+    RateLimit(limit_id=USER_STREAM_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
+    RateLimit(limit_id=PING_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
+    RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
+    RateLimit(limit_id=ORDER_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1),
+                             LinkedLimitWeightPair(ORDERS_1MIN, weight=1),
+                             LinkedLimitWeightPair(ORDERS_1SEC, weight=1)]),
+    RateLimit(limit_id=CANCEL_ALL_OPEN_ORDERS_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
+    RateLimit(limit_id=ACCOUNT_TRADE_LIST_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=5)]),
+    RateLimit(limit_id=SET_LEVERAGE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
+    RateLimit(limit_id=ACCOUNT_INFO_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=5)]),
+    RateLimit(limit_id=POSITION_INFORMATION_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=5,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=5)]),
+    RateLimit(limit_id=MARK_PRICE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=1,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
+    RateLimit(limit_id=INDEX_PRICE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=1,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
+    RateLimit(limit_id=FUNDING_INFO_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=1,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
 ]
 
 ORDER_NOT_EXIST_ERROR_CODE = -1143

@@ -11,7 +11,6 @@ class PriceSize:
     """
     Order price and order size.
     """
-
     def __init__(self, price: Decimal, size: Decimal):
         self.price: Decimal = price
         self.size: Decimal = size
@@ -27,7 +26,6 @@ class Proposal:
     buy is a buy order proposal.
     sell is a sell order proposal.
     """
-
     def __init__(self, market: str, buy: PriceSize, sell: PriceSize):
         self.market: str = market
         self.buy: PriceSize = buy

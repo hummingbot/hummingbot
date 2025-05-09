@@ -12,13 +12,14 @@ class BuyOnlyThreeTimesExample(ScriptStrategyBase):
     This example places shows how to add a logic to only place three buy orders in the market,
     use an event to increase the counter and stop the strategy once the task is done.
     """
-
     order_amount_usd = Decimal(100)
     orders_created = 0
     orders_to_create = 3
     base = "ETH"
     quote = "USDT"
-    markets = {"kucoin_paper_trade": {f"{base}-{quote}"}}
+    markets = {
+        "kucoin_paper_trade": {f"{base}-{quote}"}
+    }
 
     def on_tick(self):
         if self.orders_created < self.orders_to_create:
@@ -30,7 +31,7 @@ class BuyOnlyThreeTimesExample(ScriptStrategyBase):
                 trading_pair="ETH-USDT",
                 amount=amount,
                 order_type=OrderType.LIMIT,
-                price=price,
+                price=price
             )
 
     def did_create_buy_order(self, event: BuyOrderCreatedEvent):

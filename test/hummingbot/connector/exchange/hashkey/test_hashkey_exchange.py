@@ -57,7 +57,10 @@ class TestHashkeyExchange(unittest.TestCase):
         self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         self.exchange = HashkeyExchange(
-            self.client_config_map, self.api_key, self.api_secret_key, trading_pairs=[self.trading_pair]
+            self.client_config_map,
+            self.api_key,
+            self.api_secret_key,
+            trading_pairs=[self.trading_pair]
         )
 
         self.exchange.logger().setLevel(1)
@@ -71,7 +74,8 @@ class TestHashkeyExchange(unittest.TestCase):
         self._initialize_event_loggers()
 
         HashkeyAPIOrderBookDataSource._trading_pair_symbol_map = {
-            CONSTANTS.DEFAULT_DOMAIN: bidict({self.ex_trading_pair: self.trading_pair})
+            CONSTANTS.DEFAULT_DOMAIN: bidict(
+                {self.ex_trading_pair: self.trading_pair})
         }
 
     def tearDown(self) -> None:
@@ -95,8 +99,7 @@ class TestHashkeyExchange(unittest.TestCase):
             (MarketEvent.OrderFailure, self.order_failure_logger),
             (MarketEvent.OrderFilled, self.order_filled_logger),
             (MarketEvent.SellOrderCompleted, self.sell_order_completed_logger),
-            (MarketEvent.SellOrderCreated, self.sell_order_created_logger),
-        ]
+            (MarketEvent.SellOrderCreated, self.sell_order_created_logger)]
 
         for event, logger in events_and_loggers:
             self.exchange.add_listener(event, logger)
@@ -139,18 +142,35 @@ class TestHashkeyExchange(unittest.TestCase):
                             "minPrice": "0.01",
                             "maxPrice": "100000.00000000",
                             "tickSize": "0.01",
-                            "filterType": "PRICE_FILTER",
+                            "filterType": "PRICE_FILTER"
                         },
-                        {"minQty": "0.005", "maxQty": "53", "stepSize": "0.0001", "filterType": "LOT_SIZE"},
-                        {"minNotional": "10", "filterType": "MIN_NOTIONAL"},
-                        {"minAmount": "10", "maxAmount": "10000000", "minBuyPrice": "0", "filterType": "TRADE_AMOUNT"},
+                        {
+                            "minQty": "0.005",
+                            "maxQty": "53",
+                            "stepSize": "0.0001",
+                            "filterType": "LOT_SIZE"
+                        },
+                        {
+                            "minNotional": "10",
+                            "filterType": "MIN_NOTIONAL"
+                        },
+                        {
+                            "minAmount": "10",
+                            "maxAmount": "10000000",
+                            "minBuyPrice": "0",
+                            "filterType": "TRADE_AMOUNT"
+                        },
                         {
                             "maxSellPrice": "0",
                             "buyPriceUpRate": "0.2",
                             "sellPriceDownRate": "0.2",
-                            "filterType": "LIMIT_TRADING",
+                            "filterType": "LIMIT_TRADING"
                         },
-                        {"buyPriceUpRate": "0.2", "sellPriceDownRate": "0.2", "filterType": "MARKET_TRADING"},
+                        {
+                            "buyPriceUpRate": "0.2",
+                            "sellPriceDownRate": "0.2",
+                            "filterType": "MARKET_TRADING"
+                        },
                         {
                             "noAllowMarketStartTime": "0",
                             "noAllowMarketEndTime": "0",
@@ -158,9 +178,9 @@ class TestHashkeyExchange(unittest.TestCase):
                             "limitOrderEndTime": "0",
                             "limitMinPrice": "0",
                             "limitMaxPrice": "0",
-                            "filterType": "OPEN_QUOTE",
-                        },
-                    ],
+                            "filterType": "OPEN_QUOTE"
+                        }
+                    ]
                 }
             ],
             "options": [],
@@ -181,9 +201,9 @@ class TestHashkeyExchange(unittest.TestCase):
                             "maxWithdrawQuantity": "0",
                             "minDepositQuantity": "0.0001",
                             "allowDeposit": True,
-                            "allowWithdraw": True,
+                            "allowWithdraw": True
                         }
-                    ],
+                    ]
                 },
                 {
                     "orgId": "9001",
@@ -200,9 +220,9 @@ class TestHashkeyExchange(unittest.TestCase):
                             "maxWithdrawQuantity": "0",
                             "minDepositQuantity": "0.0075",
                             "allowDeposit": True,
-                            "allowWithdraw": True,
+                            "allowWithdraw": True
                         }
-                    ],
+                    ]
                 },
                 {
                     "orgId": "9001",
@@ -211,9 +231,9 @@ class TestHashkeyExchange(unittest.TestCase):
                     "coinFullName": "USD",
                     "allowWithdraw": True,
                     "allowDeposit": True,
-                    "chainTypes": [],
-                },
-            ],
+                    "chainTypes": []
+                }
+            ]
         }
         return exchange_rules
 
@@ -244,7 +264,9 @@ class TestHashkeyExchange(unittest.TestCase):
     @aioresponses()
     def test_check_network_success(self, mock_api):
         url = web_utils.rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
-        resp = {"serverTime": 1703695619183}
+        resp = {
+            "serverTime": 1703695619183
+        }
         mock_api.get(url, body=json.dumps(resp))
 
         ret = self.async_run_with_timeout(coroutine=self.exchange.check_network())
@@ -309,7 +331,7 @@ class TestHashkeyExchange(unittest.TestCase):
                     "icebergAllowed": False,
                     "isAggregate": False,
                     "allowMargin": False,
-                    "filters": [],
+                    "filters": []
                 }
             ],
             "options": [],
@@ -363,10 +385,9 @@ class TestHashkeyExchange(unittest.TestCase):
             price=Decimal("2"),
         )
         expected_client_order_id = get_new_client_order_id(
-            is_buy=True,
-            trading_pair=self.trading_pair,
+            is_buy=True, trading_pair=self.trading_pair,
             hbot_order_id_prefix=CONSTANTS.HBOT_ORDER_ID_PREFIX,
-            max_id_len=CONSTANTS.MAX_ORDER_ID_LEN,
+            max_id_len=CONSTANTS.MAX_ORDER_ID_LEN
         )
 
         self.assertEqual(result, expected_client_order_id)
@@ -378,67 +399,58 @@ class TestHashkeyExchange(unittest.TestCase):
             price=Decimal("2"),
         )
         expected_client_order_id = get_new_client_order_id(
-            is_buy=False,
-            trading_pair=self.trading_pair,
+            is_buy=False, trading_pair=self.trading_pair,
             hbot_order_id_prefix=CONSTANTS.HBOT_ORDER_ID_PREFIX,
-            max_id_len=CONSTANTS.MAX_ORDER_ID_LEN,
+            max_id_len=CONSTANTS.MAX_ORDER_ID_LEN
         )
 
         self.assertEqual(result, expected_client_order_id)
 
     def test_restore_tracking_states_only_registers_open_orders(self):
         orders = []
-        orders.append(
-            InFlightOrder(
-                client_order_id="OID1",
-                exchange_order_id="EOID1",
-                trading_pair=self.trading_pair,
-                order_type=OrderType.LIMIT,
-                trade_type=TradeType.BUY,
-                amount=Decimal("1000.0"),
-                price=Decimal("1.0"),
-                creation_timestamp=1640001112.223,
-            )
-        )
-        orders.append(
-            InFlightOrder(
-                client_order_id="OID2",
-                exchange_order_id="EOID2",
-                trading_pair=self.trading_pair,
-                order_type=OrderType.LIMIT,
-                trade_type=TradeType.BUY,
-                amount=Decimal("1000.0"),
-                price=Decimal("1.0"),
-                creation_timestamp=1640001112.223,
-                initial_state=OrderState.CANCELED,
-            )
-        )
-        orders.append(
-            InFlightOrder(
-                client_order_id="OID3",
-                exchange_order_id="EOID3",
-                trading_pair=self.trading_pair,
-                order_type=OrderType.LIMIT,
-                trade_type=TradeType.BUY,
-                amount=Decimal("1000.0"),
-                price=Decimal("1.0"),
-                creation_timestamp=1640001112.223,
-                initial_state=OrderState.FILLED,
-            )
-        )
-        orders.append(
-            InFlightOrder(
-                client_order_id="OID4",
-                exchange_order_id="EOID4",
-                trading_pair=self.trading_pair,
-                order_type=OrderType.LIMIT,
-                trade_type=TradeType.BUY,
-                amount=Decimal("1000.0"),
-                price=Decimal("1.0"),
-                creation_timestamp=1640001112.223,
-                initial_state=OrderState.FAILED,
-            )
-        )
+        orders.append(InFlightOrder(
+            client_order_id="OID1",
+            exchange_order_id="EOID1",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+            creation_timestamp=1640001112.223,
+        ))
+        orders.append(InFlightOrder(
+            client_order_id="OID2",
+            exchange_order_id="EOID2",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.CANCELED
+        ))
+        orders.append(InFlightOrder(
+            client_order_id="OID3",
+            exchange_order_id="EOID3",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.FILLED
+        ))
+        orders.append(InFlightOrder(
+            client_order_id="OID4",
+            exchange_order_id="EOID4",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.FAILED
+        ))
 
         tracking_states = {order.client_order_id: order.to_json() for order in orders}
 
@@ -472,30 +484,26 @@ class TestHashkeyExchange(unittest.TestCase):
             "type": "LIMIT",
             "side": "BUY",
             "reqAmount": "0",
-            "concentration": "",
+            "concentration": ""
         }
         tradingrule_url = web_utils.rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
         resp = self.get_exchange_rules_mock()
         mock_api.get(tradingrule_url, body=json.dumps(resp))
-        mock_api.post(
-            regex_url, body=json.dumps(creation_response), callback=lambda *args, **kwargs: request_sent_event.set()
-        )
+        mock_api.post(regex_url,
+                      body=json.dumps(creation_response),
+                      callback=lambda *args, **kwargs: request_sent_event.set())
 
         self.test_task = asyncio.get_event_loop().create_task(
-            self.exchange._create_order(
-                trade_type=TradeType.BUY,
-                order_id="OID1",
-                trading_pair=self.trading_pair,
-                amount=Decimal("100"),
-                order_type=OrderType.LIMIT,
-                price=Decimal("10000"),
-            )
-        )
+            self.exchange._create_order(trade_type=TradeType.BUY,
+                                        order_id="OID1",
+                                        trading_pair=self.trading_pair,
+                                        amount=Decimal("100"),
+                                        order_type=OrderType.LIMIT,
+                                        price=Decimal("10000")))
         self.async_run_with_timeout(request_sent_event.wait())
 
-        order_request = next(
-            ((key, value) for key, value in mock_api.requests.items() if key[1].human_repr().startswith(url))
-        )
+        order_request = next(((key, value) for key, value in mock_api.requests.items()
+                              if key[1].human_repr().startswith(url)))
         self._validate_auth_credentials_present(order_request[1][0])
         request_params = order_request[1][0].kwargs["params"]
         self.assertEqual(self.ex_trading_pair, request_params["symbol"])
@@ -519,7 +527,7 @@ class TestHashkeyExchange(unittest.TestCase):
             self._is_logged(
                 "INFO",
                 f"Created LIMIT BUY order OID1 for {Decimal('100.000000')} {self.trading_pair} "
-                f"at {Decimal('10000.0000')}.",
+                f"at {Decimal('10000.0000')}."
             )
         )
 
@@ -546,31 +554,27 @@ class TestHashkeyExchange(unittest.TestCase):
             "type": "LIMIT_MAKER",
             "side": "BUY",
             "reqAmount": "0",
-            "concentration": "",
+            "concentration": ""
         }
 
         tradingrule_url = web_utils.rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
         resp = self.get_exchange_rules_mock()
         mock_api.get(tradingrule_url, body=json.dumps(resp))
-        mock_api.post(
-            regex_url, body=json.dumps(creation_response), callback=lambda *args, **kwargs: request_sent_event.set()
-        )
+        mock_api.post(regex_url,
+                      body=json.dumps(creation_response),
+                      callback=lambda *args, **kwargs: request_sent_event.set())
 
         self.test_task = asyncio.get_event_loop().create_task(
-            self.exchange._create_order(
-                trade_type=TradeType.BUY,
-                order_id="OID1",
-                trading_pair=self.trading_pair,
-                amount=Decimal("100"),
-                order_type=OrderType.LIMIT_MAKER,
-                price=Decimal("10000"),
-            )
-        )
+            self.exchange._create_order(trade_type=TradeType.BUY,
+                                        order_id="OID1",
+                                        trading_pair=self.trading_pair,
+                                        amount=Decimal("100"),
+                                        order_type=OrderType.LIMIT_MAKER,
+                                        price=Decimal("10000")))
         self.async_run_with_timeout(request_sent_event.wait())
 
-        order_request = next(
-            ((key, value) for key, value in mock_api.requests.items() if key[1].human_repr().startswith(url))
-        )
+        order_request = next(((key, value) for key, value in mock_api.requests.items()
+                              if key[1].human_repr().startswith(url)))
         self._validate_auth_credentials_present(order_request[1][0])
         request_data = order_request[1][0].kwargs["params"]
         self.assertEqual(self.ex_trading_pair, request_data["symbol"])
@@ -594,7 +598,7 @@ class TestHashkeyExchange(unittest.TestCase):
             self._is_logged(
                 "INFO",
                 f"Created LIMIT_MAKER BUY order OID1 for {Decimal('100.000000')} {self.trading_pair} "
-                f"at {Decimal('10000.0000')}.",
+                f"at {Decimal('10000.0000')}."
             )
         )
 
@@ -622,29 +626,25 @@ class TestHashkeyExchange(unittest.TestCase):
             "type": "MARKET",
             "side": "BUY",
             "reqAmount": "0",
-            "concentration": "",
+            "concentration": ""
         }
         tradingrule_url = web_utils.rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
         resp = self.get_exchange_rules_mock()
         mock_api.get(tradingrule_url, body=json.dumps(resp))
-        mock_api.post(
-            regex_url, body=json.dumps(creation_response), callback=lambda *args, **kwargs: request_sent_event.set()
-        )
+        mock_api.post(regex_url,
+                      body=json.dumps(creation_response),
+                      callback=lambda *args, **kwargs: request_sent_event.set())
 
         self.test_task = asyncio.get_event_loop().create_task(
-            self.exchange._create_order(
-                trade_type=TradeType.SELL,
-                order_id="OID1",
-                trading_pair=self.trading_pair,
-                amount=Decimal("100"),
-                order_type=OrderType.MARKET,
-            )
-        )
+            self.exchange._create_order(trade_type=TradeType.SELL,
+                                        order_id="OID1",
+                                        trading_pair=self.trading_pair,
+                                        amount=Decimal("100"),
+                                        order_type=OrderType.MARKET))
         self.async_run_with_timeout(request_sent_event.wait())
 
-        order_request = next(
-            ((key, value) for key, value in mock_api.requests.items() if key[1].human_repr().startswith(url))
-        )
+        order_request = next(((key, value) for key, value in mock_api.requests.items()
+                              if key[1].human_repr().startswith(url)))
         self._validate_auth_credentials_present(order_request[1][0])
         request_data = order_request[1][0].kwargs["params"]
         self.assertEqual(self.ex_trading_pair, request_data["symbol"])
@@ -665,7 +665,9 @@ class TestHashkeyExchange(unittest.TestCase):
 
         self.assertTrue(
             self._is_logged(
-                "INFO", f"Created MARKET SELL order OID1 for {Decimal('100.000000')} {self.trading_pair} " f"at {None}."
+                "INFO",
+                f"Created MARKET SELL order OID1 for {Decimal('100.000000')} {self.trading_pair} "
+                f"at {None}."
             )
         )
 
@@ -679,23 +681,21 @@ class TestHashkeyExchange(unittest.TestCase):
         tradingrule_url = web_utils.rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
         resp = self.get_exchange_rules_mock()
         mock_api.get(tradingrule_url, body=json.dumps(resp))
-        mock_api.post(regex_url, status=400, callback=lambda *args, **kwargs: request_sent_event.set())
+        mock_api.post(regex_url,
+                      status=400,
+                      callback=lambda *args, **kwargs: request_sent_event.set())
 
         self.test_task = asyncio.get_event_loop().create_task(
-            self.exchange._create_order(
-                trade_type=TradeType.BUY,
-                order_id="OID1",
-                trading_pair=self.trading_pair,
-                amount=Decimal("100"),
-                order_type=OrderType.LIMIT,
-                price=Decimal("10000"),
-            )
-        )
+            self.exchange._create_order(trade_type=TradeType.BUY,
+                                        order_id="OID1",
+                                        trading_pair=self.trading_pair,
+                                        amount=Decimal("100"),
+                                        order_type=OrderType.LIMIT,
+                                        price=Decimal("10000")))
         self.async_run_with_timeout(request_sent_event.wait())
 
-        order_request = next(
-            ((key, value) for key, value in mock_api.requests.items() if key[1].human_repr().startswith(url))
-        )
+        order_request = next(((key, value) for key, value in mock_api.requests.items()
+                              if key[1].human_repr().startswith(url)))
         self._validate_auth_credentials_present(order_request[1][0])
 
         self.assertNotIn("OID1", self.exchange.in_flight_orders)
@@ -710,7 +710,7 @@ class TestHashkeyExchange(unittest.TestCase):
                 "INFO",
                 f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='OID1', exchange_order_id=None, misc_updates=None)",
+                f"client_order_id='OID1', exchange_order_id=None, misc_updates=None)"
             )
         )
 
@@ -725,29 +725,25 @@ class TestHashkeyExchange(unittest.TestCase):
         tradingrule_url = web_utils.rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
         resp = self.get_exchange_rules_mock()
         mock_api.get(tradingrule_url, body=json.dumps(resp))
-        mock_api.post(regex_url, status=400, callback=lambda *args, **kwargs: request_sent_event.set())
+        mock_api.post(regex_url,
+                      status=400,
+                      callback=lambda *args, **kwargs: request_sent_event.set())
 
         self.test_task = asyncio.get_event_loop().create_task(
-            self.exchange._create_order(
-                trade_type=TradeType.BUY,
-                order_id="OID1",
-                trading_pair=self.trading_pair,
-                amount=Decimal("0.0001"),
-                order_type=OrderType.LIMIT,
-                price=Decimal("0.0001"),
-            )
-        )
+            self.exchange._create_order(trade_type=TradeType.BUY,
+                                        order_id="OID1",
+                                        trading_pair=self.trading_pair,
+                                        amount=Decimal("0.0001"),
+                                        order_type=OrderType.LIMIT,
+                                        price=Decimal("0.0001")))
         # The second order is used only to have the event triggered and avoid using timeouts for tests
         asyncio.get_event_loop().create_task(
-            self.exchange._create_order(
-                trade_type=TradeType.BUY,
-                order_id="OID2",
-                trading_pair=self.trading_pair,
-                amount=Decimal("100"),
-                order_type=OrderType.LIMIT,
-                price=Decimal("10000"),
-            )
-        )
+            self.exchange._create_order(trade_type=TradeType.BUY,
+                                        order_id="OID2",
+                                        trading_pair=self.trading_pair,
+                                        amount=Decimal("100"),
+                                        order_type=OrderType.LIMIT,
+                                        price=Decimal("10000")))
 
         self.async_run_with_timeout(request_sent_event.wait())
 
@@ -763,7 +759,7 @@ class TestHashkeyExchange(unittest.TestCase):
                 "WARNING",
                 "Buy order amount 0.0001 is lower than the minimum order "
                 "size 0.01. The order will not be created, increase the "
-                "amount to be higher than the minimum order size.",
+                "amount to be higher than the minimum order size."
             )
         )
         self.assertTrue(
@@ -771,7 +767,7 @@ class TestHashkeyExchange(unittest.TestCase):
                 "INFO",
                 f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                "client_order_id='OID1', exchange_order_id=None, misc_updates=None)",
+                "client_order_id='OID1', exchange_order_id=None, misc_updates=None)"
             )
         )
 
@@ -808,24 +804,30 @@ class TestHashkeyExchange(unittest.TestCase):
             "status": "CANCELED",
             "timeInForce": "GTC",
             "type": "LIMIT",
-            "side": "BUY",
+            "side": "BUY"
         }
 
-        mock_api.delete(regex_url, body=json.dumps(response), callback=lambda *args, **kwargs: request_sent_event.set())
+        mock_api.delete(regex_url,
+                        body=json.dumps(response),
+                        callback=lambda *args, **kwargs: request_sent_event.set())
 
         self.exchange.cancel(client_order_id="OID1", trading_pair=self.trading_pair)
         self.async_run_with_timeout(request_sent_event.wait())
 
-        cancel_request = next(
-            ((key, value) for key, value in mock_api.requests.items() if key[1].human_repr().startswith(url))
-        )
+        cancel_request = next(((key, value) for key, value in mock_api.requests.items()
+                               if key[1].human_repr().startswith(url)))
         self._validate_auth_credentials_present(cancel_request[1][0])
 
         cancel_event: OrderCancelledEvent = self.order_cancelled_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, cancel_event.timestamp)
         self.assertEqual(order.client_order_id, cancel_event.order_id)
 
-        self.assertTrue(self._is_logged("INFO", f"Successfully canceled order {order.client_order_id}."))
+        self.assertTrue(
+            self._is_logged(
+                "INFO",
+                f"Successfully canceled order {order.client_order_id}."
+            )
+        )
 
     @aioresponses()
     def test_cancel_order_raises_failure_event_when_request_fails(self, mock_api):
@@ -848,19 +850,25 @@ class TestHashkeyExchange(unittest.TestCase):
         url = web_utils.rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        mock_api.delete(regex_url, status=400, callback=lambda *args, **kwargs: request_sent_event.set())
+        mock_api.delete(regex_url,
+                        status=400,
+                        callback=lambda *args, **kwargs: request_sent_event.set())
 
         self.exchange.cancel(client_order_id="OID1", trading_pair=self.trading_pair)
         self.async_run_with_timeout(request_sent_event.wait())
 
-        cancel_request = next(
-            ((key, value) for key, value in mock_api.requests.items() if key[1].human_repr().startswith(url))
-        )
+        cancel_request = next(((key, value) for key, value in mock_api.requests.items()
+                               if key[1].human_repr().startswith(url)))
         self._validate_auth_credentials_present(cancel_request[1][0])
 
         self.assertEqual(0, len(self.order_cancelled_logger.event_log))
 
-        self.assertTrue(self._is_logged("ERROR", f"Failed to cancel order {order.client_order_id}"))
+        self.assertTrue(
+            self._is_logged(
+                "ERROR",
+                f"Failed to cancel order {order.client_order_id}"
+            )
+        )
 
     @aioresponses()
     def test_cancel_two_orders_with_cancel_all_and_one_fails(self, mock_api):
@@ -907,7 +915,7 @@ class TestHashkeyExchange(unittest.TestCase):
             "status": "CANCELED",
             "timeInForce": "GTC",
             "type": "LIMIT",
-            "side": "BUY",
+            "side": "BUY"
         }
 
         mock_api.delete(regex_url, body=json.dumps(response))
@@ -928,7 +936,12 @@ class TestHashkeyExchange(unittest.TestCase):
         self.assertEqual(self.exchange.current_timestamp, cancel_event.timestamp)
         self.assertEqual(order1.client_order_id, cancel_event.order_id)
 
-        self.assertTrue(self._is_logged("INFO", f"Successfully canceled order {order1.client_order_id}."))
+        self.assertTrue(
+            self._is_logged(
+                "INFO",
+                f"Successfully canceled order {order1.client_order_id}."
+            )
+        )
 
     @aioresponses()
     @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_seconds_counter")
@@ -939,19 +952,24 @@ class TestHashkeyExchange(unittest.TestCase):
         url = web_utils.rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        response = {"serverTime": 1703740249709}
+        response = {
+            "serverTime": 1703740249709
+        }
 
         mock_api.get(regex_url, body=json.dumps(response))
 
         self.async_run_with_timeout(self.exchange._update_time_synchronizer())
-        self.assertEqual(response["serverTime"] * 1e-3, self.exchange._time_synchronizer.time())
+        self.assertEqual(response['serverTime'] * 1e-3, self.exchange._time_synchronizer.time())
 
     @aioresponses()
     def test_update_time_synchronizer_failure_is_logged(self, mock_api):
         url = web_utils.rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        response = {"code": "-1", "msg": "error"}
+        response = {
+            "code": "-1",
+            "msg": "error"
+        }
 
         mock_api.get(regex_url, body=json.dumps(response))
 
@@ -967,8 +985,8 @@ class TestHashkeyExchange(unittest.TestCase):
         mock_api.get(regex_url, exception=asyncio.CancelledError)
 
         self.assertRaises(
-            asyncio.CancelledError, self.async_run_with_timeout, self.exchange._update_time_synchronizer()
-        )
+            asyncio.CancelledError,
+            self.async_run_with_timeout, self.exchange._update_time_synchronizer())
 
     @aioresponses()
     def test_update_balances(self, mock_api):
@@ -977,10 +995,24 @@ class TestHashkeyExchange(unittest.TestCase):
 
         response = {
             "balances": [
-                {"asset": "HKD", "assetId": "HKD", "assetName": "HKD", "total": "2", "free": "2", "locked": "0"},
-                {"asset": "USD", "assetId": "USD", "assetName": "USD", "total": "3505", "free": "3505", "locked": "0"},
+                {
+                    "asset": "HKD",
+                    "assetId": "HKD",
+                    "assetName": "HKD",
+                    "total": "2",
+                    "free": "2",
+                    "locked": "0"
+                },
+                {
+                    "asset": "USD",
+                    "assetId": "USD",
+                    "assetName": "USD",
+                    "total": "3505",
+                    "free": "3505",
+                    "locked": "0"
+                }
             ],
-            "userId": "10086",
+            "userId": "10086"
         }
 
         mock_api.get(regex_url, body=json.dumps(response))
@@ -994,10 +1026,24 @@ class TestHashkeyExchange(unittest.TestCase):
 
         response = response = {
             "balances": [
-                {"asset": "HKD", "assetId": "HKD", "assetName": "HKD", "total": "2", "free": "1", "locked": "0"},
-                {"asset": "USD", "assetId": "USD", "assetName": "USD", "total": "3505", "free": "3000", "locked": "0"},
+                {
+                    "asset": "HKD",
+                    "assetId": "HKD",
+                    "assetName": "HKD",
+                    "total": "2",
+                    "free": "1",
+                    "locked": "0"
+                },
+                {
+                    "asset": "USD",
+                    "assetId": "USD",
+                    "assetName": "USD",
+                    "total": "3505",
+                    "free": "3000",
+                    "locked": "0"
+                }
             ],
-            "userId": "10086",
+            "userId": "10086"
         }
 
         mock_api.get(regex_url, body=json.dumps(response))
@@ -1014,7 +1060,8 @@ class TestHashkeyExchange(unittest.TestCase):
     @aioresponses()
     def test_update_order_status_when_filled(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = self.exchange.current_timestamp - 10 - 1
+        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
+                                              10 - 1)
 
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -1052,7 +1099,7 @@ class TestHashkeyExchange(unittest.TestCase):
             "time": "1703710747523",
             "updateTime": "1703710888400",
             "isWorking": True,
-            "reqAmount": "0",
+            "reqAmount": "0"
         }
 
         mock_api.get(regex_url, body=json.dumps(order_status))
@@ -1062,9 +1109,8 @@ class TestHashkeyExchange(unittest.TestCase):
         self.async_run_with_timeout(self.exchange._update_order_status())
         self.async_run_with_timeout(order.wait_until_completely_filled())
 
-        order_request = next(
-            ((key, value) for key, value in mock_api.requests.items() if key[1].human_repr().startswith(url))
-        )
+        order_request = next(((key, value) for key, value in mock_api.requests.items()
+                              if key[1].human_repr().startswith(url)))
         self._validate_auth_credentials_present(order_request[1][0])
 
         self.assertTrue(order.is_filled)
@@ -1080,12 +1126,18 @@ class TestHashkeyExchange(unittest.TestCase):
         self.assertEqual(order.order_type, buy_event.order_type)
         self.assertEqual(order.exchange_order_id, buy_event.exchange_order_id)
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
-        self.assertTrue(self._is_logged("INFO", f"BUY order {order.client_order_id} completely filled."))
+        self.assertTrue(
+            self._is_logged(
+                "INFO",
+                f"BUY order {order.client_order_id} completely filled."
+            )
+        )
 
     @aioresponses()
     def test_update_order_status_when_cancelled(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = self.exchange.current_timestamp - 10 - 1
+        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
+                                              10 - 1)
 
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -1123,16 +1175,15 @@ class TestHashkeyExchange(unittest.TestCase):
             "time": "1703710747523",
             "updateTime": "1703710888400",
             "isWorking": True,
-            "reqAmount": "0",
+            "reqAmount": "0"
         }
 
         mock_api.get(regex_url, body=json.dumps(order_status))
 
         self.async_run_with_timeout(self.exchange._update_order_status())
 
-        order_request = next(
-            ((key, value) for key, value in mock_api.requests.items() if key[1].human_repr().startswith(url))
-        )
+        order_request = next(((key, value) for key, value in mock_api.requests.items()
+                              if key[1].human_repr().startswith(url)))
         self._validate_auth_credentials_present(order_request[1][0])
 
         cancel_event: OrderCancelledEvent = self.order_cancelled_logger.event_log[0]
@@ -1140,12 +1191,15 @@ class TestHashkeyExchange(unittest.TestCase):
         self.assertEqual(order.client_order_id, cancel_event.order_id)
         self.assertEqual(order.exchange_order_id, cancel_event.exchange_order_id)
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
-        self.assertTrue(self._is_logged("INFO", f"Successfully canceled order {order.client_order_id}."))
+        self.assertTrue(
+            self._is_logged("INFO", f"Successfully canceled order {order.client_order_id}.")
+        )
 
     @aioresponses()
     def test_update_order_status_when_order_has_not_changed(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = self.exchange.current_timestamp - 10 - 1
+        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
+                                              10 - 1)
 
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -1183,7 +1237,7 @@ class TestHashkeyExchange(unittest.TestCase):
             "time": "1703710747523",
             "updateTime": "1703710888400",
             "isWorking": True,
-            "reqAmount": "0",
+            "reqAmount": "0"
         }
 
         mock_response = order_status
@@ -1193,9 +1247,8 @@ class TestHashkeyExchange(unittest.TestCase):
 
         self.async_run_with_timeout(self.exchange._update_order_status())
 
-        order_request = next(
-            ((key, value) for key, value in mock_api.requests.items() if key[1].human_repr().startswith(url))
-        )
+        order_request = next(((key, value) for key, value in mock_api.requests.items()
+                              if key[1].human_repr().startswith(url)))
         self._validate_auth_credentials_present(order_request[1][0])
 
         self.assertTrue(order.is_open)
@@ -1205,7 +1258,8 @@ class TestHashkeyExchange(unittest.TestCase):
     @aioresponses()
     def test_update_order_status_when_request_fails_marks_order_as_not_found(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = self.exchange.current_timestamp - 10 - 1
+        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
+                                              10 - 1)
 
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -1225,9 +1279,8 @@ class TestHashkeyExchange(unittest.TestCase):
 
         self.async_run_with_timeout(self.exchange._update_order_status())
 
-        order_request = next(
-            ((key, value) for key, value in mock_api.requests.items() if key[1].human_repr().startswith(url))
-        )
+        order_request = next(((key, value) for key, value in mock_api.requests.items()
+                              if key[1].human_repr().startswith(url)))
         self._validate_auth_credentials_present(order_request[1][0])
 
         self.assertTrue(order.is_open)
@@ -1250,31 +1303,31 @@ class TestHashkeyExchange(unittest.TestCase):
         order = self.exchange.in_flight_orders["OID1"]
 
         event_message = {
-            "e": "executionReport",  # Event type
-            "E": 1499405658658,  # Event time
-            "s": order.trading_pair,  # Symbol
-            "c": order.client_order_id,  # Client order ID
-            "S": order.trade_type.name,  # Side
-            "o": "LIMIT",  # Order type
-            "f": "GTC",  # Time in force
-            "q": "1.00000000",  # Order quantity
-            "p": "0.10264410",  # Order price
-            "reqAmt": "1000",  # Requested cash amount (To be released)
-            "X": "NEW",  # Current order status
-            "d": "1234567890123456789",  # Execution ID
+            "e": "executionReport",        # Event type
+            "E": 1499405658658,            # Event time
+            "s": order.trading_pair,       # Symbol
+            "c": order.client_order_id,    # Client order ID
+            "S": order.trade_type.name,    # Side
+            "o": "LIMIT",                  # Order type
+            "f": "GTC",                    # Time in force
+            "q": "1.00000000",             # Order quantity
+            "p": "0.10264410",             # Order price
+            "reqAmt": "1000",	           # Requested cash amount (To be released)
+            "X": "NEW",                    # Current order status
+            "d": "1234567890123456789",    # Execution ID
             "i": order.exchange_order_id,  # Order ID
-            "l": "0.00000000",  # Last executed quantity
-            "r": "0",  # unfilled quantity
-            "z": "0.00000000",  # Cumulative filled quantity
-            "L": "0.00000000",  # Last executed price
-            "V": "26105.5",  # average executed price
-            "n": "0",  # Commission amount
-            "N": None,  # Commission asset
-            "u": True,  # Is the trade normal, ignore for now
-            "w": True,  # Is the order working? Stops will have
-            "m": False,  # Is this trade the maker side?
-            "O": 1499405658657,  # Order creation time
-            "Z": "0.00000000",  # Cumulative quote asset transacted quantity
+            "l": "0.00000000",             # Last executed quantity
+            "r": "0",                      # unfilled quantity
+            "z": "0.00000000",             # Cumulative filled quantity
+            "L": "0.00000000",             # Last executed price
+            "V": "26105.5",                # average executed price
+            "n": "0",                      # Commission amount
+            "N": None,                     # Commission asset
+            "u": True,                     # Is the trade normal, ignore for now
+            "w": True,                     # Is the order working? Stops will have
+            "m": False,                    # Is this trade the maker side?
+            "O": 1499405658657,            # Order creation time
+            "Z": "0.00000000"              # Cumulative quote asset transacted quantity
         }
 
         mock_queue = AsyncMock()
@@ -1301,7 +1354,7 @@ class TestHashkeyExchange(unittest.TestCase):
                 "INFO",
                 f"Created {order.order_type.name.upper()} {order.trade_type.name.upper()} order "
                 f"{order.client_order_id} for {order.amount} {order.trading_pair} "
-                f"at {Decimal('10000')}.",
+                f"at {Decimal('10000')}."
             )
         )
 
@@ -1319,31 +1372,31 @@ class TestHashkeyExchange(unittest.TestCase):
         order = self.exchange.in_flight_orders["OID1"]
 
         event_message = {
-            "e": "executionReport",  # Event type
-            "E": 1499405658658,  # Event time
-            "s": order.trading_pair,  # Symbol
-            "c": order.client_order_id,  # Client order ID
-            "S": order.trade_type.name,  # Side
-            "o": "LIMIT",  # Order type
-            "f": "GTC",  # Time in force
-            "q": "1.00000000",  # Order quantity
-            "p": "0.10264410",  # Order price
-            "reqAmt": "1000",  # Requested cash amount (To be released)
-            "X": "CANCELED",  # Current order status
-            "d": "1234567890123456789",  # Execution ID
+            "e": "executionReport",        # Event type
+            "E": 1499405658658,            # Event time
+            "s": order.trading_pair,       # Symbol
+            "c": order.client_order_id,    # Client order ID
+            "S": order.trade_type.name,    # Side
+            "o": "LIMIT",                  # Order type
+            "f": "GTC",                    # Time in force
+            "q": "1.00000000",             # Order quantity
+            "p": "0.10264410",             # Order price
+            "reqAmt": "1000",	           # Requested cash amount (To be released)
+            "X": "CANCELED",               # Current order status
+            "d": "1234567890123456789",    # Execution ID
             "i": order.exchange_order_id,  # Order ID
-            "l": "0.00000000",  # Last executed quantity
-            "r": "0",  # unfilled quantity
-            "z": "0.00000000",  # Cumulative filled quantity
-            "L": "0.00000000",  # Last executed price
-            "V": "26105.5",  # average executed price
-            "n": "0",  # Commission amount
-            "N": None,  # Commission asset
-            "u": True,  # Is the trade normal, ignore for now
-            "w": True,  # Is the order working? Stops will have
-            "m": False,  # Is this trade the maker side?
-            "O": 1499405658657,  # Order creation time
-            "Z": "0.00000000",  # Cumulative quote asset transacted quantity
+            "l": "0.00000000",             # Last executed quantity
+            "r": "0",                      # unfilled quantity
+            "z": "0.00000000",             # Cumulative filled quantity
+            "L": "0.00000000",             # Last executed price
+            "V": "26105.5",                # average executed price
+            "n": "0",                      # Commission amount
+            "N": None,                     # Commission asset
+            "u": True,                     # Is the trade normal, ignore for now
+            "w": True,                     # Is the order working? Stops will have
+            "m": False,                    # Is this trade the maker side?
+            "O": 1499405658657,            # Order creation time
+            "Z": "0.00000000"              # Cumulative quote asset transacted quantity
         }
 
         mock_queue = AsyncMock()
@@ -1363,7 +1416,9 @@ class TestHashkeyExchange(unittest.TestCase):
         self.assertTrue(order.is_cancelled)
         self.assertTrue(order.is_done)
 
-        self.assertTrue(self._is_logged("INFO", f"Successfully canceled order {order.client_order_id}."))
+        self.assertTrue(
+            self._is_logged("INFO", f"Successfully canceled order {order.client_order_id}.")
+        )
 
     def test_user_stream_update_for_order_partial_fill(self):
         self.exchange._set_current_timestamp(1640780000)
@@ -1379,31 +1434,31 @@ class TestHashkeyExchange(unittest.TestCase):
         order = self.exchange.in_flight_orders["OID1"]
 
         event_message = {
-            "e": "executionReport",  # Event type
-            "E": 1499405658658,  # Event time
-            "s": order.trading_pair,  # Symbol
-            "c": order.client_order_id,  # Client order ID
-            "S": order.trade_type.name,  # Side
-            "o": "LIMIT",  # Order type
-            "f": "GTC",  # Time in force
-            "q": order.amount,  # Order quantity
-            "p": order.price,  # Order price
-            "reqAmt": "1000",  # Requested cash amount (To be released)
-            "X": "PARTIALLY_FILLED",  # Current order status
-            "d": "1234567890123456789",  # Execution ID
+            "e": "executionReport",        # Event type
+            "E": 1499405658658,            # Event time
+            "s": order.trading_pair,       # Symbol
+            "c": order.client_order_id,    # Client order ID
+            "S": order.trade_type.name,    # Side
+            "o": "LIMIT",                  # Order type
+            "f": "GTC",                    # Time in force
+            "q": order.amount,             # Order quantity
+            "p": order.price,              # Order price
+            "reqAmt": "1000",	           # Requested cash amount (To be released)
+            "X": "PARTIALLY_FILLED",       # Current order status
+            "d": "1234567890123456789",    # Execution ID
             "i": order.exchange_order_id,  # Order ID
-            "l": "0.50000000",  # Last executed quantity
-            "r": "0",  # unfilled quantity
-            "z": "0.50000000",  # Cumulative filled quantity
-            "L": "0.10250000",  # Last executed price
-            "V": "26105.5",  # average executed price
-            "n": "0.003",  # Commission amount
-            "N": self.base_asset,  # Commission asset
-            "u": True,  # Is the trade normal, ignore for now
-            "w": True,  # Is the order working? Stops will have
-            "m": False,  # Is this trade the maker side?
-            "O": 1499405658657,  # Order creation time
-            "Z": "473.199",  # Cumulative quote asset transacted quantity
+            "l": "0.50000000",             # Last executed quantity
+            "r": "0",                      # unfilled quantity
+            "z": "0.50000000",             # Cumulative filled quantity
+            "L": "0.10250000",             # Last executed price
+            "V": "26105.5",                # average executed price
+            "n": "0.003",                  # Commission amount
+            "N": self.base_asset,          # Commission asset
+            "u": True,                     # Is the trade normal, ignore for now
+            "w": True,                     # Is the order working? Stops will have
+            "m": False,                    # Is this trade the maker side?
+            "O": 1499405658657,            # Order creation time
+            "Z": "473.199"                 # Cumulative quote asset transacted quantity
         }
 
         mock_queue = AsyncMock()
@@ -1427,20 +1482,15 @@ class TestHashkeyExchange(unittest.TestCase):
         self.assertEqual(Decimal(event_message["L"]), fill_event.price)
         self.assertEqual(Decimal(event_message["l"]), fill_event.amount)
 
-        self.assertEqual(
-            [TokenAmount(amount=Decimal(event_message["n"]), token=(event_message["N"]))],
-            fill_event.trade_fee.flat_fees,
-        )
+        self.assertEqual([TokenAmount(amount=Decimal(event_message["n"]), token=(event_message["N"]))],
+                         fill_event.trade_fee.flat_fees)
 
         self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
 
         self.assertTrue(
-            self._is_logged(
-                "INFO",
-                f"The {order.trade_type.name} order {order.client_order_id} amounting to "
-                f"{fill_event.amount}/{order.amount} {order.base_asset} has been filled "
-                f"at {Decimal('0.10250000')} {self.quote_asset}.",
-            )
+            self._is_logged("INFO", f"The {order.trade_type.name} order {order.client_order_id} amounting to "
+                                    f"{fill_event.amount}/{order.amount} {order.base_asset} has been filled "
+                                    f"at {Decimal('0.10250000')} {self.quote_asset}.")
         )
 
     def test_user_stream_update_for_order_fill(self):
@@ -1457,48 +1507,48 @@ class TestHashkeyExchange(unittest.TestCase):
         order = self.exchange.in_flight_orders["OID1"]
 
         event_message = {
-            "e": "executionReport",  # Event type
-            "E": 1499405658658,  # Event time
-            "s": order.trading_pair,  # Symbol
-            "c": order.client_order_id,  # Client order ID
-            "S": order.trade_type.name,  # Side
-            "o": "LIMIT",  # Order type
-            "f": "GTC",  # Time in force
-            "q": order.amount,  # Order quantity
-            "p": order.price,  # Order price
-            "reqAmt": "1000",  # Requested cash amount (To be released)
-            "X": "FILLED",  # Current order status
-            "d": "1234567890123456789",  # Execution ID
+            "e": "executionReport",        # Event type
+            "E": 1499405658658,            # Event time
+            "s": order.trading_pair,       # Symbol
+            "c": order.client_order_id,    # Client order ID
+            "S": order.trade_type.name,    # Side
+            "o": "LIMIT",                  # Order type
+            "f": "GTC",                    # Time in force
+            "q": order.amount,             # Order quantity
+            "p": order.price,              # Order price
+            "reqAmt": "1000",	           # Requested cash amount (To be released)
+            "X": "FILLED",                 # Current order status
+            "d": "1234567890123456789",    # Execution ID
             "i": order.exchange_order_id,  # Order ID
-            "l": order.amount,  # Last executed quantity
-            "r": "0",  # unfilled quantity
-            "z": "0.50000000",  # Cumulative filled quantity
-            "L": order.price,  # Last executed price
-            "V": "26105.5",  # average executed price
-            "n": "0.003",  # Commission amount
-            "N": self.base_asset,  # Commission asset
-            "u": True,  # Is the trade normal, ignore for now
-            "w": True,  # Is the order working? Stops will have
-            "m": False,  # Is this trade the maker side?
-            "O": 1499405658657,  # Order creation time
-            "Z": "473.199",  # Cumulative quote asset transacted quantity
+            "l": order.amount,             # Last executed quantity
+            "r": "0",                      # unfilled quantity
+            "z": "0.50000000",             # Cumulative filled quantity
+            "L": order.price,              # Last executed price
+            "V": "26105.5",                # average executed price
+            "n": "0.003",                  # Commission amount
+            "N": self.base_asset,          # Commission asset
+            "u": True,                     # Is the trade normal, ignore for now
+            "w": True,                     # Is the order working? Stops will have
+            "m": False,                    # Is this trade the maker side?
+            "O": 1499405658657,            # Order creation time
+            "Z": "473.199"                 # Cumulative quote asset transacted quantity
         }
 
         filled_event = {
-            "e": "ticketInfo",  # Event type
-            "E": "1668693440976",  # Event time
-            "s": self.ex_trading_pair,  # Symbol
-            "q": "0.001639",  # quantity
-            "t": "1668693440899",  # time
-            "p": "441.0",  # price
-            "T": "899062000267837441",  # ticketId
-            "o": "899048013515737344",  # orderId
-            "c": "1621910874883",  # clientOrderId
-            "O": "899062000118679808",  # matchOrderId
-            "a": "10086",  # accountId
-            "A": 0,  # ignore
-            "m": True,  # isMaker
-            "S": order.trade_type.name,  # side  SELL or BUY
+            "e": "ticketInfo",                # Event type
+            "E": "1668693440976",             # Event time
+            "s": self.ex_trading_pair,        # Symbol
+            "q": "0.001639",                     # quantity
+            "t": "1668693440899",             # time
+            "p": "441.0",                     # price
+            "T": "899062000267837441",        # ticketId
+            "o": "899048013515737344",        # orderId
+            "c": "1621910874883",             # clientOrderId
+            "O": "899062000118679808",        # matchOrderId
+            "a": "10086",                     # accountId
+            "A": 0,                           # ignore
+            "m": True,                        # isMaker
+            "S": order.trade_type.name        # side  SELL or BUY
         }
 
         mock_queue = AsyncMock()
@@ -1520,10 +1570,8 @@ class TestHashkeyExchange(unittest.TestCase):
         match_size = Decimal(event_message["l"])
         self.assertEqual(match_price, fill_event.price)
         self.assertEqual(match_size, fill_event.amount)
-        self.assertEqual(
-            [TokenAmount(amount=Decimal(event_message["n"]), token=(event_message["N"]))],
-            fill_event.trade_fee.flat_fees,
-        )
+        self.assertEqual([TokenAmount(amount=Decimal(event_message["n"]), token=(event_message["N"]))],
+                         fill_event.trade_fee.flat_fees)
 
         buy_event: BuyOrderCompletedEvent = self.buy_order_completed_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, buy_event.timestamp)
@@ -1538,23 +1586,30 @@ class TestHashkeyExchange(unittest.TestCase):
         self.assertTrue(order.is_filled)
         self.assertTrue(order.is_done)
 
-        self.assertTrue(self._is_logged("INFO", f"BUY order {order.client_order_id} completely filled."))
+        self.assertTrue(
+            self._is_logged(
+                "INFO",
+                f"BUY order {order.client_order_id} completely filled."
+            )
+        )
 
     def test_user_stream_balance_update(self):
         self.exchange._set_current_timestamp(1640780000)
 
-        event_message = [
-            {
-                "e": "outboundAccountInfo",  # Event type
-                "E": 1629969654753,  # Event time
-                "T": True,  # Can trade
-                "W": True,  # Can withdraw
-                "D": True,  # Can deposit
-                "B": [  # Balances changed
-                    {"a": self.base_asset, "f": "10000", "l": "500"}  # Asset  # Free amount  # Locked amount
-                ],
-            }
-        ]
+        event_message = [{
+            "e": "outboundAccountInfo",   # Event type
+            "E": 1629969654753,           # Event time
+            "T": True,                    # Can trade
+            "W": True,                    # Can withdraw
+            "D": True,                    # Can deposit
+            "B": [                        # Balances changed
+                {
+                    "a": self.base_asset,     # Asset
+                    "f": "10000",             # Free amount
+                    "l": "500"         # Locked amount
+                }
+            ]
+        }]
 
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [event_message, asyncio.CancelledError]
@@ -1576,8 +1631,9 @@ class TestHashkeyExchange(unittest.TestCase):
         self.exchange._user_stream_tracker._user_stream = mock_queue
 
         self.assertRaises(
-            asyncio.CancelledError, self.async_run_with_timeout, self.exchange._user_stream_event_listener()
-        )
+            asyncio.CancelledError,
+            self.async_run_with_timeout,
+            self.exchange._user_stream_event_listener())
 
     @patch("hummingbot.connector.exchange.hashkey.hashkey_exchange.HashkeyExchange._sleep")
     def test_user_stream_logs_errors(self, _):
@@ -1600,4 +1656,9 @@ class TestHashkeyExchange(unittest.TestCase):
         except asyncio.CancelledError:
             pass
 
-        self.assertTrue(self._is_logged("ERROR", "Unexpected error in user stream listener loop."))
+        self.assertTrue(
+            self._is_logged(
+                "ERROR",
+                "Unexpected error in user stream listener loop."
+            )
+        )

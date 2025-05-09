@@ -60,11 +60,9 @@ class CustomAPIDataFeed(NetworkBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().network(
-                    f"Error fetching a new price from {self._api_url}.",
-                    exc_info=True,
-                    app_warning_msg="Couldn't fetch newest price from CustomAPI. " "Check network connection.",
-                )
+                self.logger().network(f"Error fetching a new price from {self._api_url}.", exc_info=True,
+                                      app_warning_msg="Couldn't fetch newest price from CustomAPI. "
+                                                      "Check network connection.")
 
             await asyncio.sleep(self._update_interval)
 

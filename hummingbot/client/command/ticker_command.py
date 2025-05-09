@@ -12,23 +12,19 @@ if TYPE_CHECKING:
 
 
 class TickerCommand:
-    def ticker(
-        self,  # type: HummingbotApplication
-        live: bool = False,
-        exchange: str = None,
-        market: str = None,
-    ):
+    def ticker(self,  # type: HummingbotApplication
+               live: bool = False,
+               exchange: str = None,
+               market: str = None):
         if threading.current_thread() != threading.main_thread():
             self.ev_loop.call_soon_threadsafe(self.ticker, live, exchange, market)
             return
         safe_ensure_future(self.show_ticker(live, exchange, market))
 
-    async def show_ticker(
-        self,  # type: HummingbotApplication
-        live: bool = False,
-        exchange: str = None,
-        market: str = None,
-    ):
+    async def show_ticker(self,  # type: HummingbotApplication
+                          live: bool = False,
+                          exchange: str = None,
+                          market: str = None):
         if len(self.markets.keys()) == 0:
             self.notify("\n This command can only be used while a strategy is running")
             return
@@ -50,14 +46,12 @@ class TickerCommand:
 
         def get_ticker():
             columns = ["Best Bid", "Best Ask", "Mid Price", "Last Trade"]
-            data = [
-                [
-                    float(market_connector.get_price_by_type(trading_pair, PriceType.BestBid)),
-                    float(market_connector.get_price_by_type(trading_pair, PriceType.BestAsk)),
-                    float(market_connector.get_price_by_type(trading_pair, PriceType.MidPrice)),
-                    float(market_connector.get_price_by_type(trading_pair, PriceType.LastTrade)),
-                ]
-            ]
+            data = [[
+                float(market_connector.get_price_by_type(trading_pair, PriceType.BestBid)),
+                float(market_connector.get_price_by_type(trading_pair, PriceType.BestAsk)),
+                float(market_connector.get_price_by_type(trading_pair, PriceType.MidPrice)),
+                float(market_connector.get_price_by_type(trading_pair, PriceType.LastTrade))
+            ]]
             ticker_df = pd.DataFrame(data=data, columns=columns)
             ticker_df_str = format_df_for_printout(ticker_df, self.client_config_map.tables_format)
             return f"   Market: {market_connector.name}\n{ticker_df_str}"

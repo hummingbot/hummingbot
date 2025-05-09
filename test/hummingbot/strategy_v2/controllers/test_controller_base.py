@@ -15,8 +15,13 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
             id="test",
             controller_name="test_controller",
             candles_config=[
-                CandlesConfig(connector="binance_perpetual", trading_pair="ETH-USDT", interval="1m", max_records=500)
-            ],
+                CandlesConfig(
+                    connector="binance_perpetual",
+                    trading_pair="ETH-USDT",
+                    interval="1m",
+                    max_records=500
+                )
+            ]
         )
 
         # Mocking dependencies
@@ -27,7 +32,7 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
         self.controller = ControllerBase(
             config=self.mock_controller_config,
             market_data_provider=self.mock_market_data_provider,
-            actions_queue=self.mock_actions_queue,
+            actions_queue=self.mock_actions_queue
         )
 
     def test_initialize_candles(self):
@@ -41,8 +46,13 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
             id="test_new",
             controller_name="new_test_controller",
             candles_config=[
-                CandlesConfig(connector="binance_perpetual", trading_pair="ETH-USDT", interval="3m", max_records=500)
-            ],
+                CandlesConfig(
+                    connector="binance_perpetual",
+                    trading_pair="ETH-USDT",
+                    interval="3m",
+                    max_records=500
+                )
+            ]
         )
         self.controller.update_config(new_config)
         # Controller name is not updatable
@@ -87,7 +97,7 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
         input_str = "binance.BTC-USDT.1m.500:kraken.ETH-USD.5m.1000"
         expected_output = [
             CandlesConfig(connector="binance", trading_pair="BTC-USDT", interval="1m", max_records=500),
-            CandlesConfig(connector="kraken", trading_pair="ETH-USD", interval="5m", max_records=1000),
+            CandlesConfig(connector="kraken", trading_pair="ETH-USD", interval="5m", max_records=1000)
         ]
         self.assertEqual(ControllerConfigBase.parse_candles_config_str(input_str), expected_output)
 
@@ -99,10 +109,7 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
         input_str = "binance.BTC-USDT.1m.notanumber"
         with self.assertRaises(ValueError) as e:
             ControllerConfigBase.parse_candles_config_str(input_str)
-        self.assertEqual(
-            str(e.exception),
-            "Invalid max_records value 'notanumber' in segment 'binance.BTC-USDT.1m.notanumber'. max_records should be an integer.",
-        )
+        self.assertEqual(str(e.exception), "Invalid max_records value 'notanumber' in segment 'binance.BTC-USDT.1m.notanumber'. max_records should be an integer.")
 
     def test_balance_requirements(self):
         # Test the balance_required method

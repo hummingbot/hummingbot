@@ -24,11 +24,11 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
     _logger: Optional[HummingbotLogger] = None
 
     def __init__(
-        self,
-        auth: BinancePerpetualAuth,
-        connector: "BinancePerpetualDerivative",
-        api_factory: WebAssistantsFactory,
-        domain: str = CONSTANTS.DOMAIN,
+            self,
+            auth: BinancePerpetualAuth,
+            connector: 'BinancePerpetualDerivative',
+            api_factory: WebAssistantsFactory,
+            domain: str = CONSTANTS.DOMAIN,
     ):
 
         super().__init__()
@@ -62,7 +62,7 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 url=web_utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self._domain),
                 method=RESTMethod.POST,
                 throttler_limit_id=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT,
-                headers=self._auth.header_for_authentication(),
+                headers=self._auth.header_for_authentication()
             )
         except asyncio.CancelledError:
             raise
@@ -77,8 +77,7 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT,
                 params={"listenKey": self._current_listen_key},
                 is_auth_required=True,
-                return_err=True,
-            )
+                return_err=True)
             if "code" in data:
                 self.logger().warning(f"Failed to refresh the listen key {self._current_listen_key}: {data}")
                 return False

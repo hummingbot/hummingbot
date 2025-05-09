@@ -16,13 +16,12 @@ class DCAExample(ScriptStrategyBase):
     """
     This example shows how to set up a simple strategy to buy a token on fixed (dollar) amount on a regular basis
     """
-
     #: Define markets to instruct Hummingbot to create connectors on the exchanges and markets you need
     markets = {"binance_paper_trade": {"BTC-USDT"}}
     #: The last time the strategy places a buy order
-    last_ordered_ts = 0.0
+    last_ordered_ts = 0.
     #: Buying interval (in seconds)
-    buy_interval = 10.0
+    buy_interval = 10.
     #: Buying amount (in dollars - USDT)
     buy_quote_amount = Decimal("100")
 

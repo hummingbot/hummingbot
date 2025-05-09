@@ -16,12 +16,11 @@ INTERVALS = {
     "8h": "Hour8",
     "1d": "Day1",
     "1w": "Week1",
-    "1M": "Month1",
+    "1M": "Month1"
 }
 
 MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST = 2000
 
 RATE_LIMITS = [
     RateLimit(CANDLES_ENDPOINT, limit=20, time_interval=2, linked_limits=[LinkedLimitWeightPair("raw", 1)]),
-    RateLimit(HEALTH_CHECK_ENDPOINT, limit=20, time_interval=2, linked_limits=[LinkedLimitWeightPair("raw", 1)]),
-]
+    RateLimit(HEALTH_CHECK_ENDPOINT, limit=20, time_interval=2, linked_limits=[LinkedLimitWeightPair("raw", 1)])]

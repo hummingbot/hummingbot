@@ -22,7 +22,6 @@ class PMMhShiftedMidPriceDynamicSpread(ScriptStrategyBase):
     in a `trading_pair` on `exchange`, with a distance defined by the `spread` multiplied by `spreads_factors`
     based on `NATR`. Every `order_refresh_time` seconds, the bot will cancel and replace the orders.
     """
-
     # Define the variables that we are going to use for the spreads
     # We are going to divide the NATR by the spread_base to get the spread_multiplier
     # If NATR = 0.002 = 0.2% --> the spread_factor will be 0.002 / 0.008 = 0.25
@@ -45,9 +44,7 @@ class PMMhShiftedMidPriceDynamicSpread(ScriptStrategyBase):
     exchange = "binance"
 
     # Creating instance of the candles
-    candles = CandlesFactory.get_candle(
-        CandlesConfig(connector=exchange, trading_pair=trading_pair, interval="3m", max_records=1000)
-    )
+    candles = CandlesFactory.get_candle(CandlesConfig(connector=exchange, trading_pair=trading_pair, interval="3m", max_records=1000))
 
     # Variables to store the volume and quantity of orders
 
@@ -99,23 +96,11 @@ class PMMhShiftedMidPriceDynamicSpread(ScriptStrategyBase):
         buy_price = reference_price * Decimal(1 - spreads_adjusted)
         sell_price = reference_price * Decimal(1 + spreads_adjusted)
 
-        buy_order = OrderCandidate(
-            trading_pair=self.trading_pair,
-            is_maker=True,
-            order_type=OrderType.LIMIT,
-            order_side=TradeType.BUY,
-            amount=Decimal(self.order_amount),
-            price=buy_price,
-        )
+        buy_order = OrderCandidate(trading_pair=self.trading_pair, is_maker=True, order_type=OrderType.LIMIT,
+                                   order_side=TradeType.BUY, amount=Decimal(self.order_amount), price=buy_price)
 
-        sell_order = OrderCandidate(
-            trading_pair=self.trading_pair,
-            is_maker=True,
-            order_type=OrderType.LIMIT,
-            order_side=TradeType.SELL,
-            amount=Decimal(self.order_amount),
-            price=sell_price,
-        )
+        sell_order = OrderCandidate(trading_pair=self.trading_pair, is_maker=True, order_type=OrderType.LIMIT,
+                                    order_side=TradeType.SELL, amount=Decimal(self.order_amount), price=sell_price)
 
         return [buy_order, sell_order]
 
@@ -132,28 +117,19 @@ class PMMhShiftedMidPriceDynamicSpread(ScriptStrategyBase):
 
     def place_order(self, connector_name: str, order: OrderCandidate):
         if order.order_side == TradeType.SELL:
-            self.sell(
-                connector_name=connector_name,
-                trading_pair=order.trading_pair,
-                amount=order.amount,
-                order_type=order.order_type,
-                price=order.price,
-            )
+            self.sell(connector_name=connector_name, trading_pair=order.trading_pair, amount=order.amount,
+                      order_type=order.order_type, price=order.price)
         elif order.order_side == TradeType.BUY:
-            self.buy(
-                connector_name=connector_name,
-                trading_pair=order.trading_pair,
-                amount=order.amount,
-                order_type=order.order_type,
-                price=order.price,
-            )
+            self.buy(connector_name=connector_name, trading_pair=order.trading_pair, amount=order.amount,
+                     order_type=order.order_type, price=order.price)
 
     def cancel_all_orders(self):
         for order in self.get_active_orders(connector_name=self.exchange):
             self.cancel(self.exchange, order.trading_pair, order.client_order_id)
 
     def did_fill_order(self, event: OrderFilledEvent):
-        msg = f"{event.trade_type.name} {round(event.amount, 2)} {event.trading_pair} {self.exchange} at {round(event.price, 2)}"
+        msg = (
+            f"{event.trade_type.name} {round(event.amount, 2)} {event.trading_pair} {self.exchange} at {round(event.price, 2)}")
         self.log_with_clock(logging.INFO, msg)
         self.total_buy_volume += event.amount if event.trade_type == TradeType.BUY else 0
         self.total_sell_volume += event.amount if event.trade_type == TradeType.SELL else 0
@@ -183,45 +159,15 @@ class PMMhShiftedMidPriceDynamicSpread(ScriptStrategyBase):
             lines.extend(["", "  No active maker orders."])
         mid_price = self.connectors[self.exchange].get_price_by_type(self.trading_pair, self.price_source)
         reference_price = mid_price * Decimal(str(1 + self.price_multiplier))
-        lines.extend(
-            [
-                "\n-----------------------------------------------------------------------------------------------------------\n"
-            ]
-        )
-        lines.extend(
-            ["", f"  Total Buy Orders: {self.total_buy_orders:.2f} | Total Sell Orders: {self.total_sell_orders:.2f}"]
-        )
-        lines.extend(
-            ["", f"  Total Buy Volume: {self.total_buy_volume:.2f} | Total Sell Volume: {self.total_sell_volume:.2f}"]
-        )
-        lines.extend(
-            [
-                "\n-----------------------------------------------------------------------------------------------------------\n"
-            ]
-        )
-        lines.extend(
-            [
-                "",
-                f"  Spread Base: {self.spread_base:.4f} | Spread Adjusted: {(self.spread_multiplier * self.spread_base):.4f} | Spread Multiplier: {self.spread_multiplier:.4f}",
-            ]
-        )
-        lines.extend(
-            [
-                "",
-                f"  Mid Price: {mid_price:.4f} | Price shifted: {reference_price:.4f} | Price Multiplier: {self.price_multiplier:.4f}",
-            ]
-        )
-        lines.extend(
-            [
-                "\n-----------------------------------------------------------------------------------------------------------\n"
-            ]
-        )
+        lines.extend(["\n-----------------------------------------------------------------------------------------------------------\n"])
+        lines.extend(["", f"  Total Buy Orders: {self.total_buy_orders:.2f} | Total Sell Orders: {self.total_sell_orders:.2f}"])
+        lines.extend(["", f"  Total Buy Volume: {self.total_buy_volume:.2f} | Total Sell Volume: {self.total_sell_volume:.2f}"])
+        lines.extend(["\n-----------------------------------------------------------------------------------------------------------\n"])
+        lines.extend(["", f"  Spread Base: {self.spread_base:.4f} | Spread Adjusted: {(self.spread_multiplier * self.spread_base):.4f} | Spread Multiplier: {self.spread_multiplier:.4f}"])
+        lines.extend(["", f"  Mid Price: {mid_price:.4f} | Price shifted: {reference_price:.4f} | Price Multiplier: {self.price_multiplier:.4f}"])
+        lines.extend(["\n-----------------------------------------------------------------------------------------------------------\n"])
         candles_df = self.get_candles_with_features()
         lines.extend([f"Candles: {self.candles.name} | Interval: {self.candles.interval}"])
         lines.extend(["    " + line for line in candles_df.tail().to_string(index=False).split("\n")])
-        lines.extend(
-            [
-                "\n-----------------------------------------------------------------------------------------------------------\n"
-            ]
-        )
+        lines.extend(["\n-----------------------------------------------------------------------------------------------------------\n"])
         return "\n".join(lines)

@@ -18,29 +18,23 @@ class PMMWithPositionExecutorConfig(StrategyV2ConfigBase):
     candles_config: List[CandlesConfig] = []
     controllers_config: List[str] = []
     order_amount_quote: Decimal = Field(
-        default=30,
-        gt=0,
+        default=30, gt=0,
         json_schema_extra={
             "prompt": lambda mi: "Enter the amount of quote asset to be used per order (e.g. 30): ",
-            "prompt_on_new": True,
-        },
+            "prompt_on_new": True}
     )
     executor_refresh_time: int = Field(
-        default=20,
-        gt=0,
+        default=20, gt=0,
         json_schema_extra={
             "prompt": lambda mi: "Enter the time in seconds to refresh the executor (e.g. 20): ",
-            "prompt_on_new": True,
-        },
+            "prompt_on_new": True}
     )
     spread: Decimal = Field(
-        default=Decimal("0.003"),
-        gt=0,
-        json_schema_extra={"prompt": lambda mi: "Enter the spread (e.g. 0.003): ", "prompt_on_new": True},
+        default=Decimal("0.003"), gt=0,
+        json_schema_extra={"prompt": lambda mi: "Enter the spread (e.g. 0.003): ", "prompt_on_new": True}
     )
     leverage: int = Field(
-        default=20,
-        gt=0,
+        default=20, gt=0,
         json_schema_extra={"prompt": lambda mi: "Enter the leverage (e.g. 20): ", "prompt_on_new": True},
     )
     position_mode: PositionMode = Field(
@@ -49,29 +43,24 @@ class PMMWithPositionExecutorConfig(StrategyV2ConfigBase):
     )
     # Triple Barrier Configuration
     stop_loss: Decimal = Field(
-        default=Decimal("0.03"),
-        gt=0,
-        json_schema_extra={"prompt": lambda mi: "Enter the stop loss (as a decimal, e.g., 0.03 for 3%): "},
+        default=Decimal("0.03"), gt=0,
+        json_schema_extra={"prompt": lambda mi: "Enter the stop loss (as a decimal, e.g., 0.03 for 3%): "}
     )
     take_profit: Decimal = Field(
-        default=Decimal("0.01"),
-        gt=0,
-        json_schema_extra={"prompt": lambda mi: "Enter the take profit (as a decimal, e.g., 0.01 for 1%): "},
+        default=Decimal("0.01"), gt=0,
+        json_schema_extra={"prompt": lambda mi: "Enter the take profit (as a decimal, e.g., 0.01 for 1%): "}
     )
     time_limit: int = Field(
-        default=60 * 45,
-        gt=0,
+        default=60 * 45, gt=0,
         json_schema_extra={"prompt": lambda mi: "Enter the time limit (in seconds): ", "prompt_on_new": True},
     )
     take_profit_order_type: OrderType = Field(
         default="LIMIT",
-        json_schema_extra={
-            "prompt": lambda mi: "Enter the order type for take profit (LIMIT/MARKET): ",
-            "prompt_on_new": True,
-        },
+        json_schema_extra={"prompt": lambda mi: "Enter the order type for take profit (LIMIT/MARKET): ",
+                           "prompt_on_new": True}
     )
 
-    @field_validator("take_profit_order_type", mode="before")
+    @field_validator('take_profit_order_type', mode="before")
     @classmethod
     def validate_order_type(cls, v) -> OrderType:
         if isinstance(v, OrderType):
@@ -95,10 +84,10 @@ class PMMWithPositionExecutorConfig(StrategyV2ConfigBase):
             open_order_type=OrderType.LIMIT,
             take_profit_order_type=self.take_profit_order_type,
             stop_loss_order_type=OrderType.MARKET,  # Defaulting to MARKET as per requirement
-            time_limit_order_type=OrderType.MARKET,  # Defaulting to MARKET as per requirement
+            time_limit_order_type=OrderType.MARKET  # Defaulting to MARKET as per requirement
         )
 
-    @field_validator("position_mode", mode="before")
+    @field_validator('position_mode', mode="before")
     def validate_position_mode(cls, v: str) -> PositionMode:
         if v.upper() in PositionMode.__members__:
             return PositionMode[v.upper()]
@@ -130,67 +119,53 @@ class PMMSingleLevel(StrategyV2Base):
         all_executors = self.get_all_executors()
         active_buy_position_executors = self.filter_executors(
             executors=all_executors,
-            filter_func=lambda x: x.side == TradeType.BUY and x.type == "position_executor" and x.is_active,
-        )
+            filter_func=lambda x: x.side == TradeType.BUY and x.type == "position_executor" and x.is_active)
 
         active_sell_position_executors = self.filter_executors(
             executors=all_executors,
-            filter_func=lambda x: x.side == TradeType.SELL and x.type == "position_executor" and x.is_active,
-        )
+            filter_func=lambda x: x.side == TradeType.SELL and x.type == "position_executor" and x.is_active)
 
         for connector_name in self.connectors:
             for trading_pair in self.market_data_provider.get_trading_pairs(connector_name):
                 # Get mid-price
-                mid_price = self.market_data_provider.get_price_by_type(
-                    connector_name, trading_pair, PriceType.MidPrice
-                )
-                len_active_buys = len(
-                    self.filter_executors(
-                        executors=active_buy_position_executors,
-                        filter_func=lambda x: x.config.trading_pair == trading_pair,
-                    )
-                )
+                mid_price = self.market_data_provider.get_price_by_type(connector_name, trading_pair, PriceType.MidPrice)
+                len_active_buys = len(self.filter_executors(
+                    executors=active_buy_position_executors,
+                    filter_func=lambda x: x.config.trading_pair == trading_pair))
                 # Evaluate if we need to create new executors and create the actions
                 if len_active_buys == 0:
                     order_price = mid_price * (1 - self.config.spread)
                     order_amount = self.config.order_amount_quote / order_price
-                    create_actions.append(
-                        CreateExecutorAction(
-                            executor_config=PositionExecutorConfig(
-                                timestamp=self.current_timestamp,
-                                trading_pair=trading_pair,
-                                connector_name=connector_name,
-                                side=TradeType.BUY,
-                                amount=order_amount,
-                                entry_price=order_price,
-                                triple_barrier_config=self.config.triple_barrier_config,
-                                leverage=self.config.leverage,
-                            )
+                    create_actions.append(CreateExecutorAction(
+                        executor_config=PositionExecutorConfig(
+                            timestamp=self.current_timestamp,
+                            trading_pair=trading_pair,
+                            connector_name=connector_name,
+                            side=TradeType.BUY,
+                            amount=order_amount,
+                            entry_price=order_price,
+                            triple_barrier_config=self.config.triple_barrier_config,
+                            leverage=self.config.leverage
                         )
-                    )
-                len_active_sells = len(
-                    self.filter_executors(
-                        executors=active_sell_position_executors,
-                        filter_func=lambda x: x.config.trading_pair == trading_pair,
-                    )
-                )
+                    ))
+                len_active_sells = len(self.filter_executors(
+                    executors=active_sell_position_executors,
+                    filter_func=lambda x: x.config.trading_pair == trading_pair))
                 if len_active_sells == 0:
                     order_price = mid_price * (1 + self.config.spread)
                     order_amount = self.config.order_amount_quote / order_price
-                    create_actions.append(
-                        CreateExecutorAction(
-                            executor_config=PositionExecutorConfig(
-                                timestamp=self.current_timestamp,
-                                trading_pair=trading_pair,
-                                connector_name=connector_name,
-                                side=TradeType.SELL,
-                                amount=order_amount,
-                                entry_price=order_price,
-                                triple_barrier_config=self.config.triple_barrier_config,
-                                leverage=self.config.leverage,
-                            )
+                    create_actions.append(CreateExecutorAction(
+                        executor_config=PositionExecutorConfig(
+                            timestamp=self.current_timestamp,
+                            trading_pair=trading_pair,
+                            connector_name=connector_name,
+                            side=TradeType.SELL,
+                            amount=order_amount,
+                            entry_price=order_price,
+                            triple_barrier_config=self.config.triple_barrier_config,
+                            leverage=self.config.leverage
                         )
-                    )
+                    ))
         return create_actions
 
     def stop_actions_proposal(self) -> List[StopExecutorAction]:
@@ -209,10 +184,7 @@ class PMMSingleLevel(StrategyV2Base):
         all_executors = self.get_all_executors()
         executors_to_refresh = self.filter_executors(
             executors=all_executors,
-            filter_func=lambda x: not x.is_trading
-            and x.is_active
-            and self.current_timestamp - x.timestamp > self.config.executor_refresh_time,
-        )
+            filter_func=lambda x: not x.is_trading and x.is_active and self.current_timestamp - x.timestamp > self.config.executor_refresh_time)
 
         return [StopExecutorAction(executor_id=executor.id) for executor in executors_to_refresh]
 

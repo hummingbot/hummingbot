@@ -70,12 +70,19 @@ class OrderBookTracker:
 
     @property
     def snapshot(self) -> Dict[str, Tuple[pd.DataFrame, pd.DataFrame]]:
-        return {trading_pair: order_book.snapshot for trading_pair, order_book in self._order_books.items()}
+        return {
+            trading_pair: order_book.snapshot
+            for trading_pair, order_book in self._order_books.items()
+        }
 
     def start(self):
         self.stop()
-        self._init_order_books_task = safe_ensure_future(self._init_order_books())
-        self._emit_trade_event_task = safe_ensure_future(self._emit_trade_event_loop())
+        self._init_order_books_task = safe_ensure_future(
+            self._init_order_books()
+        )
+        self._emit_trade_event_task = safe_ensure_future(
+            self._emit_trade_event_loop()
+        )
         self._order_book_diff_listener_task = safe_ensure_future(
             self._data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
         )
@@ -85,10 +92,18 @@ class OrderBookTracker:
         self._order_book_snapshot_listener_task = safe_ensure_future(
             self._data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
         )
-        self._order_book_stream_listener_task = safe_ensure_future(self._data_source.listen_for_subscriptions())
-        self._order_book_diff_router_task = safe_ensure_future(self._order_book_diff_router())
-        self._order_book_snapshot_router_task = safe_ensure_future(self._order_book_snapshot_router())
-        self._update_last_trade_prices_task = safe_ensure_future(self._update_last_trade_prices_loop())
+        self._order_book_stream_listener_task = safe_ensure_future(
+            self._data_source.listen_for_subscriptions()
+        )
+        self._order_book_diff_router_task = safe_ensure_future(
+            self._order_book_diff_router()
+        )
+        self._order_book_snapshot_router_task = safe_ensure_future(
+            self._order_book_snapshot_router()
+        )
+        self._update_last_trade_prices_task = safe_ensure_future(
+            self._update_last_trade_prices_loop()
+        )
 
     def stop(self):
         if self._init_order_books_task is not None:
@@ -128,19 +143,16 @@ class OrderBookTracker:
         await self._order_books_initialized.wait()
 
     async def _update_last_trade_prices_loop(self):
-        """
+        '''
         Updates last trade price for all order books through REST API, it is to initiate last_trade_price and as
         fall-back mechanism for when the web socket update channel fails.
-        """
+        '''
         await self._order_books_initialized.wait()
         while True:
             try:
-                outdateds = [
-                    t_pair
-                    for t_pair, o_book in self._order_books.items()
-                    if o_book.last_applied_trade < time.perf_counter() - (60.0 * 3)
-                    and o_book.last_trade_price_rest_updated < time.perf_counter() - 5
-                ]
+                outdateds = [t_pair for t_pair, o_book in self._order_books.items()
+                             if o_book.last_applied_trade < time.perf_counter() - (60. * 3)
+                             and o_book.last_trade_price_rest_updated < time.perf_counter() - 5]
                 if outdateds:
                     args = {"trading_pairs": outdateds}
                     if self._domain is not None:
@@ -168,9 +180,8 @@ class OrderBookTracker:
             self._order_books[trading_pair] = await self._initial_order_book_for_trading_pair(trading_pair)
             self._tracking_message_queues[trading_pair] = asyncio.Queue()
             self._tracking_tasks[trading_pair] = safe_ensure_future(self._track_single_book(trading_pair))
-            self.logger().info(
-                f"Initialized order book for {trading_pair}. " f"{index + 1}/{len(self._trading_pairs)} completed."
-            )
+            self.logger().info(f"Initialized order book for {trading_pair}. "
+                               f"{index + 1}/{len(self._trading_pairs)} completed.")
             await self._sleep(delay=1)
         self._order_books_initialized.set()
 
@@ -206,10 +217,8 @@ class OrderBookTracker:
                 # Log some statistics.
                 now: float = time.time()
                 if int(now / 60.0) > int(last_message_timestamp / 60.0):
-                    self.logger().debug(
-                        f"Diff messages processed: {messages_accepted}, "
-                        f"rejected: {messages_rejected}, queued: {messages_queued}"
-                    )
+                    self.logger().debug(f"Diff messages processed: {messages_accepted}, "
+                                        f"rejected: {messages_rejected}, queued: {messages_queued}")
                     messages_accepted = 0
                     messages_rejected = 0
                     messages_queued = 0
@@ -221,7 +230,7 @@ class OrderBookTracker:
                 self.logger().network(
                     "Unexpected error routing order book messages.",
                     exc_info=True,
-                    app_warning_msg="Unexpected error routing order book messages. Retrying after 5 seconds.",
+                    app_warning_msg="Unexpected error routing order book messages. Retrying after 5 seconds."
                 )
                 await asyncio.sleep(5.0)
 
@@ -282,7 +291,7 @@ class OrderBookTracker:
                 self.logger().network(
                     f"Unexpected error tracking order book for {trading_pair}.",
                     exc_info=True,
-                    app_warning_msg="Unexpected error tracking order book. Retrying after 5 seconds.",
+                    app_warning_msg="Unexpected error tracking order book. Retrying after 5 seconds."
                 )
                 await asyncio.sleep(5.0)
 
@@ -301,20 +310,15 @@ class OrderBookTracker:
                     continue
 
                 order_book: OrderBook = self._order_books[trading_pair]
-                order_book.apply_trade(
-                    OrderBookTradeEvent(
-                        trading_pair=trade_message.trading_pair,
-                        timestamp=trade_message.timestamp,
-                        price=float(trade_message.content["price"]),
-                        amount=float(trade_message.content["amount"]),
-                        trade_id=trade_message.trade_id,
-                        type=(
-                            TradeType.SELL
-                            if trade_message.content["trade_type"] == float(TradeType.SELL.value)
-                            else TradeType.BUY
-                        ),
-                    )
-                )
+                order_book.apply_trade(OrderBookTradeEvent(
+                    trading_pair=trade_message.trading_pair,
+                    timestamp=trade_message.timestamp,
+                    price=float(trade_message.content["price"]),
+                    amount=float(trade_message.content["amount"]),
+                    trade_id=trade_message.trade_id,
+                    type=TradeType.SELL if
+                    trade_message.content["trade_type"] == float(TradeType.SELL.value) else TradeType.BUY
+                ))
 
                 messages_accepted += 1
 
@@ -332,7 +336,7 @@ class OrderBookTracker:
                 self.logger().network(
                     "Unexpected error routing order book messages.",
                     exc_info=True,
-                    app_warning_msg="Unexpected error routing order book messages. Retrying after 5 seconds.",
+                    app_warning_msg="Unexpected error routing order book messages. Retrying after 5 seconds."
                 )
                 await asyncio.sleep(5.0)
 

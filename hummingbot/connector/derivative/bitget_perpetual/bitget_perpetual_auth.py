@@ -12,7 +12,6 @@ class BitgetPerpetualAuth(AuthBase):
     """
     Auth class required by Bitget Perpetual API
     """
-
     def __init__(self, api_key: str, secret_key: str, passphrase: str, time_provider: TimeSynchronizer):
         self._api_key: str = api_key
         self._secret_key: str = secret_key
@@ -33,8 +32,8 @@ class BitgetPerpetualAuth(AuthBase):
 
         payload = str(request.data)
         headers["ACCESS-SIGN"] = self._sign(
-            self._pre_hash(headers["ACCESS-TIMESTAMP"], request.method.value, path, payload), self._secret_key
-        )
+            self._pre_hash(headers["ACCESS-TIMESTAMP"], request.method.value, path, payload),
+            self._secret_key)
         request.headers.update(headers)
         return request
 
@@ -53,13 +52,18 @@ class BitgetPerpetualAuth(AuthBase):
         timestamp = str(int(self._time_provider.time()))
         signature = self._sign(self._pre_hash(timestamp, "GET", "/user/verify", ""), self._secret_key)
         auth_info = [
-            {"apiKey": self._api_key, "passphrase": self._passphrase, "timestamp": timestamp, "sign": signature}
+            {
+                "apiKey": self._api_key,
+                "passphrase": self._passphrase,
+                "timestamp": timestamp,
+                "sign": signature
+            }
         ]
         return auth_info
 
     @staticmethod
     def _sign(message, secret_key):
-        mac = hmac.new(bytes(secret_key, encoding="utf8"), bytes(message, encoding="utf-8"), digestmod="sha256")
+        mac = hmac.new(bytes(secret_key, encoding='utf8'), bytes(message, encoding='utf-8'), digestmod='sha256')
         d = mac.digest()
         return base64.b64encode(d).decode().strip()
 

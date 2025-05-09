@@ -36,8 +36,10 @@ class KucoinAuthTests(TestCase):
 
     def _sign(self, message: str, key: str) -> str:
         signed_message = base64.b64encode(
-            hmac.new(key.encode("utf-8"), message.encode("utf-8"), hashlib.sha256).digest()
-        )
+            hmac.new(
+                key.encode("utf-8"),
+                message.encode("utf-8"),
+                hashlib.sha256).digest())
         return signed_message.decode("utf-8")
 
     def test_add_auth_headers_to_get_request_without_params(self):
@@ -45,7 +47,7 @@ class KucoinAuthTests(TestCase):
             method=RESTMethod.GET,
             url="https://test.url/api/endpoint",
             is_auth_required=True,
-            throttler_limit_id="/api/endpoint",
+            throttler_limit_id="/api/endpoint"
         )
 
         self.async_run_with_timeout(self.auth.rest_authenticate(request))
@@ -59,9 +61,8 @@ class KucoinAuthTests(TestCase):
         self.assertEqual(expected_passphrase, request.headers["KC-API-PASSPHRASE"])
 
         self.assertEqual(CONSTANTS.HB_PARTNER_ID, request.headers["KC-API-PARTNER"])
-        expected_partner_signature = self._sign(
-            "1000000" + CONSTANTS.HB_PARTNER_ID + self.api_key, key=CONSTANTS.HB_PARTNER_KEY
-        )
+        expected_partner_signature = self._sign("1000000" + CONSTANTS.HB_PARTNER_ID + self.api_key,
+                                                key=CONSTANTS.HB_PARTNER_KEY)
         self.assertEqual(expected_partner_signature, request.headers["KC-API-PARTNER-SIGN"])
 
     def test_add_auth_headers_to_get_request_with_params(self):
@@ -70,7 +71,7 @@ class KucoinAuthTests(TestCase):
             url="https://test.url/api/endpoint",
             params={"param_z": "value_param_z", "param_a": "value_param_a"},
             is_auth_required=True,
-            throttler_limit_id="/api/endpoint",
+            throttler_limit_id="/api/endpoint"
         )
 
         self.async_run_with_timeout(self.auth.rest_authenticate(request))
@@ -85,9 +86,8 @@ class KucoinAuthTests(TestCase):
         self.assertEqual(expected_passphrase, request.headers["KC-API-PASSPHRASE"])
 
         self.assertEqual(CONSTANTS.HB_PARTNER_ID, request.headers["KC-API-PARTNER"])
-        expected_partner_signature = self._sign(
-            "1000000" + CONSTANTS.HB_PARTNER_ID + self.api_key, key=CONSTANTS.HB_PARTNER_KEY
-        )
+        expected_partner_signature = self._sign("1000000" + CONSTANTS.HB_PARTNER_ID + self.api_key,
+                                                key=CONSTANTS.HB_PARTNER_KEY)
         self.assertEqual(expected_partner_signature, request.headers["KC-API-PARTNER-SIGN"])
 
     def test_add_auth_headers_to_post_request(self):
@@ -97,7 +97,7 @@ class KucoinAuthTests(TestCase):
             url="https://test.url/api/endpoint",
             data=json.dumps(body),
             is_auth_required=True,
-            throttler_limit_id="/api/endpoint",
+            throttler_limit_id="/api/endpoint"
         )
 
         self.async_run_with_timeout(self.auth.rest_authenticate(request))
@@ -105,17 +105,15 @@ class KucoinAuthTests(TestCase):
         self.assertEqual(self.api_key, request.headers["KC-API-KEY"])
         self.assertEqual("1000000", request.headers["KC-API-TIMESTAMP"])
         self.assertEqual("2", request.headers["KC-API-KEY-VERSION"])
-        expected_signature = self._sign(
-            "1000000" + "POST" + request.throttler_limit_id + json.dumps(body), key=self.secret_key
-        )
+        expected_signature = self._sign("1000000" + "POST" + request.throttler_limit_id + json.dumps(body),
+                                        key=self.secret_key)
         self.assertEqual(expected_signature, request.headers["KC-API-SIGN"])
         expected_passphrase = self._sign(self.passphrase, key=self.secret_key)
         self.assertEqual(expected_passphrase, request.headers["KC-API-PASSPHRASE"])
 
         self.assertEqual(CONSTANTS.HB_PARTNER_ID, request.headers["KC-API-PARTNER"])
-        expected_partner_signature = self._sign(
-            "1000000" + CONSTANTS.HB_PARTNER_ID + self.api_key, key=CONSTANTS.HB_PARTNER_KEY
-        )
+        expected_partner_signature = self._sign("1000000" + CONSTANTS.HB_PARTNER_ID + self.api_key,
+                                                key=CONSTANTS.HB_PARTNER_KEY)
         self.assertEqual(expected_partner_signature, request.headers["KC-API-PARTNER-SIGN"])
 
     def test_no_auth_added_to_wsrequest(self):

@@ -35,14 +35,12 @@ class BybitPerpetualAuthTests(TestCase):
             url="https://test.url/api/endpoint",
             is_auth_required=True,
             params=params,
-            throttler_limit_id="/api/endpoint",
+            throttler_limit_id="/api/endpoint"
         )
         self.async_run_with_timeout(self.auth.rest_authenticate(request))
         self.assertEqual(request.headers["X-BAPI-API-KEY"], self.api_key)
         self.assertIsNotNone(request.headers["X-BAPI-TIMESTAMP"])
-        sign_expected = self.auth._generate_rest_signature(
-            request.headers["X-BAPI-TIMESTAMP"], request.method, request.params
-        )
+        sign_expected = self.auth._generate_rest_signature(request.headers["X-BAPI-TIMESTAMP"], request.method, request.params)
         self.assertEqual(request.headers["X-BAPI-SIGN"], sign_expected)
 
     def test_add_auth_params_to_get_request_without_params(self):
@@ -50,7 +48,7 @@ class BybitPerpetualAuthTests(TestCase):
             method=RESTMethod.GET,
             url="https://test.url/api/endpoint",
             is_auth_required=True,
-            throttler_limit_id="/api/endpoint",
+            throttler_limit_id="/api/endpoint"
         )
         self.async_run_with_timeout(self.auth.rest_authenticate(request))
         self.assertEqual(request.headers["X-BAPI-API-KEY"], self.api_key)
@@ -58,21 +56,24 @@ class BybitPerpetualAuthTests(TestCase):
         self.assertIsNone(request.data)
 
     def test_add_auth_params_to_get_request_with_params(self):
-        params = {"param_z": "value_param_z", "param_a": "value_param_a"}
+        params = {
+            "param_z": "value_param_z",
+            "param_a": "value_param_a"
+        }
         request = RESTRequest(
             method=RESTMethod.GET,
             url="https://test.url/api/endpoint",
             params=params,
             is_auth_required=True,
-            throttler_limit_id="/api/endpoint",
+            throttler_limit_id="/api/endpoint"
         )
 
         params_expected = self._params_expected(request.params)
         self.async_run_with_timeout(self.auth.rest_authenticate(request))
 
         self.assertEqual(len(request.params), 2)
-        self.assertEqual(params_expected["param_z"], request.params["param_z"])
-        self.assertEqual(params_expected["param_a"], request.params["param_a"])
+        self.assertEqual(params_expected['param_z'], request.params["param_z"])
+        self.assertEqual(params_expected['param_a'], request.params["param_a"])
 
     def test_add_auth_params_to_post_request(self):
         params = {"param_z": "value_param_z", "param_a": "value_param_a"}
@@ -81,14 +82,14 @@ class BybitPerpetualAuthTests(TestCase):
             url="https://bybit-mock/api/endpoint",
             data=params,
             is_auth_required=True,
-            throttler_limit_id="/api/endpoint",
+            throttler_limit_id="/api/endpoint"
         )
         params_request = self._params_expected(request.data)
 
         self.async_run_with_timeout(self.auth.rest_authenticate(request))
 
-        self.assertEqual(params_request["param_z"], request.data["param_z"])
-        self.assertEqual(params_request["param_a"], request.data["param_a"])
+        self.assertEqual(params_request['param_z'], request.data["param_z"])
+        self.assertEqual(params_request['param_a'], request.data["param_a"])
 
     def test_ws_auth(self):
         request = WSJSONRequest(payload={}, is_auth_required=True)

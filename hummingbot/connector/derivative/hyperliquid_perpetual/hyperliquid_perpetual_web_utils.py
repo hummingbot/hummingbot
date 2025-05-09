@@ -15,7 +15,9 @@ class HyperliquidPerpetualRESTPreProcessor(RESTPreProcessorBase):
     async def pre_process(self, request: RESTRequest) -> RESTRequest:
         if request.headers is None:
             request.headers = {}
-        request.headers["Content-Type"] = "application/json"
+        request.headers["Content-Type"] = (
+            "application/json"
+        )
         return request
 
 
@@ -38,19 +40,20 @@ def wss_url(domain: str = "hyperliquid_perpetual"):
 
 
 def build_api_factory(
-    throttler: Optional[AsyncThrottler] = None, auth: Optional[AuthBase] = None
-) -> WebAssistantsFactory:
+        throttler: Optional[AsyncThrottler] = None,
+        auth: Optional[AuthBase] = None) -> WebAssistantsFactory:
     throttler = throttler or create_throttler()
     api_factory = WebAssistantsFactory(
-        throttler=throttler, rest_pre_processors=[HyperliquidPerpetualRESTPreProcessor()], auth=auth
-    )
+        throttler=throttler,
+        rest_pre_processors=[HyperliquidPerpetualRESTPreProcessor()],
+        auth=auth)
     return api_factory
 
 
 def build_api_factory_without_time_synchronizer_pre_processor(throttler: AsyncThrottler) -> WebAssistantsFactory:
     api_factory = WebAssistantsFactory(
-        throttler=throttler, rest_pre_processors=[HyperliquidPerpetualRESTPreProcessor()]
-    )
+        throttler=throttler,
+        rest_pre_processors=[HyperliquidPerpetualRESTPreProcessor()])
     return api_factory
 
 
@@ -58,7 +61,10 @@ def create_throttler() -> AsyncThrottler:
     return AsyncThrottler(CONSTANTS.RATE_LIMITS)
 
 
-async def get_current_server_time(throttler, domain) -> float:
+async def get_current_server_time(
+        throttler,
+        domain
+) -> float:
     return time.time()
 
 
@@ -101,7 +107,7 @@ def float_to_int_for_hashing(x: float) -> int:
 
 
 def float_to_int(x: float, power: int) -> int:
-    with_decimals = x * 10**power
+    with_decimals = x * 10 ** power
     if abs(round(with_decimals) - with_decimals) >= 1e-3:
         raise ValueError("float_to_int causes rounding", x)
     return round(with_decimals)

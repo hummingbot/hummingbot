@@ -55,23 +55,28 @@ class PMMUnitTest(unittest.TestCase):
     def setUp(self):
         self.clock_tick_size = 1
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
-        self.market: MockPaperExchange = MockPaperExchange(client_config_map=ClientConfigAdapter(ClientConfigMap()))
+        self.market: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
+        )
         self.mid_price = 100
         self.bid_spread = 0.01
         self.ask_spread = 0.01
         self.order_refresh_time = 30
-        self.market.set_balanced_order_book(
-            self.trading_pair,
-            mid_price=self.mid_price,
-            min_price=1,
-            max_price=200,
-            price_step_size=1,
-            volume_step_size=10,
-        )
+        self.market.set_balanced_order_book(self.trading_pair,
+                                            mid_price=self.mid_price,
+                                            min_price=1,
+                                            max_price=200,
+                                            price_step_size=1,
+                                            volume_step_size=10)
         self.market.set_balance("HBOT", 500)
         self.market.set_balance("ETH", 5000)
-        self.market.set_quantization_param(QuantizationParams(self.trading_pair, 6, 6, 6, 6))
-        self.market_info = MarketTradingPairTuple(self.market, self.trading_pair, self.base_asset, self.quote_asset)
+        self.market.set_quantization_param(
+            QuantizationParams(
+                self.trading_pair, 6, 6, 6, 6
+            )
+        )
+        self.market_info = MarketTradingPairTuple(self.market, self.trading_pair,
+                                                  self.base_asset, self.quote_asset)
         self.clock.add_iterator(self.market)
         self.order_fill_logger: EventLogger = EventLogger()
         self.cancel_order_logger: EventLogger = EventLogger()
@@ -87,7 +92,7 @@ class PMMUnitTest(unittest.TestCase):
             order_refresh_time=5.0,
             filled_order_delay=5.0,
             order_refresh_tolerance_pct=-1,
-            minimum_spread=-1,
+            minimum_spread=-1
         )
         self.one_level_strategy.order_tracker._set_current_timestamp(1640001112.223)
 
@@ -119,11 +124,7 @@ class PMMUnitTest(unittest.TestCase):
             order_level_spread=Decimal("0.01"),
             order_level_amount=Decimal("1"),
             minimum_spread=-1,
-            order_override={
-                "order_one": ["buy", 0.5, 0.7],
-                "order_two": ["buy", 1.3, 1.1],
-                "order_three": ["sell", 1.1, 2],
-            },
+            order_override={"order_one": ["buy", 0.5, 0.7], "order_two": ["buy", 1.3, 1.1], "order_three": ["sell", 1.1, 2]},
         )
 
         self.custom_asset_price_delegate = MockAssetPriceDelegate(self.market, mock_price=Decimal("100.0"))
@@ -141,18 +142,15 @@ class PMMUnitTest(unittest.TestCase):
             price_type="custom",
         )
 
-        self.ext_market: MockPaperExchange = MockPaperExchange(client_config_map=ClientConfigAdapter(ClientConfigMap()))
+        self.ext_market: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
+        )
         self.ext_market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             self.ext_market, self.trading_pair, self.base_asset, self.quote_asset
         )
-        self.ext_market.set_balanced_order_book(
-            trading_pair=self.trading_pair,
-            mid_price=50,
-            min_price=1,
-            max_price=400,
-            price_step_size=1,
-            volume_step_size=10,
-        )
+        self.ext_market.set_balanced_order_book(trading_pair=self.trading_pair,
+                                                mid_price=50, min_price=1, max_price=400, price_step_size=1,
+                                                volume_step_size=10)
         self.order_book_asset_del = OrderBookAssetPriceDelegate(self.ext_market, self.trading_pair)
         trade_fill_sql = SQLConnectionManager(
             ClientConfigAdapter(ClientConfigMap()), SQLConnectionType.TRADE_FILLS, db_path=""
@@ -170,22 +168,17 @@ class PMMUnitTest(unittest.TestCase):
             order_refresh_tolerance_pct=-1,
             minimum_spread=-1,
             split_order_levels_enabled=True,
-            bid_order_level_spreads=[Decimal("1"), Decimal("2")],
-            ask_order_level_spreads=[Decimal("1"), Decimal("2")],
-            order_override={
-                "split_level_0": ["buy", Decimal("1"), Decimal("1")],
-                "split_level_1": ["buy", Decimal("2"), Decimal("2")],
-                "split_level_2": ["sell", Decimal("1"), Decimal("1")],
-            },
+            bid_order_level_spreads= [Decimal("1"), Decimal("2")],
+            ask_order_level_spreads= [Decimal("1"), Decimal("2")],
+            order_override={"split_level_0": ['buy', Decimal("1"), Decimal("1")],
+                            "split_level_1": ['buy', Decimal("2"), Decimal("2")],
+                            "split_level_2": ['sell', Decimal("1"), Decimal("1")]
+                            }
         )
         self.split_order_level_strategy.order_tracker._set_current_timestamp(1640001112.223)
 
     def simulate_maker_market_trade(
-        self,
-        is_buy: bool,
-        quantity: Decimal,
-        price: Decimal,
-        market: Optional[MockPaperExchange] = None,
+            self, is_buy: bool, quantity: Decimal, price: Decimal, market: Optional[MockPaperExchange] = None,
     ):
         if market is None:
             market = self.market
@@ -195,7 +188,7 @@ class PMMUnitTest(unittest.TestCase):
             self.clock.current_timestamp,
             TradeType.BUY if is_buy else TradeType.SELL,
             price,
-            quantity,
+            quantity
         )
         order_book.apply_trade(trade_event)
 
@@ -242,7 +235,7 @@ class PMMUnitTest(unittest.TestCase):
             filled_order_delay=5.0,
             order_refresh_tolerance_pct=-1,
             minimum_spread=-1,
-            price_type="last_own_trade_price",
+            price_type='last_own_trade_price',
         )
         self.clock.add_iterator(strategy)
 
@@ -264,10 +257,10 @@ class PMMUnitTest(unittest.TestCase):
         # Order has been filled
         self.clock.backtest_til(self.start_timestamp + 7)
         buy_1 = strategy.active_buys[0]
-        self.assertEqual(Decimal("98.01"), buy_1.price)
+        self.assertEqual(Decimal('98.01'), buy_1.price)
         self.assertEqual(1, buy_1.quantity)
         sell_1 = strategy.active_sells[0]
-        self.assertEqual(Decimal("99.99"), sell_1.price)
+        self.assertEqual(Decimal('99.99'), sell_1.price)
         self.assertEqual(1, sell_1.quantity)
 
     def test_basic_one_level_price_type(self):
@@ -309,10 +302,10 @@ class PMMUnitTest(unittest.TestCase):
         # After filled_ore
         self.clock.backtest_til(self.start_timestamp + 7)
         buy_1 = last_strategy.active_buys[0]
-        self.assertEqual(Decimal("97.911"), buy_1.price)
+        self.assertEqual(Decimal('97.911'), buy_1.price)
         self.assertEqual(1, buy_1.quantity)
         sell_1 = last_strategy.active_sells[0]
-        self.assertEqual(Decimal("99.889"), sell_1.price)
+        self.assertEqual(Decimal('99.889'), sell_1.price)
         self.assertEqual(1, sell_1.quantity)
 
         buy_bid = bid_strategy.active_buys[0]
@@ -410,7 +403,7 @@ class PMMUnitTest(unittest.TestCase):
             ask_spread=Decimal("0.01"),
             order_refresh_time=5,
             order_amount=Decimal("100"),
-            order_levels=3,
+            order_levels=3
         )
 
         self.clock.add_iterator(strategy)
@@ -466,9 +459,7 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("1.0"), strategy.active_buys[0].quantity)
         self.assertEqual(Decimal("1.0"), strategy.active_sells[0].quantity)
 
-        self.market.order_books[self.trading_pair].apply_diffs(
-            [OrderBookRow(99.5, 30, 2)], [OrderBookRow(100.5, 30, 2)], 2
-        )
+        self.market.order_books[self.trading_pair].apply_diffs([OrderBookRow(99.5, 30, 2)], [OrderBookRow(100.5, 30, 2)], 2)
 
         self.clock.backtest_til(self.start_timestamp + 7)
         self.assertEqual(2, len(self.cancel_order_logger.event_log))
@@ -490,11 +481,7 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(3, len(strategy.active_buys))
         self.assertEqual(3, len(strategy.active_sells))
 
-        simulate_order_book_widening(
-            self.market.order_books[self.trading_pair],
-            self.mid_price,
-            115,
-        )
+        simulate_order_book_widening(self.market.order_books[self.trading_pair], self.mid_price, 115, )
 
         self.clock.backtest_til(self.start_timestamp + 7)
         self.assertEqual(0, len(strategy.active_buys))
@@ -528,11 +515,7 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(3, len(strategy.active_buys))
         self.assertEqual(3, len(strategy.active_sells))
 
-        simulate_order_book_widening(
-            self.market.order_books[self.trading_pair],
-            self.mid_price,
-            115,
-        )
+        simulate_order_book_widening(self.market.order_books[self.trading_pair], self.mid_price, 115, )
 
         self.clock.backtest_til(self.start_timestamp + 7)
         self.assertEqual(0, len(strategy.active_buys))
@@ -731,14 +714,14 @@ class PMMUnitTest(unittest.TestCase):
         hanging_sell: LimitOrder = strategy.active_sells[0]
         self.assertEqual(hanging_sell.client_order_id, strategy.hanging_order_ids[0])
 
-        self.market.trigger_event(
-            MarketEvent.OrderCancelled, OrderCancelledEvent(self.market.current_timestamp, hanging_sell.client_order_id)
-        )
+        self.market.trigger_event(MarketEvent.OrderCancelled, OrderCancelledEvent(
+            self.market.current_timestamp,
+            hanging_sell.client_order_id
+        ))
         self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time * 2 + 1)
         self.assertEqual(1, len(strategy.active_sells))
-        new_hang: LimitOrder = [
-            o for o in strategy.active_sells if o.price == hanging_sell.price and o.quantity == hanging_sell.quantity
-        ]
+        new_hang: LimitOrder = [o for o in strategy.active_sells if o.price == hanging_sell.price
+                                and o.quantity == hanging_sell.quantity]
 
         self.assertNotEqual(hanging_sell.client_order_id, new_hang[0].client_order_id)
 
@@ -776,16 +759,13 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(3, len(strategy.active_buys))
         self.assertEqual(4, len(strategy.active_sells))
 
-        self.assertTrue(
-            all(id in (order.client_order_id for order in strategy.active_sells) for id in strategy.hanging_order_ids)
-        )
+        self.assertTrue(all(id in (order.client_order_id for order in strategy.active_sells)
+                            for id in strategy.hanging_order_ids))
 
         simulate_order_book_widening(self.market.order_books[self.trading_pair], 80, 100)
         # As book bids moving lower, the ask hanging order price spread is now more than the hanging_orders_cancel_pct
         # Hanging order is canceled and removed from the active list
-        self.clock.backtest_til(
-            self.start_timestamp + strategy.order_refresh_time * 2 + strategy.filled_order_delay + 1
-        )
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time * 2 + strategy.filled_order_delay + 1)
         self.assertEqual(3, len(strategy.active_buys))
         self.assertEqual(3, len(strategy.active_sells))
         self.assertFalse(any(o.client_order_id in strategy.hanging_order_ids for o in strategy.active_sells))
@@ -940,9 +920,7 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("99"), first_bid_order.price)
 
         self.simulate_maker_market_trade(
-            is_buy=False,
-            quantity=Decimal("10"),
-            price=Decimal("98.9"),
+            is_buy=False, quantity=Decimal("10"), price=Decimal("98.9"),
         )
         new_mid_price = Decimal("96")
         self.market.set_balanced_order_book(
@@ -968,10 +946,7 @@ class PMMUnitTest(unittest.TestCase):
         self.clock.backtest_til(self.start_timestamp + 1)
 
         self.simulate_maker_market_trade(
-            is_buy=True,
-            quantity=Decimal("1"),
-            price=Decimal("123"),
-            market=self.ext_market,
+            is_buy=True, quantity=Decimal("1"), price=Decimal("123"), market=self.ext_market,
         )
 
         bid = self.order_book_asset_del.get_price_by_type(PriceType.BestBid)
@@ -1082,8 +1057,8 @@ class PMMUnitTest(unittest.TestCase):
         self.assertAlmostEqual(Decimal("97"), last_bid_order.price, 2)
         self.assertAlmostEqual(Decimal("103"), last_ask_order.price, 2)
 
-        ConfigCommand.update_running_mm(strategy, "bid_spread", Decimal("2"))
-        ConfigCommand.update_running_mm(strategy, "ask_spread", Decimal("2"))
+        ConfigCommand.update_running_mm(strategy, "bid_spread", Decimal('2'))
+        ConfigCommand.update_running_mm(strategy, "ask_spread", Decimal('2'))
         for order in strategy.active_sells:
             strategy.cancel_order(order.client_order_id)
         for order in strategy.active_buys:
@@ -1181,17 +1156,21 @@ class PMMUnitTest(unittest.TestCase):
         strategy = self.one_level_strategy
 
         strategy._sb_order_tracker.start_tracking_limit_order(
-            market_pair=self.market_info, order_id="OID-1", is_buy=True, price=Decimal(1000), quantity=Decimal(1)
-        )
+            market_pair=self.market_info,
+            order_id="OID-1",
+            is_buy=True,
+            price=Decimal(1000),
+            quantity=Decimal(1))
         strategy._sb_order_tracker.start_tracking_limit_order(
-            market_pair=self.market_info, order_id="OID-2", is_buy=False, price=Decimal(2000), quantity=Decimal(2)
-        )
+            market_pair=self.market_info,
+            order_id="OID-2",
+            is_buy=False,
+            price=Decimal(2000),
+            quantity=Decimal(2))
 
         strategy._sb_order_tracker.in_flight_cancels["OID-1"] = strategy.current_timestamp
 
-        available_base_balance, available_quote_balance = (
-            strategy.adjusted_available_balance_for_orders_budget_constrain()
-        )
+        available_base_balance, available_quote_balance = strategy.adjusted_available_balance_for_orders_budget_constrain()
 
         self.assertEqual(available_base_balance, base_balance + Decimal(2))
         self.assertEqual(available_quote_balance, quote_balance + (Decimal(1) * Decimal(1000)))
@@ -1220,9 +1199,7 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(1, len(strategy.active_sells))
         self.assertEqual(Decimal("97.5001"), strategy.active_buys[0].price)
         self.assertEqual(Decimal("102.499"), strategy.active_sells[0].price)
-        self.assertEqual(
-            strategy.active_buys[1].price / strategy.active_buys[0].price, Decimal("0.98") / Decimal("0.99")
-        )
+        self.assertEqual(strategy.active_buys[1].price / strategy.active_buys[0].price, Decimal("0.98") / Decimal("0.99"))
 
 
 class PureMarketMakingMinimumSpreadUnitTest(unittest.TestCase):
@@ -1236,29 +1213,31 @@ class PureMarketMakingMinimumSpreadUnitTest(unittest.TestCase):
     def setUp(self):
         self.clock_tick_size = 1
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
-        self.market: MockPaperExchange = MockPaperExchange(client_config_map=ClientConfigAdapter(ClientConfigMap()))
-        self.mid_price = 100
-        self.market.set_balanced_order_book(
-            trading_pair=self.trading_pair,
-            mid_price=self.mid_price,
-            min_price=1,
-            max_price=200,
-            price_step_size=1,
-            volume_step_size=10,
+        self.market: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
         )
+        self.mid_price = 100
+        self.market.set_balanced_order_book(trading_pair=self.trading_pair,
+                                            mid_price=self.mid_price, min_price=1,
+                                            max_price=200, price_step_size=1, volume_step_size=10)
         self.market.set_balance("COINALPHA", 500)
         self.market.set_balance("WETH", 5000)
         self.market.set_balance("QETH", 500)
-        self.market.set_quantization_param(QuantizationParams(self.maker_trading_pairs[0], 6, 6, 6, 6))
+        self.market.set_quantization_param(
+            QuantizationParams(
+                self.maker_trading_pairs[0], 6, 6, 6, 6
+            )
+        )
         self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
-            self.market, self.maker_trading_pairs[0], self.maker_trading_pairs[1], self.maker_trading_pairs[2]
+            self.market, self.maker_trading_pairs[0],
+            self.maker_trading_pairs[1], self.maker_trading_pairs[2]
         )
 
         self.strategy: PureMarketMakingStrategy = PureMarketMakingStrategy()
         self.strategy.init_params(
             self.market_info,
-            bid_spread=Decimal(0.05),
-            ask_spread=Decimal(0.05),
+            bid_spread=Decimal(.05),
+            ask_spread=Decimal(.05),
             order_amount=Decimal(1),
             order_refresh_time=30,
             minimum_spread=0,
@@ -1280,9 +1259,8 @@ class PureMarketMakingMinimumSpreadUnitTest(unittest.TestCase):
         self.assertEqual(old_ask.client_order_id, strategy.active_sells[0].client_order_id)
         # Minimum Spread Threshold Cancellation
         # t = 3, Mid Market Price Moves Down - Below Min Spread (Old Bid) => Buy Order Cancelled
-        self.market.order_books[self.trading_pair].apply_diffs(
-            [OrderBookRow(50, 1000, 2)], [OrderBookRow(50, 1000, 2)], 2
-        )
+        self.market.order_books[self.trading_pair].apply_diffs([OrderBookRow(50, 1000, 2)],
+                                                               [OrderBookRow(50, 1000, 2)], 2)
         self.clock.backtest_til(self.start_timestamp + 3 * self.clock_tick_size)
         self.assertEqual(0, len(strategy.active_buys))
         self.assertEqual(1, len(strategy.active_sells))
@@ -1306,9 +1284,8 @@ class PureMarketMakingMinimumSpreadUnitTest(unittest.TestCase):
         # Clear Order Book (setting all orders above price 0, to quantity 0)
         simulate_order_book_widening(self.market.order_books[self.trading_pair], 0, 0)
         # New Mid-Market Price
-        self.market.order_books[self.trading_pair].apply_diffs(
-            [OrderBookRow(99, 1000, 3)], [OrderBookRow(101, 1000, 3)], 3
-        )
+        self.market.order_books[self.trading_pair].apply_diffs([OrderBookRow(99, 1000, 3)],
+                                                               [OrderBookRow(101, 1000, 3)], 3)
         # Check That Order Book Manipulations Didn't Affect Strategy Orders Yet
         self.assertEqual(1, len(strategy.active_buys))
         self.assertEqual(1, len(strategy.active_sells))

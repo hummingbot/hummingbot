@@ -63,14 +63,12 @@ class MockExchange(ExchangeBase):
     def c_stop_tracking_order(self, order_id):
         pass
 
-    def buy(
-        self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET, price: Decimal = s_decimal_NaN, **kwargs
-    ) -> str:
+    def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET, price: Decimal = s_decimal_NaN,
+            **kwargs) -> str:
         pass
 
-    def sell(
-        self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET, price: Decimal = s_decimal_NaN, **kwargs
-    ) -> str:
+    def sell(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET, price: Decimal = s_decimal_NaN,
+             **kwargs) -> str:
         pass
 
     def cancel(self, trading_pair: str, client_order_id: str):
@@ -79,16 +77,9 @@ class MockExchange(ExchangeBase):
     def get_order_book(self, trading_pair: str) -> OrderBook:
         pass
 
-    def get_fee(
-        self,
-        base_currency: str,
-        quote_currency: str,
-        order_type: OrderType,
-        order_side: TradeType,
-        amount: Decimal,
-        price: Decimal = s_decimal_NaN,
-        is_maker: Optional[bool] = None,
-    ) -> AddedToCostTradeFee:
+    def get_fee(self, base_currency: str, quote_currency: str, order_type: OrderType, order_side: TradeType,
+                amount: Decimal, price: Decimal = s_decimal_NaN, is_maker: Optional[bool] = None
+                ) -> AddedToCostTradeFee:
         pass
 
     _ready = False

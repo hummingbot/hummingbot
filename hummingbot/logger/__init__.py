@@ -2,7 +2,13 @@ import dataclasses
 import logging
 from decimal import Decimal
 from enum import Enum
-from logging import DEBUG, INFO, WARNING, ERROR, CRITICAL
+from logging import (
+    DEBUG,
+    INFO,
+    WARNING,
+    ERROR,
+    CRITICAL
+)
 
 
 from .logger import HummingbotLogger
@@ -20,6 +26,15 @@ def log_encoder(obj):
     raise TypeError("Object of type '%s' is not JSON serializable" % type(obj).__name__)
 
 
-__all__ = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL", "NETWORK", "HummingbotLogger", "log_encoder"]
+__all__ = [
+    "DEBUG",
+    "INFO",
+    "WARNING",
+    "ERROR",
+    "CRITICAL",
+    "NETWORK",
+    "HummingbotLogger",
+    "log_encoder"
+]
 logging.setLoggerClass(HummingbotLogger)
 logging.addLevelName(NETWORK, "NETWORK")

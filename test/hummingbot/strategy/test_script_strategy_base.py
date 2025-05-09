@@ -26,9 +26,8 @@ class ScriptStrategyBaseTest(unittest.TestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(
-            record.levelname == log_level and record.getMessage().startswith(message) for record in self.log_records
-        )
+        return any(record.levelname == log_level and record.getMessage().startswith(message)
+                   for record in self.log_records)
 
     def setUp(self):
         self.log_records = []
@@ -44,18 +43,22 @@ class ScriptStrategyBaseTest(unittest.TestCase):
         self.initial_mid_price: int = 100
         self.clock_tick_size = 1
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
-        self.connector: MockPaperExchange = MockPaperExchange(client_config_map=ClientConfigAdapter(ClientConfigMap()))
-        self.connector.set_balanced_order_book(
-            trading_pair=self.trading_pair,
-            mid_price=100,
-            min_price=50,
-            max_price=150,
-            price_step_size=1,
-            volume_step_size=10,
+        self.connector: MockPaperExchange = MockPaperExchange(
+            client_config_map=ClientConfigAdapter(ClientConfigMap())
         )
+        self.connector.set_balanced_order_book(trading_pair=self.trading_pair,
+                                               mid_price=100,
+                                               min_price=50,
+                                               max_price=150,
+                                               price_step_size=1,
+                                               volume_step_size=10)
         self.connector.set_balance(self.base_asset, self.base_balance)
         self.connector.set_balance(self.quote_asset, self.quote_balance)
-        self.connector.set_quantization_param(QuantizationParams(self.trading_pair, 6, 6, 6, 6))
+        self.connector.set_quantization_param(
+            QuantizationParams(
+                self.trading_pair, 6, 6, 6, 6
+            )
+        )
         self.clock.add_iterator(self.connector)
         ScriptStrategyBase.markets = {self.connector_name: {self.trading_pair}}
         self.strategy = ScriptStrategyBase({self.connector_name: self.connector})
@@ -135,12 +138,18 @@ class ScriptStrategyBaseTest(unittest.TestCase):
             price=Decimal("1000"),
         )
 
-        self.assertIn(
-            order_id, [order.client_order_id for order in self.strategy.get_active_orders(self.connector_name)]
+        self.assertIn(order_id,
+                      [order.client_order_id for order in self.strategy.get_active_orders(self.connector_name)])
+
+        self.strategy.cancel(
+            connector_name=self.connector_name,
+            trading_pair=self.trading_pair,
+            order_id=order_id
         )
 
-        self.strategy.cancel(connector_name=self.connector_name, trading_pair=self.trading_pair, order_id=order_id)
-
         self.assertTrue(
-            self._is_logged(log_level="INFO", message=f"({self.trading_pair}) Canceling the limit order {order_id}.")
+            self._is_logged(
+                log_level="INFO",
+                message=f"({self.trading_pair}) Canceling the limit order {order_id}."
+            )
         )

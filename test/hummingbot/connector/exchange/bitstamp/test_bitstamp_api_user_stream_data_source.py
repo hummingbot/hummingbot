@@ -45,7 +45,7 @@ class BitstampUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
             trading_pairs=[],
             trading_required=False,
             domain=self.domain,
-            time_provider=self.mock_time_provider,
+            time_provider=self.mock_time_provider
         )
 
         self.data_source = BitstampAPIUserStreamDataSource(
@@ -53,7 +53,7 @@ class BitstampUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
             trading_pairs=[self.trading_pair],
             connector=self.connector,
             api_factory=self.connector._web_assistants_factory,
-            domain=self.domain,
+            domain=self.domain
         )
 
         self.data_source.logger().setLevel(1)
@@ -71,7 +71,8 @@ class BitstampUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message
+                   for record in self.log_records)
 
     def _raise_exception(self, exception_class):
         raise exception_class
@@ -85,13 +86,22 @@ class BitstampUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         return value
 
     def _authentication_response(self, user_id: int) -> str:
-        message = {"token": "some-token", "user_id": user_id, "valid_sec": 60}
+        message = {
+            "token": "some-token",
+            "user_id": user_id,
+            "valid_sec": 60
+        }
 
         return json.dumps(message)
 
     def _subscription_response(self, channel: str, user_id: int) -> str:
         private_channel = f"{channel}-{user_id}"
-        message = {"event": "bts:subscribe", "data": {"channel": private_channel}}
+        message = {
+            "event": "bts:subscribe",
+            "data": {
+                "channel": private_channel
+            }
+        }
 
         return json.dumps(message)
 
@@ -106,7 +116,9 @@ class BitstampUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         await self.data_source._subscribe_channels(mock_ws)
 
-        self.assertTrue(self._is_logged("INFO", "Subscribed to private account and orders channels..."))
+        self.assertTrue(
+            self._is_logged("INFO", "Subscribed to private account and orders channels...")
+        )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @aioresponses()
@@ -136,7 +148,9 @@ class BitstampUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         with self.assertRaises(ConnectionError, msg="Test Error"):
             await self.data_source._subscribe_channels(mock_ws)
 
-        self.assertTrue(self._is_logged("ERROR", "Unexpected error occurred subscribing to order book trading..."))
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error occurred subscribing to order book trading...")
+        )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @aioresponses()
@@ -153,24 +167,25 @@ class BitstampUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         message_event_subscription_success = {
             "event": "bts:subscription_succeeded",
             "channel": CONSTANTS.WS_PRIVATE_MY_TRADES.format(self.ex_trading_pair, user_id),
-            "data": {},
+            "data": {}
         }
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=mock_ws.return_value, message=json.dumps(message_event_subscription_success)
-        )
+            websocket_mock=mock_ws.return_value,
+            message=json.dumps(message_event_subscription_success))
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(msg_queue)
+        )
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
-        self.mocking_assistant.json_messages_sent_through_websocket(websocket_mock=mock_ws.return_value)
+        self.mocking_assistant.json_messages_sent_through_websocket(
+            websocket_mock=mock_ws.return_value)
 
         self.assertEqual(0, msg_queue.qsize())
 
-        self.assertTrue(
-            self._is_logged("INFO", f"Successfully subscribed to '{message_event_subscription_success['channel']}'...")
-        )
+        self.assertTrue(self._is_logged("INFO", f"Successfully subscribed to '{message_event_subscription_success['channel']}'..."))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @aioresponses()
@@ -185,30 +200,33 @@ class BitstampUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         mock_api.post(regex_url, body=self._authentication_response(user_id))
 
         valid_message = {
-            "data": {
-                "id": 1,
-                "amount": "3600.00000000",
-                "price": "0.12200",
-                "microtimestamp": "1000",
-                "fee": "1.3176",
-                "order_id": 12345,
-                "trade_account_id": 0,
-                "side": "buy",
+            'data': {
+                'id': 1,
+                'amount': '3600.00000000',
+                'price': '0.12200',
+                'microtimestamp': '1000',
+                'fee': '1.3176',
+                'order_id': 12345,
+                'trade_account_id': 0,
+                'side': 'buy'
             },
-            "channel": "private-my_trades_coinalphahbot-1",
-            "event": "trade",
+            'channel': 'private-my_trades_coinalphahbot-1',
+            'event': 'trade'
         }
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=mock_ws.return_value, message=json.dumps(valid_message)
-        )
+            websocket_mock=mock_ws.return_value,
+            message=json.dumps(valid_message))
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(msg_queue)
+        )
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
-        self.mocking_assistant.json_messages_sent_through_websocket(websocket_mock=mock_ws.return_value)
+        self.mocking_assistant.json_messages_sent_through_websocket(
+            websocket_mock=mock_ws.return_value)
 
         self.assertEqual(1, msg_queue.qsize())
         self.assertEqual(valid_message, msg_queue.get_nowait())
@@ -225,18 +243,23 @@ class BitstampUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         mock_api.post(regex_url, body=self._authentication_response(user_id))
 
-        message_with_unknown_event_type = {"event": "unknown-event"}
+        message_with_unknown_event_type = {
+            "event": "unknown-event"
+        }
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=mock_ws.return_value, message=json.dumps(message_with_unknown_event_type)
-        )
+            websocket_mock=mock_ws.return_value,
+            message=json.dumps(message_with_unknown_event_type))
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(msg_queue)
+        )
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
-        self.mocking_assistant.json_messages_sent_through_websocket(websocket_mock=mock_ws.return_value)
+        self.mocking_assistant.json_messages_sent_through_websocket(
+            websocket_mock=mock_ws.return_value)
 
         self.assertEqual(0, msg_queue.qsize())
 
@@ -252,19 +275,21 @@ class BitstampUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         mock_api.post(regex_url, body=self._authentication_response(user_id), repeat=True)
 
-        reconnect_event = {"event": "bts:request_reconnect", "channel": "", "data": ""}
+        reconnect_event = {
+            "event": "bts:request_reconnect",
+            "channel": "",
+            "data": ""
+        }
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=mock_ws.return_value, message=json.dumps(reconnect_event)
-        )
+            websocket_mock=mock_ws.return_value,
+            message=json.dumps(reconnect_event))
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(msg_queue)
+        )
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
         self.assertEqual(0, msg_queue.qsize())
-        self.assertTrue(
-            self._is_logged(
-                "WARNING", "The websocket connection was closed (Received request to reconnect. Reconnecting...)"
-            )
-        )
+        self.assertTrue(self._is_logged("WARNING", "The websocket connection was closed (Received request to reconnect. Reconnecting...)"))

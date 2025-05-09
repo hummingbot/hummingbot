@@ -36,37 +36,27 @@ from hummingbot.core.utils.async_utils import safe_gather
 class CmdlineParser(argparse.ArgumentParser):
     def __init__(self):
         super().__init__()
-        self.add_argument(
-            "--config-file-name",
-            "-f",
-            type=str,
-            required=False,
-            help="Specify a file in `conf/` to load as the strategy config file.",
-        )
-        self.add_argument(
-            "--script-conf",
-            "-c",
-            type=str,
-            required=False,
-            help="Specify a file in `conf/scripts` to configure a script strategy.",
-        )
-        self.add_argument(
-            "--config-password",
-            "-p",
-            type=str,
-            required=False,
-            help="Specify the password to unlock your encrypted files.",
-        )
-        self.add_argument(
-            "--auto-set-permissions",
-            type=str,
-            required=False,
-            help="Try to automatically set config / logs / data dir permissions, " "useful for Docker containers.",
-        )
+        self.add_argument("--config-file-name", "-f",
+                          type=str,
+                          required=False,
+                          help="Specify a file in `conf/` to load as the strategy config file.")
+        self.add_argument("--script-conf", "-c",
+                          type=str,
+                          required=False,
+                          help="Specify a file in `conf/scripts` to configure a script strategy.")
+        self.add_argument("--config-password", "-p",
+                          type=str,
+                          required=False,
+                          help="Specify the password to unlock your encrypted files.")
+        self.add_argument("--auto-set-permissions",
+                          type=str,
+                          required=False,
+                          help="Try to automatically set config / logs / data dir permissions, "
+                               "useful for Docker containers.")
 
 
 def autofix_permissions(user_group_spec: str):
-    uid, gid = [sub_str for sub_str in user_group_spec.split(":")]
+    uid, gid = [sub_str for sub_str in user_group_spec.split(':')]
 
     uid = int(uid) if uid.isnumeric() else pwd.getpwnam(uid).pw_uid
     gid = int(gid) if gid.isnumeric() else grp.getgrnam(gid).gr_gid
@@ -76,9 +66,10 @@ def autofix_permissions(user_group_spec: str):
 
     gateway_path: str = Path.home().joinpath(".hummingbot-gateway").as_posix()
     subprocess.run(
-        f"cd '{project_home}' && " f"sudo chown -R {user_group_spec} conf/ data/ logs/ scripts/ {gateway_path}",
+        f"cd '{project_home}' && "
+        f"sudo chown -R {user_group_spec} conf/ data/ logs/ scripts/ {gateway_path}",
         capture_output=True,
-        shell=True,
+        shell=True
     )
     os.setgid(gid)
     os.setuid(uid)
@@ -115,7 +106,9 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
             is_script = True
             script_config = args.script_conf if args.script_conf else None
         else:
-            strategy_config = await load_strategy_config_map_from_file(STRATEGIES_CONF_DIR_PATH / config_file_name)
+            strategy_config = await load_strategy_config_map_from_file(
+                STRATEGIES_CONF_DIR_PATH / config_file_name
+            )
             hb.strategy_name = (
                 strategy_config.strategy
                 if isinstance(strategy_config, ClientConfigAdapter)
@@ -129,9 +122,8 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
 
     # The listener needs to have a named variable for keeping reference, since the event listener system
     # uses weak references to remove unneeded listeners.
-    start_listener: UIStartListener = UIStartListener(
-        hb, is_script=is_script, script_config=script_config, is_quickstart=True
-    )
+    start_listener: UIStartListener = UIStartListener(hb, is_script=is_script, script_config=script_config,
+                                                      is_quickstart=True)
     hb.app.add_listener(HummingbotUIEvent.Start, start_listener)
 
     tasks: List[Coroutine] = [hb.run()]

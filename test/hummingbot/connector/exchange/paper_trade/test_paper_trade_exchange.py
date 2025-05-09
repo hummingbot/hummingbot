@@ -21,13 +21,11 @@ class PaperTradeExchangeTests(TestCase):
         paper_exchange = create_paper_trade_market(
             exchange_name="binance",
             client_config_map=ClientConfigAdapter(ClientConfigMap()),
-            trading_pairs=["COINALPHA-HBOT"],
-        )
+            trading_pairs=["COINALPHA-HBOT"])
         self.assertEqual(BinanceAPIOrderBookDataSource, type(paper_exchange.order_book_tracker.data_source))
 
         paper_exchange = create_paper_trade_market(
             exchange_name="kucoin",
             client_config_map=ClientConfigAdapter(ClientConfigMap()),
-            trading_pairs=["COINALPHA-HBOT"],
-        )
+            trading_pairs=["COINALPHA-HBOT"])
         self.assertEqual(KucoinAPIOrderBookDataSource, type(paper_exchange.order_book_tracker.data_source))

@@ -15,15 +15,17 @@ from hummingbot.user.user_balances import UserBalances
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
 
-OPTIONS = ["limit", "paper"]
+OPTIONS = [
+    "limit",
+    "paper"
+]
 
 
 class BalanceCommand:
-    def balance(
-        self,  # type: HummingbotApplication
-        option: str = None,
-        args: List[str] = None,
-    ):
+    def balance(self,  # type: HummingbotApplication
+                option: str = None,
+                args: List[str] = None
+                ):
         if threading.current_thread() != threading.main_thread():
             self.ev_loop.call_soon_threadsafe(self.balance, option, args)
             return
@@ -71,7 +73,7 @@ class BalanceCommand:
                 self.save_client_config()
 
     async def show_balances(
-        self,  # type: HummingbotApplication
+        self  # type: HummingbotApplication
     ):
         global_token_symbol = self.client_config_map.global_token.global_token_symbol
         total_col_name = f"Total ({global_token_symbol})"
@@ -91,9 +93,7 @@ class BalanceCommand:
 
         for exchange, bals in all_ex_bals.items():
             self.notify(f"\n{exchange}:")
-            df, allocated_total = await self.exchange_balances_extra_df(
-                exchange, bals, all_ex_avai_bals.get(exchange, {})
-            )
+            df, allocated_total = await self.exchange_balances_extra_df(exchange, bals, all_ex_avai_bals.get(exchange, {}))
             if df.empty:
                 self.notify("You have no balance on this exchange.")
             else:
@@ -101,9 +101,8 @@ class BalanceCommand:
                     "    " + line for line in df.drop(sum_not_for_show_name, axis=1).to_string(index=False).split("\n")
                 ]
                 self.notify("\n".join(lines))
-                self.notify(
-                    f"\n  Total: {global_token_symbol} " f"{PerformanceMetrics.smart_round(df[total_col_name].sum())}"
-                )
+                self.notify(f"\n  Total: {global_token_symbol} "
+                            f"{PerformanceMetrics.smart_round(df[total_col_name].sum())}")
                 allocated_percentage = 0
                 if df[sum_not_for_show_name].sum() != Decimal("0"):
                     allocated_percentage = allocated_total / df[sum_not_for_show_name].sum()
@@ -112,12 +111,10 @@ class BalanceCommand:
 
         self.notify(f"\n\nExchanges Total: {global_token_symbol} {exchanges_total:.0f}    ")
 
-    async def exchange_balances_extra_df(
-        self,  # type: HummingbotApplication
-        exchange: str,
-        ex_balances: Dict[str, Decimal],
-        ex_avai_balances: Dict[str, Decimal],
-    ):
+    async def exchange_balances_extra_df(self,  # type: HummingbotApplication
+                                         exchange: str,
+                                         ex_balances: Dict[str, Decimal],
+                                         ex_avai_balances: Dict[str, Decimal]):
         conn_setting = AllConnectorSettings.get_connector_settings()[exchange]
         global_token_symbol = self.client_config_map.global_token.global_token_symbol
         total_col_name = f"Total ({global_token_symbol})"
@@ -142,20 +139,18 @@ class BalanceCommand:
             rate = Decimal("0") if rate is None else rate
             global_value = rate * bal
             allocated_total += rate * (bal - avai)
-            rows.append(
-                {
-                    "Asset": token.upper(),
-                    "Total": round(bal, 4),
-                    total_col_name: PerformanceMetrics.smart_round(global_value),
-                    "sum_not_for_show": global_value,
-                    "Allocated": allocated,
-                }
-            )
+            rows.append({"Asset": token.upper(),
+                         "Total": round(bal, 4),
+                         total_col_name: PerformanceMetrics.smart_round(global_value),
+                         "sum_not_for_show": global_value,
+                         "Allocated": allocated,
+                         })
         df = pd.DataFrame(data=rows, columns=["Asset", "Total", total_col_name, "sum_not_for_show", "Allocated"])
         df.sort_values(by=["Asset"], inplace=True)
         return df, allocated_total
 
-    async def asset_limits_df(self, asset_limit_conf: Dict[str, str]):
+    async def asset_limits_df(self,
+                              asset_limit_conf: Dict[str, str]):
         rows = []
         for token, amount in asset_limit_conf.items():
             rows.append({"Asset": token, "Limit": round(Decimal(amount), 4)})
@@ -165,7 +160,7 @@ class BalanceCommand:
         return df
 
     async def show_asset_limits(
-        self,  # type: HummingbotApplication
+        self  # type: HummingbotApplication
     ):
         exchange_limit_conf = self.client_config_map.balance_asset_limit
 
@@ -199,19 +194,17 @@ class BalanceCommand:
         return df
 
     def notify_balance_limit_set(self):
-        self.notify(
-            "To set a balance limit (how much the bot can use): \n"
-            "    balance limit [EXCHANGE] [ASSET] [AMOUNT]\n"
-            "e.g. balance limit binance BTC 0.1"
-        )
+        self.notify("To set a balance limit (how much the bot can use): \n"
+                    "    balance limit [EXCHANGE] [ASSET] [AMOUNT]\n"
+                    "e.g. balance limit binance BTC 0.1")
 
     def notify_balance_paper_set(self):
-        self.notify(
-            "To set a paper account balance: \n" "    balance paper [ASSET] [AMOUNT]\n" "e.g. balance paper BTC 0.1"
-        )
+        self.notify("To set a paper account balance: \n"
+                    "    balance paper [ASSET] [AMOUNT]\n"
+                    "e.g. balance paper BTC 0.1")
 
     async def show_paper_account_balance(
-        self,  # type: HummingbotApplication
+        self  # type: HummingbotApplication
     ):
         paper_balances = self.client_config_map.paper_trade.paper_trade_account_balance
         if not paper_balances:

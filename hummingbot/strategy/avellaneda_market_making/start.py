@@ -24,11 +24,9 @@ def start(self):
 
         strategy_logging_options = AvellanedaMarketMakingStrategy.OPTION_LOG_ALL
 
-        debug_csv_path = os.path.join(
-            data_path(),
-            HummingbotApplication.main_application().strategy_file_name.rsplit(".", 1)[0]
-            + f"_{pd.Timestamp.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv",
-        )
+        debug_csv_path = os.path.join(data_path(),
+                                      HummingbotApplication.main_application().strategy_file_name.rsplit('.', 1)[0] +
+                                      f"_{pd.Timestamp.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv")
 
         self.strategy = AvellanedaMarketMakingStrategy()
         self.strategy.init_params(
@@ -37,7 +35,7 @@ def start(self):
             logging_options=strategy_logging_options,
             hb_app_notification=True,
             debug_csv_path=debug_csv_path,
-            is_debug=False,
+            is_debug=False
         )
     except Exception as e:
         self.notify(str(e))

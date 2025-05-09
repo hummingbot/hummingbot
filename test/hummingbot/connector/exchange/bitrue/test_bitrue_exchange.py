@@ -970,7 +970,7 @@ class BitrueExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         return {
             "symbol": self.trading_pair,
             "orderId": int(order.exchange_order_id),
-            "clientOrderId": order.client_order_id,
+            "clientOrderId": order.client_order_id
         }
 
     def _order_status_request_completely_filled_mock_response(self, order: InFlightOrder) -> Any:

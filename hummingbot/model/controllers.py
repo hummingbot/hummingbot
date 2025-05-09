@@ -5,7 +5,9 @@ from hummingbot.model import HummingbotBase
 
 class Controllers(HummingbotBase):
     __tablename__ = "Controllers"
-    __table_args__ = (Index("c_type", "type"),)
+    __table_args__ = (
+        Index("c_type", "type"),
+    )
 
     id = Column(Text, primary_key=False)
     controller_id = Column(Integer, primary_key=True, autoincrement=True)

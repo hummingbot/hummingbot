@@ -122,8 +122,12 @@ def _migrate_global_config_modes(client_config_map: ClientConfigAdapter, data: D
     else:
         client_config_map.kill_switch_mode = KillSwitchDisabledMode()
 
-    _migrate_global_config_field(client_config_map.paper_trade, data, "paper_trade_exchanges")
-    _migrate_global_config_field(client_config_map.paper_trade, data, "paper_trade_account_balance")
+    _migrate_global_config_field(
+        client_config_map.paper_trade, data, "paper_trade_exchanges"
+    )
+    _migrate_global_config_field(
+        client_config_map.paper_trade, data, "paper_trade_account_balance"
+    )
     db_engine = data.pop("db_engine")
     db_host = data.pop("db_host")
     db_port = data.pop("db_port")
@@ -142,18 +146,40 @@ def _migrate_global_config_modes(client_config_map: ClientConfigAdapter, data: D
             db_name=db_name,
         )
 
-    _migrate_global_config_field(client_config_map.gateway, data, "gateway_api_port")
+    _migrate_global_config_field(
+        client_config_map.gateway, data, "gateway_api_port"
+    )
 
-    _migrate_global_config_field(client_config_map.mqtt_bridge, data, "mqtt_host")
-    _migrate_global_config_field(client_config_map.mqtt_bridge, data, "mqtt_port")
-    _migrate_global_config_field(client_config_map.mqtt_bridge, data, "mqtt_username")
-    _migrate_global_config_field(client_config_map.mqtt_bridge, data, "mqtt_password")
-    _migrate_global_config_field(client_config_map.mqtt_bridge, data, "mqtt_ssl")
-    _migrate_global_config_field(client_config_map.mqtt_bridge, data, "mqtt_logger")
-    _migrate_global_config_field(client_config_map.mqtt_bridge, data, "mqtt_notifier")
-    _migrate_global_config_field(client_config_map.mqtt_bridge, data, "mqtt_commands")
-    _migrate_global_config_field(client_config_map.mqtt_bridge, data, "mqtt_events")
-    _migrate_global_config_field(client_config_map.mqtt_bridge, data, "mqtt_autostart")
+    _migrate_global_config_field(
+        client_config_map.mqtt_bridge, data, "mqtt_host"
+    )
+    _migrate_global_config_field(
+        client_config_map.mqtt_bridge, data, "mqtt_port"
+    )
+    _migrate_global_config_field(
+        client_config_map.mqtt_bridge, data, "mqtt_username"
+    )
+    _migrate_global_config_field(
+        client_config_map.mqtt_bridge, data, "mqtt_password"
+    )
+    _migrate_global_config_field(
+        client_config_map.mqtt_bridge, data, "mqtt_ssl"
+    )
+    _migrate_global_config_field(
+        client_config_map.mqtt_bridge, data, "mqtt_logger"
+    )
+    _migrate_global_config_field(
+        client_config_map.mqtt_bridge, data, "mqtt_notifier"
+    )
+    _migrate_global_config_field(
+        client_config_map.mqtt_bridge, data, "mqtt_commands"
+    )
+    _migrate_global_config_field(
+        client_config_map.mqtt_bridge, data, "mqtt_events"
+    )
+    _migrate_global_config_field(
+        client_config_map.mqtt_bridge, data, "mqtt_autostart"
+    )
 
     anonymized_metrics_enabled = data.pop("anonymized_metrics_enabled")
     anonymized_metrics_interval_min = data.pop("anonymized_metrics_interval_min")
@@ -164,11 +190,19 @@ def _migrate_global_config_modes(client_config_map: ClientConfigAdapter, data: D
     else:
         client_config_map.anonymized_metrics_mode = AnonymizedMetricsDisabledMode()
 
-    _migrate_global_config_field(client_config_map.global_token, data, "global_token", "global_token_name")
-    _migrate_global_config_field(client_config_map.global_token, data, "global_token_symbol")
+    _migrate_global_config_field(
+        client_config_map.global_token, data, "global_token", "global_token_name"
+    )
+    _migrate_global_config_field(
+        client_config_map.global_token, data, "global_token_symbol"
+    )
 
-    _migrate_global_config_field(client_config_map.commands_timeout, data, "create_command_timeout")
-    _migrate_global_config_field(client_config_map.commands_timeout, data, "other_commands_timeout")
+    _migrate_global_config_field(
+        client_config_map.commands_timeout, data, "create_command_timeout"
+    )
+    _migrate_global_config_field(
+        client_config_map.commands_timeout, data, "other_commands_timeout"
+    )
 
     color_map: Union[ClientConfigAdapter, ColorConfigMap] = client_config_map.color
     _migrate_global_config_field(color_map, data, "top-pane", "top_pane")
@@ -247,13 +281,18 @@ def migrate_amm_confs(conf, new_path) -> List[str]:
         conf["order_levels_mode"] = {}
         conf.pop("level_distances")
     else:
-        conf["order_levels_mode"] = {"order_levels": order_levels, "level_distances": conf.pop("level_distances")}
+        conf["order_levels_mode"] = {
+            "order_levels": order_levels,
+            "level_distances": conf.pop("level_distances")
+        }
     hanging_orders_enabled = conf.pop("hanging_orders_enabled")
     if not hanging_orders_enabled:
         conf["hanging_orders_mode"] = {}
         conf.pop("hanging_orders_cancel_pct")
     else:
-        conf["hanging_orders_mode"] = {"hanging_orders_cancel_pct": conf.pop("hanging_orders_cancel_pct")}
+        conf["hanging_orders_mode"] = {
+            "hanging_orders_cancel_pct": conf.pop("hanging_orders_cancel_pct")
+        }
     if "template_version" in conf:
         conf.pop("template_version")
     try:
@@ -273,7 +312,7 @@ def migrate_xemm_confs(conf, new_path) -> List[str]:
         else:
             conf["order_refresh_mode"] = {
                 "cancel_order_threshold": conf["cancel_order_threshold"],
-                "limit_order_min_expiration": conf["limit_order_min_expiration"],
+                "limit_order_min_expiration": conf["limit_order_min_expiration"]
             }
         conf.pop("active_order_canceling")
         conf.pop("cancel_order_threshold")
@@ -284,7 +323,7 @@ def migrate_xemm_confs(conf, new_path) -> List[str]:
         else:
             conf["conversion_rate_mode"] = {
                 "taker_to_maker_base_conversion_rate": conf["taker_to_maker_base_conversion_rate"],
-                "taker_to_maker_quote_conversion_rate": conf["taker_to_maker_quote_conversion_rate"],
+                "taker_to_maker_quote_conversion_rate": conf["taker_to_maker_quote_conversion_rate"]
             }
         conf.pop("use_oracle_conversion_rate")
         conf.pop("taker_to_maker_base_conversion_rate")
@@ -321,11 +360,14 @@ def migrate_connector_confs(secrets_manager: BaseSecretsManager):
     Security.secrets_manager = secrets_manager
     connector_exceptions = ["paper_trade"]
     type_dirs: List[DirEntry] = [
-        cast(DirEntry, f) for f in scandir(f"{root_path() / 'hummingbot' / 'connector'}") if f.is_dir()
+        cast(DirEntry, f) for f in
+        scandir(f"{root_path() / 'hummingbot' / 'connector'}")
+        if f.is_dir()
     ]
     for type_dir in type_dirs:
         connector_dirs: List[DirEntry] = [
-            cast(DirEntry, f) for f in scandir(type_dir.path) if f.is_dir() and exists(join(f.path, "__init__.py"))
+            cast(DirEntry, f) for f in scandir(type_dir.path)
+            if f.is_dir() and exists(join(f.path, "__init__.py"))
         ]
         for connector_dir in connector_dirs:
             if connector_dir.name.startswith("_") or connector_dir.name in connector_exceptions:
@@ -358,7 +400,7 @@ def _maybe_migrate_encrypted_confs(config_keys: BaseConnectorConfigMap) -> List[
         if el.client_field_data is not None:
             key_path = conf_dir_path / f"{encrypted_conf_prefix}{el.attr}{encrypted_conf_postfix}"
             if key_path.exists():
-                with open(key_path, "r") as f:
+                with open(key_path, 'r') as f:
                     json_str = f.read()
                 value = binascii.hexlify(json_str.encode()).decode()
                 if not el.client_field_data.is_secure:

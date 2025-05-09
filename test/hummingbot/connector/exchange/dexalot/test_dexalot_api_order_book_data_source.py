@@ -43,14 +43,11 @@ class DexalotAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             dexalot_api_secret="13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930",  # noqa: mock
             trading_pairs=[self.trading_pair],
             trading_required=False,
-            domain=self.domain,
-        )
-        self.data_source = DexalotAPIOrderBookDataSource(
-            trading_pairs=[self.trading_pair],
-            connector=self.connector,
-            api_factory=self.connector._web_assistants_factory,
-            domain=self.domain,
-        )
+            domain=self.domain)
+        self.data_source = DexalotAPIOrderBookDataSource(trading_pairs=[self.trading_pair],
+                                                         connector=self.connector,
+                                                         api_factory=self.connector._web_assistants_factory,
+                                                         domain=self.domain)
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
@@ -70,30 +67,23 @@ class DexalotAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message
+                   for record in self.log_records)
 
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
         raise exception
 
     def _successfully_subscribed_event(self):
-        resp = {"data": "2024-08-28T01:00:05.000Z", "type": "APP_VERSION"}
+        resp = {'data': '2024-08-28T01:00:05.000Z', 'type': 'APP_VERSION'}
         return resp
 
     def _trade_update_event(self):
         resp = {
-            "data": [
-                {
-                    "execId": "1807784856",
-                    "price": "22.484",
-                    "quantity": "33.25",
-                    "takerSide": 1,
-                    "ts": "2024-09-03T12:22:14.000Z",
-                }
-            ],
-            "type": "lastTrade",
-            "pair": "AVAX/USDC",
-            "cap": 50,
+            'data': [
+                {'execId': '1807784856', 'price': '22.484', 'quantity': '33.25', 'takerSide': 1,
+                 'ts': '2024-09-03T12:22:14.000Z'}],
+            'type': 'lastTrade', 'pair': 'AVAX/USDC', 'cap': 50
         }
         return resp
 
@@ -103,16 +93,24 @@ class DexalotAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
     def _snapshot_response(self):
         resp = {
             "lastUpdateId": 1027024,
-            "bids": [["4.00000000", "431.00000000"]],
-            "asks": [["4.00000200", "12.00000000"]],
+            "bids": [
+                [
+                    "4.00000000",
+                    "431.00000000"
+                ]
+            ],
+            "asks": [
+                [
+                    "4.00000200",
+                    "12.00000000"
+                ]
+            ]
         }
         return resp
 
     @aioresponses()
-    @patch(
-        "hummingbot.connector.exchange.dexalot.dexalot_api_order_book_data_source"
-        ".DexalotAPIOrderBookDataSource._time"
-    )
+    @patch("hummingbot.connector.exchange.dexalot.dexalot_api_order_book_data_source"
+           ".DexalotAPIOrderBookDataSource._time")
     async def test_get_new_order_book_successful(self, mock_api, mock_time):
         mock_time.return_value = 1640780000
         order_book: OrderBook = await self.data_source.get_new_order_book(self.trading_pair)
@@ -131,28 +129,33 @@ class DexalotAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
-        result_subscribe = {"data": "2024-08-28T01:00:05.000Z", "type": "APP_VERSION"}
+        result_subscribe = {'data': '2024-08-28T01:00:05.000Z', 'type': 'APP_VERSION'}
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe)
-        )
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(result_subscribe))
 
         self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_subscriptions())
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
-            websocket_mock=ws_connect_mock.return_value
-        )
+            websocket_mock=ws_connect_mock.return_value)
 
         self.assertEqual(1, len(sent_subscription_messages))
 
-        expected_subscription = [
-            {"data": self.ex_trading_pair, "pair": self.ex_trading_pair, "type": "subscribe", "decimal": 3}
-        ]
+        expected_subscription = [{
+            "data": self.ex_trading_pair,
+            "pair": self.ex_trading_pair,
+            "type": "subscribe",
+            "decimal": 3
+        }]
         self.assertEqual(expected_subscription, sent_subscription_messages)
 
-        self.assertTrue(self._is_logged("INFO", "Subscribed to public order book and trade channels..."))
+        self.assertTrue(self._is_logged(
+            "INFO",
+            "Subscribed to public order book and trade channels..."
+        ))
 
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect")
@@ -174,9 +177,8 @@ class DexalotAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         self.assertTrue(
             self._is_logged(
-                "ERROR", "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
-            )
-        )
+                "ERROR",
+                "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."))
 
     async def test_subscribe_channels_raises_cancel_exception(self):
         self._simulate_trading_rules_initialized()
@@ -225,7 +227,8 @@ class DexalotAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         except asyncio.CancelledError:
             pass
 
-        self.assertTrue(self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
 
     async def test_listen_for_trades_successful(self):
         self._simulate_trading_rules_initialized()
@@ -237,8 +240,7 @@ class DexalotAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_trades(self.local_event_loop, msg_queue)
-        )
+            self.data_source.listen_for_trades(self.local_event_loop, msg_queue))
 
         msg: OrderBookMessage = await msg_queue.get()
 
@@ -246,30 +248,15 @@ class DexalotAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
     def get_trading_rule_rest_msg(self):
         return [
-            {
-                "env": "production-multi-subnet",
-                "pair": "AVAX/USDC",
-                "base": "AVAX",
-                "quote": "USDC",
-                "basedisplaydecimals": 3,
-                "quotedisplaydecimals": 3,
-                "baseaddress": "0x0000000000000000000000000000000000000000",
-                "quoteaddress": "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E",  # noqa: mock
-                "mintrade_amnt": "5.000000000000000000",
-                "maxtrade_amnt": "50000.000000000000000000",
-                "base_evmdecimals": 18,
-                "quote_evmdecimals": 6,
-                "allowswap": True,
-                "auctionmode": 0,
-                "auctionendtime": None,
-                "status": "deployed",
-                "maker_rate_bps": 10,
-                "taker_rate_bps": 12,
-                "allowed_slippage_pct": 5,
-                "additional_ordertypes": 0,
-                "taker_fee": 0.001,
-                "maker_fee": 0.0012,
-            }
+            {'env': 'production-multi-subnet', 'pair': 'AVAX/USDC', 'base': 'AVAX', 'quote': 'USDC',
+             'basedisplaydecimals': 3,
+             'quotedisplaydecimals': 3, 'baseaddress': '0x0000000000000000000000000000000000000000',
+             'quoteaddress': '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E',  # noqa: mock
+             'mintrade_amnt': '5.000000000000000000',
+             'maxtrade_amnt': '50000.000000000000000000', 'base_evmdecimals': 18, 'quote_evmdecimals': 6,
+             'allowswap': True,
+             'auctionmode': 0, 'auctionendtime': None, 'status': 'deployed', 'maker_rate_bps': 10, 'taker_rate_bps': 12,
+             'allowed_slippage_pct': 5, 'additional_ordertypes': 0, 'taker_fee': 0.001, 'maker_fee': 0.0012}
         ]
 
     def _simulate_trading_rules_initialized(self):
@@ -282,80 +269,19 @@ class DexalotAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
                 trading_pair=self.trading_pair,
                 min_order_size=min_order_size,
                 min_price_increment=min_price_inc,
-                min_base_amount_increment=min_order_size,
+                min_base_amount_increment=min_order_size
             )
         }
         self.connector._evm_params = {
-            "AVAX-USDC": {
-                "base_coin": "AVAX",
-                "base_evmdecimals": Decimal("6"),
-                "quote_coin": "USDC",
-                "quote_evmdecimals": Decimal("18"),
-            },
-            "AVAX-USDT": {
-                "base_coin": "AVAX",
-                "base_evmdecimals": Decimal("6"),
-                "quote_coin": "USDT",
-                "quote_evmdecimals": Decimal("18"),
-            },
-            "BTC-USDC": {
-                "base_coin": "BTC",
-                "base_evmdecimals": Decimal("6"),
-                "quote_coin": "USDC",
-                "quote_evmdecimals": Decimal("8"),
-            },
-            "COQ-AVAX": {
-                "base_coin": "COQ",
-                "base_evmdecimals": Decimal("18"),
-                "quote_coin": "AVAX",
-                "quote_evmdecimals": Decimal("18"),
-            },
-            "ETH-USDC": {
-                "base_coin": "ETH",
-                "base_evmdecimals": Decimal("6"),
-                "quote_coin": "USDC",
-                "quote_evmdecimals": Decimal("18"),
-            },
-            "ETH-USDT": {
-                "base_coin": "ETH",
-                "base_evmdecimals": Decimal("6"),
-                "quote_coin": "USDT",
-                "quote_evmdecimals": Decimal("18"),
-            },
-            "EURC-USDC": {
-                "base_coin": "EURC",
-                "base_evmdecimals": Decimal("6"),
-                "quote_coin": "USDC",
-                "quote_evmdecimals": Decimal("6"),
-            },
-            "GMX-USDC": {
-                "base_coin": "GMX",
-                "base_evmdecimals": Decimal("6"),
-                "quote_coin": "USDC",
-                "quote_evmdecimals": Decimal("18"),
-            },
-            "GUN-USDC": {
-                "base_coin": "GUN",
-                "base_evmdecimals": Decimal("6"),
-                "quote_coin": "USDC",
-                "quote_evmdecimals": Decimal("18"),
-            },
-            "USDT-USDC": {
-                "base_coin": "USDT",
-                "base_evmdecimals": Decimal("6"),
-                "quote_coin": "USDC",
-                "quote_evmdecimals": Decimal("6"),
-            },
-            "WBTC-ETH": {
-                "base_coin": "WBTC",
-                "base_evmdecimals": Decimal("18"),
-                "quote_coin": "ETH",
-                "quote_evmdecimals": Decimal("8"),
-            },
-            "WBTC-USDC": {
-                "base_coin": "WBTC",
-                "base_evmdecimals": Decimal("6"),
-                "quote_coin": "USDC",
-                "quote_evmdecimals": Decimal("8"),
-            },
-        }
+            'AVAX-USDC': {'base_coin': 'AVAX', 'base_evmdecimals': Decimal('6'), 'quote_coin': 'USDC', 'quote_evmdecimals': Decimal('18')},
+            'AVAX-USDT': {'base_coin': 'AVAX', 'base_evmdecimals': Decimal('6'), 'quote_coin': 'USDT', 'quote_evmdecimals': Decimal('18')},
+            'BTC-USDC': {'base_coin': 'BTC', 'base_evmdecimals': Decimal('6'), 'quote_coin': 'USDC', 'quote_evmdecimals': Decimal('8')},
+            'COQ-AVAX': {'base_coin': 'COQ', 'base_evmdecimals': Decimal('18'), 'quote_coin': 'AVAX', 'quote_evmdecimals': Decimal('18')},
+            'ETH-USDC': {'base_coin': 'ETH', 'base_evmdecimals': Decimal('6'), 'quote_coin': 'USDC', 'quote_evmdecimals': Decimal('18')},
+            'ETH-USDT': {'base_coin': 'ETH', 'base_evmdecimals': Decimal('6'), 'quote_coin': 'USDT', 'quote_evmdecimals': Decimal('18')},
+            'EURC-USDC': {'base_coin': 'EURC', 'base_evmdecimals': Decimal('6'), 'quote_coin': 'USDC', 'quote_evmdecimals': Decimal('6')},
+            'GMX-USDC': {'base_coin': 'GMX', 'base_evmdecimals': Decimal('6'), 'quote_coin': 'USDC', 'quote_evmdecimals': Decimal('18')},
+            'GUN-USDC': {'base_coin': 'GUN', 'base_evmdecimals': Decimal('6'), 'quote_coin': 'USDC', 'quote_evmdecimals': Decimal('18')},
+            'USDT-USDC': {'base_coin': 'USDT', 'base_evmdecimals': Decimal('6'), 'quote_coin': 'USDC', 'quote_evmdecimals': Decimal('6')},
+            'WBTC-ETH': {'base_coin': 'WBTC', 'base_evmdecimals': Decimal('18'), 'quote_coin': 'ETH', 'quote_evmdecimals': Decimal('8')},
+            'WBTC-USDC': {'base_coin': 'WBTC', 'base_evmdecimals': Decimal('6'), 'quote_coin': 'USDC', 'quote_evmdecimals': Decimal('8')}}

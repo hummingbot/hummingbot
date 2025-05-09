@@ -21,17 +21,20 @@ from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSJSONRequest
 
 # This is the algorithm used by Coinbase Advanced Trade
-private_key = ec.generate_private_key(ec.SECP256R1(), backend=default_backend())  # This is equivalent to ES256
+private_key = ec.generate_private_key(
+    ec.SECP256R1(),  # This is equivalent to ES256
+    backend=default_backend()
+)
 
 # Serialize the private key to PEM format
 pem_private_key = private_key.private_bytes(
     encoding=serialization.Encoding.PEM,
     format=serialization.PrivateFormat.PKCS8,
-    encryption_algorithm=serialization.NoEncryption(),
+    encryption_algorithm=serialization.NoEncryption()
 )
 
 # Convert the PEM private key to string
-pem_private_key_str = pem_private_key.decode("utf-8")
+pem_private_key_str = pem_private_key.decode('utf-8')
 
 
 class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
@@ -41,9 +44,7 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
         self.secret_key = "testSecret"
         self.time_synchronizer_mock = AsyncMock(spec=TimeSynchronizer)
         self.auth = CoinbaseAdvancedTradeAuth(self.api_key, self.secret_key, self.time_synchronizer_mock)
-        self.request = WSJSONRequest(
-            payload={"type": "subscribe", "product_ids": ["ETH-USD", "ETH-EUR"], "channel": "level2"}
-        )
+        self.request = WSJSONRequest(payload={"type": "subscribe", "product_ids": ["ETH-USD", "ETH-EUR"], "channel": "level2"})
 
     async def asyncTearDown(self):
         logging.info("Close")
@@ -68,7 +69,7 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
             mock_response = {
                 "iso": "2023-05-09T18:47:30.000Z",
                 "epochSeconds": 1683658050,
-                "epochMillis": 1683658050123,
+                "epochMillis": 1683658050123
             }
             mocked.get(private_rest_url(CONSTANTS.SERVER_TIME_EP), payload=mock_response, status=200)
 
@@ -77,7 +78,7 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
             # that does not cleanly close a session or use a correct context manager
             # This was solved a year ago, according to F.C.
             async with aiohttp.ClientSession() as session:
-                with patch("aiohttp.ClientSession") as mock_session:
+                with patch('aiohttp.ClientSession') as mock_session:
                     mock_session.return_value = session
                     current_server_time_s = await get_current_server_time_s()
 
@@ -128,27 +129,25 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
         }
         full_params = copy(params)
 
-        auth = CoinbaseAdvancedTradeAuth(
-            api_key=self.api_key, secret_key=self.secret_key, time_provider=self.time_synchronizer_mock
-        )
+        auth = CoinbaseAdvancedTradeAuth(api_key=self.api_key, secret_key=self.secret_key,
+                                         time_provider=self.time_synchronizer_mock)
         url = "https://api.coinbase.com/v2/time"
         request = RESTRequest(method=RESTMethod.GET, url=url, params=params, is_auth_required=True)
         # Mocking get_current_server_time_ms as an MagicMock on purpose since it is called
         # to get an Awaitable, but not awaited, which would generate a sys error and not look nice
-        with patch(
-            "hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils"
-            ".get_current_server_time_ms",
-            new_callable=MagicMock,
-        ) as mocked_time:
+        with patch('hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils'
+                   '.get_current_server_time_ms',
+                   new_callable=MagicMock) as mocked_time:
             mocked_time.return_value = 1234567890.0
             configured_request = await auth.rest_legacy_authenticate(request)
 
         full_params.update({"timestamp": "1234567890"})
         # full url is parsed-down to endpoint only
-        encoded_params = "1234567890" + str(RESTMethod.GET) + "/v2/time" + str(request.data or "")
+        encoded_params = "1234567890" + str(RESTMethod.GET) + "/v2/time" + str(request.data or '')
         expected_signature = hmac.new(
-            self.secret_key.encode("utf-8"), encoded_params.encode("utf-8"), hashlib.sha256
-        ).hexdigest()
+            self.secret_key.encode("utf-8"),
+            encoded_params.encode("utf-8"),
+            hashlib.sha256).hexdigest()
 
         self.assertEqual("application/json", configured_request.headers["accept"])
         self.assertEqual(self.api_key, configured_request.headers["CB-ACCESS-KEY"])
@@ -162,11 +161,9 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
 
         # Mocking get_current_server_time_ms as an MagicMock on purpose since it is called
         # to get an Awaitable, but not awaited, which would generate a sys error and not look nice
-        with patch(
-            "hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils"
-            ".get_current_server_time_ms",
-            new_callable=MagicMock,
-        ) as mock_get_current_server_time_ms:
+        with patch('hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils'
+                   '.get_current_server_time_ms',
+                   new_callable=MagicMock) as mock_get_current_server_time_ms:
             mock_get_current_server_time_ms.return_value = 12345678900
 
             authenticated_request = await self.auth.ws_legacy_authenticate(ws_request)
@@ -176,96 +173,76 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
         self.assertTrue("timestamp" in authenticated_request.payload)
         self.assertTrue("api_key" in authenticated_request.payload)
 
-    @patch("jwt.encode")
+    @patch('jwt.encode')
     async def test_ws_jwt_authenticate(self, mock_encode):
         self.auth.secret_key = pem_private_key_str
         self.time_synchronizer_mock.time.side_effect = MagicMock(return_value=12345678900)
         result = await self.auth.ws_jwt_authenticate(self.request)
-        self.assertIn("jwt", result.payload)
+        self.assertIn('jwt', result.payload)
         mock_encode.assert_called_once()
 
-    @patch("jwt.encode")
+    @patch('jwt.encode')
     def test_build_jwt(self, mock_encode):
         self.auth.secret_key = pem_private_key_str
-        mock_encode.return_value = "test_jwt_token"
-        result = self.auth._build_jwt(uri="test_uri")
-        self.assertEqual(
-            "test_jwt_token",
-            result,
-        )
+        mock_encode.return_value = 'test_jwt_token'
+        result = self.auth._build_jwt(uri='test_uri')
+        self.assertEqual('test_jwt_token', result, )
         mock_encode.assert_called_once()
 
     def test_build_jwt_invalid_secret_key(self):
-        self.auth.secret_key = "invalid_secret_key"
+        self.auth.secret_key = 'invalid_secret_key'
         with self.assertRaises(ValueError):
-            self.auth._build_jwt(uri="test_uri")
+            self.auth._build_jwt(uri='test_uri')
 
-    @patch("jwt.encode")
+    @patch('jwt.encode')
     def test_build_jwt_fields(self, mock_encode):
         self.auth.secret_key = pem_private_key_str
-        mock_encode.return_value = "test_jwt_token"
-        self.auth._build_jwt(uri="test_uri")
+        mock_encode.return_value = 'test_jwt_token'
+        self.auth._build_jwt(uri='test_uri')
         args, kwargs = mock_encode.call_args
         jwt_data = args[0]
-        self.assertEqual(self.auth.api_key, jwt_data["sub"])
-        self.assertEqual(
-            "cdp",
-            jwt_data["iss"],
-        )
-        self.assertEqual(
-            "test_uri",
-            jwt_data["uri"],
-        )
+        self.assertEqual(self.auth.api_key, jwt_data['sub'])
+        self.assertEqual('cdp', jwt_data['iss'], )
+        self.assertEqual('test_uri', jwt_data['uri'], )
 
-    @patch("jwt.encode")
+    @patch('jwt.encode')
     def test_build_jwt_algorithm_and_headers(self, mock_encode):
         self.auth.secret_key = pem_private_key_str
-        mock_encode.return_value = "test_jwt_token"
-        self.auth._build_jwt(uri="test_uri")
+        mock_encode.return_value = 'test_jwt_token'
+        self.auth._build_jwt(uri='test_uri')
         args, kwargs = mock_encode.call_args
-        self.assertEqual(
-            "ES256",
-            kwargs["algorithm"],
-        )
-        self.assertEqual(self.auth.api_key, kwargs["headers"]["kid"])
-        self.assertTrue(isinstance(kwargs["headers"]["nonce"], str))
+        self.assertEqual('ES256', kwargs['algorithm'], )
+        self.assertEqual(self.auth.api_key, kwargs['headers']['kid'])
+        self.assertTrue(isinstance(kwargs['headers']['nonce'], str))
 
     def test_secret_key_pem_already_in_pem_format(self):
-        self.auth.secret_key = (
-            "-----BEGIN EC PRIVATE "
-            "KEY-----\n_private_key__private_key_private_key_private_key_private_key_pr"
-            "\nivate_key_\n-----END EC PRIVATE"
-            " KEY-----\n"
-        )
+        self.auth.secret_key = ("-----BEGIN EC PRIVATE "
+                                "KEY-----\n_private_key__private_key_private_key_private_key_private_key_pr"
+                                "\nivate_key_\n-----END EC PRIVATE"
+                                " KEY-----\n")
         # The key is fake, it will fail the serialization attempt
         with self.assertRaises(ValueError):
             self.assertEqual(self.auth._secret_key_pem(), self.auth.secret_key.strip())
 
     def test_secret_key_pem_in_base64_format(self):
         self.auth.secret_key = "_private_key__private_key_private_key_private_key_private_key_private_key_"
-        expected_output = (
-            "-----BEGIN EC PRIVATE "
-            "KEY-----\n_private_key__private_key_private_key_private_key_private_key_pr\nivate_key_\n"
-            "-----END EC PRIVATE"
-            " KEY-----"
-        )
+        expected_output = ("-----BEGIN EC PRIVATE "
+                           "KEY-----\n_private_key__private_key_private_key_private_key_private_key_pr\nivate_key_\n"
+                           "-----END EC PRIVATE"
+                           " KEY-----")
         # The key is fake, it will fail the serialization attempt
         with self.assertRaises(ValueError):
             self.assertEqual(self.auth._secret_key_pem(), expected_output)
 
     def test_secret_key_pem_in_single_line_pem_format(self):
-        self.auth.secret_key = (
-            "-----BEGIN EC PRIVATE "
-            "KEY-----_private_key__private_key_private_key_private_key_private_key_private_key_"
-            "-----END EC PRIVATE"
-            " KEY-----"
-        )
-        expected_output = (
-            "-----BEGIN EC PRIVATE "
-            "KEY-----\n_private_key__private_key_private_key_private_key_private_key_pr\nivate_key_\n"
-            "-----END EC PRIVATE"
-            " KEY-----"
-        )
+        self.auth.secret_key = ("-----BEGIN EC PRIVATE "
+                                "KEY-----_private_key__private_key_private_key_private_key_private_key_private_key_"
+                                "-----END EC PRIVATE"
+                                " KEY-----")
+        expected_output = ("-----BEGIN EC PRIVATE "
+                           "KEY-----\n_private_key__private_key_private_key_private_key_private_key_pr\nivate_key_\n"
+                           "-----END EC PRIVATE"
+                           " KEY-----")
         with self.assertRaises(ValueError):
             self.assertEqual(self.auth._secret_key_pem(), expected_output)
 

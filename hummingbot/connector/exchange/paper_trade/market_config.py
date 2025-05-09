@@ -10,9 +10,10 @@ class AssetType(Enum):
     QUOTE_CURRENCY = 2
 
 
-class MarketConfig(
-    namedtuple("_MarketConfig", "buy_fees_asset," "buy_fees_amount," "sell_fees_asset," "sell_fees_amount,")
-):
+class MarketConfig(namedtuple("_MarketConfig", "buy_fees_asset,"
+                                               "buy_fees_amount,"
+                                               "sell_fees_asset,"
+                                               "sell_fees_amount,")):
     buy_fees_asset: AssetType
     buy_fees_amount: Decimal
     sell_fees_asset: AssetType

@@ -37,24 +37,27 @@ class HashkeyAuthTests(TestCase):
             method=RESTMethod.GET,
             url="https://test.url/api/endpoint",
             is_auth_required=True,
-            throttler_limit_id="/api/endpoint",
+            throttler_limit_id="/api/endpoint"
         )
         params_expected = self._params_expected(request.params)
 
         self.async_run_with_timeout(self.auth.rest_authenticate(request))
 
         self.assertEqual(self.api_key, request.headers["X-HK-APIKEY"])
-        self.assertEqual(params_expected["timestamp"], request.params["timestamp"])
-        self.assertEqual(params_expected["signature"], request.params["signature"])
+        self.assertEqual(params_expected['timestamp'], request.params["timestamp"])
+        self.assertEqual(params_expected['signature'], request.params["signature"])
 
     def test_add_auth_params_to_get_request_with_params(self):
-        params = {"param_z": "value_param_z", "param_a": "value_param_a"}
+        params = {
+            "param_z": "value_param_z",
+            "param_a": "value_param_a"
+        }
         request = RESTRequest(
             method=RESTMethod.GET,
             url="https://test.url/api/endpoint",
             params=params,
             is_auth_required=True,
-            throttler_limit_id="/api/endpoint",
+            throttler_limit_id="/api/endpoint"
         )
 
         params_expected = self._params_expected(request.params)
@@ -62,10 +65,10 @@ class HashkeyAuthTests(TestCase):
         self.async_run_with_timeout(self.auth.rest_authenticate(request))
 
         self.assertEqual(self.api_key, request.headers["X-HK-APIKEY"])
-        self.assertEqual(params_expected["timestamp"], request.params["timestamp"])
-        self.assertEqual(params_expected["signature"], request.params["signature"])
-        self.assertEqual(params_expected["param_z"], request.params["param_z"])
-        self.assertEqual(params_expected["param_a"], request.params["param_a"])
+        self.assertEqual(params_expected['timestamp'], request.params["timestamp"])
+        self.assertEqual(params_expected['signature'], request.params["signature"])
+        self.assertEqual(params_expected['param_z'], request.params["param_z"])
+        self.assertEqual(params_expected['param_a'], request.params["param_a"])
 
     def test_add_auth_params_to_post_request(self):
         params = {"param_z": "value_param_z", "param_a": "value_param_a"}
@@ -74,17 +77,17 @@ class HashkeyAuthTests(TestCase):
             url="https://test.url/api/endpoint",
             data=params,
             is_auth_required=True,
-            throttler_limit_id="/api/endpoint",
+            throttler_limit_id="/api/endpoint"
         )
         params_auth = self._params_expected(request.params)
         params_request = self._params_expected(request.data)
 
         self.async_run_with_timeout(self.auth.rest_authenticate(request))
         self.assertEqual(self.api_key, request.headers["X-HK-APIKEY"])
-        self.assertEqual(params_auth["timestamp"], request.params["timestamp"])
-        self.assertEqual(params_auth["signature"], request.params["signature"])
-        self.assertEqual(params_request["param_z"], request.data["param_z"])
-        self.assertEqual(params_request["param_a"], request.data["param_a"])
+        self.assertEqual(params_auth['timestamp'], request.params["timestamp"])
+        self.assertEqual(params_auth['signature'], request.params["signature"])
+        self.assertEqual(params_request['param_z'], request.data["param_z"])
+        self.assertEqual(params_request['param_a'], request.data["param_a"])
 
     def test_no_auth_added_to_wsrequest(self):
         payload = {"param1": "value_param_1"}
@@ -100,9 +103,9 @@ class HashkeyAuthTests(TestCase):
     def _params_expected(self, request_params: Optional[Mapping[str, str]]) -> Dict:
         request_params = request_params if request_params else {}
         params = {
-            "timestamp": 1000000,
+            'timestamp': 1000000,
         }
         params.update(request_params)
         params = OrderedDict(sorted(params.items(), key=lambda t: t[0]))
-        params["signature"] = self._generate_signature(params=params)
+        params['signature'] = self._generate_signature(params=params)
         return params

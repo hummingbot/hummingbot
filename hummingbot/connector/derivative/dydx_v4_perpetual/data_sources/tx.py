@@ -165,16 +165,18 @@ class Transaction:
         :return: transaction with message added
         """
         if self._state != TxState.Draft:
-            raise RuntimeError("The transaction is not in the draft state. No further messages may be appended")
+            raise RuntimeError(
+                "The transaction is not in the draft state. No further messages may be appended"
+            )
         self._msgs.append(msg)
         return self
 
     def seal(
-        self,
-        signing_cfgs: Union[SigningCfg, List[SigningCfg]],
-        fee: str,
-        gas_limit: int,
-        memo: Optional[str] = None,
+            self,
+            signing_cfgs: Union[SigningCfg, List[SigningCfg]],
+            fee: str,
+            gas_limit: int,
+            memo: Optional[str] = None,
     ) -> "Transaction":
         """Seal the transaction.
 
@@ -197,7 +199,9 @@ class Transaction:
             signer_infos.append(
                 SignerInfo(
                     public_key=_create_proto_public_key(signing_cfg.public_key),
-                    mode_info=ModeInfo(single=ModeInfo.Single(mode=SignMode.SIGN_MODE_DIRECT)),
+                    mode_info=ModeInfo(
+                        single=ModeInfo.Single(mode=SignMode.SIGN_MODE_DIRECT)
+                    ),
                     sequence=signing_cfg.sequence_num,
                 )
             )
@@ -211,17 +215,19 @@ class Transaction:
 
         self._tx_body = TxBody()
         self._tx_body.memo = memo or ""
-        self._tx_body.messages.extend(_wrap_in_proto_any(self._msgs))  # pylint: disable=E1101
+        self._tx_body.messages.extend(
+            _wrap_in_proto_any(self._msgs)
+        )  # pylint: disable=E1101
 
         self._tx = Tx(body=self._tx_body, auth_info=auth_info)
         return self
 
     def sign(
-        self,
-        signer,
-        chain_id: str,
-        account_number: int,
-        deterministic: bool = False,
+            self,
+            signer,
+            chain_id: str,
+            account_number: int,
+            deterministic: bool = False,
     ) -> "Transaction":
         """Sign the transaction.
 
@@ -233,7 +239,9 @@ class Transaction:
         :return: signed transaction
         """
         if self.state != TxState.Sealed:
-            raise RuntimeError("Transaction is not sealed. It must be sealed before signing is possible.")
+            raise RuntimeError(
+                "Transaction is not sealed. It must be sealed before signing is possible."
+            )
 
         sd = SignDoc()
         sd.body_bytes = self._tx.body.SerializeToString()

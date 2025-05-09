@@ -141,8 +141,7 @@ class MarketsRecorderTests(TestCase):
                     leverage=1,
                     trade_fee=AddedToCostTradeFee().to_json(),
                     exchange_trade_id="EOID1",
-                    position=PositionAction.NIL.value,
-                )
+                    position=PositionAction.NIL.value)
                 session.add(trade_fill_record)
 
             fill_id = trade_fill_record.exchange_trade_id
@@ -268,7 +267,7 @@ class MarketsRecorderTests(TestCase):
             price=Decimal(1010),
             amount=create_event.amount,
             trade_fee=AddedToCostTradeFee(),
-            exchange_trade_id="TradeId1",
+            exchange_trade_id="TradeId1"
         )
 
         recorder._did_fill_order(MarketEvent.OrderFilled.value, self, fill_event)
@@ -328,7 +327,7 @@ class MarketsRecorderTests(TestCase):
             price=Decimal(1010),
             amount=create_event.amount,
             trade_fee=trade_fee,
-            exchange_trade_id="TradeId1",
+            exchange_trade_id="TradeId1"
         )
 
         recorder._did_fill_order(MarketEvent.OrderFilled.value, self, fill_event)
@@ -383,8 +382,7 @@ class MarketsRecorderTests(TestCase):
             quote_asset=self.quote,
             base_asset_amount=create_event.amount,
             quote_asset_amount=create_event.amount * create_event.price,
-            order_type=create_event.type,
-        )
+            order_type=create_event.type)
 
         recorder._did_complete_order(MarketEvent.BuyOrderCompleted.value, self, complete_event)
 
@@ -457,19 +455,10 @@ class MarketsRecorderTests(TestCase):
             ),
         )
 
-        position = Position(
-            id="123",
-            timestamp=123,
-            controller_id="test_controller",
-            connector_name="binance",
-            trading_pair="ETH-USDT",
-            side=TradeType.BUY.name,
-            amount=Decimal("1"),
-            breakeven_price=Decimal("1000"),
-            unrealized_pnl_quote=Decimal("0"),
-            cum_fees_quote=Decimal("0"),
-            volume_traded_quote=Decimal("10"),
-        )
+        position = Position(id="123", timestamp=123, controller_id="test_controller", connector_name="binance",
+                            trading_pair="ETH-USDT", side=TradeType.BUY.name, amount=Decimal("1"), breakeven_price=Decimal("1000"),
+                            unrealized_pnl_quote=Decimal("0"), cum_fees_quote=Decimal("0"),
+                            volume_traded_quote=Decimal("10"))
         recorder.store_position(position)
         with self.manager.get_new_session() as session:
             query = session.query(Position)
@@ -490,34 +479,16 @@ class MarketsRecorderTests(TestCase):
         )
         position_executor_mock = MagicMock(spec=PositionExecutor)
         position_executor_config = PositionExecutorConfig(
-            id="123",
-            timestamp=1234,
-            trading_pair="ETH-USDT",
-            connector_name="binance",
-            side=TradeType.BUY,
-            entry_price=Decimal("1000"),
-            amount=Decimal("1"),
-            leverage=1,
+            id="123", timestamp=1234, trading_pair="ETH-USDT", connector_name="binance", side=TradeType.BUY,
+            entry_price=Decimal("1000"), amount=Decimal("1"), leverage=1,
             triple_barrier_config=TripleBarrierConfig(take_profit=Decimal("0.1"), stop_loss=Decimal("0.2")),
         )
         position_executor_mock.config = position_executor_config
         position_executor_mock.executor_info = ExecutorInfo(
-            id="123",
-            timestamp=1234,
-            type="position_executor",
-            close_timestamp=1235,
-            close_type=CloseType.TAKE_PROFIT,
-            status=RunnableStatus.TERMINATED,
-            controller_id="test_controller",
-            custom_info={},
-            config=position_executor_config,
-            net_pnl_pct=Decimal("0.1"),
-            net_pnl_quote=Decimal("10"),
-            cum_fees_quote=Decimal("0.1"),
-            filled_amount_quote=Decimal("1"),
-            is_active=False,
-            is_trading=False,
-        )
+            id="123", timestamp=1234, type="position_executor", close_timestamp=1235, close_type=CloseType.TAKE_PROFIT,
+            status=RunnableStatus.TERMINATED, controller_id="test_controller", custom_info={},
+            config=position_executor_config, net_pnl_pct=Decimal("0.1"), net_pnl_quote=Decimal("10"),
+            cum_fees_quote=Decimal("0.1"), filled_amount_quote=Decimal("1"), is_active=False, is_trading=False)
 
         recorder.store_or_update_executor(position_executor_mock)
         with self.manager.get_new_session() as session:

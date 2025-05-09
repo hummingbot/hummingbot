@@ -22,7 +22,7 @@ class OMSConnectorAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def __init__(
         self,
         trading_pairs: List[str],
-        connector: "OMSExchange",
+        connector: 'OMSExchange',
         api_factory: OMSConnectorWebAssistantsFactory,
         url_provider: OMSConnectorURLCreatorBase,
         oms_id: int,
@@ -37,7 +37,9 @@ class OMSConnectorAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._oms_id = oms_id
         self._nonce_provider = NonceCreator.for_milliseconds()
 
-    async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
+    async def get_last_traded_prices(
+        self, trading_pairs: List[str], domain: Optional[str] = None
+    ) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def _parse_trade_message(self, raw_message: List[Dict[int, Union[int, float]]], message_queue: asyncio.Queue):
@@ -86,7 +88,7 @@ class OMSConnectorAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @staticmethod
     def _get_bids_and_asks_from_snapshot(
-        snapshot: List[List[Union[int, float]]],
+        snapshot: List[List[Union[int, float]]]
     ) -> Tuple[List[Tuple[float, float]], List[Tuple[float, float]]]:
         """OMS connectors do not guarantee that the data is sorted in any way."""
         asks = []

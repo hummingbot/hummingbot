@@ -18,40 +18,36 @@ class XEMMMultipleLevelsConfig(ControllerConfigBase):
     controller_name: str = "xemm_multiple_levels"
     candles_config: List[CandlesConfig] = []
     maker_connector: str = Field(
-        default="mexc", json_schema_extra={"prompt": "Enter the maker connector: ", "prompt_on_new": True}
-    )
+        default="mexc",
+        json_schema_extra={"prompt": "Enter the maker connector: ", "prompt_on_new": True})
     maker_trading_pair: str = Field(
-        default="PEPE-USDT", json_schema_extra={"prompt": "Enter the maker trading pair: ", "prompt_on_new": True}
-    )
+        default="PEPE-USDT",
+        json_schema_extra={"prompt": "Enter the maker trading pair: ", "prompt_on_new": True})
     taker_connector: str = Field(
-        default="binance", json_schema_extra={"prompt": "Enter the taker connector: ", "prompt_on_new": True}
-    )
+        default="binance",
+        json_schema_extra={"prompt": "Enter the taker connector: ", "prompt_on_new": True})
     taker_trading_pair: str = Field(
-        default="PEPE-USDT", json_schema_extra={"prompt": "Enter the taker trading pair: ", "prompt_on_new": True}
-    )
+        default="PEPE-USDT",
+        json_schema_extra={"prompt": "Enter the taker trading pair: ", "prompt_on_new": True})
     buy_levels_targets_amount: List[List[Decimal]] = Field(
         default="0.003,10-0.006,20-0.009,30",
         json_schema_extra={
             "prompt": "Enter the buy levels targets with the following structure: (target_profitability1,amount1-target_profitability2,amount2): ",
-            "prompt_on_new": True,
-        },
-    )
+            "prompt_on_new": True})
     sell_levels_targets_amount: List[List[Decimal]] = Field(
         default="0.003,10-0.006,20-0.009,30",
         json_schema_extra={
             "prompt": "Enter the sell levels targets with the following structure: (target_profitability1,amount1-target_profitability2,amount2): ",
-            "prompt_on_new": True,
-        },
-    )
+            "prompt_on_new": True})
     min_profitability: Decimal = Field(
-        default=0.003, json_schema_extra={"prompt": "Enter the minimum profitability: ", "prompt_on_new": True}
-    )
+        default=0.003,
+        json_schema_extra={"prompt": "Enter the minimum profitability: ", "prompt_on_new": True})
     max_profitability: Decimal = Field(
-        default=0.01, json_schema_extra={"prompt": "Enter the maximum profitability: ", "prompt_on_new": True}
-    )
+        default=0.01,
+        json_schema_extra={"prompt": "Enter the maximum profitability: ", "prompt_on_new": True})
     max_executors_imbalance: int = Field(
-        default=1, json_schema_extra={"prompt": "Enter the maximum executors imbalance: ", "prompt_on_new": True}
-    )
+        default=1,
+        json_schema_extra={"prompt": "Enter the maximum executors imbalance: ", "prompt_on_new": True})
 
     @field_validator("buy_levels_targets_amount", "sell_levels_targets_amount", mode="before")
     @classmethod
@@ -83,28 +79,26 @@ class XEMMMultipleLevels(ControllerBase):
 
     def determine_executor_actions(self) -> List[ExecutorAction]:
         executor_actions = []
-        mid_price = self.market_data_provider.get_price_by_type(
-            self.config.maker_connector, self.config.maker_trading_pair, PriceType.MidPrice
-        )
+        mid_price = self.market_data_provider.get_price_by_type(self.config.maker_connector, self.config.maker_trading_pair, PriceType.MidPrice)
         active_buy_executors = self.filter_executors(
-            executors=self.executors_info, filter_func=lambda e: not e.is_done and e.config.maker_side == TradeType.BUY
+            executors=self.executors_info,
+            filter_func=lambda e: not e.is_done and e.config.maker_side == TradeType.BUY
         )
         active_sell_executors = self.filter_executors(
-            executors=self.executors_info, filter_func=lambda e: not e.is_done and e.config.maker_side == TradeType.SELL
+            executors=self.executors_info,
+            filter_func=lambda e: not e.is_done and e.config.maker_side == TradeType.SELL
         )
         stopped_buy_executors = self.filter_executors(
             executors=self.executors_info,
-            filter_func=lambda e: e.is_done and e.config.maker_side == TradeType.BUY and e.filled_amount_quote != 0,
+            filter_func=lambda e: e.is_done and e.config.maker_side == TradeType.BUY and e.filled_amount_quote != 0
         )
         stopped_sell_executors = self.filter_executors(
             executors=self.executors_info,
-            filter_func=lambda e: e.is_done and e.config.maker_side == TradeType.SELL and e.filled_amount_quote != 0,
+            filter_func=lambda e: e.is_done and e.config.maker_side == TradeType.SELL and e.filled_amount_quote != 0
         )
         imbalance = len(stopped_buy_executors) - len(stopped_sell_executors)
         for target_profitability, amount in self.buy_levels_targets_amount:
-            active_buy_executors_target = [
-                e.config.target_profitability == target_profitability for e in active_buy_executors
-            ]
+            active_buy_executors_target = [e.config.target_profitability == target_profitability for e in active_buy_executors]
 
             if len(active_buy_executors_target) == 0 and imbalance < self.config.max_executors_imbalance:
                 min_profitability = target_profitability - self.config.min_profitability
@@ -112,49 +106,38 @@ class XEMMMultipleLevels(ControllerBase):
                 config = XEMMExecutorConfig(
                     controller_id=self.config.id,
                     timestamp=self.market_data_provider.time(),
-                    buying_market=ConnectorPair(
-                        connector_name=self.config.maker_connector, trading_pair=self.config.maker_trading_pair
-                    ),
-                    selling_market=ConnectorPair(
-                        connector_name=self.config.taker_connector, trading_pair=self.config.taker_trading_pair
-                    ),
+                    buying_market=ConnectorPair(connector_name=self.config.maker_connector,
+                                                trading_pair=self.config.maker_trading_pair),
+                    selling_market=ConnectorPair(connector_name=self.config.taker_connector,
+                                                 trading_pair=self.config.taker_trading_pair),
                     maker_side=TradeType.BUY,
                     order_amount=amount / mid_price,
                     min_profitability=min_profitability,
                     target_profitability=target_profitability,
-                    max_profitability=max_profitability,
+                    max_profitability=max_profitability
                 )
                 executor_actions.append(CreateExecutorAction(executor_config=config, controller_id=self.config.id))
         for target_profitability, amount in self.sell_levels_targets_amount:
-            active_sell_executors_target = [
-                e.config.target_profitability == target_profitability for e in active_sell_executors
-            ]
+            active_sell_executors_target = [e.config.target_profitability == target_profitability for e in active_sell_executors]
             if len(active_sell_executors_target) == 0 and imbalance > -self.config.max_executors_imbalance:
                 min_profitability = target_profitability - self.config.min_profitability
                 max_profitability = target_profitability + self.config.max_profitability
                 config = XEMMExecutorConfig(
                     controller_id=self.config.id,
                     timestamp=time.time(),
-                    buying_market=ConnectorPair(
-                        connector_name=self.config.taker_connector, trading_pair=self.config.taker_trading_pair
-                    ),
-                    selling_market=ConnectorPair(
-                        connector_name=self.config.maker_connector, trading_pair=self.config.maker_trading_pair
-                    ),
+                    buying_market=ConnectorPair(connector_name=self.config.taker_connector,
+                                                trading_pair=self.config.taker_trading_pair),
+                    selling_market=ConnectorPair(connector_name=self.config.maker_connector,
+                                                 trading_pair=self.config.maker_trading_pair),
                     maker_side=TradeType.SELL,
                     order_amount=amount / mid_price,
                     min_profitability=min_profitability,
                     target_profitability=target_profitability,
-                    max_profitability=max_profitability,
+                    max_profitability=max_profitability
                 )
                 executor_actions.append(CreateExecutorAction(executor_config=config, controller_id=self.config.id))
         return executor_actions
 
     def to_format_status(self) -> List[str]:
         all_executors_custom_info = pd.DataFrame(e.custom_info for e in self.executors_info)
-        return [
-            format_df_for_printout(
-                all_executors_custom_info,
-                table_format="psql",
-            )
-        ]
+        return [format_df_for_printout(all_executors_custom_info, table_format="psql", )]

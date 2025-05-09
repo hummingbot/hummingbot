@@ -35,15 +35,13 @@ class HashkeyPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     _trading_pair_symbol_map: Dict[str, Mapping[str, str]] = {}
     _mapping_initialization_lock = asyncio.Lock()
 
-    def __init__(
-        self,
-        trading_pairs: List[str],
-        connector: "HashkeyPerpetualDerivative",
-        api_factory: Optional[WebAssistantsFactory] = None,
-        domain: str = CONSTANTS.DEFAULT_DOMAIN,
-        throttler: Optional[AsyncThrottler] = None,
-        time_synchronizer: Optional[TimeSynchronizer] = None,
-    ):
+    def __init__(self,
+                 trading_pairs: List[str],
+                 connector: 'HashkeyPerpetualDerivative',
+                 api_factory: Optional[WebAssistantsFactory] = None,
+                 domain: str = CONSTANTS.DEFAULT_DOMAIN,
+                 throttler: Optional[AsyncThrottler] = None,
+                 time_synchronizer: Optional[TimeSynchronizer] = None):
         super().__init__(trading_pairs)
         self._connector = connector
         self._domain = domain
@@ -59,7 +57,9 @@ class HashkeyPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
         self._last_ws_message_sent_timestamp = 0
 
-    async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
+    async def get_last_traded_prices(self,
+                                     trading_pairs: List[str],
+                                     domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
@@ -72,18 +72,20 @@ class HashkeyPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         """
         params = {
             "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
-            "limit": "1000",
+            "limit": "1000"
         }
-        data = await self._connector._api_request(
-            path_url=CONSTANTS.SNAPSHOT_PATH_URL, method=RESTMethod.GET, params=params
-        )
+        data = await self._connector._api_request(path_url=CONSTANTS.SNAPSHOT_PATH_URL,
+                                                  method=RESTMethod.GET,
+                                                  params=params)
         return data
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
         snapshot_timestamp: float = float(snapshot["t"]) * 1e-3
         snapshot_msg: OrderBookMessage = HashkeyPerpetualsOrderBook.snapshot_message_from_exchange_rest(
-            snapshot, snapshot_timestamp, metadata={"trading_pair": trading_pair}
+            snapshot,
+            snapshot_timestamp,
+            metadata={"trading_pair": trading_pair}
         )
         return snapshot_msg
 
@@ -92,8 +94,7 @@ class HashkeyPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         for trades in raw_message["data"]:
             trades["q"] = self._connector.get_amount_of_contracts(trading_pair, int(trades["q"]))
             trade_message: OrderBookMessage = HashkeyPerpetualsOrderBook.trade_message_from_exchange(
-                trades, {"trading_pair": trading_pair}
-            )
+                trades, {"trading_pair": trading_pair})
             message_queue.put_nowait(trade_message)
 
     async def _parse_funding_info_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
@@ -130,9 +131,7 @@ class HashkeyPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 await self._update_funding_info_by_api(self._trading_pairs, message_queue=output)
                 await self._sleep(self.FIVE_MINUTE)
             except Exception as e:
-                self.logger().exception(
-                    f"Unexpected error when processing public funding info updates from exchange: {e}"
-                )
+                self.logger().exception(f"Unexpected error when processing public funding info updates from exchange: {e}")
                 await self._sleep(self.EXCEPTION_INTERVAL)
 
     async def listen_for_subscriptions(self):
@@ -150,13 +149,14 @@ class HashkeyPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
                 while True:
                     try:
-                        seconds_until_next_ping = CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL - (
-                            self._time() - self._last_ws_message_sent_timestamp
-                        )
+                        seconds_until_next_ping = (CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL - (
+                            self._time() - self._last_ws_message_sent_timestamp))
                         await asyncio.wait_for(self._process_ws_messages(ws=ws), timeout=seconds_until_next_ping)
                     except asyncio.TimeoutError:
                         ping_time = self._time()
-                        payload = {"ping": int(ping_time * 1e3)}
+                        payload = {
+                            "ping": int(ping_time * 1e3)
+                        }
                         ping_request = WSJSONRequest(payload=payload)
                         await ws.send(request=ping_request)
                         self._last_ws_message_sent_timestamp = ping_time
@@ -179,10 +179,24 @@ class HashkeyPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         try:
             for trading_pair in self._trading_pairs:
                 symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                trade_payload = {"topic": "trade", "event": "sub", "symbol": symbol, "params": {"binary": False}}
+                trade_payload = {
+                    "topic": "trade",
+                    "event": "sub",
+                    "symbol": symbol,
+                    "params": {
+                        "binary": False
+                    }
+                }
                 subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trade_payload)
 
-                depth_payload = {"topic": "depth", "event": "sub", "symbol": symbol, "params": {"binary": False}}
+                depth_payload = {
+                    "topic": "depth",
+                    "event": "sub",
+                    "symbol": symbol,
+                    "params": {
+                        "binary": False
+                    }
+                }
                 subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=depth_payload)
 
                 await ws.send(subscribe_trade_request)
@@ -193,7 +207,8 @@ class HashkeyPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             raise
         except Exception:
             self.logger().error(
-                "Unexpected error occurred subscribing to order book trading and delta streams...", exc_info=True
+                "Unexpected error occurred subscribing to order book trading and delta streams...",
+                exc_info=True
             )
             raise
 
@@ -214,15 +229,11 @@ class HashkeyPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             try:
                 json_msg = await message_queue.get()
                 trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-                    symbol=json_msg["symbol"]
-                )
+                    symbol=json_msg["symbol"])
                 for snapshot_data in json_msg["data"]:
                     snapshot = self.convert_snapshot_amounts(snapshot_data, trading_pair)
-                    order_book_message: OrderBookMessage = (
-                        HashkeyPerpetualsOrderBook.snapshot_message_from_exchange_websocket(
-                            snapshot, snapshot["t"], {"trading_pair": trading_pair}
-                        )
-                    )
+                    order_book_message: OrderBookMessage = HashkeyPerpetualsOrderBook.snapshot_message_from_exchange_websocket(
+                        snapshot, snapshot["t"], {"trading_pair": trading_pair})
                     snapshot_queue.put_nowait(order_book_message)
             except asyncio.CancelledError:
                 raise
@@ -233,13 +244,9 @@ class HashkeyPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     def convert_snapshot_amounts(self, snapshot_data, trading_pair):
         msg = {"a": [], "b": [], "t": snapshot_data["t"]}
         for ask_order_book in snapshot_data["a"]:
-            msg["a"].append(
-                [ask_order_book[0], self._connector.get_amount_of_contracts(trading_pair, int(ask_order_book[1]))]
-            )
+            msg["a"].append([ask_order_book[0], self._connector.get_amount_of_contracts(trading_pair, int(ask_order_book[1]))])
         for bid_order_book in snapshot_data["b"]:
-            msg["b"].append(
-                [bid_order_book[0], self._connector.get_amount_of_contracts(trading_pair, int(bid_order_book[1]))]
-            )
+            msg["b"].append([bid_order_book[0], self._connector.get_amount_of_contracts(trading_pair, int(bid_order_book[1]))])
 
         return msg
 
@@ -250,14 +257,17 @@ class HashkeyPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 snapshot = self.convert_snapshot_amounts(snapshot_data, trading_pair)
                 snapshot_timestamp: float = float(snapshot["t"]) * 1e-3
                 snapshot_msg: OrderBookMessage = HashkeyPerpetualsOrderBook.snapshot_message_from_exchange_rest(
-                    snapshot, snapshot_timestamp, metadata={"trading_pair": trading_pair}
+                    snapshot,
+                    snapshot_timestamp,
+                    metadata={"trading_pair": trading_pair}
                 )
                 snapshot_queue.put_nowait(snapshot_msg)
                 self.logger().debug(f"Saved order book snapshot for {trading_pair}")
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error(f"Unexpected error fetching order book snapshot for {trading_pair}.", exc_info=True)
+                self.logger().error(f"Unexpected error fetching order book snapshot for {trading_pair}.",
+                                    exc_info=True)
                 await self._sleep(self.EXCEPTION_INTERVAL)
 
     async def _update_funding_info_by_api(self, trading_pairs: list, message_queue: asyncio.Queue) -> None:
@@ -309,20 +319,20 @@ class HashkeyPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     async def _request_funding_rate(self, symbol: str = None):
         params = {"timestamp": int(self._time_synchronizer.time() * 1e3)}
         if symbol:
-            params["symbol"] = (symbol,)
-        return await self._connector._api_request(
-            path_url=CONSTANTS.FUNDING_INFO_URL, method=RESTMethod.GET, params=params
-        )
+            params["symbol"] = symbol,
+        return await self._connector._api_request(path_url=CONSTANTS.FUNDING_INFO_URL,
+                                                  method=RESTMethod.GET,
+                                                  params=params)
 
     async def _request_mark_price(self, symbol: str):
-        return await self._connector._api_request(
-            path_url=CONSTANTS.MARK_PRICE_URL, method=RESTMethod.GET, params={"symbol": symbol}
-        )
+        return await self._connector._api_request(path_url=CONSTANTS.MARK_PRICE_URL,
+                                                  method=RESTMethod.GET,
+                                                  params={"symbol": symbol})
 
     async def _request_index_price(self, symbol: str):
-        return await self._connector._api_request(
-            path_url=CONSTANTS.INDEX_PRICE_URL, method=RESTMethod.GET, params={"symbol": symbol}
-        )
+        return await self._connector._api_request(path_url=CONSTANTS.INDEX_PRICE_URL,
+                                                  method=RESTMethod.GET,
+                                                  params={"symbol": symbol})
 
     def _time(self):
         return time.time()

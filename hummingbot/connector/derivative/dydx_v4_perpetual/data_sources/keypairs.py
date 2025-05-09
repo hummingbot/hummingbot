@@ -140,7 +140,9 @@ class PrivateKey(PublicKey):
         :return: local wallet
         """
         seed_bytes = Bip39SeedGenerator(mnemonic).Generate()
-        bip44_def_ctx = Bip44.FromSeed(seed_bytes, Bip44Coins.COSMOS).DeriveDefaultPath()
+        bip44_def_ctx = Bip44.FromSeed(
+            seed_bytes, Bip44Coins.COSMOS
+        ).DeriveDefaultPath()
         return PrivateKey(bip44_def_ctx.PrivateKey().Raw().ToBytes())
 
     def __init__(self, private_key: Optional[Union[bytes, str]] = None):
@@ -151,9 +153,13 @@ class PrivateKey(PublicKey):
         :raises RuntimeError: if unable to load private key from input.
         """
         if private_key is None:
-            self._signing_key = ecdsa.SigningKey.generate(curve=self.curve, hashfunc=self.hash_function)
+            self._signing_key = ecdsa.SigningKey.generate(
+                curve=self.curve, hashfunc=self.hash_function
+            )
         elif isinstance(private_key, bytes):
-            self._signing_key = ecdsa.SigningKey.from_string(private_key, curve=self.curve, hashfunc=self.hash_function)
+            self._signing_key = ecdsa.SigningKey.from_string(
+                private_key, curve=self.curve, hashfunc=self.hash_function
+            )
         elif isinstance(private_key, str):
             raw_private_key = _base64_decode(private_key)
             self._signing_key = ecdsa.SigningKey.from_string(
@@ -197,7 +203,9 @@ class PrivateKey(PublicKey):
         """
         return self._private_key_bytes
 
-    def sign(self, message: bytes, deterministic: bool = True, canonicalise: bool = True) -> bytes:
+    def sign(
+            self, message: bytes, deterministic: bool = True, canonicalise: bool = True
+    ) -> bytes:
         """
         Sign message.
 
@@ -208,11 +216,17 @@ class PrivateKey(PublicKey):
         :return: bytes signed message.
         """
         sigencode = sigencode_string_canonize if canonicalise else sigencode_string
-        sign_fnc = self._signing_key.sign_deterministic if deterministic else self._signing_key.sign
+        sign_fnc = (
+            self._signing_key.sign_deterministic
+            if deterministic
+            else self._signing_key.sign
+        )
 
         return sign_fnc(message, sigencode=sigencode)
 
-    def sign_digest(self, digest: bytes, deterministic=True, canonicalise: bool = True) -> bytes:
+    def sign_digest(
+            self, digest: bytes, deterministic=True, canonicalise: bool = True
+    ) -> bytes:
         """
         Sign digest.
 
@@ -223,6 +237,10 @@ class PrivateKey(PublicKey):
         :return: bytes signed digest.
         """
         sigencode = sigencode_string_canonize if canonicalise else sigencode_string
-        sign_fnc = self._signing_key.sign_digest_deterministic if deterministic else self._signing_key.sign_digest
+        sign_fnc = (
+            self._signing_key.sign_digest_deterministic
+            if deterministic
+            else self._signing_key.sign_digest
+        )
 
         return sign_fnc(digest, sigencode=sigencode)

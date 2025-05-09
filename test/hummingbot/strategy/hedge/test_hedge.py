@@ -32,7 +32,7 @@ class HedgeConfigMapPydanticTest(unittest.TestCase):
             "binance_perpetual": MockPerpConnector(
                 client_config_map=self.client_config_map,
                 buy_collateral_token=quote_asset,
-                sell_collateral_token=quote_asset,
+                sell_collateral_token=quote_asset
             ),
         }
 
@@ -45,6 +45,7 @@ class HedgeConfigMapPydanticTest(unittest.TestCase):
             "max_price": 200,
             "price_step_size": 1,
             "volume_step_size": 1,
+
         }
         self.markets["kucoin"].set_balance(base_asset, 1)
         self.markets["kucoin"].set_balanced_order_book(**order_book_config)
@@ -61,13 +62,23 @@ class HedgeConfigMapPydanticTest(unittest.TestCase):
             Decimal("0"),
             Decimal("95"),
             Decimal("-1"),
-            self.markets["binance_perpetual"].get_leverage(trading_pair),
+            self.markets["binance_perpetual"].get_leverage(trading_pair)
         )
         self.market_trading_pairs = {
-            "kucoin": MarketTradingPairTuple(self.markets["kucoin"], trading_pair, *trading_pair.split("-")),
-            "binance": MarketTradingPairTuple(self.markets["binance"], trading_pair, *trading_pair.split("-")),
+            "kucoin": MarketTradingPairTuple(
+                self.markets["kucoin"],
+                trading_pair,
+                *trading_pair.split("-")
+            ),
+            "binance": MarketTradingPairTuple(
+                self.markets["binance"],
+                trading_pair,
+                *trading_pair.split("-")
+            ),
             "binance_perpetual": MarketTradingPairTuple(
-                self.markets["binance_perpetual"], trading_pair, *trading_pair.split("-")
+                self.markets["binance_perpetual"],
+                trading_pair,
+                *trading_pair.split("-")
             ),
         }
         self.config_map = self.get_default_map()
@@ -87,34 +98,35 @@ class HedgeConfigMapPydanticTest(unittest.TestCase):
 
     def get_default_map(self) -> HedgeConfigMap:
         config_settings = {
-            "strategy": "hedge",
-            "value_mode": True,
-            "hedge_ratio": 1.0,
-            "hedge_interval": 60.0,
-            "min_trade_size": 0.0,
-            "slippage": 0.02,
-            "hedge_offsets": [0],
-            "hedge_leverage": 25,
-            "hedge_position_mode": "ONEWAY",
-            "hedge_connector": "binance_perpetual",
-            "hedge_markets": ["BTC-USDT"],
-            "connector_0": "n",
-            "connector_1": "n",
-            "connector_2": "n",
-            "connector_3": "n",
-            "connector_4": "n",
+            'strategy': 'hedge',
+            'value_mode': True,
+            'hedge_ratio': 1.0,
+            'hedge_interval': 60.0,
+            'min_trade_size': 0.0,
+            'slippage': 0.02,
+            'hedge_offsets': [0],
+            'hedge_leverage': 25,
+            'hedge_position_mode': 'ONEWAY',
+            "hedge_connector": 'binance_perpetual',
+            "hedge_markets": ['BTC-USDT'],
+            "connector_0": 'n',
+            "connector_1": 'n',
+            "connector_2": 'n',
+            "connector_3": 'n',
+            "connector_4": 'n',
         }
         return HedgeConfigMap(**config_settings)
 
-    def test_hedge_ratio(self): ...
+    def test_hedge_ratio(self):
+        ...
 
     def test_offsets(self):
         # value mode = True
         strategy = HedgeStrategy(
-            config_map=self.config_map,
-            hedge_market_pairs=[self.market_trading_pairs["binance_perpetual"]],
-            market_pairs=[self.market_trading_pairs["kucoin"], self.market_trading_pairs["binance"]],
-            offsets=self.offsets,
+            config_map = self.config_map,
+            hedge_market_pairs = [self.market_trading_pairs["binance_perpetual"]],
+            market_pairs = [self.market_trading_pairs["kucoin"], self.market_trading_pairs["binance"]],
+            offsets = self.offsets,
         )
 
         self.assertEqual(strategy._offsets, self.offsets)
@@ -133,10 +145,10 @@ class HedgeConfigMapPydanticTest(unittest.TestCase):
         # value mode = False
         self.config_map.value_mode = False
         strategy = HedgeStrategy(
-            config_map=self.config_map,
-            hedge_market_pairs=[self.market_trading_pairs["binance_perpetual"]],
-            market_pairs=[self.market_trading_pairs["kucoin"], self.market_trading_pairs["binance"]],
-            offsets=self.offsets,
+            config_map = self.config_map,
+            hedge_market_pairs = [self.market_trading_pairs["binance_perpetual"]],
+            market_pairs = [self.market_trading_pairs["kucoin"], self.market_trading_pairs["binance"]],
+            offsets = self.offsets,
         )
         for hedge_market, market_list in strategy._market_pair_by_asset.items():
             is_buy, amount_to_hedge = strategy.get_hedge_direction_and_amount_by_asset(hedge_market, market_list)
@@ -151,10 +163,10 @@ class HedgeConfigMapPydanticTest(unittest.TestCase):
     def test_hedge_by_value(self):
         self.config_map.slippage = Decimal("-0.2")
         strategy = HedgeStrategy(
-            config_map=self.config_map,
-            hedge_market_pairs=[self.market_trading_pairs["binance_perpetual"]],
-            market_pairs=[self.market_trading_pairs["kucoin"], self.market_trading_pairs["binance"]],
-            offsets=self.offsets,
+            config_map = self.config_map,
+            hedge_market_pairs = [self.market_trading_pairs["binance_perpetual"]],
+            market_pairs = [self.market_trading_pairs["kucoin"], self.market_trading_pairs["binance"]],
+            offsets = self.offsets,
         )
         self.clock.add_iterator(strategy)
         self.clock.add_iterator(strategy.order_tracker)
@@ -168,12 +180,18 @@ class HedgeConfigMapPydanticTest(unittest.TestCase):
         self.assertEqual(price, Decimal("120"))
         self.assertEqual(amount, Decimal("1.5"))
         order_candidates = strategy.get_perpetual_order_candidates(
-            self.market_trading_pairs["binance_perpetual"], is_buy, price, amount
+            self.market_trading_pairs["binance_perpetual"],
+            is_buy,
+            price,
+            amount
         )
         strategy.place_orders(strategy._hedge_market_pair, order_candidates)
         self.assertEqual(len(strategy.active_orders), 1)
         order_candidates = strategy.get_spot_order_candidates(
-            self.market_trading_pairs["kucoin"], is_buy, price, amount
+            self.market_trading_pairs["kucoin"],
+            is_buy,
+            price,
+            amount
         )
         strategy.place_orders(self.market_trading_pairs["kucoin"], order_candidates)
         self.assertEqual(len(strategy.active_orders), 2)
@@ -186,14 +204,14 @@ class HedgeConfigMapPydanticTest(unittest.TestCase):
             Decimal("0"),
             Decimal("95"),
             Decimal("-10"),
-            self.markets["binance_perpetual"].get_leverage(trading_pair),
+            self.markets["binance_perpetual"].get_leverage(trading_pair)
         )
         self.config_map.slippage = Decimal("-0.2")
         self.config_map.value_mode = False
         strategy = HedgeStrategy(
-            config_map=self.config_map,
-            hedge_market_pairs=[self.market_trading_pairs["binance_perpetual"]],
-            market_pairs=[self.market_trading_pairs["kucoin"], self.market_trading_pairs["binance"]],
-            offsets=self.offsets,
+            config_map = self.config_map,
+            hedge_market_pairs = [self.market_trading_pairs["binance_perpetual"]],
+            market_pairs = [self.market_trading_pairs["kucoin"], self.market_trading_pairs["binance"]],
+            offsets = self.offsets,
         )
         self.assertIsNone(strategy.hedge_by_amount())

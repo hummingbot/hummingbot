@@ -42,7 +42,11 @@ class CubeAuth(AuthBase):
         signature, timestamp = self._generate_signature()
 
         # Headers for the API request
-        headers = {"x-api-key": self.api_key, "x-api-signature": signature, "x-api-timestamp": str(timestamp)}
+        headers = {
+            'x-api-key': self.api_key,
+            'x-api-signature': signature,
+            'x-api-timestamp': str(timestamp)
+        }
 
         return headers
 
@@ -85,10 +89,10 @@ class CubeAuth(AuthBase):
             input_timestamp = timestamp
 
         # Convert the timestamp to an 8-byte little-endian array
-        timestamp_bytes = struct.pack("<Q", input_timestamp)
+        timestamp_bytes = struct.pack('<Q', input_timestamp)
 
         # The fixed byte string
-        fixed_string = b"cube.xyz"
+        fixed_string = b'cube.xyz'
 
         # Concatenate the fixed string with the timestamp
         payload = fixed_string + timestamp_bytes

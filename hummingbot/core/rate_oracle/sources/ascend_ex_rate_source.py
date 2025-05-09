@@ -38,7 +38,7 @@ class AscendExRateSource(RateSourceBase):
             self._exchange = self._build_ascend_ex_connector_without_private_keys()
 
     @staticmethod
-    def _build_ascend_ex_connector_without_private_keys() -> "AscendExExchange":
+    def _build_ascend_ex_connector_without_private_keys() -> 'AscendExExchange':
         from hummingbot.client.hummingbot_application import HummingbotApplication
         from hummingbot.connector.exchange.ascend_ex.ascend_ex_exchange import AscendExExchange
 

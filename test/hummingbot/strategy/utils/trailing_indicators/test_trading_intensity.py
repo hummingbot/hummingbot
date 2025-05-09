@@ -43,30 +43,29 @@ class TradingIntensityTest(unittest.TestCase):
         self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             self.market, self.trading_pair, *self.trading_pair.split("-")
         )
-        self.market.set_balanced_order_book(
-            trading_pair=self.trading_pair,
-            mid_price=self.initial_mid_price,
-            min_price=1,
-            max_price=200,
-            price_step_size=1,
-            volume_step_size=10,
-        )
+        self.market.set_balanced_order_book(trading_pair=self.trading_pair,
+                                            mid_price=self.initial_mid_price,
+                                            min_price=1,
+                                            max_price=200,
+                                            price_step_size=1,
+                                            volume_step_size=10)
         self.market.set_balance("COINALPHA", 1)
         self.market.set_balance("HBOT", 500)
-        self.market.set_quantization_param(QuantizationParams(self.trading_pair.split("-")[0], 6, 6, 6, 6))
+        self.market.set_quantization_param(
+            QuantizationParams(
+                self.trading_pair.split("-")[0], 6, 6, 6, 6
+            )
+        )
 
         self.price_delegate = OrderBookAssetPriceDelegate(self.market_info.market, self.trading_pair)
 
         self.indicator = TradingIntensityIndicator(
             order_book=self.market_info.order_book,
             price_delegate=self.price_delegate,
-            sampling_length=self.BUFFER_LENGTH,
-        )
+            sampling_length=self.BUFFER_LENGTH)
 
     @staticmethod
-    def make_order_books(
-        original_price_mid, original_spread, original_amount, volatility, spread_stdev, amount_stdev, samples
-    ):
+    def make_order_books(original_price_mid, original_spread, original_amount, volatility, spread_stdev, amount_stdev, samples):
         # 0.1% quantization of prices in the orderbook
         PRICE_STEP_FRACTION = 0.01
 
@@ -81,41 +80,21 @@ class TradingIntensityTest(unittest.TestCase):
         samples_amount_ask = np.random.normal(original_amount, amount_stdev, samples)
 
         # A full orderbook is not necessary, only up to the BBO max deviation
-        price_depth_max = max(
-            max(samples_price_bid) - min(samples_price_bid), max(samples_price_ask) - min(samples_price_ask)
-        )
+        price_depth_max = max(max(samples_price_bid) - min(samples_price_bid), max(samples_price_ask) - min(samples_price_ask))
 
         bid_dfs = []
         ask_dfs = []
 
         # Generate an orderbook for every tick
-        for price_bid, amount_bid, price_ask, amount_ask in zip(
-            samples_price_bid, samples_amount_bid, samples_price_ask, samples_amount_ask
-        ):
-            bid_df, ask_df = TradingIntensityTest.make_order_book(
-                price_bid,
-                amount_bid,
-                price_ask,
-                amount_ask,
-                price_depth_max,
-                original_price_mid * PRICE_STEP_FRACTION,
-                amount_stdev,
-            )
+        for price_bid, amount_bid, price_ask, amount_ask in zip(samples_price_bid, samples_amount_bid, samples_price_ask, samples_amount_ask):
+            bid_df, ask_df = TradingIntensityTest.make_order_book(price_bid, amount_bid, price_ask, amount_ask, price_depth_max, original_price_mid * PRICE_STEP_FRACTION, amount_stdev)
             bid_dfs += [bid_df]
             ask_dfs += [ask_df]
 
         return bid_dfs, ask_dfs
 
     @staticmethod
-    def make_order_book(
-        price_bid,
-        amount_bid,
-        price_ask,
-        amount_ask,
-        price_depth,
-        price_step,
-        amount_stdev,
-    ):
+    def make_order_book(price_bid, amount_bid, price_ask, amount_ask, price_depth, price_step, amount_stdev, ):
 
         prices_bid = np.linspace(price_bid, price_bid - price_depth, math.ceil(price_depth / price_step))
         amounts_bid = np.random.normal(amount_bid, amount_stdev, len(prices_bid))
@@ -125,10 +104,10 @@ class TradingIntensityTest(unittest.TestCase):
         amounts_ask = np.random.normal(amount_ask, amount_stdev, len(prices_ask))
         amounts_ask[0] = amount_ask
 
-        data_bid = {"price": prices_bid, "amount": amounts_bid}
+        data_bid = {'price': prices_bid, 'amount': amounts_bid}
         bid_df = pd.DataFrame(data=data_bid)
 
-        data_ask = {"price": prices_ask, "amount": amounts_ask}
+        data_ask = {'price': prices_ask, 'amount': amounts_ask}
         ask_df = pd.DataFrame(data=data_ask)
 
         return bid_df, ask_df
@@ -160,51 +139,51 @@ class TradingIntensityTest(unittest.TestCase):
             if bid_prev is not None and ask_prev is not None and price_prev is not None:
                 # Higher bids were filled - someone matched them - a determined seller
                 # Equal bids - if amount lower - partially filled
-                for index, row in bid_df_prev[bid_df_prev["price"] >= bid].iterrows():
-                    if row["price"] == bid:
-                        if bid_df["amount"].iloc[0] < row["amount"]:
-                            amount = row["amount"] - bid_df["amount"].iloc[0]
+                for index, row in bid_df_prev[bid_df_prev['price'] >= bid].iterrows():
+                    if row['price'] == bid:
+                        if bid_df["amount"].iloc[0] < row['amount']:
+                            amount = row['amount'] - bid_df["amount"].iloc[0]
                             new_trade = OrderBookTradeEvent(
                                 trading_pair="COINALPHAHBOT",
                                 timestamp=timestamp,
-                                price=row["price"],
+                                price=row['price'],
                                 amount=amount,
-                                type=TradeType.SELL,
+                                type=TradeType.SELL
                             )
                             trades[-1] += [new_trade]
                     else:
-                        amount = row["amount"]
+                        amount = row['amount']
                         new_trade = OrderBookTradeEvent(
                             trading_pair="COINALPHAHBOT",
                             timestamp=timestamp,
-                            price=row["price"],
+                            price=row['price'],
                             amount=amount,
-                            type=TradeType.SELL,
+                            type=TradeType.SELL
                         )
                         trades[-1] += [new_trade]
 
                 # Lower asks were filled - someone matched them - a determined buyer
                 # Equal asks - if amount lower - partially filled
-                for index, row in ask_df_prev[ask_df_prev["price"] <= ask].iterrows():
-                    if row["price"] == ask:
-                        if ask_df["amount"].iloc[0] < row["amount"]:
-                            amount = row["amount"] - ask_df["amount"].iloc[0]
+                for index, row in ask_df_prev[ask_df_prev['price'] <= ask].iterrows():
+                    if row['price'] == ask:
+                        if ask_df["amount"].iloc[0] < row['amount']:
+                            amount = row['amount'] - ask_df["amount"].iloc[0]
                             new_trade = OrderBookTradeEvent(
                                 trading_pair="COINALPHAHBOT",
                                 timestamp=timestamp,
-                                price=row["price"],
+                                price=row['price'],
                                 amount=amount,
-                                type=TradeType.BUY,
+                                type=TradeType.BUY
                             )
                             trades[-1] += [new_trade]
                     else:
-                        amount = row["amount"]
+                        amount = row['amount']
                         new_trade = OrderBookTradeEvent(
                             trading_pair="COINALPHAHBOT",
                             timestamp=timestamp,
-                            price=row["price"],
+                            price=row['price'],
                             amount=amount,
-                            type=TradeType.BUY,
+                            type=TradeType.BUY
                         )
                         trades[-1] += [new_trade]
 
@@ -231,9 +210,7 @@ class TradingIntensityTest(unittest.TestCase):
         amount_stdev = original_amount * Decimal("0.01")
 
         # Generate orderbooks for all ticks
-        bids_df, asks_df = TradingIntensityTest.make_order_books(
-            original_price_mid, original_spread, original_amount, volatility, spread_stdev, amount_stdev, N_SAMPLES
-        )
+        bids_df, asks_df = TradingIntensityTest.make_order_books(original_price_mid, original_spread, original_amount, volatility, spread_stdev, amount_stdev, N_SAMPLES)
         trades = TradingIntensityTest.make_trades(bids_df, asks_df)
 
         timestamp = self.start_timestamp

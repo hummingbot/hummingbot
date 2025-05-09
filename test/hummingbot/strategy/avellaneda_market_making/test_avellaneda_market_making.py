@@ -76,8 +76,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Strategy Initial Configuration Parameters
         cls.order_amount: Decimal = Decimal("10")
-        cls.inventory_target_base_pct: Decimal = Decimal("50")  # 50%
-        cls.min_spread: Decimal = Decimal("0.0")  # Default strategy value
+        cls.inventory_target_base_pct: Decimal = Decimal("50")     # 50%
+        cls.min_spread: Decimal = Decimal("0.0")                   # Default strategy value
         cls.risk_factor_finite: Decimal = Decimal("0.8")
         cls.risk_factor_infinite: Decimal = Decimal("1")
 
@@ -93,22 +93,24 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
             maker_percent_fee_decimal=Decimal("0.25"), taker_percent_fee_decimal=Decimal("0.25")
         )
         self.market: MockPaperExchange = MockPaperExchange(
-            client_config_map=ClientConfigAdapter(ClientConfigMap()), trade_fee_schema=trade_fee_schema
-        )
+            client_config_map=ClientConfigAdapter(ClientConfigMap()),
+            trade_fee_schema=trade_fee_schema)
         self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             self.market, self.trading_pair, *self.trading_pair.split("-")
         )
-        self.market.set_balanced_order_book(
-            trading_pair=self.trading_pair,
-            mid_price=self.initial_mid_price,
-            min_price=1,
-            max_price=200,
-            price_step_size=1,
-            volume_step_size=10,
-        )
+        self.market.set_balanced_order_book(trading_pair=self.trading_pair,
+                                            mid_price=self.initial_mid_price,
+                                            min_price=1,
+                                            max_price=200,
+                                            price_step_size=1,
+                                            volume_step_size=10)
         self.market.set_balance("COINALPHA", 1)
         self.market.set_balance("HBOT", 500)
-        self.market.set_quantization_param(QuantizationParams(self.trading_pair.split("-")[0], 6, 6, 6, 6))
+        self.market.set_quantization_param(
+            QuantizationParams(
+                self.trading_pair.split("-")[0], 6, 6, 6, 6
+            )
+        )
         self._original_paper_trade_exchanges = AllConnectorSettings.paper_trade_connectors_names
         AllConnectorSettings.paper_trade_connectors_names.append("mock_paper_exchange")
 
@@ -123,13 +125,13 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
             market_info=self.market_info,
         )
 
-        self.avg_vol_indicator: InstantVolatilityIndicator = InstantVolatilityIndicator(
-            sampling_length=100, processing_length=1
-        )
+        self.avg_vol_indicator: InstantVolatilityIndicator = InstantVolatilityIndicator(sampling_length=100,
+                                                                                        processing_length=1)
 
         self.trading_intensity_indicator: TradingIntensityIndicator = TradingIntensityIndicator(
-            order_book=self.market_info.order_book, price_delegate=self.price_delegate, sampling_length=20
-        )
+            order_book=self.market_info.order_book,
+            price_delegate=self.price_delegate,
+            sampling_length=20)
 
         self.strategy.avg_vol = self.avg_vol_indicator
 
@@ -170,9 +172,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
             INITIAL_RANDOM_SEED = 3141592653
             original_price = 100
             volatility = AvellanedaMarketMakingUnitTests.low_vol / Decimal("100")  # Assuming 0.5% volatility
-            np.random.seed(
-                INITIAL_RANDOM_SEED
-            )  # Using this hardcoded random seed we guarantee random samples generated are always the same
+            np.random.seed(INITIAL_RANDOM_SEED)     # Using this hardcoded random seed we guarantee random samples generated are always the same
             samples = np.random.normal(original_price, volatility * original_price, N_SAMPLES)
 
             # This replicates the same indicator Avellaneda uses if volatility_buffer_samples = 30
@@ -187,14 +187,12 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         strategy.avg_vol = self.volatility_indicator_low_vol
 
         # Simulates change in mid price to reflect last sample added
-        strategy.market_info.market.set_balanced_order_book(
-            trading_pair=strategy.trading_pair,
-            mid_price=samples[-1],
-            min_price=1,
-            max_price=200,
-            price_step_size=1,
-            volume_step_size=10,
-        )
+        strategy.market_info.market.set_balanced_order_book(trading_pair=strategy.trading_pair,
+                                                            mid_price=samples[-1],
+                                                            min_price=1,
+                                                            max_price=200,
+                                                            price_step_size=1,
+                                                            volume_step_size=10)
 
     def simulate_high_volatility(self, strategy: AvellanedaMarketMakingStrategy):
         if self.volatility_indicator_high_vol is None:
@@ -202,9 +200,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
             INITIAL_RANDOM_SEED = 3141592653
             original_price = 100
             volatility = AvellanedaMarketMakingUnitTests.high_vol / Decimal("100")  # Assuming 10% volatility
-            np.random.seed(
-                INITIAL_RANDOM_SEED
-            )  # Using this hardcoded random seed we guarantee random samples generated are always the same
+            np.random.seed(INITIAL_RANDOM_SEED)     # Using this hardcoded random seed we guarantee random samples generated are always the same
             samples = np.random.normal(original_price, volatility * original_price, N_SAMPLES)
 
             # This replicates the same indicator Avellaneda uses if volatility_buffer_samples = 30
@@ -219,14 +215,12 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         strategy.avg_vol = self.volatility_indicator_high_vol
 
         # Simulates change in mid price to reflect last sample added
-        strategy.market_info.market.set_balanced_order_book(
-            trading_pair=strategy.trading_pair,
-            mid_price=samples[-1],
-            min_price=1,
-            max_price=200,
-            price_step_size=1,
-            volume_step_size=10,
-        )
+        strategy.market_info.market.set_balanced_order_book(trading_pair=strategy.trading_pair,
+                                                            mid_price=samples[-1],
+                                                            min_price=1,
+                                                            max_price=200,
+                                                            price_step_size=1,
+                                                            volume_step_size=10)
 
     def simulate_low_liquidity(self, strategy: AvellanedaMarketMakingStrategy):
         if self.trading_intensity_indicator_low_liq is None:
@@ -241,14 +235,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
             spread_stdev = original_spread * Decimal("0.01")
             amount_stdev = original_amount * Decimal("0.01")
 
-            np.random.seed(
-                INITIAL_RANDOM_SEED
-            )  # Using this hardcoded random seed we guarantee random samples generated are always the same
+            np.random.seed(INITIAL_RANDOM_SEED)     # Using this hardcoded random seed we guarantee random samples generated are always the same
 
             # Generate orderbooks for all ticks
-            bids_df, asks_df = AvellanedaMarketMakingUnitTests.make_order_books(
-                original_price_mid, original_spread, original_amount, volatility, spread_stdev, amount_stdev, N_SAMPLES
-            )
+            bids_df, asks_df = AvellanedaMarketMakingUnitTests.make_order_books(original_price_mid, original_spread, original_amount, volatility, spread_stdev, amount_stdev, N_SAMPLES)
             trades = AvellanedaMarketMakingUnitTests.make_trades(bids_df, asks_df)
 
             # This replicates the same indicator Avellaneda uses for trading intensity estimation
@@ -262,9 +252,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                 for trade in trades_tick:
                     trading_intensity_indicator.register_trade(trade)
                 trading_intensity_indicator.calculate(timestamp)
-                trading_intensity_indicator.last_quotes = [
-                    {"timestamp": timestamp, "price": mid}
-                ] + trading_intensity_indicator.last_quotes
+                trading_intensity_indicator.last_quotes = [{"timestamp": timestamp, "price": mid}] + trading_intensity_indicator.last_quotes
                 timestamp += 1
 
             self.trading_intensity_indicator_low_liq = trading_intensity_indicator
@@ -285,14 +273,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
             spread_stdev = original_spread * Decimal("0.01")
             amount_stdev = original_amount * Decimal("0.01")
 
-            np.random.seed(
-                INITIAL_RANDOM_SEED
-            )  # Using this hardcoded random seed we guarantee random samples generated are always the same
+            np.random.seed(INITIAL_RANDOM_SEED)     # Using this hardcoded random seed we guarantee random samples generated are always the same
 
             # Generate orderbooks for all ticks
-            bids_df, asks_df = AvellanedaMarketMakingUnitTests.make_order_books(
-                original_price_mid, original_spread, original_amount, volatility, spread_stdev, amount_stdev, N_SAMPLES
-            )
+            bids_df, asks_df = AvellanedaMarketMakingUnitTests.make_order_books(original_price_mid, original_spread, original_amount, volatility, spread_stdev, amount_stdev, N_SAMPLES)
             trades = AvellanedaMarketMakingUnitTests.make_trades(bids_df, asks_df)
 
             # This replicates the same indicator Avellaneda uses for trading intensity estimation
@@ -306,9 +290,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                 for trade in trades_tick:
                     trading_intensity_indicator.register_trade(trade)
                 trading_intensity_indicator.calculate(timestamp)
-                trading_intensity_indicator.last_quotes = [
-                    {"timestamp": timestamp, "price": mid}
-                ] + trading_intensity_indicator.last_quotes
+                trading_intensity_indicator.last_quotes = [{"timestamp": timestamp, "price": mid}] + trading_intensity_indicator.last_quotes
                 timestamp += 1
 
             self.trading_intensity_indicator_high_liq = trading_intensity_indicator
@@ -317,9 +299,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         strategy.trading_intensity = self.trading_intensity_indicator_high_liq
 
     @staticmethod
-    def make_order_books(
-        original_price_mid, original_spread, original_amount, volatility, spread_stdev, amount_stdev, samples
-    ):
+    def make_order_books(original_price_mid, original_spread, original_amount, volatility, spread_stdev, amount_stdev, samples):
         # 0.1% quantization of prices in the orderbook
         PRICE_STEP_FRACTION = 0.01
 
@@ -334,41 +314,21 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         samples_amount_ask = np.random.normal(original_amount, amount_stdev, samples)
 
         # A full orderbook is not necessary, only up to the BBO max deviation
-        price_depth_max = max(
-            max(samples_price_bid) - min(samples_price_bid), max(samples_price_ask) - min(samples_price_ask)
-        )
+        price_depth_max = max(max(samples_price_bid) - min(samples_price_bid), max(samples_price_ask) - min(samples_price_ask))
 
         bid_dfs = []
         ask_dfs = []
 
         # Generate an orderbook for every tick
-        for price_bid, amount_bid, price_ask, amount_ask in zip(
-            samples_price_bid, samples_amount_bid, samples_price_ask, samples_amount_ask
-        ):
-            bid_df, ask_df = AvellanedaMarketMakingUnitTests.make_order_book(
-                price_bid,
-                amount_bid,
-                price_ask,
-                amount_ask,
-                price_depth_max,
-                original_price_mid * PRICE_STEP_FRACTION,
-                amount_stdev,
-            )
+        for price_bid, amount_bid, price_ask, amount_ask in zip(samples_price_bid, samples_amount_bid, samples_price_ask, samples_amount_ask):
+            bid_df, ask_df = AvellanedaMarketMakingUnitTests.make_order_book(price_bid, amount_bid, price_ask, amount_ask, price_depth_max, original_price_mid * PRICE_STEP_FRACTION, amount_stdev)
             bid_dfs += [bid_df]
             ask_dfs += [ask_df]
 
         return bid_dfs, ask_dfs
 
     @staticmethod
-    def make_order_book(
-        price_bid,
-        amount_bid,
-        price_ask,
-        amount_ask,
-        price_depth,
-        price_step,
-        amount_stdev,
-    ):
+    def make_order_book(price_bid, amount_bid, price_ask, amount_ask, price_depth, price_step, amount_stdev, ):
 
         prices_bid = np.linspace(price_bid, price_bid - price_depth, math.ceil(price_depth / price_step))
         amounts_bid = np.random.normal(amount_bid, amount_stdev, len(prices_bid))
@@ -378,10 +338,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         amounts_ask = np.random.normal(amount_ask, amount_stdev, len(prices_ask))
         amounts_ask[0] = amount_ask
 
-        data_bid = {"price": prices_bid, "amount": amounts_bid}
+        data_bid = {'price': prices_bid, 'amount': amounts_bid}
         bid_df = pd.DataFrame(data=data_bid)
 
-        data_ask = {"price": prices_ask, "amount": amounts_ask}
+        data_ask = {'price': prices_ask, 'amount': amounts_ask}
         ask_df = pd.DataFrame(data=data_ask)
 
         return bid_df, ask_df
@@ -413,51 +373,51 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
             if bid_prev is not None and ask_prev is not None and price_prev is not None:
                 # Higher bids were filled - someone matched them - a determined seller
                 # Equal bids - if amount lower - partially filled
-                for index, row in bid_df_prev[bid_df_prev["price"] >= bid].iterrows():
-                    if row["price"] == bid:
-                        if bid_df["amount"].iloc[0] < row["amount"]:
-                            amount = row["amount"] - bid_df["amount"].iloc[0]
+                for index, row in bid_df_prev[bid_df_prev['price'] >= bid].iterrows():
+                    if row['price'] == bid:
+                        if bid_df["amount"].iloc[0] < row['amount']:
+                            amount = row['amount'] - bid_df["amount"].iloc[0]
                             new_trade = OrderBookTradeEvent(
                                 trading_pair="COINALPHAHBOT",
                                 timestamp=timestamp,
-                                price=row["price"],
+                                price=row['price'],
                                 amount=amount,
-                                type=TradeType.SELL,
+                                type=TradeType.SELL
                             )
                             trades[-1] += [new_trade]
                     else:
-                        amount = row["amount"]
+                        amount = row['amount']
                         new_trade = OrderBookTradeEvent(
                             trading_pair="COINALPHAHBOT",
                             timestamp=timestamp,
-                            price=row["price"],
+                            price=row['price'],
                             amount=amount,
-                            type=TradeType.SELL,
+                            type=TradeType.SELL
                         )
                         trades[-1] += [new_trade]
 
                 # Lower asks were filled - someone matched them - a determined buyer
                 # Equal asks - if amount lower - partially filled
-                for index, row in ask_df_prev[ask_df_prev["price"] <= ask].iterrows():
-                    if row["price"] == ask:
-                        if ask_df["amount"].iloc[0] < row["amount"]:
-                            amount = row["amount"] - ask_df["amount"].iloc[0]
+                for index, row in ask_df_prev[ask_df_prev['price'] <= ask].iterrows():
+                    if row['price'] == ask:
+                        if ask_df["amount"].iloc[0] < row['amount']:
+                            amount = row['amount'] - ask_df["amount"].iloc[0]
                             new_trade = OrderBookTradeEvent(
                                 trading_pair="COINALPHAHBOT",
                                 timestamp=timestamp,
-                                price=row["price"],
+                                price=row['price'],
                                 amount=amount,
-                                type=TradeType.BUY,
+                                type=TradeType.BUY
                             )
                             trades[-1] += [new_trade]
                     else:
-                        amount = row["amount"]
+                        amount = row['amount']
                         new_trade = OrderBookTradeEvent(
                             trading_pair="COINALPHAHBOT",
                             timestamp=timestamp,
-                            price=row["price"],
+                            price=row['price'],
                             amount=amount,
-                            type=TradeType.BUY,
+                            type=TradeType.BUY
                         )
                         trades[-1] += [new_trade]
 
@@ -473,24 +433,19 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         return trades
 
     @staticmethod
-    def simulate_place_limit_order(
-        strategy: AvellanedaMarketMakingStrategy, market_info: MarketTradingPairTuple, order: LimitOrder
-    ):
+    def simulate_place_limit_order(strategy: AvellanedaMarketMakingStrategy, market_info: MarketTradingPairTuple, order: LimitOrder):
         strategy.set_timers()
         if order.is_buy:
-            return strategy.buy_with_specific_market(
-                market_trading_pair_tuple=market_info,
-                order_type=OrderType.LIMIT,
-                price=order.price,
-                amount=order.quantity,
-            )
+            return strategy.buy_with_specific_market(market_trading_pair_tuple=market_info,
+                                                     order_type=OrderType.LIMIT,
+                                                     price=order.price,
+                                                     amount=order.quantity
+                                                     )
         else:
-            return strategy.sell_with_specific_market(
-                market_trading_pair_tuple=market_info,
-                order_type=OrderType.LIMIT,
-                price=order.price,
-                amount=order.quantity,
-            )
+            return strategy.sell_with_specific_market(market_trading_pair_tuple=market_info,
+                                                      order_type=OrderType.LIMIT,
+                                                      price=order.price,
+                                                      amount=order.quantity)
 
     @staticmethod
     def simulate_cancelling_all_active_orders(strategy: AvellanedaMarketMakingStrategy):
@@ -506,59 +461,47 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         if limit_order.is_buy:
             market.set_balance(quote_currency, market.get_balance(quote_currency) - quote_currency_traded)
             market.set_balance(base_currency, market.get_balance(base_currency) + base_currency_traded)
-            market.trigger_event(
-                MarketEvent.OrderFilled,
-                OrderFilledEvent(
-                    market.current_timestamp,
-                    limit_order.client_order_id,
-                    limit_order.trading_pair,
-                    TradeType.BUY,
-                    OrderType.LIMIT,
-                    limit_order.price,
-                    limit_order.quantity,
-                    AddedToCostTradeFee(Decimal("0")),
-                ),
-            )
-            market.trigger_event(
-                MarketEvent.BuyOrderCompleted,
-                BuyOrderCompletedEvent(
-                    market.current_timestamp,
-                    limit_order.client_order_id,
-                    base_currency,
-                    quote_currency,
-                    base_currency_traded,
-                    quote_currency_traded,
-                    OrderType.LIMIT,
-                ),
-            )
+            market.trigger_event(MarketEvent.OrderFilled, OrderFilledEvent(
+                market.current_timestamp,
+                limit_order.client_order_id,
+                limit_order.trading_pair,
+                TradeType.BUY,
+                OrderType.LIMIT,
+                limit_order.price,
+                limit_order.quantity,
+                AddedToCostTradeFee(Decimal("0"))
+            ))
+            market.trigger_event(MarketEvent.BuyOrderCompleted, BuyOrderCompletedEvent(
+                market.current_timestamp,
+                limit_order.client_order_id,
+                base_currency,
+                quote_currency,
+                base_currency_traded,
+                quote_currency_traded,
+                OrderType.LIMIT
+            ))
         else:
             market.set_balance(quote_currency, market.get_balance(quote_currency) + quote_currency_traded)
             market.set_balance(base_currency, market.get_balance(base_currency) - base_currency_traded)
-            market.trigger_event(
-                MarketEvent.OrderFilled,
-                OrderFilledEvent(
-                    market.current_timestamp,
-                    limit_order.client_order_id,
-                    limit_order.trading_pair,
-                    TradeType.SELL,
-                    OrderType.LIMIT,
-                    limit_order.price,
-                    limit_order.quantity,
-                    AddedToCostTradeFee(Decimal("0")),
-                ),
-            )
-            market.trigger_event(
-                MarketEvent.SellOrderCompleted,
-                SellOrderCompletedEvent(
-                    market.current_timestamp,
-                    limit_order.client_order_id,
-                    base_currency,
-                    quote_currency,
-                    base_currency_traded,
-                    quote_currency_traded,
-                    OrderType.LIMIT,
-                ),
-            )
+            market.trigger_event(MarketEvent.OrderFilled, OrderFilledEvent(
+                market.current_timestamp,
+                limit_order.client_order_id,
+                limit_order.trading_pair,
+                TradeType.SELL,
+                OrderType.LIMIT,
+                limit_order.price,
+                limit_order.quantity,
+                AddedToCostTradeFee(Decimal("0"))
+            ))
+            market.trigger_event(MarketEvent.SellOrderCompleted, SellOrderCompletedEvent(
+                market.current_timestamp,
+                limit_order.client_order_id,
+                base_currency,
+                quote_currency,
+                base_currency_traded,
+                quote_currency_traded,
+                OrderType.LIMIT
+            ))
 
     def test_all_markets_ready(self):
         self.assertTrue(self.strategy.all_markets_ready())
@@ -588,15 +531,13 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertEqual(order_tracker.market_pair_to_active_orders, self.strategy.market_info_to_active_orders)
 
         # Simulate order being placed
-        limit_order: LimitOrder = LimitOrder(
-            client_order_id="test",
-            trading_pair=self.trading_pair,
-            is_buy=True,
-            base_currency=self.trading_pair.split("-")[0],
-            quote_currency=self.trading_pair.split("-")[1],
-            price=Decimal("101.0"),
-            quantity=Decimal("10"),
-        )
+        limit_order: LimitOrder = LimitOrder(client_order_id="test",
+                                             trading_pair=self.trading_pair,
+                                             is_buy=True,
+                                             base_currency=self.trading_pair.split("-")[0],
+                                             quote_currency=self.trading_pair.split("-")[1],
+                                             price=Decimal("101.0"),
+                                             quantity=Decimal("10"))
 
         self.simulate_place_limit_order(self.strategy, self.market_info, limit_order)
 
@@ -607,15 +548,13 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertEqual(0, len(self.strategy.active_orders))
 
         # Simulate order being placed
-        limit_order: LimitOrder = LimitOrder(
-            client_order_id="test",
-            trading_pair=self.trading_pair,
-            is_buy=True,
-            base_currency=self.trading_pair.split("-")[0],
-            quote_currency=self.trading_pair.split("-")[1],
-            price=Decimal("101.0"),
-            quantity=Decimal("10"),
-        )
+        limit_order: LimitOrder = LimitOrder(client_order_id="test",
+                                             trading_pair=self.trading_pair,
+                                             is_buy=True,
+                                             base_currency=self.trading_pair.split("-")[0],
+                                             quote_currency=self.trading_pair.split("-")[1],
+                                             price=Decimal("101.0"),
+                                             quantity=Decimal("10"))
 
         self.simulate_place_limit_order(self.strategy, self.market_info, limit_order)
 
@@ -629,15 +568,13 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertEqual(0, len(self.strategy.active_buys))
 
         # Simulate order being placed
-        limit_order: LimitOrder = LimitOrder(
-            client_order_id="test",
-            trading_pair=self.trading_pair,
-            is_buy=True,
-            base_currency=self.trading_pair.split("-")[0],
-            quote_currency=self.trading_pair.split("-")[1],
-            price=Decimal("101.0"),
-            quantity=Decimal("10"),
-        )
+        limit_order: LimitOrder = LimitOrder(client_order_id="test",
+                                             trading_pair=self.trading_pair,
+                                             is_buy=True,
+                                             base_currency=self.trading_pair.split("-")[0],
+                                             quote_currency=self.trading_pair.split("-")[1],
+                                             price=Decimal("101.0"),
+                                             quantity=Decimal("10"))
 
         self.simulate_place_limit_order(self.strategy, self.market_info, limit_order)
 
@@ -650,15 +587,13 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertEqual(0, len(self.strategy.active_sells))
 
         # Simulate order being placed
-        limit_order: LimitOrder = LimitOrder(
-            client_order_id="test",
-            trading_pair=self.trading_pair,
-            is_buy=False,
-            base_currency=self.trading_pair.split("-")[0],
-            quote_currency=self.trading_pair.split("-")[1],
-            price=Decimal("101.0"),
-            quantity=Decimal("0.5"),
-        )
+        limit_order: LimitOrder = LimitOrder(client_order_id="test",
+                                             trading_pair=self.trading_pair,
+                                             is_buy=False,
+                                             base_currency=self.trading_pair.split("-")[0],
+                                             quote_currency=self.trading_pair.split("-")[1],
+                                             price=Decimal("101.0"),
+                                             quantity=Decimal("0.5"))
 
         self.simulate_place_limit_order(self.strategy, self.market_info, limit_order)
 
@@ -743,9 +678,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         quote_asset_amount = self.market.get_balance(self.trading_pair.split("-")[1])
         base_value = base_asset_amount * current_price
         inventory_value = base_value + quote_asset_amount
-        target_inventory_value = Decimal(
-            (inventory_value * self.inventory_target_base_pct / Decimal("100")) / current_price
-        )
+        target_inventory_value = Decimal((inventory_value * self.inventory_target_base_pct / Decimal('100')) / current_price)
 
         expected_quantize_order_amount = self.market.quantize_order_amount(self.trading_pair, target_inventory_value)
 
@@ -772,15 +705,11 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
     def test_calculate_reservation_price_and_optimal_spread_timeframe_constrained(self):
         # Init params
         start_time = (
-            (datetime.datetime.fromtimestamp(self.strategy.current_timestamp) - datetime.timedelta(minutes=30))
-            .time()
-            .strftime("%H:%M:%S")
-        )
+            datetime.datetime.fromtimestamp(self.strategy.current_timestamp) - datetime.timedelta(minutes=30)
+        ).time().strftime("%H:%M:%S")
         end_time = (
-            (datetime.datetime.fromtimestamp(self.strategy.current_timestamp) + datetime.timedelta(minutes=30))
-            .time()
-            .strftime("%H:%M:%S")
-        )
+            datetime.datetime.fromtimestamp(self.strategy.current_timestamp) + datetime.timedelta(minutes=30)
+        ).time().strftime("%H:%M:%S")
         self.config_map.execution_timeframe_mode = DailyBetweenTimesModel(start_time=start_time, end_time=end_time)
 
         # Simulate low volatility
@@ -825,7 +754,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         expected_output: Tuple[List, List] = ([], [])
         self.assertEqual(expected_output, self.strategy.create_proposal_based_on_order_override())
 
-        order_override = {"order_1": ["sell", 2.5, 100], "order_2": ["buy", 0.5, 100]}
+        order_override = {
+            "order_1": ["sell", 2.5, 100],
+            "order_2": ["buy", 0.5, 100]
+        }
 
         # Re-configure strategy with order_ride configurations
         self.config_map.order_override = order_override
@@ -892,18 +824,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy.measure_order_book_liquidity()
         self.strategy.calculate_reservation_price_and_optimal_spread()
 
-        expected_bid_spreads = [
-            Decimal("0E-28"),
-            Decimal("0.03471008344015021195989165942"),
-            Decimal("0.07680749440342730936221062482"),
-            Decimal("0.1152112416051409640433159372"),
-        ]
-        expected_ask_spreads = [
-            Decimal("0E-28"),
-            Decimal("0.03471008344015021195989165942"),
-            Decimal("0.07680749440342730936221062482"),
-            Decimal("0.1152112416051409640433159372"),
-        ]
+        expected_bid_spreads = [Decimal('0E-28'), Decimal('0.03471008344015021195989165942'), Decimal('0.07680749440342730936221062482'), Decimal('0.1152112416051409640433159372')]
+        expected_ask_spreads = [Decimal('0E-28'), Decimal('0.03471008344015021195989165942'), Decimal('0.07680749440342730936221062482'), Decimal('0.1152112416051409640433159372')]
 
         bid_level_spreads, ask_level_spreads = self.strategy._get_level_spreads()
 
@@ -924,18 +846,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy.measure_order_book_liquidity()
         self.strategy.calculate_reservation_price_and_optimal_spread()
 
-        expected_bid_spreads = [
-            Decimal("0E-28"),
-            Decimal("0.03909242377646942266258131591"),
-            Decimal("0.07818484755293884532516263182"),
-            Decimal("0.1172772713294082679877439477"),
-        ]
-        expected_ask_spreads = [
-            Decimal("0E-28"),
-            Decimal("0.03909242377646942266258131591"),
-            Decimal("0.07818484755293884532516263182"),
-            Decimal("0.1172772713294082679877439477"),
-        ]
+        expected_bid_spreads = [Decimal('0E-28'), Decimal('0.03909242377646942266258131591'), Decimal('0.07818484755293884532516263182'), Decimal('0.1172772713294082679877439477')]
+        expected_ask_spreads = [Decimal('0E-28'), Decimal('0.03909242377646942266258131591'), Decimal('0.07818484755293884532516263182'), Decimal('0.1172772713294082679877439477')]
 
         bid_level_spreads, ask_level_spreads = self.strategy._get_level_spreads()
 
@@ -973,12 +885,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         expected_sells = []
         order_amount = self.market.quantize_order_amount(self.trading_pair, self.order_amount)
         for level in range(self.strategy.order_levels):
-            bid_price = self.market.quantize_order_price(
-                self.trading_pair, self.strategy.optimal_bid - Decimal(str(bid_level_spreads[level]))
-            )
-            ask_price = self.market.quantize_order_price(
-                self.trading_pair, self.strategy.optimal_ask + Decimal(str(ask_level_spreads[level]))
-            )
+            bid_price = self.market.quantize_order_price(self.trading_pair,
+                                                         self.strategy.optimal_bid - Decimal(str(bid_level_spreads[level])))
+            ask_price = self.market.quantize_order_price(self.trading_pair,
+                                                         self.strategy.optimal_ask + Decimal(str(ask_level_spreads[level])))
 
             expected_buys.append(PriceSize(bid_price, order_amount))
             expected_sells.append(PriceSize(ask_price, order_amount))
@@ -998,15 +908,16 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy.measure_order_book_liquidity()
         self.strategy.calculate_reservation_price_and_optimal_spread()
 
-        expected_order_amount: Decimal = self.market.quantize_order_amount(self.trading_pair, self.order_amount)
-        expected_bid_price: Decimal = self.market.quantize_order_price(self.trading_pair, self.strategy.optimal_bid)
+        expected_order_amount: Decimal = self.market.quantize_order_amount(self.trading_pair,
+                                                                           self.order_amount)
+        expected_bid_price: Decimal = self.market.quantize_order_price(self.trading_pair,
+                                                                       self.strategy.optimal_bid)
 
-        expected_ask_price: Decimal = self.market.quantize_order_price(self.trading_pair, self.strategy.optimal_ask)
+        expected_ask_price: Decimal = self.market.quantize_order_price(self.trading_pair,
+                                                                       self.strategy.optimal_ask)
 
-        expected_proposal = (
-            [PriceSize(expected_bid_price, expected_order_amount)],
-            [PriceSize(expected_ask_price, expected_order_amount)],
-        )
+        expected_proposal = ([PriceSize(expected_bid_price, expected_order_amount)],
+                             [PriceSize(expected_ask_price, expected_order_amount)])
 
         self.assertEqual(str(expected_proposal), str(self.strategy.create_basic_proposal()))
 
@@ -1022,20 +933,24 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy.calculate_reservation_price_and_optimal_spread()
 
         # (1) Default
-        expected_order_amount: Decimal = self.market.quantize_order_amount(self.trading_pair, self.order_amount)
-        expected_bid_price: Decimal = self.market.quantize_order_price(self.trading_pair, self.strategy.optimal_bid)
+        expected_order_amount: Decimal = self.market.quantize_order_amount(self.trading_pair,
+                                                                           self.order_amount)
+        expected_bid_price: Decimal = self.market.quantize_order_price(self.trading_pair,
+                                                                       self.strategy.optimal_bid)
 
-        expected_ask_price: Decimal = self.market.quantize_order_price(self.trading_pair, self.strategy.optimal_ask)
+        expected_ask_price: Decimal = self.market.quantize_order_price(self.trading_pair,
+                                                                       self.strategy.optimal_ask)
 
-        expected_proposal: Proposal = Proposal(
-            [PriceSize(expected_bid_price, expected_order_amount)],
-            [PriceSize(expected_ask_price, expected_order_amount)],
-        )
+        expected_proposal: Proposal = Proposal([PriceSize(expected_bid_price, expected_order_amount)],
+                                               [PriceSize(expected_ask_price, expected_order_amount)])
 
         self.assertEqual(str(expected_proposal), str(self.strategy.create_base_proposal()))
 
         # (2) With order_override
-        order_override = {"order_1": ["sell", 2.5, 100], "order_2": ["buy", 0.5, 100]}
+        order_override = {
+            "order_1": ["sell", 2.5, 100],
+            "order_2": ["buy", 0.5, 100]
+        }
 
         # Re-configure strategy with order_ride configurations
         self.config_map.order_override = order_override
@@ -1074,12 +989,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         expected_sells = []
         order_amount = self.market.quantize_order_amount(self.trading_pair, self.order_amount)
         for level in range(self.strategy.order_levels):
-            bid_price = self.market.quantize_order_price(
-                self.trading_pair, self.strategy.optimal_bid - Decimal(str(bid_level_spreads[level]))
-            )
-            ask_price = self.market.quantize_order_price(
-                self.trading_pair, self.strategy.optimal_ask + Decimal(str(ask_level_spreads[level]))
-            )
+            bid_price = self.market.quantize_order_price(self.trading_pair,
+                                                         self.strategy.optimal_bid - Decimal(str(bid_level_spreads[level])))
+            ask_price = self.market.quantize_order_price(self.trading_pair,
+                                                         self.strategy.optimal_ask + Decimal(str(ask_level_spreads[level])))
 
             expected_buys.append(PriceSize(bid_price, order_amount))
             expected_sells.append(PriceSize(ask_price, order_amount))
@@ -1089,26 +1002,20 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
     def test_get_adjusted_available_balance(self):
         expected_available_balance: Tuple[Decimal, Decimal] = (Decimal("1"), Decimal("500"))  # Initial asset balance
-        self.assertEqual(
-            expected_available_balance, self.strategy.get_adjusted_available_balance(self.strategy.active_orders)
-        )
+        self.assertEqual(expected_available_balance, self.strategy.get_adjusted_available_balance(self.strategy.active_orders))
 
         # Simulate order being placed
-        limit_order: LimitOrder = LimitOrder(
-            client_order_id="test",
-            trading_pair=self.trading_pair,
-            is_buy=True,
-            base_currency=self.trading_pair.split("-")[0],
-            quote_currency=self.trading_pair.split("-")[1],
-            price=Decimal("101.0"),
-            quantity=Decimal("1"),
-        )
+        limit_order: LimitOrder = LimitOrder(client_order_id="test",
+                                             trading_pair=self.trading_pair,
+                                             is_buy=True,
+                                             base_currency=self.trading_pair.split("-")[0],
+                                             quote_currency=self.trading_pair.split("-")[1],
+                                             price=Decimal("101.0"),
+                                             quantity=Decimal("1"))
 
         self.simulate_place_limit_order(self.strategy, self.market_info, limit_order)
 
-        self.assertEqual(
-            expected_available_balance, self.strategy.get_adjusted_available_balance(self.strategy.active_orders)
-        )
+        self.assertEqual(expected_available_balance, self.strategy.get_adjusted_available_balance(self.strategy.active_orders))
 
     def test_apply_order_optimization(self):
         # Simulate low volatility
@@ -1126,9 +1033,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         bid_price: Decimal = self.market.quantize_order_price(self.trading_pair, self.strategy.optimal_bid)
         ask_price: Decimal = self.market.quantize_order_price(self.trading_pair, self.strategy.optimal_ask)
 
-        initial_proposal: Proposal = Proposal(
-            [PriceSize(bid_price, order_amount)], [PriceSize(ask_price, order_amount)]
-        )
+        initial_proposal: Proposal = Proposal([PriceSize(bid_price, order_amount)], [PriceSize(ask_price, order_amount)])
 
         # Intentionally make top_bid/ask_price lower/higher respectively.
         ob_bids: List[OrderBookRow] = [OrderBookRow(bid_price * Decimal("0.5"), self.order_amount, 2)]
@@ -1156,9 +1061,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         bid_price: Decimal = self.market.quantize_order_price(self.trading_pair, self.strategy.optimal_bid)
         ask_price: Decimal = self.market.quantize_order_price(self.trading_pair, self.strategy.optimal_ask)
 
-        initial_proposal: Proposal = Proposal(
-            [PriceSize(bid_price, order_amount)], [PriceSize(ask_price, order_amount)]
-        )
+        initial_proposal: Proposal = Proposal([PriceSize(bid_price, order_amount)], [PriceSize(ask_price, order_amount)])
 
         # Set TradeFees
         # self.market.set_flat_fee(Decimal("0.25"))
@@ -1187,9 +1090,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         bid_price: Decimal = self.market.quantize_order_price(self.trading_pair, self.strategy.optimal_bid)
         ask_price: Decimal = self.market.quantize_order_price(self.trading_pair, self.strategy.optimal_ask)
 
-        initial_proposal: Proposal = Proposal(
-            [PriceSize(bid_price, order_amount)], [PriceSize(ask_price, order_amount)]
-        )
+        initial_proposal: Proposal = Proposal([PriceSize(bid_price, order_amount)], [PriceSize(ask_price, order_amount)])
         # <<<<< Test Preparation End
 
         # (1) Default: order_optimization = True, add_transaction_costs_to_orders = False
@@ -1201,12 +1102,12 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.market.order_books[self.trading_pair].apply_snapshot(ob_bids, ob_asks, 2)
 
         expected_bid_price = self.market.quantize_order_price(
-            self.trading_pair, bid_price * Decimal("0.5") * (Decimal("1") - Decimal("0.25"))
-        )
+            self.trading_pair,
+            bid_price * Decimal("0.5") * (Decimal("1") - Decimal("0.25")))
 
         expected_ask_price = self.market.quantize_order_price(
-            self.trading_pair, ask_price * Decimal("1.5") * (Decimal("1") + Decimal("0.25"))
-        )
+            self.trading_pair,
+            ask_price * Decimal("1.5") * (Decimal("1") + Decimal("0.25")))
 
         new_proposal: Proposal = deepcopy(initial_proposal)
         self.strategy.apply_order_price_modifiers(new_proposal)
@@ -1243,9 +1144,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         bid_price: Decimal = self.market.quantize_order_price(self.trading_pair, self.strategy.optimal_bid)
         ask_price: Decimal = self.market.quantize_order_price(self.trading_pair, self.strategy.optimal_ask)
 
-        initial_proposal: Proposal = Proposal(
-            [PriceSize(bid_price, order_amount)], [PriceSize(ask_price, order_amount)]
-        )
+        initial_proposal: Proposal = Proposal([PriceSize(bid_price, order_amount)], [PriceSize(ask_price, order_amount)])
 
         # Test (1) Base & Quote balance < Base & Quote sizes in Proposal
 
@@ -1256,19 +1155,18 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         # Calculate expected proposal
         proposal = deepcopy(initial_proposal)
         base_balance, quote_balance = self.strategy.get_adjusted_available_balance(self.strategy.active_orders)
-        buy_fee: AddedToCostTradeFee = self.market.get_fee(
-            self.base_asset,
-            self.quote_asset,
-            OrderType.LIMIT,
-            TradeType.BUY,
-            proposal.buys[0].size,
-            proposal.buys[0].price,
-        )
+        buy_fee: AddedToCostTradeFee = self.market.get_fee(self.base_asset,
+                                                           self.quote_asset,
+                                                           OrderType.LIMIT,
+                                                           TradeType.BUY,
+                                                           proposal.buys[0].size,
+                                                           proposal.buys[0].price)
         buy_adjusted_amount: Decimal = quote_balance / (proposal.buys[0].price * (Decimal("1") + buy_fee.percent))
         expected_buy_amount: Decimal = self.market.quantize_order_amount(self.trading_pair, buy_adjusted_amount)
         expected_sell_amount = self.market.quantize_order_amount(self.trading_pair, base_balance)
         expected_proposal: Proposal = Proposal(
-            [PriceSize(bid_price, expected_buy_amount)], [PriceSize(ask_price, expected_sell_amount)]
+            [PriceSize(bid_price, expected_buy_amount)],
+            [PriceSize(ask_price, expected_sell_amount)]
         )
 
         self.strategy.apply_budget_constraint(proposal)
@@ -1305,13 +1203,17 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         ask_price: Decimal = self.market.quantize_order_price(self.trading_pair, self.strategy.optimal_ask)
 
         initial_proposal: Proposal = Proposal(
-            [PriceSize(bid_price, order_amount)], [PriceSize(ask_price, order_amount)]
+            [PriceSize(bid_price, order_amount)],
+            [PriceSize(ask_price, order_amount)]
         )
 
         # Test (1) Check proposal when order_override is NOT None
         proposal: Proposal = deepcopy(initial_proposal)
 
-        order_override = {"order_1": ["sell", 2.5, 100], "order_2": ["buy", 0.5, 100]}
+        order_override = {
+            "order_1": ["sell", 2.5, 100],
+            "order_2": ["buy", 0.5, 100]
+        }
 
         # Re-configure strategy with order_ride configurations
         self.config_map.order_override = order_override
@@ -1332,12 +1234,11 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         q: Decimal = self.market.get_balance(self.base_asset) - self.strategy.calculate_target_inventory()
 
         expected_bid_amount: Decimal = proposal.buys[0].size
-        expected_ask_amount: Decimal = self.market.quantize_order_amount(
-            self.trading_pair, proposal.sells[0].size * Decimal.exp(eta * q)
-        )
+        expected_ask_amount: Decimal = self.market.quantize_order_amount(self.trading_pair,
+                                                                         proposal.sells[0].size * Decimal.exp(eta * q))
         expected_proposal: Proposal = Proposal(
             [PriceSize(proposal.buys[0].price, expected_bid_amount)],
-            [PriceSize(proposal.sells[0].price, expected_ask_amount)],
+            [PriceSize(proposal.sells[0].price, expected_ask_amount)]
         )
 
         self.strategy.apply_order_amount_eta_transformation(proposal)
@@ -1348,14 +1249,13 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         eta: Decimal = self.strategy.eta
         q: Decimal = self.market.get_balance(self.base_asset) - self.strategy.calculate_target_inventory()
 
-        expected_bid_amount: Decimal = self.market.quantize_order_amount(
-            self.trading_pair, proposal.buys[0].size * Decimal.exp(-eta * q)
-        )
+        expected_bid_amount: Decimal = self.market.quantize_order_amount(self.trading_pair,
+                                                                         proposal.buys[0].size * Decimal.exp(-eta * q))
         expected_ask_amount: Decimal = proposal.sells[0].size
 
         expected_proposal: Proposal = Proposal(
             [PriceSize(proposal.buys[0].price, expected_bid_amount)],
-            [PriceSize(proposal.sells[0].price, expected_ask_amount)],
+            [PriceSize(proposal.sells[0].price, expected_ask_amount)]
         )
 
         self.strategy.apply_order_amount_eta_transformation(proposal)
@@ -1372,7 +1272,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         ask_price: Decimal = Decimal("100.5")
 
         proposal: Proposal = Proposal(
-            [PriceSize(bid_price, self.order_amount)], [PriceSize(ask_price, self.order_amount)]  # Bids  # Sells
+            [PriceSize(bid_price, self.order_amount)],  # Bids
+            [PriceSize(ask_price, self.order_amount)]   # Sells
         )
         proposal_buys = [buy.price for buy in proposal.buys]
         proposal_sells = [sell.price for sell in proposal.sells]
@@ -1391,27 +1292,24 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         bid_price: Decimal = Decimal("99.5")
         ask_price: Decimal = Decimal("101.5")
         proposal: Proposal = Proposal(
-            [PriceSize(bid_price, self.order_amount)], [PriceSize(ask_price, self.order_amount)]  # Bids  # Sells
+            [PriceSize(bid_price, self.order_amount)],  # Bids
+            [PriceSize(ask_price, self.order_amount)]   # Sells
         )
 
-        limit_buy_order: LimitOrder = LimitOrder(
-            client_order_id="test",
-            trading_pair=self.trading_pair,
-            is_buy=True,
-            base_currency=self.trading_pair.split("-")[0],
-            quote_currency=self.trading_pair.split("-")[1],
-            price=bid_price,
-            quantity=self.order_amount,
-        )
-        limit_sell_order: LimitOrder = LimitOrder(
-            client_order_id="test",
-            trading_pair=self.trading_pair,
-            is_buy=False,
-            base_currency=self.trading_pair.split("-")[0],
-            quote_currency=self.trading_pair.split("-")[1],
-            price=ask_price,
-            quantity=self.order_amount,
-        )
+        limit_buy_order: LimitOrder = LimitOrder(client_order_id="test",
+                                                 trading_pair=self.trading_pair,
+                                                 is_buy=True,
+                                                 base_currency=self.trading_pair.split("-")[0],
+                                                 quote_currency=self.trading_pair.split("-")[1],
+                                                 price=bid_price,
+                                                 quantity=self.order_amount)
+        limit_sell_order: LimitOrder = LimitOrder(client_order_id="test",
+                                                  trading_pair=self.trading_pair,
+                                                  is_buy=False,
+                                                  base_currency=self.trading_pair.split("-")[0],
+                                                  quote_currency=self.trading_pair.split("-")[1],
+                                                  price=ask_price,
+                                                  quantity=self.order_amount)
 
         # Case (1): No orders to cancel
         self.strategy.cancel_active_orders(proposal)
@@ -1430,7 +1328,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         bid_price: Decimal = Decimal("98.5")
         ask_price: Decimal = Decimal("100.5")
         proposal: Proposal = Proposal(
-            [PriceSize(bid_price, self.order_amount)], [PriceSize(ask_price, self.order_amount)]  # Bids  # Sells
+            [PriceSize(bid_price, self.order_amount)],  # Bids
+            [PriceSize(ask_price, self.order_amount)]   # Sells
         )
         self.assertEqual(2, len(self.strategy.active_orders))
 
@@ -1468,24 +1367,20 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
     def test_to_create_orders(self):
         # Simulate order being placed. Placing an order updates create_timestamp = next_cycle
-        limit_buy_order: LimitOrder = LimitOrder(
-            client_order_id="test",
-            trading_pair=self.trading_pair,
-            is_buy=True,
-            base_currency=self.trading_pair.split("-")[0],
-            quote_currency=self.trading_pair.split("-")[1],
-            price=Decimal("99"),
-            quantity=self.order_amount,
-        )
-        limit_sell_order: LimitOrder = LimitOrder(
-            client_order_id="test",
-            trading_pair=self.trading_pair,
-            is_buy=False,
-            base_currency=self.trading_pair.split("-")[0],
-            quote_currency=self.trading_pair.split("-")[1],
-            price=Decimal("101"),
-            quantity=self.order_amount,
-        )
+        limit_buy_order: LimitOrder = LimitOrder(client_order_id="test",
+                                                 trading_pair=self.trading_pair,
+                                                 is_buy=True,
+                                                 base_currency=self.trading_pair.split("-")[0],
+                                                 quote_currency=self.trading_pair.split("-")[1],
+                                                 price=Decimal("99"),
+                                                 quantity=self.order_amount)
+        limit_sell_order: LimitOrder = LimitOrder(client_order_id="test",
+                                                  trading_pair=self.trading_pair,
+                                                  is_buy=False,
+                                                  base_currency=self.trading_pair.split("-")[0],
+                                                  quote_currency=self.trading_pair.split("-")[1],
+                                                  price=Decimal("101"),
+                                                  quantity=self.order_amount)
         self.simulate_place_limit_order(self.strategy, self.market_info, limit_buy_order)
         self.simulate_place_limit_order(self.strategy, self.market_info, limit_sell_order)
 
@@ -1493,7 +1388,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         bid_price: Decimal = Decimal("99.5")
         ask_price: Decimal = Decimal("101.5")
         proposal: Proposal = Proposal(
-            [PriceSize(bid_price, self.order_amount)], [PriceSize(ask_price, self.order_amount)]  # Bids  # Sells
+            [PriceSize(bid_price, self.order_amount)],  # Bids
+            [PriceSize(ask_price, self.order_amount)]  # Sells
         )
 
         # Case (1) create_timestamp < current_timestamp
@@ -1561,20 +1457,18 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         # The buy order should turn into a hanging when it reaches its refresh time
         self.clock.backtest_til(self.start_timestamp + self.strategy.order_refresh_time + 2)
         self.assertEqual(1, len(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders))
-        self.assertEqual(
-            buy_order.client_order_id,
-            list(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders)[0].order_id,
-        )
+        self.assertEqual(buy_order.client_order_id,
+                         list(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders)[0].order_id)
 
-        current_base_balance, current_quote_balance = (
-            self.strategy.adjusted_available_balance_for_orders_budget_constrain()
-        )
-        expected_base_balance = sum(
-            [order.quantity for order in self.strategy.active_non_hanging_orders if not order.is_buy]
-        ) + self.market.get_available_balance(self.market_info.base_asset)
-        expected_quote_balance = sum(
-            [order.quantity * order.price for order in self.strategy.active_non_hanging_orders if order.is_buy]
-        ) + self.market.get_available_balance(self.market_info.quote_asset)
+        current_base_balance, current_quote_balance = self.strategy.adjusted_available_balance_for_orders_budget_constrain()
+        expected_base_balance = (sum([order.quantity
+                                      for order in self.strategy.active_non_hanging_orders
+                                      if not order.is_buy])
+                                 + self.market.get_available_balance(self.market_info.base_asset))
+        expected_quote_balance = (sum([order.quantity * order.price
+                                       for order in self.strategy.active_non_hanging_orders
+                                       if order.is_buy])
+                                  + self.market.get_available_balance(self.market_info.quote_asset))
 
         self.assertEqual(expected_base_balance, current_base_balance)
         self.assertEqual(expected_quote_balance, current_quote_balance)
@@ -1598,7 +1492,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
             "order_refresh_time": refresh_time,
             "inventory_target_base_pct": self.inventory_target_base_pct,
             "hanging_orders_mode": hanging_orders_model,
-            "filled_order_delay": filled_extension_time,
+            "filled_order_delay": filled_extension_time
         }
         config_map = ClientConfigAdapter(AvellanedaMarketMakingConfigMap(**config_settings))
 
@@ -1641,7 +1535,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         # Advance the clock some ticks and simulate market fill for limit sell
         self.clock.backtest_til(orders_creation_timestamp + 10)
         self.simulate_limit_order_fill(self.market, sell_order)
-        self.assertEqual(buy_order.client_order_id, self.strategy.active_non_hanging_orders[0].client_order_id)
+        self.assertEqual(buy_order.client_order_id,
+                         self.strategy.active_non_hanging_orders[0].client_order_id)
 
         # The buy order should turn into a hanging when it reaches its refresh time
         self.clock.backtest_til(orders_creation_timestamp + refresh_time - 1)
@@ -1652,10 +1547,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         # New orders get created
         self.assertEqual(2, len(self.strategy.active_non_hanging_orders))
         self.assertEqual(1, len(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders))
-        self.assertEqual(
-            buy_order.client_order_id,
-            list(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders)[0].order_id,
-        )
+        self.assertEqual(buy_order.client_order_id,
+                         list(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders)[0].order_id)
 
         # The new pair of orders should be created only after the fill delay time
         self.clock.backtest_til(orders_creation_timestamp + 10 + filled_extension_time - 1)
@@ -1665,10 +1558,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertEqual(2, len(self.strategy.active_non_hanging_orders))
         # The hanging order should still be present
         self.assertEqual(1, len(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders))
-        self.assertEqual(
-            buy_order.client_order_id,
-            list(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders)[0].order_id,
-        )
+        self.assertEqual(buy_order.client_order_id,
+                         list(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders)[0].order_id)
 
     def test_no_new_orders_created_until_previous_orders_cancellation_confirmed(self):
 
@@ -1719,17 +1610,21 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         quote_balance = self.market.get_available_balance(self.quote_asset)
 
         self.strategy._sb_order_tracker.start_tracking_limit_order(
-            market_pair=self.market_info, order_id="OID-1", is_buy=True, price=Decimal(1000), quantity=Decimal(1)
-        )
+            market_pair=self.market_info,
+            order_id="OID-1",
+            is_buy=True,
+            price=Decimal(1000),
+            quantity=Decimal(1))
         self.strategy._sb_order_tracker.start_tracking_limit_order(
-            market_pair=self.market_info, order_id="OID-2", is_buy=False, price=Decimal(2000), quantity=Decimal(2)
-        )
+            market_pair=self.market_info,
+            order_id="OID-2",
+            is_buy=False,
+            price=Decimal(2000),
+            quantity=Decimal(2))
 
         self.strategy._sb_order_tracker.in_flight_cancels["OID-1"] = self.strategy.current_timestamp
 
-        available_base_balance, available_quote_balance = (
-            self.strategy.adjusted_available_balance_for_orders_budget_constrain()
-        )
+        available_base_balance, available_quote_balance = self.strategy.adjusted_available_balance_for_orders_budget_constrain()
 
         self.assertEqual(available_base_balance, base_balance + Decimal(2))
         self.assertEqual(available_quote_balance, quote_balance + (Decimal(1) * Decimal(1000)))

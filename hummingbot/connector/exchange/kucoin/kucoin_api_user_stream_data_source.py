@@ -17,14 +17,12 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(
-        self,
-        auth: KucoinAuth,
-        trading_pairs: List[str],
-        connector: "KucoinExchange",
-        api_factory: WebAssistantsFactory,
-        domain: str = CONSTANTS.DEFAULT_DOMAIN,
-    ):
+    def __init__(self,
+                 auth: KucoinAuth,
+                 trading_pairs: List[str],
+                 connector: 'KucoinExchange',
+                 api_factory: WebAssistantsFactory,
+                 domain: str = CONSTANTS.DEFAULT_DOMAIN):
         super().__init__()
         self._domain = domain
         self._api_factory = api_factory
@@ -89,9 +87,9 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
             try:
                 seconds_until_next_ping = self._ping_interval - (self._time() - self._last_ws_message_sent_timestamp)
                 await asyncio.wait_for(
-                    super()._process_websocket_messages(websocket_assistant=websocket_assistant, queue=queue),
-                    timeout=seconds_until_next_ping,
-                )
+                    super()._process_websocket_messages(
+                        websocket_assistant=websocket_assistant, queue=queue),
+                    timeout=seconds_until_next_ping)
             except asyncio.TimeoutError:
                 payload = {
                     "id": web_utils.next_message_id(),
@@ -102,9 +100,7 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 await websocket_assistant.send(request=ping_request)
 
     async def _process_event_message(self, event_message: Dict[str, Any], queue: asyncio.Queue):
-        if (
-            len(event_message) > 0
-            and event_message.get("type") == "message"
-            and event_message.get("subject") in [CONSTANTS.ORDER_CHANGE_EVENT_TYPE, CONSTANTS.BALANCE_EVENT_TYPE]
-        ):
+        if (len(event_message) > 0
+                and event_message.get("type") == "message"
+                and event_message.get("subject") in [CONSTANTS.ORDER_CHANGE_EVENT_TYPE, CONSTANTS.BALANCE_EVENT_TYPE]):
             queue.put_nowait(event_message)

@@ -37,14 +37,16 @@ class HtxAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.connector = AsyncMock()
         self.connector.exchange_symbol_associated_to_pair.return_value = self.ex_trading_pair
         self.connector.trading_pair_associated_to_exchange_symbol.return_value = self.trading_pair
-        self.auth = HtxAuth(api_key="somKey", secret_key="someSecretKey", time_provider=self.time_synchronizer)
+        self.auth = HtxAuth(
+            api_key="somKey",
+            secret_key="someSecretKey",
+            time_provider=self.time_synchronizer)
         self.api_factory = build_api_factory()
         self.data_source = HtxAPIUserStreamDataSource(
             htx_auth=self.auth,
             trading_pairs=[self.trading_pair],
             connector=self.connector,
-            api_factory=self.api_factory,
-        )
+            api_factory=self.api_factory)
 
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
@@ -164,8 +166,7 @@ class HtxAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.assertIsNone(result)
 
         subscription_requests_sent = self.mocking_assistant.json_messages_sent_through_websocket(
-            ws_connect_mock.return_value
-        )
+            ws_connect_mock.return_value)
 
         expected_orders_channel_subscription = {"action": "sub", "ch": f"orders#{self.ex_trading_pair}"}
         self.assertIn(expected_orders_channel_subscription, subscription_requests_sent)
@@ -214,7 +215,9 @@ class HtxAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         )
         msg_queue = asyncio.Queue()
 
-        self.async_tasks.append(self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue)))
+        self.async_tasks.append(
+            self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
+        )
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
@@ -251,7 +254,9 @@ class HtxAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         msg_queue = asyncio.Queue()
 
-        self.async_tasks.append(self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue)))
+        self.async_tasks.append(
+            self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
+        )
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
@@ -330,7 +335,9 @@ class HtxAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         msg_queue = asyncio.Queue()
 
-        self.async_tasks.append(self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue)))
+        self.async_tasks.append(
+            self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
+        )
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 

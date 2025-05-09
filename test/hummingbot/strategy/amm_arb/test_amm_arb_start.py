@@ -40,7 +40,7 @@ class AMMArbStartTest(unittest.TestCase):
     def error(self, message, exc_info):
         self.log_errors.append(message)
 
-    @unittest.mock.patch("hummingbot.strategy.amm_arb.amm_arb.AmmArbStrategy.add_markets")
+    @unittest.mock.patch('hummingbot.strategy.amm_arb.amm_arb.AmmArbStrategy.add_markets')
     def test_amm_arb_strategy_creation(self, mock):
         amm_arb_start.start(self)
         self.assertEqual(self.strategy._order_amount, Decimal(1))

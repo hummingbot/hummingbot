@@ -24,8 +24,8 @@ class PerpetualBudgetCheckerTest(unittest.TestCase):
             maker_percent_fee_decimal=Decimal("0.01"), taker_percent_fee_decimal=Decimal("0.02")
         )
         self.exchange = MockPerpConnector(
-            client_config_map=ClientConfigAdapter(ClientConfigMap()), trade_fee_schema=trade_fee_schema
-        )
+            client_config_map=ClientConfigAdapter(ClientConfigMap()),
+            trade_fee_schema=trade_fee_schema)
         self.budget_checker = self.exchange.budget_checker
 
     def test_populate_collateral_fields_buy_order(self):
@@ -76,7 +76,7 @@ class PerpetualBudgetCheckerTest(unittest.TestCase):
             order_side=TradeType.BUY,
             amount=Decimal("10"),
             price=Decimal("2"),
-            leverage=Decimal("2"),
+            leverage=Decimal("2")
         )
         populated_candidate = self.budget_checker.populate_collateral_entries(order_candidate)
 
@@ -138,8 +138,8 @@ class PerpetualBudgetCheckerTest(unittest.TestCase):
             taker_percent_fee_decimal=Decimal("0.01"),
         )
         exchange = MockPerpConnector(
-            client_config_map=ClientConfigAdapter(ClientConfigMap()), trade_fee_schema=trade_fee_schema
-        )
+            client_config_map=ClientConfigAdapter(ClientConfigMap()),
+            trade_fee_schema=trade_fee_schema)
         pfc_quote_pair = combine_to_hb_trading_pair(self.quote_asset, pfc_token)
         exchange.set_balanced_order_book(  # the quote to pfc price will be 1:2
             trading_pair=pfc_quote_pair,

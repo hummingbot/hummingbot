@@ -22,17 +22,15 @@ class Trade(namedtuple("_Trade", "trading_pair, side, price, amount, order_type,
 
     @classmethod
     def to_pandas(cls, trades: List):
-        columns: List[str] = [
-            "trading_pair",
-            "price",
-            "quantity",
-            "order_type",
-            "trade_side",
-            "market",
-            "timestamp",
-            "fee_percent",
-            "flat_fee / gas",
-        ]
+        columns: List[str] = ["trading_pair",
+                              "price",
+                              "quantity",
+                              "order_type",
+                              "trade_side",
+                              "market",
+                              "timestamp",
+                              "fee_percent",
+                              "flat_fee / gas"]
         data = []
         for trade in trades:
             if len(trade.trade_fee.flat_fees) == 0:
@@ -41,19 +39,17 @@ class Trade(namedtuple("_Trade", "trading_pair, side, price, amount, order_type,
                 fee_strs = [f"{fee_tuple[0]} {fee_tuple[1]}" for fee_tuple in trade.trade_fee.flat_fees]
                 flat_fee_str = ",".join(fee_strs)
 
-            data.append(
-                [
-                    trade.trading_pair,
-                    trade.price,
-                    trade.amount,
-                    trade.order_type.name.lower(),
-                    trade.side.name.lower(),
-                    trade.market,
-                    datetime.fromtimestamp(trade.timestamp).strftime("%Y-%m-%d %H:%M:%S"),
-                    trade.trade_fee.percent,
-                    flat_fee_str,
-                ]
-            )
+            data.append([
+                trade.trading_pair,
+                trade.price,
+                trade.amount,
+                trade.order_type.name.lower(),
+                trade.side.name.lower(),
+                trade.market,
+                datetime.fromtimestamp(trade.timestamp).strftime("%Y-%m-%d %H:%M:%S"),
+                trade.trade_fee.percent,
+                flat_fee_str,
+            ])
 
         return pd.DataFrame(data=data, columns=columns)
 

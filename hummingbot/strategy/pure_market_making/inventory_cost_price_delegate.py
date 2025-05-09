@@ -21,7 +21,9 @@ class InventoryCostPriceDelegate:
     def get_price(self) -> Optional[Decimal]:
         with self.sql_manager.get_new_session() as session:
             with session.begin():
-                record = InventoryCost.get_record(session, self.base_asset, self.quote_asset)
+                record = InventoryCost.get_record(
+                    session, self.base_asset, self.quote_asset
+                )
 
                 if record is None or record.base_volume is None or record.quote_volume is None:
                     return None
@@ -67,4 +69,6 @@ class InventoryCostPriceDelegate:
                     quote_volume = -(Decimal(record.quote_volume / record.base_volume) * base_volume)
                     base_volume = -base_volume
 
-                InventoryCost.add_volume(session, base_asset, quote_asset, base_volume, quote_volume)
+                InventoryCost.add_volume(
+                    session, base_asset, quote_asset, base_volume, quote_volume
+                )

@@ -10,8 +10,11 @@ class ArbProposalSide:
     """
     An arbitrage proposal side which contains info needed for order submission.
     """
-
-    def __init__(self, market_info: MarketTradingPairTuple, is_buy: bool, order_price: Decimal):
+    def __init__(self,
+                 market_info: MarketTradingPairTuple,
+                 is_buy: bool,
+                 order_price: Decimal
+                 ):
         """
         :param market_info: The market where to submit the order
         :param is_buy: True if buy order
@@ -24,15 +27,18 @@ class ArbProposalSide:
     def __repr__(self):
         side = "Buy" if self.is_buy else "Sell"
         base, quote = self.market_info.trading_pair.split("-")
-        return f"{self.market_info.market.display_name.capitalize()}: {side} {base}" f" at {self.order_price} {quote}."
+        return f"{self.market_info.market.display_name.capitalize()}: {side} {base}" \
+               f" at {self.order_price} {quote}."
 
 
 class ArbProposal:
     """
     An arbitrage proposal which contains 2 sides of the proposal - one on spot market and one on perpetual market.
     """
-
-    def __init__(self, spot_side: ArbProposalSide, perp_side: ArbProposalSide, order_amount: Decimal):
+    def __init__(self,
+                 spot_side: ArbProposalSide,
+                 perp_side: ArbProposalSide,
+                 order_amount: Decimal):
         """
         Creates ArbProposal
         :param spot_side: An ArbProposalSide on spot market
@@ -56,7 +62,5 @@ class ArbProposal:
         return s_decimal_0
 
     def __repr__(self):
-        return (
-            f"Spot: {self.spot_side}\nPerpetual: {self.perp_side}\nOrder amount: {self.order_amount}\n"
-            f"Profit: {self.profit_pct():.2%}"
-        )
+        return f"Spot: {self.spot_side}\nPerpetual: {self.perp_side}\nOrder amount: {self.order_amount}\n" \
+               f"Profit: {self.profit_pct():.2%}"

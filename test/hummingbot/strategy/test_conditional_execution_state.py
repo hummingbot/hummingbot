@@ -38,11 +38,8 @@ class RunInTimeSpanExecutionStateTests(TestCase):
         strategy.process_tick.assert_not_called()
         strategy.cancel_active_orders.assert_called()
         self.assertEqual(len(self.debug_logs), 1)
-        self.assertEqual(
-            self.debug_logs[0],
-            "Time span execution: tick will not be processed "
-            f"(executing between {start_timestamp} and {end_timestamp})",
-        )
+        self.assertEqual(self.debug_logs[0], "Time span execution: tick will not be processed "
+                                             f"(executing between {start_timestamp} and {end_timestamp})")
 
         state.process_tick(datetime.fromisoformat("2021-06-22 09:00:00").timestamp(), strategy)
         strategy.process_tick.assert_called()
@@ -55,25 +52,17 @@ class RunInTimeSpanExecutionStateTests(TestCase):
         strategy.process_tick.assert_not_called()
         strategy.cancel_active_orders.assert_called()
         self.assertEqual(len(self.debug_logs), 2)
-        self.assertEqual(
-            self.debug_logs[1],
-            "Time span execution: tick will not be processed "
-            f"(executing between {start_timestamp} and {end_timestamp})",
-        )
+        self.assertEqual(self.debug_logs[1], "Time span execution: tick will not be processed "
+                                             f"(executing between {start_timestamp} and {end_timestamp})")
 
-        state = RunInTimeConditionalExecutionState(
-            start_timestamp=start_timestamp.time(), end_timestamp=end_timestamp.time()
-        )
+        state = RunInTimeConditionalExecutionState(start_timestamp=start_timestamp.time(), end_timestamp=end_timestamp.time())
 
         state.process_tick(datetime.fromisoformat("2021-06-22 08:59:59").timestamp(), strategy)
         strategy.process_tick.assert_not_called()
         strategy.cancel_active_orders.assert_called()
         self.assertEqual(len(self.debug_logs), 3)
-        self.assertEqual(
-            self.debug_logs[0],
-            "Time span execution: tick will not be processed "
-            f"(executing between {start_timestamp} and {end_timestamp})",
-        )
+        self.assertEqual(self.debug_logs[0], "Time span execution: tick will not be processed "
+                                             f"(executing between {start_timestamp} and {end_timestamp})")
 
         state.process_tick(datetime.fromisoformat("2021-06-22 09:00:00").timestamp(), strategy)
         strategy.process_tick.assert_called()
@@ -86,21 +75,15 @@ class RunInTimeSpanExecutionStateTests(TestCase):
         strategy.process_tick.assert_not_called()
         strategy.cancel_active_orders.assert_called()
         self.assertEqual(len(self.debug_logs), 4)
-        self.assertEqual(
-            self.debug_logs[1],
-            "Time span execution: tick will not be processed "
-            f"(executing between {start_timestamp} and {end_timestamp})",
-        )
+        self.assertEqual(self.debug_logs[1], "Time span execution: tick will not be processed "
+                                             f"(executing between {start_timestamp} and {end_timestamp})")
 
         state.process_tick(datetime.fromisoformat("2021-06-30 08:59:59").timestamp(), strategy)
         strategy.process_tick.assert_not_called()
         strategy.cancel_active_orders.assert_called()
         self.assertEqual(len(self.debug_logs), 5)
-        self.assertEqual(
-            self.debug_logs[0],
-            "Time span execution: tick will not be processed "
-            f"(executing between {start_timestamp} and {end_timestamp})",
-        )
+        self.assertEqual(self.debug_logs[0], "Time span execution: tick will not be processed "
+                                             f"(executing between {start_timestamp} and {end_timestamp})")
 
         state.process_tick(datetime.fromisoformat("2021-06-30 09:00:00").timestamp(), strategy)
         strategy.process_tick.assert_called()
@@ -113,8 +96,5 @@ class RunInTimeSpanExecutionStateTests(TestCase):
         strategy.process_tick.assert_not_called()
         strategy.cancel_active_orders.assert_called()
         self.assertEqual(len(self.debug_logs), 6)
-        self.assertEqual(
-            self.debug_logs[1],
-            "Time span execution: tick will not be processed "
-            f"(executing between {start_timestamp} and {end_timestamp})",
-        )
+        self.assertEqual(self.debug_logs[1], "Time span execution: tick will not be processed "
+                                             f"(executing between {start_timestamp} and {end_timestamp})")

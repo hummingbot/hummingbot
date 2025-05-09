@@ -12,25 +12,21 @@ import threading
 
 
 class OrderBookCommand:
-    def order_book(
-        self,  # type: HummingbotApplication
-        lines: int = 5,
-        exchange: str = None,
-        market: str = None,
-        live: bool = False,
-    ):
+    def order_book(self,  # type: HummingbotApplication
+                   lines: int = 5,
+                   exchange: str = None,
+                   market: str = None,
+                   live: bool = False):
         if threading.current_thread() != threading.main_thread():
             self.ev_loop.call_soon_threadsafe(self.order_book, lines, exchange, market, live)
             return
         safe_ensure_future(self.show_order_book(lines, exchange, market, live))
 
-    async def show_order_book(
-        self,  # type: HummingbotApplication
-        lines: int = 5,
-        exchange: str = None,
-        market: str = None,
-        live: bool = False,
-    ):
+    async def show_order_book(self,  # type: HummingbotApplication
+                              lines: int = 5,
+                              exchange: str = None,
+                              market: str = None,
+                              live: bool = False):
         if len(self.markets.keys()) == 0:
             self.notify("There is currently no active market.")
             return
@@ -51,10 +47,10 @@ class OrderBookCommand:
             trading_pair, order_book = next(iter(market_connector.order_books.items()))
 
         def get_order_book(lines):
-            bids = order_book.snapshot[0][["price", "amount"]].head(lines)
-            bids.rename(columns={"price": "bid_price", "amount": "bid_volume"}, inplace=True)
-            asks = order_book.snapshot[1][["price", "amount"]].head(lines)
-            asks.rename(columns={"price": "ask_price", "amount": "ask_volume"}, inplace=True)
+            bids = order_book.snapshot[0][['price', 'amount']].head(lines)
+            bids.rename(columns={'price': 'bid_price', 'amount': 'bid_volume'}, inplace=True)
+            asks = order_book.snapshot[1][['price', 'amount']].head(lines)
+            asks.rename(columns={'price': 'ask_price', 'amount': 'ask_volume'}, inplace=True)
             joined_df = pd.concat([bids, asks], axis=1)
             text_lines = [
                 "    " + line
@@ -67,9 +63,7 @@ class OrderBookCommand:
             await self.stop_live_update()
             self.app.live_updates = True
             while self.app.live_updates:
-                await self.cls_display_delay(
-                    get_order_book(min(lines, 35)) + "\n\n Press escape key to stop update.", 0.5
-                )
+                await self.cls_display_delay(get_order_book(min(lines, 35)) + "\n\n Press escape key to stop update.", 0.5)
             self.notify("Stopped live orderbook display update.")
         else:
             self.notify(get_order_book(lines))

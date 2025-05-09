@@ -126,20 +126,23 @@ class TestPMMConfigMap(unittest.TestCase):
 
         self.assertEqual(
             "Position mode can either be One-way or Hedge mode",
-            config_map_module.validate_derivative_position_mode("Invalid"),
-        )
+            config_map_module.validate_derivative_position_mode("Invalid"))
 
     def test_validate_price_source(self):
         self.assertIsNone(config_map_module.validate_price_source("current_market"))
         self.assertIsNone(config_map_module.validate_price_source("external_market"))
         self.assertIsNone(config_map_module.validate_price_source("custom_api"))
 
-        self.assertEqual("Invalid price source type.", config_map_module.validate_price_source("invalid_market"))
+        self.assertEqual(
+            "Invalid price source type.",
+            config_map_module.validate_price_source("invalid_market")
+        )
 
     def test_price_source_market_prompt(self):
         perpetual_mm_config_map.get("price_source_derivative").value = "test_market"
         self.assertEqual(
-            "Enter the token trading pair on test_market >>> ", config_map_module.price_source_market_prompt()
+            "Enter the token trading pair on test_market >>> ",
+            config_map_module.price_source_market_prompt()
         )
 
     @patch("hummingbot.client.settings.AllConnectorSettings.get_derivative_names")
@@ -151,12 +154,12 @@ class TestPMMConfigMap(unittest.TestCase):
         perpetual_mm_config_map.get("derivative").value = "test_market"
         self.assertEqual(
             "Price source derivative cannot be the same as maker derivative.",
-            config_map_module.validate_price_source_derivative("test_market"),
+            config_map_module.validate_price_source_derivative("test_market")
         )
 
         self.assertEqual(
             "Price source must must be a valid exchange or derivative connector.",
-            config_map_module.validate_price_source_derivative("invalid"),
+            config_map_module.validate_price_source_derivative("invalid")
         )
 
         self.assertIsNone(config_map_module.validate_price_source_derivative("derivative_connector"))

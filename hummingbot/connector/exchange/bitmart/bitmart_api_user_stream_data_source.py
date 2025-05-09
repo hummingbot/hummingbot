@@ -22,8 +22,8 @@ class BitmartAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self,
         auth: BitmartAuth,
         trading_pairs: List[str],
-        connector: "BitmartExchange",
-        api_factory: WebAssistantsFactory,
+        connector: 'BitmartExchange',
+        api_factory: WebAssistantsFactory
     ):
         super().__init__()
         self._auth: BitmartAuth = auth
@@ -37,9 +37,14 @@ class BitmartAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
 
         ws: WSAssistant = await self._get_ws_assistant()
-        await ws.connect(ws_url=CONSTANTS.WSS_PRIVATE_URL, ping_timeout=CONSTANTS.WS_PING_TIMEOUT)
+        await ws.connect(
+            ws_url=CONSTANTS.WSS_PRIVATE_URL,
+            ping_timeout=CONSTANTS.WS_PING_TIMEOUT)
 
-        payload = {"op": "login", "args": self._auth.websocket_login_parameters()}
+        payload = {
+            "op": "login",
+            "args": self._auth.websocket_login_parameters()
+        }
 
         login_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
@@ -56,14 +61,12 @@ class BitmartAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         try:
-            symbols = [
-                await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                for trading_pair in self._trading_pairs
-            ]
+            symbols = [await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+                       for trading_pair in self._trading_pairs]
 
             payload = {
                 "op": "subscribe",
-                "args": [f"{CONSTANTS.PRIVATE_ORDER_PROGRESS_CHANNEL_NAME}:{symbol}" for symbol in symbols],
+                "args": [f"{CONSTANTS.PRIVATE_ORDER_PROGRESS_CHANNEL_NAME}:{symbol}" for symbol in symbols]
             }
             subscribe_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
@@ -88,10 +91,8 @@ class BitmartAPIUserStreamDataSource(UserStreamTrackerDataSource):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().warning(
-                    f"Invalid event message received through the order book data source "
-                    f"connection ({decompressed_data})"
-                )
+                self.logger().warning(f"Invalid event message received through the order book data source "
+                                      f"connection ({decompressed_data})")
                 continue
 
             if "errorCode" in json_data or "errorMessage" in json_data:

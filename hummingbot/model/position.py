@@ -8,12 +8,11 @@ class Position(HummingbotBase):
     """
     Database model for storing positions held by executors.
     """
-
     __tablename__ = "Position"
-    __table_args__ = (
-        Index("p_controller_id_timestamp_index", "controller_id", "timestamp"),
-        Index("p_connector_name_trading_pair_timestamp_index", "connector_name", "trading_pair", "timestamp"),
-    )
+    __table_args__ = (Index("p_controller_id_timestamp_index",
+                            "controller_id", "timestamp"),
+                      Index("p_connector_name_trading_pair_timestamp_index",
+                            "connector_name", "trading_pair", "timestamp"))
 
     id = Column(Text, primary_key=True, nullable=False)
     controller_id = Column(Text, nullable=False)
@@ -28,11 +27,9 @@ class Position(HummingbotBase):
     cum_fees_quote = Column(SqliteDecimal(6), nullable=False)
 
     def __repr__(self) -> str:
-        return (
-            f"Position(id='{self.id}', controller_id='{self.controller_id}', "
-            f"connector_name='{self.connector_name}', trading_pair='{self.trading_pair}', "
-            f"trading_pair='{self.trading_pair}', timestamp={self.timestamp}, "
-            f"volume_traded_quote={self.volume_traded_quote}, amount={self.amount}, "
-            f"breakeven_price={self.breakeven_price}, unrealized_pnl_quote={self.unrealized_pnl_quote}, "
-            f"cum_fees_quote={self.cum_fees_quote})"
-        )
+        return (f"Position(id='{self.id}', controller_id='{self.controller_id}', "
+                f"connector_name='{self.connector_name}', trading_pair='{self.trading_pair}', "
+                f"trading_pair='{self.trading_pair}', timestamp={self.timestamp}, "
+                f"volume_traded_quote={self.volume_traded_quote}, amount={self.amount}, "
+                f"breakeven_price={self.breakeven_price}, unrealized_pnl_quote={self.unrealized_pnl_quote}, "
+                f"cum_fees_quote={self.cum_fees_quote})")

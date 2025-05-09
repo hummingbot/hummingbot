@@ -30,34 +30,23 @@ class DCAExecutor(ExecutorBase):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(
-        self,
-        strategy: ScriptStrategyBase,
-        config: DCAExecutorConfig,
-        update_interval: float = 1.0,
-        max_retries: int = 15,
-    ):
+    def __init__(self, strategy: ScriptStrategyBase, config: DCAExecutorConfig, update_interval: float = 1.0,
+                 max_retries: int = 15):
         # validate amounts and prices
         if len(config.amounts_quote) != len(config.prices):
             raise ValueError("Amounts and prices lists must have the same length")
 
         # Initialize super class
-        super().__init__(
-            strategy=strategy, connectors=[config.connector_name], config=config, update_interval=update_interval
-        )
+        super().__init__(strategy=strategy, connectors=[config.connector_name], config=config, update_interval=update_interval)
         self.config: DCAExecutorConfig = config
 
         # validate amounts with exchange trading rules
         if self.is_any_amount_lower_than_min_order_size():
             self.close_execution_by(CloseType.FAILED)
-            trading_rules = self.get_trading_rules(
-                connector_name=config.connector_name, trading_pair=config.trading_pair
-            )
-            self.logger().error(
-                "Please increase the amount of the order:"
-                f"- Current amounts quote: {config.amounts_quote} | Min notional size: {trading_rules.min_notional_size}"
-                f"- Current amounts base: {[amount / price for amount, price in zip(config.amounts_quote, config.prices)]} | Min order size: {trading_rules.min_order_size}"
-            )
+            trading_rules = self.get_trading_rules(connector_name=config.connector_name, trading_pair=config.trading_pair)
+            self.logger().error("Please increase the amount of the order:"
+                                f"- Current amounts quote: {config.amounts_quote} | Min notional size: {trading_rules.min_notional_size}"
+                                f"- Current amounts base: {[amount / price for amount, price in zip(config.amounts_quote, config.prices)]} | Min order size: {trading_rules.min_order_size}")
         # set default bounds
         self.n_levels = len(config.amounts_quote)
         if self.config.mode == DCAMode.TAKER and not self.config.activation_bounds:
@@ -124,9 +113,8 @@ class DCAExecutor(ExecutorBase):
     @property
     def unrealized_pnl_when_last_order_filled(self) -> Decimal:
         last_order_price = self.max_price if self.config.side == TradeType.SELL else self.min_price
-        distance_from_last_order_to_break_even = (
-            abs(last_order_price - self.target_position_average_price) / self.target_position_average_price
-        )
+        distance_from_last_order_to_break_even = abs(last_order_price - self.target_position_average_price) / \
+            self.target_position_average_price
         return self.max_amount_quote * distance_from_last_order_to_break_even
 
     @property
@@ -176,19 +164,13 @@ class DCAExecutor(ExecutorBase):
 
     @property
     def current_position_average_price(self) -> Decimal:
-        return (
-            sum([order.average_executed_price * order.executed_amount_base for order in self._open_orders])
-            / self.open_filled_amount
-            if self._open_orders and self.open_filled_amount > Decimal("0")
-            else Decimal("0")
-        )
+        return sum([order.average_executed_price * order.executed_amount_base for order in self._open_orders]) / \
+            self.open_filled_amount if self._open_orders and self.open_filled_amount > Decimal("0") else Decimal("0")
 
     @property
     def target_position_average_price(self) -> Decimal:
-        return (
-            sum([price * amount for price, amount in zip(self.config.prices, self.config.amounts_quote)])
-            / self.max_amount_quote
-        )
+        return sum([price * amount for price, amount in
+                    zip(self.config.prices, self.config.amounts_quote)]) / self.max_amount_quote
 
     @property
     def trade_pnl_pct(self):
@@ -214,20 +196,8 @@ class DCAExecutor(ExecutorBase):
         """
         This method is responsible for checking if any amount is lower than the minimum order size
         """
-        notional_size_check = any(
-            [
-                amount
-                < self.connectors[self.config.connector_name].trading_rules[self.config.trading_pair].min_notional_size
-                for amount in self.config.amounts_quote
-            ]
-        )
-        base_amount_size_check = any(
-            [
-                amount / price
-                < self.connectors[self.config.connector_name].trading_rules[self.config.trading_pair].min_order_size
-                for amount, price in zip(self.config.amounts_quote, self.config.prices)
-            ]
-        )
+        notional_size_check = any([amount < self.connectors[self.config.connector_name].trading_rules[self.config.trading_pair].min_notional_size for amount in self.config.amounts_quote])
+        base_amount_size_check = any([amount / price < self.connectors[self.config.connector_name].trading_rules[self.config.trading_pair].min_order_size for amount, price in zip(self.config.amounts_quote, self.config.prices)])
         return notional_size_check or base_amount_size_check
 
     def get_net_pnl_quote(self) -> Decimal:
@@ -240,11 +210,7 @@ class DCAExecutor(ExecutorBase):
         """
         This method is responsible for calculating the net pnl percentage
         """
-        return (
-            self.net_pnl_quote / self.open_filled_amount_quote
-            if self.open_filled_amount_quote > Decimal("0")
-            else Decimal("0")
-        )
+        return self.net_pnl_quote / self.open_filled_amount_quote if self.open_filled_amount_quote > Decimal("0") else Decimal("0")
 
     def get_cum_fees_quote(self) -> Decimal:
         """
@@ -315,9 +281,8 @@ class DCAExecutor(ExecutorBase):
         """
         next_level = len(self._open_orders)
         if next_level < self.n_levels:
-            close_price = self.get_price(
-                connector_name=self.config.connector_name, trading_pair=self.config.trading_pair
-            )
+            close_price = self.get_price(connector_name=self.config.connector_name,
+                                         trading_pair=self.config.trading_pair)
             order_price = self.config.prices[next_level]
             if self._is_within_activation_bounds(order_price, close_price) and not self.is_expired:
                 self.create_dca_order(level=next_level)
@@ -328,15 +293,10 @@ class DCAExecutor(ExecutorBase):
         """
         price = self.config.prices[level]
         amount = self.config.amounts_quote[level] / price
-        order_id = self.place_order(
-            connector_name=self.config.connector_name,
-            trading_pair=self.config.trading_pair,
-            order_type=self.open_order_type,
-            side=self.config.side,
-            amount=amount,
-            price=price,
-            position_action=PositionAction.OPEN,
-        )
+        order_id = self.place_order(connector_name=self.config.connector_name,
+                                    trading_pair=self.config.trading_pair, order_type=self.open_order_type,
+                                    side=self.config.side, amount=amount, price=price,
+                                    position_action=PositionAction.OPEN)
         if order_id:
             self._open_orders.append(TrackedOrder(order_id=order_id))
 
@@ -430,9 +390,7 @@ class DCAExecutor(ExecutorBase):
 
     def place_close_order(self, price):
         delta_amount_to_close = self.open_filled_amount - self.close_filled_amount
-        min_order_size = (
-            self.connectors[self.config.connector_name].trading_rules[self.config.trading_pair].min_order_size
-        )
+        min_order_size = self.connectors[self.config.connector_name].trading_rules[self.config.trading_pair].min_order_size
         if delta_amount_to_close >= min_order_size:
             order_id = self.place_order(
                 connector_name=self.config.connector_name,
@@ -448,11 +406,8 @@ class DCAExecutor(ExecutorBase):
     def cancel_open_orders(self):
         for tracked_order in self._open_orders:
             if tracked_order.order and tracked_order.order.is_open:
-                self._strategy.cancel(
-                    connector_name=self.config.connector_name,
-                    trading_pair=self.config.trading_pair,
-                    order_id=tracked_order.order_id,
-                )
+                self._strategy.cancel(connector_name=self.config.connector_name, trading_pair=self.config.trading_pair,
+                                      order_id=tracked_order.order_id)
 
     def _is_within_activation_bounds(self, order_price: Decimal, close_price: Decimal) -> bool:
         """
@@ -488,25 +443,20 @@ class DCAExecutor(ExecutorBase):
             connector = self.connectors[self.config.connector_name]
             await connector._update_orders_with_error_handler(
                 orders=[order.order for order in self.active_close_orders if order.order],
-                error_handler=connector._handle_update_error_for_active_order,
+                error_handler=connector._handle_update_error_for_active_order
             )
             for order in self.active_close_orders:
                 self.update_tracked_orders_with_order_id(order.order_id)
                 if order.order and order.order.is_done and order.executed_amount_base == Decimal("0"):
                     self.logger().error(
-                        f"Close order {order.order_id} is done, might be an error with this update. Cancelling the order and placing it again."
-                    )
-                    self._strategy.cancel(
-                        connector_name=self.config.connector_name,
-                        trading_pair=self.config.trading_pair,
-                        order_id=order.order_id,
-                    )
+                        f"Close order {order.order_id} is done, might be an error with this update. Cancelling the order and placing it again.")
+                    self._strategy.cancel(connector_name=self.config.connector_name, trading_pair=self.config.trading_pair,
+                                          order_id=order.order_id)
                     self._close_orders.remove(order)
                     self._failed_orders.append(order)
         else:
             self.logger().info(
-                f"Open amount: {self.open_filled_amount}, Close amount: {self.close_filled_amount}, Back up filled amount {self._total_executed_amount_backup}"
-            )
+                f"Open amount: {self.open_filled_amount}, Close amount: {self.close_filled_amount}, Back up filled amount {self._total_executed_amount_backup}")
             self.place_close_order_and_cancel_open_orders()
             self._current_retries += 1
         await asyncio.sleep(5.0)
@@ -519,16 +469,20 @@ class DCAExecutor(ExecutorBase):
             if in_flight_order:
                 active_order.order = in_flight_order
 
-    def process_order_created_event(
-        self, event_tag: int, market: ConnectorBase, event: Union[BuyOrderCreatedEvent, SellOrderCreatedEvent]
-    ):
+    def process_order_created_event(self,
+                                    event_tag: int,
+                                    market: ConnectorBase,
+                                    event: Union[BuyOrderCreatedEvent, SellOrderCreatedEvent]):
         """
         This method is responsible for processing the order created event. Here we will add the InFlightOrder to the
         active orders list.
         """
         self.update_tracked_orders_with_order_id(event.order_id)
 
-    def process_order_failed_event(self, event_tag: int, market: ConnectorBase, event: MarketOrderFailureEvent):
+    def process_order_failed_event(self,
+                                   event_tag: int,
+                                   market: ConnectorBase,
+                                   event: MarketOrderFailureEvent):
         """
         This method is responsible for processing the order failed event. Here we will add the InFlightOrder to the
         failed orders list.

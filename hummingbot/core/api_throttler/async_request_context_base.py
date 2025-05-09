@@ -27,15 +27,14 @@ class AsyncRequestContextBase(ABC):
             arc_logger = logging.getLogger(__name__)
         return arc_logger
 
-    def __init__(
-        self,
-        task_logs: List[TaskLog],
-        rate_limit: RateLimit,
-        related_limits: List[Tuple[RateLimit, int]],
-        lock: asyncio.Lock,
-        safety_margin_pct: float,
-        retry_interval: float = 0.1,
-    ):
+    def __init__(self,
+                 task_logs: List[TaskLog],
+                 rate_limit: RateLimit,
+                 related_limits: List[Tuple[RateLimit, int]],
+                 lock: asyncio.Lock,
+                 safety_margin_pct: float,
+                 retry_interval: float = 0.1,
+                 ):
         """
         Asynchronous context associated with each API request.
         :param task_logs: Shared task logs associated with this API request
@@ -80,7 +79,9 @@ class AsyncRequestContextBase(ABC):
             # Each related limit is represented as it own individual TaskLog
 
             # Log the acquired rate limit into the tasks log
-            self._task_logs.append(TaskLog(timestamp=now, rate_limit=self._rate_limit, weight=self._rate_limit.weight))
+            self._task_logs.append(TaskLog(timestamp=now,
+                                           rate_limit=self._rate_limit,
+                                           weight=self._rate_limit.weight))
 
             # Log its related limits into the tasks log as individual tasks
             for limit, weight in self._related_limits:

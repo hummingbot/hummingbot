@@ -1,3 +1,4 @@
+
 from decimal import Decimal
 
 from pydantic import Field
@@ -11,21 +12,15 @@ class CrossExchangeMiningConfigMap(BaseTradingStrategyMakerTakerConfigMap):
     min_profitability: Decimal = Field(
         default=...,
         description="The minimum estimated profitability required to open a position.",
-        ge=-100.0,
-        le=100.0,
+        ge=-100.0, le=100.0,
         json_schema_extra={
-            "prompt": "What is the minimum profitability for you to make a trade? (Enter 1 to indicate 1%)",
-            "prompt_on_new": True,
-        },
+            "prompt": "What is the minimum profitability for you to make a trade? (Enter 1 to indicate 1%)", "prompt_on_new": True}
     )
     order_amount: Decimal = Field(
         default=...,
         description="The amount of base currency for the strategy to maintain over exchanges.",
         ge=0.0,
-        json_schema_extra={
-            "prompt": lambda mi: CrossExchangeMiningConfigMap.order_amount_prompt(mi),
-            "prompt_on_new": True,
-        },
+        json_schema_extra={"prompt": lambda mi: CrossExchangeMiningConfigMap.order_amount_prompt(mi), "prompt_on_new": True},
     )
 
     balance_adjustment_duration: float = Field(
@@ -37,34 +32,31 @@ class CrossExchangeMiningConfigMap(BaseTradingStrategyMakerTakerConfigMap):
     slippage_buffer: Decimal = Field(
         default=Decimal("5.0"),
         description="Allowed slippage to fill ensure taker orders are filled.",
-        ge=0.0,
-        le=100.0,
+        ge=0.0, le=100.0,
         json_schema_extra={
             "prompt": "How much buffer do you want to add to the price to account for slippage for taker orders, enter 1 to indicate 1%",
-            "prompt_on_new": True,
-        },
+            "prompt_on_new": True
+        }
     )
 
     min_prof_tol_low: Decimal = Field(
         default=Decimal("0.05"),
         description="Tolerance below min prof to cancel order.",
-        ge=0.0,
-        le=100.0,
+        ge=0.0, le=100.0,
         json_schema_extra={
             "prompt": "What percentage below the min profitability do you want to cancel the set order, enter 0.1 to indicate 0.1%",
-            "prompt_on_new": True,
-        },
+            "prompt_on_new": True
+        }
     )
 
     min_prof_tol_high: Decimal = Field(
         default=Decimal("0.05"),
         description="Tolerance above min prof to cancel order.",
-        ge=0.0,
-        le=100.0,
+        ge=0.0, le=100.0,
         json_schema_extra={
             "prompt": "What percentage above the min profitability do you want to cancel the set order, enter 0.1 to indicate 0.1%",
-            "prompt_on_new": True,
-        },
+            "prompt_on_new": True
+        }
     )
     volatility_buffer_size: int = Field(
         default=Decimal("120"),
@@ -77,17 +69,14 @@ class CrossExchangeMiningConfigMap(BaseTradingStrategyMakerTakerConfigMap):
         description="Time interval to adjust min profitability over",
         json_schema_extra={
             "prompt": "Time interval to adjust min profitability over by using results of previous trades in last 24 hrs",
-            "prompt_on_new": True,
-        },
+            "prompt_on_new": True
+        }
     )
     min_order_amount: Decimal = Field(
         default=Decimal("0.0"),
         description="What is the minimum order amount required for bid or ask orders?: ",
         ge=0.0,
-        json_schema_extra={
-            "prompt": "What is the minimum order amount required for bid or ask orders?: ",
-            "prompt_on_new": True,
-        },
+        json_schema_extra={"prompt": "What is the minimum order amount required for bid or ask orders?: ", "prompt_on_new": True},
     )
     rate_curve: Decimal = Field(
         default=Decimal("1.0"),
@@ -95,22 +84,19 @@ class CrossExchangeMiningConfigMap(BaseTradingStrategyMakerTakerConfigMap):
         ge=0.0,
         json_schema_extra={
             "prompt": "Multiplier for rate curve for the adjustment of min profitability based on previous trades over last 24 hrs: ",
-            "prompt_on_new": True,
-        },
+            "prompt_on_new": True
+        }
     )
     trade_fee: Decimal = Field(
         default=Decimal("0.25"),
         description="Complete trade fee covering both taker and maker trades: ",
         ge=0.0,
-        json_schema_extra={
-            "prompt": "Complete trade fee covering both taker and maker trades: ",
-            "prompt_on_new": True,
-        },
+        json_schema_extra={"prompt": "Complete trade fee covering both taker and maker trades: ", "prompt_on_new": True}
     )
     # === prompts ===
 
     @classmethod
-    def order_amount_prompt(cls, model_instance: "CrossExchangeMiningConfigMap") -> str:
+    def order_amount_prompt(cls, model_instance: 'CrossExchangeMiningConfigMap') -> str:
         trading_pair = model_instance.maker_market_trading_pair
         base_asset, quote_asset = trading_pair.split("-")
         return f"The amount of {base_asset} for the strategy to maintain in wallet over exchanges (Will autobalance by buying or selling to maintain amount).?"

@@ -38,7 +38,9 @@ class HtxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.connector.exchange_symbol_associated_to_pair.return_value = self.ex_trading_pair
         self.connector.trading_pair_associated_to_exchange_symbol.return_value = self.trading_pair
         self.data_source = HtxAPIOrderBookDataSource(
-            trading_pairs=[self.trading_pair], connector=self.connector, api_factory=build_api_factory()
+            trading_pairs=[self.trading_pair],
+            connector=self.connector,
+            api_factory=build_api_factory()
         )
 
         self.data_source.logger().setLevel(1)
@@ -167,8 +169,8 @@ class HtxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         self.assertTrue(
             self._is_logged(
-                "ERROR", "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
-            )
+                "ERROR",
+                "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds...")
         )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -237,9 +239,7 @@ class HtxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         mock_queue.get.side_effect = [self._trade_update_event(), asyncio.CancelledError()]
         self.data_source._message_queue[CONSTANTS.TRADE_CHANNEL_SUFFIX] = mock_queue
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_trades(self.local_event_loop, msg_queue)
-        )
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_trades(self.local_event_loop, msg_queue))
 
         msg = await msg_queue.get()
 
@@ -259,8 +259,9 @@ class HtxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             pass
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange")
-        )
+            self._is_logged(
+                "ERROR",
+                "Unexpected error when processing public order book updates from exchange"))
 
     async def test_listen_for_order_book_diffs_successful(self):
         orderbook_message = self._snapshot_response()

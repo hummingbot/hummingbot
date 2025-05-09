@@ -32,7 +32,7 @@ class BybitConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        },
+        }
     )
     bybit_api_secret: SecretStr = Field(
         default=...,
@@ -41,7 +41,7 @@ class BybitConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        },
+        }
     )
     model_config = ConfigDict(title="bybit")
 
@@ -63,7 +63,7 @@ class BybitTestnetConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        },
+        }
     )
     bybit_testnet_api_secret: SecretStr = Field(
         default=...,
@@ -72,7 +72,7 @@ class BybitTestnetConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        },
+        }
     )
     model_config = ConfigDict(title="bybit_testnet")
 

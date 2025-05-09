@@ -36,7 +36,6 @@ class MacdBB(DirectionalStrategyBase):
     Inherits from:
         DirectionalStrategyBase: Base class for creating directional strategies using the PositionExecutor.
     """
-
     directional_strategy_name: str = "MACD_BB"
     # Define the trading pair and exchange that we want to use and the csv where we are going to store the entries
     trading_pair: str = "BTC-USDT"
@@ -51,11 +50,7 @@ class MacdBB(DirectionalStrategyBase):
     trailing_stop_activation_delta = 0.003
     trailing_stop_trailing_delta = 0.0007
 
-    candles = [
-        CandlesFactory.get_candle(
-            CandlesConfig(connector=exchange, trading_pair=trading_pair, interval="3m", max_records=1000)
-        )
-    ]
+    candles = [CandlesFactory.get_candle(CandlesConfig(connector=exchange, trading_pair=trading_pair, interval="3m", max_records=1000))]
     markets = {exchange: {trading_pair}}
 
     def get_signal(self):
@@ -95,17 +90,7 @@ class MacdBB(DirectionalStrategyBase):
             List[str]: A list of formatted strings containing market data information.
         """
         lines = []
-        columns_to_show = [
-            "timestamp",
-            "open",
-            "low",
-            "high",
-            "close",
-            "volume",
-            "BBP_100_2.0",
-            "MACDh_21_42_9",
-            "MACD_21_42_9",
-        ]
+        columns_to_show = ["timestamp", "open", "low", "high", "close", "volume", "BBP_100_2.0", "MACDh_21_42_9", "MACD_21_42_9"]
         candles_df = self.get_processed_df()
         lines.extend([f"Candles: {self.candles[0].name} | Interval: {self.candles[0].interval}\n"])
         lines.extend(self.candles_formatted_list(candles_df, columns_to_show))

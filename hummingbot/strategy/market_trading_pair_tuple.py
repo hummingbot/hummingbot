@@ -1,5 +1,7 @@
 from decimal import Decimal
-from typing import NamedTuple, Iterator
+from typing import (
+    NamedTuple, Iterator
+)
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_query_result import ClientOrderBookQueryResult
 from hummingbot.core.data_type.order_book_row import ClientOrderBookRow

@@ -19,23 +19,21 @@ OnValidated = Callable
 
 
 class ConfigVar:
-    def __init__(
-        self,
-        key: str,
-        prompt: Prompt,
-        is_secure: bool = False,
-        default: any = None,
-        type_str: str = "str",
-        # Whether this config will be prompted during the setup process
-        required_if: RequiredIf = lambda: True,
-        validator: Validator = lambda *args: None,
-        on_validated: OnValidated = lambda *args: None,
-        # Whether to prompt a user for value when new strategy config file is created
-        prompt_on_new: bool = False,
-        # Whether this is a config var used in connect command
-        is_connect_key: bool = False,
-        printable_key: str = None,
-    ):
+    def __init__(self,
+                 key: str,
+                 prompt: Prompt,
+                 is_secure: bool = False,
+                 default: any = None,
+                 type_str: str = "str",
+                 # Whether this config will be prompted during the setup process
+                 required_if: RequiredIf = lambda: True,
+                 validator: Validator = lambda *args: None,
+                 on_validated: OnValidated = lambda *args: None,
+                 # Whether to prompt a user for value when new strategy config file is created
+                 prompt_on_new: bool = False,
+                 # Whether this is a config var used in connect command
+                 is_connect_key: bool = False,
+                 printable_key: str = None):
         self.prompt = prompt
         self.key = key
         self.value = None

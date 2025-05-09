@@ -28,22 +28,18 @@ class BinanceUSRateSourceTest(IsolatedAsyncioWrapperTestCase):
                     "status": "TRADING",
                     "baseAsset": self.target_token,
                     "quoteAsset": "USD",
-                    "permissionSets": [
-                        [
-                            "SPOT",
-                        ]
-                    ],
+                    "permissionSets": [[
+                        "SPOT",
+                    ]],
                 },
                 {
                     "symbol": self.binance_ignored_pair,
                     "status": "PAUSED",
                     "baseAsset": "SOME",
                     "quoteAsset": "PAIR",
-                    "permissionSets": [
-                        [
-                            "SPOT",
-                        ]
-                    ],
+                    "permissionSets": [[
+                        "SPOT",
+                    ]],
                 },
             ]
         }
@@ -62,7 +58,7 @@ class BinanceUSRateSourceTest(IsolatedAsyncioWrapperTestCase):
                 "bidQty": "0",
                 "askPrice": "0",
                 "askQty": "0",
-            },
+            }
         ]
         mock_api.get(pairs_us_url, body=json.dumps(symbols_response))
         mock_api.get(binance_prices_us_url, body=json.dumps(binance_prices_us_response))

@@ -15,15 +15,10 @@ class TestSolidityTypes(unittest.TestCase):
 
     def test_get_eip712_solidity_types(self):
         expected_types = [
-            "bool",
-            "address",
-            "string",
-            "bytes",
-            "uint",
-            "int",
+            "bool", "address", "string", "bytes", "uint", "int",
             *[f"int{(x + 1) * 8}" for x in range(32)],
             *[f"uint{(x + 1) * 8}" for x in range(32)],
-            *[f"bytes{x + 1}" for x in range(32)],
+            *[f"bytes{x + 1}" for x in range(32)]
         ]
         self.assertEqual(self.solidity_types, expected_types)
 

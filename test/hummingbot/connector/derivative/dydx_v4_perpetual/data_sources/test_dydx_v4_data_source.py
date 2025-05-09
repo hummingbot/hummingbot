@@ -21,11 +21,9 @@ class DydxPerpetualV4ClientTests(IsolatedAsyncioWrapperTestCase):
         super().setUp()
         self.async_tasks = []
 
-        self.secret_phrase = (
-            "mirror actor skill push coach wait confirm orchard "
-            "lunch mobile athlete gossip awake miracle matter "
-            "bus reopen team ladder lazy list timber render wait"
-        )
+        self.secret_phrase = "mirror actor skill push coach wait confirm orchard " \
+                             "lunch mobile athlete gossip awake miracle matter " \
+                             "bus reopen team ladder lazy list timber render wait"
         self._dydx_v4_chain_address = "dydx14zzueazeh0hj67cghhf9jypslcf9sh2n5k6art"
         self.base_asset = "TRX"
         self.quote_asset = "USD"  # linear
@@ -47,7 +45,11 @@ class DydxPerpetualV4ClientTests(IsolatedAsyncioWrapperTestCase):
             "quantumConversionExponent": -9,
             "subticksPerTick": 1000000,
         }
-        self.v4_client = DydxPerpetualV4Client(self.secret_phrase, self._dydx_v4_chain_address, self.exchange)
+        self.v4_client = DydxPerpetualV4Client(
+            self.secret_phrase,
+            self._dydx_v4_chain_address,
+            self.exchange
+        )
 
     def create_task(self, coroutine: Awaitable) -> asyncio.Task:
         task = self.async_loop.create_task(coroutine)
@@ -56,17 +58,13 @@ class DydxPerpetualV4ClientTests(IsolatedAsyncioWrapperTestCase):
 
     @property
     def _order_cancelation_request_successful_mock_response(self):
-        return {
-            "txhash": "79DBF373DE9C534EE2DC9D009F32B850DA8D0C73833FAA0FD52C6AE8989EC659",  # noqa: mock
-            "raw_log": "[]",
-        }  # noqa: mock
+        return {"txhash": "79DBF373DE9C534EE2DC9D009F32B850DA8D0C73833FAA0FD52C6AE8989EC659",  # noqa: mock
+                "raw_log": "[]"}  # noqa: mock
 
     @property
     def order_creation_request_successful_mock_response(self):
-        return {
-            "txhash": "017C130E3602A48E5C9D661CAC657BF1B79262D4B71D5C25B1DA62DE2338DA0E",  # noqa: mock
-            "raw_log": "[]",
-        }  # noqa: mock
+        return {"txhash": "017C130E3602A48E5C9D661CAC657BF1B79262D4B71D5C25B1DA62DE2338DA0E",  # noqa: mock
+                "raw_log": "[]"}  # noqa: mock
 
     def test_calculate_quantums(self):
         result = DydxPerpetualV4Client.calculate_quantums(10, -2, 10)
@@ -77,25 +75,23 @@ class DydxPerpetualV4ClientTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(result, 100000000000000)
 
     @patch(
-        "hummingbot.connector.derivative.dydx_v4_perpetual.data_sources.dydx_v4_data_source.DydxPerpetualV4Client.send_tx_sync_mode"
-    )
+        "hummingbot.connector.derivative.dydx_v4_perpetual.data_sources.dydx_v4_data_source.DydxPerpetualV4Client.send_tx_sync_mode")
     async def test_cancel_order(self, send_tx_sync_mode_mock):
         send_tx_sync_mode_mock.return_value = self._order_cancelation_request_successful_mock_response
-        result = await self.v4_client.cancel_order(
+        result = await (self.v4_client.cancel_order(
             client_id=11,
             clob_pair_id=15,
             order_flags=CONSTANTS.ORDER_FLAGS_LONG_TERM,
-            good_til_block_time=int(time.time()) + CONSTANTS.ORDER_EXPIRATION,
-        )
+            good_til_block_time=int(time.time()) + CONSTANTS.ORDER_EXPIRATION
+        ))
 
         self.assertIn("txhash", result)
 
     @patch(
-        "hummingbot.connector.derivative.dydx_v4_perpetual.data_sources.dydx_v4_data_source.DydxPerpetualV4Client.send_tx_sync_mode"
-    )
+        "hummingbot.connector.derivative.dydx_v4_perpetual.data_sources.dydx_v4_data_source.DydxPerpetualV4Client.send_tx_sync_mode")
     async def test_place_order(self, send_tx_sync_mode_mock):
         send_tx_sync_mode_mock.return_value = self.order_creation_request_successful_mock_response
-        result = await self.v4_client.place_order(
+        result = await (self.v4_client.place_order(
             market=self.trading_pair,
             type="LIMIT",
             side="BUY",
@@ -103,15 +99,19 @@ class DydxPerpetualV4ClientTests(IsolatedAsyncioWrapperTestCase):
             size=1,
             client_id=11,
             post_only=False,
-        )
+        ))
 
         self.assertIn("txhash", result)
 
     async def test_query_account(self):
-        sequence, acccount_number = await self.v4_client.query_account()
+        sequence, acccount_number = await (self.v4_client.query_account())
         self.assertEqual(acccount_number, 33356)
 
     def test__init__without_secret(self):
         with self.assertRaises(ValueError) as e:
-            self.v4_client = DydxPerpetualV4Client("", self._dydx_v4_chain_address, self.exchange)
+            self.v4_client = DydxPerpetualV4Client(
+                '',
+                self._dydx_v4_chain_address,
+                self.exchange
+            )
             self.assertEqual(str(e.exception), "Mnemonic words count is not valid (0)")

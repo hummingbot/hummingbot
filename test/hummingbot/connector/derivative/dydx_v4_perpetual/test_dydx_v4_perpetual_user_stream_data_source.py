@@ -33,8 +33,8 @@ class DydxV4PerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCas
         self.connector = DydxV4PerpetualDerivative(
             client_config_map,
             dydx_v4_perpetual_secret_phrase="mirror actor skill push coach wait confirm orchard "
-            "lunch mobile athlete gossip awake miracle matter "
-            "bus reopen team ladder lazy list timber render wait",
+                                            "lunch mobile athlete gossip awake miracle matter "
+                                            "bus reopen team ladder lazy list timber render wait",
             dydx_v4_perpetual_chain_address="dydx14zzueazeh0hj67cghhf9jypslcf9sh2n5k6art",
             trading_pairs=[self.trading_pair],
             trading_required=False,
@@ -74,7 +74,7 @@ class DydxV4PerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCas
         ws_connect_mock.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
-            await self.data_source.listen_for_user_stream(asyncio.Queue())
+            await (self.data_source.listen_for_user_stream(asyncio.Queue()))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch(
@@ -100,7 +100,7 @@ class DydxV4PerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCas
     async def test_ws_authentication_successful(self, ws_connect_mock):
 
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        await self.data_source._connected_websocket_assistant()
+        await (self.data_source._connected_websocket_assistant())
 
         json_msgs = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
 

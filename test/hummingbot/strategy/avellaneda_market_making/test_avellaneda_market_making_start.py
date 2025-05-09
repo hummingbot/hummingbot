@@ -73,7 +73,7 @@ class AvellanedaStartTest(unittest.TestCase):
     def handle(self, record):
         self.log_records.append(record)
 
-    @unittest.mock.patch("hummingbot.strategy.avellaneda_market_making.start.HummingbotApplication")
+    @unittest.mock.patch('hummingbot.strategy.avellaneda_market_making.start.HummingbotApplication')
     def test_parameters_strategy_creation(self, mock_hbot):
         mock_hbot.main_application().strategy_file_name = "test.yml"
         strategy_start.start(self)

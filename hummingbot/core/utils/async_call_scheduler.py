@@ -58,7 +58,12 @@ class AsyncCallScheduler:
     def start(self):
         if self._coro_scheduler_task is not None:
             self.stop()
-        self._coro_scheduler_task = safe_ensure_future(self._coro_scheduler(self._coro_queue, self._call_interval))
+        self._coro_scheduler_task = safe_ensure_future(
+            self._coro_scheduler(
+                self._coro_queue,
+                self._call_interval
+            )
+        )
 
     def stop(self):
         if self._coro_scheduler_task is not None:
@@ -84,7 +89,9 @@ class AsyncCallScheduler:
             except Exception as e:
                 # Add exception information.
                 app_warning_msg += f" [[Got exception: {str(e)}]]"
-                self.logger().debug(app_warning_msg, exc_info=True, app_warning_msg=app_warning_msg)
+                self.logger().debug(app_warning_msg,
+                                    exc_info=True,
+                                    app_warning_msg=app_warning_msg)
                 try:
                     fut.set_exception(e)
                 except Exception:
@@ -97,18 +104,21 @@ class AsyncCallScheduler:
             except Exception:
                 self.logger().error("Scheduler sleep interrupted.", exc_info=True)
 
-    async def schedule_async_call(
-        self, coro: Coroutine, timeout_seconds: float, app_warning_msg: str = "API call error."
-    ) -> any:
+    async def schedule_async_call(self,
+                                  coro: Coroutine,
+                                  timeout_seconds: float,
+                                  app_warning_msg: str = "API call error.") -> any:
         fut: asyncio.Future = self._ev_loop.create_future()
-        self._coro_queue.put_nowait(AsyncCallSchedulerItem(fut, coro, timeout_seconds, app_warning_msg=app_warning_msg))
+        self._coro_queue.put_nowait(AsyncCallSchedulerItem(fut, coro, timeout_seconds,
+                                                           app_warning_msg=app_warning_msg))
         if self._coro_scheduler_task is None:
             self.start()
         return await fut
 
-    async def call_async(
-        self, func: Callable, *args, timeout_seconds: float = 5.0, app_warning_msg: str = "API call error."
-    ) -> any:
+    async def call_async(self,
+                         func: Callable, *args,
+                         timeout_seconds: float = 5.0,
+                         app_warning_msg: str = "API call error.") -> any:
         coro: Coroutine = self._ev_loop.run_in_executor(
             hummingbot.get_executor(),
             func,
