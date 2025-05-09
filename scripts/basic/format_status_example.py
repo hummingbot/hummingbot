@@ -7,9 +7,9 @@ class FormatStatusExample(ScriptStrategyBase):
     Run the command status --live, once the strategy starts.
     """
     markets = {
-        "binance_paper_trade": {"ETH-USDT", "BTC-USDT", "POL-USDT", "AVAX-USDT"},
-        "kucoin_paper_trade": {"ETH-USDT", "BTC-USDT", "POL-USDT", "AVAX-USDT"},
-        "gate_io_paper_trade": {"ETH-USDT", "BTC-USDT", "POL-USDT", "AVAX-USDT"},
+        "binance_paper_trade": {"ETH-USDT", "BTC-USDT", "POL-USDT", "AVAX-USDT", "WLD-USDT", "DOGE-USDT", "SHIB-USDT", "XRP-USDT", "SOL-USDT"},
+        "kucoin_paper_trade": {"ETH-USDT", "BTC-USDT", "POL-USDT", "AVAX-USDT", "WLD-USDT", "DOGE-USDT", "SHIB-USDT", "XRP-USDT", "SOL-USDT"},
+        "gate_io_paper_trade": {"ETH-USDT", "BTC-USDT", "POL-USDT", "AVAX-USDT", "WLD-USDT", "DOGE-USDT", "SHIB-USDT", "XRP-USDT", "SOL-USDT"},
     }
 
     def format_status(self) -> str:
@@ -20,11 +20,6 @@ class FormatStatusExample(ScriptStrategyBase):
         if not self.ready_to_trade:
             return "Market connectors are not ready."
         lines = []
-        warning_lines = []
-        warning_lines.extend(self.network_warning(self.get_market_trading_pair_tuples()))
-
-        balance_df = self.get_balance_df()
-        lines.extend(["", "  Balances:"] + ["    " + line for line in balance_df.to_string(index=False).split("\n")])
         market_status_df = self.get_market_status_df_with_depth()
         lines.extend(["", "  Market Status Data Frame:"] + ["    " + line for line in market_status_df.to_string(index=False).split("\n")])
         return "\n".join(lines)
@@ -34,6 +29,7 @@ class FormatStatusExample(ScriptStrategyBase):
         market_status_df["Exchange"] = market_status_df.apply(lambda x: x["Exchange"].strip("PaperTrade") + "paper_trade", axis=1)
         market_status_df["Volume (+1%)"] = market_status_df.apply(lambda x: self.get_volume_for_percentage_from_mid_price(x, 0.01), axis=1)
         market_status_df["Volume (-1%)"] = market_status_df.apply(lambda x: self.get_volume_for_percentage_from_mid_price(x, -0.01), axis=1)
+        market_status_df.sort_values(by=["Market"], inplace=True)
         return market_status_df
 
     def get_volume_for_percentage_from_mid_price(self, row, percentage):

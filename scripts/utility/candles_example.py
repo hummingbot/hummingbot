@@ -48,9 +48,6 @@ class CandlesExample(ScriptStrategyBase):
         """
         return all([self.eth_1h_candles.ready, self.eth_1m_candles.ready, self.eth_1w_candles.ready])
 
-    def on_tick(self):
-        pass
-
     async def on_stop(self):
         """
         Without this functionality, the network iterator will continue running forever after stopping the strategy

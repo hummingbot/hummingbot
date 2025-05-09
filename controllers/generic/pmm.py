@@ -265,6 +265,7 @@ class PMM(ControllerBase):
         create_actions = []
         if self.processed_data["current_base_pct"] > self.config.target_base_pct and self.processed_data["unrealized_pnl_pct"] > self.config.global_take_profit:
             # Create a global take profit executor
+            # TODO: block the creation of new executors if the global take profit is triggered
             create_actions.append(CreateExecutorAction(
                 controller_id=self.config.id,
                 executor_config=OrderExecutorConfig(

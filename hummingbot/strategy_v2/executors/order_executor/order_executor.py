@@ -45,7 +45,6 @@ class OrderExecutor(ExecutorBase):
         super().__init__(strategy=strategy, config=config, connectors=[config.connector_name],
                          update_interval=update_interval)
         self.config: OrderExecutorConfig = config
-        self.trading_rules = self.get_trading_rules(self.config.connector_name, self.config.trading_pair)
 
         # Order tracking
         self._order: Optional[TrackedOrder] = None
@@ -245,7 +244,7 @@ class OrderExecutor(ExecutorBase):
         """
         if self._order and event.order_id == self._order.order_id:
             if self._order.executed_amount_base > Decimal("0"):
-                self._partially_filled_orders.append(self._order)
+                self._partial_filled_orders.append(self._order)
             else:
                 self._canceled_orders.append(self._order)
             self._order = None
