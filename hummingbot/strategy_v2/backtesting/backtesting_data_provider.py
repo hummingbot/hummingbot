@@ -130,8 +130,7 @@ class BacktestingDataProvider(MarketDataProvider):
         :return: Candles dataframe.
         """
         candles_df = self.candles_feeds.get(f"{connector_name}_{trading_pair}_{interval}")
-        candles_df = self.ensure_epoch_index(candles_df)
-        return candles_df.loc[self.start_time:self.end_time]
+        return candles_df[(candles_df["timestamp"] >= self.start_time) & (candles_df["timestamp"] <= self.end_time)]
 
     def get_price_by_type(self, connector_name: str, trading_pair: str, price_type: PriceType):
         """
