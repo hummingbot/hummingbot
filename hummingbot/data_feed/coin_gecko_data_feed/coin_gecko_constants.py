@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
+import os
 from typing import List
 
 from hummingbot.core.api_throttler.data_types import RateLimit
