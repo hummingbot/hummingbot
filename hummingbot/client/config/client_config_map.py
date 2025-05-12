@@ -638,7 +638,7 @@ class CoinbaseAdvancedTradeRateSourceMode(ExchangeRateSourceModeBase):
         default=False,
         description="Use authentication for public endpoints",
         json_schema_extra = {
-            "prompt": lambda cm: "Would you like to use authentication for public endpoints? (Yes/No) (currently No is broken)",
+            "prompt": lambda cm: "Would you like to use authentication for public endpoints? (Yes/No) (only affects rate limiting)",
             "prompt_on_new": True,
             "is_connect_key": True,
         },
