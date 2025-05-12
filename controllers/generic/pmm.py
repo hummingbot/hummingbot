@@ -136,6 +136,7 @@ class PMMConfig(ControllerConfigBase):
         }
     )
     global_take_profit: Decimal = Decimal("0.02")
+    global_stop_loss: Decimal = Decimal("0.05")
 
     @field_validator("take_profit", mode="before")
     @classmethod
