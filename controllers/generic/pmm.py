@@ -264,7 +264,8 @@ class PMM(ControllerBase):
         Create actions proposal based on the current state of the controller.
         """
         create_actions = []
-        if self.processed_data["current_base_pct"] > self.config.target_base_pct and self.processed_data["unrealized_pnl_pct"] > self.config.global_take_profit:
+        if (self.processed_data["current_base_pct"] > self.config.target_base_pct and
+                (self.processed_data["unrealized_pnl_pct"] > self.config.global_take_profit or self.processed_data["unrealized_pnl_pct"] < -self.config.global_stop_loss)):
             # Create a global take profit executor
             # TODO: block the creation of new executors if the global take profit is triggered
             create_actions.append(CreateExecutorAction(
