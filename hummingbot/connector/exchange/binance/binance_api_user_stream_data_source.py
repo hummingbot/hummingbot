@@ -41,7 +41,10 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         Creates an instance of WSAssistant connected to the exchange
         """
-        self._manage_listen_key_task = safe_ensure_future(self._manage_listen_key_task_loop())
+        # Only start a new listen key task if one doesn't exist or is completed
+        if not hasattr(self, "_manage_listen_key_task") or self._manage_listen_key_task is None or self._manage_listen_key_task.done():
+            self._manage_listen_key_task = safe_ensure_future(self._manage_listen_key_task_loop())
+
         await self._listen_key_initialized_event.wait()
 
         ws: WSAssistant = await self._get_ws_assistant()
@@ -125,13 +128,32 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
             self._listen_key_initialized_event.clear()
 
     async def _get_ws_assistant(self) -> WSAssistant:
-        if self._ws_assistant is None:
-            self._ws_assistant = await self._api_factory.get_ws_assistant()
+        """
+        Get a new instance of WebSocket assistant
+        """
+        # Always create a new WebSocket assistant
+        # The old one will be properly cleaned up in _on_user_stream_interruption
+        self._ws_assistant = await self._api_factory.get_ws_assistant()
         return self._ws_assistant
 
     async def _on_user_stream_interruption(self, websocket_assistant: Optional[WSAssistant]):
-        await super()._on_user_stream_interruption(websocket_assistant=websocket_assistant)
-        self._manage_listen_key_task and self._manage_listen_key_task.cancel()
-        self._current_listen_key = None
-        self._listen_key_initialized_event.clear()
+        """
+        Clean up when the WebSocket connection is interrupted
+        """
+        # Disconnect WebSocket if it exists
+        if websocket_assistant is not None:
+            await websocket_assistant.disconnect()
+
+        # Only cancel the listen key task if we're completely shutting down
+        # If just reconnecting, we want to keep the listen key management running
+        if self._current_listen_key is None or not self._listen_key_initialized_event.is_set():
+            if self._manage_listen_key_task is not None and not self._manage_listen_key_task.done():
+                self._manage_listen_key_task.cancel()
+                self._manage_listen_key_task = None
+
+        # Reset listen key only if we're completely shutting down, not just reconnecting
+        if not self._listen_key_initialized_event.is_set():
+            self._current_listen_key = None
+
+        # Always wait a bit before reconnecting to avoid rapid reconnection cycles
         await self._sleep(5)
