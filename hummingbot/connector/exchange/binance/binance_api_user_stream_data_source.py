@@ -19,6 +19,8 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     LISTEN_KEY_KEEP_ALIVE_INTERVAL = 1800  # Recommended to Ping/Update listen key to keep connection alive
     HEARTBEAT_TIME_INTERVAL = 30.0
+    LISTEN_KEY_RETRY_INTERVAL = 5.0
+    MAX_RETRIES = 3
 
     _logger: Optional[HummingbotLogger] = None
 
@@ -36,49 +38,55 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
         self._listen_key_initialized_event: asyncio.Event = asyncio.Event()
         self._last_listen_key_ping_ts = 0
+        self._manage_listen_key_task = None
 
-    async def _connected_websocket_assistant(self) -> WSAssistant:
+    async def _get_ws_assistant(self) -> WSAssistant:
         """
-        Creates an instance of WSAssistant connected to the exchange
+        Creates a new WSAssistant instance.
         """
-        # Only start a new listen key task if one doesn't exist or is completed
-        if not hasattr(self, "_manage_listen_key_task") or self._manage_listen_key_task is None or self._manage_listen_key_task.done():
-            self._manage_listen_key_task = safe_ensure_future(self._manage_listen_key_task_loop())
+        if self._ws_assistant is None:
+            self._ws_assistant = await self._api_factory.get_ws_assistant()
+        return self._ws_assistant
 
-        await self._listen_key_initialized_event.wait()
-
-        ws: WSAssistant = await self._get_ws_assistant()
-        url = f"{CONSTANTS.WSS_URL.format(self._domain)}/{self._current_listen_key}"
-        await ws.connect(ws_url=url, ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
-        return ws
-
-    async def _subscribe_channels(self, websocket_assistant: WSAssistant):
+    async def _get_listen_key(self, max_retries: int = MAX_RETRIES) -> str:
         """
-        Subscribes to the trade events and diff orders events through the provided websocket connection.
+        Fetches a listen key from the exchange with retries and backoff.
 
-        Binance does not require any channel subscription.
-
-        :param websocket_assistant: the websocket assistant used to connect to the exchange
+        :param max_retries: Maximum number of retry attempts
+        :return: Valid listen key string
         """
-        pass
+        retry_count = 0
+        backoff_time = 1.0
+        timeout = 5.0
 
-    async def _get_listen_key(self):
         rest_assistant = await self._api_factory.get_rest_assistant()
-        try:
-            data = await rest_assistant.execute_request(
-                url=web_utils.public_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_PATH_URL, domain=self._domain),
-                method=RESTMethod.POST,
-                throttler_limit_id=CONSTANTS.BINANCE_USER_STREAM_PATH_URL,
-                headers=self._auth.header_for_authentication()
-            )
-        except asyncio.CancelledError:
-            raise
-        except Exception as exception:
-            raise IOError(f"Error fetching user stream listen key. Error: {exception}")
+        while True:
+            try:
+                data = await rest_assistant.execute_request(
+                    url=web_utils.public_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_PATH_URL, domain=self._domain),
+                    method=RESTMethod.POST,
+                    throttler_limit_id=CONSTANTS.BINANCE_USER_STREAM_PATH_URL,
+                    headers=self._auth.header_for_authentication(),
+                    timeout=timeout,
+                )
+                return data["listenKey"]
+            except asyncio.CancelledError:
+                raise
+            except Exception as exception:
+                retry_count += 1
+                if retry_count > max_retries:
+                    raise IOError(f"Error fetching user stream listen key after {max_retries} retries. Error: {exception}")
 
-        return data["listenKey"]
+                self.logger().warning(f"Retry {retry_count}/{max_retries} fetching user stream listen key. Error: {exception}")
+                await self._sleep(backoff_time)
+                backoff_time *= 2
 
     async def _ping_listen_key(self) -> bool:
+        """
+        Sends a ping to keep the listen key alive.
+
+        :return: True if successful, False otherwise
+        """
         rest_assistant = await self._api_factory.get_rest_assistant()
         try:
             data = await rest_assistant.execute_request(
@@ -103,57 +111,105 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
         return True
 
     async def _manage_listen_key_task_loop(self):
+        """
+        Background task that manages the listen key lifecycle:
+        1. Obtains a new listen key if needed
+        2. Periodically refreshes the listen key to keep it active
+        3. Handles errors and resets state when necessary
+        """
+        self.logger().info("Starting listen key management task...")
+
         try:
             while True:
-                now = int(time.time())
-                if self._current_listen_key is None:
-                    self._current_listen_key = await self._get_listen_key()
-                    self.logger().info(f"Successfully obtained listen key {self._current_listen_key}")
-                    self._listen_key_initialized_event.set()
-                    self._last_listen_key_ping_ts = int(time.time())
+                try:
+                    now = int(time.time())
 
-                if now - self._last_listen_key_ping_ts >= self.LISTEN_KEY_KEEP_ALIVE_INTERVAL:
-                    success: bool = await self._ping_listen_key()
-                    if not success:
-                        self.logger().error("Error occurred renewing listen key ...")
-                        break
-                    else:
-                        self.logger().info(f"Refreshed listen key {self._current_listen_key}.")
-                        self._last_listen_key_ping_ts = int(time.time())
+                    # Initialize listen key if needed
+                    if self._current_listen_key is None:
+                        self._current_listen_key = await self._get_listen_key()
+                        self._last_listen_key_ping_ts = now
                         self._listen_key_initialized_event.set()
-                else:
-                    await self._sleep(self.LISTEN_KEY_KEEP_ALIVE_INTERVAL)
+                        self.logger().info(f"Successfully obtained listen key {self._current_listen_key}")
+
+                    # Refresh listen key periodically
+                    if now - self._last_listen_key_ping_ts >= self.LISTEN_KEY_KEEP_ALIVE_INTERVAL:
+                        success = await self._ping_listen_key()
+                        if success:
+                            self.logger().info(f"Successfully refreshed listen key {self._current_listen_key}")
+                            self._last_listen_key_ping_ts = now
+                        else:
+                            self.logger().error(f"Failed to refresh listen key {self._current_listen_key}. Getting new key...")
+                            self._current_listen_key = None
+                            self._listen_key_initialized_event.clear()
+                            # Continue to next iteration which will get a new key
+
+                except asyncio.CancelledError:
+                    self.logger().info("Listen key management task cancelled")
+                    raise
+                except Exception as e:
+                    self.logger().error(f"Error in listen key management task: {e}")
+                    self._current_listen_key = None
+                    self._listen_key_initialized_event.clear()
+
+                await self._sleep(self.LISTEN_KEY_RETRY_INTERVAL)
         finally:
+            self.logger().info("Listen key management task stopped")
             self._current_listen_key = None
             self._listen_key_initialized_event.clear()
 
-    async def _get_ws_assistant(self) -> WSAssistant:
+    async def _ensure_listen_key_task_running(self):
         """
-        Get a new instance of WebSocket assistant
+        Ensures the listen key management task is running.
         """
-        # Always create a new WebSocket assistant
-        # The old one will be properly cleaned up in _on_user_stream_interruption
-        self._ws_assistant = await self._api_factory.get_ws_assistant()
-        return self._ws_assistant
+        if self._manage_listen_key_task is None or self._manage_listen_key_task.done():
+            self._manage_listen_key_task = safe_ensure_future(self._manage_listen_key_task_loop())
+
+    async def _connected_websocket_assistant(self) -> WSAssistant:
+        """
+        Creates an instance of WSAssistant connected to the exchange.
+
+        This method ensures the listen key is ready before connecting.
+        """
+        # Make sure the listen key management task is running
+        await self._ensure_listen_key_task_running()
+
+        # Wait for the listen key to be initialized
+        await self._listen_key_initialized_event.wait()
+
+        # Get a websocket assistant and connect it
+        ws = await self._get_ws_assistant()
+        url = f"{CONSTANTS.WSS_URL.format(self._domain)}/{self._current_listen_key}"
+
+        self.logger().info(f"Connecting to user stream with listen key {self._current_listen_key}")
+        await ws.connect(ws_url=url, ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+        self.logger().info("Successfully connected to user stream")
+
+        return ws
+
+    async def _subscribe_channels(self, websocket_assistant: WSAssistant):
+        """
+        Subscribes to the trade events and diff orders events through the provided websocket connection.
+
+        Binance does not require any channel subscription.
+
+        :param websocket_assistant: the websocket assistant used to connect to the exchange
+        """
+        pass
 
     async def _on_user_stream_interruption(self, websocket_assistant: Optional[WSAssistant]):
         """
-        Clean up when the WebSocket connection is interrupted
+        Handles websocket disconnection by cleaning up resources.
+
+        :param websocket_assistant: The websocket assistant that was disconnected
         """
-        # Disconnect WebSocket if it exists
+        self.logger().info("User stream interrupted. Cleaning up...")
+
+        # Disconnect the websocket if it exists
         if websocket_assistant is not None:
             await websocket_assistant.disconnect()
+            self._ws_assistant = None
 
-        # Only cancel the listen key task if we're completely shutting down
-        # If just reconnecting, we want to keep the listen key management running
-        if self._current_listen_key is None or not self._listen_key_initialized_event.is_set():
-            if self._manage_listen_key_task is not None and not self._manage_listen_key_task.done():
-                self._manage_listen_key_task.cancel()
-                self._manage_listen_key_task = None
+        # We don't cancel the listen key management task here since it's meant to keep running
+        # throughout the life of the application, even during websocket reconnections
 
-        # Reset listen key only if we're completely shutting down, not just reconnecting
-        if not self._listen_key_initialized_event.is_set():
-            self._current_listen_key = None
-
-        # Always wait a bit before reconnecting to avoid rapid reconnection cycles
-        await self._sleep(5)
+        await self._sleep(self.LISTEN_KEY_RETRY_INTERVAL)
