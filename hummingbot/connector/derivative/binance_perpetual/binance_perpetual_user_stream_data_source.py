@@ -51,12 +51,8 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         return 0
 
     async def _get_ws_assistant(self) -> WSAssistant:
-        """
-        Get a new instance of WebSocket assistant
-        """
-        # Always create a new WebSocket assistant
-        # The old one will be properly cleaned up in _on_user_stream_interruption
-        self._ws_assistant = await self._api_factory.get_ws_assistant()
+        if self._ws_assistant is None:
+            self._ws_assistant = await self._api_factory.get_ws_assistant()
         return self._ws_assistant
 
     async def _get_listen_key(self):
@@ -123,9 +119,7 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         """
         Creates an instance of WSAssistant connected to the exchange
         """
-        if self._manage_listen_key_task is None or self._manage_listen_key_task.done():
-            self._manage_listen_key_task = safe_ensure_future(self._manage_listen_key_task_loop())
-
+        self._manage_listen_key_task = safe_ensure_future(self._manage_listen_key_task_loop())
         await self._listen_key_initialized_event.wait()
 
         ws: WSAssistant = await self._get_ws_assistant()
@@ -144,19 +138,8 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         pass
 
     async def _on_user_stream_interruption(self, websocket_assistant: Optional[WSAssistant]):
-        """
-        Clean up when the WebSocket connection is interrupted
-        """
-        # Disconnect WebSocket if it exists
-        if websocket_assistant is not None:
-            await websocket_assistant.disconnect()
-
-        if self._current_listen_key is None or not self._listen_key_initialized_event.is_set():
-            if self._manage_listen_key_task is not None and not self._manage_listen_key_task.done():
-                self._manage_listen_key_task.cancel()
-                self._manage_listen_key_task = None
-
-        if not self._listen_key_initialized_event.is_set():
-            self._current_listen_key = None
-
+        websocket_assistant and await websocket_assistant.disconnect()
+        self._manage_listen_key_task and self._manage_listen_key_task.cancel()
+        self._current_listen_key = None
+        self._listen_key_initialized_event.clear()
         await self._sleep(5)
