@@ -157,7 +157,7 @@ cdef class LimitOrder:
         elif len(self.client_order_id) > 16 and self.client_order_id[-16:].isnumeric():
             start_timestamp = int(self.client_order_id[-16:])
         if 0 < start_timestamp < end_timestamp:
-            return int(end_timestamp - start_timestamp) / 1e6
+            return <long long>((end_timestamp - start_timestamp) / 1e6)
         else:
             return -1
 
