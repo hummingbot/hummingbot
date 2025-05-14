@@ -7,7 +7,7 @@ dependencies:
   - autopep8
   - conda-build>=3.26.0
   - coverage>=7.2.7
-  - cython==3.0.12
+  - cython
   - flake8>=6.0.0
   - diff-cover>=7.7.0
   - pip>=23.2.1
