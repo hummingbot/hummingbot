@@ -27,6 +27,7 @@ from hummingbot.client.ui.completer import load_completer
 from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
 from hummingbot.client.ui.keybindings import load_key_bindings
 from hummingbot.client.ui.parser import ThrowingArgumentParser, load_parser
+from hummingbot.command_iface import TelegramCommandInterface
 from hummingbot.connector.exchange.paper_trade import create_paper_trade_market
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.markets_recorder import MarketsRecorder
@@ -126,6 +127,9 @@ class HummingbotApplication(*commands):
         # MQTT Bridge
         if self.client_config_map.mqtt_bridge.mqtt_autostart:
             self.mqtt_start()
+
+        # Initialize command interfaces
+        self._initialize_command_interfaces()
 
     @property
     def instance_id(self) -> str:
@@ -331,7 +335,16 @@ class HummingbotApplication(*commands):
         if self._mqtt is not None:
             self._mqtt.start_market_events_fw()
 
+    def _initialize_command_interfaces(self):
+        # Telegram
+        if self.client_config_map.telegram.enabled:
+            telegram_command_interface = TelegramCommandInterface.from_client_config(
+                self.client_config_map, self
+            )
+            self.notifiers.append(telegram_command_interface)
+
     def _initialize_notifiers(self):
+        # Start all notifiers
         for notifier in self.notifiers:
             notifier.start()
 
