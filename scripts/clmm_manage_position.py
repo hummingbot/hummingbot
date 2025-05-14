@@ -247,8 +247,8 @@ class CLMMPositionManager(ScriptStrategyBase):
             self.logger().info(f"Position opening response received: {response}")
 
             # Check for txHash
-            if "signature" in response:
-                tx_hash = response["signature"]
+            if "txHash" in response:
+                tx_hash = response["txHash"]
                 self.logger().info(f"Position opening transaction submitted: {tx_hash}")
 
                 # Store position address from response
@@ -362,8 +362,8 @@ class CLMMPositionManager(ScriptStrategyBase):
                 )
 
                 # Check response
-                if "signature" in response:
-                    tx_hash = response["signature"]
+                if "txHash" in response:
+                    tx_hash = response["txHash"]
                     self.logger().info(f"Position closing transaction submitted: {tx_hash}")
 
                     # Poll for transaction result

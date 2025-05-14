@@ -302,7 +302,7 @@ class GatewayHttpClient:
             request_params = {
                 "network": network,
                 "address": address,
-                "tokenSymbols": token_symbols,
+                "tokens": token_symbols,
             }
             return await self.api_request(
                 method="post",
@@ -349,7 +349,7 @@ class GatewayHttpClient:
             "network": network,
             "address": address,
             "token": token,
-            "spender": spender
+            "spenderAddress": spender
         }
         if nonce is not None:
             request_payload["nonce"] = nonce
@@ -375,8 +375,8 @@ class GatewayHttpClient:
         return await self.api_request("post", "chains/ethereum/allowances", {
             "network": network,
             "address": address,
-            "tokenSymbols": token_symbols,
-            "spender": spender
+            "tokens": token_symbols,
+            "spenderAddress": spender
         }, fail_silently=fail_silently)
 
     async def get_transaction_status(
