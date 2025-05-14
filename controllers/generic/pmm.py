@@ -465,27 +465,12 @@ class PMM(ControllerBase):
         """
         Get the status of the controller in a formatted way with ASCII visualizations.
         """
+        from decimal import Decimal
         from itertools import zip_longest
-
-        import tabulate
 
         status = []
 
-        # Create header with fixed width columns for better alignment
-        header_data = [
-            [f"{self.config.connector_name}:{self.config.trading_pair}",
-             f"ID: {self.config.id}",
-             f"Price: {self.processed_data['reference_price']}",
-             f"Alloc: {self.config.portfolio_allocation:.1%}",
-             f"Spread Mult: {self.processed_data['spread_multiplier']}"]
-        ]
-
-        # Box drawing characters for better aesthetics
-        status.append("╒════════════════════════════════════════════════════════════════════════════╕")
-        header_table = tabulate.tabulate(header_data, tablefmt="plain", stralign="left", disable_numparse=True)
-        status.append(f"│ {header_table.strip():<74} │")
-
-        # Get relevant data for all sections
+        # Get all required data
         base_pct = self.processed_data['current_base_pct']
         min_pct = self.config.min_base_pct
         max_pct = self.config.max_base_pct
@@ -494,12 +479,30 @@ class PMM(ControllerBase):
         skew_pct = skew / target_pct if target_pct != 0 else Decimal('0')
         max_skew = getattr(self.config, 'max_skew', Decimal('0.0'))
 
-        # Position and PnL sections side by side with fixed widths
-        status.append("├─────────────────────────────────┬──────────────────────────────────┤")
-        status.append("│ POSITION STATUS                 │ PROFIT & LOSS                    │")
-        status.append("├─────────────────────────────────┼──────────────────────────────────┤")
+        # Fixed widths - adjusted based on screenshot analysis
+        outer_width = 92  # Total width including outer borders
+        inner_width = outer_width - 4  # Inner content width
+        half_width = (inner_width) // 2 - 1  # Width of each column in split sections
+        bar_width = inner_width - 15  # Width of visualization bars (accounting for label)
 
-        # Position data - left aligned with fixed width
+        # Header - omit ID since it's shown above in controller header
+        status.append("╒" + "═" * (inner_width) + "╕")
+
+        header_line = (
+            f"{self.config.connector_name}:{self.config.trading_pair}  "
+            f"Price: {self.processed_data['reference_price']}  "
+            f"Alloc: {self.config.portfolio_allocation:.1%}  "
+            f"Spread Mult: {self.processed_data['spread_multiplier']} |"
+        )
+
+        status.append(f"│ {header_line:<{inner_width}} │")
+
+        # Position and PnL sections with precise widths
+        status.append(f"├{'─' * half_width}┬{'─' * half_width}┤")
+        status.append(f"│ {'POSITION STATUS':<{half_width - 2}} │ {'PROFIT & LOSS':<{half_width - 2}} │")
+        status.append(f"├{'─' * half_width}┼{'─' * half_width}┤")
+
+        # Position data for left column
         position_info = [
             f"Current: {base_pct:.2%}",
             f"Target: {target_pct:.2%}",
@@ -507,7 +510,7 @@ class PMM(ControllerBase):
             f"Skew: {skew_pct:+.2%} (max {max_skew:.2%})"
         ]
 
-        # PnL data - left aligned with fixed width
+        # PnL data for right column
         pnl_info = []
         if 'unrealized_pnl_pct' in self.processed_data:
             pnl = self.processed_data['unrealized_pnl_pct']
@@ -519,57 +522,58 @@ class PMM(ControllerBase):
                 f"Leverage: {self.config.leverage}x"
             ]
 
-        # Equal column widths for side-by-side display
+        # Display position and PnL info side by side with exact spacing
         for pos_line, pnl_line in zip_longest(position_info, pnl_info, fillvalue=""):
-            status.append(f"│ {pos_line:<33}│ {pnl_line:<34}│")
+            status.append(f"│ {pos_line:<{half_width - 2}} │ {pnl_line:<{half_width - 2}} │")
 
-        # Visualization section
-        status.append("├──────────────────────────────────────────────────────────────────────────┤")
-        status.append("│ VISUALIZATIONS                                                          │")
-        status.append("├──────────────────────────────────────────────────────────────────────────┤")
+        # Adjust visualization section - ensure consistent spacing
+        status.append(f"├{'─' * (inner_width)}┤")
+        status.append(f"│ {'VISUALIZATIONS':<{inner_width}} │")
+        status.append(f"├{'─' * (inner_width)}┤")
 
-        # Position bar - standardized width
-        bar_width = 60
+        # Position bar with exact spacing and characters
         filled_width = int(base_pct * bar_width)
         min_pos = int(min_pct * bar_width)
         max_pos = int(max_pct * bar_width)
         target_pos = int(target_pct * bar_width)
 
-        # Improved position bar with better-defined markers
-        base_bar = "│ Position: ["
+        # Build position bar character by character
+        position_bar = ""
         for i in range(bar_width):
             if i == filled_width:
-                base_bar += "◆"  # Current position - diamond
+                position_bar += "◆"  # Current position
             elif i == min_pos:
-                base_bar += "┃"  # Min threshold - vertical line
+                position_bar += "┃"  # Min threshold
             elif i == max_pos:
-                base_bar += "┃"  # Max threshold - vertical line
+                position_bar += "┃"  # Max threshold
             elif i == target_pos:
-                base_bar += "┇"  # Target threshold - dashed line
+                position_bar += "┇"  # Target threshold
             elif i < filled_width:
-                base_bar += "█"  # Filled area
+                position_bar += "█"  # Filled area
             else:
-                base_bar += "░"  # Empty area
-        base_bar += "] │"
-        status.append(base_bar)
+                position_bar += "░"  # Empty area
 
-        # Skew visualization - centered alignment
-        skew_bar_width = 60
+        # Ensure consistent label spacing as seen in screenshot
+        status.append(f"│ Position: [{position_bar}] │")
+
+        # Skew visualization with exact spacing
+        skew_bar_width = bar_width
         center = skew_bar_width // 2
         skew_pos = center + int(skew_pct * center * 2)
         skew_pos = max(0, min(skew_bar_width - 1, skew_pos))
 
-        # Skew bar with clear center mark
-        skew_bar = "│ Skew:     ["
+        # Build skew bar character by character
+        skew_bar = ""
         for i in range(skew_bar_width):
             if i == center:
                 skew_bar += "┃"  # Center line
             elif i == skew_pos:
-                skew_bar += "⬤"  # Current skew - bold circle
+                skew_bar += "⬤"  # Current skew
             else:
-                skew_bar += "─"  # Line
-        skew_bar += "] │"
-        status.append(skew_bar)
+                skew_bar += "─"  # Empty line
+
+        # Match spacing from screenshot with exact character counts
+        status.append(f"│ Skew:     [{skew_bar}] │")
 
         # PnL visualization if available
         if 'unrealized_pnl_pct' in self.processed_data:
@@ -577,10 +581,10 @@ class PMM(ControllerBase):
             take_profit = self.config.global_take_profit
             stop_loss = -self.config.global_stop_loss
 
-            pnl_bar_width = 60
+            pnl_bar_width = bar_width
             center = pnl_bar_width // 2
 
-            # Calculate positions based on scale
+            # Calculate positions with exact scaling
             max_range = max(abs(take_profit), abs(stop_loss), abs(pnl)) * Decimal("1.2")
             scale = (pnl_bar_width // 2) / max_range
 
@@ -593,38 +597,38 @@ class PMM(ControllerBase):
             take_profit_pos = max(0, min(pnl_bar_width - 1, take_profit_pos))
             stop_loss_pos = max(0, min(pnl_bar_width - 1, stop_loss_pos))
 
-            # Create PnL bar with clearer markers
-            pnl_bar = "│ PnL:      ["
+            # Build PnL bar character by character
+            pnl_bar = ""
             for i in range(pnl_bar_width):
                 if i == center:
-                    pnl_bar += "│"  # Center (zero) line
+                    pnl_bar += "│"  # Center line
                 elif i == pnl_pos:
-                    pnl_bar += "⬤"  # Current PnL position
+                    pnl_bar += "⬤"  # Current PnL
                 elif i == take_profit_pos:
                     pnl_bar += "T"  # Take profit line
                 elif i == stop_loss_pos:
                     pnl_bar += "S"  # Stop loss line
                 elif (pnl >= 0 and center <= i < pnl_pos) or (pnl < 0 and pnl_pos < i <= center):
-                    # Fill area between center and current PnL
                     pnl_bar += "█" if pnl >= 0 else "▓"
                 else:
                     pnl_bar += "─"
-            pnl_bar += "] │"
-            status.append(pnl_bar)
 
-        # Executors section with consistent column widths
-        status.append("├─────────────────────────────────┬──────────────────────────────────┤")
-        status.append("│ EXECUTORS STATUS                │ EXECUTOR VISUALIZATION           │")
-        status.append("├─────────────────────────────────┼──────────────────────────────────┤")
+        # Match spacing from screenshot
+        status.append(f"│ PnL:      [{pnl_bar}] │")
 
-        # Count active executors
+        # Executors section with precise column widths
+        status.append(f"├{'─' * half_width}┬{'─' * half_width}┤")
+        status.append(f"│ {'EXECUTORS STATUS':<{half_width - 2}} │ {'EXECUTOR VISUALIZATION':<{half_width - 2}} │")
+        status.append(f"├{'─' * half_width}┼{'─' * half_width}┤")
+
+        # Count active executors by type
         active_buy = sum(1 for info in self.executors_info
                          if info.is_active and self.get_trade_type_from_level_id(info.custom_info["level_id"]) == TradeType.BUY)
         active_sell = sum(1 for info in self.executors_info
                           if info.is_active and self.get_trade_type_from_level_id(info.custom_info["level_id"]) == TradeType.SELL)
         total_active = sum(1 for info in self.executors_info if info.is_active)
 
-        # Executor stats
+        # Executor information with fixed formatting
         executor_info = [
             f"Total Active: {total_active}",
             f"Total Created: {len(self.executors_info)}",
@@ -635,7 +639,7 @@ class PMM(ControllerBase):
         if 'deviation' in self.processed_data:
             executor_info.append(f"Target Deviation: {self.processed_data['deviation']:.4f}")
 
-        # Visualization with consistent representation
+        # Visualization with consistent block characters for buy/sell representation
         buy_bars = "▮" * active_buy if active_buy > 0 else "─"
         sell_bars = "▮" * active_sell if active_sell > 0 else "─"
 
@@ -644,10 +648,11 @@ class PMM(ControllerBase):
             f"Sell: {sell_bars}"
         ]
 
-        # Display with fixed column widths
+        # Display with fixed width columns
         for exec_line, viz_line in zip_longest(executor_info, executor_viz, fillvalue=""):
-            status.append(f"│ {exec_line:<33}│ {viz_line:<34}│")
+            status.append(f"│ {exec_line:<{half_width - 2}} │ {viz_line:<{half_width - 2}} │")
 
-        status.append("╘══════════════════════════════════════════════════════════════════════════╛")
+        # Bottom border with exact width
+        status.append(f"╘{'═' * (inner_width)}╛")
 
         return status
