@@ -645,14 +645,42 @@ class KrakenExchange(ExchangePyBase):
             mapping[symbol_data["altname"]] = convert_from_exchange_trading_pair(symbol_data["wsname"])
         self._set_trading_pair_symbol_map(mapping)
 
-    async def _get_last_traded_price(self, trading_pair: str) -> float:
-        params = {
-            "pair": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+    async def get_last_traded_prices(self, trading_pairs: List[str] = None) -> Dict[str, float]:
+        """
+        Gets the last traded price for multiple trading pairs in a single API call.
+        Assumes trading_pairs is always provided based on exchange_base implementation.
+        """
+        if len(trading_pairs) == 0:
+            return {}
+        if len(trading_pairs) == 1:
+            return {trading_pairs[0]: await self._get_last_traded_price(trading_pairs[0])}
+
+        # For multiple trading pairs, get all tickers in one call and filter
+        resp_json = await self._get_ticker_data()
+        exchange_symbols = [await self.exchange_symbol_associated_to_pair(tp) for tp in trading_pairs]
+        # Create a mapping from exchange symbols to trading pairs to avoid repeated async calls
+        symbol_to_pair = {symbol: tp for symbol, tp in zip(exchange_symbols, trading_pairs)}
+        return {
+            symbol_to_pair[symbol]: float(data["c"][0])
+            for symbol, data in resp_json.items()
+            if symbol in symbol_to_pair
         }
-        resp_json = await self._api_request_with_retry(
+
+    async def _get_ticker_data(self, trading_pair: str = None) -> Dict[str, Any]:
+        """
+        Shared method to fetch ticker data from Kraken, for one or all trading pairs.
+        """
+        params = {}
+        if trading_pair:
+            params["pair"] = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+
+        return await self._api_request_with_retry(
             method=RESTMethod.GET,
             path_url=CONSTANTS.TICKER_PATH_URL,
             params=params
         )
+
+    async def _get_last_traded_price(self, trading_pair: str) -> float:
+        resp_json = await self._get_ticker_data(trading_pair=trading_pair)
         record = list(resp_json.values())[0]
         return float(record["c"][0])
