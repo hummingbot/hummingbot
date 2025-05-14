@@ -219,8 +219,6 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         if websocket_assistant is not None:
             await websocket_assistant.disconnect()
             self._ws_assistant = None
-
-        # We don't cancel the listen key management task here since it's meant to keep running
-        # throughout the life of the application, even during websocket reconnections
-
+        self._current_listen_key = None
+        self._listen_key_initialized_event.clear()
         await self._sleep(self.LISTEN_KEY_RETRY_INTERVAL)
