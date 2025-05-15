@@ -38,7 +38,7 @@ class CoinbaseAdvancedTradeConfigMap(BaseConnectorConfigMap):
     use_auth_for_public_endpoints: bool = Field(
         default=False,
         json_schema_extra={
-            "prompt": "Would you like to use authentication for public endpoints? (Yes/No) (currently No is broken)",
+            "prompt": "Would you like to use authentication for public endpoints? (Yes/No) (only affects rate limiting)",
             "prompt_on_new": True,
             "is_connect_key": True
         }
