@@ -45,12 +45,16 @@ SIGNIN_ENDPOINTS = {
     CRYPTO_CURRENCIES_EP,
 }
 
+# Public API endpoints
+SERVER_TIME_EP = "/brokerage/time"
+ALL_PAIRS_EP = "/brokerage/market/products"  # https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_getpublicproducts
+PAIR_TICKER_24HR_EP = "/brokerage/market/products/{product_id}/ticker"
+PAIR_TICKER_24HR_RATE_LIMIT_ID = "ProductTicker24Hr"
+
 # Private API endpoints
-ALL_PAIRS_EP = "/brokerage/products"
-PAIR_TICKER_EP = "/brokerage/products/{product_id}"
-PAIR_TICKER_RATE_LIMIT_ID = "PairTicker"
-PAIR_TICKER_24HR_EP = "/brokerage/products/{product_id}/ticker"
-PAIR_TICKER_24HR_RATE_LIMIT_ID = "PairTicker24Hr"
+PRIVATE_PRODUCTS_EP = "/brokerage/products"  # https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_getproducts
+PRIVATE_PAIR_TICKER_24HR_EP = "/brokerage/products/{product_id}/ticker"
+PRIVATE_PAIR_TICKER_24HR_RATE_LIMIT_ID = "PrivatePairTicker24Hr"
 ORDER_EP = "/brokerage/orders"
 BATCH_CANCEL_EP = "/brokerage/orders/batch_cancel"
 GET_ORDER_STATUS_EP = "/brokerage/orders/historical/{order_id}"
@@ -69,9 +73,8 @@ CANDLES_EP_ID = "candles"
 SERVER_TIME_EP = "/brokerage/time"
 
 PRIVATE_REST_ENDPOINTS = {
-    ALL_PAIRS_EP,
-    PAIR_TICKER_RATE_LIMIT_ID,
-    PAIR_TICKER_24HR_RATE_LIMIT_ID,
+    PRIVATE_PRODUCTS_EP,
+    PRIVATE_PAIR_TICKER_24HR_RATE_LIMIT_ID,
     ORDER_EP,
     BATCH_CANCEL_EP,
     GET_ORDER_STATUS_RATE_LIMIT_ID,
@@ -86,6 +89,8 @@ PRIVATE_REST_ENDPOINTS = {
 PUBLIC_REST_ENDPOINTS = {
     CANDLES_EP_ID,
     SERVER_TIME_EP,
+    ALL_PAIRS_EP,
+    PAIR_TICKER_24HR_RATE_LIMIT_ID,
 }
 
 WS_HEARTBEAT_TIME_INTERVAL = 30
@@ -195,3 +200,17 @@ RATE_LIMITS = [
 RATE_LIMITS.extend(PRIVATE_REST_RATE_LIMITS)
 RATE_LIMITS.extend(PUBLIC_REST_RATE_LIMITS)
 RATE_LIMITS.extend(SIGNIN_RATE_LIMITS)
+
+
+def get_products_endpoint(use_auth_for_public_endpoints: bool) -> str:
+    if use_auth_for_public_endpoints:
+        return PRIVATE_PRODUCTS_EP
+    else:
+        return ALL_PAIRS_EP
+
+
+def get_ticker_endpoint(use_auth_for_public_endpoints: bool) -> Tuple[str, str]:
+    if use_auth_for_public_endpoints:
+        return (PRIVATE_PAIR_TICKER_24HR_EP, PRIVATE_PAIR_TICKER_24HR_RATE_LIMIT_ID)
+    else:
+        return (PAIR_TICKER_24HR_EP, PAIR_TICKER_24HR_RATE_LIMIT_ID)
