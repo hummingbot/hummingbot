@@ -126,7 +126,17 @@ class KrakenExchange(ExchangePyBase):
         return self._trading_required
 
     def supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
+        return [
+            OrderType.LIMIT,
+            OrderType.LIMIT_MAKER,
+            OrderType.MARKET,
+            OrderType.STOP_LOSS,
+            OrderType.TAKE_PROFIT,
+            OrderType.TRAILING_STOP,
+            # OrderType.STOP_LOSS_LIMIT,
+            # OrderType.TAKE_PROFIT_LIMIT,
+            # OrderType.TRAILING_STOP_LIMIT,
+        ]
 
     def _build_async_throttler(self, api_tier: KrakenAPITier) -> AsyncThrottler:
         limits_pct = self._client_config.rate_limits_share_pct
@@ -209,6 +219,13 @@ class KrakenExchange(ExchangePyBase):
         """
         return bool(re.search(r"HTTP status is (5|10)\d\d\.", str(exception)))
 
+    @staticmethod
+    def is_market_service_exception(exception: Exception):
+        """
+        Error status Market in cancel-only mode
+        """
+        return "EService:Market in cancel_only mode" in str(exception)
+
     async def get_open_orders_with_userref(self, userref: int):
         data = {'userref': userref}
         return await self._api_request_with_retry(RESTMethod.POST,
@@ -229,7 +246,7 @@ class KrakenExchange(ExchangePyBase):
 
         :param trading_pair: the token pair to operate with
         :param amount: the order amount
-        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
+        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER, STOP_LOSS, TAKE_PROFIT, TRAILING_STOP)
         :param price: the order price
 
         :return: the id assigned by the connector to the order (the client id)
@@ -238,13 +255,17 @@ class KrakenExchange(ExchangePyBase):
             nonce_creator=self._client_order_id_nonce_provider,
             max_id_bit_count=CONSTANTS.MAX_ID_BIT_COUNT,
         ))
-        safe_ensure_future(self._create_order(
-            trade_type=TradeType.BUY,
-            order_id=order_id,
-            trading_pair=trading_pair,
-            amount=amount,
-            order_type=order_type,
-            price=price))
+        safe_ensure_future(
+            self._create_order(
+                trade_type=TradeType.BUY,
+                order_id=order_id,
+                trading_pair=trading_pair,
+                amount=amount,
+                order_type=order_type,
+                price=price,
+                **kwargs,
+            )
+        )
         return order_id
 
     def sell(self,
@@ -257,7 +278,7 @@ class KrakenExchange(ExchangePyBase):
         Creates a promise to create a sell order using the parameters.
         :param trading_pair: the token pair to operate with
         :param amount: the order amount
-        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
+        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER, STOP_LOSS, TAKE_PROFIT, TRAILING_STOP)
         :param price: the order price
         :return: the id assigned by the connector to the order (the client id)
         """
@@ -265,13 +286,17 @@ class KrakenExchange(ExchangePyBase):
             nonce_creator=self._client_order_id_nonce_provider,
             max_id_bit_count=CONSTANTS.MAX_ID_BIT_COUNT,
         ))
-        safe_ensure_future(self._create_order(
-            trade_type=TradeType.SELL,
-            order_id=order_id,
-            trading_pair=trading_pair,
-            amount=amount,
-            order_type=order_type,
-            price=price))
+        safe_ensure_future(
+            self._create_order(
+                trade_type=TradeType.SELL,
+                order_id=order_id,
+                trading_pair=trading_pair,
+                amount=amount,
+                order_type=order_type,
+                price=price,
+                **kwargs,
+            )
+        )
         return order_id
 
     async def get_asset_pairs(self) -> Dict[str, Any]:
@@ -295,16 +320,91 @@ class KrakenExchange(ExchangePyBase):
         data = {
             "pair": trading_pair,
             "type": "buy" if trade_type is TradeType.BUY else "sell",
-            "ordertype": "market" if order_type is OrderType.MARKET else "limit",
             "volume": str(amount),
-            "userref": order_id,
-            "price": str(price)
+            "userref": order_id,  # This is a non-unique field, useful to group batches of orders
+            # "cl_order_id": order_id, # Kraken supports unique client order id
+            "price": str(price),
+            # "timeinforce": "GTC",
+            # "starttm": "0",
+            # "expiretm": "0",
         }
 
+        if kwargs.get("price_in_percent", False):
+            data["price"] = f"#{price}%"
+
+        if (
+            order_type
+            in {
+                OrderType.STOP_LOSS,
+                # OrderType.STOP_LOSS_LIMIT,
+                OrderType.TAKE_PROFIT,
+                # OrderType.TAKE_PROFIT_LIMIT,
+                OrderType.TRAILING_STOP,
+                # OrderType.TRAILING_STOP_LIMIT,
+            }
+            and "price_in_percent" not in kwargs
+        ):
+            self.logger().debug(f"kwargs: {kwargs}")
+            raise ValueError(f"{order_type} order requires to clarify if price is in percent with 'price_in_percent=True/False'")
+
+        # if (
+        #     order_type
+        #     in {
+        #         OrderType.STOP_LOSS_LIMIT,
+        #         OrderType.TAKE_PROFIT_LIMIT,
+        #         OrderType.TRAILING_STOP_LIMIT,
+        #     }
+        # ):
+        #     if "price2" not in kwargs and "limit_price" not in kwargs:
+        #         self.logger().debug(f"kwargs: {kwargs}")
+        #         raise ValueError(f"{order_type} order requires a limit price: 'price2=str or limit_price=str'")
+        #     if "price2" in kwargs and "limit_price" in kwargs:
+        #         self.logger().debug(f"kwargs: {kwargs}")
+        #         raise ValueError(f"{order_type} order cannot specify both: 'price2=str and limit_price=str'")
+        #     price2: Decimal = kwargs.get("price2", kwargs.get("limit_price"))
+        #     if not isinstance(price2, Decimal):
+        #         self.logger().debug(f"kwargs: {kwargs}")
+        #         raise ValueError(f"{order_type} order limit price must be Decimal")
+        #     data["price2"] = f"{price2:+}%"
+
         if order_type is OrderType.MARKET:
+            data["ordertype"] = "market"
             del data["price"]
-        if order_type is OrderType.LIMIT_MAKER:
+
+        elif order_type is OrderType.LIMIT:
+            data["ordertype"] = "limit"
+
+        elif order_type is OrderType.LIMIT_MAKER:
+            data["ordertype"] = "limit"
             data["oflags"] = "post"
+
+        elif order_type is OrderType.STOP_LOSS:
+            data["ordertype"] = "stop-loss"
+
+        # elif order_type is OrderType.STOP_LOSS_LIMIT:
+        #     data["ordertype"] = "stop-loss-limit"
+
+        elif order_type is OrderType.TAKE_PROFIT:
+            data["ordertype"] = "take-profit"
+
+        # elif order_type is OrderType.TAKE_PROFIT_LIMIT:
+        #     data["ordertype"] = "take-profit-limit"
+
+        elif order_type is OrderType.TRAILING_STOP:
+            data["ordertype"] = "trailing-stop"
+            data["price"] = data["price"].replace("#", "+")
+
+        # elif order_type is OrderType.TRAILING_STOP_LIMIT:
+        #     data["ordertype"] = "trailing-stop-limit"
+        #     data["price"] = data["price"].replace("#", "+")
+
+        elif hasattr(order_type, "name"):
+            raise ValueError(f"Order type {order_type.name} not supported")
+        else:
+            raise ValueError(f"Order type {order_type} is invalid")
+
+        self.logger().debug(f"  '-> Placing order {order_id} for {amount} {trading_pair} at {price} {trade_type.name} {order_type} with {kwargs}")
+        self.logger().debug(f"  '-> request data {data}")
         order_result = await self._api_request_with_retry(RESTMethod.POST,
                                                           CONSTANTS.ADD_ORDER_PATH_URL,
                                                           data=data,
@@ -327,13 +427,10 @@ class KrakenExchange(ExchangePyBase):
                 response_json = await self._api_request(path_url=path_url, method=method, params=params, data=data,
                                                         is_auth_required=is_auth_required)
 
-                if response_json.get("error") and "EAPI:Invalid nonce" in response_json.get("error", ""):
-                    self.logger().error(f"Invalid nonce error from {path_url}. " +
-                                        "Please ensure your Kraken API key nonce window is at least 10, " +
-                                        "and if needed reset your API key.")
-                result = response_json.get("result")
-                if not result or response_json.get("error"):
+                if response_json.get("error") or not response_json.get("result"):
                     raise IOError({"error": response_json})
+
+                result = response_json.get("result")
                 break
             except IOError as e:
                 if self.is_cloudflare_exception(e):
@@ -343,13 +440,27 @@ class KrakenExchange(ExchangePyBase):
                         response = await self.get_open_orders_with_userref(data.get('userref'))
                         if any(response.get("open").values()):
                             return response
+
                     self.logger().warning(
                         f"Cloudflare error. Attempt {retry_attempt + 1}/{self.REQUEST_ATTEMPTS}"
                         f" API command {method}: {path_url}"
                     )
                     await asyncio.sleep(retry_interval ** retry_attempt)
                     continue
+
+                elif self.is_market_service_exception(e):
+                    self.logger().error(f"Market in cancel-only mode error from {path_url}.")
+                    await asyncio.sleep((10 * retry_interval) ** retry_attempt)
+                    continue
+
+                elif isinstance(e, dict) and "EAPI:Invalid nonce" in e.get("error", ""):
+                    self.logger().error(f"Invalid nonce error from {path_url}. " +
+                                        "Please ensure your Kraken API key nonce window is at least 10, " +
+                                        "and if needed reset your API key.")
+                    raise ValueError("Invalid nonce error from Kraken API")
+
                 else:
+                    self.logger().error(f"Error fetching data from {path_url}, msg is {response_json}")
                     raise e
         if not result:
             raise IOError(f"Error fetching data from {path_url}, msg is {response_json}.")
@@ -542,6 +653,12 @@ class KrakenExchange(ExchangePyBase):
         trade_updates = []
 
         try:
+            # Kraken responds 'Invalid Order ID: XXX-XXX' for STOP_LOSS/TAKE_PROFIT/TRAILING_STOP orders
+            # which we identify in Hummingbot as 'DelayedOrder' delayed market orders.
+            # Here we simply do not inquiry for trade updates for these orders.
+            if order.order_type.is_delayed_market_type():
+                return trade_updates
+
             exchange_order_id = await order.get_exchange_order_id()
             all_fills_response = await self._api_request_with_retry(
                 method=RESTMethod.POST,
@@ -557,9 +674,11 @@ class KrakenExchange(ExchangePyBase):
                     order=order)
                 trade_updates.append(trade_update)
 
-        except asyncio.TimeoutError:
-            raise IOError(f"Skipped order update with order fills for {order.client_order_id} "
-                          "- waiting for exchange order id.")
+        except asyncio.TimeoutError as e:
+            raise IOError(
+                f"Skipped order update with order fills for {order.client_order_id} "
+                "- waiting for exchange order id."
+            ) from e
         except Exception as e:
             if "EOrder:Unknown order" in str(e) or "EOrder:Invalid order" in str(e):
                 return trade_updates
