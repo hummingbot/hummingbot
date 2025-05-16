@@ -745,6 +745,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
             set_position_mode_data = set_position_mode.get("data")
             if set_position_mode_data is not None and set_position_mode_code == CONSTANTS.CODE_OK:
                 success = set_position_mode_data.get("position_mode") == position_mode
+                self.logger().info(f"Position mode switched to {mode}.")
                 self._position_mode_set = True
             else:
                 success = False
@@ -802,6 +803,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
 
 class UnknownOrderStateException(Exception):
     """Custom exception for unknown order states."""
+
     def __init__(self, state, size, deal_size):
         super().__init__(f"Order state {state} with size {size} and deal size {deal_size} not tracked. "
                          f"Please report this to a developer for review.")
