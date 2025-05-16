@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 
 class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
-    LISTEN_KEY_KEEP_ALIVE_INTERVAL = 1800  # Recommended to Ping/Update listen key to keep connection alive
+    LISTEN_KEY_KEEP_ALIVE_INTERVAL = 2  # Recommended to Ping/Update listen key to keep connection alive
     HEARTBEAT_TIME_INTERVAL = 30.0
     LISTEN_KEY_RETRY_INTERVAL = 5.0
     MAX_RETRIES = 3
@@ -95,7 +95,6 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 params={"listenKey": self._current_listen_key},
                 is_auth_required=True,
                 return_err=True)
-
             if "code" in data:
                 self.logger().warning(f"Failed to refresh the listen key {self._current_listen_key}: {data}")
                 return False
@@ -104,7 +103,6 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         except Exception as exception:
             self.logger().warning(f"Failed to refresh the listen key {self._current_listen_key}: {exception}")
             return False
-
         return True
 
     async def _manage_listen_key_task_loop(self):
@@ -115,7 +113,6 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         3. Handles errors and resets state when necessary
         """
         self.logger().info("Starting listen key management task...")
-
         try:
             while True:
                 try:
@@ -136,23 +133,18 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                             self._last_listen_key_ping_ts = now
                         else:
                             self.logger().error(f"Failed to refresh listen key {self._current_listen_key}. Getting new key...")
-                            self._current_listen_key = None
-                            self._listen_key_initialized_event.clear()
+                            raise
                             # Continue to next iteration which will get a new key
-
+                    await self._sleep(self.LISTEN_KEY_RETRY_INTERVAL)
                 except asyncio.CancelledError:
                     self.logger().info("Listen key management task cancelled")
                     raise
                 except Exception as e:
                     self.logger().error(f"Error in listen key management task: {e}")
-                    self._current_listen_key = None
-                    self._listen_key_initialized_event.clear()
-
-                await self._sleep(self.LISTEN_KEY_RETRY_INTERVAL)
+                    raise
         finally:
             self.logger().info("Listen key management task stopped")
-            self._current_listen_key = None
-            self._listen_key_initialized_event.clear()
+            await self._ws_assistant.disconnect()
 
     async def _ensure_listen_key_task_running(self):
         """
@@ -216,9 +208,6 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         self.logger().info("User stream interrupted. Cleaning up...")
 
         # Disconnect the websocket if it exists
-        if websocket_assistant is not None:
-            await websocket_assistant.disconnect()
-            self._ws_assistant = None
+        websocket_assistant and await websocket_assistant.disconnect()
         self._current_listen_key = None
         self._listen_key_initialized_event.clear()
-        await self._sleep(self.LISTEN_KEY_RETRY_INTERVAL)
