@@ -1,4 +1,4 @@
-![Hummingbot](https://i.ibb.co/X5zNkKw/blacklogo-with-text.png)
+![Hummingbot](https://github.com/user-attachments/assets/3213d7f8-414b-4df8-8c1b-a0cd142a82d8)
 
 ----
 [![License](https://img.shields.io/badge/License-Apache%202.0-informational.svg)](https://github.com/hummingbot/hummingbot/blob/master/LICENSE)
