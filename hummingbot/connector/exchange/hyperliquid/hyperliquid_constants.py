@@ -35,9 +35,7 @@ CREATE_ORDER_URL = "/exchange"
 ACCOUNT_TRADE_LIST_URL = "/info"
 ORDER_URL = "/info"
 ACCOUNT_INFO_URL = "/info"
-POSITION_INFORMATION_URL = "/info"
 MY_TRADES_PATH_URL = "/info"
-GET_LAST_FUNDING_RATE_PATH_URL = "/info"
 PING_URL = "/info"
 
 TRADES_ENDPOINT_NAME = "trades"
@@ -45,7 +43,7 @@ DEPTH_ENDPOINT_NAME = "l2Book"
 
 
 USER_ORDERS_ENDPOINT_NAME = "orderUpdates"
-USEREVENT_ENDPOINT_NAME = "user"
+USEREVENT_ENDPOINT_NAME = "userFills"
 
 DIFF_EVENT_TYPE = "order_book_snapshot"
 TRADE_EVENT_TYPE = "trades"
@@ -88,10 +86,6 @@ RATE_LIMITS = [
     RateLimit(limit_id=MY_TRADES_PATH_URL, limit=MAX_REQUEST, time_interval=60,
               linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
     RateLimit(limit_id=ACCOUNT_INFO_URL, limit=MAX_REQUEST, time_interval=60,
-              linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
-    RateLimit(limit_id=POSITION_INFORMATION_URL, limit=MAX_REQUEST, time_interval=60,
-              linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
-    RateLimit(limit_id=GET_LAST_FUNDING_RATE_PATH_URL, limit=MAX_REQUEST, time_interval=60,
               linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
 
 ]

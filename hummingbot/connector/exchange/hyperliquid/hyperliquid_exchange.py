@@ -40,7 +40,7 @@ class HyperliquidExchange(ExchangePyBase):
     web_utils = web_utils
 
     SHORT_POLL_INTERVAL = 5.0
-    LONG_POLL_INTERVAL = 12.0
+    LONG_POLL_INTERVAL = 120.0
 
     def __init__(
             self,
@@ -115,10 +115,6 @@ class HyperliquidExchange(ExchangePyBase):
     @property
     def is_trading_required(self) -> bool:
         return self._trading_required
-
-    @property
-    def funding_fee_poll_interval(self) -> int:
-        return 120
 
     async def _make_network_check_request(self):
         await self._api_post(path_url=self.check_network_request_path, data={"type": CONSTANTS.META_INFO})
@@ -505,8 +501,9 @@ class HyperliquidExchange(ExchangePyBase):
                 self.logger().debug(f"Ignoring trade message with id {client_order_id}: not in in_flight_orders.")
                 return
             tracked_order = _cli_tracked_orders[0]
-        trading_pair_base_coin = tracked_order.base_asset
-        if trade["coin"] == trading_pair_base_coin:
+        trading_pair_base_coin = tracked_order.trading_pair
+        exchange_symbol = await self.trading_pair_associated_to_exchange_symbol(symbol=trade["coin"])
+        if exchange_symbol == trading_pair_base_coin:
             fee_asset = trade["feeToken"]
             fee = TradeFeeBase.new_spot_fee(
                 fee_schema=self.trade_fee_schema(),
@@ -586,6 +583,7 @@ class HyperliquidExchange(ExchangePyBase):
                 return_val.append(
                     TradingRule(
                         trading_pair,
+                        min_order_size=step_size,  # asset_price,
                         min_base_amount_increment=step_size,
                         min_price_increment=price_size
                     )
