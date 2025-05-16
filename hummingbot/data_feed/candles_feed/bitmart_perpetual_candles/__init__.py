@@ -1,3 +1,5 @@
-from hummingbot.data_feed.candles_feed.bybit_perpetual_candles.bybit_perpetual_candles import BybitPerpetualCandles
+from hummingbot.data_feed.candles_feed.bitmart_perpetual_candles.bitmart_perpetual_candles import (
+    BitmartPerpetualCandles,
+)
 
-__all__ = ["BybitPerpetualCandles"]
+__all__ = ["BitmartPerpetualCandles"]
