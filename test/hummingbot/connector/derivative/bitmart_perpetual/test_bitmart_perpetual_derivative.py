@@ -286,6 +286,18 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         }
         return account_update
 
+    @staticmethod
+    def _get_position_mode_mock_response(position_mode: str = "hedge_mode"):
+        position_mode_resp = {
+            "code": 1000,
+            "message": "Ok",
+            "data": {
+                "position_mode": position_mode
+            },
+            "trace": "b15f261868b540889e57f826e0420621.97.17443984622695574"
+        }
+        return position_mode_resp
+
     def _get_income_history_dict(self) -> List:
         income_history = {
             "code": 1000,
@@ -707,7 +719,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
 
     def test_supported_position_modes(self):
         linear_connector = self.exchange
-        expected_result = [PositionMode.HEDGE]
+        expected_result = [PositionMode.ONEWAY, PositionMode.HEDGE]
         self.assertEqual(expected_result, linear_connector.supported_position_modes())
 
     def test_format_trading_rules(self):
@@ -1269,6 +1281,73 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(order_update.client_order_id, in_flight_orders["OID1"].client_order_id)
         self.assertEqual(OrderState.PARTIALLY_FILLED, order_update.new_state)
         self.assertEqual(0, len(in_flight_orders["OID1"].order_fills))
+
+    @aioresponses()
+    def test_set_position_mode_successful(self, mock_api):
+        position_mode = "hedge_mode"
+        trading_pair = "any"
+        response = self._get_position_mode_mock_response(position_mode)
+
+        url = web_utils.private_rest_url(path_url=CONSTANTS.SET_POSITION_MODE_URL,
+                                         domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_api.post(regex_url, body=json.dumps(response))
+
+        success, msg = self.async_run_with_timeout(
+            self.exchange._trading_pair_position_mode_set(mode=PositionMode.HEDGE,
+                                                          trading_pair=trading_pair))
+        self.assertEqual(success, True)
+        self.assertEqual(msg, '')
+
+    @aioresponses()
+    def test_set_position_mode_once(self, mock_api):
+        position_mode = "hedge_mode"
+        trading_pairs = ["BTC-USDT", "ETH-USDT"]
+
+        response = self._get_position_mode_mock_response(position_mode)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.SET_POSITION_MODE_URL,
+                                         domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_api.post(regex_url, body=json.dumps(response))
+
+        success, msg = self.async_run_with_timeout(
+            self.exchange._trading_pair_position_mode_set(mode=PositionMode.HEDGE,
+                                                          trading_pair=trading_pairs[0]))
+        self.assertEqual(success, True)
+        self.assertEqual(msg, '')
+
+        success, msg = self.async_run_with_timeout(
+            self.exchange._trading_pair_position_mode_set(mode=PositionMode.HEDGE,
+                                                          trading_pair=trading_pairs[1])
+        )
+        self.assertEqual(success, True)
+        self.assertEqual(msg, "Position Mode already set.")
+
+    @aioresponses()
+    def test_set_position_mode_failure(self, mock_api):
+        mode = PositionMode.HEDGE
+        trading_pair = "any"
+        response = {
+            "trace": "1e17720eff0f4ff9b15278e1f42685b4.87.17444004177653908",
+            "code": 30002,
+            "data": {},
+            "message": "some error"
+        }
+
+        url = web_utils.private_rest_url(path_url=CONSTANTS.SET_POSITION_MODE_URL,
+                                         domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_api.post(regex_url, body=json.dumps(response))
+
+        success, msg = self.async_run_with_timeout(
+            self.exchange._trading_pair_position_mode_set(mode=PositionMode.HEDGE,
+                                                          trading_pair=trading_pair))
+        self.assertEqual(success, False)
+        self.assertEqual(msg, 'Unable to set position mode: Code 30002 - some error')
+        self._is_logged("network", f"Error switching {trading_pair} mode to {mode}: {msg}")
 
     @aioresponses()
     def test_set_leverage_successful(self, req_mock):
