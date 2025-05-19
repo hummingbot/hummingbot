@@ -64,12 +64,14 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
                  client_config_map: "ClientConfigAdapter",
                  coinbase_advanced_trade_api_key: str,
                  coinbase_advanced_trade_api_secret: str,
+                 use_auth_for_public_endpoints: bool = False,
                  trading_pairs: List[str] | None = None,
                  trading_required: bool = True,
                  domain: str = constants.DEFAULT_DOMAIN,
                  ):
         self._api_key = coinbase_advanced_trade_api_key
         self.secret_key = coinbase_advanced_trade_api_secret
+        self._use_auth_for_public_endpoints = use_auth_for_public_endpoints
         self._domain = domain
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
@@ -650,7 +652,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
     # as well as duplicating expensive API calls (call for all products)
     async def _update_trading_rules(self):
         def decimal_or_none(x: Any) -> Decimal | None:
-            return Decimal(x) if x is not None else None
+            return Decimal(x) if x else None
 
         self.trading_rules.clear()
         trading_pair_symbol_map: bidict[str, str] = bidict()
@@ -709,7 +711,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
         try:
             params: Dict[str, Any] = {}
             products: Dict[str, Any] = await self._api_get(
-                path_url=constants.ALL_PAIRS_EP,
+                path_url=constants.get_products_endpoint(self._use_auth_for_public_endpoints),
                 params=params,
                 is_auth_required=True)
             self._market_assets = [p for p in products.get("products") if all((p.get("product_type", None) == "SPOT",
@@ -790,11 +792,11 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
         params: Dict[str, Any] = {
             "limit": 1,
         }
-
+        path_url, limit_id = constants.get_ticker_endpoint(self._use_auth_for_public_endpoints)
         trade: Dict[str, Any] = await self._api_get(
-            path_url=constants.PAIR_TICKER_24HR_EP.format(product_id=product_id),
+            path_url=path_url.format(product_id=product_id),
             params=params,
-            limit_id=constants.PAIR_TICKER_24HR_RATE_LIMIT_ID,
+            limit_id=limit_id,
             is_auth_required=True
         )
         return float(trade.get("trades")[0]["price"])
@@ -804,7 +806,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
         Fetches the prices of all symbols in the exchange with a default quote of USD
         """
         products: List[Dict[str, str]] = await self._api_get(
-            path_url=constants.ALL_PAIRS_EP,
+            path_url=constants.get_products_endpoint(self._use_auth_for_public_endpoints),
             is_auth_required=True)
         for p in products:
             if all((

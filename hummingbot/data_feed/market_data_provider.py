@@ -7,7 +7,11 @@ from typing import Dict, List, Optional, Tuple
 import pandas as pd
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter, get_connector_class
+from hummingbot.client.config.config_helpers import (
+    ClientConfigAdapter,
+    api_keys_from_connector_config_map,
+    get_connector_class,
+)
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import GroupedSetDict, LazyDict, PriceType, TradeType
@@ -180,17 +184,24 @@ class MarketDataProvider:
             raise ValueError(f"Connector {connector_name} not found")
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
-        connector_config = AllConnectorSettings.get_connector_config_keys(connector_name)
-        api_keys = {key: "" for key in connector_config.__fields__.keys() if key != "connector"}
         init_params = conn_setting.conn_init_parameters(
             trading_pairs=[],
             trading_required=False,
-            api_keys=api_keys,
+            api_keys=self.get_connector_config_map(connector_name),
             client_config_map=client_config_map,
         )
         connector_class = get_connector_class(connector_name)
         connector = connector_class(**init_params)
         return connector
+
+    @staticmethod
+    def get_connector_config_map(connector_name: str):
+        connector_config = AllConnectorSettings.get_connector_config_keys(connector_name)
+        if getattr(connector_config, "use_auth_for_public_endpoints", False):
+            api_keys = api_keys_from_connector_config_map(ClientConfigAdapter(connector_config))
+        else:
+            api_keys = {key: "" for key in connector_config.__fields__.keys() if key != "connector"}
+        return api_keys
 
     def get_balance(self, connector_name: str, asset: str):
         connector = self.get_connector(connector_name)
