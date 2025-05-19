@@ -26,7 +26,7 @@ class XRPLOrderPlacementStrategy(ABC):
         """Create the appropriate transaction for the order type"""
         pass
 
-    async def get_base_quote_amounts(
+    def get_base_quote_amounts(
         self, price: Optional[Decimal] = None
     ) -> Tuple[Union[str, IssuedCurrencyAmount], Union[str, IssuedCurrencyAmount]]:
         """Calculate the base and quote amounts for the order"""
@@ -94,7 +94,7 @@ class LimitOrderStrategy(XRPLOrderPlacementStrategy):
     """Strategy for placing limit orders"""
 
     async def create_order_transaction(self) -> Transaction:
-        we_pay, we_get = await self.get_base_quote_amounts()
+        we_pay, we_get = self.get_base_quote_amounts()
         flags = self._connector.xrpl_order_type(self._order.order_type)
 
         flags += CONSTANTS.XRPL_SELL_FLAG
@@ -126,7 +126,7 @@ class MarketOrderStrategy(XRPLOrderPlacementStrategy):
         else:
             price *= Decimal("1") + CONSTANTS.MARKET_ORDER_MAX_SLIPPAGE
 
-        we_pay, we_get = await self.get_base_quote_amounts(price)
+        we_pay, we_get = self.get_base_quote_amounts(price)
         flags = self._connector.xrpl_order_type(self._order.order_type)
 
         flags += CONSTANTS.XRPL_SELL_FLAG
@@ -152,13 +152,33 @@ class AMMSwapOrderStrategy(XRPLOrderPlacementStrategy):
             )
         )
 
-        # Add slippage to make sure we get the order filled
-        if self._order.trade_type is TradeType.SELL:
-            price *= Decimal("1") - CONSTANTS.MARKET_ORDER_MAX_SLIPPAGE
-        else:
-            price *= Decimal("1") + CONSTANTS.MARKET_ORDER_MAX_SLIPPAGE
+        fee_rate_pct = self._connector._trading_pair_fee_rules[self._order.trading_pair].get(
+            "amm_pool_fee", Decimal("0.0")
+        )
 
-        we_pay, we_get = await self.get_base_quote_amounts(price)
+        we_pay, we_get = self.get_base_quote_amounts(price)
+
+        if self._order.trade_type is TradeType.BUY:
+            # add slippage to we_get
+            if isinstance(we_get, IssuedCurrencyAmount):
+                we_get = IssuedCurrencyAmount(
+                    currency=we_get.currency,
+                    issuer=we_get.issuer,
+                    value=str(Decimal(we_get.value) * Decimal("1") + fee_rate_pct),
+                )
+            else:
+                we_get = str(int(Decimal(we_get) * Decimal("1") + fee_rate_pct))
+
+            if isinstance(we_pay, IssuedCurrencyAmount):
+                we_pay = IssuedCurrencyAmount(
+                    currency=we_pay.currency,
+                    issuer=we_pay.issuer,
+                    value=str(Decimal(we_pay.value) * Decimal("1") + fee_rate_pct),
+                )
+            else:
+                we_pay = str(int(Decimal(we_pay) * Decimal("1") + fee_rate_pct))
+        else:
+            we_pay, we_get = self.get_base_quote_amounts(price * Decimal(1 + fee_rate_pct))
 
         paths: Optional[List[Path]] = None
 
@@ -203,7 +223,7 @@ class AMMSwapOrderStrategy(XRPLOrderPlacementStrategy):
             send_max=we_pay,
             paths=paths,
             memos=[memo],
-            flags=PaymentFlag.TF_NO_RIPPLE_DIRECT,
+            flags=PaymentFlag.TF_NO_RIPPLE_DIRECT + PaymentFlag.TF_PARTIAL_PAYMENT,
         )
 
 
