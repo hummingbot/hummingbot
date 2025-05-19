@@ -75,7 +75,7 @@ if TYPE_CHECKING:
 
 
 class XRPLOrderTracker(ClientOrderTracker):
-    TRADE_FILLS_WAIT_TIMEOUT = 10  # Increased timeout for XRPL
+    TRADE_FILLS_WAIT_TIMEOUT = 20  # Increased timeout for XRPL
 
 
 class XrplExchange(ExchangePyBase):
@@ -200,7 +200,7 @@ class XrplExchange(ExchangePyBase):
         return self._xrpl_auth
 
     def supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET, OrderType.AMM_SWAP]
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         # We do not use time synchronizer in XRPL connector
@@ -325,6 +325,15 @@ class XrplExchange(ExchangePyBase):
 
                 if verified:
                     retry = CONSTANTS.PLACE_ORDER_MAX_RETRY
+                    order_update: OrderUpdate = OrderUpdate(
+                        client_order_id=order_id,
+                        exchange_order_id=str(o_id),
+                        trading_pair=trading_pair,
+                        update_timestamp=transact_time,
+                        new_state=OrderState.OPEN,
+                    )
+
+                    self._order_tracker.process_order_update(order_update)
                 else:
                     retry += 1
                     self.logger().info(
@@ -391,6 +400,9 @@ class XrplExchange(ExchangePyBase):
             )
             if trade_update is not None:
                 self._order_tracker.process_trade_update(trade_update)
+
+                if order_update.new_state == OrderState.FILLED:
+                    order.completely_filled_event.set()
             else:
                 self.logger().error(
                     f"Failed to process trade fills for order {order.client_order_id} ({order.exchange_order_id}), order state: {order_update.new_state}, data: {order_creation_resp.to_dict() if order_creation_resp is not None else 'None'}"
@@ -507,6 +519,8 @@ class XrplExchange(ExchangePyBase):
                     )
 
                 if prelim_result[0:3] == "tes":
+                    cancel_result = True
+                elif prelim_result == "temBAD_SEQUENCE":
                     cancel_result = True
                 else:
                     cancel_result = False
@@ -643,6 +657,13 @@ class XrplExchange(ExchangePyBase):
         for trading_pair, trading_pair_info in trading_rules_info.items():
             base_token = trading_pair.split("-")[0]
             quote_token = trading_pair.split("-")[1]
+            amm_pool_info: PoolInfo | None = trading_pair_info.get("amm_pool_info", None)
+
+            if amm_pool_info is not None:
+                amm_pool_fee = amm_pool_info.fee_pct / Decimal("100")
+            else:
+                amm_pool_fee = Decimal("0")
+
             trading_pair_fee_rules.append(
                 {
                     "trading_pair": trading_pair,
@@ -650,6 +671,7 @@ class XrplExchange(ExchangePyBase):
                     "quote_token": quote_token,
                     "base_transfer_rate": trading_pair_info["base_transfer_rate"],
                     "quote_transfer_rate": trading_pair_info["quote_transfer_rate"],
+                    "amm_pool_fee": amm_pool_fee,
                 }
             )
 
@@ -705,7 +727,11 @@ class XrplExchange(ExchangePyBase):
                 tx_sequence = transaction.get("Sequence")
                 tracked_order = self.get_order_by_sequence(tx_sequence)
 
-                if tracked_order is not None and tracked_order.order_type is OrderType.MARKET:
+                if (
+                    tracked_order is not None
+                    and tracked_order.order_type in [OrderType.MARKET, OrderType.AMM_SWAP]
+                    and tracked_order.current_state in [OrderState.OPEN]
+                ):
                     tx_status = meta.get("TransactionResult")
                     if tx_status != "tesSUCCESS":
                         self.logger().error(
@@ -729,6 +755,9 @@ class XrplExchange(ExchangePyBase):
                         trade_update = await self.process_trade_fills(event_message, tracked_order)
                         if trade_update is not None:
                             self._order_tracker.process_trade_update(trade_update)
+
+                            if new_order_state == OrderState.FILLED:
+                                tracked_order.completely_filled_event.set()
                         else:
                             self.logger().error(
                                 f"Failed to process trade fills for order {tracked_order.client_order_id} ({tracked_order.exchange_order_id}), order state: {new_order_state}, data: {event_message}"
@@ -746,6 +775,9 @@ class XrplExchange(ExchangePyBase):
                         tracked_order = self.get_order_by_sequence(offer_change["sequence"])
                         if tracked_order is None:
                             self.logger().debug(f"Tracked order not found for sequence '{offer_change['sequence']}'")
+                            continue
+
+                        if tracked_order.current_state in [OrderState.PENDING_CREATE]:
                             continue
 
                         status = offer_change["status"]
@@ -812,6 +844,9 @@ class XrplExchange(ExchangePyBase):
                             trade_update = await self.process_trade_fills(event_message, tracked_order)
                             if trade_update is not None:
                                 self._order_tracker.process_trade_update(trade_update)
+
+                                if new_order_state == OrderState.FILLED:
+                                    tracked_order.completely_filled_event.set()
                             else:
                                 self.logger().error(
                                     f"Failed to process trade fills for order {tracked_order.client_order_id} ({tracked_order.exchange_order_id}), order state: {new_order_state}, data: {event_message}"
@@ -951,7 +986,7 @@ class XrplExchange(ExchangePyBase):
                 return None
 
             # If this order is market order or there is no offer changes, this order has been filled
-            if order.order_type is OrderType.MARKET or len(offer_changes) == 0:
+            if order.order_type in [OrderType.MARKET, OrderType.AMM_SWAP] or len(offer_changes) == 0:
                 # check if there is any balance changes
                 if len(balance_changes) == 0:
                     self.logger().error(
@@ -971,6 +1006,9 @@ class XrplExchange(ExchangePyBase):
                     else:
                         fee_token = fee_rules.get("base_token")
                         fee_rate = fee_rules.get("base_transfer_rate")
+
+                    if order.order_type == OrderType.AMM_SWAP:
+                        fee_rate = fee_rules.get("amm_pool_fee")
 
                     if fee_token is None or fee_rate is None:
                         raise ValueError(f"Fee token or fee rate is None for order {order.client_order_id}")
@@ -1139,6 +1177,10 @@ class XrplExchange(ExchangePyBase):
                                     else:
                                         fee_token = fee_rules.get("base_token")
                                         fee_rate = fee_rules.get("base_transfer_rate")
+
+                                    if order.order_type == OrderType.AMM_SWAP:
+                                        fee_rate = fee_rules.get("amm_pool_fee")
+
                                     self.logger().debug(f"Fee details - token: {fee_token}, rate: {fee_rate}")
 
                                     # Validate fee_token and fee_rate
@@ -1240,6 +1282,9 @@ class XrplExchange(ExchangePyBase):
                         else:
                             fee_token = fee_rules.get("base_token")
                             fee_rate = fee_rules.get("base_transfer_rate")
+
+                        if order.order_type == OrderType.AMM_SWAP:
+                            fee_rate = fee_rules.get("amm_pool_fee")
 
                         if fee_token is None or fee_rate is None:
                             self.logger().debug(f"Fee token or fee rate is None for order {order.client_order_id}")
@@ -1368,7 +1413,7 @@ class XrplExchange(ExchangePyBase):
             return order_update
 
         # Process order by found_meta and found_tx
-        if tracked_order.order_type is OrderType.MARKET:
+        if tracked_order.order_type in [OrderType.MARKET, OrderType.AMM_SWAP]:
             tx_status = found_creation_meta.get("TransactionResult")
             update_timestamp = time.time()
             if tx_status != "tesSUCCESS":
@@ -1819,6 +1864,7 @@ class XrplExchange(ExchangePyBase):
             self._trading_pair_fee_rules[trading_pair_fee_rule["trading_pair"]] = trading_pair_fee_rule
 
         exchange_info = self._make_xrpl_trading_pairs_request()
+
         self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
 
     async def _initialize_trading_pair_symbol_map(self):
@@ -1920,6 +1966,9 @@ class XrplExchange(ExchangePyBase):
             smallestTickSize = min(baseTickSize, quoteTickSize)
             minimumOrderSize = float(10) ** -smallestTickSize
 
+            # Get fee from AMM Pool if available
+            amm_pool_info = await self.amm_get_pool_info(trading_pair=trading_pair)
+
             trading_rules_info[trading_pair] = {
                 "base_currency": base_currency,
                 "quote_currency": quote_currency,
@@ -1928,6 +1977,7 @@ class XrplExchange(ExchangePyBase):
                 "base_transfer_rate": baseTransferRate,
                 "quote_transfer_rate": quoteTransferRate,
                 "minimum_order_size": minimumOrderSize,
+                "amm_pool_info": amm_pool_info,
             }
 
         return trading_rules_info
@@ -2066,7 +2116,6 @@ class XrplExchange(ExchangePyBase):
         return None
 
     # AMM functions
-    # TODO: Add swap function for AMM pools
     async def amm_get_pool_info(
         self, pool_address: Optional[str] = None, trading_pair: Optional[str] = None
     ) -> PoolInfo:
