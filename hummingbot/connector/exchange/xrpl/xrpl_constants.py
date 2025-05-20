@@ -11,7 +11,7 @@ DOMAIN = "xrpl"  # This just a placeholder since we don't use domain in xrpl con
 
 HBOT_SOURCE_TAG_ID = 19089388
 HBOT_ORDER_ID_PREFIX = "hbot"
-MAX_ORDER_ID_LEN = 48
+MAX_ORDER_ID_LEN = 40
 
 # Base URL
 DEFAULT_JSON_RPC_URL = "https://xrplcluster.com/"
@@ -55,9 +55,9 @@ SIDE_BUY = 0
 SIDE_SELL = 1
 
 # Orderbook settings
-ORDER_BOOK_DEPTH = 150
+ORDER_BOOK_DEPTH = 120
 FETCH_ORDER_BOOK_MAX_RETRY = 3
-FETCH_ORDER_BOOK_RETRY_INTERVAL = 1
+FETCH_ORDER_BOOK_RETRY_INTERVAL = 5
 
 # Ledger offset for getting order status:
 LEDGER_OFFSET = _LEDGER_OFFSET * 2
@@ -78,7 +78,7 @@ RATE_LIMITS = [
 
 # Place order retry parameters
 PLACE_ORDER_MAX_RETRY = 3
-PLACE_ORDER_RETRY_INTERVAL = 3
+PLACE_ORDER_RETRY_INTERVAL = 5
 
 # Transaction fee multiplier
 FEE_MULTIPLIER = 3
@@ -88,23 +88,23 @@ CANCEL_ALL_TIMEOUT = 120.0
 
 # Cancel retry parameters
 CANCEL_MAX_RETRY = 3
-CANCEL_RETRY_INTERVAL = 3
+CANCEL_RETRY_INTERVAL = 5
 
 # Verify transaction retry parameters
 VERIFY_TRANSACTION_MAX_RETRY = 3
-VERIFY_TRANSACTION_RETRY_INTERVAL = 2
+VERIFY_TRANSACTION_RETRY_INTERVAL = 5
 
 # Autofill transaction retry parameters
-AUTOFILL_TRANSACTION_MAX_RETRY = 5
+AUTOFILL_TRANSACTION_MAX_RETRY = 3
 
 # Request retry interval
-REQUEST_RETRY_INTERVAL = 2
+REQUEST_RETRY_INTERVAL = 5
 
 # Request Orderbook Interval
 REQUEST_ORDERBOOK_INTERVAL = 5
 
 # Client refresh interval
-CLIENT_REFRESH_INTERVAL = 60
+CLIENT_REFRESH_INTERVAL = 120
 
 # XRPL maximum digit for issued currency
 XRPL_MAX_DIGIT = 16
