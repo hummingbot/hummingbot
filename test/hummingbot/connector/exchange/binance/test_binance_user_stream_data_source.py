@@ -184,7 +184,7 @@ class BinanceUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         await self.resume_test_event.wait()
 
-        self.assertTrue(self._is_logged("ERROR", "Error occurred renewing listen key ..."))
+        self.assertTrue(self._is_logged("ERROR", "Error occurred renewing listen key ... No active exception to reraise"))
         self.assertIsNone(self.data_source._current_listen_key)
         self.assertFalse(self.data_source._listen_key_initialized_event.is_set())
 
@@ -204,7 +204,7 @@ class BinanceUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         await self.resume_test_event.wait()
 
-        self.assertTrue(self._is_logged("INFO", f"Refreshed listen key {self.listen_key}."))
+        self.assertTrue(self._is_logged("INFO", f"Successfully refreshed listen key {self.listen_key}."))
         self.assertGreater(self.data_source._last_listen_key_ping_ts, 0)
 
     @aioresponses()
