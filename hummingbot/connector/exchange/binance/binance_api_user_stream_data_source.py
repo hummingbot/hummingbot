@@ -145,7 +145,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     self.logger().info("Listen key management task cancelled")
                     raise
                 except Exception as e:
-                    self.logger().error(f"Error in listen key management task: {e}")
+                    self.logger().error(f"Error occurred renewing listen key ... {e}")
                     self._current_listen_key = None
                     self._listen_key_initialized_event.clear()
                     await self._sleep(self.LISTEN_KEY_RETRY_INTERVAL)
