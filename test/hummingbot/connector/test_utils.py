@@ -102,6 +102,8 @@ class UtilsTest(unittest.TestCase):
                     print(el)
                     if el.attr == "connector":
                         self.assertEqual(el.value, connector_dir.name)
+                    elif el.attr == "use_auth_for_public_endpoints":
+                        self.assertEqual(el.type_, bool)
                     elif el.client_field_data.is_secure:
                         self.assertEqual(el.type_, SecretStr)
 
