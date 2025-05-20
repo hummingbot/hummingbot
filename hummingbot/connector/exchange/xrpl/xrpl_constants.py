@@ -657,4 +657,29 @@ MARKETS = {
         "base_issuer": "rcoef87SYMJ58NAFx7fNM5frVknmvHsvJ",
         "quote_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
     },
+    'XRP-iBTC': {
+        "base": "XRP",
+        "quote": "iBTC",
+        "base_issuer": "",
+        "quote_issuer": "rGcyRGrZPaJAZbZDi4NqRFLA5GQH63iFpD",
+    },
+    'iBTC-XRP': {
+        "base": "iBTC",
+        "quote": "XRP",
+        "base_issuer": "rGcyRGrZPaJAZbZDi4NqRFLA5GQH63iFpD",
+        "quote_issuer": "",
+    },
+    'iBTC-RLUSD': {
+        "base": "iBTC",
+        "quote": "RLUSD",
+        "base_issuer": "rGcyRGrZPaJAZbZDi4NqRFLA5GQH63iFpD",
+        "quote_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+    },
+    'iBTC-USDC': {
+        "base": "iBTC",
+        "quote": "USDC",
+        "base_issuer": "rGcyRGrZPaJAZbZDi4NqRFLA5GQH63iFpD",
+        "quote_issuer": "rcEGREd8NmkKRE8GE424sksyt1tJVFZwu",
+    }
+
 }
