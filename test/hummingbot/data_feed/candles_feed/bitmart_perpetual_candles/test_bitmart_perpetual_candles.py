@@ -22,7 +22,7 @@ class TestBitmartPerpetualCandles(TestCandlesBase):
     def setUp(self) -> None:
         super().setUp()
         self.data_feed = BitmartPerpetualCandles(trading_pair=self.trading_pair, interval=self.interval)
-
+        self.data_feed.contract_size = 0.001
         self.log_records = []
         self.data_feed.logger().setLevel(1)
         self.data_feed.logger().addHandler(self)
@@ -34,10 +34,10 @@ class TestBitmartPerpetualCandles(TestCandlesBase):
 
     def get_fetch_candles_data_mock(self):
         return [
-            [1747267200, "103457.8", "103509.9", "103442.5", "103504.3", "147548", 0., 0., 0., 0.],
-            [1747267500, "103504.3", "103524", "103462.9", "103499.7", "83616", 0., 0., 0., 0.],
-            [1747267800, "103504.3", "103524", "103442.9", "103499.7", "83714", 0., 0., 0., 0.],
-            [1747268100, "103504.3", "103544", "103462.9", "103494.7", "83946", 0., 0., 0., 0.],
+            [1747267200, "103457.8", "103509.9", "103442.5", "103504.3", "147.548", 0., 0., 0., 0.],
+            [1747267500, "103504.3", "103524", "103462.9", "103499.7", "83.616", 0., 0., 0., 0.],
+            [1747267800, "103504.3", "103524", "103442.9", "103499.7", "83.714", 0., 0., 0., 0.],
+            [1747268100, "103504.3", "103544", "103462.9", "103494.7", "83.946", 0., 0., 0., 0.],
         ]
 
     def get_candles_rest_data_mock(self):
