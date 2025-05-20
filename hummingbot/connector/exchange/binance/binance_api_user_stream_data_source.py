@@ -32,13 +32,13 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
                  domain: str = CONSTANTS.DEFAULT_DOMAIN):
         super().__init__()
         self._auth: BinanceAuth = auth
-        self._current_listen_key = None
         self._domain = domain
         self._api_factory = api_factory
-
-        self._listen_key_initialized_event: asyncio.Event = asyncio.Event()
-        self._last_listen_key_ping_ts = 0
+        self._connector = connector
+        self._current_listen_key = None
+        self._last_listen_key_ping_ts = None
         self._manage_listen_key_task = None
+        self._listen_key_initialized_event = asyncio.Event()
 
     async def _get_ws_assistant(self) -> WSAssistant:
         """
@@ -118,7 +118,6 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
         3. Handles errors and resets state when necessary
         """
         self.logger().info("Starting listen key management task...")
-
         try:
             while True:
                 try:
@@ -139,10 +138,9 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
                             self._last_listen_key_ping_ts = now
                         else:
                             self.logger().error(f"Failed to refresh listen key {self._current_listen_key}. Getting new key...")
-                            self._current_listen_key = None
-                            self._listen_key_initialized_event.clear()
+                            raise
                             # Continue to next iteration which will get a new key
-
+                    await self._sleep(self.LISTEN_KEY_RETRY_INTERVAL)
                 except asyncio.CancelledError:
                     self.logger().info("Listen key management task cancelled")
                     raise
@@ -150,10 +148,10 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     self.logger().error(f"Error in listen key management task: {e}")
                     self._current_listen_key = None
                     self._listen_key_initialized_event.clear()
-
-                await self._sleep(self.LISTEN_KEY_RETRY_INTERVAL)
+                    await self._sleep(self.LISTEN_KEY_RETRY_INTERVAL)
         finally:
             self.logger().info("Listen key management task stopped")
+            await self._ws_assistant.disconnect()
             self._current_listen_key = None
             self._listen_key_initialized_event.clear()
 
@@ -163,6 +161,20 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         if self._manage_listen_key_task is None or self._manage_listen_key_task.done():
             self._manage_listen_key_task = safe_ensure_future(self._manage_listen_key_task_loop())
+
+    async def _cancel_listen_key_task(self):
+        """
+        Safely cancels the listen key management task.
+        """
+        if self._manage_listen_key_task and not self._manage_listen_key_task.done():
+            self.logger().info("Cancelling listen key management task")
+            self._manage_listen_key_task.cancel()
+            try:
+                await asyncio.wait_for(asyncio.shield(self._manage_listen_key_task), timeout=2.0)
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                pass
+
+        self._manage_listen_key_task = None
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         """
@@ -205,11 +217,6 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self.logger().info("User stream interrupted. Cleaning up...")
 
         # Disconnect the websocket if it exists
-        if websocket_assistant is not None:
-            await websocket_assistant.disconnect()
-            self._ws_assistant = None
-
-        # We don't cancel the listen key management task here since it's meant to keep running
-        # throughout the life of the application, even during websocket reconnections
-
-        await self._sleep(self.LISTEN_KEY_RETRY_INTERVAL)
+        websocket_assistant and await websocket_assistant.disconnect()
+        self._current_listen_key = None
+        self._listen_key_initialized_event.clear()

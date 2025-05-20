@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 
 class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
-    LISTEN_KEY_KEEP_ALIVE_INTERVAL = 2  # Recommended to Ping/Update listen key to keep connection alive
+    LISTEN_KEY_KEEP_ALIVE_INTERVAL = 1800  # Recommended to Ping/Update listen key to keep connection alive
     HEARTBEAT_TIME_INTERVAL = 30.0
     LISTEN_KEY_RETRY_INTERVAL = 5.0
     MAX_RETRIES = 3
