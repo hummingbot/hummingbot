@@ -1,6 +1,7 @@
 import asyncio
 import math
 import time
+import uuid
 from asyncio import Lock
 from decimal import ROUND_DOWN, Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple, Union
@@ -110,7 +111,7 @@ class XrplExchange(ExchangePyBase):
         self._xrpl_query_client_lock = asyncio.Lock()
         self._xrpl_place_order_client_lock = asyncio.Lock()
         self._xrpl_fetch_trades_client_lock = asyncio.Lock()
-        self._nonce_creator = NonceCreator.for_microseconds()
+        self._nonce_creator = NonceCreator.for_milliseconds()
         self._custom_markets = custom_markets or {}
         self._last_clients_refresh_time = 0
 
@@ -1794,7 +1795,8 @@ class XrplExchange(ExchangePyBase):
 
         :return: the id assigned by the connector to the order (the client id)
         """
-        prefix = f"{self.client_order_id_prefix}-{self._nonce_creator.get_tracking_nonce()}-"
+        random_uuid = str(uuid.uuid4())[:6]
+        prefix = f"{self.client_order_id_prefix}-{self._nonce_creator.get_tracking_nonce()}-{random_uuid}-"
         order_id = get_new_client_order_id(
             is_buy=True,
             trading_pair=trading_pair,
@@ -1831,7 +1833,8 @@ class XrplExchange(ExchangePyBase):
         :param price: the order price
         :return: the id assigned by the connector to the order (the client id)
         """
-        prefix = f"{self.client_order_id_prefix}-{self._nonce_creator.get_tracking_nonce()}-"
+        random_uuid = str(uuid.uuid4())[:6]
+        prefix = f"{self.client_order_id_prefix}-{self._nonce_creator.get_tracking_nonce()}-{random_uuid}-"
         order_id = get_new_client_order_id(
             is_buy=False,
             trading_pair=trading_pair,
