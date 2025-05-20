@@ -36,6 +36,52 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         cls.ex_trading_pair = cls.ex_base_asset + cls.quote_asset
         cls.ws_ex_trading_pairs = cls.ex_base_asset + "/" + cls.quote_asset
 
+        # API response constants - based on Kraken Ticker API schema
+
+        # For ETH pair
+        cls.test_volume_eth = "2.45066029"  # Volume for ETH trading pair
+
+        # For BTC pair
+        cls.test_volume_btc = "1.12345678"  # Volume for BTC trading pair
+        cls.btc_price_multiplier = 4.0  # BTC price is 4x the ETH price in tests
+
+        # a - Ask array [<price>, <whole lot volume>, <lot volume>]
+        cls.test_ask_price = "30300.10000"
+        cls.test_ask_whole_lot_volume = "1"
+        cls.test_ask_lot_volume = "1.000"
+
+        # b - Bid array [<price>, <whole lot volume>, <lot volume>]
+        cls.test_bid_price = "30300.00000"
+        cls.test_bid_whole_lot_volume = "1"
+        cls.test_bid_lot_volume = "1.000"
+
+        # c - Last trade closed array [<price>, <lot volume>]
+        # expected_latest_price already exists in parent class
+        cls.test_latest_volume = "0.00067643"
+
+        # v - Volume array [<today>, <last 24 hours>]
+        cls.test_volume_today = "4083.67001100"
+        cls.test_volume_24h = "4412.73601799"
+
+        # p - Volume weighted average price array [<today>, <last 24 hours>]
+        cls.test_vwap_today = "30706.77771"
+        cls.test_vwap_24h = "30689.13205"
+
+        # t - Number of trades array [<today>, <last 24 hours>]
+        cls.test_trades_today = 34619
+        cls.test_trades_24h = 38907
+
+        # l - Low array [<today>, <last 24 hours>]
+        cls.test_low_today = "29868.30000"
+        cls.test_low_24h = "29868.30000"
+
+        # h - High array [<today>, <last 24 hours>]
+        cls.test_high_today = "31631.00000"
+        cls.test_high_24h = "31631.00000"
+
+        # o - Today's opening price
+        cls.test_opening_price = "30502.80000"
+
     @property
     def all_symbols_url(self):
         return web_utils.public_rest_url(path_url=CONSTANTS.ASSET_PAIRS_PATH_URL)
@@ -73,40 +119,40 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             "result": {
                 self.ex_trading_pair: {
                     "a": [
-                        "30300.10000",
-                        "1",
-                        "1.000"
+                        self.test_ask_price,
+                        self.test_ask_whole_lot_volume,
+                        self.test_ask_lot_volume
                     ],
                     "b": [
-                        "30300.00000",
-                        "1",
-                        "1.000"
+                        self.test_bid_price,
+                        self.test_bid_whole_lot_volume,
+                        self.test_bid_lot_volume
                     ],
                     "c": [
                         self.expected_latest_price,
-                        "0.00067643"
+                        self.test_latest_volume
                     ],
                     "v": [
-                        "4083.67001100",
-                        "4412.73601799"
+                        self.test_volume_today,
+                        self.test_volume_24h
                     ],
                     "p": [
-                        "30706.77771",
-                        "30689.13205"
+                        self.test_vwap_today,
+                        self.test_vwap_24h
                     ],
                     "t": [
-                        34619,
-                        38907
+                        self.test_trades_today,
+                        self.test_trades_24h
                     ],
                     "l": [
-                        "29868.30000",
-                        "29868.30000"
+                        self.test_low_today,
+                        self.test_low_24h
                     ],
                     "h": [
-                        "31631.00000",
-                        "31631.00000"
+                        self.test_high_today,
+                        self.test_high_24h
                     ],
-                    "o": "30502.80000"
+                    "o": self.test_opening_price
                 }
             }
         }
@@ -1216,3 +1262,114 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                 }
             }
         }
+
+    def test_is_order_not_found_during_cancelation_error(self):
+        # Test for line 654 in kraken_exchange.py
+        exception_with_unknown_order = Exception(f"Some text with {CONSTANTS.UNKNOWN_ORDER_MESSAGE} in it")
+        exception_without_unknown_order = Exception("Some other error message")
+
+        self.assertTrue(self.exchange._is_order_not_found_during_cancelation_error(exception_with_unknown_order))
+        self.assertFalse(self.exchange._is_order_not_found_during_cancelation_error(exception_without_unknown_order))
+
+    @aioresponses()
+    async def test_get_last_traded_price_single_pair(self, mock_api):
+        # Test for _get_last_traded_price method
+        url = web_utils.public_rest_url(CONSTANTS.TICKER_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        # Use data from latest_prices_request_mock_response but only include the 'c' field that's needed
+        first_pair_data = self.latest_prices_request_mock_response["result"][self.ex_trading_pair]
+
+        # Create more concise mock response with only required fields for this test
+        mock_response = {
+            "error": [],
+            "result": {
+                self.ex_trading_pair: {
+                    "c": first_pair_data["c"]  # Only need the 'c' field for last traded price
+                }
+            }
+        }
+        mock_api.get(regex_url, body=json.dumps(mock_response))
+
+        # Get last traded price for single pair
+        price = await self.exchange._get_last_traded_price(self.trading_pair)
+
+        # Verify the result
+        self.assertEqual(float(self.expected_latest_price), price)
+
+    @aioresponses()
+    async def test_get_last_traded_prices_empty(self, mock_api):
+        # Test get_last_traded_prices with empty list
+        prices = await self.exchange.get_last_traded_prices([])
+
+        # Should return empty dict
+        self.assertEqual({}, prices)
+
+    @aioresponses()
+    @patch("hummingbot.connector.exchange.kraken.kraken_exchange.KrakenExchange.exchange_symbol_associated_to_pair")
+    async def test_get_last_traded_prices_multiple_pairs(self, mock_api, mock_exchange_symbol):
+        # Test get_last_traded_prices with multiple trading pairs
+        trading_pairs = [self.trading_pair, "BTC-USDT"]
+        exchange_symbols = [self.ex_trading_pair, "BTCUSDT"]
+
+        mock_exchange_symbol.side_effect = exchange_symbols
+
+        url = web_utils.public_rest_url(CONSTANTS.TICKER_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        btc_price = self.expected_latest_price * self.btc_price_multiplier
+
+        # Extract first trading pair data from latest_prices_request_mock_response
+        first_pair_data = self.latest_prices_request_mock_response["result"][self.ex_trading_pair]
+
+        mock_response = {
+            "error": [],
+            "result": {
+                exchange_symbols[0]: first_pair_data,
+                # Second pair - only include the 'c' field which is needed for this test
+                exchange_symbols[1]: {
+                    "c": [
+                        str(btc_price),
+                        self.test_latest_volume
+                    ]
+                }
+            }
+        }
+        mock_api.get(regex_url, body=json.dumps(mock_response))
+
+        prices = await self.exchange.get_last_traded_prices(trading_pairs)
+
+        expected_prices = {
+            trading_pairs[0]: float(self.expected_latest_price),
+            trading_pairs[1]: float(btc_price)
+        }
+        self.assertEqual(expected_prices, prices)
+
+        self.assertEqual(2, mock_exchange_symbol.call_count)
+        mock_exchange_symbol.assert_any_call(trading_pairs[0])
+        mock_exchange_symbol.assert_any_call(trading_pairs[1])
+
+    @aioresponses()
+    async def test_get_ticker_data(self, mock_api):
+        # Test _get_ticker_data method
+        url = web_utils.public_rest_url(CONSTANTS.TICKER_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        # Use existing mock response from latest_prices_request_mock_response
+        mock_api.get(regex_url, body=json.dumps(self.latest_prices_request_mock_response))
+
+        # Get ticker data without specifying trading pair (all tickers)
+        ticker_data = await self.exchange._get_ticker_data()
+
+        # Verify the result
+        self.assertEqual(self.latest_prices_request_mock_response["result"], ticker_data)
+
+        # Get ticker data for specific trading pair
+        with patch("hummingbot.connector.exchange.kraken.kraken_exchange.KrakenExchange.exchange_symbol_associated_to_pair",
+                   return_value=self.ex_trading_pair):
+            # Use a separate test for this part to avoid URL matching issues
+            mock_api.get(f"{url}?pair={self.ex_trading_pair}", body=json.dumps(self.latest_prices_request_mock_response))
+            ticker_data = await self.exchange._get_ticker_data(trading_pair=self.trading_pair)
+
+            # Verify the result
+            self.assertEqual(self.latest_prices_request_mock_response["result"], ticker_data)
