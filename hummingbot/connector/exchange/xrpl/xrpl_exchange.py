@@ -1760,13 +1760,13 @@ class XrplExchange(ExchangePyBase):
         # Check if we have valid amounts
         if amount is None or amount2 is None:
             return price, tx_timestamp
-        if isinstance(base_token, XRP):
+        if isinstance(amount, str):
             base_amount = drops_to_xrp(amount)
         else:
             base_amount = Decimal(amount.get("value", "0"))
 
         # Convert quote amount (amount2) if it's XRP
-        if isinstance(quote_token, XRP):
+        if isinstance(amount2, str):
             quote_amount = drops_to_xrp(amount2)
         else:
             # For issued currencies, amount2 is a dictionary with a 'value' field
