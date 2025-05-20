@@ -243,8 +243,10 @@ class GatewayCommand(GatewayChainApiManager):
                 trading_types: str = connector_config[0]["trading_types"]
 
                 # networks as options
+                # Set networks in the completer before the prompt
+                self.app.input_field.completer.set_gateway_networks(networks)
+
                 while True:
-                    self.app.input_field.completer.set_gateway_networks(networks)
                     network = await self.app.prompt(
                         prompt=f"Which {chain}-based network do you want to connect to? ({', '.join(networks)}) >>> "
                     )
