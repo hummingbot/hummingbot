@@ -18,6 +18,24 @@ class BitmartPerpetualCandles(CandlesBase):
 
     def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 150):
         super().__init__(trading_pair, interval, max_records)
+        self.contract_size = None
+
+    async def initialize_exchange_data(self):
+        await self.get_exchange_trading_pair_contract_size()
+
+    async def get_exchange_trading_pair_contract_size(self):
+        contract_size = None
+        rest_assistant = await self._api_factory.get_rest_assistant()
+        response = await rest_assistant.execute_request(
+            url=self.rest_url + CONSTANTS.CONTRACT_INFO_URL.format(contract=self._ex_trading_pair),
+            throttler_limit_id=CONSTANTS.CONTRACT_INFO_URL
+        )
+        if response["code"] == 1000:
+            symbols_data = response["data"].get("symbols")
+            if len(symbols_data) > 0:
+                contract_size = float(symbols_data[0]["contract_size"])
+                self.contract_size = contract_size
+        return contract_size
 
     @property
     def name(self):
@@ -106,7 +124,7 @@ class BitmartPerpetualCandles(CandlesBase):
                     row["high_price"],
                     row["low_price"],
                     row["close_price"],
-                    row["volume"],
+                    float(row["volume"]) * self.contract_size,
                     0.,
                     0.,
                     0.,
@@ -131,7 +149,7 @@ class BitmartPerpetualCandles(CandlesBase):
             candles_row_dict["low"] = candle["l"]
             candles_row_dict["high"] = candle["h"]
             candles_row_dict["close"] = candle["c"]
-            candles_row_dict["volume"] = candle["v"]
+            candles_row_dict["volume"] = float(candle["v"]) * self.contract_size
             candles_row_dict["quote_asset_volume"] = 0.
             candles_row_dict["n_trades"] = 0.
             candles_row_dict["taker_buy_base_volume"] = 0.
