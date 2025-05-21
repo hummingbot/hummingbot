@@ -111,6 +111,30 @@ XRPL_MAX_DIGIT = 16
 
 # Markets list
 MARKETS = {
+    "XRP-RLUSD": {
+        "base": "XRP",
+        "quote": "RLUSD",
+        "base_issuer": "",
+        "quote_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+    },
+    "XRP-IBTC": {
+        "base": "XRP",
+        "quote": "iBTC",
+        "base_issuer": "",
+        "quote_issuer": "rGcyRGrZPaJAZbZDi4NqRFLA5GQH63iFpD",
+    },
+    "XRP-USDC": {
+        "base": "XRP",
+        "quote": "USDC",
+        "base_issuer": "",
+        "quote_issuer": "rcEGREd8NmkKRE8GE424sksyt1tJVFZwu",
+    },
+    "IBTC-RLUSD": {
+        "base": "iBTC",
+        "quote": "RLUSD",
+        "base_issuer": "rGcyRGrZPaJAZbZDi4NqRFLA5GQH63iFpD",
+        "quote_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+    },
     "XRP-USD": {
         "base": "XRP",
         "quote": "USD",
@@ -188,12 +212,6 @@ MARKETS = {
         "quote": "USDT",
         "base_issuer": "",
         "quote_issuer": "rcvxE9PS9YBwxtGg1qNeewV6ZB3wGubZq",
-    },
-    "XRP-USDC": {
-        "base": "XRP",
-        "quote": "USDC",
-        "base_issuer": "",
-        "quote_issuer": "rcEGREd8NmkKRE8GE424sksyt1tJVFZwu",
     },
     "XRP-WXRP": {
         "base": "XRP",
@@ -477,12 +495,6 @@ MARKETS = {
         "base_issuer": "rpakCr61Q92abPXJnVboKENmpKssWyHpwu",
         "quote_issuer": "",
     },
-    "XRP-RLUSD": {
-        "base": "XRP",
-        "quote": "RLUSD",
-        "base_issuer": "",
-        "quote_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
-    },
     "RLUSD-XRP": {
         "base": "RLUSD",
         "quote": "XRP",
@@ -657,29 +669,16 @@ MARKETS = {
         "base_issuer": "rcoef87SYMJ58NAFx7fNM5frVknmvHsvJ",
         "quote_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
     },
-    'XRP-iBTC': {
-        "base": "XRP",
-        "quote": "iBTC",
-        "base_issuer": "",
-        "quote_issuer": "rGcyRGrZPaJAZbZDi4NqRFLA5GQH63iFpD",
-    },
-    'iBTC-XRP': {
+    "IBTC-XRP": {
         "base": "iBTC",
         "quote": "XRP",
         "base_issuer": "rGcyRGrZPaJAZbZDi4NqRFLA5GQH63iFpD",
         "quote_issuer": "",
     },
-    'iBTC-RLUSD': {
-        "base": "iBTC",
-        "quote": "RLUSD",
-        "base_issuer": "rGcyRGrZPaJAZbZDi4NqRFLA5GQH63iFpD",
-        "quote_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
-    },
-    'iBTC-USDC': {
+    "IBTC-USDC": {
         "base": "iBTC",
         "quote": "USDC",
         "base_issuer": "rGcyRGrZPaJAZbZDi4NqRFLA5GQH63iFpD",
         "quote_issuer": "rcEGREd8NmkKRE8GE424sksyt1tJVFZwu",
-    }
-
+    },
 }

@@ -309,11 +309,8 @@ class PerformanceMetrics:
 
         self.start_price = Decimal(str(trades[0].price))
         self.cur_price = await RateOracle.get_instance().stored_or_live_rate(trading_pair)
-        if self.cur_price is None or self.cur_price.is_nan() or self.cur_price == s_decimal_0:
-            if trades:
-                self.cur_price = Decimal(str(trades[-1].price))
-            else:
-                self.cur_price = s_decimal_nan
+        if self.cur_price is None:
+            self.cur_price = Decimal(str(trades[-1].price))
         self.start_base_ratio_pct = self.divide(self.start_base_bal * self.start_price,
                                                 (self.start_base_bal * self.start_price) + self.start_quote_bal)
         self.cur_base_ratio_pct = self.divide(self.cur_base_bal * self.cur_price,

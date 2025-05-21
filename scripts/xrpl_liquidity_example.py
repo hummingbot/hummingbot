@@ -111,7 +111,7 @@ class XRPLTriggeredLiquidity(ScriptStrategyBase):
         )
 
         # Check connector status
-        safe_ensure_future(self.check_connector_status())
+        self.check_connector_status()
 
     def check_connector_status(self):
         """Check if the connector is ready"""
