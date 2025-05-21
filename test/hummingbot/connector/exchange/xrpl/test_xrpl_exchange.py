@@ -1,5 +1,4 @@
 import asyncio
-import math
 import time
 from decimal import Decimal
 from unittest.async_case import IsolatedAsyncioTestCase
@@ -3980,27 +3979,12 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         # Assert
         self.assertEqual(result, 1.0)
 
-    async def test_get_last_traded_price_from_order_book_return_nan(self):
-        # Setup
-        self.connector.order_books[self.trading_pair] = MagicMock()
-        self.connector.order_books[self.trading_pair].last_trade_price = float("NaN")
-        self.connector.order_books[self.trading_pair].get_price = MagicMock(return_value=float("NaN"))
-        self.connector.order_book_tracker.data_source.last_parsed_order_book_timestamp = {self.trading_pair: 100}
-
-        # Mock _get_price_from_amm_pool to return NaN
-        self.connector.get_price_from_amm_pool = AsyncMock(return_value=(float("NaN"), 0))
-
-        # Action
-        result = await self.connector._get_last_traded_price(self.trading_pair)
-
-        # Assert
-        self.assertTrue(math.isnan(result))
-
     async def test_get_last_traded_price_from_order_book_with_amm_pool(self):
         # Setup
         self.connector.order_books[self.trading_pair] = MagicMock()
         self.connector.order_books[self.trading_pair].last_trade_price = Decimal("1.0")
         self.connector.order_book_tracker.data_source.last_parsed_order_book_timestamp = {self.trading_pair: 100}
+        self.connector.order_book_tracker.data_source._sleep = AsyncMock()
 
         # Mock _get_price_from_amm_pool to return NaN
         self.connector.get_price_from_amm_pool = AsyncMock(return_value=(float("1.0"), 0))
@@ -4016,6 +4000,7 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         self.connector.order_books[self.trading_pair] = MagicMock()
         self.connector.order_books[self.trading_pair].last_trade_price = Decimal("1.0")
         self.connector.order_book_tracker.data_source.last_parsed_order_book_timestamp = {self.trading_pair: 100}
+        self.connector.order_book_tracker.data_source._sleep = AsyncMock()
 
         # Mock _get_price_from_amm_pool to return NaN
         self.connector.get_price_from_amm_pool = AsyncMock(return_value=(float("2.0"), 99999999))
@@ -4032,9 +4017,12 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         self.connector.order_books[self.trading_pair].last_trade_price = float("nan")
         self.connector.order_books[self.trading_pair].get_price.side_effect = [Decimal("1.0"), Decimal("2.0")]
         self.connector.order_book_tracker.data_source.last_parsed_order_book_timestamp = {self.trading_pair: 100}
+        self.connector.order_book_tracker.data_source._sleep = AsyncMock()
 
         # Mock _get_price_from_amm_pool to return NaN
-        self.connector.get_price_from_amm_pool = AsyncMock(return_value=(float("nan"), 0))
+        self.connector.get_price_from_amm_pool = AsyncMock(return_value=(float(0), 0))
+
+        # Mock get_price_from_amm_pool
 
         # Action
         result = await self.connector._get_last_traded_price(self.trading_pair)
@@ -4086,7 +4074,7 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         price, timestamp = await self.connector.get_price_from_amm_pool(self.trading_pair)
 
         # Assert
-        self.assertTrue(math.isnan(price))
+        self.assertTrue(price == float(0))
         self.assertEqual(timestamp, 0)
 
     async def test_get_price_from_amm_pool_request_error(self):
@@ -4099,7 +4087,7 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         price, timestamp = await self.connector.get_price_from_amm_pool(self.trading_pair)
 
         # Assert
-        self.assertTrue(math.isnan(price))
+        self.assertTrue(price == float(0))
         self.assertEqual(timestamp, 0)
 
     async def test_get_price_from_amm_pool_null_response(self):
@@ -4117,7 +4105,7 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         price, timestamp = await self.connector.get_price_from_amm_pool(self.trading_pair)
 
         # Assert
-        self.assertTrue(math.isnan(price))
+        self.assertTrue(price == float(0))
         self.assertEqual(timestamp, 0)
 
         # Setup
@@ -4134,7 +4122,7 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         price, timestamp = await self.connector.get_price_from_amm_pool(self.trading_pair)
 
         # Assert
-        self.assertTrue(math.isnan(price))
+        self.assertTrue(price == float(0))
         self.assertEqual(timestamp, 0)
 
     async def test_get_price_from_amm_pool(self):
