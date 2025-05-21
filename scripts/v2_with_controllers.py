@@ -246,7 +246,7 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
         connectors_position_mode = {}
         for controller_id, controller in self.controllers.items():
             self.max_pnl_by_controller[controller_id] = Decimal("0")
-            config_dict = controller.config.dict()
+            config_dict = controller.config.model_dump()
             if "connector_name" in config_dict:
                 if self.is_perpetual(config_dict["connector_name"]):
                     if "position_mode" in config_dict:
