@@ -228,6 +228,16 @@ class MarketDataProvider:
         connector = self.get_connector(connector_name)
         return connector.get_price_by_type(trading_pair, price_type)
 
+    def get_funding_info(self, connector_name: str, trading_pair: str):
+        """
+        Retrieves the funding rate for a trading pair from the specified connector.
+        :param connector_name: str
+        :param trading_pair: str
+        :return: Funding rate.
+        """
+        connector = self.get_connector(connector_name)
+        return connector.get_funding_info(trading_pair)
+
     def get_candles_df(self, connector_name: str, trading_pair: str, interval: str, max_records: int = 500):
         """
         Retrieves the candles for a trading pair from the specified connector.
