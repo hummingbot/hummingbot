@@ -1660,14 +1660,19 @@ class XrplExchange(ExchangePyBase):
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         # NOTE: We are querying both the order book and the AMM pool to get the last traded price
-        last_traded_price = float("NaN")
+        last_traded_price = float(0)
         last_traded_price_timestamp = 0
 
         order_book = self.order_books.get(trading_pair)
         data_source: XRPLAPIOrderBookDataSource = self.order_book_tracker.data_source
 
         if order_book is not None:
-            last_traded_price = order_book.last_trade_price
+            order_book_last_trade_price = order_book.last_trade_price
+            last_traded_price = (
+                order_book_last_trade_price
+                if order_book_last_trade_price is not None and not math.isnan(order_book_last_trade_price)
+                else float(0)
+            )
             last_traded_price_timestamp = data_source.last_parsed_order_book_timestamp.get(trading_pair, 0)
 
         if math.isnan(last_traded_price) and order_book is not None:
@@ -1681,7 +1686,7 @@ class XrplExchange(ExchangePyBase):
                 last_traded_price = (best_bid + best_ask) / 2
                 last_traded_price_timestamp = data_source.last_parsed_order_book_timestamp.get(trading_pair, 0)
             else:
-                last_traded_price = float("NaN")
+                last_traded_price = float(0)
                 last_traded_price_timestamp = 0
         amm_pool_price, amm_pool_last_tx_timestamp = await self.get_price_from_amm_pool(trading_pair)
 
@@ -1693,7 +1698,7 @@ class XrplExchange(ExchangePyBase):
         return last_traded_price
 
     async def _get_best_price(self, trading_pair: str, is_buy: bool) -> float:
-        best_price = float("NaN")
+        best_price = float(0)
 
         order_book = self.order_books.get(trading_pair)
 
@@ -1712,7 +1717,7 @@ class XrplExchange(ExchangePyBase):
     async def get_price_from_amm_pool(self, trading_pair: str) -> Tuple[float, int]:
         base_token, quote_token = self.get_currencies_from_trading_pair(trading_pair)
         tx_timestamp = 0
-        price = float("NaN")
+        price = float(0)
 
         if not self._wss_second_node_url.startswith(("ws://", "wss://")):
             return price, tx_timestamp
