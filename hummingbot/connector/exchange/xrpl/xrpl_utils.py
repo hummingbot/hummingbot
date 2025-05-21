@@ -8,10 +8,9 @@ from typing import Any, Dict, Final, List, Optional, cast
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 from xrpl.asyncio.account import get_next_valid_seq_number
 from xrpl.asyncio.clients import Client, XRPLRequestFailureException
-from xrpl.asyncio.clients.client import get_network_id_and_build_version
 from xrpl.asyncio.transaction import XRPLReliableSubmissionException
 from xrpl.asyncio.transaction.main import _LEDGER_OFFSET, _calculate_fee_per_transaction_type, _tx_needs_networkID
-from xrpl.models import Request, Response, Transaction, TransactionMetadata, Tx
+from xrpl.models import Currency, IssuedCurrency, Request, Response, ServerInfo, Transaction, TransactionMetadata, Tx
 from xrpl.models.requests.request import LookupByLedgerRequest, RequestMethod
 from xrpl.models.utils import require_kwargs_on_init
 from xrpl.utils.txn_parser.utils import NormalizedNode, normalize_nodes
@@ -174,6 +173,31 @@ class Ledger(Request, LookupByLedgerRequest):
     queue: bool = False
 
 
+async def get_network_id_and_build_version(client: Client) -> None:
+    """
+    Get the network id and build version of the connected server.
+
+    Args:
+        client: The network client to use to send the request.
+
+    Raises:
+        XRPLRequestFailureException: if the rippled API call fails.
+    """
+    # the required values are already present, no need for further processing
+    if client.network_id and client.build_version:
+        return
+
+    response = await client._request_impl(ServerInfo())
+    if response.is_successful():
+        if "network_id" in response.result["info"]:
+            client.network_id = response.result["info"]["network_id"]
+        if not client.build_version and "build_version" in response.result["info"]:
+            client.build_version = response.result["info"]["build_version"]
+        return
+
+    raise XRPLRequestFailureException(response.result)
+
+
 async def autofill(
     transaction: Transaction, client: Client, signers_count: Optional[int] = None, try_count: int = 0
 ) -> Transaction:
@@ -263,11 +287,10 @@ async def _wait_for_final_transaction_outcome(
 
     current_ledger_sequence = await get_latest_validated_ledger_sequence(client)
 
-    if current_ledger_sequence >= last_ledger_sequence:
+    if current_ledger_sequence >= last_ledger_sequence and (current_ledger_sequence - last_ledger_sequence) > 10:
         raise XRPLReliableSubmissionException(
-            f"The latest validated ledger sequence {current_ledger_sequence} is "
-            f"greater than LastLedgerSequence {last_ledger_sequence} in "
-            f"the transaction. Prelim result: {prelim_result}"
+            f"Transaction failed - latest ledger {current_ledger_sequence} exceeds "
+            f"transaction's LastLedgerSequence {last_ledger_sequence}. Prelim result: {prelim_result}"
         )
 
     # query transaction by hash
@@ -294,6 +317,71 @@ async def _wait_for_final_transaction_outcome(
 
     # outcome is not yet final
     return await _wait_for_final_transaction_outcome(transaction_hash, client, prelim_result, last_ledger_sequence)
+
+
+# AMM Interfaces
+class PoolInfo(BaseModel):
+    address: str
+    base_token_address: Currency
+    quote_token_address: Currency
+    lp_token_address: IssuedCurrency
+    fee_pct: Decimal
+    price: Decimal
+    base_token_amount: Decimal
+    quote_token_amount: Decimal
+    lp_token_amount: Decimal
+    pool_type: Optional[str] = None
+
+
+class GetPoolInfoRequest(BaseModel):
+    network: Optional[str] = None
+    pool_address: str
+
+
+class AddLiquidityRequest(BaseModel):
+    network: Optional[str] = None
+    wallet_address: str
+    pool_address: str
+    base_token_amount: Decimal
+    quote_token_amount: Decimal
+    slippage_pct: Optional[Decimal] = None
+
+
+class AddLiquidityResponse(BaseModel):
+    signature: str
+    fee: Decimal
+    base_token_amount_added: Decimal
+    quote_token_amount_added: Decimal
+
+
+class QuoteLiquidityRequest(BaseModel):
+    network: Optional[str] = None
+    pool_address: str
+    base_token_amount: Decimal
+    quote_token_amount: Decimal
+    slippage_pct: Optional[Decimal] = None
+
+
+class QuoteLiquidityResponse(BaseModel):
+    base_limited: bool
+    base_token_amount: Decimal
+    quote_token_amount: Decimal
+    base_token_amount_max: Decimal
+    quote_token_amount_max: Decimal
+
+
+class RemoveLiquidityRequest(BaseModel):
+    network: Optional[str] = None
+    wallet_address: str
+    pool_address: str
+    percentage_to_remove: Decimal
+
+
+class RemoveLiquidityResponse(BaseModel):
+    signature: str
+    fee: Decimal
+    base_token_amount_removed: Decimal
+    quote_token_amount_removed: Decimal
 
 
 class XRPLConfigMap(BaseConnectorConfigMap):
