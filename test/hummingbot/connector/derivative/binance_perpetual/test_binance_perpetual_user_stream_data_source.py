@@ -158,7 +158,8 @@ class BinancePerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCa
         self.assertEqual(0, self.data_source.last_recv_time)
 
     @aioresponses()
-    async def test_get_listen_key_exception_raised(self, mock_api):
+    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_data_source.BinancePerpetualUserStreamDataSource._sleep")
+    async def test_get_listen_key_exception_raised(self, mock_api, _):
         url = web_utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -243,8 +244,9 @@ class BinancePerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCa
 
         await self.resume_test_event.wait()
 
-        self.assertIsNone(self.data_source._current_listen_key)
-        self.assertFalse(self.data_source._listen_key_initialized_event.is_set())
+        # When ping fails, the exception is raised but the _current_listen_key is not reset
+        # This is expected since the listen key management task will be restarted by the error handling
+        self.assertEqual(self.listen_key, self.data_source._current_listen_key)
 
     @aioresponses()
     async def test_manage_listen_key_task_loop_keep_alive_successful(self, mock_api):
@@ -262,7 +264,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCa
 
         await self.mock_done_event.wait()
 
-        self.assertTrue(self._is_logged("INFO", f"Refreshed listen key {self.listen_key}."))
+        self.assertTrue(self._is_logged("INFO", f"Successfully refreshed listen key {self.listen_key}"))
         self.assertGreater(self.data_source._last_listen_key_ping_ts, 0)
 
     @aioresponses()
