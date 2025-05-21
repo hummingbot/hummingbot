@@ -1675,7 +1675,7 @@ class XrplExchange(ExchangePyBase):
             )
             last_traded_price_timestamp = data_source.last_parsed_order_book_timestamp.get(trading_pair, 0)
 
-        if math.isnan(last_traded_price) and order_book is not None:
+        if (math.isnan(last_traded_price) or last_traded_price == 0) and order_book is not None:
             best_bid = order_book.get_price(is_buy=True)
             best_ask = order_book.get_price(is_buy=False)
 
