@@ -4,6 +4,7 @@ channels:
   - defaults
 dependencies:
   ### Packages needed for the build/install process
+  - autopep8
   - conda-build>=3.26.0
   - coverage>=7.2.7
   - cython
@@ -28,7 +29,7 @@ dependencies:
   - commlib-py>=0.11
   - cryptography>=41.0.2
   - injective-py==1.10.*
-  - eth-account >=0.13.0
+  - eth-account>=0.13.0
   - msgpack-python
   - numpy>=1.25.0,<2
   - objgraph
@@ -37,8 +38,7 @@ dependencies:
   - prompt_toolkit>=3.0.39
   - protobuf>=4.23.3
   - psutil>=5.9.5
-  # No linux-aarch64/ppc64le conda package available ... yet
-  # - ptpython>=3.0.25
+  - ptpython>3.0.25
   - pydantic>=2
   - pyjwt>=2.3.0
   - pyperclip>=1.8.2

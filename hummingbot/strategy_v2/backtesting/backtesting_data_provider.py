@@ -1,6 +1,6 @@
 import logging
 from decimal import Decimal
-from typing import Dict
+from typing import Dict, Optional
 
 import pandas as pd
 
@@ -8,7 +8,7 @@ from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter, get_connector_class
 from hummingbot.client.settings import AllConnectorSettings, ConnectorType
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.core.data_type.common import PriceType
+from hummingbot.core.data_type.common import LazyDict, PriceType
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesFactory
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig, HistoricalCandlesConfig
@@ -34,9 +34,13 @@ class BacktestingDataProvider(MarketDataProvider):
         self._time = None
         self.trading_rules = {}
         self.conn_settings = AllConnectorSettings.get_connector_settings()
-        self.connectors = {name: self.get_connector(name) for name, settings in self.conn_settings.items()
-                           if settings.type in self.CONNECTOR_TYPES and name not in self.EXCLUDED_CONNECTORS and
-                           "testnet" not in name}
+        self.connectors = LazyDict[str, Optional[ConnectorBase]](
+            lambda name: self.get_connector(name) if (
+                self.conn_settings[name].type in self.CONNECTOR_TYPES and
+                name not in self.EXCLUDED_CONNECTORS and
+                "testnet" not in name
+            ) else None
+        )
 
     def get_connector(self, connector_name: str):
         conn_setting = self.conn_settings.get(connector_name)
@@ -48,17 +52,12 @@ class BacktestingDataProvider(MarketDataProvider):
         init_params = conn_setting.conn_init_parameters(
             trading_pairs=[],
             trading_required=False,
-            api_keys=self.get_connector_config_map(connector_name),
+            api_keys=MarketDataProvider.get_connector_config_map(connector_name),
             client_config_map=client_config_map,
         )
         connector_class = get_connector_class(connector_name)
         connector = connector_class(**init_params)
         return connector
-
-    @staticmethod
-    def get_connector_config_map(connector_name: str):
-        connector_config = AllConnectorSettings.get_connector_config_keys(connector_name)
-        return {key: "" for key in connector_config.__fields__.keys() if key != "connector"}
 
     def get_trading_rules(self, connector_name: str, trading_pair: str):
         """
@@ -94,6 +93,7 @@ class BacktestingDataProvider(MarketDataProvider):
         """
         key = self._generate_candle_feed_key(config)
         existing_feed = self.candles_feeds.get(key, pd.DataFrame())
+        # existing_feed = self.ensure_epoch_index(existing_feed)
 
         if not existing_feed.empty:
             existing_feed_start_time = existing_feed["timestamp"].min()
@@ -110,6 +110,8 @@ class BacktestingDataProvider(MarketDataProvider):
             start_time=self.start_time - candles_buffer,
             end_time=self.end_time,
         ))
+        # TODO: fix pandas-ta improper float index slicing to allow us to use float indexes
+        # candles_df = self.ensure_epoch_index(candles_df)
         self.candles_feeds[key] = candles_df
         return candles_df
 
@@ -158,3 +160,27 @@ class BacktestingDataProvider(MarketDataProvider):
         trading_rules = self.get_trading_rules(connector_name, trading_pair)
         price_quantum = trading_rules.min_price_increment
         return (price // price_quantum) * price_quantum
+
+    # TODO: enable copy-on-write and allow specification of inplace
+    @staticmethod
+    def ensure_epoch_index(df: pd.DataFrame, timestamp_column: str = "timestamp",
+                           keep_original: bool = True, index_name: str = "epoch_seconds") -> pd.DataFrame:
+        """Ensures DataFrame has numeric monotonic increasing timestamp index in seconds since epoch."""
+        # Skip if already numeric index but not RangeIndex as that generally means the index was dropped
+        if df.index.name == index_name or df.empty:
+            return df
+
+        # DatetimeIndex → convert to seconds
+        if isinstance(df.index, pd.DatetimeIndex):
+            df.index = df.index.map(pd.Timestamp.timestamp)
+        # Has timestamp column → use as index
+        elif timestamp_column in df.columns:
+            df = df.set_index(timestamp_column, drop=not keep_original)
+            # Convert non-numeric indices to seconds
+            if not pd.api.types.is_numeric_dtype(df.index):
+                df.index = pd.to_datetime(df.index).map(pd.Timestamp.timestamp)
+        else:
+            raise ValueError(f"Cannot create timestamp index: no '{timestamp_column}' column found and index isn't convertible")
+        df.sort_index(inplace=True)
+        df.index.name = index_name
+        return df
