@@ -105,7 +105,7 @@ class GatewayConnectionSetting:
 
     @staticmethod
     def get_connector_spec_from_market_name(market_name: str) -> Optional[Dict[str, str]]:
-        for chain in ["ethereum", "solana"]:
+        for chain in ["ethereum", "solana", "polkadot"]:
             if f"_{chain}_" in market_name:
                 connector, network = market_name.split(f"_{chain}_")
                 return GatewayConnectionSetting.get_connector_spec(connector, chain, network)

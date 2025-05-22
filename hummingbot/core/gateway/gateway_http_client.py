@@ -313,11 +313,21 @@ class GatewayHttpClient:
             self,
             chain: str,
             network: str,
+            token_symbols: Optional[Union[str, List[str]]] = None,
             fail_silently: bool = True
     ) -> Dict[str, Any]:
-        return await self.api_request("get", f"{chain}/tokens", {
-            "network": network
-        }, fail_silently=fail_silently)
+        if token_symbols is None:
+            return await self.api_request("get", f"{chain}/tokens", {"network": network}, fail_silently=fail_silently)
+        else:
+            if isinstance(token_symbols, str):
+                token_symbols = [token_symbols]
+
+            return await self.api_request(
+                "get",
+                f"{chain}/tokens",
+                {"network": network, "tokenSymbols": token_symbols},
+                fail_silently=fail_silently,
+            )
 
     async def get_network_status(
             self,
@@ -692,3 +702,250 @@ class GatewayHttpClient:
                 "price": None,
                 "error": str(e)
             }
+
+    async def amm_add_liquidity(
+            self,
+            connector: str,
+            network: str,
+            wallet_address: str,
+            pool_address: str,
+            base_token_amount: Decimal,
+            quote_token_amount: Decimal,
+            slippage_percentage: Optional[Decimal] = None,
+            fail_silently: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Adds liquidity to an AMM pool
+        :param connector: The connector/protocol (e.g., "raydium")
+        :param network: The network to use (e.g., "mainnet")
+        :param wallet_address: The wallet address adding liquidity
+        :param pool_address: The address of the pool
+        :param base_token_amount: The amount of base token to add
+        :param quote_token_amount: The amount of quote token to add
+        :param slippage_percentage: Allowed slippage percentage
+        """
+        request_payload = {
+            "network": network,
+            "walletAddress": wallet_address,
+            "poolAddress": pool_address,
+            "baseTokenAmount": float(base_token_amount),
+            "quoteTokenAmount": float(quote_token_amount),
+        }
+
+        if slippage_percentage is not None:
+            request_payload["slippagePct"] = float(slippage_percentage)
+
+        return await self.api_request(
+            "post",
+            f"{connector}/amm/add-liquidity",
+            request_payload,
+            fail_silently=fail_silently,
+        )
+
+    async def amm_remove_liquidity(
+            self,
+            connector: str,
+            network: str,
+            wallet_address: str,
+            pool_address: str,
+            percentage_to_remove: Decimal,
+            fail_silently: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Removes liquidity from an AMM pool
+        :param connector: The connector/protocol (e.g., "raydium")
+        :param network: The network to use (e.g., "mainnet")
+        :param wallet_address: The wallet address removing liquidity
+        :param pool_address: The address of the pool
+        :param percentage_to_remove: Percentage of LP tokens to remove (1-100)
+        :param fail_silently: Whether to fail silently on error
+        :return: Result of the liquidity removal transaction
+        """
+        request_payload = {
+            "network": network,
+            "walletAddress": wallet_address,
+            "poolAddress": pool_address,
+            "percentageToRemove": float(percentage_to_remove),
+        }
+
+        return await self.api_request(
+            "post",
+            f"{connector}/amm/remove-liquidity",
+            request_payload,
+            fail_silently=fail_silently,
+        )
+
+    async def amm_quote_swap(
+            self,
+            network: str,
+            connector: str,
+            base_asset: str,
+            quote_asset: str,
+            amount: Decimal,
+            side: TradeType,
+            slippage_percentage: Optional[Decimal] = None,
+            pool_address: Optional[str] = None,
+            fail_silently: bool = False,
+    ) -> Dict[str, Any]:
+        if side not in [TradeType.BUY, TradeType.SELL]:
+            raise ValueError("Only BUY and SELL prices are supported.")
+
+        request_payload = {
+            "network": network,
+            "baseToken": base_asset,
+            "quoteToken": quote_asset,
+            "amount": float(amount),
+            "side": side.name,
+        }
+        if slippage_percentage is not None:
+            request_payload["slippagePct"] = float(slippage_percentage)
+        if pool_address is not None:
+            request_payload["poolAddress"] = pool_address
+
+        return await self.api_request(
+            "get", f"{connector}/amm/quote-swap", request_payload, fail_silently=fail_silently
+        )
+
+    async def amm_execute_swap(
+            self,
+            network: str,
+            connector: str,
+            wallet_address: str,
+            base_asset: str,
+            quote_asset: str,
+            side: TradeType,
+            amount: Decimal,
+            slippage_percentage: Optional[Decimal] = None,
+            pool_address: Optional[str] = None,
+            # limit_price: Optional[Decimal] = None,
+            nonce: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        if side not in [TradeType.BUY, TradeType.SELL]:
+            raise ValueError("Only BUY and SELL prices are supported.")
+
+        request_payload: Dict[str, Any] = {
+            "network": network,
+            "walletAddress": wallet_address,
+            "baseToken": base_asset,
+            "quoteToken": quote_asset,
+            "amount": float(amount),
+            "side": side.name,
+        }
+        if slippage_percentage is not None:
+            request_payload["slippagePct"] = float(slippage_percentage)
+        # if limit_price is not None:
+        #     request_payload["limitPrice"] = limit_price
+        if nonce is not None:
+            request_payload["nonce"] = int(nonce)
+        if pool_address is not None:
+            request_payload["poolAddress"] = pool_address
+        return await self.api_request("post", f"{connector}/amm/execute-swap", request_payload)
+
+    async def amm_pool_info(
+            self, connector: str, network: str, pool_address: str, fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Gets information about an AMM liquidity pool
+        :param connector: The connector/protocol (e.g., "raydium")
+        :param network: The network to use (e.g., "mainnet")
+        :param pool_address: The address of the pool
+        :param fail_silently: Whether to fail silently on error
+        :return: Pool information including token reserves and prices
+        """
+        query_params = {
+            "network": network,
+            "poolAddress": pool_address,
+        }
+
+        return await self.api_request(
+            "get",
+            f"{connector}/amm/pool-info",
+            params=query_params,
+            fail_silently=fail_silently,
+        )
+
+    async def amm_quote_liquidity(
+            self,
+            connector: str,
+            network: str,
+            pool_address: str,
+            base_token_amount: Optional[Decimal] = None,
+            quote_token_amount: Optional[Decimal] = None,
+            slippage_percentage: Optional[Decimal] = None,
+            fail_silently: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Gets a quote for adding liquidity to an AMM pool
+        :param connector: The connector/protocol (e.g., "raydium")
+        :param network: The network to use (e.g., "mainnet")
+        :param pool_address: The address of the pool
+        :param base_token_amount: The amount of base token to add
+        :param quote_token_amount: The amount of quote token to add
+        :param slippage_percentage: Allowed slippage percentage
+        :param fail_silently: Whether to fail silently on error
+        :return: Quote information for adding liquidity
+        """
+        query_params = {
+            "network": network,
+            "poolAddress": pool_address,
+        }
+        if base_token_amount is not None:
+            query_params["baseTokenAmount"] = float(base_token_amount)
+        if quote_token_amount is not None:
+            query_params["quoteTokenAmount"] = float(quote_token_amount)
+        if slippage_percentage is not None:
+            query_params["slippagePct"] = float(slippage_percentage)
+
+        return await self.api_request(
+            "get",
+            f"{connector}/amm/quote-liquidity",
+            params=query_params,
+            fail_silently=fail_silently,
+        )
+
+    async def amm_list_pools(
+            self,
+            connector: str,
+            network: str,
+            types: Optional[List[str]] = None,
+            token_symbols: Optional[List[str]] = None,
+            token_addresses: Optional[List[str]] = None,
+            max_number_of_pages: int = 3,
+            use_official_tokens: bool = True,
+            fail_silently: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Fetches all available AMM pools for a given connector and network
+        :param connector: The connector/protocol (e.g., "raydium")
+        :param network: The network to use (e.g., "mainnet")
+        :param token_symbols: List of tokens to filter pools by
+        :param token_addresses: List of token addresses to filter pools by
+        :param types: List of pool types to filter by
+        :param max_number_of_pages: Maximum number of pages to fetch
+        :param use_official_tokens: Whether to use official tokens only
+        :param fail_silently: Whether to fail silently on error
+        :return: List of available pools with their information
+        """
+        query_params = {}
+
+        if network is not None:
+            query_params["network"] = network
+        if types is not None:
+            query_params["types"] = types
+        if token_symbols is not None:
+            query_params["tokenSymbols"] = token_symbols
+        if token_addresses is not None:
+            query_params["tokenAddresses"] = token_addresses
+        if max_number_of_pages is not None:
+            query_params["maxNumberOfPages"] = max_number_of_pages
+        if use_official_tokens is not None:
+            query_params["useOfficialTokens"] = str(use_official_tokens).lower()
+
+        result = await self.api_request(
+            "get",
+            f"{connector}/amm/list-pools",
+            params=query_params,
+            fail_silently=fail_silently,
+        )
+
+        return result
