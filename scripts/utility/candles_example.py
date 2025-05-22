@@ -48,9 +48,6 @@ class CandlesExample(ScriptStrategyBase):
         """
         return all([self.eth_1h_candles.ready, self.eth_1m_candles.ready, self.eth_1w_candles.ready])
 
-    def on_tick(self):
-        pass
-
     async def on_stop(self):
         """
         Without this functionality, the network iterator will continue running forever after stopping the strategy
@@ -76,7 +73,7 @@ class CandlesExample(ScriptStrategyBase):
                 candles_df.ta.rsi(length=14, append=True)
                 candles_df.ta.bbands(length=20, std=2, append=True)
                 candles_df.ta.ema(length=14, offset=None, append=True)
-                candles_df["timestamp"] = pd.to_datetime(candles_df["timestamp"], unit="ms")
+                candles_df["timestamp"] = pd.to_datetime(candles_df["timestamp"], unit="s")
                 lines.extend([f"Candles: {candles.name} | Interval: {candles.interval}"])
                 lines.extend(["    " + line for line in candles_df.tail().to_string(index=False).split("\n")])
                 lines.extend(["\n-----------------------------------------------------------------------------------------------------------\n"])

@@ -18,16 +18,16 @@ class BuyOnlyThreeTimesExample(ScriptStrategyBase):
     base = "ETH"
     quote = "USDT"
     markets = {
-        "kucoin_paper_trade": {f"{base}-{quote}"}
+        "binance_paper_trade": {f"{base}-{quote}"}
     }
 
     def on_tick(self):
         if self.orders_created < self.orders_to_create:
-            conversion_rate = RateOracle.get_instance().get_pair_rate(f"{self.base}-USD")
+            conversion_rate = RateOracle.get_instance().get_pair_rate(f"{self.base}-USDT")
             amount = self.order_amount_usd / conversion_rate
-            price = self.connectors["kucoin_paper_trade"].get_mid_price(f"{self.base}-{self.quote}") * Decimal(0.99)
+            price = self.connectors["binance_paper_trade"].get_mid_price(f"{self.base}-{self.quote}") * Decimal(0.99)
             self.buy(
-                connector_name="kucoin_paper_trade",
+                connector_name="binance_paper_trade",
                 trading_pair="ETH-USDT",
                 amount=amount,
                 order_type=OrderType.LIMIT,
@@ -36,6 +36,7 @@ class BuyOnlyThreeTimesExample(ScriptStrategyBase):
 
     def did_create_buy_order(self, event: BuyOrderCreatedEvent):
         trading_pair = f"{self.base}-{self.quote}"
+        self.logger().info(f"Buy order created: {event.order_id} for {trading_pair}")
         if event.trading_pair == trading_pair:
             self.orders_created += 1
             if self.orders_created == self.orders_to_create:
