@@ -172,7 +172,7 @@ class PerformanceMetrics:
         return value / divisor
 
     def _is_trade_fill(self, trade):
-        return type(trade) == TradeFill
+        return isinstance(trade, TradeFill)
 
     def _are_derivatives(self, trades: List[Any]) -> bool:
         return (

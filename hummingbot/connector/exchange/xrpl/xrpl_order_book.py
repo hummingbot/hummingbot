@@ -8,7 +8,6 @@ from hummingbot.core.data_type.order_book_row import OrderBookRow
 
 
 class XRPLOrderBook(OrderBook):
-
     @classmethod
     def snapshot_message_from_exchange(cls,
                                        msg: Dict[str, any],
