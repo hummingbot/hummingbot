@@ -1,3 +1,4 @@
+import collections
 import time
 from decimal import Decimal
 from typing import List, Tuple
@@ -25,11 +26,14 @@ class AsyncRequestContext(AsyncRequestContextBase):
         if self._rate_limit is not None:
             list_of_limits: List[Tuple[RateLimit, int]] = [(self._rate_limit,
                                                             self._rate_limit.weight)] + self._related_limits
+            limit_id_to_task_log_map = collections.defaultdict(list)
+            for task in self._task_logs:
+                limit_id_to_task_log_map[task.rate_limit.limit_id].append(task)
             now: float = self._time()
             for rate_limit, weight in list_of_limits:
                 capacity_used: int = sum([task.weight
-                                          for task in self._task_logs
-                                          if rate_limit.limit_id == task.rate_limit.limit_id and
+                                          for task in limit_id_to_task_log_map[rate_limit.limit_id]
+                                          if
                                           Decimal(str(now)) - Decimal(str(task.timestamp)) - Decimal(str(task.rate_limit.time_interval * self._safety_margin_pct)) <= task.rate_limit.time_interval])
 
                 if capacity_used + weight > rate_limit.limit:
