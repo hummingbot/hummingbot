@@ -31,6 +31,58 @@ if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
 
+class TelegramConfigMap(BaseClientModel):
+    enabled: bool = Field(
+        default=False,
+        description="If enabled, the Telegram notifier will send messages to the specified chat ID",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Do you want to enable the Telegram notifier? (Yes/No) >>> ",
+        ),
+    )
+    token: str = Field(
+        default="",
+        description="Telegram bot token from BotFather",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Telegram token >>> ",
+        ),
+    )
+    chat_id: str = Field(
+        default="",
+        description="Telegram chat ID where notifications will be sent",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter the Chat ID you want to send notifications to >>> ",
+        ),
+    )
+
+    class Config:
+        title = "telegram"
+
+
+class NotifiersConfigMap(BaseClientModel):
+    telegram: TelegramConfigMap = Field(
+        default=TelegramConfigMap.Config.title,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Do you want to enable the Telegram notifier? (Yes/No) >>> ",
+        ),
+    )
+
+    # discord: str = Field(
+    #     default="",
+    #     client_data=ClientFieldData(
+    #         prompt=lambda cm: "Do you want to enable the Discord notifier? (Yes/No) >>> ",
+    #     ),
+    # )
+    # slack: str = Field(
+    #     default="",
+    #     client_data=ClientFieldData(
+    #         prompt=lambda cm: "Do you want to enable the Slack notifier? (Yes/No) >>> ",
+    #     ),
+    # )
+
+    class Config:
+        title = "notifiers"
+
+
 def generate_client_id() -> str:
     vals = [random.choice(range(0, 256)) for i in range(0, 20)]
     return "".join([f"{val:02x}" for val in vals])
@@ -835,6 +887,11 @@ class ClientConfigMap(BaseClientModel):
         )},
     )
     market_data_collection: MarketDataCollectionConfigMap = Field(default=MarketDataCollectionConfigMap())
+    # Add Telegram config
+    telegram: TelegramConfigMap = Field(
+        default_factory=TelegramConfigMap,
+        description="Telegram notifier settings"
+    )
     model_config = ConfigDict(title="client_config_map")
 
     @field_validator("kill_switch_mode", mode="before")
