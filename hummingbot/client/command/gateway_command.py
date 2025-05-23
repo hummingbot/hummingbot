@@ -237,19 +237,16 @@ class GatewayCommand(GatewayChainApiManager):
                     self.notify(
                         f"No available blockchain networks available for the connector '{connector}'.")
                     return
-                available_networks: List[Dict[str, Any]
-                                         ] = connector_config[0]["available_networks"]
+                # Get chain and networks directly from the connector_config now that they're at the root level
+                chain = connector_config[0]["chain"]
+                networks = connector_config[0]["networks"]
                 trading_types: str = connector_config[0]["trading_types"]
 
-                # Since there's always just one chain per connector, directly get the first chain
-                chain = available_networks[0]['chain']
-
-                # Get networks for the selected chain and use the new prompt format
-                networks = [d['networks'] for d in available_networks if d['chain'] == chain][0]
-
                 # networks as options
+                # Set networks in the completer before the prompt
+                self.app.input_field.completer.set_gateway_networks(networks)
+
                 while True:
-                    self.app.input_field.completer.set_gateway_networks(networks)
                     network = await self.app.prompt(
                         prompt=f"Which {chain}-based network do you want to connect to? ({', '.join(networks)}) >>> "
                     )
@@ -702,17 +699,13 @@ class GatewayCommand(GatewayChainApiManager):
         connectors_tiers: List[Dict[str, Any]] = []
 
         for connector in connector_list["connectors"]:
-            available_networks: List[Dict[str, Any]] = connector["available_networks"]
+            # Chain and networks are now directly in the connector config
+            chain = connector["chain"]
+            networks = connector["networks"]
 
-            # Extract chain type and flatten the list
-            chain_type: List[str] = [d['chain'] for d in available_networks]
-            chain_type_str = ", ".join(chain_type)  # Convert list to comma-separated string
-
-            # Extract networks and flatten the nested lists
-            all_networks = []
-            for network_item in available_networks:
-                all_networks.extend(network_item['networks'])
-            networks_str = ", ".join(all_networks)  # Convert flattened list to string
+            # Convert to string for display
+            chain_type_str = chain
+            networks_str = ", ".join(networks) if networks else "N/A"
 
             # Extract trading types and convert to string
             trading_types: List[str] = connector.get("trading_types", [])
