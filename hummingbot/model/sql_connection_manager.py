@@ -87,9 +87,13 @@ class SQLConnectionManager(TransactionBase):
                         if not self._engine.dialect.supports_alter:
                             continue
                         for fkc in fkcs:
-                            fk_constraint = ForeignKeyConstraint((), (), name=fkc)
-                            Table(tname, MetaData(), fk_constraint)
-                            conn.execute(DropConstraint(fk_constraint))
+                            try:
+                                fk_constraint = ForeignKeyConstraint((), (), name=fkc[0])
+                                Table(tname, MetaData(), fk_constraint)
+                                conn.execute(DropConstraint(fk_constraint))
+                            except Exception as e:
+                                self.logger().error(e)
+                                continue
 
         self._session_cls = sessionmaker(bind=self._engine)
 

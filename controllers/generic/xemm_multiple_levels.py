@@ -98,7 +98,9 @@ class XEMMMultipleLevels(ControllerBase):
         )
         imbalance = len(stopped_buy_executors) - len(stopped_sell_executors)
         for target_profitability, amount in self.buy_levels_targets_amount:
-            active_buy_executors_target = [e.config.target_profitability == target_profitability for e in active_buy_executors]
+            active_buy_executors_target = [
+                e for e in active_buy_executors if e.config.target_profitability == target_profitability
+            ]
 
             if len(active_buy_executors_target) == 0 and imbalance < self.config.max_executors_imbalance:
                 min_profitability = target_profitability - self.config.min_profitability
@@ -118,7 +120,9 @@ class XEMMMultipleLevels(ControllerBase):
                 )
                 executor_actions.append(CreateExecutorAction(executor_config=config, controller_id=self.config.id))
         for target_profitability, amount in self.sell_levels_targets_amount:
-            active_sell_executors_target = [e.config.target_profitability == target_profitability for e in active_sell_executors]
+            active_sell_executors_target = [
+                e for e in active_sell_executors if e.config.target_profitability == target_profitability
+            ]
             if len(active_sell_executors_target) == 0 and imbalance > -self.config.max_executors_imbalance:
                 min_profitability = target_profitability - self.config.min_profitability
                 max_profitability = target_profitability + self.config.max_profitability
