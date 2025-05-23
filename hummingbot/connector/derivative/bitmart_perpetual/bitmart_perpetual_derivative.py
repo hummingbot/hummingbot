@@ -59,7 +59,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._domain = domain
-        self._position_mode = None
+        self._position_mode_set = False
         self._last_trade_history_timestamp = None
         self._contract_sizes = {}
         super().__init__(client_config_map)
@@ -129,7 +129,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
         """
         This method needs to be overridden to provide the accurate information depending on the exchange.
         """
-        return [PositionMode.HEDGE]
+        return [PositionMode.ONEWAY, PositionMode.HEDGE]
 
     def get_buy_collateral_token(self, trading_pair: str) -> str:
         trading_rule: TradingRule = self._trading_rules[trading_pair]
@@ -729,8 +729,31 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                 self._order_tracker.process_order_update(new_order_update)
 
     async def _trading_pair_position_mode_set(self, mode: PositionMode, trading_pair: str) -> Tuple[bool, str]:
-        # TODO: Currently there are no position mode settings in Bitmart
-        return True, ""
+        # Set only once because at 2025-04-10 bitmart only supports one position mode accross all markets
+        msg = ""
+        if not self._position_mode_set:
+            position_mode = "hedge_mode" if mode == PositionMode.HEDGE else "one_way_mode"
+            payload = {
+                "position_mode": position_mode
+            }
+            set_position_mode = await self._api_post(
+                path_url=CONSTANTS.SET_POSITION_MODE_URL,
+                data=payload,
+                is_auth_required=True
+            )
+            set_position_mode_code = set_position_mode.get("code")
+            set_position_mode_data = set_position_mode.get("data")
+            if set_position_mode_data is not None and set_position_mode_code == CONSTANTS.CODE_OK:
+                success = set_position_mode_data.get("position_mode") == position_mode
+                self.logger().info(f"Position mode switched to {mode}.")
+                self._position_mode_set = True
+            else:
+                success = False
+                msg = f"Unable to set position mode: Code {set_position_mode_code} - {set_position_mode["message"]}"
+        else:
+            success = True
+            msg = "Position Mode already set."
+        return success, msg
 
     async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
@@ -780,6 +803,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
 
 class UnknownOrderStateException(Exception):
     """Custom exception for unknown order states."""
+
     def __init__(self, state, size, deal_size):
         super().__init__(f"Order state {state} with size {size} and deal size {deal_size} not tracked. "
                          f"Please report this to a developer for review.")
