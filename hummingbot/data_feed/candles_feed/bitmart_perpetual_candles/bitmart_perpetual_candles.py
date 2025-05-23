@@ -19,6 +19,18 @@ class BitmartPerpetualCandles(CandlesBase):
     def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 150):
         super().__init__(trading_pair, interval, max_records)
         self.contract_size = None
+        self.ws_interval = {
+            "1m": "1m",
+            "5m": "5m",
+            "15m": "15m",
+            "30m": "30m",
+            "1h": "1H",
+            "2h": "2H",
+            "4h": "4H",
+            "12h": "12H",
+            "1d": "1D",
+            "1w": "1W",
+        }
 
     async def initialize_exchange_data(self):
         await self.get_exchange_trading_pair_contract_size()
@@ -132,7 +144,8 @@ class BitmartPerpetualCandles(CandlesBase):
         return []
 
     def ws_subscription_payload(self):
-        channel = f"futures/klineBin{self.interval}"
+        interval = self.ws_interval[self.interval]
+        channel = f"futures/klineBin{interval}"
         args = [f"{channel}:{self._ex_trading_pair}"]
         payload = {
             "action": "subscribe",
