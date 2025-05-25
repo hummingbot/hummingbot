@@ -256,9 +256,11 @@ class StartCommand(GatewayChainApiManager):
             if self.strategy:
                 self.clock.add_iterator(self.strategy)
             self.strategy_task: asyncio.Task = safe_ensure_future(self._run_clock(), loop=self.ev_loop)
-            self.notify(f"\n'{self.strategy_name}' strategy started.\n"
-                        f"Run `status` command to query the progress.")
+            self.notify(f"\n'{self.strategy_name}' strategy started.\nRun `status` command to query the progress.")
             self.logger().info("start command initiated.")
+
+            # Start messaging interfaces if configured
+            await self.start_messengers()
 
             if self._trading_required:
                 self.kill_switch = self.client_config_map.kill_switch_mode.get_kill_switch(self)

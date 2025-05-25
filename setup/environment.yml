@@ -58,6 +58,7 @@ dependencies:
   - xrpl-py>=4.1.0
   - yaml>=0.2.5
   - zlib>=1.2.13
+  - python-telegram-bot==22.0
   - scipy=1.10.1
   - sqlalchemy=1.4
   - tabulate==0.8.9

@@ -35,23 +35,38 @@ class TelegramConfigMap(BaseClientModel):
     enabled: bool = Field(
         default=False,
         description="If enabled, the Telegram notifier will send messages to the specified chat ID",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Do you want to enable the Telegram notifier? (Yes/No) >>> ",
-        ),
+        json_schema_extra={
+            "prompt": lambda cm: "Do you want to enable the Telegram notifier? (Yes/No) >>> ",
+        },
     )
     token: str = Field(
         default="",
         description="Telegram bot token from BotFather",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Telegram token >>> ",
-        ),
+        json_schema_extra={
+            "prompt": lambda cm: "Enter your Telegram bot token (from BotFather) >>> ",
+        }
     )
     chat_id: str = Field(
         default="",
         description="Telegram chat ID where notifications will be sent",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter the Chat ID you want to send notifications to >>> ",
-        ),
+        json_schema_extra={
+            "prompt": lambda cm: "Enter the Chat ID you want to send notifications to (e.g. -1001234567890) >>> ",
+        }
+    )
+    message_retention_days: int = Field(
+        default=7,
+        description="Number of days to keep message history in the database",
+        json_schema_extra={
+            "prompt": lambda cm: "Enter the number of days to keep message history (default: 7) >>> ",
+        },
+    )
+    polling_interval: float = Field(
+        default=1.0,
+        description="Time in seconds between polling for new messages",
+    )
+    cleanup_interval: float = Field(
+        default=86400.0,
+        description="Time in seconds between cleaning up old messages",
     )
 
     class Config:
@@ -61,9 +76,10 @@ class TelegramConfigMap(BaseClientModel):
 class NotifiersConfigMap(BaseClientModel):
     telegram: TelegramConfigMap = Field(
         default=TelegramConfigMap.Config.title,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Do you want to enable the Telegram notifier? (Yes/No) >>> ",
-        ),
+        description="Telegram notifier configuration",
+        json_schema_extra={
+            "prompt": lambda cm: "Do you want to enable the Telegram notifier? (Yes/No) >>> ",
+        },
     )
 
     # discord: str = Field(
@@ -892,7 +908,6 @@ class ClientConfigMap(BaseClientModel):
         default_factory=TelegramConfigMap,
         description="Telegram notifier settings"
     )
-    model_config = ConfigDict(title="client_config_map")
 
     @field_validator("kill_switch_mode", mode="before")
     @classmethod

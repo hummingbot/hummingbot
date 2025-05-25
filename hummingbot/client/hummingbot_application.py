@@ -27,7 +27,6 @@ from hummingbot.client.ui.completer import load_completer
 from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
 from hummingbot.client.ui.keybindings import load_key_bindings
 from hummingbot.client.ui.parser import ThrowingArgumentParser, load_parser
-from hummingbot.command_iface import TelegramCommandInterface
 from hummingbot.connector.exchange.paper_trade import create_paper_trade_market
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.markets_recorder import MarketsRecorder
@@ -39,6 +38,8 @@ from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.exceptions import ArgumentParserError
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
+from hummingbot.messaging.base.broker import MessageBroker
+from hummingbot.messaging.providers.telegram.interface import TelegramMessenger
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.remote_iface.mqtt import MQTTGateway
@@ -128,8 +129,11 @@ class HummingbotApplication(*commands):
         if self.client_config_map.mqtt_bridge.mqtt_autostart:
             self.mqtt_start()
 
-        # Initialize command interfaces
-        self._initialize_command_interfaces()
+        # Initialize message broker
+        self._message_broker = MessageBroker(self)
+        self._initialize_messangers()
+        self._messengers_started = False
+        self._starting_messengers = False
 
     @property
     def instance_id(self) -> str:
@@ -335,16 +339,48 @@ class HummingbotApplication(*commands):
         if self._mqtt is not None:
             self._mqtt.start_market_events_fw()
 
-    def _initialize_command_interfaces(self):
-        # Telegram
+    def _initialize_messangers(self):
+        self._telegram = None
         if self.client_config_map.telegram.enabled:
-            telegram_command_interface = TelegramCommandInterface.from_client_config(
-                self.client_config_map, self
+            self._telegram = TelegramMessenger(
+                token=self.client_config_map.telegram.token,
+                chat_id=self.client_config_map.telegram.chat_id,
+                broker=self._message_broker
             )
-            self.notifiers.append(telegram_command_interface)
+
+    async def start_messengers(self) -> None:
+        """Start messaging interfaces (e.g. Telegram) if enabled"""
+        if self._messengers_started or self._starting_messengers:
+            return
+
+        self._starting_messengers = True
+        try:
+            if self.client_config_map.telegram.enabled and self._telegram:
+                await self._message_broker.start()
+                await self._telegram.start()
+            self._messengers_started = True
+            self.notify("Messaging interfaces started.")
+        except Exception as e:
+            self.notify(f"Error starting messaging interfaces: {e}")
+            self.logger().exception("Error starting messaging interfaces")
+        finally:
+            self._starting_messengers = False
+
+    async def stop_messengers(self) -> None:
+        """Stop messaging interfaces (e.g. Telegram) if running"""
+        if not self._messengers_started:
+            return
+
+        try:
+            if self._telegram:
+                await self._telegram.stop()
+            await self._message_broker.stop()
+            self._messengers_started = False
+            self.logger().info("Messaging interfaces stopped.")
+        except Exception as e:
+            self.logger().exception(f"Error stopping messaging interfaces: {e}")
 
     def _initialize_notifiers(self):
-        # Start all notifiers
         for notifier in self.notifiers:
             notifier.start()
 
