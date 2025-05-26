@@ -31,6 +31,7 @@ CANCEL_ORDER_URL = "/contract/private/cancel-order"  # 40 times / 2 sec
 ACCOUNT_TRADE_LIST_URL = "/contract/private/trades"  # 6 times / 2 sec
 SET_LEVERAGE_URL = "/contract/private/submit-leverage"  # 24 times / 2 sec
 GET_INCOME_HISTORY_URL = "/contract/private/transaction-history"  # 6 times / 2 sec
+SET_POSITION_MODE_URL = "/contract/private/set-position-mode"  # 2 times / 2 sec
 
 # Private API v2 Endpoints
 ASSETS_DETAIL = "/contract/private/assets-detail"  # 12 times / 2 sec
@@ -73,6 +74,7 @@ RATE_LIMITS = [
     RateLimit(limit_id=GET_INCOME_HISTORY_URL, limit=6, time_interval=2),
     RateLimit(limit_id=ASSETS_DETAIL, limit=12, time_interval=2),
     RateLimit(limit_id=POSITION_INFORMATION_URL, limit=6, time_interval=2),
+    RateLimit(limit_id=SET_POSITION_MODE_URL, limit=2, time_interval=2),
 ]
 
 CODE_OK = 1000
