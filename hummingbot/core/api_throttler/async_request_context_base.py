@@ -56,7 +56,7 @@ class AsyncRequestContextBase(ABC):
         :return:
         """
         now: Decimal = Decimal(str(time.time()))
-        self._task_logs = [
+        self._task_logs[:] = [
             task for task in self._task_logs
             if now - Decimal(str(task.timestamp)) <= Decimal(str(task.rate_limit.time_interval * (1 + self._safety_margin_pct)))
         ]
