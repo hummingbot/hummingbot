@@ -273,7 +273,7 @@ class CLMMPositionManager(ScriptStrategyBase):
                     self.position_address = None
             else:
                 # No transaction hash in response
-                self.logger().error(f"Failed to open position. No signature in response: {response}")
+                self.logger().error(f"Failed to open position. No txHash in response: {response}")
         except Exception as e:
             self.logger().error(f"Error opening position: {str(e)}")
         finally:
@@ -386,7 +386,7 @@ class CLMMPositionManager(ScriptStrategyBase):
                         self.logger().info(f"Transaction failed, will retry. {max_retries - retry_count} attempts remaining.")
                         await asyncio.sleep(2)  # Short delay before retry
                 else:
-                    self.logger().error(f"Failed to close position. No signature in response: {response}")
+                    self.logger().error(f"Failed to close position. No txHash in response: {response}")
                     retry_count += 1
 
             if not position_closed and retry_count >= max_retries:
