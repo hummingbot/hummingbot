@@ -2,7 +2,7 @@ import asyncio
 from decimal import Decimal
 from typing import Any, Dict, Optional, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from hummingbot.connector.gateway.common_types import ConnectorType, get_connector_type
 from hummingbot.connector.gateway.gateway_swap import GatewaySwap
@@ -19,50 +19,50 @@ class TokenInfo(BaseModel):
 
 class AMMPoolInfo(BaseModel):
     address: str
-    baseTokenAddress: str
-    quoteTokenAddress: str
+    base_token_address: str = Field(alias="baseTokenAddress")
+    quote_token_address: str = Field(alias="quoteTokenAddress")
     price: float
-    feePct: float
-    baseTokenAmount: float
-    quoteTokenAmount: float
+    fee_pct: float = Field(alias="feePct")
+    base_token_amount: float = Field(alias="baseTokenAmount")
+    quote_token_amount: float = Field(alias="quoteTokenAmount")
 
 
 class CLMMPoolInfo(BaseModel):
     address: str
-    baseTokenAddress: str
-    quoteTokenAddress: str
-    binStep: int
-    feePct: float
+    base_token_address: str = Field(alias="baseTokenAddress")
+    quote_token_address: str = Field(alias="quoteTokenAddress")
+    bin_step: int = Field(alias="binStep")
+    fee_pct: float = Field(alias="feePct")
     price: float
-    baseTokenAmount: float
-    quoteTokenAmount: float
-    activeBinId: int
+    base_token_amount: float = Field(alias="baseTokenAmount")
+    quote_token_amount: float = Field(alias="quoteTokenAmount")
+    active_bin_id: int = Field(alias="activeBinId")
 
 
 class AMMPositionInfo(BaseModel):
-    poolAddress: str
-    walletAddress: str
-    baseTokenAddress: str
-    quoteTokenAddress: str
-    lpTokenAmount: float
-    baseTokenAmount: float
-    quoteTokenAmount: float
+    pool_address: str = Field(alias="poolAddress")
+    wallet_address: str = Field(alias="walletAddress")
+    base_token_address: str = Field(alias="baseTokenAddress")
+    quote_token_address: str = Field(alias="quoteTokenAddress")
+    lp_token_amount: float = Field(alias="lpTokenAmount")
+    base_token_amount: float = Field(alias="baseTokenAmount")
+    quote_token_amount: float = Field(alias="quoteTokenAmount")
     price: float
 
 
 class CLMMPositionInfo(BaseModel):
     address: str
-    poolAddress: str
-    baseTokenAddress: str
-    quoteTokenAddress: str
-    baseTokenAmount: float
-    quoteTokenAmount: float
-    baseFeeAmount: float
-    quoteFeeAmount: float
-    lowerBinId: int
-    upperBinId: int
-    lowerPrice: float
-    upperPrice: float
+    pool_address: str = Field(alias="poolAddress")
+    base_token_address: str = Field(alias="baseTokenAddress")
+    quote_token_address: str = Field(alias="quoteTokenAddress")
+    base_token_amount: float = Field(alias="baseTokenAmount")
+    quote_token_amount: float = Field(alias="quoteTokenAmount")
+    base_fee_amount: float = Field(alias="baseFeeAmount")
+    quote_fee_amount: float = Field(alias="quoteFeeAmount")
+    lower_bin_id: int = Field(alias="lowerBinId")
+    upper_bin_id: int = Field(alias="upperBinId")
+    lower_price: float = Field(alias="lowerPrice")
+    upper_price: float = Field(alias="upperPrice")
     price: float
 
 
