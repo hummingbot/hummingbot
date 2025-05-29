@@ -756,7 +756,7 @@ class GatewayCommand(GatewayChainApiManager):
             connector_wallet: List[Dict[str, Any]] = [w for w in gateway_connections_conf if w["chain"] ==
                                                       conf['chain'] and w["connector"] == conf['connector'] and w["network"] == conf['network']]
             try:
-                resp: Dict[str, Any] = await self._get_gateway_instance().approve_token(conf['chain'], conf['network'], connector_wallet[0]['wallet_address'], tokens, conf['connector'])
+                resp: Dict[str, Any] = await self._get_gateway_instance().approve_token(conf['network'], connector_wallet[0]['wallet_address'], tokens, conf['connector'])
                 transaction_hash: Optional[str] = resp.get(
                     "approval", {}).get("hash")
                 displayed_pending: bool = False
@@ -801,13 +801,6 @@ class GatewayCommand(GatewayChainApiManager):
         gateway_instance = GatewayHttpClient.get_instance(self.client_config_map)
         self.notify("Checking token allowances, please wait...")
 
-        # Filter for only Ethereum chains
-        eth_connections = [conn for conn in gateway_connections if conn["chain"].lower() == "ethereum"]
-
-        if not eth_connections:
-            self.notify("No Ethereum-based connectors found. Allowances are only applicable for Ethereum chains.")
-            return
-
         # If specific exchange requested, filter for just that one
         if exchange_name is not None:
             conf = GatewayConnectionSetting.get_connector_spec_from_market_name(exchange_name)
@@ -819,35 +812,45 @@ class GatewayCommand(GatewayChainApiManager):
                 self.notify(f"Allowances are only applicable for Ethereum chains. {exchange_name} uses {conf['chain']}.")
                 return
 
-            eth_connections = [conf]
+            gateway_connections = [conf]
+        else:
+            # Filter for only Ethereum chains
+            gateway_connections = [conn for conn in gateway_connections if conn["chain"].lower() == "ethereum"]
+
+            if not gateway_connections:
+                self.notify("No Ethereum-based connectors found. Allowances are only applicable for Ethereum chains.")
+                return
 
         try:
             allowance_tasks = []
 
-            for conf in eth_connections:
+            for conf in gateway_connections:
                 chain, network, address = (
                     conf["chain"], conf["network"], conf["wallet_address"]
                 )
 
-                # Add native token to the tokens list
-                native_token = await self._get_native_currency_symbol(chain, network)
+                # Get configured tokens - don't add native token as it doesn't need allowances
                 tokens_str = conf.get("tokens", "")
                 tokens = [token.strip() for token in tokens_str.split(',')] if tokens_str else []
-                if native_token not in tokens:
-                    tokens.append(native_token)
 
-                connector_chain_network = [
-                    w for w in gateway_connections
-                    if w["chain"] == chain and
-                    w["network"] == network and
-                    w["connector"] == conf["connector"]
-                ]
+                if not tokens:
+                    # Skip connectors without configured tokens
+                    self.notify(f"\nConnector: {conf['connector']}_{chain}_{network}")
+                    self.notify(f"Wallet_Address: {address}")
+                    self.notify("No tokens configured for allowance check. Use 'gateway connector-tokens' to add tokens.")
+                    continue
 
-                connector = connector_chain_network[0]["connector"]
+                connector = conf["connector"]
                 allowance_resp = gateway_instance.get_allowances(
                     chain, network, address, tokens, connector, fail_silently=True
                 )
                 allowance_tasks.append((conf, allowance_resp))
+
+            # Check if we have any tasks to process
+            if not allowance_tasks:
+                if exchange_name is None:
+                    self.notify("No Ethereum connectors with configured tokens found.")
+                return
 
             # Process each allowance response
             for conf, allowance_future in allowance_tasks:
