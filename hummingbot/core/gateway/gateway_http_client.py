@@ -349,7 +349,7 @@ class GatewayHttpClient:
             "network": network,
             "address": address,
             "token": token,
-            "spender": spender
+            "spenderAddress": spender
         }
         if nonce is not None:
             request_payload["nonce"] = nonce
@@ -376,7 +376,7 @@ class GatewayHttpClient:
             "network": network,
             "address": address,
             "tokens": token_symbols,
-            "spender": spender
+            "spenderAddress": spender
         }, fail_silently=fail_silently)
 
     async def get_transaction_status(
