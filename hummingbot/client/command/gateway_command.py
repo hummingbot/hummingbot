@@ -240,6 +240,7 @@ class GatewayCommand(GatewayChainApiManager):
                 # Get chain and networks directly from the connector_config now that they're at the root level
                 chain = connector_config[0]["chain"]
                 networks = connector_config[0]["networks"]
+                trading_types: str = connector_config[0]["trading_types"]
 
                 # networks as options
                 # Set networks in the completer before the prompt
@@ -357,6 +358,7 @@ class GatewayCommand(GatewayChainApiManager):
                     connector_name=connector,
                     chain=chain,
                     network=network,
+                    trading_types=trading_types,
                     wallet_address=wallet_address,
                 )
                 self.notify(
@@ -705,17 +707,22 @@ class GatewayCommand(GatewayChainApiManager):
             chain_type_str = chain
             networks_str = ", ".join(networks) if networks else "N/A"
 
+            # Extract trading types and convert to string
+            trading_types: List[str] = connector.get("trading_types", [])
+            trading_types_str = ", ".join(trading_types) if trading_types else "N/A"
+
             # Create a new dictionary with the fields we want to display
             display_connector = {
                 "connector": connector.get("name", ""),
                 "chain_type": chain_type_str,  # Use string instead of list
                 "networks": networks_str,      # Use string instead of list
+                "trading_types": trading_types_str
             }
 
             connectors_tiers.append(display_connector)
 
         # Make sure to include all fields in the dataframe
-        columns = ["connector", "chain_type", "networks"]
+        columns = ["connector", "chain_type", "networks", "trading_types"]
         connectors_df = pd.DataFrame(connectors_tiers, columns=columns)
 
         lines = ["    " + line for line in format_df_for_printout(
@@ -749,7 +756,7 @@ class GatewayCommand(GatewayChainApiManager):
             connector_wallet: List[Dict[str, Any]] = [w for w in gateway_connections_conf if w["chain"] ==
                                                       conf['chain'] and w["connector"] == conf['connector'] and w["network"] == conf['network']]
             try:
-                resp: Dict[str, Any] = await self._get_gateway_instance().approve_token(conf['network'], connector_wallet[0]['wallet_address'], tokens, conf['connector'])
+                resp: Dict[str, Any] = await self._get_gateway_instance().approve_token(conf['chain'], conf['network'], connector_wallet[0]['wallet_address'], tokens, conf['connector'])
                 transaction_hash: Optional[str] = resp.get(
                     "approval", {}).get("hash")
                 displayed_pending: bool = False
@@ -794,6 +801,13 @@ class GatewayCommand(GatewayChainApiManager):
         gateway_instance = GatewayHttpClient.get_instance(self.client_config_map)
         self.notify("Checking token allowances, please wait...")
 
+        # Filter for only Ethereum chains
+        eth_connections = [conn for conn in gateway_connections if conn["chain"].lower() == "ethereum"]
+
+        if not eth_connections:
+            self.notify("No Ethereum-based connectors found. Allowances are only applicable for Ethereum chains.")
+            return
+
         # If specific exchange requested, filter for just that one
         if exchange_name is not None:
             conf = GatewayConnectionSetting.get_connector_spec_from_market_name(exchange_name)
@@ -805,54 +819,35 @@ class GatewayCommand(GatewayChainApiManager):
                 self.notify(f"Allowances are only applicable for Ethereum chains. {exchange_name} uses {conf['chain']}.")
                 return
 
-            gateway_connections = [conf]
-        else:
-            # Filter for only Ethereum chains when no specific exchange is requested
-            gateway_connections = [conn for conn in gateway_connections if conn["chain"].lower() == "ethereum"]
-
-            if not gateway_connections:
-                self.notify("No Ethereum-based connectors found. Allowances are only applicable for Ethereum chains.")
-                return
+            eth_connections = [conf]
 
         try:
             allowance_tasks = []
 
-            for conf in gateway_connections:
+            for conf in eth_connections:
                 chain, network, address = (
                     conf["chain"], conf["network"], conf["wallet_address"]
                 )
 
-                # Get tokens for this connector
+                # Add native token to the tokens list
+                native_token = await self._get_native_currency_symbol(chain, network)
                 tokens_str = conf.get("tokens", "")
                 tokens = [token.strip() for token in tokens_str.split(',')] if tokens_str else []
+                if native_token not in tokens:
+                    tokens.append(native_token)
 
-                # If no tokens configured, show message for this connector
-                if not tokens:
-                    self.notify(f"\nConnector: {conf['connector']}_{chain}_{network}")
-                    self.notify(f"Wallet_Address: {address}")
-                    self.notify("No tokens configured for allowance check. Use 'gateway connector-tokens [connector] [tokens]' to add tokens.")
-                    continue
+                connector_chain_network = [
+                    w for w in gateway_connections
+                    if w["chain"] == chain and
+                    w["network"] == network and
+                    w["connector"] == conf["connector"]
+                ]
 
-                # Don't add native token to allowances check - native tokens don't need allowances
-                # native_token = await self._get_native_currency_symbol(chain, network)
-                # if native_token and native_token not in tokens:
-                #     tokens.append(native_token)
-
-                connector = conf["connector"]
-                # The connector name already includes the type, e.g., "uniswap/amm"
-                # So we can use it directly as the spender
-                spender = connector
-
-                # Create the coroutine for getting allowances
+                connector = connector_chain_network[0]["connector"]
                 allowance_resp = gateway_instance.get_allowances(
-                    chain, network, address, tokens, spender, fail_silently=True
+                    chain, network, address, tokens, connector, fail_silently=True
                 )
                 allowance_tasks.append((conf, allowance_resp))
-
-            # Check if we have any tasks to process
-            if not allowance_tasks:
-                self.notify("No connectors with configured tokens found. Use 'gateway connector-tokens [connector] [tokens]' to add tokens.")
-                return
 
             # Process each allowance response
             for conf, allowance_future in allowance_tasks:
@@ -861,16 +856,9 @@ class GatewayCommand(GatewayChainApiManager):
 
                 allowance_resp = await allowance_future
 
-                # Debug: Check what we got back
-                if not allowance_resp:
-                    self.notify(f"\nConnector: {exchange_key}")
-                    self.notify(f"Wallet_Address: {address}")
-                    self.notify("Failed to get allowance response from gateway.")
-                    continue
-
                 rows = []
-                if allowance_resp.get("allowances") is not None:
-                    for token, allowance in allowance_resp["allowances"].items():
+                if allowance_resp.get("approvals") is not None:
+                    for token, allowance in allowance_resp["approvals"].items():
                         rows.append({
                             "Symbol": token.upper(),
                             "Allowance": PerformanceMetrics.smart_round(Decimal(str(allowance)), 4) if float(allowance) < 999999 else "999999+",
