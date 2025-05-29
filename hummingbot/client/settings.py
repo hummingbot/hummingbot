@@ -116,14 +116,12 @@ class GatewayConnectionSetting:
         connector_name: str,
         chain: str,
         network: str,
-        trading_types: str,
         wallet_address: str,
     ):
         new_connector_spec: Dict[str, str] = {
             "connector": connector_name,
             "chain": chain,
             "network": network,
-            "trading_types": trading_types,
             "wallet_address": wallet_address,
         }
         updated: bool = False
@@ -189,28 +187,23 @@ class ConnectorSetting(NamedTuple):
             if connector_spec is None:
                 raise ValueError(f"Cannot find connector specification for {self.name}. Please check your gateway connection settings.")
 
-            # Simple module selection based on trading_types
-            if "trading_types" not in connector_spec or not connector_spec["trading_types"]:
-                raise ValueError(f"No trading_types specified for {self.name}")
+            # Extract the type from the connector name (e.g., "uniswap/amm" -> "amm")
+            connector_name = connector_spec.get("connector", "")
+            if "/" not in connector_name:
+                raise ValueError(f"Invalid connector name format for {self.name}. Expected format: protocol/type")
 
-            # Convert to lowercase for consistency
-            trading_types = [t.lower() for t in connector_spec["trading_types"]]
+            connector_type = connector_name.split("/")[1].lower()
 
-            # If amm or clmm exists, use gateway_lp
-            if "amm" in trading_types or "clmm" in trading_types:
+            # If amm or clmm, use gateway_lp
+            if connector_type in ["amm", "clmm"]:
                 return "gateway.gateway_lp"
 
-            # Find module for non-swap types
-            for t_type in trading_types:
-                if t_type != "swap":
-                    return f"gateway.gateway_{t_type}"
-
-            # If only swap exists, use gateway_swap
-            if "swap" in trading_types:
+            # For swap type, use gateway_swap
+            if connector_type == "swap":
                 return "gateway.gateway_swap"
 
-            # Rule 4: No recognized trading types
-            raise ValueError(f"No recognized trading_types for {self.name}. Found: {trading_types}")
+            # For other types, use gateway_{type}
+            return f"gateway.gateway_{connector_type}"
 
         return f"{self.base_name()}_{self._get_module_package()}"
 
