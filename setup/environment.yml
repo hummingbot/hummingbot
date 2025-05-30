@@ -7,7 +7,7 @@ dependencies:
   - autopep8
   - conda-build>=3.26.0
   - coverage>=7.2.7
-  - cython
+  - cython==3.0.12
   - flake8>=6.0.0
   - diff-cover>=7.7.0
   - pip>=23.2.1
@@ -16,6 +16,7 @@ dependencies:
   - pytest>=7.4.0
   - pytest-asyncio>=0.16.0
   - setuptools>=68.0.0
+  - psycopg2>=2.9.10
   ### Packages used within HB and helping reduce the footprint of pip-installed packages
   - aiohttp>=3.8.5
   - asyncssh>=2.13.2
