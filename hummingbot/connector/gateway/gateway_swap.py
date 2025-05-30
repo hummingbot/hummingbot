@@ -195,7 +195,7 @@ class GatewaySwap(GatewayBase):
                 trade_type,
                 amount
             )
-            transaction_hash: Optional[str] = order_result.get("txHash")
+            transaction_hash: Optional[str] = order_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
                 self.update_order_from_hash(order_id, trading_pair, transaction_hash, order_result)
 

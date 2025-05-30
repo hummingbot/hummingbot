@@ -212,7 +212,7 @@ class GatewayLp(GatewaySwap):
                 quote_token_amount=quote_token_amount,
                 slippage_pct=slippage_pct
             )
-            transaction_hash: Optional[str] = transaction_result.get("txHash")
+            transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
                 self.update_order_from_hash(order_id, trading_pair, transaction_hash, transaction_result)
                 return transaction_hash
@@ -278,7 +278,7 @@ class GatewayLp(GatewaySwap):
                 quote_token_amount=quote_token_amount,
                 slippage_pct=slippage_pct
             )
-            transaction_hash: Optional[str] = transaction_result.get("txHash")
+            transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
                 self.update_order_from_hash(order_id, trading_pair, transaction_hash, transaction_result)
                 return transaction_hash
@@ -355,7 +355,7 @@ class GatewayLp(GatewaySwap):
                 position_address=position_address,
                 fail_silently=fail_silently
             )
-            transaction_hash: Optional[str] = transaction_result.get("txHash")
+            transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
                 self.update_order_from_hash(order_id, trading_pair, transaction_hash, transaction_result)
                 return transaction_hash
@@ -409,7 +409,7 @@ class GatewayLp(GatewaySwap):
                 percentage=percentage,
                 fail_silently=fail_silently
             )
-            transaction_hash: Optional[str] = transaction_result.get("txHash")
+            transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
                 self.update_order_from_hash(order_id, trading_pair, transaction_hash, transaction_result)
                 return transaction_hash
@@ -464,7 +464,7 @@ class GatewayLp(GatewaySwap):
                 slippage_pct=slippage_pct,
                 fail_silently=fail_silently
             )
-            transaction_hash: Optional[str] = transaction_result.get("txHash")
+            transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
                 self.update_order_from_hash(order_id, trading_pair, transaction_hash, transaction_result)
             else:
@@ -512,7 +512,7 @@ class GatewayLp(GatewaySwap):
                 percentage=percentage,
                 fail_silently=fail_silently
             )
-            transaction_hash: Optional[str] = transaction_result.get("txHash")
+            transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
                 self.update_order_from_hash(order_id, trading_pair, transaction_hash, transaction_result)
             else:
