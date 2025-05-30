@@ -388,7 +388,7 @@ class GatewayHttpClient:
     ) -> Dict[str, Any]:
         request = {
             "network": network,
-            "txHash": transaction_hash
+            "signature": transaction_hash
         }
         return await self.api_request("post", f"chains/{chain}/poll", request, fail_silently=fail_silently)
 

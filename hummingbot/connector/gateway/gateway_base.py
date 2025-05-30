@@ -455,8 +455,8 @@ class GatewayBase(ConnectorBase):
                 self.logger().error(f"An error occurred fetching transaction status of {tracked_order.client_order_id}")
                 continue
 
-            if "txHash" not in tx_details:
-                self.logger().error(f"No txHash field for transaction status of {tracked_order.client_order_id}: "
+            if "signature" not in tx_details:
+                self.logger().error(f"No signature field for transaction status of {tracked_order.client_order_id}: "
                                     f"{tx_details}.")
                 continue
 

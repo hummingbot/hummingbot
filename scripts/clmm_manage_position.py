@@ -246,10 +246,10 @@ class CLMMPositionManager(ScriptStrategyBase):
 
             self.logger().info(f"Position opening response received: {response}")
 
-            # Check for txHash
-            if "txHash" in response:
-                tx_hash = response["txHash"]
-                self.logger().info(f"Position opening transaction submitted: {tx_hash}")
+            # Check for signature
+            if "signature" in response:
+                signature = response["signature"]
+                self.logger().info(f"Position opening transaction submitted: {signature}")
 
                 # Store position address from response
                 if "positionAddress" in response:
@@ -259,7 +259,7 @@ class CLMMPositionManager(ScriptStrategyBase):
                     self.position_address = potential_position_address
 
                 # Poll for transaction result - this is async and will wait
-                tx_success = await self.poll_transaction(tx_hash)
+                tx_success = await self.poll_transaction(signature)
 
                 if tx_success:
                     # Transaction confirmed successfully
@@ -362,12 +362,12 @@ class CLMMPositionManager(ScriptStrategyBase):
                 )
 
                 # Check response
-                if "txHash" in response:
-                    tx_hash = response["txHash"]
-                    self.logger().info(f"Position closing transaction submitted: {tx_hash}")
+                if "signature" in response:
+                    signature = response["signature"]
+                    self.logger().info(f"Position closing transaction submitted: {signature}")
 
                     # Poll for transaction result
-                    tx_success = await self.poll_transaction(tx_hash)
+                    tx_success = await self.poll_transaction(signature)
 
                     if tx_success:
                         self.logger().info("Position closed successfully!")
@@ -402,12 +402,12 @@ class CLMMPositionManager(ScriptStrategyBase):
             else:
                 self.position_closing = False
 
-    async def poll_transaction(self, tx_hash):
+    async def poll_transaction(self, signature):
         """Continuously polls for transaction status until completion or max attempts reached"""
-        if not tx_hash:
+        if not signature:
             return False
 
-        self.logger().info(f"Polling for transaction status: {tx_hash}")
+        self.logger().info(f"Polling for transaction status: {signature}")
 
         # Transaction status codes
         # -1 = FAILED
@@ -424,20 +424,20 @@ class CLMMPositionManager(ScriptStrategyBase):
                 poll_data = await GatewayHttpClient.get_instance().get_transaction_status(
                     chain=self.config.chain,
                     network=self.config.network,
-                    transaction_hash=tx_hash,
+                    transaction_hash=signature,
                 )
 
                 transaction_status = poll_data.get("txStatus")
 
                 if transaction_status == 1:  # CONFIRMED
-                    self.logger().info(f"Transaction {tx_hash} confirmed successfully!")
+                    self.logger().info(f"Transaction {signature} confirmed successfully!")
                     return True
                 elif transaction_status == -1:  # FAILED
-                    self.logger().error(f"Transaction {tx_hash} failed!")
+                    self.logger().error(f"Transaction {signature} failed!")
                     self.logger().error(f"Details: {poll_data}")
                     return False
                 elif transaction_status == 0:  # UNCONFIRMED
-                    self.logger().info(f"Transaction {tx_hash} still pending... (attempt {poll_attempts}/{max_poll_attempts})")
+                    self.logger().info(f"Transaction {signature} still pending... (attempt {poll_attempts}/{max_poll_attempts})")
                     # Continue polling for unconfirmed transactions
                     await asyncio.sleep(5)  # Wait before polling again
                 else:
@@ -451,7 +451,7 @@ class CLMMPositionManager(ScriptStrategyBase):
                 await asyncio.sleep(5)  # Add delay to avoid rapid retries on error
 
         # If we reach here, we've exceeded maximum polling attempts
-        self.logger().warning(f"Transaction {tx_hash} still unconfirmed after {max_poll_attempts} polling attempts")
+        self.logger().warning(f"Transaction {signature} still unconfirmed after {max_poll_attempts} polling attempts")
         # Return false but don't mark as definitely failed
         return False
 
