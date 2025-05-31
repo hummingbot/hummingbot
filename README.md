@@ -6,7 +6,7 @@
 [![Youtube](https://img.shields.io/youtube/channel/subscribers/UCxzzdEnDRbylLMWmaMjywOA)](https://www.youtube.com/@hummingbot)
 [![Discord](https://img.shields.io/discord/530578568154054663?logo=discord&logoColor=white&style=flat-square)](https://discord.gg/hummingbot)
 
-Hummingbot is an open-source framework that helps you design and deploy automated trading strategies, or **bots**, that can run on many centralized or decentralized exchanges. Over the past year, Hummingbot users have generated over $34 billion in trading volume across 140+ unique trading venues. 
+Hummingbot is an open-source framework that helps you design and deploy automated trading strategies, or **bots**, that can run on many centralized or decentralized exchanges. Over the past year, Hummingbot users have generated over $34 billion in trading volume across 140+ unique trading venues.
 
 The Hummingbot codebase is free and publicly available under the Apache 2.0 open-source license. Our mission is to **democratize high-frequency trading** by creating a global community of algorithmic traders and developers that share knowledge and contribute to the codebase.
 
@@ -100,6 +100,21 @@ Currently, the master branch of Hummingbot also includes the following exchange 
 * [Quants Lab](https://github.com/hummingbot/quants-lab): Juypter notebooks that enable you to fetch data and perform research using Hummingbot
 * [Gateway](https://github.com/hummingbot/gateway): Typescript based API client for DEX connectors
 * [Hummingbot Site](https://github.com/hummingbot/hummingbot-site): Official documentation for Hummingbot - we welcome contributions here too!
+
+## Gateway Setup
+
+Gateway is required for DEX connectors. When cloning this repository, initialize the Gateway submodule:
+
+```bash
+# Clone with submodules
+git clone --recurse-submodules https://github.com/hummingbot/hummingbot.git
+
+# Or if you already cloned without submodules
+git submodule update --init --recursive
+
+# To update Gateway to latest version
+git submodule update --remote --merge
+```
 
 ## Contributions
 
