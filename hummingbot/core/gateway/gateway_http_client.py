@@ -65,7 +65,7 @@ class GatewayHttpClient:
             client_config_map = HummingbotApplication.main_application().client_config_map
         api_host = client_config_map.gateway.gateway_api_host
         api_port = client_config_map.gateway.gateway_api_port
-        use_ssl = getattr(client_config_map.gateway, "gateway_api_ssl", True)
+        use_ssl = getattr(client_config_map.gateway, "gateway_use_ssl", False)
         if GatewayHttpClient.__instance is None:
             protocol = "https" if use_ssl else "http"
             self._base_url = f"{protocol}://{api_host}:{api_port}"
@@ -84,7 +84,7 @@ class GatewayHttpClient:
         :returns Shared client session instance
         """
         if cls._shared_client is None or re_init:
-            use_ssl = getattr(client_config_map.gateway, "gateway_api_ssl", True)
+            use_ssl = getattr(client_config_map.gateway, "gateway_use_ssl", False)
             if use_ssl:
                 cert_path = client_config_map.certs_path
                 ssl_ctx = ssl.create_default_context(cafile=f"{cert_path}/ca_cert.pem")
