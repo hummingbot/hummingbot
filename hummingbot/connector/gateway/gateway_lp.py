@@ -151,7 +151,7 @@ class GatewayLp(GatewaySwap):
         trade_type: TradeType,
         order_id: str,
         trading_pair: str,
-        price: float,
+        price: Optional[float],
         spread_pct: float,
         base_token_amount: Optional[float] = None,
         quote_token_amount: Optional[float] = None,
@@ -183,8 +183,12 @@ class GatewayLp(GatewaySwap):
 
         # Calculate the total amount in base token units
         base_amount = base_token_amount or 0.0
-        quote_amount_in_base = (quote_token_amount or 0.0) / price if price > 0 else 0.0
+        quote_amount_in_base = (quote_token_amount or 0.0) / price if price and price > 0 else 0.0
         total_amount_in_base = base_amount + quote_amount_in_base
+
+        # Validate price is not None before converting to Decimal
+        if price is None:
+            raise ValueError("Price cannot be None for CLMM position opening")
 
         # Start tracking order with calculated amount
         self.start_tracking_order(order_id=order_id,
@@ -228,7 +232,7 @@ class GatewayLp(GatewaySwap):
         trade_type: TradeType,
         order_id: str,
         trading_pair: str,
-        price: float,
+        price: Optional[float],
         base_token_amount: float,
         quote_token_amount: float,
         slippage_pct: Optional[float] = None,
@@ -256,8 +260,12 @@ class GatewayLp(GatewaySwap):
         base_token, quote_token = tokens
 
         # Calculate the total amount in base token units
-        quote_amount_in_base = quote_token_amount / price if price > 0 else 0.0
+        quote_amount_in_base = quote_token_amount / price if price and price > 0 else 0.0
         total_amount_in_base = base_token_amount + quote_amount_in_base
+
+        # Validate price is not None before converting to Decimal
+        if price is None:
+            raise ValueError("Price cannot be None for AMM position opening")
 
         # Start tracking order with calculated amount
         self.start_tracking_order(order_id=order_id,
