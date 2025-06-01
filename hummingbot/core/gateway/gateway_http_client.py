@@ -65,8 +65,10 @@ class GatewayHttpClient:
             client_config_map = HummingbotApplication.main_application().client_config_map
         api_host = client_config_map.gateway.gateway_api_host
         api_port = client_config_map.gateway.gateway_api_port
+        use_ssl = getattr(client_config_map.gateway, "gateway_api_ssl", True)
         if GatewayHttpClient.__instance is None:
-            self._base_url = f"https://{api_host}:{api_port}"
+            protocol = "https" if use_ssl else "http"
+            self._base_url = f"{protocol}://{api_host}:{api_port}"
         self._client_config_map = client_config_map
         GatewayHttpClient.__instance = self
 
@@ -82,12 +84,17 @@ class GatewayHttpClient:
         :returns Shared client session instance
         """
         if cls._shared_client is None or re_init:
-            cert_path = client_config_map.certs_path
-            ssl_ctx = ssl.create_default_context(cafile=f"{cert_path}/ca_cert.pem")
-            ssl_ctx.load_cert_chain(certfile=f"{cert_path}/client_cert.pem",
-                                    keyfile=f"{cert_path}/client_key.pem",
-                                    password=Security.secrets_manager.password.get_secret_value())
-            conn = aiohttp.TCPConnector(ssl_context=ssl_ctx)
+            use_ssl = getattr(client_config_map.gateway, "gateway_api_ssl", True)
+            if use_ssl:
+                cert_path = client_config_map.certs_path
+                ssl_ctx = ssl.create_default_context(cafile=f"{cert_path}/ca_cert.pem")
+                ssl_ctx.load_cert_chain(certfile=f"{cert_path}/client_cert.pem",
+                                        keyfile=f"{cert_path}/client_key.pem",
+                                        password=Security.secrets_manager.password.get_secret_value())
+                conn = aiohttp.TCPConnector(ssl_context=ssl_ctx)
+            else:
+                # Non-SSL connection for development
+                conn = aiohttp.TCPConnector(ssl=False)
             cls._shared_client = aiohttp.ClientSession(connector=conn)
         return cls._shared_client
 

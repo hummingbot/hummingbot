@@ -3,6 +3,7 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from hummingbot.connector.gateway.gateway_base import GatewayBase
+from hummingbot.connector.gateway.gateway_tx_handler import GatewayTxHandler
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.gateway import check_transaction_exceptions
 from hummingbot.core.utils import async_ttl_cache
@@ -14,6 +15,17 @@ class GatewaySwap(GatewayBase):
     Handles swap-specific functionality including price quotes and trade execution.
     Maintains order tracking and wallet interactions in the base class.
     """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Initialize transaction handler
+        self._tx_handler = None
+
+    @property
+    def tx_handler(self):
+        if self._tx_handler is None:
+            self._tx_handler = GatewayTxHandler(self._get_gateway_instance())
+        return self._tx_handler
 
     @async_ttl_cache(ttl=5, maxsize=10)
     async def get_quote_price(
@@ -185,19 +197,30 @@ class GatewaySwap(GatewayBase):
                                   trade_type=trade_type,
                                   price=price,
                                   amount=amount)
+
+        # Get the tracked order
+        tracked_order = self._in_flight_orders.get(order_id)
+
         try:
-            order_result: Dict[str, Any] = await self._get_gateway_instance().execute_swap(
-                self.network,
-                self.connector_name,
-                self.address,
-                base,
-                quote,
-                trade_type,
-                amount
+            # Execute transaction with retry logic (non-blocking)
+            await self.tx_handler.execute_transaction(
+                chain=self.chain,
+                network=self.network,
+                connector=self.connector_name,
+                method="execute-swap",
+                params={
+                    "walletAddress": self.address,
+                    "baseToken": base,
+                    "quoteToken": quote,
+                    "amount": float(amount),
+                    "side": trade_type.name,
+                },
+                order_id=order_id,
+                tracked_order=tracked_order
             )
-            transaction_hash: Optional[str] = order_result.get("signature")
-            if transaction_hash is not None and transaction_hash != "":
-                self.update_order_from_hash(order_id, trading_pair, transaction_hash, order_result)
+
+            # Transaction executes in background
+            self.logger().info(f"Swap order {order_id} submitted")
 
         except asyncio.CancelledError:
             raise

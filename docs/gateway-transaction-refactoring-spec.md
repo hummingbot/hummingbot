@@ -52,18 +52,20 @@ class GatewayTxHandler:
     # Default values if not specified in Gateway config
     DEFAULT_CONFIG = {
         "defaultComputeUnits": 200000,
-        "basePriorityFeePct": 90,
-        "priorityFeeMultiplier": 2.0,
-        "maxPriorityFee": 0.01,
-        "minPriorityFee": 0.0001,
+        "gasEstimateInterval": 60,  # seconds
+        "maxFee": 0.01,
+        "minFee": 0.0001,
         "retryCount": 3,
-        "retryIntervalMs": 2000
+        "retryFeeMultiplier": 2.0,
+        "retryInterval": 2  # seconds
     }
 
     def __init__(self, gateway_client):
         self.gateway_client = gateway_client
         self._config_cache: Dict[str, Dict[str, Any]] = {}
         self._pending_transactions: Dict[str, Dict[str, Any]] = {}
+        self._fee_estimates: Dict[str, Dict[str, Any]] = {}  # {"chain:network": {"fee_per_compute_unit": int, "denomination": str, "timestamp": float}}
+        self._compute_units_cache: Dict[str, int] = {}  # {"tx_type:chain:network": compute_units}
 
     async def execute_transaction(
         self,
@@ -91,19 +93,33 @@ class GatewayTxHandler:
         # 1. Get chain configuration from Gateway
         config = await self._get_chain_config(chain)
 
-        # 2. Estimate initial priority fee based on chain's current conditions
-        current_priority_fee = await self._estimate_priority_fee(chain, network, config)
+        # 2. Get compute units for this transaction
+        # Extract transaction type from method (e.g., "execute-swap" -> "swap")
+        tx_type = method.split("-")[-1] if "-" in method else method
+        compute_units = params.get("computeUnits") or self._get_cached_compute_units(tx_type, chain, network, config)
 
-        # 3. Apply min/max bounds from config
-        min_fee = config.get("minPriorityFee", self.DEFAULT_CONFIG["minPriorityFee"])
-        max_fee = config.get("maxPriorityFee", self.DEFAULT_CONFIG["maxPriorityFee"])
-        current_priority_fee = max(min_fee, min(current_priority_fee, max_fee))
+        # 3. Estimate priority fee per CU based on chain's current conditions
+        estimated_fee_per_cu = await self._estimate_priority_fee(chain, network, config)
 
-        # 4. Add standardized fee parameters to request
-        fee_params = self._create_fee_params(current_priority_fee, config)
-        request_params = {**params, **fee_params}
+        # 4. Calculate total fee and apply min/max bounds
+        min_fee = config.get("minFee", self.DEFAULT_CONFIG["minFee"])
+        max_fee = config.get("maxFee", self.DEFAULT_CONFIG["maxFee"])
 
-        # 5. Execute transaction with retry logic in background
+        # Convert min/max total fees to per-CU values for comparison
+        min_fee_per_cu = int((min_fee * 1e9 * 1e6) / compute_units)  # microlamports per CU
+        max_fee_per_cu = int((max_fee * 1e9 * 1e6) / compute_units)  # microlamports per CU
+
+        # Apply bounds to the per-CU fee
+        current_priority_fee_per_cu = max(min_fee_per_cu, min(estimated_fee_per_cu, max_fee_per_cu))
+
+        # 5. Add standardized fee parameters to request
+        request_params = {
+            **params,
+            "priorityFeePerCU": current_priority_fee_per_cu,
+            "computeUnits": compute_units,
+        }
+
+        # 6. Execute transaction with retry logic in background
         safe_ensure_future(self._execute_with_retry(
             chain=chain,
             network=network,
@@ -111,7 +127,8 @@ class GatewayTxHandler:
             method=method,
             params=request_params,
             config=config,
-            initial_priority_fee=current_priority_fee,
+            initial_priority_fee_per_cu=current_priority_fee_per_cu,
+            compute_units=compute_units,
             order_id=order_id,
             tracked_order=tracked_order
         ))
@@ -134,45 +151,78 @@ class GatewayTxHandler:
 
         return self._config_cache[chain]
 
-    async def _estimate_priority_fee(self, chain: str, network: str, config: Dict[str, Any]) -> float:
+    async def _estimate_priority_fee(self, chain: str, network: str, config: Dict[str, Any]) -> int:
         """
-        Estimate priority fee based on current chain conditions.
-        Returns fee in native token units (SOL/ETH).
+        Get cached priority fee estimate or fetch new one if expired.
+        Returns fee per compute unit (microlamports per CU on Solana, Wei on Ethereum).
         """
+        cache_key = f"{chain}:{network}"
+        current_time = time.time()
+        gas_estimate_interval = config.get("gasEstimateInterval", self.DEFAULT_CONFIG["gasEstimateInterval"])
+
+        # Check if we have a valid cached estimate
+        if cache_key in self._fee_estimates:
+            cached = self._fee_estimates[cache_key]
+            if current_time - cached["timestamp"] < gas_estimate_interval:
+                return cached["fee_per_compute_unit"]
+
         try:
             # Get gas/fee estimate from Gateway
             response = await self.gateway_client.api_request(
                 method="POST",
-                path_url=f"/chain/{chain}/estimateGas",
+                path_url=f"chains/{chain}/estimate-gas",
                 params={"network": network}
             )
 
-            # Gateway returns gasPriceToken which is the estimated fee in native token
-            min_fee = config.get("minPriorityFee", self.DEFAULT_CONFIG["minPriorityFee"])
-            estimated_fee = float(response.get("gasPriceToken", min_fee))
+            # Get the fee per compute unit from simplified response
+            # The denomination is microlamports for Solana, wei for Ethereum
+            estimated_fee = int(response.get("feePerComputeUnit", 0))
+            denomination = response.get("denomination", "unknown")
+            timestamp = response.get("timestamp", current_time)
 
-            # TODO: Apply percentile calculation based on basePriorityFeePct
-            # For now, use the estimate directly
+            # Cache the estimate
+            self._fee_estimates[cache_key] = {
+                "fee_per_compute_unit": estimated_fee,
+                "denomination": denomination,
+                "timestamp": timestamp
+            }
+
             return estimated_fee
 
         except Exception as e:
-            self.logger.warning(f"Failed to estimate fee, using minimum: {e}")
-            return config.get("minPriorityFee", self.DEFAULT_CONFIG["minPriorityFee"])
+            self.logger.warning(f"Failed to estimate fee: {e}")
+            return 0  # Return 0 to let the caller apply minFee
 
-    def _create_fee_params(self, priority_fee: float, config: Dict[str, Any]) -> Dict[str, Any]:
+
+    def _get_cached_compute_units(self, tx_type: str, chain: str, network: str, config: Dict[str, Any]) -> int:
         """
-        Create standardized fee parameters that work across chains.
-        Each chain's Gateway endpoint interprets these according to its needs.
+        Get cached compute units for a transaction type, or fall back to default.
+
+        :param tx_type: Transaction type (e.g., "swap", "position")
+        :param chain: Blockchain name
+        :param network: Network name
+        :param config: Chain configuration
+        :return: Compute units to use
         """
-        compute_units = config.get("defaultComputeUnits", self.DEFAULT_CONFIG["defaultComputeUnits"])
+        cache_key = f"{tx_type}:{chain}:{network}"
+        if cache_key in self._compute_units_cache:
+            return self._compute_units_cache[cache_key]
 
-        return {
-            # Used by all chains - the priority fee in native token
-            "priorityFee": priority_fee,
+        # Fall back to default
+        return config.get("defaultComputeUnits", self.DEFAULT_CONFIG["defaultComputeUnits"])
 
-            # Compute units / gas limit
-            "computeUnits": compute_units,
-        }
+    def cache_compute_units(self, tx_type: str, chain: str, network: str, compute_units: int):
+        """
+        Cache compute units for a specific transaction type.
+
+        :param tx_type: Transaction type (e.g., "swap", "position")
+        :param chain: Blockchain name
+        :param network: Network name
+        :param compute_units: Compute units to cache
+        """
+        cache_key = f"{tx_type}:{chain}:{network}"
+        self._compute_units_cache[cache_key] = compute_units
+        self.logger.debug(f"Cached compute units for {cache_key}: {compute_units}")
 
     async def _monitor_transaction(
         self,
@@ -192,10 +242,10 @@ class GatewayTxHandler:
                 # Poll transaction status
                 response = await self.gateway_client.api_request(
                     method="POST",
-                    path_url=f"/chain/{chain}/poll",
+                    path_url=f"chains/{chain}/poll",
                     params={
                         "network": network,
-                        "txHash": tx_hash
+                        "signature": tx_hash
                     }
                 )
 
@@ -219,7 +269,8 @@ class GatewayTxHandler:
         method: str,
         params: Dict[str, Any],
         config: Dict[str, Any],
-        initial_priority_fee: float,
+        initial_priority_fee_per_cu: int,
+        compute_units: int,
         order_id: str,
         tracked_order: GatewayInFlightOrder
     ):
@@ -230,28 +281,31 @@ class GatewayTxHandler:
         from hummingbot.core.data_type.in_flight_order import OrderUpdate, OrderState
 
         max_retries = config.get("retryCount", self.DEFAULT_CONFIG["retryCount"])
-        retry_interval = config.get("retryIntervalMs", self.DEFAULT_CONFIG["retryIntervalMs"]) / 1000
-        fee_multiplier = config.get("priorityFeeMultiplier", self.DEFAULT_CONFIG["priorityFeeMultiplier"])
-        max_fee = config.get("maxPriorityFee", self.DEFAULT_CONFIG["maxPriorityFee"])
+        retry_interval = config.get("retryInterval", self.DEFAULT_CONFIG["retryInterval"])
+        fee_multiplier = config.get("retryFeeMultiplier", self.DEFAULT_CONFIG["retryFeeMultiplier"])
+        max_fee = config.get("maxFee", self.DEFAULT_CONFIG["maxFee"])
 
-        current_priority_fee = initial_priority_fee
+        current_priority_fee_per_cu = initial_priority_fee_per_cu
         attempt = 0
         last_error = None
 
         while attempt <= max_retries:
             try:
                 # Update fee parameters
-                fee_params = self._create_fee_params(current_priority_fee, config)
-                request_params = {**params, **fee_params}
+                request_params = {
+                    **params,
+                    "priorityFeePerCU": current_priority_fee_per_cu,
+                    "computeUnits": compute_units,
+                }
 
                 # Send transaction
                 response = await self.gateway_client.api_request(
                     method="POST",
-                    path_url=f"/connector/{connector}/{method}",
+                    path_url=f"connectors/{connector}/{method}",
                     params=request_params
                 )
 
-                tx_hash = response.get("signature") or response.get("txHash")
+                tx_hash = response.get("signature")
 
                 # Update order with transaction hash
                 if tx_hash:
@@ -291,8 +345,11 @@ class GatewayTxHandler:
             # Retry with higher fee
             if attempt < max_retries:
                 attempt += 1
-                current_priority_fee = min(current_priority_fee * fee_multiplier, max_fee)
-                self.logger.info(f"Retrying with priority fee: {current_priority_fee:.6f}")
+                # Increase fee per CU, respecting max total fee
+                max_fee_per_cu = int((max_fee * 1e9 * 1e6) / compute_units)
+                current_priority_fee_per_cu = min(int(current_priority_fee_per_cu * fee_multiplier), max_fee_per_cu)
+                total_fee = (current_priority_fee_per_cu * compute_units) / (1e9 * 1e6)  # Convert back to SOL/ETH
+                self.logger.info(f"Retrying with priority fee: {total_fee:.6f} ({current_priority_fee_per_cu} per CU)")
                 await asyncio.sleep(retry_interval)
             else:
                 break
@@ -342,10 +399,54 @@ interface TransactionRequest {
   // ... existing parameters ...
 
   // New standardized fee parameters (optional)
-  priorityFee?: number;        // Priority fee in native token (SOL/ETH)
+  priorityFeePerCU?: number;   // Priority fee per compute unit (microlamports on Solana)
   computeUnits?: number;       // Compute units (Solana) or gas limit (Ethereum)
 }
 ```
+
+### 2. Simplified GetSwapQuoteResponse
+
+Update `gateway/src/schemas/swap-schema.ts` to simplify GetSwapQuoteResponse:
+
+```typescript
+// Remove gas-related fields, add computeUnits
+export const GetSwapQuoteResponse = Type.Object({
+  poolAddress: Type.Optional(Type.String()),
+  estimatedAmountIn: Type.Number(),
+  estimatedAmountOut: Type.Number(),
+  minAmountOut: Type.Number(),
+  maxAmountIn: Type.Number(),
+  baseTokenBalanceChange: Type.Number(),
+  quoteTokenBalanceChange: Type.Number(),
+  price: Type.Number(),
+  computeUnits: Type.Number(),  // Compute units required for this swap
+});
+```
+
+When Gateway returns a quote, it should include the compute units needed for that specific swap. This allows Hummingbot to cache and reuse accurate compute unit values for similar transactions.
+
+### 3. Simplified Gas Estimate Response
+
+Update `gateway/src/schemas/chain-schema.ts` to simplify the EstimateGasResponse:
+
+```typescript
+// Current response has too many fields
+export const EstimateGasResponseSchema = Type.Object({
+  gasPrice: Type.Number(),
+  gasPriceToken: Type.String(),
+  gasLimit: Type.Number(),
+  gasCost: Type.Number(),
+});
+
+// Simplified response - just what we need
+export const EstimateGasResponseSchema = Type.Object({
+  feePerComputeUnit: Type.Number(), // Fee per compute unit
+  denomination: Type.String(),      // Denomination: "microlamports" or "wei"
+  timestamp: Type.Number(),         // Unix timestamp when estimate was made
+});
+```
+
+Each chain can implement its own gas lookup logic as long as it returns these three values. The `denomination` field clarifies what unit the fee is expressed in (e.g., "microlamports" for Solana, "wei" for Ethereum). The value is always per compute unit, making it easy to calculate total fees. This simplifies the interface and makes it truly chain-agnostic.
 
 Each chain's Gateway implementation interprets these parameters appropriately:
 
@@ -353,8 +454,8 @@ Each chain's Gateway implementation interprets these parameters appropriately:
 ```typescript
 // In openPosition and other transaction methods
 const computeUnits = request.computeUnits || 300000;
-const priorityFeeLamports = request.priorityFee ? request.priorityFee * 1e9 : await estimateDefault();
-const priorityFeePerCU = priorityFeeLamports / computeUnits;
+const priorityFeePerCU = request.priorityFeePerCU || await estimateDefault();
+// Pass directly to SDK without transformation
 ```
 
 **Ethereum Implementation:**
@@ -362,6 +463,31 @@ const priorityFeePerCU = priorityFeeLamports / computeUnits;
 // In transaction methods
 const gasLimit = request.computeUnits || 500000;
 const gasPriceWei = request.priorityFee ? request.priorityFee * 1e18 : await estimateDefault();
+```
+
+### Example: Raydium AMM executeSwap Changes
+
+In `gateway/src/connectors/raydium/amm-routes/executeSwap.ts`, the current implementation has:
+```typescript
+// Current: Transformations done in Gateway
+const COMPUTE_UNITS = 600000;
+let currentPriorityFee = (await solana.estimateGas()) * 1e9 - BASE_FEE;
+const priorityFeePerCU = Math.floor(
+  (currentPriorityFee * 1e6) / COMPUTE_UNITS,
+);
+```
+
+With the refactoring, this becomes:
+```typescript
+// New: Direct pass-through from Hummingbot
+const COMPUTE_UNITS = computeUnits || 600000;
+const finalPriorityFeePerCU = priorityFeePerCU || await estimateDefault();
+
+// Pass directly to SDK:
+computeBudgetConfig: {
+  units: COMPUTE_UNITS,
+  microLamports: finalPriorityFeePerCU,  // No transformation needed
+}
 ```
 
 ### 2. Modified Response Structure
@@ -463,18 +589,18 @@ async function openPosition(
 
 ### Phase 1: Add New Infrastructure
 1. Implement `GatewayTxHandler` in Hummingbot
-2. Add new Gateway endpoints without breaking existing ones
-3. Add `prepareOnly` parameter to existing endpoints
+2. Update Gateway schemas to accept fee parameters
+3. Convert one route at a time and test thoroughly
 
-### Phase 2: Gradual Migration
-1. Update connectors to use `GatewayTxHandler` for new transactions
-2. Keep existing behavior as fallback
-3. Add configuration option to enable new transaction handling
+### Phase 2: Incremental Migration
+1. Start with Raydium CLMM executeSwap as proof of concept
+2. Test thoroughly before proceeding to next route
+3. Convert remaining routes one by one
 
 ### Phase 3: Complete Migration
-1. Remove old transaction handling from Gateway
-2. Update all connectors to use new flow
-3. Remove deprecated endpoints
+1. Remove old retry loops from all Gateway routes
+2. Ensure all routes use the new status-based response
+3. Update documentation
 
 ## Detailed Migration Example: Execute Swap
 
@@ -506,8 +632,8 @@ export const ExecuteSwapRequest = Type.Object(
     // ... existing fields ...
 
     // New optional fee parameters
-    priorityFee: Type.Optional(Type.Number({
-      description: 'Priority fee in SOL (or native token)'
+    priorityFeePerCU: Type.Optional(Type.Number({
+      description: 'Priority fee per compute unit (microlamports on Solana)'
     })),
     computeUnits: Type.Optional(Type.Number({
       description: 'Compute units for transaction'
@@ -540,28 +666,60 @@ export const ExecuteSwapResponse = Type.Object({
 
 #### 2. Gateway Connector Changes (`gateway/src/connectors/raydium/clmm-routes/executeSwap.ts`)
 
+**Key Changes:**
+1. Remove the retry loop (lines 134-220 in current implementation)
+2. Accept `priorityFeePerCU` parameter and pass it directly to SDK
+3. Keep `solana.sendAndConfirmRawTransaction` as-is (it retries sending the same tx hash)
+
 ```typescript
 async function executeSwap(
   // ... existing parameters ...
-  priorityFee?: number,      // New parameter
-  computeUnits?: number,     // New parameter
+  priorityFeePerCU?: number,   // New parameter - priority fee per compute unit
+  computeUnits?: number,       // New parameter
 ): Promise<ExecuteSwapResponseType> {
   // ... existing setup code ...
 
-  // REMOVE the retry loop - just single attempt
+  // Use provided compute units or default
   const COMPUTE_UNITS = computeUnits || 600000;
 
-  // Use provided priority fee or estimate default
-  const priorityFeeLamports = priorityFee
-    ? priorityFee * 1e9
-    : (await solana.estimateGas()) * 1e9 - BASE_FEE;
+  // Use provided priority fee per CU or estimate default
+  let finalPriorityFeePerCU: number;
+  if (priorityFeePerCU !== undefined) {
+    finalPriorityFeePerCU = priorityFeePerCU;
+  } else {
+    // Calculate default if not provided
+    const currentPriorityFee = (await solana.estimateGas()) * 1e9 - BASE_FEE;
+    finalPriorityFeePerCU = Math.floor((currentPriorityFee * 1e6) / COMPUTE_UNITS);
+  }
 
-  const priorityFeePerCU = Math.floor(
-    (priorityFeeLamports * 1e6) / COMPUTE_UNITS
-  );
+  // Build transaction with SDK - pass parameters directly
+  let transaction: VersionedTransaction;
+  if (side === 'BUY') {
+    const exactOutResponse = response as ReturnTypeComputeAmountOutBaseOut;
+    // ... calculate amounts ...
+    ({ transaction } = (await raydium.raydiumSDK.clmm.swapBaseOut({
+      // ... existing parameters ...
+      computeBudgetConfig: {
+        units: COMPUTE_UNITS,
+        microLamports: finalPriorityFeePerCU,  // Pass directly without transformation
+      },
+    })) as { transaction: VersionedTransaction });
+  } else {
+    const exactInResponse = response as ReturnTypeComputeAmountOutFormat;
+    ({ transaction } = (await raydium.raydiumSDK.clmm.swap({
+      // ... existing parameters ...
+      computeBudgetConfig: {
+        units: COMPUTE_UNITS,
+        microLamports: finalPriorityFeePerCU,  // Pass directly without transformation
+      },
+    })) as { transaction: VersionedTransaction });
+  }
 
-  // ... build transaction ...
+  // Sign and simulate transaction
+  transaction.sign([wallet]);
+  await solana.simulateTransaction(transaction);
 
+  // Send and confirm - keep retry loop here for retrying same tx hash
   const { confirmed, signature, txData } =
     await solana.sendAndConfirmRawTransaction(transaction);
 
@@ -594,13 +752,13 @@ async function executeSwap(
 fastify.post</* ... */>(/* ... */, async (request) => {
   const {
     // ... existing fields ...
-    priorityFee,
+    priorityFeePerCU,
     computeUnits
   } = request.body;
 
   return await executeSwap(
     // ... existing parameters ...
-    priorityFee,
+    priorityFeePerCU,
     computeUnits,
   );
 });
@@ -670,8 +828,25 @@ Both `GatewaySwap` and `GatewayLP` connectors need to be updated to use the new 
 
 **GatewaySwap Changes** (`hummingbot/connector/gateway/gateway_swap.py`):
 
+When GatewaySwap receives a quote response, it should cache the compute units:
+
 ```python
 class GatewaySwap(GatewayBase):
+    async def _get_quote(self, ...):
+        """Get quote and cache compute units if provided."""
+        # ... existing quote logic ...
+        response = await self._api_request(...)
+
+        # Cache compute units if provided in the quote
+        if "computeUnits" in response:
+            self.tx_handler.cache_compute_units(
+                tx_type="swap",
+                chain=self.chain,
+                network=self.network,
+                compute_units=response["computeUnits"]
+            )
+
+        return response
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Initialize transaction handler
@@ -811,9 +986,6 @@ class GatewayLP(GatewaySwap):
 
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.utils.async_utils import safe_ensure_future
-
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.data_type.in_flight_order import OrderUpdate, OrderState
 
@@ -862,24 +1034,25 @@ class GatewayTxHandler:
        assert order.last_state == OrderState.FILLED
    ```
 
-3. **Rollback Plan**:
-   - Keep old endpoints active during migration
-   - Add feature flag to toggle between old/new behavior
-   - Monitor error rates and rollback if needed
+3. **Testing Plan**:
+   - Test each converted route thoroughly before moving to the next
+   - Verify retry logic works as expected
+   - Monitor transaction success rates
 
 ### Configuration Updates
 
 ```yaml
 # hummingbot_application.py - add new config
 gateway_use_ssl: false  # For development
-gateway_enable_tx_handler: true  # Feature flag
 
 # Gateway solana.yml - ensure retry params exist
+defaultComputeUnits: 200000
+gasEstimateInterval: 60
+maxFee: 0.01
+minFee: 0.0001
 retryCount: 10
-retryIntervalMs: 500
-priorityFeeMultiplier: 2
-maxPriorityFee: 0.01
-minPriorityFee: 0.0001
+retryFeeMultiplier: 2
+retryInterval: 0.5
 ```
 
 ### Benefits of This Approach
@@ -910,12 +1083,12 @@ networks:
 
 # Transaction fee configuration
 defaultComputeUnits: 200000       # Default compute units
-basePriorityFeePct: 90            # Percentile for fee estimation
-priorityFeeMultiplier: 2          # Fee increase multiplier on retry
-maxPriorityFee: 0.01              # Maximum priority fee in SOL
-minPriorityFee: 0.0001            # Minimum priority fee in SOL
-retryIntervalMs: 500              # Retry interval in milliseconds
+gasEstimateInterval: 60           # Gas estimate cache interval in seconds
+maxFee: 0.01                      # Maximum fee in SOL
+minFee: 0.0001                    # Minimum fee in SOL
 retryCount: 10                    # Number of retry attempts
+retryFeeMultiplier: 2             # Fee increase multiplier on retry
+retryInterval: 0.5                # Retry interval in seconds
 ```
 
 ```yaml
@@ -929,12 +1102,12 @@ networks:
 
 # Transaction fee configuration (interpreted as gas limit and ETH values)
 defaultComputeUnits: 500000       # Default gas limit
-basePriorityFeePct: 75            # Percentile for gas price estimation
-priorityFeeMultiplier: 1.3        # Gas price increase on retry
-maxPriorityFee: 0.01              # Maximum gas cost in ETH
-minPriorityFee: 0.00001           # Minimum gas cost in ETH
-retryIntervalMs: 3000             # Retry interval in milliseconds
+gasEstimateInterval: 30           # Gas estimate cache interval in seconds
+maxFee: 0.01                      # Maximum gas cost in ETH
+minFee: 0.00001                   # Minimum gas cost in ETH
 retryCount: 3                     # Number of retry attempts
+retryFeeMultiplier: 1.3           # Gas price increase on retry
+retryInterval: 3                  # Retry interval in seconds
 ```
 
 ## Benefits
@@ -973,21 +1146,21 @@ To customize fee behavior for different use cases, update the Gateway configurat
 ```yaml
 # For arbitrage on Solana - gateway/conf/solana.yml
 defaultComputeUnits: 400000       # More compute for complex operations
-basePriorityFeePct: 95            # Use 95th percentile
-priorityFeeMultiplier: 3          # Aggressive escalation
-maxPriorityFee: 0.1               # Higher max for arbitrage
-minPriorityFee: 0.001             # Start with higher fee
+gasEstimateInterval: 10           # More frequent gas updates for arbitrage
+maxFee: 0.1                       # Higher max for arbitrage
+minFee: 0.001                     # Start with higher fee
 retryCount: 5                     # More retry attempts
-retryIntervalMs: 300              # Faster retries
+retryFeeMultiplier: 3             # Aggressive escalation
+retryInterval: 0.3                # Faster retries in seconds
 
 # For market making on Ethereum - gateway/conf/ethereum.yml
 defaultComputeUnits: 200000       # Standard gas limit
-basePriorityFeePct: 50            # Use median gas price
-priorityFeeMultiplier: 1.5        # Gentle escalation
-maxPriorityFee: 0.005             # Keep costs low (0.005 ETH)
-minPriorityFee: 0.00001           # Start with minimum
+gasEstimateInterval: 120          # Less frequent updates for stable conditions
+maxFee: 0.005                     # Keep costs low (0.005 ETH)
+minFee: 0.00001                   # Start with minimum
 retryCount: 2                     # Fewer retries
-retryIntervalMs: 5000             # Slower retries
+retryFeeMultiplier: 1.5           # Gentle escalation
+retryInterval: 5                  # Slower retries in seconds
 ```
 
 ## Summary of Simplified Design
@@ -1000,12 +1173,12 @@ This specification presents a streamlined approach to giving Hummingbot control 
 
 3. **Standardized Parameters**: All chains use the same parameter names:
    - `defaultComputeUnits`: Compute units (Solana) or gas limit (Ethereum)
-   - `basePriorityFeePct`: Percentile for fee estimation
-   - `priorityFeeMultiplier`: Fee escalation factor
-   - `maxPriorityFee`: Maximum fee in native token
-   - `minPriorityFee`: Minimum fee in native token
+   - `gasEstimateInterval`: Seconds between gas estimate updates
+   - `maxFee`: Maximum fee in native token
+   - `minFee`: Minimum fee in native token
    - `retryCount`: Number of retry attempts
-   - `retryIntervalMs`: Milliseconds between retries
+   - `retryFeeMultiplier`: Fee escalation factor on retry
+   - `retryInterval`: Seconds between retries
 
 4. **Zero Configuration in Hummingbot**: No need to maintain separate fee configurations - everything is pulled from Gateway at runtime.
 
@@ -1021,6 +1194,98 @@ This specification presents a streamlined approach to giving Hummingbot control 
 3. **Flexible Fee Control**: Hummingbot can implement sophisticated fee strategies
 4. **Backward Compatible**: Easy migration path with minimal breaking changes
 5. **Strategy-Aware Fees**: Different strategies can use different fee approaches
+
+## Migration To-Do List
+
+**Current Status**: Raydium CLMM executeSwap has been successfully implemented and tested as the proof of concept. The fee retry logic is working correctly from the Hummingbot side. Ready to proceed with remaining routes.
+
+### Immediate Priority - Complete Current Route
+
+#### 1. Complete Raydium CLMM executeSwap (Current Proof of Concept)
+- [x] Update function signature to accept fee parameters
+- [x] Remove retry loop
+- [x] Implement status-based response
+- [x] Update route handler to pass parameters
+- [x] **Test thoroughly** before proceeding to next route
+
+### Next Routes (One at a Time)
+
+#### 2. Raydium AMM executeSwap
+- [ ] Add `priorityFeePerCU` and `computeUnits` parameters to function signature
+- [ ] Remove retry loop (lines 62-180 in current implementation)
+- [ ] Implement status-based response format
+- [ ] Update route handler to extract and pass new parameters
+- [ ] Test thoroughly with Hummingbot integration
+
+#### 3. Raydium CLMM openPosition
+- [ ] Add fee parameters to function signature
+- [ ] Remove retry loop
+- [ ] Return status-based response
+- [ ] Update route handler
+- [ ] Test with GatewayLP integration
+
+#### 4. Continue with remaining routes in order:
+- [ ] Raydium CLMM closePosition
+- [ ] Raydium CLMM addLiquidity
+- [ ] Raydium CLMM removeLiquidity
+- [ ] Jupiter executeSwap
+- [ ] Meteora CLMM routes (openPosition, closePosition, etc.)
+- [ ] Uniswap AMM routes (with Ethereum gas price adaptations)
+- [ ] Uniswap CLMM routes
+
+### Required Supporting Changes
+
+#### Gateway Side:
+- [x] Update swap schema (completed)
+- [x] Update GetSwapQuoteResponse - remove gasPrice/gasLimit/gasCost, add computeUnits
+- [x] Update chain schema - simplify EstimateGasResponse to just `feePerComputeUnit`, `denomination`, and `timestamp`
+- [ ] Update CLMM schema when working on CLMM routes
+- [ ] Update AMM schema when working on AMM routes
+- [x] Ensure all response types include TransactionStatus enum
+- [x] Update chain implementations to return simplified gas estimate response
+- [x] Update all quote methods to return appropriate computeUnits values
+
+#### Hummingbot Side:
+- [x] GatewayTxHandler implementation (completed)
+- [x] GatewaySwap integration (completed)
+- [x] GatewayHttpClient SSL support (completed)
+- [x] GatewayLP integration - update methods as routes are converted:
+  - [ ] `_clmm_open_position`
+  - [ ] `_clmm_close_position`
+  - [ ] `_clmm_add_liquidity`
+  - [ ] `_clmm_remove_liquidity`
+
+### Testing Approach
+
+For each route conversion:
+1. Convert the Gateway route (remove retry loop, add fee params, return status)
+2. Test with direct Gateway API calls using curl/Postman
+3. Test with Hummingbot integration
+4. Monitor transaction success rates and retry behavior
+5. Only proceed to next route after confirmation
+
+#### Completed Testing for Raydium CLMM executeSwap:
+- [x] Direct API testing with custom fee parameters
+- [x] Successful SELL transaction: `5TBLtTe9wvG69kitNrpETAjjNmTw3dWcwWxGsWyNvBecPHkrZTgBaPQJMCb89v9FL9b33U3Pd9iW1trDvvbDpJCK`
+- [x] Successful BUY transaction: `45eeF7L7qZmWANgud8YNnwwLkJ2uZoWqZaMuNCzpUSX9qMyqrkBx2jV9LfMqWJzR5rVYhUbpFTeWvyHAg94BUSQQ`
+- [x] Fee retry logic implementation and testing
+- [x] Integration tests with mock Gateway responses
+
+### Chain-Specific Adaptations
+
+When working on Ethereum-based routes (Uniswap):
+- [ ] Adapt `priorityFeePerCU` to gas price (Wei)
+- [ ] Adapt `computeUnits` to gas limit
+- [ ] Ensure fee calculations work with ETH decimals
+- [ ] Test with Ethereum testnet first
+
+### Documentation Updates
+
+After all routes are converted:
+- [ ] Update Gateway API documentation
+- [ ] Update Hummingbot connector documentation
+- [ ] Create migration guide for custom strategies
+- [ ] Document recommended fee configurations
 
 ## Conclusion
 
