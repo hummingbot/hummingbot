@@ -23,7 +23,6 @@ from hummingbot.connector.test_support.network_mocking_assistant import NetworkM
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
-from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
 
 class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
@@ -67,7 +66,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
             bidict({f"{self.base_asset}-{self.quote_asset}-PERPETUAL": self.trading_pair}))
 
     async def asyncSetUp(self) -> None:
-        await ConnectionsFactory().close()
+        # await ConnectionsFactory().close()
         self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()
 
