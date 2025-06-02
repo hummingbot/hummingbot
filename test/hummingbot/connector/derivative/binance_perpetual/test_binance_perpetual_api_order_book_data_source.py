@@ -39,7 +39,6 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
         cls.domain = "binance_perpetual_testnet"
 
     async def asyncSetUp(self) -> None:
-        await super().asyncSetUp()
         await ConnectionsFactory().close()
         self.log_records = []
         self.listening_task = None

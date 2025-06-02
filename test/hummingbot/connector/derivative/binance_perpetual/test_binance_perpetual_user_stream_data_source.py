@@ -40,7 +40,6 @@ class BinancePerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCa
         cls.listen_key = "TEST_LISTEN_KEY"
 
     async def asyncSetUp(self) -> None:
-        await super().asyncSetUp()
         await ConnectionsFactory().close()
         self.log_records = []
         self.listening_task: Optional[asyncio.Task] = None

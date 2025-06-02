@@ -48,7 +48,6 @@ class OkxPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.mocking_assistant = NetworkMockingAssistant()
 
     async def asyncSetUp(self) -> None:
-        await super().asyncSetUp()
         await ConnectionsFactory().close()
         self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()

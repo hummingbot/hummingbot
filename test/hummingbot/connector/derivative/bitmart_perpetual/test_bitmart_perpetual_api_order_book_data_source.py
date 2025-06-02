@@ -74,7 +74,6 @@ class BitmartPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
             bidict({f"{self.base_asset}{self.quote_asset}": self.trading_pair}))
 
     async def asyncSetUp(self) -> None:
-        await super().asyncSetUp()
         await ConnectionsFactory().close()
         self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()

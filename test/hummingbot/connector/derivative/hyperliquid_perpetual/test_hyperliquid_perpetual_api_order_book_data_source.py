@@ -47,7 +47,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
         self.connector = HyperliquidPerpetualDerivative(
             client_config_map,
             hyperliquid_perpetual_api_key="testkey",
-            hyperliquid_perpetual_api_secret="13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930",# noqa: mock
+            hyperliquid_perpetual_api_secret="13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930",  # noqa: mock
             use_vault=False,
             trading_pairs=[self.trading_pair],
         )
@@ -67,7 +67,6 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
             bidict({f"{self.base_asset}-{self.quote_asset}-PERPETUAL": self.trading_pair}))
 
     async def asyncSetUp(self) -> None:
-        await super().asyncSetUp()
         await ConnectionsFactory().close()
         self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()

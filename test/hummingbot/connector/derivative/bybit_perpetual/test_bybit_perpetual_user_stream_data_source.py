@@ -43,7 +43,6 @@ class BybitPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.data_source.logger().addHandler(self)
 
     async def asyncSetUp(self) -> None:
-        await super().asyncSetUp()
         await ConnectionsFactory().close()
         self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()
