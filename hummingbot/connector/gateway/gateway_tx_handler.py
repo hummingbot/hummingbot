@@ -1,23 +1,31 @@
 """
 Gateway Transaction Handler for managing blockchain transactions with retry logic.
 This module provides chain-agnostic transaction management with automatic fee
-escalation and retry capabilities.
+escalation and retry capabilities. Also handles all Gateway HTTP communications.
 """
 import asyncio
 import logging
+import re
+import ssl
 import time
-from typing import Any, Dict, Optional
+from decimal import Decimal
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
-from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
-from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
+import aiohttp
+from aiohttp import ContentTypeError
+
+from hummingbot.client.config.security import Security
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 
 class GatewayTxHandler:
     """
-    Chain-agnostic transaction handler that manages fee determination and retry logic.
-    Pulls configuration from Gateway's chain config files.
+    Unified handler for Gateway transactions and HTTP communications.
+    Manages fee determination, retry logic, and all Gateway API interactions.
     """
 
     # Default values if not specified in Gateway config
@@ -32,6 +40,25 @@ class GatewayTxHandler:
     }
 
     _logger: Optional[HummingbotLogger] = None
+    _shared_client: Optional[aiohttp.ClientSession] = None
+    _base_url: str
+    __instance = None
+
+    @staticmethod
+    def get_instance(client_config_map: Optional["ClientConfigAdapter"] = None) -> "GatewayTxHandler":
+        if GatewayTxHandler.__instance is None:
+            GatewayTxHandler.__instance = object.__new__(GatewayTxHandler)
+            GatewayTxHandler.__instance.__init__(client_config_map)
+        elif client_config_map is not None and GatewayTxHandler.__instance._client_config_map != client_config_map:
+            # Update the client config map if it's different
+            GatewayTxHandler.__instance._client_config_map = client_config_map
+            # Update base_url based on new config
+            api_host = client_config_map.gateway.gateway_api_host
+            api_port = client_config_map.gateway.gateway_api_port
+            use_ssl = getattr(client_config_map.gateway, "gateway_use_ssl", False)
+            protocol = "https" if use_ssl else "http"
+            GatewayTxHandler.__instance._base_url = f"{protocol}://{api_host}:{api_port}"
+        return GatewayTxHandler.__instance
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -39,17 +66,148 @@ class GatewayTxHandler:
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, gateway_client):
-        self.gateway_client = gateway_client
+    def __init__(self, client_config_map: Optional["ClientConfigAdapter"] = None):
+        if client_config_map is None:
+            from hummingbot.client.hummingbot_application import HummingbotApplication
+            client_config_map = HummingbotApplication.main_application().client_config_map
+
+        api_host = client_config_map.gateway.gateway_api_host
+        api_port = client_config_map.gateway.gateway_api_port
+        use_ssl = getattr(client_config_map.gateway, "gateway_use_ssl", False)
+
+        protocol = "https" if use_ssl else "http"
+        self._base_url = f"{protocol}://{api_host}:{api_port}"
+
+        self._client_config_map = client_config_map
         self._config_cache: Dict[str, Dict[str, Any]] = {}
         self._pending_transactions: Dict[str, Dict[str, Any]] = {}
         self._fee_estimates: Dict[str, Dict[str, Any]] = {}  # {"chain:network": {"fee_per_compute_unit": int, "denomination": str, "timestamp": float}}
         self._compute_units_cache: Dict[str, int] = {}  # {"tx_type:chain:network": compute_units}
+        GatewayTxHandler.__instance = self
+
+    @property
+    def base_url(self) -> str:
+        return self._base_url
+
+    @base_url.setter
+    def base_url(self, url: str):
+        self._base_url = url
 
     @property
     def current_timestamp(self) -> float:
-        """Get current timestamp from gateway client."""
-        return self.gateway_client.current_timestamp
+        """Get current timestamp."""
+        return time.time()
+
+    @classmethod
+    def _http_client(cls, client_config_map: "ClientConfigAdapter", re_init: bool = False) -> aiohttp.ClientSession:
+        """
+        :returns Shared client session instance
+        """
+        if cls._shared_client is None or re_init:
+            use_ssl = getattr(client_config_map.gateway, "gateway_use_ssl", False)
+            if use_ssl:
+                cert_path = client_config_map.certs_path
+                ssl_ctx = ssl.create_default_context(cafile=f"{cert_path}/ca_cert.pem")
+                ssl_ctx.load_cert_chain(certfile=f"{cert_path}/client_cert.pem",
+                                        keyfile=f"{cert_path}/client_key.pem",
+                                        password=Security.secrets_manager.password.get_secret_value())
+                conn = aiohttp.TCPConnector(ssl_context=ssl_ctx)
+            else:
+                # Non-SSL connection for development
+                conn = aiohttp.TCPConnector(ssl=False)
+            cls._shared_client = aiohttp.ClientSession(connector=conn)
+        return cls._shared_client
+
+    @classmethod
+    def reload_certs(cls, client_config_map: "ClientConfigAdapter"):
+        """
+        Re-initializes the aiohttp.ClientSession. This should be called whenever there is any updates to the
+        Certificates used to secure a HTTPS connection to the Gateway service.
+        """
+        cls._http_client(client_config_map, re_init=True)
+
+    @staticmethod
+    def is_timeout_error(e) -> bool:
+        """
+        Check if an error is a timeout error by looking for 'timeout' in the error string.
+        """
+        error_string = str(e)
+        if re.search('timeout', error_string, re.IGNORECASE):
+            return True
+        return False
+
+    async def api_request(
+            self,
+            method: str,
+            path_url: str,
+            params: Dict[str, Any] = {},
+            fail_silently: bool = False,
+            use_body: bool = False,
+    ) -> Optional[Union[Dict[str, Any], List[Dict[str, Any]]]]:
+        """
+        Sends an aiohttp request and waits for a response.
+        :param method: The HTTP method, e.g. get or post
+        :param path_url: The path url or the API end point
+        :param params: A dictionary of required params for the end point
+        :param fail_silently: used to determine if errors will be raise or silently ignored
+        :param use_body: used to determine if the request should sent the parameters in the body or as query string
+        :returns A response in json format.
+        """
+        if path_url:
+            url = f"{self.base_url}/{path_url}"
+        else:
+            url = self.base_url
+        client = GatewayTxHandler._http_client(self._client_config_map)
+
+        parsed_response = {}
+        try:
+            # Convert method to lowercase for comparison
+            method_lower = method.lower()
+            if method_lower == "get":
+                if len(params) > 0:
+                    if use_body:
+                        response = await client.get(url, json=params)
+                    else:
+                        response = await client.get(url, params=params)
+                else:
+                    response = await client.get(url)
+            elif method_lower == "post":
+                response = await client.post(url, json=params)
+            elif method_lower == 'put':
+                response = await client.put(url, json=params)
+            elif method_lower == 'delete':
+                response = await client.delete(url, json=params)
+            else:
+                raise ValueError(f"Unsupported request method {method}")
+
+            if not fail_silently and response.status == 504:
+                self.logger().network(f"The network call to {url} has timed out.")
+            else:
+                try:
+                    parsed_response = await response.json()
+                except ContentTypeError:
+                    parsed_response = await response.text()
+                if response.status != 200 and \
+                   not fail_silently and \
+                   not self.is_timeout_error(parsed_response):
+                    if "error" in parsed_response:
+                        raise ValueError(f"Error on {method.upper()} {url} Error: {parsed_response['error']}")
+                    else:
+                        raise ValueError(f"Error on {method.upper()} {url} Error: {parsed_response}")
+
+        except Exception as e:
+            if not fail_silently:
+                if self.is_timeout_error(e):
+                    self.logger().network(f"The network call to {url} has timed out.")
+                else:
+                    self.logger().network(
+                        e,
+                        exc_info=True,
+                        app_warning_msg=f"Call to {url} failed. See logs for more details."
+                    )
+                raise e
+
+        return parsed_response
 
     async def execute_transaction(
         self,
@@ -59,7 +217,7 @@ class GatewayTxHandler:
         method: str,
         params: Dict[str, Any],
         order_id: str,
-        tracked_order: GatewayInFlightOrder
+        gateway_connector: Any  # Gateway connector instance
     ) -> str:
         """
         Execute a Gateway transaction with automatic fee management and retry logic.
@@ -71,7 +229,7 @@ class GatewayTxHandler:
         :param method: API method (e.g., 'execute-swap', 'open-position')
         :param params: Method-specific parameters
         :param order_id: Client order ID for tracking
-        :param tracked_order: The GatewayInFlightOrder to update
+        :param gateway_connector: The Gateway connector instance that can update orders
         :return: Transaction hash immediately (empty string if not yet available)
         """
         # 1. Get chain configuration from Gateway
@@ -114,7 +272,7 @@ class GatewayTxHandler:
             initial_priority_fee_per_cu=current_priority_fee_per_cu,
             compute_units=compute_units,
             order_id=order_id,
-            tracked_order=tracked_order
+            gateway_connector=gateway_connector
         ))
 
         # Return immediately - transaction will be processed in background
@@ -126,7 +284,8 @@ class GatewayTxHandler:
         """
         if chain not in self._config_cache:
             try:
-                config = await self.gateway_client.get_configuration(chain)
+                params = {"chainOrConnector": chain} if chain is not None else {}
+                config = await self.api_request("get", "config", params=params, fail_silently=False)
                 self._config_cache[chain] = config or {}
             except Exception as e:
                 self.logger().warning(f"Failed to get {chain} config: {e}")
@@ -151,8 +310,8 @@ class GatewayTxHandler:
 
         try:
             # Get gas/fee estimate from Gateway
-            response = await self.gateway_client.api_request(
-                method="POST",
+            response = await self.api_request(
+                method="post",
                 path_url=f"chains/{chain}/estimate-gas",
                 params={"network": network}
             )
@@ -224,8 +383,8 @@ class GatewayTxHandler:
         while time.time() - start_time < timeout:
             try:
                 # Poll transaction status
-                response = await self.gateway_client.api_request(
-                    method="POST",
+                response = await self.api_request(
+                    method="post",
                     path_url=f"chains/{chain}/poll",
                     params={
                         "network": network,
@@ -256,11 +415,11 @@ class GatewayTxHandler:
         initial_priority_fee_per_cu: int,
         compute_units: int,
         order_id: str,
-        tracked_order: GatewayInFlightOrder
+        gateway_connector: Any
     ):
         """
         Background retry logic for transaction execution.
-        Updates the GatewayInFlightOrder with transaction progress.
+        Updates the order state through the gateway connector.
         """
         max_retries = config.get("retryCount", self.DEFAULT_CONFIG["retryCount"])
         retry_interval = config.get("retryInterval", self.DEFAULT_CONFIG["retryInterval"])
@@ -281,8 +440,8 @@ class GatewayTxHandler:
                 }
 
                 # Send transaction
-                response = await self.gateway_client.api_request(
-                    method="POST",
+                response = await self.api_request(
+                    method="post",
                     path_url=f"connectors/{connector}/{method}",
                     params=request_params
                 )
@@ -291,30 +450,20 @@ class GatewayTxHandler:
 
                 # Update order with transaction hash
                 if tx_hash:
-                    tracked_order.update_creation_transaction_hash(tx_hash)
-
-                    # Update order state to OPEN
-                    order_update = OrderUpdate(
-                        client_order_id=order_id,
-                        trading_pair=tracked_order.trading_pair,
-                        update_timestamp=self.current_timestamp,
-                        new_state=OrderState.OPEN,
-                        misc_updates={"creation_transaction_hash": tx_hash}
-                    )
-                    tracked_order.update_with_order_update(order_update)
+                    gateway_connector.update_order_transaction_hash(order_id, tx_hash)
 
                 status = response.get("status", 0)
 
                 if status == 1:  # CONFIRMED
                     # Transaction confirmed immediately
-                    self._process_transaction_success(tracked_order, response)
+                    self._process_transaction_success(gateway_connector, order_id, response)
                     return
 
                 # Monitor pending transaction
                 confirmed = await self._monitor_transaction(chain, network, tx_hash)
 
                 if confirmed:
-                    self._process_transaction_success(tracked_order, confirmed)
+                    self._process_transaction_success(gateway_connector, order_id, confirmed)
                     return
 
                 # Transaction failed, prepare for retry
@@ -337,32 +486,133 @@ class GatewayTxHandler:
                 break
 
         # All retries failed
-        order_update = OrderUpdate(
-            client_order_id=order_id,
-            trading_pair=tracked_order.trading_pair,
-            update_timestamp=self.current_timestamp,
-            new_state=OrderState.FAILED,
-            misc_updates={"error": last_error or "Max retries exceeded"}
+        gateway_connector._handle_operation_failure(
+            order_id=order_id,
+            trading_pair=params.get("baseToken", "") + "-" + params.get("quoteToken", ""),
+            operation_name="executing transaction",
+            error=Exception(last_error or "Max retries exceeded")
         )
-        tracked_order.update_with_order_update(order_update)
 
-    def _process_transaction_success(self, tracked_order: GatewayInFlightOrder, response: Dict[str, Any]):
+    def _process_transaction_success(self, gateway_connector: Any, order_id: str, response: Dict[str, Any]):
         """
-        Process successful transaction and update order state.
+        Process successful transaction confirmation.
+        This calls process_transaction_confirmation_update which will emit the fill event.
         """
-        # Extract transaction data
-        data = response.get("data", {})
-        fee = response.get("fee", 0)
+        # Find the in-flight order
+        in_flight_order = gateway_connector._order_tracker.fetch_order(order_id)
+        if not in_flight_order:
+            self.logger().warning(f"Could not find order {order_id} to process transaction success")
+            return
 
-        # Update order to FILLED state with transaction data
-        order_update = OrderUpdate(
-            client_order_id=tracked_order.client_order_id,
-            trading_pair=tracked_order.trading_pair,
-            update_timestamp=self.gateway_client.current_timestamp,
-            new_state=OrderState.FILLED,
-            misc_updates={
-                "fee": fee,
-                "data": data
-            }
+        # Calculate fee from compute units used
+        compute_units_used = response.get("computeUnitsUsed", 0)
+        # Convert microlamports to SOL (or appropriate denomination)
+        fee_amount = Decimal(str(compute_units_used)) / Decimal("1e9")
+
+        # Process the transaction confirmation which will trigger the fill event
+        gateway_connector.process_transaction_confirmation_update(in_flight_order, fee_amount)
+
+    # Common Gateway API methods for compatibility
+    async def ping_gateway(self) -> bool:
+        try:
+            response: Dict[str, Any] = await self.api_request("get", "", fail_silently=True)
+            return response.get("status") == "ok"
+        except Exception:
+            return False
+
+    async def get_gateway_status(self, fail_silently: bool = False) -> Dict[str, Any]:
+        """
+        Get the overall Gateway status by pinging the root endpoint.
+        """
+        try:
+            return await self.api_request("get", "", fail_silently=fail_silently)
+        except Exception as e:
+            self.logger().network(
+                "Error fetching gateway status info",
+                exc_info=True,
+                app_warning_msg=str(e)
+            )
+            return {}
+
+    async def get_balances(
+            self,
+            chain: str,
+            network: str,
+            address: str,
+            token_symbols: List[str],
+            fail_silently: bool = False,
+    ) -> Dict[str, Any]:
+        if isinstance(token_symbols, list):
+            token_symbols = [x for x in token_symbols if isinstance(x, str) and x.strip() != '']
+            return await self.chain_request(
+                "post", chain, "balances",
+                {"network": network, "address": address, "tokens": token_symbols},
+                fail_silently=fail_silently
+            )
+        else:
+            return {}
+
+    async def get_configuration(
+            self,
+            config_key: str = None,
+            fail_silently: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Retrieve configuration from the Gateway.
+        """
+        if config_key:
+            return await self.api_request("get", f"config/{config_key}", fail_silently=fail_silently)
+        else:
+            return await self.api_request("get", "config", fail_silently=fail_silently)
+
+    async def update_config(self, config_key: str, config_value: Any) -> Dict[str, Any]:
+        """
+        Update a configuration value on the Gateway.
+        """
+        return await self.api_request(
+            "put",
+            "config/update",
+            {"configKey": config_key, "configValue": config_value}
         )
-        tracked_order.update_with_order_update(order_update)
+
+    async def connector_request(
+            self,
+            method: str,
+            connector: str,
+            endpoint: str,
+            params: Dict[str, Any] = None,
+            fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Generic method to make requests to any connector endpoint.
+
+        :param method: HTTP method (get, post, put, delete)
+        :param connector: Connector name (e.g., "raydium/clmm", "uniswap/amm")
+        :param endpoint: API endpoint (e.g., "pool-info", "open-position")
+        :param params: Request parameters
+        :param fail_silently: Whether to suppress errors
+        :return: API response
+        """
+        path = f"connectors/{connector}/{endpoint}"
+        return await self.api_request(method, path, params or {}, fail_silently=fail_silently)
+
+    async def chain_request(
+            self,
+            method: str,
+            chain: str,
+            endpoint: str,
+            params: Dict[str, Any] = None,
+            fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Generic method to make requests to any chain endpoint.
+
+        :param method: HTTP method (get, post, put, delete)
+        :param chain: Chain name (e.g., "ethereum", "solana")
+        :param endpoint: API endpoint (e.g., "tokens", "balances")
+        :param params: Request parameters
+        :param fail_silently: Whether to suppress errors
+        :return: API response
+        """
+        path = f"chains/{chain}/{endpoint}"
+        return await self.api_request(method, path, params or {}, fail_silently=fail_silently)

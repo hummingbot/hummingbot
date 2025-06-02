@@ -1,8 +1,8 @@
 from decimal import Decimal
 from typing import Dict
 
+from hummingbot.connector.gateway.common_types import unwrap_token_symbol
 from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair
-from hummingbot.core.gateway.utils import unwrap_token_symbol
 
 
 def find_rate(prices: Dict[str, Decimal], pair: str) -> Decimal:
