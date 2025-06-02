@@ -200,7 +200,7 @@ class MarketDataProvider:
         if getattr(connector_config, "use_auth_for_public_endpoints", False):
             api_keys = api_keys_from_connector_config_map(ClientConfigAdapter(connector_config))
         else:
-            api_keys = {key: "" for key in connector_config.model_fields.keys() if key != "connector"}
+            api_keys = {key: "" for key in connector_config.__class__.model_fields.keys() if key != "connector"}
         return api_keys
 
     def get_balance(self, connector_name: str, asset: str):
