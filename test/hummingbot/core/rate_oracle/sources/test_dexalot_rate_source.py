@@ -32,7 +32,6 @@ class DexalotRateSourceTest(IsolatedAsyncioWrapperTestCase):
         super().setUp()
 
     async def asyncSetUp(self):
-        await super().asyncSetUp()
         await ConnectionsFactory().close()
         self.factory = ConnectionsFactory()
         self.mocking_assistant = NetworkMockingAssistant("__this_is_not_a_loop__")

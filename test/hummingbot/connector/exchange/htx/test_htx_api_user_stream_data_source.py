@@ -26,7 +26,6 @@ class HtxAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         cls.ex_trading_pair = f"{cls.base_asset}{cls.quote_asset}".lower()
 
     async def asyncSetUp(self) -> None:
-        await super().asyncSetUp()
         await ConnectionsFactory().close()
         self.log_records = []
         self.async_tasks: List[asyncio.Task] = []

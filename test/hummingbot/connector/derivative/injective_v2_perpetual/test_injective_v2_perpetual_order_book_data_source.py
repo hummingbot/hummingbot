@@ -107,7 +107,6 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.connector._set_trading_pair_symbol_map(bidict({self.market_id: self.trading_pair}))
 
     async def asyncSetUp(self) -> None:
-        await super().asyncSetUp()
         await ConnectionsFactory().close()
 
     async def asyncTearDown(self) -> None:

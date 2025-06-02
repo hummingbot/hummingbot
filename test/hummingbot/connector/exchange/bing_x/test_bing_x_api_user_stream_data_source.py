@@ -61,7 +61,6 @@ class TestBingXAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
         self.resume_test_event = asyncio.Event()
 
     async def asyncSetUp(self) -> None:
-        await super().asyncSetUp()
         await ConnectionsFactory().close()
         self.mocking_assistant = NetworkMockingAssistant()
 

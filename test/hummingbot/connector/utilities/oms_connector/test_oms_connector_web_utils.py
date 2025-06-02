@@ -20,7 +20,6 @@ class OMSConnectorWebUtilsTest(IsolatedAsyncioWrapperTestCase):
         self.api_factory = build_api_factory()
 
     async def asyncSetUp(self) -> None:
-        await super().asyncSetUp()
         await ConnectionsFactory().close()
         self.ws_assistant = await self.api_factory.get_ws_assistant()
         self.rest_assistant = await self.api_factory.get_rest_assistant()
