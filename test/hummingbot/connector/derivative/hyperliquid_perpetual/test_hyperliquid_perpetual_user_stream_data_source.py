@@ -19,7 +19,6 @@ from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
 
 class TestHyperliquidPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
@@ -73,7 +72,7 @@ class TestHyperliquidPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTest
         self.connector._set_trading_pair_symbol_map(bidict({self.ex_trading_pair: self.trading_pair}))
 
     async def asyncSetUp(self) -> None:
-        await ConnectionsFactory().close()
+        # await ConnectionsFactory().close()
         self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()
 
