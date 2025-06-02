@@ -14,9 +14,9 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.connector.gateway.gateway_tx_handler import GatewayTxHandler
 from hummingbot.core.data_type.common import GroupedSetDict, LazyDict, PriceType, TradeType
 from hummingbot.core.data_type.order_book_query_result import OrderBookQueryResult
-from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesFactory
@@ -87,7 +87,7 @@ class MarketDataProvider:
             for connector, connector_pairs in self._rates_required.items():
                 if connector == "gateway":
                     tasks = []
-                    gateway_client = GatewayHttpClient.get_instance()
+                    gateway_client = GatewayTxHandler.get_instance()
                     for connector_pair in connector_pairs:
                         connector, chain, network = connector_pair.connector_name.split("_")
                         base, quote = connector_pair.trading_pair.split("-")

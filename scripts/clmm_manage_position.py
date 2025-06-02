@@ -9,7 +9,7 @@ from pydantic import Field
 from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.client.settings import GatewayConnectionSetting
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
+from hummingbot.connector.gateway.gateway_tx_handler import GatewayTxHandler
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
@@ -89,8 +89,8 @@ class CLMMPositionManager(ScriptStrategyBase):
         """Check if Gateway server is online and verify wallet connection"""
         self.logger().info("Checking Gateway server status...")
         try:
-            gateway_http_client = GatewayHttpClient.get_instance()
-            if await gateway_http_client.ping_gateway():
+            gateway = GatewayTxHandler.get_instance()
+            if await gateway.ping_gateway():
                 self.gateway_ready = True
                 self.logger().info("Gateway server is online!")
 
@@ -126,10 +126,11 @@ class CLMMPositionManager(ScriptStrategyBase):
         """Fetch pool information to get tokens and current price"""
         try:
             self.logger().info(f"Fetching information for pool {self.config.pool_address}...")
-            pool_info = await GatewayHttpClient.get_instance().pool_info(
+            pool_info = await GatewayTxHandler.get_instance().connector_request(
+                "get",
                 self.config.connector,
-                self.config.network,
-                self.config.pool_address
+                "pool-info",
+                {"network": self.config.network, "poolAddress": self.config.pool_address}
             )
 
             if not pool_info:
@@ -232,16 +233,25 @@ class CLMMPositionManager(ScriptStrategyBase):
             self.logger().info(f"Opening position around current price {current_price} with range: {lower_price} to {upper_price}")
 
             # Open position - only send one transaction
-            response = await GatewayHttpClient.get_instance().clmm_open_position(
-                connector=self.config.connector,
-                network=self.config.network,
-                wallet_address=self.wallet_address,
-                pool_address=self.config.pool_address,
-                lower_price=lower_price,
-                upper_price=upper_price,
-                base_token_amount=float(self.config.base_token_amount) if self.config.base_token_amount > 0 else None,
-                quote_token_amount=float(self.config.quote_token_amount) if self.config.quote_token_amount > 0 else None,
-                slippage_pct=0.5  # Default slippage
+            # Prepare parameters for open position
+            params = {
+                "network": self.config.network,
+                "walletAddress": self.wallet_address,
+                "poolAddress": self.config.pool_address,
+                "lowerPrice": lower_price,
+                "upperPrice": upper_price,
+                "slippagePct": 0.5  # Default slippage
+            }
+            if self.config.base_token_amount > 0:
+                params["baseTokenAmount"] = float(self.config.base_token_amount)
+            if self.config.quote_token_amount > 0:
+                params["quoteTokenAmount"] = float(self.config.quote_token_amount)
+
+            response = await GatewayTxHandler.get_instance().connector_request(
+                "post",
+                self.config.connector,
+                "open-position",
+                params
             )
 
             self.logger().info(f"Position opening response received: {response}")
@@ -354,11 +364,15 @@ class CLMMPositionManager(ScriptStrategyBase):
 
                 # Close position
                 self.logger().info(f"Closing position {self.position_address}...")
-                response = await GatewayHttpClient.get_instance().clmm_close_position(
-                    connector=self.config.connector,
-                    network=self.config.network,
-                    wallet_address=self.wallet_address,
-                    position_address=self.position_address
+                response = await GatewayTxHandler.get_instance().connector_request(
+                    "post",
+                    self.config.connector,
+                    "close-position",
+                    {
+                        "network": self.config.network,
+                        "walletAddress": self.wallet_address,
+                        "positionAddress": self.position_address
+                    }
                 )
 
                 # Check response
@@ -421,10 +435,11 @@ class CLMMPositionManager(ScriptStrategyBase):
             poll_attempts += 1
             try:
                 # Use the get_transaction_status method to check transaction status
-                poll_data = await GatewayHttpClient.get_instance().get_transaction_status(
-                    chain=self.config.chain,
-                    network=self.config.network,
-                    transaction_hash=signature,
+                poll_data = await GatewayTxHandler.get_instance().chain_request(
+                    "post",
+                    self.config.chain,
+                    "poll",
+                    {"network": self.config.network, "signature": signature}
                 )
 
                 transaction_status = poll_data.get("txStatus")
