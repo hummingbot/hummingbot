@@ -17,7 +17,6 @@ from hummingbot.connector.derivative.gate_io_perpetual.gate_io_perpetual_user_st
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
 
 class TestGateIoPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
@@ -71,7 +70,6 @@ class TestGateIoPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
         self.connector._set_trading_pair_symbol_map(bidict({self.ex_trading_pair: self.trading_pair}))
 
     async def asyncSetUp(self) -> None:
-        await ConnectionsFactory().close()
         self.mocking_assistant = NetworkMockingAssistant()
 
     def tearDown(self) -> None:
