@@ -27,7 +27,7 @@ class MapDfToStrTest(unittest.TestCase):
         }
         df = pd.DataFrame(data)
 
-        expected_df = df.applymap(lambda x: np.format_float_positional(x, trim="-") if isinstance(x, float) else x).astype(str)
+        expected_df = df.map(lambda x: np.format_float_positional(x, trim="-") if isinstance(x, float) else x).astype(str)
         actual_df = map_df_to_str(df)
 
         pd.testing.assert_frame_equal(actual_df, expected_df)

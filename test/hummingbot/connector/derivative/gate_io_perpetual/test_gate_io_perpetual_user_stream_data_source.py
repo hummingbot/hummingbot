@@ -17,7 +17,6 @@ from hummingbot.connector.derivative.gate_io_perpetual.gate_io_perpetual_user_st
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
 
 class TestGateIoPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
@@ -71,8 +70,6 @@ class TestGateIoPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
         self.connector._set_trading_pair_symbol_map(bidict({self.ex_trading_pair: self.trading_pair}))
 
     async def asyncSetUp(self) -> None:
-        await super().asyncSetUp()
-        await ConnectionsFactory().close()
         self.mocking_assistant = NetworkMockingAssistant()
 
     def tearDown(self) -> None:
@@ -149,7 +146,7 @@ class TestGateIoPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
             "payload": [self.user_id, "!all"],
             "auth": {
                 "KEY": self.api_key,
-                "SIGN": '0fb3b313fe07c7d23164a4ae86adf306a48f5787c54b9a7595f0a50a164c01eb54d8de5d5ad65fbc3ea94e60e73446d999d23424e52f715713ee6cb32a7d0df1',# noqa: mock
+                "SIGN": '0fb3b313fe07c7d23164a4ae86adf306a48f5787c54b9a7595f0a50a164c01eb54d8de5d5ad65fbc3ea94e60e73446d999d23424e52f715713ee6cb32a7d0df1',  # noqa: mock
                 "method": "api_key"},
         }
         self.assertEqual(expected_orders_subscription, sent_subscription_messages[0])
@@ -160,7 +157,7 @@ class TestGateIoPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
             "payload": [self.user_id, "!all"],
             "auth": {
                 "KEY": self.api_key,
-                "SIGN": 'a7681c836307cbb57c7ba7a66862120770c019955953e5ec043fd00e93722d478096f0a8238e3f893dcb3e0f084dc67a2a7ff6e6e08bc1bf0ad80fee57fff113',# noqa: mock
+                "SIGN": 'a7681c836307cbb57c7ba7a66862120770c019955953e5ec043fd00e93722d478096f0a8238e3f893dcb3e0f084dc67a2a7ff6e6e08bc1bf0ad80fee57fff113',  # noqa: mock
                 "method": "api_key"}
         }
         self.assertEqual(expected_trades_subscription, sent_subscription_messages[1])
