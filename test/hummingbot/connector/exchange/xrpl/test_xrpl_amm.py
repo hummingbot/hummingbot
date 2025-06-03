@@ -153,8 +153,8 @@ class TestXRPLAMMFunctions(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(call_args[1].method, "amm_info")
 
         # Test error case - missing required parameters
-        with self.assertRaises(ValueError):
-            await self.connector.amm_get_pool_info()
+        result_without_params = await self.connector.amm_get_pool_info()
+        self.assertIsNone(result_without_params)
 
     async def test_amm_quote_add_liquidity(self):
         # Setup mock for amm_get_pool_info
