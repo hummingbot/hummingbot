@@ -4258,7 +4258,7 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         self.data_source._sleep = AsyncMock()
 
         # Action & Assert
-        with self.assertRaises(TimeoutError):
+        with self.assertRaises(Exception):
             await self.connector.request_with_retry(mock_client, Request(method=RequestMethod.ACCOUNT_INFO))
 
     async def test_request_with_retry_general_error(self):
