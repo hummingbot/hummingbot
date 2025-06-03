@@ -66,7 +66,6 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
             bidict({f"{self.base_asset}-{self.quote_asset}-PERPETUAL": self.trading_pair}))
 
     async def asyncSetUp(self) -> None:
-        # await ConnectionsFactory().close()
         self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()
 
