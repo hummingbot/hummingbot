@@ -317,16 +317,15 @@ class XrplExchange(ExchangePyBase):
                             f"prelim_result={prelim_result}, tx_hash={submit_response.result.get('tx_json', {}).get('hash', 'unknown')}"
                         )
 
-                if retry == 0:
-                    order_update: OrderUpdate = OrderUpdate(
-                        client_order_id=order_id,
-                        exchange_order_id=str(o_id),
-                        trading_pair=trading_pair,
-                        update_timestamp=transact_time,
-                        new_state=OrderState.PENDING_CREATE,
-                    )
+                order_update: OrderUpdate = OrderUpdate(
+                    client_order_id=order_id,
+                    exchange_order_id=str(o_id),
+                    trading_pair=trading_pair,
+                    update_timestamp=transact_time,
+                    new_state=OrderState.PENDING_CREATE,
+                )
 
-                    self._order_tracker.process_order_update(order_update)
+                self._order_tracker.process_order_update(order_update)
 
                 verified, resp = await self._verify_transaction_result(submit_data)
 
