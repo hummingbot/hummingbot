@@ -1758,6 +1758,7 @@ class XrplExchange(ExchangePyBase):
             tx_timestamp = ripple_time_to_posix(tx.get("tx_json", {}).get("date", 0))
         except Exception as e:
             self.logger().error(f"Error fetching AMM pool transaction info for {trading_pair}: {e}")
+            return price, tx_timestamp
 
         amount = amm_pool_info.get("amount")  # type: ignore
         amount2 = amm_pool_info.get("amount2")  # type: ignore
@@ -2126,7 +2127,7 @@ class XrplExchange(ExchangePyBase):
     # AMM functions
     async def amm_get_pool_info(
         self, pool_address: Optional[str] = None, trading_pair: Optional[str] = None
-    ) -> PoolInfo:
+    ) -> Optional[PoolInfo]:
         """
         Get information about a specific AMM liquidity pool
 
@@ -2158,7 +2159,8 @@ class XrplExchange(ExchangePyBase):
                 1,
             )
         else:
-            raise ValueError("Either pool_address or trading_pair must be provided")
+            self.logger().error("No pool_address or trading_pair provided")
+            return None
 
         # Process the response and convert to our PoolInfo model
         amm_pool_info = resp.result.get("amm", {})
@@ -2167,7 +2169,8 @@ class XrplExchange(ExchangePyBase):
         extracted_pool_address = amm_pool_info.get("account", None)
 
         if extracted_pool_address is None:
-            raise ValueError("Invalid AMM pool information: missing pool address")
+            self.logger().error(f"No AMM pool info found for {trading_pair if trading_pair else pool_address}")
+            return None
 
         # Extract amounts
         amount1: Any = amm_pool_info.get("amount", None)
@@ -2175,7 +2178,8 @@ class XrplExchange(ExchangePyBase):
         lp_token: Any = amm_pool_info.get("lp_token", None)
 
         if amount1 is None or amount2 is None or lp_token is None:
-            raise ValueError("Invalid AMM pool information: missing amounts or lp_token")
+            self.logger().error(f"Missing amounts or lp_token for {trading_pair if trading_pair else pool_address}")
+            return None
 
         # Convert to decimals based on token type
         if isinstance(amount1, str):
@@ -2230,7 +2234,7 @@ class XrplExchange(ExchangePyBase):
         quote_token_amount: Decimal,
         slippage_pct: Decimal = Decimal("0"),
         network: Optional[str] = None,
-    ) -> QuoteLiquidityResponse:
+    ) -> Optional[QuoteLiquidityResponse]:
         """
         Get a quote for adding liquidity to an AMM pool
 
@@ -2243,6 +2247,10 @@ class XrplExchange(ExchangePyBase):
         """
         # Get current pool state
         pool_info = await self.amm_get_pool_info(pool_address, network)
+
+        if pool_info is None:
+            self.logger().error(f"No pool info found for {pool_address}")
+            return None
 
         # Calculate the optimal amounts based on current pool ratio
         current_ratio = (
@@ -2285,7 +2293,7 @@ class XrplExchange(ExchangePyBase):
         quote_token_amount: Decimal,
         slippage_pct: Decimal = Decimal("0"),
         network: Optional[str] = None,
-    ) -> AddLiquidityResponse:
+    ) -> Optional[AddLiquidityResponse]:
         """
         Add liquidity to an AMM pool
 
@@ -2297,6 +2305,13 @@ class XrplExchange(ExchangePyBase):
         :param network: Optional network specification
         :return: Result of adding liquidity
         """
+        # Get pool info to determine token types
+        pool_info = await self.amm_get_pool_info(pool_address, network)
+
+        if pool_info is None:
+            self.logger().error(f"No pool info found for {pool_address}")
+            return None
+
         # Get quote to determine optimal amounts
         quote = await self.amm_quote_add_liquidity(
             pool_address=pool_address,
@@ -2306,8 +2321,9 @@ class XrplExchange(ExchangePyBase):
             network=network,
         )
 
-        # Get pool info to determine token types
-        pool_info = await self.amm_get_pool_info(pool_address, network)
+        if quote is None:
+            self.logger().error(f"No quote found for {pool_address}")
+            return None
 
         # Convert amounts based on token types (XRP vs. issued token)
         if isinstance(pool_info.base_token_address, XRP):
@@ -2386,7 +2402,7 @@ class XrplExchange(ExchangePyBase):
 
     async def amm_remove_liquidity(
         self, pool_address: str, wallet_address: str, percentage_to_remove: Decimal, network: Optional[str] = None
-    ) -> RemoveLiquidityResponse:
+    ) -> Optional[RemoveLiquidityResponse]:
         """
         Remove liquidity from an AMM pool
 
@@ -2398,6 +2414,10 @@ class XrplExchange(ExchangePyBase):
         """
         # Get current pool info
         pool_info = await self.amm_get_pool_info(pool_address, network)
+
+        if pool_info is None:
+            self.logger().error(f"No pool info found for {pool_address}")
+            return None
 
         # Get user's LP tokens for this pool
         account = self._xrpl_auth.get_account()
@@ -2512,7 +2532,18 @@ class XrplExchange(ExchangePyBase):
         lines = resp.result.get("lines", [])
 
         # Get AMM Pool info
-        pool_info: PoolInfo = await self.amm_get_pool_info(pool_address)
+        pool_info: PoolInfo | None = await self.amm_get_pool_info(pool_address)
+
+        if pool_info is None:
+            self.logger().error(f"No pool info found for {pool_address}")
+            return {
+                "base_token_lp_amount": Decimal("0"),
+                "base_token_address": None,
+                "quote_token_lp_amount": Decimal("0"),
+                "quote_token_address": None,
+                "lp_token_amount": Decimal("0"),
+                "lp_token_amount_pct": Decimal("0"),
+            }
 
         lp_token_balance = None
         for line in lines:
