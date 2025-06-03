@@ -2171,7 +2171,7 @@ class XrplExchange(ExchangePyBase):
         extracted_pool_address = amm_pool_info.get("account", None)
 
         if extracted_pool_address is None:
-            self.logger().error(f"No AMM pool info found for {trading_pair if trading_pair else pool_address}")
+            self.logger().debug(f"No AMM pool info found for {trading_pair if trading_pair else pool_address}")
             return None
 
         # Extract amounts
