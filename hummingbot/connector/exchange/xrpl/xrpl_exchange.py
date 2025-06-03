@@ -2108,17 +2108,13 @@ class XrplExchange(ExchangePyBase):
             await self._sleep(delay_time)
             return resp
 
-        except (TimeoutError, asyncio.exceptions.TimeoutError) as e:
-            self.logger().debug(f"Request {request} timeout error: {e}")
+        except Exception as e:
+            self.logger().error(f"Request {request} failed: {e}, retrying...")
             if max_retries > 0:
                 await self._sleep(CONSTANTS.REQUEST_RETRY_INTERVAL)
                 return await self.request_with_retry(client, request, max_retries - 1, lock, delay_time)
             else:
-                self.logger().error(f"Max retries reached. Request {request} failed due to timeout.")
-                raise TimeoutError(f"Max retries reached. Request {request} failed due to timeout.")
-        except Exception as e:
-            self.logger().error(f"Request {request} failed: {e}")
-            raise
+                raise Exception(f"Max retries reached. Request {request} failed: {e}")
 
     def get_token_symbol_from_all_markets(self, code: str, issuer: str) -> Optional[str]:
         all_markets = self._make_xrpl_trading_pairs_request()
