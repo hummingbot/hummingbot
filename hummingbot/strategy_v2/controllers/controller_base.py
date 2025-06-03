@@ -155,7 +155,7 @@ class ControllerBase(RunnableBase):
         Update the controller configuration. With the variables that in the client_data have the is_updatable flag set
         to True. This will be only available for those variables that don't interrupt the bot operation.
         """
-        for name, field_info in self.config.model_fields.items():
+        for name, field_info in self.config.__class__.model_fields.items():
             json_schema_extra = field_info.json_schema_extra or {}
             if json_schema_extra.get("is_updatable", False):
                 setattr(self.config, name, getattr(new_config, name))

@@ -20,7 +20,6 @@ from hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_derivat
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
-from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
 
 class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
@@ -67,8 +66,6 @@ class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestC
         self.data_source.logger().addHandler(self)
 
     async def asyncSetUp(self) -> None:
-        await super().asyncSetUp()
-        await ConnectionsFactory().close()
         self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()
 

@@ -19,7 +19,6 @@ from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
 
 class TestHyperliquidPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
@@ -73,8 +72,6 @@ class TestHyperliquidPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTest
         self.connector._set_trading_pair_symbol_map(bidict({self.ex_trading_pair: self.trading_pair}))
 
     async def asyncSetUp(self) -> None:
-        await super().asyncSetUp()
-        await ConnectionsFactory().close()
         self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()
 
@@ -101,13 +98,13 @@ class TestHyperliquidPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTest
                                                                                   'oid': 2260108845,
                                                                                   'timestamp': 1700688451563,
                                                                                   'origSz': '0.01',
-                                                                                  'cloid': '0x48424f54534548554436306163343632'}, # noqa: mock
+                                                                                  'cloid': '0x48424f54534548554436306163343632'},  # noqa: mock
                                                                         'status': 'canceled',
                                                                         'statusTimestamp': 1700688453173}]}
         result_subscribe_trades = {'channel': 'user', 'data': {'fills': [
             {'coin': 'ETH', 'px': '2091.3', 'sz': '0.01', 'side': 'B', 'time': 1700688460805, 'startPosition': '0.0',
              'dir': 'Open Long', 'closedPnl': '0.0',
-             'hash': '0x544c46b72e0efdada8cd04080bb32b010d005a7d0554c10c4d0287e9a2c237e7', 'oid': 2260113568, # noqa: mock
+             'hash': '0x544c46b72e0efdada8cd04080bb32b010d005a7d0554c10c4d0287e9a2c237e7', 'oid': 2260113568,  # noqa: mock
              # noqa: mock
              'crossed': True, 'fee': '0.005228', 'liquidationMarkPx': None}]}}
 
