@@ -1545,6 +1545,7 @@ class XrplExchange(ExchangePyBase):
         return return_transactions
 
     async def _update_balances(self):
+        await self._sleep(self.lock_delay_seconds)
         await self._client_health_check()
         account_address = self._xrpl_auth.get_account()
 
@@ -1553,7 +1554,7 @@ class XrplExchange(ExchangePyBase):
             AccountInfo(account=account_address, ledger_index="validated"),
             5,
             self._xrpl_query_client_lock,
-            self.lock_delay_seconds,
+            1,
         )
 
         objects = await self.request_with_retry(
@@ -1563,7 +1564,7 @@ class XrplExchange(ExchangePyBase):
             ),
             5,
             self._xrpl_query_client_lock,
-            self.lock_delay_seconds,
+            1,
         )
 
         open_offers = [x for x in objects.result.get("account_objects", []) if x.get("LedgerEntryType") == "Offer"]
@@ -1575,7 +1576,7 @@ class XrplExchange(ExchangePyBase):
             ),
             5,
             self._xrpl_query_client_lock,
-            self.lock_delay_seconds,
+            1,
         )
 
         if account_lines is not None:
@@ -1588,33 +1589,37 @@ class XrplExchange(ExchangePyBase):
         total_ledger_objects = len(objects.result.get("account_objects", []))
         available_xrp = total_xrp - CONSTANTS.WALLET_RESERVE - total_ledger_objects * CONSTANTS.LEDGER_OBJECT_RESERVE
 
+        # Always set XRP balance from latest account_info
         account_balances = {
             "XRP": Decimal(total_xrp),
         }
 
-        # update balance for each token
-        for balance in balances:
-            currency = balance.get("currency")
-            if len(currency) > 3:
-                try:
-                    currency = hex_to_str(currency)
-                except UnicodeDecodeError:
-                    # Do nothing since this is a non-hex string
-                    pass
+        # If balances is not empty, update token balances as usual
+        if len(balances) > 0:
+            for balance in balances:
+                currency = balance.get("currency")
+                if len(currency) > 3:
+                    try:
+                        currency = hex_to_str(currency)
+                    except UnicodeDecodeError:
+                        # Do nothing since this is a non-hex string
+                        pass
 
-            token = currency.strip("\x00").upper()
-            token_issuer = balance.get("account")
-            token_symbol = self.get_token_symbol_from_all_markets(token, token_issuer)
+                token = currency.strip("\x00").upper()
+                token_issuer = balance.get("account")
+                token_symbol = self.get_token_symbol_from_all_markets(token, token_issuer)
 
-            amount = balance.get("balance")
+                amount = balance.get("balance")
 
-            if token_symbol is None:
-                continue
+                if token_symbol is None:
+                    continue
 
-            account_balances[token_symbol] = abs(Decimal(amount))
-
-        if self._account_balances is not None and len(balances) == 0:
-            account_balances = self._account_balances.copy()
+                account_balances[token_symbol] = abs(Decimal(amount))
+        # If balances is empty, fallback to previous token balances (but not XRP)
+        elif self._account_balances is not None:
+            for token, amount in self._account_balances.items():
+                if token != "XRP":
+                    account_balances[token] = amount
 
         account_available_balances = account_balances.copy()
         account_available_balances["XRP"] = Decimal(available_xrp)
