@@ -94,6 +94,7 @@ class XrplExchange(ExchangePyBase):
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = True,
         custom_markets: Optional[Dict[str, XRPLMarket]] = None,
+        lock_delay_seconds: int = 5,
     ):
         self._xrpl_secret_key = xrpl_secret_key
         self._wss_node_url = wss_node_url
@@ -114,6 +115,7 @@ class XrplExchange(ExchangePyBase):
         self._nonce_creator = NonceCreator.for_milliseconds()
         self._custom_markets = custom_markets or {}
         self._last_clients_refresh_time = 0
+        self._lock_delay_seconds = lock_delay_seconds
 
         super().__init__(client_config_map)
 
@@ -199,6 +201,10 @@ class XrplExchange(ExchangePyBase):
     @property
     def auth(self) -> XRPLAuth:
         return self._xrpl_auth
+
+    @property
+    def lock_delay_seconds(self) -> int:
+        return self._lock_delay_seconds
 
     def supported_order_types(self):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET, OrderType.AMM_SWAP]
@@ -529,7 +535,7 @@ class XrplExchange(ExchangePyBase):
 
                 cancel_result = True
                 cancel_data = {"transaction": signed_tx, "prelim_result": prelim_result}
-                await self._sleep(0.3)
+                await self._sleep(1)
 
         except Exception as e:
             self.logger().error(
@@ -1512,8 +1518,8 @@ class XrplExchange(ExchangePyBase):
                     client_one = AsyncWebsocketClient(self._wss_node_url)
                     client_two = AsyncWebsocketClient(self._wss_second_node_url)
                     tasks = [
-                        self.request_with_retry(client_one, request, 5),
-                        self.request_with_retry(client_two, request, 5),
+                        self.request_with_retry(client_one, request, self.lock_delay_seconds),
+                        self.request_with_retry(client_two, request, self.lock_delay_seconds),
                     ]
                     task_results = await safe_gather(*tasks, return_exceptions=True)
                     transactions_from_task = []
@@ -1548,7 +1554,7 @@ class XrplExchange(ExchangePyBase):
             AccountInfo(account=account_address, ledger_index="validated"),
             5,
             self._xrpl_query_client_lock,
-            0.3,
+            self.lock_delay_seconds,
         )
 
         objects = await self.request_with_retry(
@@ -1558,7 +1564,7 @@ class XrplExchange(ExchangePyBase):
             ),
             5,
             self._xrpl_query_client_lock,
-            0.3,
+            self.lock_delay_seconds,
         )
 
         open_offers = [x for x in objects.result.get("account_objects", []) if x.get("LedgerEntryType") == "Offer"]
@@ -1570,7 +1576,7 @@ class XrplExchange(ExchangePyBase):
             ),
             5,
             self._xrpl_query_client_lock,
-            0.3,
+            self.lock_delay_seconds,
         )
 
         if account_lines is not None:
@@ -1731,7 +1737,7 @@ class XrplExchange(ExchangePyBase):
                 ),
                 3,
                 self._xrpl_query_client_lock,
-                1,
+                self.lock_delay_seconds,
             )
         except Exception as e:
             self.logger().error(f"Error fetching AMM pool info for {trading_pair}: {e}")
@@ -1751,7 +1757,7 @@ class XrplExchange(ExchangePyBase):
                 ),
                 3,
                 self._xrpl_query_client_lock,
-                1,
+                self.lock_delay_seconds,
             )
 
             tx = tx_resp.result.get("transactions", [{}])[0]
@@ -1937,7 +1943,7 @@ class XrplExchange(ExchangePyBase):
                     AccountInfo(account=base_currency.issuer, ledger_index="validated"),
                     3,
                     self._xrpl_query_client_lock,
-                    1,
+                    self.lock_delay_seconds,
                 )
 
                 if base_info.status == ResponseStatus.ERROR:
@@ -1961,7 +1967,7 @@ class XrplExchange(ExchangePyBase):
                     AccountInfo(account=quote_currency.issuer, ledger_index="validated"),
                     3,
                     self._xrpl_query_client_lock,
-                    1,
+                    self.lock_delay_seconds,
                 )
 
                 if quote_info.status == ResponseStatus.ERROR:
@@ -2144,7 +2150,7 @@ class XrplExchange(ExchangePyBase):
                 ),
                 3,
                 self._xrpl_query_client_lock,
-                1,
+                self.lock_delay_seconds,
             )
         elif trading_pair is not None:
             base_token, quote_token = self.get_currencies_from_trading_pair(trading_pair)
@@ -2156,7 +2162,7 @@ class XrplExchange(ExchangePyBase):
                 ),
                 3,
                 self._xrpl_query_client_lock,
-                1,
+                self.lock_delay_seconds,
             )
         else:
             self.logger().error("No pool_address or trading_pair provided")
@@ -2428,7 +2434,7 @@ class XrplExchange(ExchangePyBase):
             ),
             3,
             self._xrpl_query_client_lock,
-            1,
+            self.lock_delay_seconds,
         )
 
         account_objects = resp.result.get("account_objects", [])
@@ -2525,7 +2531,7 @@ class XrplExchange(ExchangePyBase):
             ),
             3,
             self._xrpl_query_client_lock,
-            1,
+            self.lock_delay_seconds,
         )
 
         # Process the response and extract balance information

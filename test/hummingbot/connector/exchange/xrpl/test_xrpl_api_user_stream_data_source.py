@@ -62,6 +62,7 @@ class XRPLUserStreamDataSourceUnitTests(unittest.TestCase):
         )
 
         self.connector._trading_rules[self.trading_pair] = trading_rule
+        self.connector._lock_delay_seconds = 0
         self.data_source._xrpl_client = AsyncMock()
         self.data_source._xrpl_client.__aenter__.return_value = self.data_source._xrpl_client
         self.data_source._xrpl_client.__aexit__.return_value = None
@@ -92,10 +93,10 @@ class XRPLUserStreamDataSourceUnitTests(unittest.TestCase):
                 "DestinationTag": 500650668,
                 "Fee": "10",
                 "Sequence": 88946237,
-                "SigningPubKey": "ED9160E36E72C04E65A8F1FB0756B8C1183EDF6E1E1F23AB333352AA2E74261005", # noqa: mock
+                "SigningPubKey": "ED9160E36E72C04E65A8F1FB0756B8C1183EDF6E1E1F23AB333352AA2E74261005",  # noqa: mock
                 "TransactionType": "Payment",
-                "TxnSignature": "ED8BC137211720346E2D495541267385963AC2A3CE8BFAA9F35E72E299C6D3F6C7D03BDC90B007B2D9F164A27F4B62F516DDFCFCD5D2844E56D5A335BCCD8E0A", # noqa: mock
-                "hash": "B2A73146A25E1FFD2EA80268DF4C0DDF8B6D2DF8B45EB33B1CB96F356873F824", # noqa: mock
+                "TxnSignature": "ED8BC137211720346E2D495541267385963AC2A3CE8BFAA9F35E72E299C6D3F6C7D03BDC90B007B2D9F164A27F4B62F516DDFCFCD5D2844E56D5A335BCCD8E0A",  # noqa: mock
+                "hash": "B2A73146A25E1FFD2EA80268DF4C0DDF8B6D2DF8B45EB33B1CB96F356873F824",  # noqa: mock
                 "DeliverMax": "54",
                 "date": 772789130,
             },
@@ -104,32 +105,32 @@ class XRPLUserStreamDataSourceUnitTests(unittest.TestCase):
                     {
                         "ModifiedNode": {
                             "FinalFields": {
-                                "Account": "rJn2zAPdFA193sixJwuFixRkYDUtx3apQh", # noqa: mock
+                                "Account": "rJn2zAPdFA193sixJwuFixRkYDUtx3apQh",  # noqa: mock
                                 "Balance": "4518270821183",
                                 "Flags": 131072,
                                 "OwnerCount": 1,
                                 "Sequence": 115711,
                             },
                             "LedgerEntryType": "AccountRoot",
-                            "LedgerIndex": "C19B36F6B6F2EEC9F4E2AF875E533596503F4541DBA570F06B26904FDBBE9C52", # noqa: mock
+                            "LedgerIndex": "C19B36F6B6F2EEC9F4E2AF875E533596503F4541DBA570F06B26904FDBBE9C52",  # noqa: mock
                             "PreviousFields": {"Balance": "4518270821129"},
-                            "PreviousTxnID": "F1C1BAAF756567DB986114034755734E8325127741FF232A551BCF322929AF58", # noqa: mock
+                            "PreviousTxnID": "F1C1BAAF756567DB986114034755734E8325127741FF232A551BCF322929AF58",  # noqa: mock
                             "PreviousTxnLgrSeq": 88973728,
                         }
                     },
                     {
                         "ModifiedNode": {
                             "FinalFields": {
-                                "Account": "rE3xcPg7mRTUwS2XKarZgTDimBY8VdfZgh", # noqa: mock
+                                "Account": "rE3xcPg7mRTUwS2XKarZgTDimBY8VdfZgh",  # noqa: mock
                                 "Balance": "20284095",
                                 "Flags": 0,
                                 "OwnerCount": 0,
                                 "Sequence": 88946238,
                             },
                             "LedgerEntryType": "AccountRoot",
-                            "LedgerIndex": "FE4BF634F1E942248603DC4A3FE34A365218FDE7AF9DCA93850518E870E51D74", # noqa: mock
+                            "LedgerIndex": "FE4BF634F1E942248603DC4A3FE34A365218FDE7AF9DCA93850518E870E51D74",  # noqa: mock
                             "PreviousFields": {"Balance": "20284159", "Sequence": 88946237},
-                            "PreviousTxnID": "9A9D303AD39937976F4198EDB53E7C9AE4651F7FB116DFBBBF0B266E6E30EF3C", # noqa: mock
+                            "PreviousTxnID": "9A9D303AD39937976F4198EDB53E7C9AE4651F7FB116DFBBBF0B266E6E30EF3C",  # noqa: mock
                             "PreviousTxnLgrSeq": 88973727,
                         }
                     },
@@ -143,7 +144,7 @@ class XRPLUserStreamDataSourceUnitTests(unittest.TestCase):
             "status": "closed",
             "close_time_iso": "2024-06-27T07:38:50Z",
             "ledger_index": 88973728,
-            "ledger_hash": "90C78DEECE2DD7FD3271935BD6017668F500CCF0CF42C403F8B86A03F8A902AE", # noqa: mock
+            "ledger_hash": "90C78DEECE2DD7FD3271935BD6017668F500CCF0CF42C403F8B86A03F8A902AE",  # noqa: mock
             "engine_result_code": 0,
             "engine_result": "tesSUCCESS",
             "engine_result_message": "The transaction was applied. Only final in a validated ledger.",

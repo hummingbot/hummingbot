@@ -56,6 +56,8 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         exchange_market_info = CONSTANTS.MARKETS
         self.connector._initialize_trading_pair_symbols_from_exchange_info(exchange_market_info)
 
+        self.connector._lock_delay_seconds = 0
+
         trading_rule = TradingRule(
             trading_pair=self.trading_pair,
             min_order_size=Decimal("1e-6"),
