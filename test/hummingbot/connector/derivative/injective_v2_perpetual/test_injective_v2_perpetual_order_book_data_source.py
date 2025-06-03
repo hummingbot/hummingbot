@@ -29,7 +29,6 @@ from hummingbot.connector.exchange.injective_v2.injective_v2_utils import (
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
-from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
 
 class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
@@ -105,10 +104,6 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.data_source._data_source.logger().addHandler(self)
 
         self.connector._set_trading_pair_symbol_map(bidict({self.market_id: self.trading_pair}))
-
-    async def asyncSetUp(self) -> None:
-        await super().asyncSetUp()
-        await ConnectionsFactory().close()
 
     async def asyncTearDown(self) -> None:
         await self.data_source._data_source.stop()

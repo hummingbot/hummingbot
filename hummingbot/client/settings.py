@@ -290,7 +290,7 @@ class ConnectorSetting(NamedTuple):
         params["client_config_map"] = client_config_map
         if (self.config_keys is not None
                 and type(self.config_keys) is not dict
-                and "receive_connector_configuration" in self.config_keys.__fields__
+                and "receive_connector_configuration" in self.config_keys.__class__.model_fields
                 and self.config_keys.receive_connector_configuration):
             params["connector_configuration"] = self.config_keys
 
