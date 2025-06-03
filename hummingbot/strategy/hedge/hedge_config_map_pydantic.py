@@ -74,7 +74,7 @@ market_config_map = Union[EmptyMarketConfigMap, MarketConfigMap]
 
 
 class HedgeConfigMap(BaseStrategyConfigMap):
-    strategy: str = Field(default="hedge", client_data=None)
+    strategy: str = Field(default="hedge")
     value_mode: bool = Field(
         default=True,
         description="Whether to hedge based on value or amount",
