@@ -140,6 +140,8 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         self.connector._xrpl_place_order_client.__aenter__.return_value = self.connector._xrpl_place_order_client
         self.connector._xrpl_place_order_client.__aexit__.return_value = None
 
+        self.connector._lock_delay_seconds = 0
+
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
         self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = self._original_full_order_book_reset_time

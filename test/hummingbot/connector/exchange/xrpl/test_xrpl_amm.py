@@ -54,6 +54,7 @@ class TestXRPLAMMFunctions(unittest.IsolatedAsyncioTestCase):
         self.connector.get_currencies_from_trading_pair = MagicMock(return_value=(self.xrp, self.usd))
         self.connector._submit_transaction = AsyncMock()
         self.connector._sleep = AsyncMock()
+        self.connector._lock_delay_seconds = 0
 
     @patch("xrpl.utils.xrp_to_drops")
     @patch("xrpl.utils.drops_to_xrp")
