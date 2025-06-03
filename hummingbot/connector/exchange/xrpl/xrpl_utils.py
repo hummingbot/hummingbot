@@ -429,7 +429,7 @@ class XRPLConfigMap(BaseConnectorConfigMap):
     lock_delay_seconds: int = Field(
         default=10,
         json_schema_extra={
-            "prompt": "Delay (in seconds) after acquiring XRPL lock to avoid rate limits",
+            "prompt": "Delay (in seconds) for requests to XRPL to avoid rate limits",
             "is_secure": False,
             "prompt_on_new": True,
         },
