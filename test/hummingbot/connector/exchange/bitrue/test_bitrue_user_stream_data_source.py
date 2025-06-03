@@ -35,7 +35,6 @@ class BitrueUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         cls.listen_key = "TEST_LISTEN_KEY"
 
     async def asyncSetUp(self) -> None:
-        await super().asyncSetUp()
         self.log_records = []
         self.listening_task: Optional[asyncio.Task] = None
         self.mocking_assistant = NetworkMockingAssistant(self.local_event_loop)
