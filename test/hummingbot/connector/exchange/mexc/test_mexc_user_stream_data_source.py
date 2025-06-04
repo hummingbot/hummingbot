@@ -209,7 +209,7 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         await self.resume_test_event.wait()
 
-        self.assertTrue(self._is_logged("ERROR", "Error occurred renewing listen key ... No active exception to reraise"))
+        self.assertTrue(self._is_logged("ERROR", "Error occurred renewing listen key ... Listen key refresh failed"))
         self.assertIsNone(self.data_source._current_listen_key)
         self.assertFalse(self.data_source._listen_key_initialized_event.is_set())
 
