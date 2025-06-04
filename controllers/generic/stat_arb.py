@@ -243,8 +243,8 @@ class StatArb(ControllerBase):
             # Close position
             config = OrderExecutorConfig(
                 timestamp=self.market_data_provider.time(),
-                connector_name=self.config.connector_name,
-                trading_pair=self.config.trading_pair,
+                connector_name=position.connector_name,
+                trading_pair=position.trading_pair,
                 side=TradeType.BUY if position.side == TradeType.SELL else TradeType.SELL,
                 amount=position.amount,
                 position_action=PositionAction.CLOSE,
