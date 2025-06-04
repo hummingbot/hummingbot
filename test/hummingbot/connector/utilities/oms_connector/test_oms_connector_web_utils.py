@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock, patch
 
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.utilities.oms_connector.oms_connector_web_utils import build_api_factory
-from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest, WSResponse
 
 
@@ -20,8 +19,6 @@ class OMSConnectorWebUtilsTest(IsolatedAsyncioWrapperTestCase):
         self.api_factory = build_api_factory()
 
     async def asyncSetUp(self) -> None:
-        await super().asyncSetUp()
-        await ConnectionsFactory().close()
         self.ws_assistant = await self.api_factory.get_ws_assistant()
         self.rest_assistant = await self.api_factory.get_rest_assistant()
         self.mocking_assistant = NetworkMockingAssistant()

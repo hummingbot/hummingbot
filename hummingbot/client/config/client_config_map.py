@@ -726,11 +726,6 @@ class DeriveRateSourceMode(ExchangeRateSourceModeBase):
     model_config = ConfigDict(title="derive")
 
 
-class TegroRateSourceMode(ExchangeRateSourceModeBase):
-    name: str = Field(default="tegro")
-    model_config = ConfigDict(title="tegro")
-
-
 RATE_SOURCE_MODES = {
     AscendExRateSourceMode.model_config["title"]: AscendExRateSourceMode,
     BinanceRateSourceMode.model_config["title"]: BinanceRateSourceMode,
@@ -744,7 +739,6 @@ RATE_SOURCE_MODES = {
     CubeRateSourceMode.model_config["title"]: CubeRateSourceMode,
     HyperliquidRateSourceMode.model_config["title"]: HyperliquidRateSourceMode,
     DeriveRateSourceMode.model_config["title"]: DeriveRateSourceMode,
-    TegroRateSourceMode.model_config["title"]: TegroRateSourceMode,
     MexcRateSourceMode.model_config["title"]: MexcRateSourceMode,
 }
 
