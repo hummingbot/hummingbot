@@ -8,7 +8,6 @@ from pydantic import ConfigDict, Field, field_validator
 
 from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.core.data_type.common import MarketDict
-from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
@@ -143,12 +142,6 @@ class ControllerBase(RunnableBase):
     def initialize_candles(self):
         for candles_config in self.config.candles_config:
             self.market_data_provider.initialize_candles_feed(candles_config)
-
-    def get_balance_requirements(self) -> List[TokenAmount]:
-        """
-        Get the balance requirements for the controller.
-        """
-        return []
 
     def update_config(self, new_config: ControllerConfigBase):
         """
