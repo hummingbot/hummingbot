@@ -24,6 +24,7 @@ from hummingbot.strategy_v2.controllers.directional_trading_controller_base impo
     DirectionalTradingControllerConfigBase,
 )
 from hummingbot.strategy_v2.controllers.market_making_controller_base import MarketMakingControllerConfigBase
+from hummingbot.strategy_v2.executors.data_types import PositionSummary
 from hummingbot.strategy_v2.executors.executor_orchestrator import ExecutorOrchestrator
 from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executor_actions import (
@@ -182,23 +183,47 @@ class StrategyV2Base(ScriptStrategyBase):
 
     def __init__(self, connectors: Dict[str, ConnectorBase], config: Optional[StrategyV2ConfigBase] = None):
         super().__init__(connectors, config)
-        # Initialize the executor orchestrator
         self.config = config
-        self.executor_orchestrator = ExecutorOrchestrator(strategy=self)
 
+        # Initialize empty dictionaries to hold controllers, executors info and positions held
+        self.controllers: Dict[str, ControllerBase] = {}
         self.executors_info: Dict[str, List[ExecutorInfo]] = {}
-        self.positions_held: Dict[str, List] = {}
+        self.positions_held: Dict[str, List[PositionSummary]] = {}
 
-        # Create a queue to listen to actions from the controllers
-        self.actions_queue = asyncio.Queue()
-        self.listen_to_executor_actions_task: asyncio.Task = asyncio.create_task(self.listen_to_executor_actions())
-
-        # Initialize the market data provider
+        # Initialize the market data provider and executor orchestrator
         self.market_data_provider = MarketDataProvider(connectors)
         self.market_data_provider.initialize_candles_feed_list(config.candles_config)
-        self.controllers: Dict[str, ControllerBase] = {}
+
+        # Collect initial positions from all controller configs
+        self.executor_orchestrator = ExecutorOrchestrator(
+            strategy=self,
+            initial_positions_by_controller=self._collect_initial_positions()
+        )
+
+        # Initialize the controllers
         self.initialize_controllers()
+        self.actions_queue = asyncio.Queue()
+        self.listen_to_executor_actions_task: asyncio.Task = asyncio.create_task(self.listen_to_executor_actions())
         self._is_stop_triggered = False
+
+    def _collect_initial_positions(self) -> Dict[str, List]:
+        """
+        Collect initial positions from all controller configurations.
+        Returns a dictionary mapping controller_id -> list of InitialPositionConfig.
+        """
+        if not self.config:
+            return {}
+
+        initial_positions_by_controller = {}
+        try:
+            controllers_configs = self.config.load_controller_configs()
+            for controller_config in controllers_configs:
+                if hasattr(controller_config, 'initial_positions') and controller_config.initial_positions:
+                    initial_positions_by_controller[controller_config.id] = controller_config.initial_positions
+        except Exception as e:
+            self.logger().error(f"Error collecting initial positions: {e}", exc_info=True)
+
+        return initial_positions_by_controller
 
     def initialize_controllers(self):
         """
