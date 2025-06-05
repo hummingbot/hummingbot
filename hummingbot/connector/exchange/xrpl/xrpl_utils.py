@@ -1,9 +1,12 @@
 import asyncio
 import binascii
+import logging
+import time
+from collections import deque
 from dataclasses import dataclass, field
 from decimal import Decimal
 from random import randrange
-from typing import Any, Dict, Final, List, Optional, cast
+from typing import Dict, Final, List, Optional, cast
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 from xrpl.asyncio.account import get_next_valid_seq_number
@@ -21,13 +24,14 @@ from xrpl.utils.txn_parser.utils.order_book_parser import (
     _get_quality,
     _group_offer_changes_by_account,
 )
-from xrpl.utils.txn_parser.utils.types import AccountOfferChange, AccountOfferChanges, OfferChange
+from xrpl.utils.txn_parser.utils.types import AccountOfferChange, AccountOfferChanges, Balance, OfferChange
 from yaml.representer import SafeRepresenter
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.client.config.config_validators import validate_with_regex
 from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
+from hummingbot.logger import HummingbotLogger
 
 CENTRALIZED = True
 EXAMPLE_PAIR = "XRP-USD"
@@ -120,9 +124,9 @@ def convert_string_to_hex(s, padding: bool = True):
     return s
 
 
-def get_token_from_changes(token_changes: [Dict[str, Any]], token: str) -> Optional[Dict[str, Any]]:
+def get_token_from_changes(token_changes: List[Balance], token: str) -> Optional[Balance]:
     for token_change in token_changes:
-        if token_change.get("currency") == token:
+        if token_change["currency"] == token:
             return token_change
     return None
 
@@ -396,30 +400,10 @@ class XRPLConfigMap(BaseConnectorConfigMap):
         },
     )
 
-    wss_node_url: str = Field(
-        default="wss://xrplcluster.com/",
+    wss_node_urls: list[str] = Field(
+        default=["wss://xrplcluster.com/", "wss://s1.ripple.com/", "wss://s2.ripple.com/"],
         json_schema_extra={
-            "prompt": "Enter your XRPL Websocket Node URL",
-            "is_secure": False,
-            "is_connect_key": True,
-            "prompt_on_new": True,
-        },
-    )
-
-    wss_second_node_url: str = Field(
-        default="wss://s1.ripple.com/",
-        json_schema_extra={
-            "prompt": "Enter your second XRPL Websocket Node URL",
-            "is_secure": False,
-            "is_connect_key": True,
-            "prompt_on_new": True,
-        },
-    )
-
-    wss_third_node_url: str = Field(
-        default="wss://s2.ripple.com/",
-        json_schema_extra={
-            "prompt": "Enter your third XRPL Websocket Node URL",
+            "prompt": "Enter a list of XRPL Websocket Node URLs (comma separated)",
             "is_secure": False,
             "is_connect_key": True,
             "prompt_on_new": True,
@@ -447,35 +431,125 @@ class XRPLConfigMap(BaseConnectorConfigMap):
     )
     model_config = ConfigDict(title="xrpl")
 
-    @field_validator("wss_node_url", mode="before")
+    @field_validator("wss_node_urls", mode="before")
     @classmethod
-    def validate_wss_node_url(cls, v: str):
+    def validate_wss_node_urls(cls, v):
+        if isinstance(v, str):
+            v = [url.strip() for url in v.split(",") if url.strip()]
         pattern = r"^(wss://)[\w.-]+(:\d+)?(/[\w.-]*)*$"
         error_message = "Invalid node url. Node url should be in websocket format."
-        ret = validate_with_regex(v, pattern, error_message)
-        if ret is not None:
-            raise ValueError(ret)
-        return v
-
-    @field_validator("wss_second_node_url", mode="before")
-    @classmethod
-    def validate_wss_second_node_url(cls, v: str):
-        pattern = r"^(wss://)[\w.-]+(:\d+)?(/[\w.-]*)*$"
-        error_message = "Invalid node url. Node url should be in websocket format."
-        ret = validate_with_regex(v, pattern, error_message)
-        if ret is not None:
-            raise ValueError(ret)
-        return v
-
-    @field_validator("wss_third_node_url", mode="before")
-    @classmethod
-    def validate_wss_third_node_url(cls, v: str):
-        pattern = r"^(wss://)[\w.-]+(:\d+)?(/[\w.-]*)*$"
-        error_message = "Invalid node url. Node url should be in websocket format."
-        ret = validate_with_regex(v, pattern, error_message)
-        if ret is not None:
-            raise ValueError(ret)
+        for url in v:
+            ret = validate_with_regex(url, pattern, error_message)
+            if ret is not None:
+                raise ValueError(f"{ret}: {url}")
+        if not v:
+            raise ValueError("At least one XRPL node URL must be provided.")
         return v
 
 
 KEYS = XRPLConfigMap.model_construct()
+
+
+class XRPLNodePool:
+    _logger = None
+    DEFAULT_NODES = ["wss://xrplcluster.com/", "wss://s1.ripple.com/", "wss://s2.ripple.com/"]
+
+    def __init__(self, node_urls: list[str], proactive_switch_interval: int = 30, cooldown: int = 600, delay: int = 5):
+        """
+        :param node_urls: List of XRPL node URLs
+        :param proactive_switch_interval: Seconds between proactive node switches (0 to disable)
+        :param cooldown: Seconds a node is considered bad after being rate-limited (default 600s = 10min)
+        :param delay: Initial delay in seconds for rate limiting (default 5s)
+        """
+        if not node_urls or len(node_urls) == 0:
+            node_urls = self.DEFAULT_NODES.copy()
+        self._nodes = deque(node_urls)
+        self._bad_nodes = {}  # url -> timestamp when it becomes good again
+        self._lock = asyncio.Lock()
+        self._last_switch_time = time.time()
+        self._proactive_switch_interval = proactive_switch_interval
+        self._cooldown = cooldown
+        self._current_node = self._nodes[0]
+        self._last_used_node = self._current_node
+        self._logger = logging.getLogger(HummingbotLogger.logger_name_for_class(self.__class__))
+        self._max_delay = delay
+        self._base_delay = 1.0  # Base delay in seconds
+        self._delay = 0.0
+        self._retry_count = 0
+        self._init_time = time.time()
+        self._gentle_retry_limit = 3  # Number of retries before switching to steeper increase
+
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        if cls._logger is None:
+            cls._logger = logging.getLogger(HummingbotLogger.logger_name_for_class(cls))
+        return cls._logger
+
+    async def get_node(self) -> str:
+        async with self._lock:
+            now = time.time()
+            # Remove nodes from bad list if cooldown expired, and skip non-numeric until values
+            self._bad_nodes = {
+                url: until for url, until in self._bad_nodes.items() if isinstance(until, (int, float)) and until > now
+            }
+            # Proactive switch if interval passed or current node is bad
+            if (
+                self._proactive_switch_interval > 0 and now - self._last_switch_time > self._proactive_switch_interval
+            ) or self._current_node in self._bad_nodes:
+                self.logger().info(f"Switching node: proactive or current node is bad. Current: {self._current_node}")
+                self._rotate_node_locked(now)
+                # Reset retry count when switching nodes
+                self._retry_count = 0
+                self._delay = 0.0
+
+            # Add artificial wait with exponential backoff
+            await asyncio.sleep(self._delay)
+            self.logger().info(f"Selected XRPL node: {self._current_node}")
+
+            # Increase delay exponentially only after 30 seconds from init
+            if time.time() - self._init_time > 30:
+                # Use gentler increase (base 1.2) for first 5 retries, then steeper (base 2) after that
+                if self._retry_count < self._gentle_retry_limit:
+                    self._delay = min(self._base_delay * (1.2**self._retry_count), self._max_delay)
+                else:
+                    # For retries after gentle_retry_limit, use steeper increase
+                    # Subtract gentle_retry_limit to start from a reasonable delay
+                    adjusted_retry = self._retry_count - self._gentle_retry_limit
+                    self._delay = min(self._base_delay * (2**adjusted_retry), self._max_delay)
+                self._retry_count += 1
+
+            return self._current_node
+
+    def mark_bad_node(self, url: str):
+        # Mark a node as bad for cooldown seconds
+        until = float(time.time() + self._cooldown)
+        self._bad_nodes[url] = until
+        self.logger().info(f"Node marked as bad: {url} (cooldown until {until})")
+        # If the current node is bad, rotate immediately
+        if url == self._current_node:
+            self.logger().info(f"Current node {url} is bad, rotating node.")
+            self._rotate_node_locked(time.time())
+
+    def _rotate_node_locked(self, now: float):
+        # Rotate to the next good node
+        for _ in range(len(self._nodes)):
+            self._nodes.rotate(-1)
+            candidate = self._nodes[0]
+            if candidate not in self._bad_nodes:
+                self.logger().info(f"Rotated to new XRPL node: {candidate}")
+                self._current_node = candidate
+                self._last_switch_time = now
+                return
+        # If all nodes are bad, just use the next one (will likely fail)
+        self.logger().info(f"All nodes are bad, using: {self._nodes[0]}")
+        self._current_node = self._nodes[0]
+        self._last_switch_time = now
+
+    def set_delay(self, delay: float):
+        """Set a custom delay and reset retry count"""
+        self._delay = min(delay, self._max_delay)
+        self._retry_count = 0
+
+    @property
+    def current_node(self) -> str:
+        return self._current_node

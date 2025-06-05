@@ -33,7 +33,6 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._trade_messages_queue_key = CONSTANTS.TRADE_EVENT_TYPE
         self._diff_messages_queue_key = CONSTANTS.DIFF_EVENT_TYPE
         self._snapshot_messages_queue_key = CONSTANTS.SNAPSHOT_EVENT_TYPE
-        self._xrpl_client = self._connector.order_book_data_client
         self._open_client_lock = asyncio.Lock()
 
     async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
@@ -48,39 +47,69 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :return: the response from the exchange (JSON dictionary)
         """
         base_currency, quote_currency = self._connector.get_currencies_from_trading_pair(trading_pair)
-
         async with self._open_client_lock:
-            try:
-                if not self._xrpl_client.is_open():
-                    await self._xrpl_client.open()
+            max_retries = len(self._connector._node_pool._nodes)
+            retry_count = 0
+            last_error = None
 
-                self._xrpl_client._websocket.max_size = 2**23  # type: ignore
+            while retry_count < max_retries:
+                node_url = None
+                client = None
+                try:
+                    node_url = await self._connector._node_pool.get_node()
+                    client = AsyncWebsocketClient(node_url)
+                    if not client.is_open():
+                        await client.open()
+                    client._websocket.max_size = 2**23  # type: ignore
+                    orderbook_asks_task = self.fetch_order_book_side(
+                        client, "current", base_currency, quote_currency, CONSTANTS.ORDER_BOOK_DEPTH
+                    )
+                    orderbook_bids_task = self.fetch_order_book_side(
+                        client, "current", quote_currency, base_currency, CONSTANTS.ORDER_BOOK_DEPTH
+                    )
+                    orderbook_asks_info, orderbook_bids_info = await safe_gather(
+                        orderbook_asks_task, orderbook_bids_task
+                    )
+                    asks = orderbook_asks_info.result.get("offers", None)
+                    bids = orderbook_bids_info.result.get("offers", None)
+                    if asks is None or bids is None:
+                        raise ValueError(f"Error fetching order book snapshot for {trading_pair}")
+                    order_book = {
+                        "asks": asks,
+                        "bids": bids,
+                    }
+                    await client.close()
+                    return order_book
 
-                orderbook_asks_task = self.fetch_order_book_side(
-                    self._xrpl_client, "current", base_currency, quote_currency, CONSTANTS.ORDER_BOOK_DEPTH
+                except (TimeoutError, asyncio.exceptions.TimeoutError, ConnectionError) as e:
+                    last_error = e
+                    if node_url is not None:
+                        self._connector._node_pool.mark_bad_node(node_url)
+                    self.logger().warning(
+                        f"Node {node_url} failed with {type(e).__name__} when fetching order book snapshot for {trading_pair}. "
+                        f"Retrying with different node... (Attempt {retry_count + 1}/{max_retries})"
+                    )
+                except Exception as e:
+                    if node_url is not None:
+                        self._connector._node_pool.mark_bad_node(node_url)
+                    self.logger().error(
+                        f"{type(e).__name__} Exception fetching order book snapshot for {trading_pair}: {e}",
+                        exc_info=True,
+                    )
+                    raise e
+                finally:
+                    if client is not None:
+                        await client.close()
+                    retry_count += 1
+
+            # If we've exhausted all nodes, raise the last error
+            if last_error is not None:
+                self.logger().error(
+                    f"All nodes failed when fetching order book snapshot for {trading_pair}. "
+                    f"Last error: {type(last_error).__name__}: {str(last_error)}"
                 )
-                orderbook_bids_task = self.fetch_order_book_side(
-                    self._xrpl_client, "current", quote_currency, base_currency, CONSTANTS.ORDER_BOOK_DEPTH
-                )
-
-                orderbook_asks_info, orderbook_bids_info = await safe_gather(orderbook_asks_task, orderbook_bids_task)
-
-                asks = orderbook_asks_info.result.get("offers", None)
-                bids = orderbook_bids_info.result.get("offers", None)
-
-                if asks is None or bids is None:
-                    raise ValueError(f"Error fetching order book snapshot for {trading_pair}")
-
-                order_book = {
-                    "asks": asks,
-                    "bids": bids,
-                }
-
-                await self._xrpl_client.close()
-            except Exception as e:
-                raise Exception(f"Error fetching order book snapshot for {trading_pair}: {e}")
-
-        return order_book
+                raise last_error
+            raise Exception("Failed to fetch order book snapshot: All nodes failed")
 
     async def fetch_order_book_side(
         self, client: AsyncWebsocketClient, ledger_index, taker_gets, taker_pays, limit, try_count: int = 0
@@ -169,7 +198,7 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
         pass
 
     def _get_client(self) -> AsyncWebsocketClient:
-        return AsyncWebsocketClient(self._connector.node_url)
+        raise NotImplementedError("Use node pool for client selection.")
 
     async def _process_websocket_messages_for_pair(self, trading_pair: str):
         base_currency, quote_currency = self._connector.get_currencies_from_trading_pair(trading_pair)
@@ -181,62 +210,60 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
             snapshot=False,
             both=True,
         )
-
         subscribe = Subscribe(books=[subscribe_book_request])
-
-        async with self._get_client() as client:
-            client._websocket.max_size = 2**23  # type: ignore
-            await client.send(subscribe)
-
-            async for message in client:
-                # Extract transaction data from the websocket message
-                # XRPL can return transaction data in either "transaction" or "tx_json" field
-                # depending on the message format, so we check for both
-                transaction = message.get("transaction") or message.get("tx_json")
-
-                # Extract metadata from the message which contains information about
-                # ledger changes caused by the transaction (including order book changes)
-                meta = message.get("meta")
-
-                if transaction is None or meta is None:
-                    self.logger().debug(f"Received message without transaction or meta: {message}")
-                    continue
-
-                order_book_changes = get_order_book_changes(meta)
-                for account_offer_changes in order_book_changes:
-                    for offer_change in account_offer_changes["offer_changes"]:
-                        if offer_change["status"] in ["partially-filled", "filled"]:
-                            taker_gets = offer_change["taker_gets"]
-                            taker_gets_currency = taker_gets["currency"]
-
-                            price = float(offer_change["maker_exchange_rate"])
-                            filled_quantity = abs(Decimal(offer_change["taker_gets"]["value"]))
-                            transact_time = ripple_time_to_posix(transaction["date"])
-                            trade_id = transaction["date"] + transaction["Sequence"]
-                            timestamp = time.time()
-
-                            if taker_gets_currency == base_currency.currency:
-                                # This is BUY trade (consume ASK)
-                                trade_type = float(TradeType.BUY.value)
-                            else:
-                                # This is SELL trade (consume BID)
-                                price = 1 / price
-                                trade_type = float(TradeType.SELL.value)
-
-                            trade_data = {
-                                "trade_type": trade_type,
-                                "trade_id": trade_id,
-                                "update_id": transact_time,
-                                "price": Decimal(price),
-                                "amount": filled_quantity,
-                                "timestamp": timestamp,
-                            }
-
-                            self._message_queue[CONSTANTS.TRADE_EVENT_TYPE].put_nowait(
-                                {"trading_pair": trading_pair, "trade": trade_data}
-                            )
-
-                            self.last_parsed_trade_timestamp[trading_pair] = int(timestamp)
+        node_url = None
+        client = None
+        try:
+            node_url = await self._connector._node_pool.get_node()
+            client = AsyncWebsocketClient(node_url)
+            async with client as ws_client:
+                ws_client._websocket.max_size = 2**23  # type: ignore
+                await ws_client.send(subscribe)
+                async for message in ws_client:
+                    transaction = message.get("transaction") or message.get("tx_json")
+                    meta = message.get("meta")
+                    if transaction is None or meta is None:
+                        self.logger().debug(f"Received message without transaction or meta: {message}")
+                        continue
+                    order_book_changes = get_order_book_changes(meta)
+                    for account_offer_changes in order_book_changes:
+                        for offer_change in account_offer_changes["offer_changes"]:
+                            if offer_change["status"] in ["partially-filled", "filled"]:
+                                taker_gets = offer_change["taker_gets"]
+                                taker_gets_currency = taker_gets["currency"]
+                                price = float(offer_change["maker_exchange_rate"])
+                                filled_quantity = abs(Decimal(offer_change["taker_gets"]["value"]))
+                                transact_time = ripple_time_to_posix(transaction["date"])
+                                trade_id = transaction["date"] + transaction["Sequence"]
+                                timestamp = time.time()
+                                if taker_gets_currency == base_currency.currency:
+                                    trade_type = float(TradeType.BUY.value)
+                                else:
+                                    price = 1 / price
+                                    trade_type = float(TradeType.SELL.value)
+                                trade_data = {
+                                    "trade_type": trade_type,
+                                    "trade_id": trade_id,
+                                    "update_id": transact_time,
+                                    "price": Decimal(price),
+                                    "amount": filled_quantity,
+                                    "timestamp": timestamp,
+                                }
+                                self._message_queue[CONSTANTS.TRADE_EVENT_TYPE].put_nowait(
+                                    {"trading_pair": trading_pair, "trade": trade_data}
+                                )
+                                self.last_parsed_trade_timestamp[trading_pair] = int(timestamp)
+        except (ConnectionError, TimeoutError) as e:
+            if node_url is not None:
+                self._connector._node_pool.mark_bad_node(node_url)
+            self.logger().warning(f"Websocket connection error for {trading_pair}: {e}")
+            await self._sleep(5.0)
+        except Exception as e:
+            self.logger().exception(f"Unexpected error occurred when listening to order book streams: {e}")
+            await self._sleep(5.0)
+        finally:
+            if client is not None:
+                await client.close()
 
     async def listen_for_subscriptions(self):  # type: ignore
         """
