@@ -14,6 +14,7 @@ from hummingbot.data_feed.market_data_provider import MarketDataProvider
 from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executor_actions import ExecutorAction
 from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
+from hummingbot.strategy_v2.models.position_config import InitialPositionConfig
 from hummingbot.strategy_v2.runnable_base import RunnableBase
 from hummingbot.strategy_v2.utils.common import generate_unique_id
 
@@ -46,6 +47,13 @@ class ControllerConfigBase(BaseClientModel):
     candles_config: List[CandlesConfig] = Field(
         default=[],
         json_schema_extra={"is_updatable": True})
+    initial_positions: List[InitialPositionConfig] = Field(
+        default=[],
+        json_schema_extra={
+            "prompt": "Enter initial positions as a list of InitialPositionConfig objects: ",
+            "prompt_on_new": False,
+            "is_updatable": False
+        })
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @field_validator('id', mode="before")
@@ -63,6 +71,13 @@ class ControllerConfigBase(BaseClientModel):
         elif isinstance(v, list):
             return v
         raise ValueError("Invalid type for candles_config. Expected str or List[CandlesConfig]")
+
+    @field_validator('initial_positions', mode="before")
+    @classmethod
+    def parse_initial_positions(cls, v) -> List[InitialPositionConfig]:
+        if isinstance(v, list):
+            return v
+        raise ValueError("Invalid type for initial_positions. Expected List[InitialPositionConfig]")
 
     @staticmethod
     def parse_candles_config_str(v: str) -> List[CandlesConfig]:
