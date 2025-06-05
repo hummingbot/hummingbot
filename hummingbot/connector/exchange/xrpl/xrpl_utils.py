@@ -410,8 +410,8 @@ class XRPLConfigMap(BaseConnectorConfigMap):
         },
     )
 
-    lock_delay_seconds: int = Field(
-        default=10,
+    request_delay_seconds: int = Field(
+        default=30,
         json_schema_extra={
             "prompt": "Delay (in seconds) for requests to XRPL to avoid rate limits",
             "is_secure": False,

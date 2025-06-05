@@ -94,14 +94,14 @@ class XrplExchange(ExchangePyBase):
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = True,
         custom_markets: Optional[Dict[str, XRPLMarket]] = None,
-        lock_delay_seconds: int = 30,
+        request_delay_seconds: int = 30,
     ):
         self._xrpl_secret_key = xrpl_secret_key
         self._node_pool = XRPLNodePool(
             node_urls=wss_node_urls,
             proactive_switch_interval=150,
             cooldown=150,
-            delay=30 if not isinstance(lock_delay_seconds, int) else lock_delay_seconds,
+            delay=30 if not isinstance(request_delay_seconds, int) else request_delay_seconds,
         )
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
