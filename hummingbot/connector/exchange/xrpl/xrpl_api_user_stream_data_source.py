@@ -20,7 +20,6 @@ class XRPLAPIUserStreamDataSource(UserStreamTrackerDataSource):
         super().__init__()
         self._connector = connector
         self._auth = auth
-        self._xrpl_client = self._connector.user_stream_client
         self._last_recv_time: float = 0
 
     @property
@@ -42,30 +41,38 @@ class XRPLAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         while True:
             listener = None
+            client = None
+            node_url = None
             try:
+                self._connector._node_pool.set_delay(0)
                 subscribe = Subscribe(accounts=[self._auth.get_account()])
-
-                async with self._xrpl_client as client:
-                    if client._websocket is None:
+                node_url = await self._connector._node_pool.get_node()
+                client = AsyncWebsocketClient(node_url)
+                async with client as ws_client:
+                    if ws_client._websocket is None:
                         continue
 
-                    client._websocket.max_size = 2**23
+                    ws_client._websocket.max_size = 2**23
 
                     # set up a listener task
-                    listener = asyncio.create_task(self.on_message(client, output_queue=output))
+                    listener = asyncio.create_task(self.on_message(ws_client, output_queue=output))
 
                     # subscribe to the ledger
-                    await client.send(subscribe)
+                    await ws_client.send(subscribe)
 
                     # Wait for the connection to close naturally
-                    await client._websocket.wait_closed()
+                    await ws_client._websocket.wait_closed()
             except asyncio.CancelledError:
                 self.logger().info("User stream listener task has been cancelled. Exiting...")
                 raise
             except ConnectionError as connection_exception:
                 self.logger().warning(f"The websocket connection was closed ({connection_exception})")
+                if node_url is not None:
+                    self._connector._node_pool.mark_bad_node(node_url)
             except TimeoutError:
                 self.logger().warning("Timeout error occurred while listening to user stream. Retrying...")
+                if node_url is not None:
+                    self._connector._node_pool.mark_bad_node(node_url)
             except Exception:
                 self.logger().exception("Unexpected error while listening to user stream. Retrying...")
             finally:
@@ -75,7 +82,8 @@ class XRPLAPIUserStreamDataSource(UserStreamTrackerDataSource):
                         await listener
                     except asyncio.CancelledError:
                         pass  # Swallow the cancellation error if it happens
-                await self._xrpl_client.close()
+                if client is not None:
+                    await client.close()
 
     async def on_message(self, client: AsyncWebsocketClient, output_queue: asyncio.Queue):
         async for message in client:
