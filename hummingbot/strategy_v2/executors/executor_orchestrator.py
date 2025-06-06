@@ -176,6 +176,8 @@ class ExecutorOrchestrator:
         db_executors = MarketsRecorder.get_instance().get_all_executors()
         for executor in db_executors:
             controller_id = executor.controller_id
+            if controller_id not in self.strategy.controllers:
+                continue
             if controller_id not in self.cached_performance:
                 self.cached_performance[controller_id] = PerformanceReport()
                 self.active_executors[controller_id] = []
@@ -191,7 +193,7 @@ class ExecutorOrchestrator:
         for position in db_positions:
             controller_id = position.controller_id
             # Skip if this controller has initial position overrides
-            if controller_id in self.initial_positions_by_controller:
+            if controller_id in self.initial_positions_by_controller or controller_id not in self.strategy.controllers:
                 continue
 
             if controller_id not in self.cached_performance:
@@ -283,9 +285,8 @@ class ExecutorOrchestrator:
                 # Add to positions held
                 self.positions_held[controller_id].append(position_hold)
 
-                self.logger().info(f"""
-                Created initial position for controller {controller_id}: {position_config.amount} {position_config.side.name} "
-                {position_config.trading_pair} on {position_config.connector_name}""")
+                self.logger().info(f"Created initial position for controller {controller_id}: {position_config.amount} "
+                                   f"{position_config.side.name} {position_config.trading_pair} on {position_config.connector_name}")
 
     def stop(self):
         """
