@@ -7,6 +7,7 @@ from pydantic_core.core_schema import ValidationInfo
 from hummingbot.core.data_type.common import MarketDict, OrderType, PositionMode, PriceType, TradeType
 from hummingbot.strategy_v2.controllers.controller_base import ControllerBase, ControllerConfigBase
 from hummingbot.strategy_v2.executors.data_types import ConnectorPair
+from hummingbot.strategy_v2.executors.order_executor.data_types import ExecutionStrategy, OrderExecutorConfig
 from hummingbot.strategy_v2.executors.position_executor.data_types import TrailingStop, TripleBarrierConfig
 from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, ExecutorAction, StopExecutorAction
 from hummingbot.strategy_v2.models.executors import CloseType
@@ -106,6 +107,13 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             "prompt": "Enter the trailing stop as activation_price,trailing_delta (e.g., 0.015,0.003): ",
             "prompt_on_new": True, "is_updatable": True},
     )
+    # Position Management Configuration
+    position_rebalance_threshold_pct: Decimal = Field(
+        default=Decimal("0.05"),
+        json_schema_extra={
+            "prompt": "Enter the position rebalance threshold percentage (e.g., 0.05 for 5%): ",
+            "prompt_on_new": True, "is_updatable": True}
+    )
 
     @field_validator("trailing_stop", mode="before")
     @classmethod
@@ -117,7 +125,7 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             return TrailingStop(activation_price=Decimal(activation_price), trailing_delta=Decimal(trailing_delta))
         return v
 
-    @field_validator("time_limit", "stop_loss", "take_profit", mode="before")
+    @field_validator("time_limit", "stop_loss", "take_profit", "position_rebalance_threshold_pct", mode="before")
     @classmethod
     def validate_target(cls, v):
         if isinstance(v, str):
@@ -207,6 +215,14 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
         spreads = getattr(self, f'{trade_type.name.lower()}_spreads')
         return spreads, [amt_pct * self.total_amount_quote for amt_pct in normalized_amounts_pct]
 
+    def get_required_base_amount(self, reference_price: Decimal) -> Decimal:
+        """
+        Get the required base asset amount for sell orders.
+        """
+        _, sell_amounts_quote = self.get_spreads_and_amounts_in_quote(TradeType.SELL)
+        total_sell_amount_quote = sum(sell_amounts_quote)
+        return total_sell_amount_quote / reference_price
+
     def update_markets(self, markets: MarketDict) -> MarketDict:
         return markets.add_or_update(self.connector_name, self.trading_pair)
 
@@ -236,6 +252,13 @@ class MarketMakingControllerBase(ControllerBase):
         Create actions proposal based on the current state of the controller.
         """
         create_actions = []
+
+        # Check if we need to rebalance position first
+        position_rebalance_action = self.check_position_rebalance()
+        if position_rebalance_action:
+            create_actions.append(position_rebalance_action)
+
+        # Create normal market making levels
         levels_to_execute = self.get_levels_to_execute()
         for level_id in levels_to_execute:
             price, amount = self.get_price_and_amount(level_id)
@@ -330,3 +353,85 @@ class MarketMakingControllerBase(ControllerBase):
         sell_ids_missing = [self.get_level_id_from_side(TradeType.SELL, level) for level in range(len(self.config.sell_spreads))
                             if self.get_level_id_from_side(TradeType.SELL, level) not in active_levels_ids]
         return buy_ids_missing + sell_ids_missing
+
+    def check_position_rebalance(self) -> Optional[CreateExecutorAction]:
+        """
+        Check if position needs rebalancing and create OrderExecutor to acquire missing base asset.
+        Only applies to spot trading (not perpetual contracts).
+        """
+        # Skip position rebalancing for perpetual contracts
+        if "_perpetual" in self.config.connector_name:
+            return None
+
+        if "reference_price" not in self.processed_data:
+            return None
+
+        active_rebalance = self.filter_executors(
+            executors=self.executors_info,
+            filter_func=lambda x: x.is_active and x.custom_info.get("level_id") == "position_rebalance"
+        )
+        if len(active_rebalance) > 0:
+            # If there's already an active rebalance executor, skip rebalancing
+            return None
+
+        reference_price = self.processed_data["reference_price"]
+        required_base_amount = self.config.get_required_base_amount(reference_price)
+        current_base_amount = self.get_current_base_position()
+
+        # Calculate the difference
+        base_amount_diff = required_base_amount - current_base_amount
+
+        # Check if difference exceeds threshold
+        threshold_amount = required_base_amount * self.config.position_rebalance_threshold_pct
+
+        if abs(base_amount_diff) > threshold_amount:
+            # We need to rebalance
+            if base_amount_diff > 0:
+                # Need to buy more base asset
+                return self.create_position_rebalance_order(TradeType.BUY, abs(base_amount_diff))
+            else:
+                # Need to sell base asset (unlikely for market making but possible)
+                return self.create_position_rebalance_order(TradeType.SELL, abs(base_amount_diff))
+
+        return None
+
+    def get_current_base_position(self) -> Decimal:
+        """
+        Get current base asset position from positions held.
+        """
+        total_base_amount = Decimal("0")
+
+        for position in self.positions_held:
+            if (position.connector_name == self.config.connector_name and
+                    position.trading_pair == self.config.trading_pair):
+                # Calculate net base position
+                if position.side == TradeType.BUY:
+                    total_base_amount += position.amount
+                else:  # SELL position
+                    total_base_amount -= position.amount
+
+        return total_base_amount
+
+    def create_position_rebalance_order(self, side: TradeType, amount: Decimal) -> CreateExecutorAction:
+        """
+        Create an OrderExecutor to rebalance position.
+        """
+        reference_price = self.processed_data["reference_price"]
+
+        # Use market price for quick execution
+        order_config = OrderExecutorConfig(
+            timestamp=self.market_data_provider.time(),
+            connector_name=self.config.connector_name,
+            trading_pair=self.config.trading_pair,
+            execution_strategy=ExecutionStrategy.MARKET,
+            side=side,
+            amount=amount,
+            price=reference_price,  # Will be ignored for market orders
+            level_id="position_rebalance",
+            controller_id=self.config.id
+        )
+
+        return CreateExecutorAction(
+            controller_id=self.config.id,
+            executor_config=order_config
+        )
