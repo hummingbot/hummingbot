@@ -456,7 +456,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
         self.assertEqual(eth_position.trading_pair, "ETH-USDT")
         self.assertEqual(eth_position.side, TradeType.BUY)
         self.assertEqual(eth_position.buy_amount_base, Decimal("2"))
-        self.assertEqual(eth_position.buy_amount_quote, Decimal("2") * Decimal("230"))  # 230 is mock mid price
+        self.assertTrue(eth_position.buy_amount_quote.is_nan())  # Initially NaN
         self.assertEqual(eth_position.volume_traded_quote, Decimal("0"))  # Fresh start
         self.assertEqual(eth_position.cum_fees_quote, Decimal("0"))  # Fresh start
 
@@ -466,6 +466,15 @@ class TestExecutorOrchestrator(unittest.TestCase):
         self.assertEqual(btc_position.trading_pair, "BTC-USDT")
         self.assertEqual(btc_position.side, TradeType.SELL)
         self.assertEqual(btc_position.sell_amount_base, Decimal("0.1"))
-        self.assertEqual(btc_position.sell_amount_quote, Decimal("0.1") * Decimal("230"))  # 230 is mock mid price
+        self.assertTrue(btc_position.sell_amount_quote.is_nan())  # Initially NaN
         self.assertEqual(btc_position.volume_traded_quote, Decimal("0"))  # Fresh start
         self.assertEqual(btc_position.cum_fees_quote, Decimal("0"))  # Fresh start
+
+        # Test that lazy calculation works when getting position summary
+        eth_summary = eth_position.get_position_summary(Decimal("230"))
+        self.assertEqual(eth_position.buy_amount_quote, Decimal("2") * Decimal("230"))  # Now calculated
+        self.assertEqual(eth_summary.breakeven_price, Decimal("230"))
+
+        btc_summary = btc_position.get_position_summary(Decimal("230"))
+        self.assertEqual(btc_position.sell_amount_quote, Decimal("0.1") * Decimal("230"))  # Now calculated
+        self.assertEqual(btc_summary.breakeven_price, Decimal("230"))
