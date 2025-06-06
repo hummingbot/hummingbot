@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
+import os
 from typing import List
 
 from hummingbot.core.api_throttler.data_types import RateLimit
@@ -58,6 +59,7 @@ class CoinGeckoAPITier(Enum):
 PING_REST_ENDPOINT = "/ping"
 PRICES_REST_ENDPOINT = "/coins/markets"
 SUPPORTED_VS_TOKENS_REST_ENDPOINT = "/simple/supported_vs_currencies"
+API_KEY = os.environ.get("COINGECKO_API_KEY")
 
 COOLOFF_AFTER_BAN = 60.0 * 1.05
 
