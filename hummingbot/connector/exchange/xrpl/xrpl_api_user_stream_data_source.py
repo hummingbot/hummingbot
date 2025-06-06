@@ -44,7 +44,7 @@ class XRPLAPIUserStreamDataSource(UserStreamTrackerDataSource):
             client = None
             node_url = None
             try:
-                self._connector._node_pool.set_delay(0)
+                self._connector._node_pool.add_burst_tokens(1)
                 subscribe = Subscribe(accounts=[self._auth.get_account()])
                 node_url = await self._connector._node_pool.get_node()
                 client = AsyncWebsocketClient(node_url)
@@ -52,7 +52,8 @@ class XRPLAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     if ws_client._websocket is None:
                         continue
 
-                    ws_client._websocket.max_size = 2**23
+                    ws_client._websocket.max_size = 2**22
+                    ws_client._websocket.ping_interval = 10
 
                     # set up a listener task
                     listener = asyncio.create_task(self.on_message(ws_client, output_queue=output))
@@ -60,8 +61,10 @@ class XRPLAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     # subscribe to the ledger
                     await ws_client.send(subscribe)
 
-                    # Wait for the connection to close naturally
-                    await ws_client._websocket.wait_closed()
+                    # Reopen the connection if it closes
+                    while ws_client.is_open():
+                        await asyncio.sleep(0)
+                    listener.cancel()
             except asyncio.CancelledError:
                 self.logger().info("User stream listener task has been cancelled. Exiting...")
                 raise
