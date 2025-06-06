@@ -55,6 +55,8 @@ class TestExecutorOrchestrator(unittest.TestCase):
         }
         strategy.market_data_provider = MagicMock(spec=MarketDataProvider)
         strategy.market_data_provider.get_price_by_type = MagicMock(return_value=Decimal(230))
+        # Add the controllers attribute that ExecutorOrchestrator now checks for
+        strategy.controllers = {}
         return strategy
 
     @patch.object(PositionExecutor, "start")
@@ -199,6 +201,9 @@ class TestExecutorOrchestrator(unittest.TestCase):
         mock_markets_recorder.get_all_executors.return_value = [executor_info]
         mock_markets_recorder.get_all_positions.return_value = []
 
+        # Add the controller to the strategy's controllers dict
+        self.mock_strategy.controllers = {"test": MagicMock()}
+
         orchestrator = ExecutorOrchestrator(strategy=self.mock_strategy)
         self.assertEqual(len(orchestrator.cached_performance), 1)
 
@@ -240,6 +245,9 @@ class TestExecutorOrchestrator(unittest.TestCase):
         # Set up mock to return executor info and positions
         mock_markets_recorder.get_all_executors.return_value = []
         mock_markets_recorder.get_all_positions.return_value = [position1, position2]
+
+        # Add the controllers to the strategy's controllers dict
+        self.mock_strategy.controllers = {"controller1": MagicMock(), "controller2": MagicMock()}
 
         orchestrator = ExecutorOrchestrator(strategy=self.mock_strategy)
 
@@ -377,6 +385,9 @@ class TestExecutorOrchestrator(unittest.TestCase):
         mock_markets_recorder.get_all_executors.return_value = []
         mock_markets_recorder.get_all_positions.return_value = [db_position]
 
+        # Add the controller to the strategy's controllers dict
+        self.mock_strategy.controllers = {"test": MagicMock()}
+
         # Create orchestrator which will load the position
         orchestrator = ExecutorOrchestrator(strategy=self.mock_strategy)
 
@@ -439,6 +450,9 @@ class TestExecutorOrchestrator(unittest.TestCase):
         # Set up mock to return both executors and positions
         mock_markets_recorder.get_all_executors.return_value = []
         mock_markets_recorder.get_all_positions.return_value = [db_position]
+
+        # Add the controller to the strategy's controllers dict
+        self.mock_strategy.controllers = {"test_controller": MagicMock()}
 
         # Create orchestrator with initial position overrides
         orchestrator = ExecutorOrchestrator(
