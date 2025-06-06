@@ -82,6 +82,12 @@ class PositionHold:
             self.cum_fees_quote += Decimal(str(order.get("cumulative_fee_paid_quote", 0)))
 
     def get_position_summary(self, mid_price: Decimal):
+        # Handle NaN quote amounts by calculating them lazily
+        if self.buy_amount_quote.is_nan() and self.buy_amount_base > 0:
+            self.buy_amount_quote = self.buy_amount_base * mid_price
+        if self.sell_amount_quote.is_nan() and self.sell_amount_base > 0:
+            self.sell_amount_quote = self.sell_amount_base * mid_price
+
         # Calculate buy and sell breakeven prices
         buy_breakeven_price = self.buy_amount_quote / self.buy_amount_base if self.buy_amount_base > 0 else Decimal("0")
         sell_breakeven_price = self.sell_amount_quote / self.sell_amount_base if self.sell_amount_base > 0 else Decimal("0")
@@ -241,7 +247,7 @@ class ExecutorOrchestrator:
     def _create_initial_positions(self):
         """
         Create initial positions from config overrides.
-        Uses current mid price as breakeven price and sets fees/volume to 0.
+        Uses NaN for quote amounts initially - they will be calculated lazily when needed.
         """
         for controller_id, initial_positions in self.initial_positions_by_controller.items():
             if controller_id not in self.cached_performance:
@@ -251,10 +257,6 @@ class ExecutorOrchestrator:
                 self.positions_held[controller_id] = []
 
             for position_config in initial_positions:
-                # Get current mid price to use as breakeven price
-                mid_price = self.strategy.market_data_provider.get_price_by_type(
-                    position_config.connector_name, position_config.trading_pair, PriceType.MidPrice)
-
                 # Create PositionHold object
                 position_hold = PositionHold(
                     position_config.connector_name,
@@ -262,15 +264,15 @@ class ExecutorOrchestrator:
                     position_config.side
                 )
 
-                # Set amounts based on side using current mid price as breakeven
+                # Set amounts based on side, using NaN for quote amounts
                 if position_config.side == TradeType.BUY:
                     position_hold.buy_amount_base = position_config.amount
-                    position_hold.buy_amount_quote = position_config.amount * mid_price
+                    position_hold.buy_amount_quote = Decimal("NaN")  # Will be calculated lazily
                     position_hold.sell_amount_base = Decimal("0")
                     position_hold.sell_amount_quote = Decimal("0")
                 else:
                     position_hold.sell_amount_base = position_config.amount
-                    position_hold.sell_amount_quote = position_config.amount * mid_price
+                    position_hold.sell_amount_quote = Decimal("NaN")  # Will be calculated lazily
                     position_hold.buy_amount_base = Decimal("0")
                     position_hold.buy_amount_quote = Decimal("0")
 
@@ -283,7 +285,7 @@ class ExecutorOrchestrator:
 
                 self.logger().info(f"""
                 Created initial position for controller {controller_id}: {position_config.amount} {position_config.side.name} "
-                {position_config.trading_pair} on {position_config.connector_name} with breakeven price {mid_price}""")
+                {position_config.trading_pair} on {position_config.connector_name}""")
 
     def stop(self):
         """
