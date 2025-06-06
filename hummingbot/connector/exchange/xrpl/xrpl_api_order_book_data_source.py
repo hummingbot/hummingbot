@@ -211,59 +211,82 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
             both=True,
         )
         subscribe = Subscribe(books=[subscribe_book_request])
-        node_url = None
-        client = None
-        try:
-            node_url = await self._connector._node_pool.get_node()
-            client = AsyncWebsocketClient(node_url)
-            async with client as ws_client:
-                ws_client._websocket.max_size = 2**23  # type: ignore
-                await ws_client.send(subscribe)
-                async for message in ws_client:
-                    transaction = message.get("transaction") or message.get("tx_json")
-                    meta = message.get("meta")
-                    if transaction is None or meta is None:
-                        self.logger().debug(f"Received message without transaction or meta: {message}")
-                        continue
-                    order_book_changes = get_order_book_changes(meta)
-                    for account_offer_changes in order_book_changes:
-                        for offer_change in account_offer_changes["offer_changes"]:
-                            if offer_change["status"] in ["partially-filled", "filled"]:
-                                taker_gets = offer_change["taker_gets"]
-                                taker_gets_currency = taker_gets["currency"]
-                                price = float(offer_change["maker_exchange_rate"])
-                                filled_quantity = abs(Decimal(offer_change["taker_gets"]["value"]))
-                                transact_time = ripple_time_to_posix(transaction["date"])
-                                trade_id = transaction["date"] + transaction["Sequence"]
-                                timestamp = time.time()
-                                if taker_gets_currency == base_currency.currency:
-                                    trade_type = float(TradeType.BUY.value)
-                                else:
-                                    price = 1 / price
-                                    trade_type = float(TradeType.SELL.value)
-                                trade_data = {
-                                    "trade_type": trade_type,
-                                    "trade_id": trade_id,
-                                    "update_id": transact_time,
-                                    "price": Decimal(price),
-                                    "amount": filled_quantity,
-                                    "timestamp": timestamp,
-                                }
-                                self._message_queue[CONSTANTS.TRADE_EVENT_TYPE].put_nowait(
-                                    {"trading_pair": trading_pair, "trade": trade_data}
-                                )
-                                self.last_parsed_trade_timestamp[trading_pair] = int(timestamp)
-        except (ConnectionError, TimeoutError) as e:
-            if node_url is not None:
-                self._connector._node_pool.mark_bad_node(node_url)
-            self.logger().warning(f"Websocket connection error for {trading_pair}: {e}")
-            await self._sleep(5.0)
-        except Exception as e:
-            self.logger().exception(f"Unexpected error occurred when listening to order book streams: {e}")
-            await self._sleep(5.0)
-        finally:
-            if client is not None:
-                await client.close()
+
+        while True:
+            node_url = None
+            client = None
+            listener = None
+            try:
+                node_url = await self._connector._node_pool.get_node()
+                client = AsyncWebsocketClient(node_url)
+                async with client as ws_client:
+                    ws_client._websocket.max_size = 2**23  # type: ignore
+                    # Set up a listener task
+                    listener = asyncio.create_task(self.on_message(ws_client, trading_pair, base_currency))
+                    # Subscribe to the order book
+                    await ws_client.send(subscribe)
+                    # Keep the connection open
+                    while ws_client.is_open():
+                        await asyncio.sleep(0)
+                    listener.cancel()
+            except asyncio.CancelledError:
+                self.logger().info(f"Order book listener task for {trading_pair} has been cancelled. Exiting...")
+                raise
+            except (ConnectionError, TimeoutError) as e:
+                if node_url is not None:
+                    self._connector._node_pool.mark_bad_node(node_url)
+                self.logger().warning(f"Websocket connection error for {trading_pair}: {e}")
+            except Exception as e:
+                self.logger().exception(f"Unexpected error occurred when listening to order book streams: {e}")
+            finally:
+                if listener is not None:
+                    listener.cancel()
+                    try:
+                        await listener
+                    except asyncio.CancelledError:
+                        pass  # Swallow the cancellation error if it happens
+                if client is not None:
+                    await client.close()
+                await self._sleep(5.0)
+
+    async def on_message(self, client: AsyncWebsocketClient, trading_pair: str, base_currency):
+        async for message in client:
+            try:
+                transaction = message.get("transaction") or message.get("tx_json")
+                meta = message.get("meta")
+                if transaction is None or meta is None:
+                    self.logger().debug(f"Received message without transaction or meta: {message}")
+                    continue
+                order_book_changes = get_order_book_changes(meta)
+                for account_offer_changes in order_book_changes:
+                    for offer_change in account_offer_changes["offer_changes"]:
+                        if offer_change["status"] in ["partially-filled", "filled"]:
+                            taker_gets = offer_change["taker_gets"]
+                            taker_gets_currency = taker_gets["currency"]
+                            price = float(offer_change["maker_exchange_rate"])
+                            filled_quantity = abs(Decimal(offer_change["taker_gets"]["value"]))
+                            transact_time = ripple_time_to_posix(transaction["date"])
+                            trade_id = transaction["date"] + transaction["Sequence"]
+                            timestamp = time.time()
+                            if taker_gets_currency == base_currency.currency:
+                                trade_type = float(TradeType.BUY.value)
+                            else:
+                                price = 1 / price
+                                trade_type = float(TradeType.SELL.value)
+                            trade_data = {
+                                "trade_type": trade_type,
+                                "trade_id": trade_id,
+                                "update_id": transact_time,
+                                "price": Decimal(price),
+                                "amount": filled_quantity,
+                                "timestamp": timestamp,
+                            }
+                            self._message_queue[CONSTANTS.TRADE_EVENT_TYPE].put_nowait(
+                                {"trading_pair": trading_pair, "trade": trade_data}
+                            )
+                            self.last_parsed_trade_timestamp[trading_pair] = int(timestamp)
+            except Exception as e:
+                self.logger().exception(f"Error processing order book message: {e}")
 
     async def listen_for_subscriptions(self):  # type: ignore
         """
