@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from hummingbot.core.data_type.common import TradeType
 
@@ -31,5 +31,4 @@ class InitialPositionConfig(BaseModel):
                     raise ValueError(f"Invalid side value: {v}. Expected 'BUY' or 'SELL'")
         return v
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
