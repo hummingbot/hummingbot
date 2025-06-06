@@ -154,6 +154,35 @@ class CLMMPositionManager(ScriptStrategyBase):
         except Exception as e:
             self.logger().error(f"Error fetching pool info: {str(e)}")
 
+    async def fetch_position_info(self):
+        """Fetch actual position information including price bounds"""
+        if not self.position_address or not self.wallet_address:
+            return
+
+        try:
+            self.logger().info(f"Fetching position info for {self.position_address}...")
+            position_info = await GatewayHttpClient.get_instance().clmm_position_info(
+                connector=self.config.connector,
+                network=self.config.network,
+                position_address=self.position_address,
+                wallet_address=self.wallet_address
+            )
+
+            if not position_info:
+                self.logger().error(f"Failed to get position information for {self.position_address}")
+                return
+
+            # Extract actual position price bounds
+            if "lowerPrice" in position_info and "upperPrice" in position_info:
+                self.position_lower_price = float(position_info["lowerPrice"])
+                self.position_upper_price = float(position_info["upperPrice"])
+                self.logger().info(f"Position actual bounds: {self.position_lower_price} to {self.position_upper_price}")
+            else:
+                self.logger().error("Position info missing price bounds")
+
+        except Exception as e:
+            self.logger().error(f"Error fetching position info: {str(e)}")
+
     def on_tick(self):
         # Don't proceed if Gateway is not ready
         if not self.gateway_ready or not self.wallet_address:
@@ -219,17 +248,14 @@ class CLMMPositionManager(ScriptStrategyBase):
                 self.position_opening = False
                 return
 
-            # Calculate position price range based on CURRENT pool price instead of target
+            # Calculate position price range based on CURRENT pool price
             current_price = float(self.last_price)
             width_pct = float(self.config.position_width_pct) / 100.0
 
             lower_price = current_price * (1 - width_pct)
             upper_price = current_price * (1 + width_pct)
 
-            self.position_lower_price = lower_price
-            self.position_upper_price = upper_price
-
-            self.logger().info(f"Opening position around current price {current_price} with range: {lower_price} to {upper_price}")
+            self.logger().info(f"Opening position around current price {current_price} with requested range: {lower_price} to {upper_price}")
 
             # Open position - only send one transaction
             response = await GatewayHttpClient.get_instance().clmm_open_position(
@@ -265,6 +291,9 @@ class CLMMPositionManager(ScriptStrategyBase):
                     # Transaction confirmed successfully
                     self.position_opened = True
                     self.logger().info(f"Position opened successfully! Position address: {self.position_address}")
+
+                    # Fetch actual position info to get the exact price bounds
+                    await self.fetch_position_info()
                 else:
                     # Transaction failed or still pending after max attempts
                     self.logger().warning("Transaction did not confirm successfully within polling period.")
@@ -295,22 +324,21 @@ class CLMMPositionManager(ScriptStrategyBase):
 
             # Check if price is outside position range by more than out_of_range_pct
             out_of_range = False
-            out_of_range_amount = 0
+            current_time = time.time()
 
             lower_bound_with_buffer = self.position_lower_price * (1 - float(self.config.out_of_range_pct) / 100.0)
             upper_bound_with_buffer = self.position_upper_price * (1 + float(self.config.out_of_range_pct) / 100.0)
 
             if float(self.last_price) < lower_bound_with_buffer:
                 out_of_range = True
-                out_of_range_amount = (lower_bound_with_buffer - float(self.last_price)) / self.position_lower_price * 100
-                self.logger().info(f"Price {self.last_price} is below position lower bound with buffer {lower_bound_with_buffer} by {out_of_range_amount:.2f}%")
+                elapsed = int(current_time - self.out_of_range_start_time) if self.out_of_range_start_time else 0
+                self.logger().info(f"Price {self.last_price} is below position lower bound {self.position_lower_price:.6f} by more than {self.config.out_of_range_pct}% buffer (threshold: {lower_bound_with_buffer:.6f}) - Out of range for {elapsed}/{self.config.out_of_range_secs}s")
             elif float(self.last_price) > upper_bound_with_buffer:
                 out_of_range = True
-                out_of_range_amount = (float(self.last_price) - upper_bound_with_buffer) / self.position_upper_price * 100
-                self.logger().info(f"Price {self.last_price} is above position upper bound with buffer {upper_bound_with_buffer} by {out_of_range_amount:.2f}%")
+                elapsed = int(current_time - self.out_of_range_start_time) if self.out_of_range_start_time else 0
+                self.logger().info(f"Price {self.last_price} is above position upper bound {self.position_upper_price:.6f} by more than {self.config.out_of_range_pct}% buffer (threshold: {upper_bound_with_buffer:.6f}) - Out of range for {elapsed}/{self.config.out_of_range_secs}s")
 
             # Track out-of-range time
-            current_time = time.time()
             if out_of_range:
                 if self.out_of_range_start_time is None:
                     self.out_of_range_start_time = current_time
@@ -331,7 +359,8 @@ class CLMMPositionManager(ScriptStrategyBase):
                     self.out_of_range_start_time = None
 
                 # Add log statement when price is in range
-                self.logger().info(f"Price {self.last_price} is within range: {lower_bound_with_buffer:.6f} to {upper_bound_with_buffer:.6f}")
+                buffer_info = f" with {self.config.out_of_range_pct}% buffer" if self.config.out_of_range_pct > 0 else ""
+                self.logger().info(f"Price {self.last_price} is within position range [{self.position_lower_price:.6f}, {self.position_upper_price:.6f}]{buffer_info}")
 
         except Exception as e:
             self.logger().error(f"Error monitoring position: {str(e)}")
@@ -472,9 +501,25 @@ class CLMMPositionManager(ScriptStrategyBase):
             lines.append(f"Position price range: {self.position_lower_price:.6f} to {self.position_upper_price:.6f}")
             lines.append(f"Current price: {self.last_price}")
 
+            # Show buffer info
+            if self.config.out_of_range_pct > 0:
+                lower_bound_with_buffer = self.position_lower_price * (1 - float(self.config.out_of_range_pct) / 100.0)
+                upper_bound_with_buffer = self.position_upper_price * (1 + float(self.config.out_of_range_pct) / 100.0)
+                lines.append(f"Buffer zone: {lower_bound_with_buffer:.6f} to {upper_bound_with_buffer:.6f} ({self.config.out_of_range_pct}%)")
+
+            # Show position status
             if self.out_of_range_start_time:
                 elapsed = time.time() - self.out_of_range_start_time
-                lines.append(f"Price out of range for {elapsed:.0f}/{self.config.out_of_range_secs} seconds")
+                lines.append(f"⚠️  Price out of range for {elapsed:.0f}/{self.config.out_of_range_secs} seconds")
+                if elapsed >= self.config.out_of_range_secs * 0.8:  # Warning when close to closing
+                    lines.append("⏰ Position will close soon!")
+            else:
+                # Check if price is in position range vs buffer range
+                if self.position_lower_price and self.position_upper_price:
+                    if self.last_price and self.position_lower_price <= float(self.last_price) <= self.position_upper_price:
+                        lines.append("✅ Price is within position range")
+                    else:
+                        lines.append("⚠️  Price is outside position range but within buffer")
         elif self.position_opening:
             lines.append(f"Opening position on {connector_chain_network}...")
         elif self.position_closing:
