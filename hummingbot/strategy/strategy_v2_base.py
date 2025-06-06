@@ -194,17 +194,17 @@ class StrategyV2Base(ScriptStrategyBase):
         self.market_data_provider = MarketDataProvider(connectors)
         self.market_data_provider.initialize_candles_feed_list(config.candles_config)
 
-        # Collect initial positions from all controller configs
-        self.executor_orchestrator = ExecutorOrchestrator(
-            strategy=self,
-            initial_positions_by_controller=self._collect_initial_positions()
-        )
-
         # Initialize the controllers
         self.actions_queue = asyncio.Queue()
         self.listen_to_executor_actions_task: asyncio.Task = asyncio.create_task(self.listen_to_executor_actions())
         self.initialize_controllers()
         self._is_stop_triggered = False
+
+        # Collect initial positions from all controller configs
+        self.executor_orchestrator = ExecutorOrchestrator(
+            strategy=self,
+            initial_positions_by_controller=self._collect_initial_positions()
+        )
 
     def _collect_initial_positions(self) -> Dict[str, List]:
         """
