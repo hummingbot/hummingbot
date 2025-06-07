@@ -8,13 +8,13 @@ from pydantic import ConfigDict, Field, field_validator
 
 from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.core.data_type.common import MarketDict
-from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
 from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executor_actions import ExecutorAction
 from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
+from hummingbot.strategy_v2.models.position_config import InitialPositionConfig
 from hummingbot.strategy_v2.runnable_base import RunnableBase
 from hummingbot.strategy_v2.utils.common import generate_unique_id
 
@@ -47,6 +47,13 @@ class ControllerConfigBase(BaseClientModel):
     candles_config: List[CandlesConfig] = Field(
         default=[],
         json_schema_extra={"is_updatable": True})
+    initial_positions: List[InitialPositionConfig] = Field(
+        default=[],
+        json_schema_extra={
+            "prompt": "Enter initial positions as a list of InitialPositionConfig objects: ",
+            "prompt_on_new": False,
+            "is_updatable": False
+        })
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @field_validator('id', mode="before")
@@ -64,6 +71,13 @@ class ControllerConfigBase(BaseClientModel):
         elif isinstance(v, list):
             return v
         raise ValueError("Invalid type for candles_config. Expected str or List[CandlesConfig]")
+
+    @field_validator('initial_positions', mode="before")
+    @classmethod
+    def parse_initial_positions(cls, v) -> List[InitialPositionConfig]:
+        if isinstance(v, list):
+            return v
+        raise ValueError("Invalid type for initial_positions. Expected List[InitialPositionConfig]")
 
     @staticmethod
     def parse_candles_config_str(v: str) -> List[CandlesConfig]:
@@ -143,12 +157,6 @@ class ControllerBase(RunnableBase):
     def initialize_candles(self):
         for candles_config in self.config.candles_config:
             self.market_data_provider.initialize_candles_feed(candles_config)
-
-    def get_balance_requirements(self) -> List[TokenAmount]:
-        """
-        Get the balance requirements for the controller.
-        """
-        return []
 
     def update_config(self, new_config: ControllerConfigBase):
         """
