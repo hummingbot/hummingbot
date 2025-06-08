@@ -1,3 +1,5 @@
+import time
+import unittest
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import AsyncMock, patch
 
@@ -8,7 +10,9 @@ from xrpl.models.response import ResponseStatus
 
 from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS
 from hummingbot.connector.exchange.xrpl.xrpl_utils import (
+    RateLimiter,
     XRPLConfigMap,
+    XRPLNodePool,
     _wait_for_final_transaction_outcome,
     autofill,
     compute_order_book_changes,
@@ -327,3 +331,151 @@ class TestXRPLUtils(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(response.result["ledger_index"], 99999221)
         self.assertEqual(response.result["validated"], True)
         self.assertEqual(response.result["meta"]["TransactionResult"], "tesSUCCESS")
+
+
+class TestRateLimiter(unittest.TestCase):
+    def setUp(self):
+        self.rate_limiter = RateLimiter(requests_per_10s=10.0, burst_tokens=2, max_burst_tokens=5)
+
+    def test_initialization(self):
+        self.assertEqual(self.rate_limiter._rate_limit, 10.0)
+        self.assertEqual(self.rate_limiter._burst_tokens, 2)
+        self.assertEqual(self.rate_limiter._max_burst_tokens, 5)
+        self.assertEqual(len(self.rate_limiter._request_times), 0)
+
+    def test_add_burst_tokens(self):
+        # Test adding tokens within max limit
+        self.rate_limiter.add_burst_tokens(2)
+        self.assertEqual(self.rate_limiter.burst_tokens, 4)
+
+        # Test adding tokens exceeding max limit
+        self.rate_limiter.add_burst_tokens(5)
+        self.assertEqual(self.rate_limiter.burst_tokens, 5)  # Should cap at max_burst_tokens
+
+        # Test adding negative tokens
+        self.rate_limiter.add_burst_tokens(-1)
+        self.assertEqual(self.rate_limiter.burst_tokens, 5)  # Should not change
+
+    def test_calculate_current_rate(self):
+        # Test with no requests
+        self.assertEqual(self.rate_limiter._calculate_current_rate(), 0.0)
+
+        # Add some requests
+        now = time.time()
+        self.rate_limiter._request_times.extend([now - 5, now - 3, now - 1])
+        rate = self.rate_limiter._calculate_current_rate()
+        self.assertGreater(rate, 0.0)
+        self.assertLess(rate, 10.0)  # Should be less than rate limit
+
+        # Test with old requests (should be filtered out)
+        self.rate_limiter._request_times.extend([now - 20, now - 15])
+        rate = self.rate_limiter._calculate_current_rate()
+        self.assertLess(rate, 10.0)  # Old requests should be filtered out
+
+    async def test_acquire(self):
+        # Test with burst token
+        wait_time = await self.rate_limiter.acquire(use_burst=True)
+        self.assertEqual(wait_time, 0.0)
+        self.assertEqual(self.rate_limiter.burst_tokens, 1)  # One token used
+
+        # Test without burst token, under rate limit
+        wait_time = await self.rate_limiter.acquire(use_burst=False)
+        self.assertEqual(wait_time, 0.0)
+
+        # Test without burst token, over rate limit
+        now = time.time()
+        self.rate_limiter._request_times.extend([now - i for i in range(15)])  # Add 15 requests
+        wait_time = await self.rate_limiter.acquire(use_burst=False)
+        self.assertGreater(wait_time, 0.0)  # Should need to wait
+
+
+class TestXRPLNodePool(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.node_urls = [
+            "wss://test1.ripple.com/",
+            "wss://test2.ripple.com/",
+            "wss://test3.ripple.com/",
+        ]
+        self.node_pool = XRPLNodePool(
+            node_urls=self.node_urls,
+            requests_per_10s=10.0,
+            burst_tokens=2,
+            max_burst_tokens=5,
+            proactive_switch_interval=30,
+            cooldown=60,
+        )
+
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_utils.AsyncWebsocketClient")
+    async def test_get_node(self, mock_client_class):
+        # Setup mock client
+        mock_client = AsyncMock()
+        mock_client_class.return_value = mock_client
+        mock_client._request_impl.return_value = Response(
+            status=ResponseStatus.SUCCESS,
+            result={"info": {"build_version": "1.11.1"}},
+        )
+
+        # Test getting node
+        node = await self.node_pool.get_node()
+        self.assertIn(node, self.node_urls)
+        self.assertEqual(node, self.node_pool.current_node)
+
+        # Test marking node as bad
+        self.node_pool.mark_bad_node(node)
+        self.assertIn(node, self.node_pool._bad_nodes)
+
+        # Test getting node after marking as bad
+        new_node = await self.node_pool.get_node()
+        self.assertNotEqual(new_node, node)  # Should get a different node
+        self.assertIn(new_node, self.node_urls)
+
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_utils.AsyncWebsocketClient")
+    async def test_get_latency(self, mock_client_class):
+        # Setup mock client
+        mock_client = AsyncMock()
+        mock_client_class.return_value = mock_client
+        mock_client._request_impl.return_value = Response(
+            status=ResponseStatus.SUCCESS,
+            result={"info": {"build_version": "1.11.1"}},
+        )
+
+        # Test getting latency
+        latency = await self.node_pool.get_latency(self.node_urls[0])
+        self.assertIsInstance(latency, float)
+        self.assertGreater(latency, 0.0)
+
+        # Test getting latency with error
+        mock_client._request_impl.side_effect = Exception("Test error")
+        latency = await self.node_pool.get_latency(self.node_urls[0])
+        self.assertEqual(latency, 9999)  # Should return max latency on error
+
+    def test_add_burst_tokens(self):
+        # Test adding burst tokens
+        self.node_pool.add_burst_tokens(2)
+        self.assertEqual(self.node_pool.burst_tokens, 4)  # Initial 2 + added 2
+
+        # Test adding tokens exceeding max limit
+        self.node_pool.add_burst_tokens(5)
+        self.assertEqual(self.node_pool.burst_tokens, 5)  # Should cap at max_burst_tokens
+
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_utils.AsyncWebsocketClient")
+    async def test_rotate_node(self, mock_client_class):
+        # Setup mock client
+        mock_client = AsyncMock()
+        mock_client_class.return_value = mock_client
+        mock_client._request_impl.return_value = Response(
+            status=ResponseStatus.SUCCESS,
+            result={"info": {"build_version": "1.11.1"}},
+        )
+
+        # Test rotating node
+        initial_node = self.node_pool.current_node
+        await self.node_pool._rotate_node_locked(time.time())
+        self.assertNotEqual(self.node_pool.current_node, initial_node)
+        self.assertIn(self.node_pool.current_node, self.node_urls)
+
+        # Test rotating when all nodes are bad
+        for node in self.node_urls:
+            self.node_pool.mark_bad_node(node)
+        await self.node_pool._rotate_node_locked(time.time())
+        self.assertIn(self.node_pool.current_node, self.node_urls)  # Should still get a node as fallback
