@@ -650,3 +650,206 @@ class TestParseOfferCreateTransaction(IsolatedAsyncioWrapperTestCase):
         self.assertAlmostEqual(result["taker_gets_transferred"], 50)
         self.assertAlmostEqual(result["taker_pays_transferred"], 100)
         self.assertAlmostEqual(result["quality"], 2)
+
+    def test_offer_node_mixed_types(self):
+        tx = {
+            "Account": "acc1",
+            "Sequence": 123,
+            "meta": {
+                "AffectedNodes": [
+                    {
+                        "ModifiedNode": {
+                            "LedgerEntryType": "Offer",
+                            "FinalFields": {
+                                "Account": "acc1",
+                                "Sequence": 123,
+                                "TakerGets": {"value": "100"},  # Dict with string
+                                "TakerPays": {"value": "200"},  # Dict with string
+                            },
+                            "PreviousFields": {
+                                "TakerGets": {"value": "150"},  # Dict with string
+                                "TakerPays": {"value": "300"},  # Dict with string
+                            },
+                        }
+                    }
+                ]
+            },
+        }
+        result = parse_offer_create_transaction(tx)
+        self.assertAlmostEqual(result["taker_gets_transferred"], 50)  # 150 - 100
+        self.assertAlmostEqual(result["taker_pays_transferred"], 100)  # 300 - 200
+        self.assertAlmostEqual(result["quality"], 2)
+
+    def test_offer_node_string_values(self):
+        tx = {
+            "Account": "acc1",
+            "Sequence": 123,
+            "meta": {
+                "AffectedNodes": [
+                    {
+                        "ModifiedNode": {
+                            "LedgerEntryType": "Offer",
+                            "FinalFields": {
+                                "Account": "acc1",
+                                "Sequence": 123,
+                                "TakerGets": "100",  # String
+                                "TakerPays": "200",  # String
+                            },
+                            "PreviousFields": {
+                                "TakerGets": "150",  # String
+                                "TakerPays": "300",  # String
+                            },
+                        }
+                    }
+                ]
+            },
+        }
+        result = parse_offer_create_transaction(tx)
+        self.assertAlmostEqual(result["taker_gets_transferred"], 50)  # 150 - 100
+        self.assertAlmostEqual(result["taker_pays_transferred"], 100)  # 300 - 200
+        self.assertAlmostEqual(result["quality"], 2)
+
+    def test_offer_node_int_values(self):
+        tx = {
+            "Account": "acc1",
+            "Sequence": 123,
+            "meta": {
+                "AffectedNodes": [
+                    {
+                        "ModifiedNode": {
+                            "LedgerEntryType": "Offer",
+                            "FinalFields": {
+                                "Account": "acc1",
+                                "Sequence": 123,
+                                "TakerGets": 100,  # Int
+                                "TakerPays": 200,  # Int
+                            },
+                            "PreviousFields": {
+                                "TakerGets": 150,  # Int
+                                "TakerPays": 300,  # Int
+                            },
+                        }
+                    }
+                ]
+            },
+        }
+        result = parse_offer_create_transaction(tx)
+        self.assertAlmostEqual(result["taker_gets_transferred"], 50)  # 150 - 100
+        self.assertAlmostEqual(result["taker_pays_transferred"], 100)  # 300 - 200
+        self.assertAlmostEqual(result["quality"], 2)
+
+    def test_offer_node_invalid_values(self):
+        tx = {
+            "Account": "acc1",
+            "Sequence": 123,
+            "meta": {
+                "AffectedNodes": [
+                    {
+                        "ModifiedNode": {
+                            "LedgerEntryType": "Offer",
+                            "FinalFields": {
+                                "Account": "acc1",
+                                "Sequence": 123,
+                                "TakerGets": "invalid",  # Invalid value
+                                "TakerPays": {"value": "200"},
+                            },
+                            "PreviousFields": {
+                                "TakerGets": "150",
+                                "TakerPays": {"value": "300"},
+                            },
+                        }
+                    }
+                ]
+            },
+        }
+        result = parse_offer_create_transaction(tx)
+        self.assertIsNone(result["taker_gets_transferred"])  # Should be None due to invalid value
+        self.assertAlmostEqual(result["taker_pays_transferred"], 100)
+        self.assertIsNone(result["quality"])  # Should be None since taker_gets_transferred is None
+
+    def test_offer_node_missing_value_key(self):
+        tx = {
+            "Account": "acc1",
+            "Sequence": 123,
+            "meta": {
+                "AffectedNodes": [
+                    {
+                        "ModifiedNode": {
+                            "LedgerEntryType": "Offer",
+                            "FinalFields": {
+                                "Account": "acc1",
+                                "Sequence": 123,
+                                "TakerGets": {"wrong_key": "100"},  # Missing "value" key
+                                "TakerPays": {"value": "200"},
+                            },
+                            "PreviousFields": {
+                                "TakerGets": "150",
+                                "TakerPays": {"value": "300"},
+                            },
+                        }
+                    }
+                ]
+            },
+        }
+        result = parse_offer_create_transaction(tx)
+        self.assertIsNone(result["taker_gets_transferred"])  # Should be None due to missing value key
+        self.assertAlmostEqual(result["taker_pays_transferred"], 100)
+        self.assertIsNone(result["quality"])
+
+    def test_offer_node_division_by_zero(self):
+        tx = {
+            "Account": "acc1",
+            "Sequence": 123,
+            "meta": {
+                "AffectedNodes": [
+                    {
+                        "ModifiedNode": {
+                            "LedgerEntryType": "Offer",
+                            "FinalFields": {
+                                "Account": "acc1",
+                                "Sequence": 123,
+                                "TakerGets": "100",
+                                "TakerPays": {"value": "200"},
+                            },
+                            "PreviousFields": {
+                                "TakerGets": "100",  # Same as final, so transferred = 0
+                                "TakerPays": {"value": "300"},
+                            },
+                        }
+                    }
+                ]
+            },
+        }
+        result = parse_offer_create_transaction(tx)
+        self.assertAlmostEqual(result["taker_gets_transferred"], 0)
+        self.assertAlmostEqual(result["taker_pays_transferred"], 100)
+        self.assertIsNone(result["quality"])  # Should be None due to division by zero
+
+    def test_offer_node_invalid_quality_calculation(self):
+        tx = {
+            "Account": "acc1",
+            "Sequence": 123,
+            "meta": {
+                "AffectedNodes": [
+                    {
+                        "ModifiedNode": {
+                            "LedgerEntryType": "Offer",
+                            "FinalFields": {
+                                "Account": "acc1",
+                                "Sequence": 123,
+                                "TakerGets": "100",
+                                "TakerPays": {"value": "invalid"},  # Invalid value for pays
+                            },
+                            "PreviousFields": {
+                                "TakerGets": "150",
+                                "TakerPays": {"value": "300"},
+                            },
+                        }
+                    }
+                ]
+            },
+        }
+        result = parse_offer_create_transaction(tx)
+        self.assertAlmostEqual(result["taker_gets_transferred"], 50)
+        self.assertIsNone(result["taker_pays_transferred"])  # Should be None due to invalid value
+        self.assertIsNone(result["quality"])  # Should be None since taker_pays_transferred is None
