@@ -863,6 +863,23 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
 
         return resp
 
+    def _client_response_account_empty_lines(self):
+        resp = Response(
+            status=ResponseStatus.SUCCESS,
+            result={
+                "account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                "ledger_hash": "6626B7AC7E184B86EE29D8B9459E0BC0A56E12C8DA30AE747051909CF16136D3",  # noqa: mock
+                "ledger_index": 89692233,
+                "validated": True,
+                "limit": 200,
+                "lines": [],
+            },  # noqa: mock
+            id="account_lines_144811",
+            type=ResponseType.RESPONSE,
+        )
+
+        return resp
+
     def _client_response_account_lines(self):
         resp = Response(
             status=ResponseStatus.SUCCESS,
@@ -931,6 +948,23 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
                 ],
             },  # noqa: mock
             id="account_lines_144811",
+            type=ResponseType.RESPONSE,
+        )
+
+        return resp
+
+    def _client_response_account_empty_objects(self):
+        resp = Response(
+            status=ResponseStatus.SUCCESS,
+            result={
+                "account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                "ledger_hash": "6626B7AC7E184B86EE29D8B9459E0BC0A56E12C8DA30AE747051909CF16136D3",  # noqa: mock
+                "ledger_index": 89692233,
+                "validated": True,
+                "limit": 200,
+                "account_objects": [],
+            },  # noqa: mock
+            id="account_objects_144811",
             type=ResponseType.RESPONSE,
         )
 
@@ -1946,6 +1980,31 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         self.assertEqual(self.connector._account_available_balances["XRP"], Decimal("53.830868"))
         self.assertEqual(self.connector._account_available_balances["USD"], Decimal("0.011094399237562"))
         self.assertEqual(self.connector._account_available_balances["SOLO"], Decimal("32.337975848655761"))
+
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._make_network_check_request")
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account")
+    async def test_update_balances_empty_lines(self, get_account_mock, network_mock):
+        get_account_mock.return_value = "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK"  # noqa: mock
+
+        def side_effect_function(arg: Request):
+            if arg.method == RequestMethod.ACCOUNT_INFO:
+                return self._client_response_account_info()
+            elif arg.method == RequestMethod.ACCOUNT_OBJECTS:
+                return self._client_response_account_empty_objects()
+            elif arg.method == RequestMethod.ACCOUNT_LINES:
+                return self._client_response_account_empty_lines()
+            else:
+                raise ValueError("Invalid method")
+
+        self.mock_client.request.side_effect = side_effect_function
+
+        await self.connector._update_balances()
+
+        self.assertTrue(get_account_mock.called)
+
+        self.assertEqual(self.connector._account_balances["XRP"], Decimal("57.030864"))
+
+        self.assertEqual(self.connector._account_available_balances["XRP"], Decimal("56.030864"))
 
     async def test_make_trading_rules_request(self):
         def side_effect_function(arg: Request):
