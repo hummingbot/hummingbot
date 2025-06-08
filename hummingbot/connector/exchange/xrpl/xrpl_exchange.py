@@ -915,7 +915,6 @@ class XrplExchange(ExchangePyBase):
                 raise
             except Exception:
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
-                await self._sleep(5.0)
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         if order.exchange_order_id is None:
@@ -1784,10 +1783,6 @@ class XrplExchange(ExchangePyBase):
         base_token, quote_token = self.get_currencies_from_trading_pair(trading_pair)
         tx_timestamp = 0
         price = float(0)
-
-        node = await self._node_pool.get_node()
-        if not node.startswith(("ws://", "wss://")):
-            return price, tx_timestamp
 
         try:
             resp: Response = await self.request_with_retry(

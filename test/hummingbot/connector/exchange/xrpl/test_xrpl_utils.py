@@ -226,30 +226,22 @@ class TestXRPLUtils(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(result[0].get("offer_changes")[0].get("maker_exchange_rate"), "4.438561637330454036765786876")
 
     def test_validate_wss_node_url_valid(self):
-        valid_url = "wss://s1.ripple.com/"
-        self.assertEqual(XRPLConfigMap.validate_wss_node_url(valid_url), valid_url)
+        valid_url = "wss://s1.ripple.com/,wss://s2.ripple.com/"
+        self.assertEqual(
+            XRPLConfigMap.validate_wss_node_urls(valid_url), ["wss://s1.ripple.com/", "wss://s2.ripple.com/"]
+        )
 
     def test_validate_wss_node_url_invalid(self):
         invalid_url = "http://invalid.url"
         with self.assertRaises(ValueError) as context:
-            XRPLConfigMap.validate_wss_node_url(invalid_url)
-        self.assertIn("Invalid node url", str(context.exception))
-
-    def test_validate_wss_second_node_url_valid(self):
-        valid_url = "wss://s2.ripple.com/"
-        self.assertEqual(XRPLConfigMap.validate_wss_second_node_url(valid_url), valid_url)
-
-    def test_validate_wss_second_node_url_invalid(self):
-        invalid_url = "https://invalid.url"
-        with self.assertRaises(ValueError) as context:
-            XRPLConfigMap.validate_wss_second_node_url(invalid_url)
+            XRPLConfigMap.validate_wss_node_urls(invalid_url)
         self.assertIn("Invalid node url", str(context.exception))
 
     async def test_auto_fill(self):
         client = AsyncMock()
 
         request = OfferCancel(
-            account="rsoLoDTcxn9wCEHHBR7enMhzQMThkB2w28", # noqa: mock
+            account="rsoLoDTcxn9wCEHHBR7enMhzQMThkB2w28",  # noqa: mock
             offer_sequence=69870875,
         )
 

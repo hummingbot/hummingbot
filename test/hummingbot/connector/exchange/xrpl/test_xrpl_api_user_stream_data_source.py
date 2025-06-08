@@ -1,27 +1,23 @@
 import asyncio
-import unittest
-from asyncio import CancelledError
 from decimal import Decimal
-from typing import Awaitable
-from unittest.mock import AsyncMock
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+from unittest.mock import AsyncMock, Mock
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS
 from hummingbot.connector.exchange.xrpl.xrpl_api_user_stream_data_source import XRPLAPIUserStreamDataSource
 from hummingbot.connector.exchange.xrpl.xrpl_auth import XRPLAuth
 from hummingbot.connector.exchange.xrpl.xrpl_exchange import XrplExchange
 from hummingbot.connector.trading_rule import TradingRule
 
 
-class XRPLUserStreamDataSourceUnitTests(unittest.TestCase):
+class XRPLUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
     # logging.Level required to receive logs from the data source logger
     level = 0
 
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.base_asset = "SOLO"
         cls.quote_asset = "XRP"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
@@ -29,14 +25,14 @@ class XRPLUserStreamDataSourceUnitTests(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.log_records = []
+        self.listening_task = None
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = XrplExchange(
             client_config_map=client_config_map,
             xrpl_secret_key="",
-            wss_node_url="wss://sample.com",
-            wss_second_node_url="wss://sample.com",
-            wss_third_node_url="wss://sample.com",
+            wss_node_urls=["wss://sample.com"],
+            max_request_per_minute=100,
             trading_pairs=[self.trading_pair],
             trading_required=False,
         )
@@ -44,13 +40,14 @@ class XRPLUserStreamDataSourceUnitTests(unittest.TestCase):
             auth=XRPLAuth(xrpl_secret_key=""),
             connector=self.connector,
         )
+
+        self.data_source._sleep = AsyncMock()
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
         self.resume_test_event = asyncio.Event()
 
-        exchange_market_info = CONSTANTS.MARKETS
-        self.connector._initialize_trading_pair_symbols_from_exchange_info(exchange_market_info)
+        self.connector._lock_delay_seconds = 0
 
         trading_rule = TradingRule(
             trading_pair=self.trading_pair,
@@ -62,12 +59,15 @@ class XRPLUserStreamDataSourceUnitTests(unittest.TestCase):
         )
 
         self.connector._trading_rules[self.trading_pair] = trading_rule
-        self.connector._lock_delay_seconds = 0
-        self.data_source._xrpl_client = AsyncMock()
-        self.data_source._xrpl_client.__aenter__.return_value = self.data_source._xrpl_client
-        self.data_source._xrpl_client.__aexit__.return_value = None
+        self.mock_client = AsyncMock()
+        self.mock_client.__aenter__.return_value = self.mock_client
+        self.mock_client.__aexit__.return_value = None
+        self.mock_client.is_open = Mock(return_value=True)
+        self.data_source._get_client = AsyncMock(return_value=self.mock_client)
 
     def tearDown(self) -> None:
+        if self.listening_task is not None:
+            self.listening_task.cancel()
         super().tearDown()
 
     def handle(self, record):
@@ -80,16 +80,12 @@ class XRPLUserStreamDataSourceUnitTests(unittest.TestCase):
         self.resume_test_event.set()
         raise exception
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 5):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
-
     def _event_message(self):
         resp = {
             "transaction": {
-                "Account": "rE3xcPg7mRTUwS2XKarZgTDimBY8VdfZgh",
+                "Account": "rE3xcPg7mRTUwS2XKarZgTDimBY8VdfZgh",  # noqa: mock
                 "Amount": "54",
-                "Destination": "rJn2zAPdFA193sixJwuFixRkYDUtx3apQh",
+                "Destination": "rJn2zAPdFA193sixJwuFixRkYDUtx3apQh",  # noqa: mock
                 "DestinationTag": 500650668,
                 "Fee": "10",
                 "Sequence": 88946237,
@@ -152,12 +148,12 @@ class XRPLUserStreamDataSourceUnitTests(unittest.TestCase):
 
         return resp
 
-    def test_listen_for_user_stream_with_exception(self):
-        self.data_source._xrpl_client.send.return_value = None
-        self.data_source._xrpl_client.send.side_effect = CancelledError
-        self.data_source._xrpl_client.__aiter__.return_value = iter([self._event_message()])
+    async def test_listen_for_user_stream_with_exception(self):
+        self.mock_client.send.return_value = None
+        self.mock_client.send.side_effect = asyncio.CancelledError()
+        self.mock_client.__aiter__.return_value = iter([self._event_message()])
 
-        with self.assertRaises(CancelledError):
-            self.async_run_with_timeout(self.data_source.listen_for_user_stream(asyncio.Queue()), timeout=6)
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source.listen_for_user_stream(asyncio.Queue())
 
-        self.data_source._xrpl_client.send.assert_called_once()
+        self.mock_client.send.assert_called_once()
