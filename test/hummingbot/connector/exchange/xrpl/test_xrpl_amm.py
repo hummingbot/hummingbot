@@ -111,7 +111,7 @@ class TestXRPLAMMFunctions(unittest.IsolatedAsyncioTestCase):
                 "amount": "1000000000",  # XRP amount in drops
                 "amount2": {
                     "currency": "USD",
-                    "issuer": "rP9jPyP5kyvFRb6ZiLdcyzmUZ1Zp5t2V7R",
+                    "issuer": "rP9jPyP5kyvFRb6ZiLdcyzmUZ1Zp5t2V7R",  # noqa: mock
                     "value": "1000",
                 },  # noqa: mock
                 "lp_token": {
@@ -136,8 +136,7 @@ class TestXRPLAMMFunctions(unittest.IsolatedAsyncioTestCase):
         # Verify the method called request_with_retry with the correct parameters
         self.connector.request_with_retry.assert_called_once()
         call_args = self.connector.request_with_retry.call_args[0]
-        self.assertEqual(call_args[0], self.client)
-        self.assertEqual(call_args[1].method, "amm_info")
+        self.assertEqual(call_args[0].method, "amm_info")
 
         # Verify the result
         self.assertEqual(result.address, "rAMMPoolAddress123")  # noqa: mock
@@ -150,8 +149,7 @@ class TestXRPLAMMFunctions(unittest.IsolatedAsyncioTestCase):
         # Verify the method called request_with_retry with the correct parameters
         self.connector.request_with_retry.assert_called_once()
         call_args = self.connector.request_with_retry.call_args[0]
-        self.assertEqual(call_args[0], self.client)
-        self.assertEqual(call_args[1].method, "amm_info")
+        self.assertEqual(call_args[0].method, "amm_info")
 
         # Test error case - missing required parameters
         result_without_params = await self.connector.amm_get_pool_info()
@@ -399,7 +397,7 @@ class TestXRPLAMMFunctions(unittest.IsolatedAsyncioTestCase):
         call_args = self.connector._submit_transaction.call_args[0]
         tx = call_args[0]
         self.assertIsInstance(tx, AMMDeposit)
-        self.assertEqual(tx.account, "rP9jPyP5kyvFRb6ZiLdcyzmUZ1Zp5t2V7R")
+        self.assertEqual(tx.account, "rP9jPyP5kyvFRb6ZiLdcyzmUZ1Zp5t2V7R")  # noqa: mock
         self.assertEqual(tx.asset, self.xrp)
         self.assertEqual(tx.asset2, self.usd)
 
@@ -556,7 +554,7 @@ class TestXRPLAMMFunctions(unittest.IsolatedAsyncioTestCase):
                                 "Asset": {"currency": "XRP"},
                                 "Asset2": {
                                     "currency": "USD",
-                                    "issuer": "rP9jPyP5kyvFRb6ZiLdcyzmUZ1Zp5t2V7R",
+                                    "issuer": "rP9jPyP5kyvFRb6ZiLdcyzmUZ1Zp5t2V7R",  # noqa: mock
                                 },  # noqa: mock
                                 "AuctionSlot": {
                                     "Account": "rAMMPoolAddress123",

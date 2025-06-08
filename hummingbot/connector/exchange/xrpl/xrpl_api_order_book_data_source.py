@@ -53,11 +53,11 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
             last_error = None
 
             while retry_count < max_retries:
-                node_url = None
-                client = None
+                client: AsyncWebsocketClient | None = None
+                node_url: str | None = None
                 try:
-                    node_url = await self._connector._node_pool.get_node()
-                    client = AsyncWebsocketClient(node_url)
+                    client = await self._get_client()
+                    node_url = client.url
                     if not client.is_open():
                         await client.open()
                     client._websocket.max_size = 2**23  # type: ignore
@@ -197,8 +197,8 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         pass
 
-    def _get_client(self) -> AsyncWebsocketClient:
-        raise NotImplementedError("Use node pool for client selection.")
+    async def _get_client(self) -> AsyncWebsocketClient:
+        return await self._connector._get_async_client()
 
     async def _process_websocket_messages_for_pair(self, trading_pair: str):
         base_currency, quote_currency = self._connector.get_currencies_from_trading_pair(trading_pair)
@@ -211,14 +211,15 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
             both=True,
         )
         subscribe = Subscribe(books=[subscribe_book_request])
+        retry_count = 0
+        max_retries = 10
 
         while True:
             node_url = None
             client = None
             listener = None
             try:
-                node_url = await self._connector._node_pool.get_node()
-                client = AsyncWebsocketClient(node_url)
+                client = await self._get_client()
                 async with client as ws_client:
                     ws_client._websocket.max_size = 2**23  # type: ignore
                     # Set up a listener task
@@ -227,6 +228,7 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     await ws_client.send(subscribe)
                     # Keep the connection open
                     while ws_client.is_open():
+                        retry_count = 0
                         await asyncio.sleep(0)
                     listener.cancel()
             except asyncio.CancelledError:
@@ -236,8 +238,10 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 if node_url is not None:
                     self._connector._node_pool.mark_bad_node(node_url)
                 self.logger().warning(f"Websocket connection error for {trading_pair}: {e}")
+                retry_count += 1
             except Exception as e:
                 self.logger().exception(f"Unexpected error occurred when listening to order book streams: {e}")
+                retry_count += 1
             finally:
                 if listener is not None:
                     listener.cancel()
@@ -247,7 +251,9 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         pass  # Swallow the cancellation error if it happens
                 if client is not None:
                     await client.close()
-                await self._sleep(5.0)
+
+                if retry_count >= max_retries:
+                    break
 
     async def on_message(self, client: AsyncWebsocketClient, trading_pair: str, base_currency):
         async for message in client:
@@ -281,6 +287,7 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 "amount": filled_quantity,
                                 "timestamp": timestamp,
                             }
+
                             self._message_queue[CONSTANTS.TRADE_EVENT_TYPE].put_nowait(
                                 {"trading_pair": trading_pair, "trade": trade_data}
                             )

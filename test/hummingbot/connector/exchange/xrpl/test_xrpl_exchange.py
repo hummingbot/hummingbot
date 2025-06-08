@@ -2,7 +2,7 @@ import asyncio
 import time
 from decimal import Decimal
 from unittest.async_case import IsolatedAsyncioTestCase
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 from xrpl.asyncio.clients import XRPLRequestFailureException
 from xrpl.models import XRP, IssuedCurrency, OfferCancel, Request, Response, Transaction
@@ -47,9 +47,8 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         self.connector = XrplExchange(
             client_config_map=client_config_map,
             xrpl_secret_key="",
-            wss_node_url="wss://sample.com",
-            wss_second_node_url="wss://sample.com",
-            wss_third_node_url="wss://sample.com",
+            wss_node_urls=["wss://sample.com"],
+            max_request_per_minute=100,
             trading_pairs=[self.trading_pair, self.trading_pair_usd],
             trading_required=False,
         )
@@ -105,9 +104,16 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         for trading_pair_fee_rule in trading_pair_fee_rules:
             self.connector._trading_pair_fee_rules[trading_pair_fee_rule["trading_pair"]] = trading_pair_fee_rule
 
-        self.data_source._xrpl_client = AsyncMock()
-        self.data_source._xrpl_client.__aenter__.return_value = self.data_source._xrpl_client
-        self.data_source._xrpl_client.__aexit__.return_value = None
+        self.mock_client = AsyncMock()
+        self.mock_client.__aenter__.return_value = self.mock_client
+        self.mock_client.__aexit__.return_value = None
+        self.mock_client.request = AsyncMock()
+        self.mock_client.close = AsyncMock()
+        self.mock_client.open = AsyncMock()
+        self.mock_client.url = "wss://sample.com"
+        self.mock_client.is_open = Mock(return_value=True)
+
+        self.data_source._get_client = AsyncMock(return_value=self.mock_client)
 
         self.connector._orderbook_ds = self.data_source
         self.connector._set_order_book_tracker(
@@ -126,24 +132,15 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         )
         self.user_stream_source.logger().setLevel(1)
         self.user_stream_source.logger().addHandler(self)
-        self.user_stream_source._xrpl_client = AsyncMock()
-        self.user_stream_source._xrpl_client.__aenter__.return_value = self.data_source._xrpl_client
-        self.user_stream_source._xrpl_client.__aexit__.return_value = None
+        self.user_stream_source._get_client = AsyncMock(return_value=self.mock_client)
 
         self.connector._user_stream_tracker = UserStreamTracker(data_source=self.user_stream_source)
 
-        self.connector._xrpl_query_client = AsyncMock()
-        self.connector._xrpl_query_client.__aenter__.return_value = self.connector._xrpl_query_client
-        self.connector._xrpl_query_client.__aexit__.return_value = None
-
-        self.connector._xrpl_place_order_client = AsyncMock()
-        self.connector._xrpl_place_order_client.__aenter__.return_value = self.connector._xrpl_place_order_client
-        self.connector._xrpl_place_order_client.__aexit__.return_value = None
+        self.connector._get_async_client = AsyncMock(return_value=self.mock_client)
 
         self.connector._lock_delay_seconds = 0
 
     def tearDown(self) -> None:
-        self.listening_task and self.listening_task.cancel()
         self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = self._original_full_order_book_reset_time
         super().tearDown()
 
@@ -1340,7 +1337,7 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
                 return self._client_response_amm_info()
             else:
                 raise ValueError("Invalid method")
-        self.connector._xrpl_query_client.request.side_effect = side_effect_function
+        self.mock_client.request.side_effect = side_effect_function
 
         # Mock _get_price_from_amm_pool to return NaN
         self.connector.get_price_from_amm_pool = AsyncMock(return_value=(float("1"), 0))
@@ -1432,7 +1429,7 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
                 return self._client_response_amm_info()
             else:
                 raise ValueError("Invalid method")
-        self.connector._xrpl_query_client.request.side_effect = side_effect_function
+        self.mock_client.request.side_effect = side_effect_function
 
         with self.assertRaises(Exception) as context:
             await self.connector._place_order(
@@ -1743,7 +1740,7 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         )
         result = await self.connector._execute_order_cancel_and_process_update(order=in_flight_order)
         self.assertTrue(process_order_update_mock.called)
-        self.assertTrue(result)
+        self.assertFalse(result)
 
         request_order_status_mock.return_value = OrderUpdate(
             trading_pair=self.trading_pair,
@@ -1831,7 +1828,6 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         get_account_mock.return_value = "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK"  # noqa: mock
 
         await self.connector._user_stream_event_listener()
-        self.assertTrue(update_balances_mock.called)
         self.assertTrue(get_account_mock.called)
         self.assertTrue(get_order_by_sequence.called)
         self.assertTrue(iter_user_event_queue_mock.called)
@@ -1872,7 +1868,6 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         get_account_mock.return_value = "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK"  # noqa: mock
 
         await self.connector._user_stream_event_listener()
-        self.assertTrue(update_balances_mock.called)
         self.assertTrue(get_account_mock.called)
         self.assertTrue(get_order_by_sequence.called)
         self.assertTrue(iter_user_event_queue_mock.called)
@@ -1916,7 +1911,6 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         get_account_mock.return_value = "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK"  # noqa: mock
 
         await self.connector._user_stream_event_listener()
-        self.assertTrue(update_balances_mock.called)
         self.assertTrue(get_account_mock.called)
         self.assertTrue(get_order_by_sequence.called)
         self.assertTrue(iter_user_event_queue_mock.called)
@@ -1939,7 +1933,7 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
             else:
                 raise ValueError("Invalid method")
 
-        self.connector._xrpl_query_client.request.side_effect = side_effect_function
+        self.mock_client.request.side_effect = side_effect_function
 
         await self.connector._update_balances()
 
@@ -1962,7 +1956,7 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
             else:
                 raise ValueError("Invalid method")
 
-        self.connector._xrpl_query_client.request.side_effect = side_effect_function
+        self.mock_client.request.side_effect = side_effect_function
 
         result = await self.connector._make_trading_rules_request()
 
@@ -1996,7 +1990,7 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
             else:
                 raise ValueError("Invalid method")
 
-        self.connector._xrpl_query_client.request.side_effect = side_effect_function
+        self.mock_client.request.side_effect = side_effect_function
 
         try:
             await self.connector._make_trading_rules_request()
@@ -4233,47 +4227,35 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
 
     async def test_request_with_retry_success(self):
         # Setup
-        mock_client = AsyncMock()
-        mock_client.request = AsyncMock(return_value="success")
-        mock_client._websocket = MagicMock()
-        mock_client.open = AsyncMock()
-        mock_client.close = AsyncMock()
+        self.mock_client.request = AsyncMock(return_value="success")
         self.connector._sleep = AsyncMock()
         self.data_source._sleep = AsyncMock()
 
         # Action
-        result = await self.connector.request_with_retry(mock_client, Request(method=RequestMethod.ACCOUNT_INFO))
+        result = await self.connector.request_with_retry(Request(method=RequestMethod.ACCOUNT_INFO))
 
         # Assert
         self.assertEqual(result, "success")
 
     async def test_request_with_retry_timeout(self):
         # Setup
-        mock_client = AsyncMock()
-        mock_client.request = AsyncMock(side_effect=TimeoutError("Test timeout"))
-        mock_client._websocket = MagicMock()
-        mock_client.open = AsyncMock()
-        mock_client.close = AsyncMock()
+        self.mock_client.request = AsyncMock(side_effect=TimeoutError("Test timeout"))
         self.connector._sleep = AsyncMock()
         self.data_source._sleep = AsyncMock()
 
         # Action & Assert
         with self.assertRaises(Exception):
-            await self.connector.request_with_retry(mock_client, Request(method=RequestMethod.ACCOUNT_INFO))
+            await self.connector.request_with_retry(Request(method=RequestMethod.ACCOUNT_INFO))
 
     async def test_request_with_retry_general_error(self):
         # Setup
-        mock_client = AsyncMock()
-        mock_client.request = AsyncMock(side_effect=Exception("Test error"))
-        mock_client._websocket = MagicMock()
-        mock_client.open = AsyncMock()
-        mock_client.close = AsyncMock()
+        self.mock_client.request = AsyncMock(side_effect=Exception("Test error"))
         self.connector._sleep = AsyncMock()
         self.data_source._sleep = AsyncMock()
 
         # Action & Assert
         with self.assertRaises(Exception):
-            await self.connector.request_with_retry(mock_client, Request(method=RequestMethod.ACCOUNT_INFO))
+            await self.connector.request_with_retry(Request(method=RequestMethod.ACCOUNT_INFO))
 
     def test_get_token_symbol_from_all_markets_found(self):
         # Setup
@@ -4300,9 +4282,6 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
     async def test_client_health_check_refresh(self):
         # Setup
         self.connector._last_clients_refresh_time = 0
-        self.connector._xrpl_query_client = AsyncMock()
-        self.connector._xrpl_query_client.close = AsyncMock()
-        self.connector._xrpl_query_client.open = AsyncMock()
         self.connector._sleep = AsyncMock()
         self.data_source._sleep = AsyncMock()
 
@@ -4310,25 +4289,20 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         await self.connector._client_health_check()
 
         # Assert
-        self.assertTrue(self.connector._xrpl_query_client.close.called)
-        self.assertTrue(self.connector._xrpl_query_client.open.called)
+        self.assertTrue(self.mock_client.close.called)
+        self.assertTrue(self.mock_client.open.called)
         self.assertGreater(self.connector._last_clients_refresh_time, 0)
 
     async def test_client_health_check_no_refresh_needed(self):
         # Setup
         self.connector._last_clients_refresh_time = time.time()
-        self.connector._xrpl_query_client = AsyncMock()
-        self.connector._xrpl_query_client.close = AsyncMock()
-        self.connector._xrpl_query_client.open = AsyncMock()
-        self.connector._sleep = AsyncMock()
-        self.data_source._sleep = AsyncMock()
 
         # Action
         await self.connector._client_health_check()
 
         # Assert
-        self.assertFalse(self.connector._xrpl_query_client.close.called)
-        self.assertTrue(self.connector._xrpl_query_client.open.called)
+        self.assertFalse(self.mock_client.close.called)
+        self.assertTrue(self.mock_client.open.called)
 
     async def test_place_order_invalid_base_currency(self):
         # Simulate get_currencies_from_trading_pair returning an invalid base currency

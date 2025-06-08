@@ -41,13 +41,13 @@ class XRPLAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         while True:
             listener = None
-            client = None
-            node_url = None
+            client: AsyncWebsocketClient | None = None
+            node_url: str | None = None
             try:
                 self._connector._node_pool.add_burst_tokens(1)
                 subscribe = Subscribe(accounts=[self._auth.get_account()])
-                node_url = await self._connector._node_pool.get_node()
-                client = AsyncWebsocketClient(node_url)
+                client = await self._get_client()
+                node_url = client.url
                 async with client as ws_client:
                     if ws_client._websocket is None:
                         continue
@@ -95,3 +95,6 @@ class XRPLAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _process_event_message(self, event_message: Dict[str, Any], queue: asyncio.Queue):
         queue.put_nowait(event_message)
+
+    async def _get_client(self) -> AsyncWebsocketClient:
+        return await self._connector._get_async_client()
