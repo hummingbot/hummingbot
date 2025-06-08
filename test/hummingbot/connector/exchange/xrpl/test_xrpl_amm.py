@@ -324,7 +324,7 @@ class TestXRPLAMMFunctions(IsolatedAsyncioWrapperTestCase):
                             "PreviousFields": {
                                 "Balance": {
                                     "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
-                                    "issuer": "rAMMPoolAddress123",  # noqa: mock
+                                    "issuer": "rAMMPoolAddress123",
                                     "value": "0",
                                 }
                             },
@@ -704,3 +704,72 @@ class TestXRPLAMMFunctions(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(result["lp_token_amount_pct"], Decimal("0"))
         self.assertEqual(result["base_token_lp_amount"], Decimal("0"))
         self.assertEqual(result["quote_token_lp_amount"], Decimal("0"))
+
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_utils.convert_string_to_hex")
+    @patch("xrpl.utils.xrp_to_drops")
+    async def test_amm_add_liquidity_none_pool_info(self, mock_xrp_to_drops, mock_convert_string_to_hex):
+        # Setup mocks
+        mock_xrp_to_drops.return_value = "10000000"
+        mock_convert_string_to_hex.return_value = (
+            "68626F742D6C69717569646974792D61646465642D73756363657373"  # noqa: mock
+        )
+
+        # Mock amm_get_pool_info to return None
+        self.connector.amm_get_pool_info = AsyncMock(return_value=None)
+
+        # Use the real implementation for amm_add_liquidity
+        self.connector.amm_add_liquidity = XrplExchange.amm_add_liquidity.__get__(self.connector)
+
+        # Call amm_add_liquidity
+        result = await self.connector.amm_add_liquidity(
+            pool_address="rAMMPoolAddress123",  # noqa: mock
+            wallet_address="rWalletAddress123",  # noqa: mock
+            base_token_amount=Decimal("10"),
+            quote_token_amount=Decimal("20"),
+            slippage_pct=Decimal("0.01"),
+        )
+
+        # Verify the result is None
+        self.assertIsNone(result)
+
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_utils.convert_string_to_hex")
+    @patch("xrpl.utils.xrp_to_drops")
+    async def test_amm_add_liquidity_none_quote(self, mock_xrp_to_drops, mock_convert_string_to_hex):
+        # Setup mocks
+        mock_xrp_to_drops.return_value = "10000000"
+        mock_convert_string_to_hex.return_value = (
+            "68626F742D6C69717569646974792D61646465642D73756363657373"  # noqa: mock
+        )
+
+        # Mock pool info
+        mock_pool_info = PoolInfo(
+            address="rAMMPoolAddress123",  # noqa: mock
+            base_token_address=self.xrp,
+            quote_token_address=self.usd,
+            lp_token_address=self.lp_token,
+            fee_pct=Decimal("0.005"),
+            price=Decimal("2"),
+            base_token_amount=Decimal("1000"),
+            quote_token_amount=Decimal("2000"),
+            lp_token_amount=Decimal("1000"),
+            pool_type="XRPL-AMM",
+        )
+        self.connector.amm_get_pool_info = AsyncMock(return_value=mock_pool_info)
+
+        # Mock amm_quote_add_liquidity to return None
+        self.connector.amm_quote_add_liquidity = AsyncMock(return_value=None)
+
+        # Use the real implementation for amm_add_liquidity
+        self.connector.amm_add_liquidity = XrplExchange.amm_add_liquidity.__get__(self.connector)
+
+        # Call amm_add_liquidity
+        result = await self.connector.amm_add_liquidity(
+            pool_address="rAMMPoolAddress123",  # noqa: mock
+            wallet_address="rWalletAddress123",  # noqa: mock
+            base_token_amount=Decimal("10"),
+            quote_token_amount=Decimal("20"),
+            slippage_pct=Decimal("0.01"),
+        )
+
+        # Verify the result is None
+        self.assertIsNone(result)
