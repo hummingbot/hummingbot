@@ -740,3 +740,82 @@ class XRPLNodePool:
     def burst_tokens(self) -> int:
         """Get current number of burst tokens available"""
         return self._rate_limiter.burst_tokens
+
+
+def parse_offer_create_transaction(tx: dict) -> dict:
+    """
+    Helper to parse an OfferCreate transaction and its metadata to extract price (quality) and quantity transferred.
+    Args:
+        tx: The transaction object (dict) as returned by XRPL.
+    Returns:
+        dict with keys: 'quality', 'taker_gets_transferred', 'taker_pays_transferred'
+    """
+    meta = tx.get("meta")
+    if not meta or "AffectedNodes" not in meta:
+        return {"quality": None, "taker_gets_transferred": None, "taker_pays_transferred": None}
+
+    # Find the Offer node for the account and sequence in the transaction
+    account = tx.get("Account")
+    sequence = tx.get("Sequence")
+    offer_node = None
+    for node in meta["AffectedNodes"]:
+        node_type = next(iter(node))
+        node_data = node[node_type]
+        if node_data.get("LedgerEntryType") == "Offer":
+            fields = node_data.get("FinalFields", node_data.get("NewFields", {}))
+            if fields.get("Account") == account and fields.get("Sequence") == sequence:
+                offer_node = node_data
+                break
+    # If not found, just use the first Offer node
+    if offer_node is None:
+        for node in meta["AffectedNodes"]:
+            node_type = next(iter(node))
+            node_data = node[node_type]
+            if node_data.get("LedgerEntryType") == "Offer":
+                offer_node = node_data
+                break
+    # Compute transferred amounts from PreviousFields if available
+    taker_gets_transferred = None
+    taker_pays_transferred = None
+    quality = None
+    if offer_node:
+        prev = offer_node.get("PreviousFields", {})
+        final = offer_node.get("FinalFields", offer_node.get("NewFields", {}))
+        gets_prev = prev.get("TakerGets")
+        gets_final = final.get("TakerGets")
+        pays_prev = prev.get("TakerPays")
+        pays_final = final.get("TakerPays")
+        # Only compute if both prev and final exist
+        if gets_prev is not None and gets_final is not None:
+            try:
+                if isinstance(gets_prev, dict):
+                    gets_prev_val = float(gets_prev["value"])
+                    gets_final_val = float(gets_final["value"])
+                else:
+                    gets_prev_val = float(gets_prev)
+                    gets_final_val = float(gets_final)
+                taker_gets_transferred = gets_prev_val - gets_final_val
+            except Exception:
+                taker_gets_transferred = None
+        if pays_prev is not None and pays_final is not None:
+            try:
+                if isinstance(pays_prev, dict):
+                    pays_prev_val = float(pays_prev["value"])
+                    pays_final_val = float(pays_final["value"])
+                else:
+                    pays_prev_val = float(pays_prev)
+                    pays_final_val = float(pays_final)
+                taker_pays_transferred = pays_prev_val - pays_final_val
+            except Exception:
+                taker_pays_transferred = None
+        # Compute quality (price)
+        if taker_gets_transferred and taker_pays_transferred and taker_gets_transferred != 0:
+            try:
+                quality = taker_pays_transferred / taker_gets_transferred
+            except Exception:
+                quality = None
+    return {
+        "quality": quality,
+        "taker_gets_transferred": taker_gets_transferred,
+        "taker_pays_transferred": taker_pays_transferred,
+    }
