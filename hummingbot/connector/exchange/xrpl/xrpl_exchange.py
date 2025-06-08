@@ -913,8 +913,8 @@ class XrplExchange(ExchangePyBase):
 
             except asyncio.CancelledError:
                 raise
-            except Exception:
-                self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
+            except Exception as e:
+                self.logger().error(f"Unexpected error in user stream listener loop: {e}", exc_info=True)
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         if order.exchange_order_id is None:

@@ -1,6 +1,7 @@
 import asyncio
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+from typing import Any, AsyncIterable, Dict
 from unittest.mock import AsyncMock, Mock
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
@@ -157,3 +158,115 @@ class XRPLUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             await self.data_source.listen_for_user_stream(asyncio.Queue())
 
         self.mock_client.send.assert_called_once()
+
+    async def test_balance_changes_handling(self):
+        # Setup initial balances
+        self.connector._account_balances = {"XRP": Decimal("100"), "SOLO": Decimal("50")}
+        self.connector._account_available_balances = {"XRP": Decimal("100"), "SOLO": Decimal("50")}
+
+        # Mock the auth to return our test account
+        test_account = "rTestAccount123"
+        self.connector._xrpl_auth.get_account = Mock(return_value=test_account)
+
+        # Mock the token symbol lookup
+        self.connector.get_token_symbol_from_all_markets = Mock(return_value="SOLO")
+
+        # Create the full message that would come from websocket
+        message = {
+            "type": "transaction",
+            "transaction": {
+                "Account": test_account,
+                "Fee": "12",
+                "Flags": 655360,
+                "Sequence": 123,
+                "TransactionType": "Payment",
+                "hash": "test_hash",
+                "ctid": "test_ctid",
+            },
+            "meta": {
+                "AffectedNodes": [
+                    {
+                        "ModifiedNode": {
+                            "FinalFields": {
+                                "Account": test_account,
+                                "Balance": "110500000",  # 110.5 XRP in drops
+                                "Flags": 0,
+                                "OwnerCount": 0,
+                                "Sequence": 123,
+                            },
+                            "LedgerEntryType": "AccountRoot",
+                            "LedgerIndex": "test_ledger_index",
+                            "PreviousFields": {
+                                "Balance": "100000000",  # 100 XRP in drops
+                            },
+                            "PreviousTxnID": "test_prev_txn_id",
+                            "PreviousTxnLgrSeq": 12345,
+                        }
+                    },
+                    {
+                        "ModifiedNode": {
+                            "FinalFields": {
+                                "Balance": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",
+                                    "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",
+                                    "value": "55.25",
+                                },
+                                "Flags": 1114112,
+                                "HighLimit": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",
+                                    "issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+                                    "value": "0",
+                                },
+                                "HighNode": "783",
+                                "LowLimit": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",
+                                    "issuer": test_account,
+                                    "value": "1000000000",
+                                },
+                                "LowNode": "0",
+                            },
+                            "LedgerEntryType": "RippleState",
+                            "LedgerIndex": "test_ledger_index_2",
+                            "PreviousFields": {
+                                "Balance": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",
+                                    "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",
+                                    "value": "50",
+                                }
+                            },
+                            "PreviousTxnID": "test_prev_txn_id_2",
+                            "PreviousTxnLgrSeq": 12346,
+                        }
+                    },
+                ],
+                "TransactionIndex": 12,
+                "TransactionResult": "tesSUCCESS",
+            },
+            "validated": True,
+            "date": 802513441,
+            "ledger_index": 96621217,
+            "inLedger": 96621217,
+        }
+
+        # Create a mock iterator that will yield our message
+        async def mock_iter_queue() -> AsyncIterable[Dict[str, Any]]:
+            yield message
+
+        # Mock the _iter_user_event_queue method
+        self.connector._iter_user_event_queue = mock_iter_queue
+
+        # Call the event listener directly
+        async for _ in self.connector._iter_user_event_queue():
+            await self.connector._user_stream_event_listener()
+            break  # We only need to process one message
+
+        # Verify XRP balance updates
+        self.assertEqual(self.connector._account_balances["XRP"], Decimal("110.5"))
+        self.assertEqual(self.connector._account_available_balances["XRP"], Decimal("110.5"))
+
+        # Verify SOLO balance updates
+        self.assertEqual(self.connector._account_balances["SOLO"], Decimal("55.25"))
+        self.assertEqual(self.connector._account_available_balances["SOLO"], Decimal("55.25"))
+
+        # Verify the token symbol lookup was called with correct parameters
+        self.connector.get_token_symbol_from_all_markets.assert_called_once_with("SOLO", test_account)
