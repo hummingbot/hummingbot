@@ -1,5 +1,6 @@
 import logging
 import os
+from datetime import datetime
 from decimal import Decimal
 from typing import Dict
 
@@ -29,6 +30,8 @@ class DEXTradeConfig(BaseClientModel):
         "prompt": "Buying or selling the base asset? (True for buy, False for sell)", "prompt_on_new": True})
     amount: Decimal = Field(Decimal("0.01"), json_schema_extra={
         "prompt": "Order amount (in base token)", "prompt_on_new": True})
+    check_interval: int = Field(10, json_schema_extra={
+        "prompt": "How often to check price in seconds (default: 10)", "prompt_on_new": False})
 
 
 class DEXTrade(ScriptStrategyBase):
@@ -50,19 +53,26 @@ class DEXTrade(ScriptStrategyBase):
         # State tracking
         self.trade_executed = False
         self.trade_in_progress = False
+        self.last_price = None
+        self.last_price_update = None
+        self.last_check_time = None
 
         # Log trade information
         condition = "rises above" if self.config.trigger_above else "falls below"
         side = "BUY" if self.config.is_buy else "SELL"
         self.log_with_clock(logging.INFO, f"Will {side} {self.config.amount} {self.base} for {self.quote} on {self.exchange} when price {condition} {self.config.target_price}")
+        self.log_with_clock(logging.INFO, f"Price will be checked every {self.config.check_interval} seconds")
 
     def on_tick(self):
         # Don't check price if trade already executed or in progress
         if self.trade_executed or self.trade_in_progress:
             return
 
-        # Check price on each tick
-        safe_ensure_future(self.check_price_and_trade())
+        # Check if enough time has passed since last check
+        current_time = datetime.now()
+        if self.last_check_time is None or (current_time - self.last_check_time).total_seconds() >= self.config.check_interval:
+            self.last_check_time = current_time
+            safe_ensure_future(self.check_price_and_trade())
 
     async def check_price_and_trade(self):
         """Check current price and trigger trade if condition is met"""
@@ -85,7 +95,26 @@ class DEXTrade(ScriptStrategyBase):
                 is_buy=self.config.is_buy,
                 amount=self.config.amount,
             )
-            self.log_with_clock(logging.INFO, f"Price: {current_price}")
+
+            # Update last price tracking
+            self.last_price = current_price
+            self.last_price_update = datetime.now()
+
+            # Log current price vs target
+            price_diff = current_price - self.config.target_price
+            percentage_diff = (price_diff / self.config.target_price) * 100
+
+            if self.config.trigger_above:
+                status = "waiting for price to rise" if current_price < self.config.target_price else "ABOVE TARGET"
+                self.log_with_clock(logging.INFO,
+                                    f"Current price: {current_price:.6f} | Target: {self.config.target_price:.6f} | "
+                                    f"Difference: {price_diff:.6f} ({percentage_diff:+.2f}%) | Status: {status}")
+            else:
+                status = "waiting for price to fall" if current_price > self.config.target_price else "BELOW TARGET"
+                self.log_with_clock(logging.INFO,
+                                    f"Current price: {current_price:.6f} | Target: {self.config.target_price:.6f} | "
+                                    f"Difference: {price_diff:.6f} ({percentage_diff:+.2f}%) | Status: {status}")
+
         except Exception as e:
             self.log_with_clock(logging.ERROR, f"Error getting quote: {e}")
             self.trade_in_progress = False
@@ -119,23 +148,64 @@ class DEXTrade(ScriptStrategyBase):
                 finally:
                     if not self.trade_executed:
                         self.trade_in_progress = False
+            else:
+                # Price condition not met, reset flag to allow next check
+                self.trade_in_progress = False
 
     def format_status(self) -> str:
         """Format status message for display in Hummingbot"""
         if self.trade_executed:
             return "Trade has been executed successfully!"
 
-        if self.trade_in_progress:
-            return "Currently checking price or executing trade..."
-
-        condition = "rises above" if self.config.trigger_above else "falls below"
-
         lines = []
         side = "buy" if self.config.is_buy else "sell"
         connector_chain_network = f"{self.config.connector}_{self.config.chain}_{self.config.network}"
-        lines.append(f"Monitoring {self.base}-{self.quote} price on {connector_chain_network}")
-        lines.append(f"Will execute {side} trade when price {condition} {self.config.target_price}")
-        lines.append(f"Trade amount: {self.config.amount} {self.base}")
-        lines.append("Checking price on every tick")
+        condition = "rises above" if self.config.trigger_above else "falls below"
+
+        lines.append("=== DEX Trade Monitor ===")
+        lines.append(f"Exchange: {connector_chain_network}")
+        lines.append(f"Pair: {self.base}-{self.quote}")
+        lines.append(f"Strategy: {side.upper()} {self.config.amount} {self.base} when price {condition} {self.config.target_price}")
+        lines.append(f"Check interval: Every {self.config.check_interval} seconds")
+
+        if self.trade_in_progress:
+            lines.append("\nStatus: 🔄 Currently checking price...")
+        elif self.last_price is not None:
+            # Calculate price difference
+            price_diff = self.last_price - self.config.target_price
+            percentage_diff = (price_diff / self.config.target_price) * 100
+
+            # Determine status
+            if self.config.trigger_above:
+                if self.last_price < self.config.target_price:
+                    status_emoji = "⏳"
+                    status_text = f"Waiting (need {self.config.target_price - self.last_price:.6f} more)"
+                else:
+                    status_emoji = "✅"
+                    status_text = "READY TO TRADE"
+            else:
+                if self.last_price > self.config.target_price:
+                    status_emoji = "⏳"
+                    status_text = f"Waiting (need {self.last_price - self.config.target_price:.6f} drop)"
+                else:
+                    status_emoji = "✅"
+                    status_text = "READY TO TRADE"
+
+            lines.append(f"\nCurrent Price: {self.last_price:.6f} {self.quote}")
+            lines.append(f"Target Price:  {self.config.target_price:.6f} {self.quote}")
+            lines.append(f"Difference:    {price_diff:.6f} ({percentage_diff:+.2f}%)")
+            lines.append(f"Status:        {status_emoji} {status_text}")
+
+            if self.last_price_update:
+                seconds_ago = (datetime.now() - self.last_price_update).total_seconds()
+                lines.append(f"\nLast update: {int(seconds_ago)}s ago")
+
+            # Show next check time
+            if self.last_check_time:
+                next_check_in = self.config.check_interval - int((datetime.now() - self.last_check_time).total_seconds())
+                if next_check_in > 0:
+                    lines.append(f"Next check in: {next_check_in}s")
+        else:
+            lines.append("\nStatus: ⏳ Waiting for first price update...")
 
         return "\n".join(lines)
