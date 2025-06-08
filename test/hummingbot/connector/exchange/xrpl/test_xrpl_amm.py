@@ -1,5 +1,5 @@
-import unittest
 from decimal import Decimal
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from xrpl.asyncio.clients import AsyncWebsocketClient
@@ -16,7 +16,7 @@ from hummingbot.connector.exchange.xrpl.xrpl_utils import (
 )
 
 
-class TestXRPLAMMFunctions(unittest.IsolatedAsyncioTestCase):
+class TestXRPLAMMFunctions(IsolatedAsyncioWrapperTestCase):
     level = 0
 
     @classmethod
