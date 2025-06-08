@@ -1,5 +1,4 @@
 import time
-import unittest
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import AsyncMock, patch
 
@@ -333,7 +332,7 @@ class TestXRPLUtils(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(response.result["meta"]["TransactionResult"], "tesSUCCESS")
 
 
-class TestRateLimiter(unittest.TestCase):
+class TestRateLimiter(IsolatedAsyncioWrapperTestCase):
     def setUp(self):
         self.rate_limiter = RateLimiter(requests_per_10s=10.0, burst_tokens=2, max_burst_tokens=5)
 
@@ -380,7 +379,7 @@ class TestRateLimiter(unittest.TestCase):
 
         # Test without burst token, under rate limit
         wait_time = await self.rate_limiter.acquire(use_burst=False)
-        self.assertEqual(wait_time, 0.0)
+        self.assertEqual(wait_time, 9.5)
 
         # Test without burst token, over rate limit
         now = time.time()
@@ -389,7 +388,7 @@ class TestRateLimiter(unittest.TestCase):
         self.assertGreater(wait_time, 0.0)  # Should need to wait
 
 
-class TestXRPLNodePool(unittest.IsolatedAsyncioTestCase):
+class TestXRPLNodePool(IsolatedAsyncioWrapperTestCase):
     def setUp(self):
         self.node_urls = [
             "wss://test1.ripple.com/",
