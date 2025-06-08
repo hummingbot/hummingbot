@@ -623,3 +623,30 @@ class TestParseOfferCreateTransaction(IsolatedAsyncioWrapperTestCase):
         self.assertAlmostEqual(result["taker_gets_transferred"], 5)
         self.assertAlmostEqual(result["taker_pays_transferred"], 10)
         self.assertAlmostEqual(result["quality"], 2)
+
+    def test_offer_node_fallback_to_first_offer(self):
+        tx = {
+            "Account": "acc1",  # Different account than the offer node
+            "Sequence": 999,  # Different sequence than the offer node
+            "meta": {
+                "AffectedNodes": [
+                    {
+                        "ModifiedNode": {
+                            "LedgerEntryType": "Offer",
+                            "FinalFields": {
+                                "Account": "acc2",  # Different account
+                                "Sequence": 456,  # Different sequence
+                                "TakerGets": "100",
+                                "TakerPays": {"value": "200"},
+                            },
+                            "PreviousFields": {"TakerGets": "150", "TakerPays": {"value": "300"}},
+                        }
+                    }
+                ]
+            },
+        }
+        result = parse_offer_create_transaction(tx)
+        # Should still parse the offer node even though account/sequence don't match
+        self.assertAlmostEqual(result["taker_gets_transferred"], 50)
+        self.assertAlmostEqual(result["taker_pays_transferred"], 100)
+        self.assertAlmostEqual(result["quality"], 2)
