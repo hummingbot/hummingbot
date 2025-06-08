@@ -490,25 +490,67 @@ class CoinGeckoRateSourceMode(RateSourceModeBase):
             ),
         }
     )
+    api_key: str = Field(
+        default="",
+        description="API key to use to request information from CoinGecko (if empty public API will be used)",
+        json_schema_extra={
+            "prompt": lambda cm: "CoinGecko API key (optional, leave empty to use public API) NOTE: will be stored in plain text due to a bug in the way hummingbot loads the config file",
+            "prompt_on_new": True,
+            "is_connect_key": True,
+        },
+    )
+
+    api_tier: str = Field(
+        default="PUBLIC",
+        description="API tier for CoinGecko (PUBLIC, DEMO, or PRO)",
+        json_schema_extra={
+            "prompt": lambda cm: "Select CoinGecko API tier (PUBLIC/DEMO/PRO)",
+            "prompt_on_new": True,
+            "is_connect_key": True,
+        },
+    )
     model_config = ConfigDict(title="coin_gecko")
 
     def build_rate_source(self) -> RateSourceBase:
-        rate_source = RATE_ORACLE_SOURCES[self.model_config["title"]](
-            extra_token_ids=self.extra_tokens
+        return self._build_rate_source_cls(
+            extra_tokens=self.extra_tokens,
+            api_key=self.api_key,
+            api_tier=self.api_tier
         )
-        rate_source.extra_token_ids = self.extra_tokens
-        return rate_source
 
     @field_validator("extra_tokens", mode="before")
-    @classmethod
     def validate_extra_tokens(cls, value: Union[str, List[str]]):
         extra_tokens = value.split(",") if isinstance(value, str) else value
         return extra_tokens
 
+    @field_validator("api_tier", mode="before")
+    def validate_api_tier(cls, v: str):
+        from hummingbot.data_feed.coin_gecko_data_feed.coin_gecko_constants import CoinGeckoAPITier
+        valid_tiers = [tier.name for tier in CoinGeckoAPITier]
+        if v.upper() not in valid_tiers:
+            return CoinGeckoAPITier.PUBLIC.name
+        return v.upper()
+
     @model_validator(mode="after")
     def post_validations(self):
-        RateOracle.get_instance().source.extra_token_ids = self.extra_tokens
+        RateOracle.get_instance().source = self.build_rate_source()
         return self
+
+    @classmethod
+    def _build_rate_source_cls(cls, extra_tokens: List[str], api_key: str, api_tier: str) -> RateSourceBase:
+        from hummingbot.data_feed.coin_gecko_data_feed.coin_gecko_constants import CoinGeckoAPITier
+        try:
+            api_tier_enum = CoinGeckoAPITier[api_tier.upper()]
+        except KeyError:
+            api_tier_enum = CoinGeckoAPITier.PUBLIC
+
+        rate_source = RATE_ORACLE_SOURCES[cls.model_config["title"]](
+            extra_token_ids=extra_tokens,
+            api_key=api_key,
+            api_tier=api_tier_enum,
+        )
+        rate_source.extra_token_ids = extra_tokens
+        return rate_source
 
 
 class CoinCapRateSourceMode(RateSourceModeBase):
@@ -592,6 +634,18 @@ class DexalotRateSourceMode(ExchangeRateSourceModeBase):
 class CoinbaseAdvancedTradeRateSourceMode(ExchangeRateSourceModeBase):
     name: str = Field(default="coinbase_advanced_trade")
     model_config = ConfigDict(title="coinbase_advanced_trade")
+    use_auth_for_public_endpoints: bool = Field(
+        default=False,
+        description="Use authentication for public endpoints",
+        json_schema_extra = {
+            "prompt": lambda cm: "Would you like to use authentication for public endpoints? (Yes/No) (only affects rate limiting)",
+            "prompt_on_new": True,
+            "is_connect_key": True,
+        },
+    )
+
+    def build_rate_source(self) -> RateSourceBase:
+        return RATE_ORACLE_SOURCES[self.model_config["title"]](use_auth_for_public_endpoints=self.use_auth_for_public_endpoints)
 
 
 class HyperliquidRateSourceMode(ExchangeRateSourceModeBase):
@@ -602,11 +656,6 @@ class HyperliquidRateSourceMode(ExchangeRateSourceModeBase):
 class DeriveRateSourceMode(ExchangeRateSourceModeBase):
     name: str = Field(default="derive")
     model_config = ConfigDict(title="derive")
-
-
-class TegroRateSourceMode(ExchangeRateSourceModeBase):
-    name: str = Field(default="tegro")
-    model_config = ConfigDict(title="tegro")
 
 
 RATE_SOURCE_MODES = {
@@ -622,7 +671,6 @@ RATE_SOURCE_MODES = {
     CubeRateSourceMode.model_config["title"]: CubeRateSourceMode,
     HyperliquidRateSourceMode.model_config["title"]: HyperliquidRateSourceMode,
     DeriveRateSourceMode.model_config["title"]: DeriveRateSourceMode,
-    TegroRateSourceMode.model_config["title"]: TegroRateSourceMode,
     MexcRateSourceMode.model_config["title"]: MexcRateSourceMode,
 }
 

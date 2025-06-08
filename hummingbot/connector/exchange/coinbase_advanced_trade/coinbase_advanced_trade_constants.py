@@ -3,7 +3,7 @@ from typing import Tuple
 
 from bidict import bidict
 
-from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
+from hummingbot.core.api_throttler.data_types import DEFAULT_WEIGHT, LinkedLimitWeightPair, RateLimit
 from hummingbot.core.data_type.in_flight_order import OrderState
 
 EXCHANGE_NAME = "Coinbase Advanced Trade"
@@ -45,13 +45,16 @@ SIGNIN_ENDPOINTS = {
     CRYPTO_CURRENCIES_EP,
 }
 
-# Private API endpoints
+# Public API endpoints
 SERVER_TIME_EP = "/brokerage/time"
-ALL_PAIRS_EP = "/brokerage/products"
-PAIR_TICKER_EP = "/brokerage/products/{product_id}"
-PAIR_TICKER_RATE_LIMIT_ID = "PairTicker"
-PAIR_TICKER_24HR_EP = "/brokerage/products/{product_id}/ticker"
-PAIR_TICKER_24HR_RATE_LIMIT_ID = "PairTicker24Hr"
+ALL_PAIRS_EP = "/brokerage/market/products"  # https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_getpublicproducts
+PAIR_TICKER_24HR_EP = "/brokerage/market/products/{product_id}/ticker"
+PAIR_TICKER_24HR_RATE_LIMIT_ID = "ProductTicker24Hr"
+
+# Private API endpoints
+PRIVATE_PRODUCTS_EP = "/brokerage/products"  # https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_getproducts
+PRIVATE_PAIR_TICKER_24HR_EP = "/brokerage/products/{product_id}/ticker"
+PRIVATE_PAIR_TICKER_24HR_RATE_LIMIT_ID = "PrivatePairTicker24Hr"
 ORDER_EP = "/brokerage/orders"
 BATCH_CANCEL_EP = "/brokerage/orders/batch_cancel"
 GET_ORDER_STATUS_EP = "/brokerage/orders/historical/{order_id}"
@@ -64,10 +67,14 @@ ACCOUNT_EP = "/brokerage/accounts/{account_uuid}"
 ACCOUNT_RATE_LIMIT_ID = "Account"
 SNAPSHOT_EP = "/brokerage/product_book"
 
+# Public API endpoints
+CANDLES_EP = "/brokerage/market/products/{product_id}/candles"
+CANDLES_EP_ID = "candles"
+SERVER_TIME_EP = "/brokerage/time"
+
 PRIVATE_REST_ENDPOINTS = {
-    ALL_PAIRS_EP,
-    PAIR_TICKER_RATE_LIMIT_ID,
-    PAIR_TICKER_24HR_RATE_LIMIT_ID,
+    PRIVATE_PRODUCTS_EP,
+    PRIVATE_PAIR_TICKER_24HR_RATE_LIMIT_ID,
     ORDER_EP,
     BATCH_CANCEL_EP,
     GET_ORDER_STATUS_RATE_LIMIT_ID,
@@ -80,7 +87,10 @@ PRIVATE_REST_ENDPOINTS = {
 }
 
 PUBLIC_REST_ENDPOINTS = {
+    CANDLES_EP_ID,
     SERVER_TIME_EP,
+    ALL_PAIRS_EP,
+    PAIR_TICKER_24HR_RATE_LIMIT_ID,
 }
 
 WS_HEARTBEAT_TIME_INTERVAL = 30
@@ -141,23 +151,44 @@ ORDER_STATE = {
 # Oddly, order can be in unknown state ???
 ORDER_STATUS_NOT_FOUND_ERROR_CODE = "UNKNOWN_ORDER_STATUS"
 
+_key = {
+    "limit": MAX_PRIVATE_REST_REQUESTS_S,
+    "weight": PRIVATE_REST_REQUESTS,
+    "list": PRIVATE_REST_ENDPOINTS,
+    "time": ONE_SECOND,
+}
 PRIVATE_REST_RATE_LIMITS = [
     RateLimit(limit_id=endpoint,
-              limit=MAX_PRIVATE_REST_REQUESTS_S,
-              time_interval=ONE_SECOND,
-              linked_limits=[LinkedLimitWeightPair(PRIVATE_REST_REQUESTS, 1)]) for endpoint in PRIVATE_REST_ENDPOINTS]
+              limit=_key["limit"],
+              weight=DEFAULT_WEIGHT,
+              time_interval=_key["time"],
+              linked_limits=[LinkedLimitWeightPair(_key["weight"], 1)]) for endpoint in _key["list"]]
 
+_key = {
+    "limit": MAX_PUBLIC_REST_REQUESTS_S,
+    "weight": PUBLIC_REST_REQUESTS,
+    "list": PUBLIC_REST_ENDPOINTS,
+    "time": ONE_SECOND,
+}
 PUBLIC_REST_RATE_LIMITS = [
     RateLimit(limit_id=endpoint,
-              limit=MAX_PUBLIC_REST_REQUESTS_S,
-              time_interval=ONE_SECOND,
-              linked_limits=[LinkedLimitWeightPair(PRIVATE_REST_REQUESTS, 1)]) for endpoint in PUBLIC_REST_ENDPOINTS]
+              limit=_key["limit"],
+              weight=DEFAULT_WEIGHT,
+              time_interval=_key["time"],
+              linked_limits=[LinkedLimitWeightPair(_key["weight"], 1)]) for endpoint in _key["list"]]
 
+_key = {
+    "limit": MAX_SIGNIN_REQUESTS_H,
+    "weight": SIGNIN_REQUESTS,
+    "list": SIGNIN_ENDPOINTS,
+    "time": ONE_HOUR,
+}
 SIGNIN_RATE_LIMITS = [
     RateLimit(limit_id=endpoint,
-              limit=MAX_SIGNIN_REQUESTS_H,
-              time_interval=ONE_HOUR,
-              linked_limits=[LinkedLimitWeightPair(SIGNIN_REQUESTS, 1)]) for endpoint in SIGNIN_ENDPOINTS]
+              limit=_key["limit"],
+              weight=DEFAULT_WEIGHT,
+              time_interval=_key["time"],
+              linked_limits=[LinkedLimitWeightPair(_key["weight"], 1)]) for endpoint in _key["list"]]
 
 RATE_LIMITS = [
     RateLimit(limit_id=PRIVATE_REST_REQUESTS, limit=MAX_PRIVATE_REST_REQUESTS_S, time_interval=ONE_SECOND),
@@ -169,3 +200,17 @@ RATE_LIMITS = [
 RATE_LIMITS.extend(PRIVATE_REST_RATE_LIMITS)
 RATE_LIMITS.extend(PUBLIC_REST_RATE_LIMITS)
 RATE_LIMITS.extend(SIGNIN_RATE_LIMITS)
+
+
+def get_products_endpoint(use_auth_for_public_endpoints: bool) -> str:
+    if use_auth_for_public_endpoints:
+        return PRIVATE_PRODUCTS_EP
+    else:
+        return ALL_PAIRS_EP
+
+
+def get_ticker_endpoint(use_auth_for_public_endpoints: bool) -> Tuple[str, str]:
+    if use_auth_for_public_endpoints:
+        return (PRIVATE_PAIR_TICKER_24HR_EP, PRIVATE_PAIR_TICKER_24HR_RATE_LIMIT_ID)
+    else:
+        return (PAIR_TICKER_24HR_EP, PAIR_TICKER_24HR_RATE_LIMIT_ID)

@@ -63,7 +63,7 @@ class DeriveAuthTests(TestCase):
         request = RESTRequest(
             method=RESTMethod.POST, url="/test", data=json.dumps({"key": "value"}), headers={}
         )
-        authenticated_request = await (self.auth.rest_authenticate(request))
+        authenticated_request = await self.auth.rest_authenticate(request)
 
         self.assertIn("header", authenticated_request.headers)
         self.assertEqual(authenticated_request.headers["header"], "value")

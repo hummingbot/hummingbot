@@ -3,10 +3,7 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from hummingbot.connector.gateway.gateway_base import GatewayBase
-from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeFeeBase, TradeUpdate
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.gateway import check_transaction_exceptions
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -168,8 +165,7 @@ class GatewaySwap(GatewayBase):
             order_id: str,
             trading_pair: str,
             amount: Decimal,
-            price: Decimal,
-            **request_args
+            price: Decimal
     ):
         """
         Calls buy or sell API end point to place an order, starts tracking the order and triggers relevant order events.
@@ -197,64 +193,13 @@ class GatewaySwap(GatewayBase):
                 base,
                 quote,
                 trade_type,
-                amount,
-                # limit_price=price,
-                **request_args
+                amount
             )
             transaction_hash: Optional[str] = order_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
-
-                order_update: OrderUpdate = OrderUpdate(
-                    client_order_id=order_id,
-                    exchange_order_id=transaction_hash,
-                    trading_pair=trading_pair,
-                    update_timestamp=self.current_timestamp,
-                    new_state=OrderState.OPEN,  # Assume that the transaction has been successfully mined.
-                    misc_updates={
-                        "nonce": order_result.get("nonce", 0),  # Default to 0 if nonce is not present
-                        "gas_price": Decimal(order_result.get("gasPrice", 0)),
-                        "gas_limit": int(order_result.get("gasLimit", 0)),
-                        "gas_cost": Decimal(order_result.get("fee", 0)),
-                        "gas_price_token": self._native_currency,
-                        "fee_asset": self._native_currency
-                    }
-                )
-                self._order_tracker.process_order_update(order_update)
-            else:
-                raise ValueError
+                self.update_order_from_hash(order_id, trading_pair, transaction_hash, order_result)
 
         except asyncio.CancelledError:
             raise
-        except Exception:
-            self.logger().error(
-                f"Error submitting {trade_type.name} swap order to {self.connector_name} on {self.network} for "
-                f"{amount} {trading_pair} "
-                f"{price}.",
-                exc_info=True
-            )
-            order_update: OrderUpdate = OrderUpdate(
-                client_order_id=order_id,
-                trading_pair=trading_pair,
-                update_timestamp=self.current_timestamp,
-                new_state=OrderState.FAILED
-            )
-            self._order_tracker.process_order_update(order_update)
-
-    def process_trade_fill_update(self, tracked_order: GatewayInFlightOrder, fee: Decimal):
-        trade_fee: TradeFeeBase = AddedToCostTradeFee(
-            flat_fees=[TokenAmount(tracked_order.fee_asset, fee)]
-        )
-
-        trade_update: TradeUpdate = TradeUpdate(
-            trade_id=tracked_order.exchange_order_id,
-            client_order_id=tracked_order.client_order_id,
-            exchange_order_id=tracked_order.exchange_order_id,
-            trading_pair=tracked_order.trading_pair,
-            fill_timestamp=self.current_timestamp,
-            fill_price=tracked_order.price,
-            fill_base_amount=tracked_order.amount,
-            fill_quote_amount=tracked_order.amount * tracked_order.price,
-            fee=trade_fee
-        )
-
-        self._order_tracker.process_trade_update(trade_update)
+        except Exception as e:
+            self._handle_operation_failure(order_id, trading_pair, f"submitting {trade_type.name} swap order", e)

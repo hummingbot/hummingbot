@@ -52,7 +52,7 @@ class ExecutorInfo(BaseModel):
         return self.config.connector_name
 
     def to_dict(self):
-        base_dict = self.dict()
+        base_dict = self.model_dump()
         base_dict["side"] = self.side
         return base_dict
 
