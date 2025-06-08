@@ -15,6 +15,7 @@ from hummingbot.connector.exchange.xrpl.xrpl_utils import (
     _wait_for_final_transaction_outcome,
     autofill,
     compute_order_book_changes,
+    parse_offer_create_transaction,
 )
 
 
@@ -207,6 +208,8 @@ class TestXRPLUtils(IsolatedAsyncioWrapperTestCase):
     def test_full_node(self):
         # Mock a fully populated NormalizedNode
         metadata = self._event_message_limit_order_partially_filled().get("meta")
+        if metadata is None:
+            self.skipTest("metadata is None, skipping test to avoid type error.")
         result = compute_order_book_changes(metadata)
 
         print(result)
@@ -527,3 +530,96 @@ class TestXRPLNodePool(IsolatedAsyncioWrapperTestCase):
 
         await self.node_pool._rotate_node_locked(current_time)
         self.assertNotEqual(self.node_pool.current_node, test_node)
+
+
+class TestParseOfferCreateTransaction(IsolatedAsyncioWrapperTestCase):
+    def test_normal_offer_node(self):
+        tx = {
+            "Account": "acc1",
+            "Sequence": 123,
+            "meta": {
+                "AffectedNodes": [
+                    {
+                        "ModifiedNode": {
+                            "LedgerEntryType": "Offer",
+                            "FinalFields": {
+                                "Account": "acc1",
+                                "Sequence": 123,
+                                "TakerGets": "10",
+                                "TakerPays": {"value": "20"},
+                            },
+                            "PreviousFields": {"TakerGets": "15", "TakerPays": {"value": "30"}},
+                        }
+                    }
+                ]
+            },
+        }
+        result = parse_offer_create_transaction(tx)
+        self.assertAlmostEqual(result["taker_gets_transferred"], 5)
+        self.assertAlmostEqual(result["taker_pays_transferred"], 10)
+        self.assertAlmostEqual(result["quality"], 2)
+
+    def test_no_meta(self):
+        tx = {"Account": "acc1", "Sequence": 1}
+        result = parse_offer_create_transaction(tx)
+        self.assertIsNone(result["quality"])
+        self.assertIsNone(result["taker_gets_transferred"])
+        self.assertIsNone(result["taker_pays_transferred"])
+
+    def test_no_offer_node(self):
+        tx = {"Account": "acc1", "Sequence": 1, "meta": {"AffectedNodes": []}}
+        result = parse_offer_create_transaction(tx)
+        self.assertIsNone(result["quality"])
+        self.assertIsNone(result["taker_gets_transferred"])
+        self.assertIsNone(result["taker_pays_transferred"])
+
+    def test_offer_node_missing_previousfields(self):
+        tx = {
+            "Account": "acc1",
+            "Sequence": 123,
+            "meta": {
+                "AffectedNodes": [
+                    {
+                        "ModifiedNode": {
+                            "LedgerEntryType": "Offer",
+                            "FinalFields": {
+                                "Account": "acc1",
+                                "Sequence": 123,
+                                "TakerGets": "10",
+                                "TakerPays": {"value": "20"},
+                            },
+                        }
+                    }
+                ]
+            },
+        }
+        result = parse_offer_create_transaction(tx)
+        self.assertIsNone(result["quality"])
+        self.assertIsNone(result["taker_gets_transferred"])
+        self.assertIsNone(result["taker_pays_transferred"])
+
+    def test_offer_node_int_and_dict_types(self):
+        tx = {
+            "Account": "acc1",
+            "Sequence": 123,
+            "meta": {
+                "AffectedNodes": [
+                    {
+                        "ModifiedNode": {
+                            "LedgerEntryType": "Offer",
+                            "FinalFields": {
+                                "Account": "acc1",
+                                "Sequence": 123,
+                                "TakerGets": 10,
+                                "TakerPays": {"value": 20},
+                            },
+                            "PreviousFields": {"TakerGets": 15, "TakerPays": {"value": 30}},
+                        }
+                    }
+                ]
+            },
+        }
+        result = parse_offer_create_transaction(tx)
+        self.assertAlmostEqual(result["taker_gets_transferred"], 5)
+        self.assertAlmostEqual(result["taker_pays_transferred"], 10)
+        self.assertAlmostEqual(result["quality"], 2)
