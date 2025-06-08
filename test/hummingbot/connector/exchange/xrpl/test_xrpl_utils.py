@@ -458,7 +458,8 @@ class TestXRPLNodePool(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(self.node_pool.burst_tokens, 5)  # Should cap at max_burst_tokens
 
     @patch("hummingbot.connector.exchange.xrpl.xrpl_utils.AsyncWebsocketClient")
-    async def test_rotate_node(self, mock_client_class):
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_utils.XRPLNodePool._get_latency_safe")
+    async def test_rotate_node_with_cooldown(self, mock_get_latency, mock_client_class):
         # Setup mock client
         mock_client = AsyncMock()
         mock_client_class.return_value = mock_client
@@ -467,14 +468,62 @@ class TestXRPLNodePool(IsolatedAsyncioWrapperTestCase):
             result={"info": {"build_version": "1.11.1"}},
         )
 
-        # Test rotating node
-        initial_node = self.node_pool.current_node
-        await self.node_pool._rotate_node_locked(time.time())
-        self.assertNotEqual(self.node_pool.current_node, initial_node)
-        self.assertIn(self.node_pool.current_node, self.node_urls)
+        # Setup mock latency for all nodes
+        def mock_latency(node):
+            # Return good latency for all nodes
+            return 0.1
 
-        # Test rotating when all nodes are bad
-        for node in self.node_urls:
-            self.node_pool.mark_bad_node(node)
-        await self.node_pool._rotate_node_locked(time.time())
-        self.assertIn(self.node_pool.current_node, self.node_urls)  # Should still get a node as fallback
+        mock_get_latency.side_effect = mock_latency
+
+        # Mark first node as bad with future cooldown
+        test_node = self.node_urls[0]
+        current_time = time.time()
+        future_time = current_time + 100  # 100 seconds in future
+        self.node_pool._bad_nodes[test_node] = future_time
+
+        # Make sure test node is first in rotation
+        while self.node_pool._nodes[0] != test_node:
+            self.node_pool._nodes.rotate(-1)
+
+        # Try to rotate - should skip the node in cooldown
+        await self.node_pool._rotate_node_locked(current_time)
+
+        # Verify the node in cooldown was skipped
+        self.assertNotEqual(self.node_pool.current_node, test_node)
+        self.assertIn(test_node, self.node_pool._bad_nodes)
+
+        # Verify the next node was checked and selected
+        next_node = self.node_urls[1]  # Should be the next node after test_node
+        self.assertEqual(self.node_pool.current_node, next_node)
+        mock_get_latency.assert_called_with(next_node)
+
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_utils.AsyncWebsocketClient")
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_utils.XRPLNodePool._get_latency_safe")
+    async def test_rotate_node_cooldown_expiry(self, mock_get_latency, mock_client_class):
+        # Setup mock client
+        mock_client = AsyncMock()
+        mock_client_class.return_value = mock_client
+        mock_client._request_impl.return_value = Response(
+            status=ResponseStatus.SUCCESS,
+            result={"info": {"build_version": "1.11.1"}},
+        )
+
+        # Setup mock latency for all nodes
+        def mock_latency(node):
+            # Return good latency for all nodes
+            return 0.1
+
+        mock_get_latency.side_effect = mock_latency
+
+        # Mark first node as bad with past cooldown
+        test_node = self.node_urls[0]
+        current_time = time.time()
+        past_time = current_time - 100  # 100 seconds in past
+        self.node_pool._bad_nodes[test_node] = past_time
+
+        # Make sure test node is first in rotation
+        while self.node_pool._nodes[0] != test_node:
+            self.node_pool._nodes.rotate(-1)
+
+        await self.node_pool._rotate_node_locked(current_time)
+        self.assertNotEqual(self.node_pool.current_node, test_node)

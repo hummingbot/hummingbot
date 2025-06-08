@@ -520,3 +520,19 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         # Verify that no message was added to the queue
         self.assertTrue(self.data_source._message_queue[CONSTANTS.TRADE_EVENT_TYPE].empty())
+
+    async def test_on_message_exception(self):
+        # Setup mock client that raises an exception
+        self.mock_client.__aiter__.side_effect = Exception("Test exception")
+
+        # Mock the message queue
+        self.data_source._message_queue = {CONSTANTS.TRADE_EVENT_TYPE: asyncio.Queue()}
+
+        # Run the test
+        with self.assertRaises(Exception) as context:
+            await self.data_source.on_message(
+                self.mock_client,
+                self.trading_pair,
+                {"currency": "SOLO", "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz"},  # noqa: mock
+            )
+        self.assertEqual(str(context.exception), "Test exception")
