@@ -1,8 +1,8 @@
 import asyncio
 import time
 from decimal import Decimal
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from typing import Awaitable
-from unittest import TestCase
 from unittest.mock import MagicMock, PropertyMock, patch
 
 import numpy as np
@@ -36,7 +36,7 @@ from hummingbot.strategy_v2.models.executors import CloseType
 from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
 
 
-class MarketsRecorderTests(TestCase):
+class MarketsRecorderTests(IsolatedAsyncioWrapperTestCase):
     @staticmethod
     def create_mock_strategy():
         market = MagicMock()
