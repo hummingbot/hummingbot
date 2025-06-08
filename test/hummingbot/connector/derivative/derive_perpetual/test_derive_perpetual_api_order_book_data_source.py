@@ -21,7 +21,7 @@ from hummingbot.connector.test_support.network_mocking_assistant import NetworkM
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_message import OrderBookMessage
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
 
 class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
@@ -34,6 +34,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         cls.base_asset = "BTC"
         cls.quote_asset = "USDC"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
+        cls._snapshot_messages = {}
         cls.ex_trading_pair = f"{cls.base_asset}-PERP"
 
     def setUp(self) -> None:
@@ -95,6 +96,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
     async def test_get_new_order_book_successful(self, mock_api, mock_time):
         mock_time.return_value = 1737885894
         order_book: OrderBook = await self.data_source.get_new_order_book(self.trading_pair)
+        self.data_source._snapshot_messages[self.trading_pair] = {}
 
         expected_update_id = 1737885894
 
@@ -282,6 +284,56 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.assertTrue(
             self._is_logged("ERROR", "Unexpected error occurred subscribing to order book data streams.")
         )
+
+    async def test_channel_originating_message_returns_correct(self):
+        event_type = self.get_ws_snapshot_msg()
+        event_message = self.data_source._channel_originating_message(event_type)
+        self.assertEqual(self.data_source._snapshot_messages_queue_key, event_message)
+
+        event_type = self._trade_update_event()
+        event_message = self.data_source._channel_originating_message(event_type)
+        self.assertEqual(self.data_source._trade_messages_queue_key, event_message)
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_listen_for_subscriptions_successful(self, mock_ws):
+        msg_queue_snapshots: asyncio.Queue = asyncio.Queue()
+        msg_queue_trades: asyncio.Queue = asyncio.Queue()
+        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
+        mock_ws.close.return_value = None
+
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            mock_ws.return_value, json.dumps(self.get_ws_snapshot_msg())
+        )
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            mock_ws.return_value, json.dumps(self._trade_update_event())
+        )
+
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_subscriptions())
+        self.listening_task_diffs = self.local_event_loop.create_task(
+            self.data_source.listen_for_order_book_snapshots(self.local_event_loop, msg_queue_snapshots)
+        )
+        self.listening_task_trades = self.local_event_loop.create_task(
+            self.data_source.listen_for_trades(self.local_event_loop, msg_queue_trades)
+        )
+
+        result: OrderBookMessage = await msg_queue_snapshots.get()
+        self.assertIsInstance(result, OrderBookMessage)
+        self.data_source._snapshot_messages[self.trading_pair] = result
+
+        self.assertEqual(OrderBookMessageType.SNAPSHOT, result.type)
+        self.assertTrue(result.has_update_id)
+        self.assertEqual(self.trading_pair, result.content["trading_pair"])
+        self.assertEqual(0, len(result.content["bids"]))
+        self.assertEqual(0, len(result.content["asks"]))
+
+        result: OrderBookMessage = await msg_queue_trades.get()
+        self.assertIsInstance(result, OrderBookMessage)
+        self.assertEqual(OrderBookMessageType.TRADE, result.type)
+        self.assertTrue(result.has_trade_id)
+        self.assertEqual(result.trade_id, "5f249af2-2a84-47b2-946e-2552f886f0a8")
+        self.assertEqual(self.trading_pair, result.content["trading_pair"])
+
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
     async def test_listen_for_trades_cancelled_when_listening(self):
         mock_queue = MagicMock()

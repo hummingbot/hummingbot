@@ -1,7 +1,9 @@
 import asyncio
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
+
+from xrpl.models import XRP, IssuedCurrency
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -33,9 +35,8 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.connector = XrplExchange(
             client_config_map=client_config_map,
             xrpl_secret_key="",
-            wss_node_url="wss://sample.com",
-            wss_second_node_url="wss://sample.com",
-            wss_third_node_url="wss://sample.com",
+            wss_node_urls=["wss://sample.com"],
+            max_request_per_minute=100,
             trading_pairs=[self.trading_pair],
             trading_required=False,
         )
@@ -45,16 +46,18 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             api_factory=self.connector._web_assistants_factory,
         )
 
-        self.data_source._sleep = MagicMock()
+        self.data_source._sleep = AsyncMock()
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
         self._original_full_order_book_reset_time = self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS
-        self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = -1
+        # self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = -1
         self.resume_test_event = asyncio.Event()
 
-        exchange_market_info = CONSTANTS.MARKETS
-        self.connector._initialize_trading_pair_symbols_from_exchange_info(exchange_market_info)
+        # exchange_market_info = CONSTANTS.MARKETS
+        # self.connector._initialize_trading_pair_symbols_from_exchange_info(exchange_market_info)
+
+        self.connector._lock_delay_seconds = 0
 
         trading_rule = TradingRule(
             trading_pair=self.trading_pair,
@@ -66,12 +69,14 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         )
 
         self.connector._trading_rules[self.trading_pair] = trading_rule
-        self.data_source._xrpl_client = AsyncMock()
-        self.data_source._xrpl_client.__aenter__.return_value = self.data_source._xrpl_client
-        self.data_source._xrpl_client.__aexit__.return_value = None
+        self.mock_client = AsyncMock()
+        self.mock_client.__aenter__.return_value = self.mock_client
+        self.mock_client.__aexit__.return_value = None
+        self.mock_client.is_open = Mock(return_value=True)
+        self.data_source._get_client = AsyncMock(return_value=self.mock_client)
 
     def tearDown(self) -> None:
-        self.listening_task and self.listening_task.cancel()
+        # self.listening_task and self.listening_task.cancel()
         self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = self._original_full_order_book_reset_time
         super().tearDown()
 
@@ -112,8 +117,8 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
                     "PreviousTxnLgrSeq": 88935730,
                     "Sequence": 86514258,
                     "TakerGets": {
-                        "currency": "534F4C4F00000000000000000000000000000000",
-                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
+                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
                         "value": "91.846106",
                     },
                     "TakerPays": "20621931",
@@ -122,7 +127,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
                     "quality": "224527.003899327",
                 },
                 {
-                    "Account": "rhqTdSsJAaEReRsR27YzddqyGoWTNMhEvC",
+                    "Account": "rhqTdSsJAaEReRsR27YzddqyGoWTNMhEvC",  # noqa: mock
                     "BookDirectory": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07FA8ECFD95726",  # noqa: mock
                     "BookNode": "0",
                     "Flags": 0,
@@ -132,8 +137,8 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
                     "PreviousTxnLgrSeq": 88935726,
                     "Sequence": 71762354,
                     "TakerGets": {
-                        "currency": "534F4C4F00000000000000000000000000000000",
-                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
+                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
                         "value": "44.527243023",
                     },
                     "TakerPays": "10000000",
@@ -155,8 +160,8 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
                     "Sequence": 74073461,
                     "TakerGets": "187000000",
                     "TakerPays": {
-                        "currency": "534F4C4F00000000000000000000000000000000",
-                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
+                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
                         "value": "836.5292665312212",
                     },
                     "index": "3F41585F327EA3690AD19F2A302C5DF2904E01D39C9499B303DB7FA85868B69F",  # noqa: mock
@@ -232,12 +237,11 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         mock_book_offers.return_value.status = "success"
         mock_book_offers.return_value.result = {"offers": []}
 
-        self.data_source._xrpl_client.is_open = Mock(return_value=True)
-        self.data_source._xrpl_client.request.return_value = mock_book_offers.return_value
+        self.mock_client.request.return_value = mock_book_offers.return_value
 
         await self.data_source._request_order_book_snapshot("SOLO-XRP")
 
-        assert self.data_source._xrpl_client.request.call_count == 2
+        assert self.mock_client.request.call_count == 2
 
         order_book: OrderBook = await self.data_source.get_new_order_book(self.trading_pair)
 
@@ -251,8 +255,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         mock_book_offers.return_value.status = "error"
         mock_book_offers.return_value.result = {"offers": []}
 
-        self.data_source._xrpl_client.is_open = Mock(return_value=True)
-        self.data_source._xrpl_client.request.return_value = mock_book_offers.return_value
+        self.mock_client.request.return_value = mock_book_offers.return_value
 
         with self.assertRaises(Exception) as context:
             await self.data_source._request_order_book_snapshot("SOLO-XRP")
@@ -260,106 +263,276 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.assertTrue("Error fetching order book snapshot" in str(context.exception))
 
     async def test_fetch_order_book_side_exception(self):
-        self.data_source._xrpl_client.request.side_effect = TimeoutError
+        self.mock_client.request.side_effect = TimeoutError
         self.data_source._sleep = AsyncMock()
 
         with self.assertRaises(TimeoutError):
-            await self.data_source.fetch_order_book_side(self.data_source._xrpl_client, 12345, {}, {}, 50)
+            await self.data_source.fetch_order_book_side(self.mock_client, 12345, {}, {}, 50)
 
-    @patch("hummingbot.connector.exchange.xrpl.xrpl_api_order_book_data_source.XRPLAPIOrderBookDataSource._get_client")
-    async def test_process_websocket_messages_for_pair(self, mock_get_client):
-        mock_client = AsyncMock()
-        mock_client.__aenter__.return_value = mock_client
-        mock_client.__aexit__ = AsyncMock()
-        mock_client.send.return_value = None
-        mock_client.__aiter__.return_value = iter(
-            [
-                {
-                    "transaction": {
-                        "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",
-                        "Fee": "10",
-                        "Flags": 786432,
-                        "LastLedgerSequence": 88954510,
-                        "Memos": [
-                            {
-                                "Memo": {
-                                    "MemoData": "68626F742D313731393430303738313137303331392D42534F585036316263393330633963366139393139386462343432343461383637313231373562313663"  # noqa: mock
-                                }
-                            }
-                        ],
-                        "Sequence": 84437780,
-                        "SigningPubKey": "ED23BA20D57103E05BA762F0A04FE50878C11BD36B7BF9ADACC3EDBD9E6D320923",  # noqa: mock
-                        "TakerGets": "502953",
-                        "TakerPays": {
-                            "currency": "534F4C4F00000000000000000000000000000000",
-                            "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
+    async def test_process_websocket_messages_for_pair_success(self):
+        # Setup mock client
+        self.mock_client.is_open = Mock(side_effect=[True, False])  # Return True first, then False to exit the loop
+        self.mock_client.send = AsyncMock()
+
+        # Setup mock message iterator
+        mock_message = {
+            "transaction": {
+                "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                "Fee": "10",
+                "Flags": 786432,
+                "LastLedgerSequence": 88954510,
+                "Sequence": 84437780,
+                "TakerGets": "502953",
+                "TakerPays": {
+                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                    "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                    "value": "2.239836701211152",
+                },
+                "TransactionType": "OfferCreate",
+                "date": 772640450,
+            },
+            "meta": {
+                "AffectedNodes": [
+                    {
+                        "ModifiedNode": {
+                            "FinalFields": {
+                                "Account": "rhqTdSsJAaEReRsR27YzddqyGoWTNMhEvC",  # noqa: mock
+                                "BookDirectory": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07F01A195F8476",  # noqa: mock
+                                "BookNode": "0",
+                                "Flags": 0,
+                                "OwnerNode": "2",
+                                "Sequence": 71762948,
+                                "TakerGets": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                                    "value": "42.50531785780174",
+                                },
+                                "TakerPays": "9497047",
+                            },
+                            "LedgerEntryType": "Offer",
+                            "PreviousFields": {
+                                "TakerGets": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                                    "value": "44.756352009",
+                                },
+                                "TakerPays": "10000000",
+                            },
+                            "LedgerIndex": "186D33545697D90A5F18C1541F2228A629435FC540D473574B3B75FEA7B4B88B",  # noqa: mock
+                        }
+                    }
+                ],
+                "TransactionIndex": 0,
+                "TransactionResult": "tesSUCCESS",
+                "delivered_amount": {
+                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                    "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mocks
+                    "value": "2.239836701211152",
+                },
+                "offer_changes": [
+                    {
+                        "status": "filled",
+                        "taker_gets": {
+                            "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                            "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
                             "value": "2.239836701211152",
                         },
-                        "TransactionType": "OfferCreate",
-                        "TxnSignature": "2E87E743DE37738DCF1EE6C28F299C4FF18BDCB064A07E9068F1E920F8ACA6C62766177E82917ED0995635E636E3BB8B4E2F4DDCB198B0B9185041BEB466FD03 #",  # noqa: mock
-                        "hash": "undefined",
-                        "ctid": "C54D567C00030000",
-                        "meta": "undefined",
-                        "validated": "undefined",
-                        "date": 772640450,
-                        "ledger_index": "undefined",
-                        "inLedger": "undefined",
-                        "metaData": "undefined",
-                        "status": "undefined",
+                        "maker_exchange_rate": "0.22452700389932698",
+                        "ledger_index": "186D33545697D90A5F18C1541F2228A629435FC540D473574B3B75FEA7B4B88B",  # noqa: mock
+                    }
+                ],
+            },
+        }
+        self.mock_client.__aiter__.return_value = [mock_message]
+
+        # Mock the connector's get_currencies_from_trading_pair method
+        self.connector.get_currencies_from_trading_pair = Mock(
+            return_value=(
+                IssuedCurrency(
+                    currency="534F4C4F00000000000000000000000000000000",  # noqa: mock
+                    issuer="rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                ),
+                XRP,
+            )
+        )
+        self.connector.auth.get_account = Mock(return_value="r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK")  # noqa: mock
+
+        task = asyncio.create_task(self.data_source._process_websocket_messages_for_pair(self.trading_pair))
+        await asyncio.wait_for(asyncio.sleep(0.1), timeout=1)
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+        # Verify the results
+        self.mock_client.send.assert_called()
+        self.assertTrue(self.mock_client.__aenter__.called)
+        self.assertTrue(self.mock_client.__aexit__.called)
+
+    async def test_process_websocket_messages_for_pair_connection_error(self):
+        # Setup mock client that raises ConnectionError
+        mock_client = AsyncMock()
+        mock_client.__aenter__.side_effect = ConnectionError("Connection failed")
+
+        # Mock the connector's get_currencies_from_trading_pair method
+        self.connector.get_currencies_from_trading_pair = Mock(
+            return_value=(
+                IssuedCurrency(
+                    currency="534F4C4F00000000000000000000000000000000",  # noqa: mock
+                    issuer="rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                ),
+                XRP,
+            )
+        )
+        self.connector.auth.get_account = Mock(return_value="r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK")  # noqa: mock
+
+        task = asyncio.create_task(self.data_source._process_websocket_messages_for_pair(self.trading_pair))
+        await asyncio.wait_for(asyncio.sleep(0.1), timeout=1)
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+        # Verify the results
+        self.assertTrue(self.mock_client.__aenter__.called)
+        self.assertTrue(self.mock_client.__aexit__.called)
+
+    async def test_on_message_process_trade(self):
+        # Setup mock client with async iterator
+        mock_client = AsyncMock()
+        mock_client.__aiter__.return_value = [
+            {
+                "transaction": {
+                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                    "Fee": "10",
+                    "Flags": 786432,
+                    "LastLedgerSequence": 88954510,
+                    "Sequence": 84437780,
+                    "TakerGets": "502953",
+                    "TakerPays": {
+                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                        "value": "2.239836701211152",
                     },
-                    "meta": {
-                        "AffectedNodes": [
-                            {
-                                "ModifiedNode": {
-                                    "FinalFields": {
-                                        "Account": "rhqTdSsJAaEReRsR27YzddqyGoWTNMhEvC",
-                                        "BookDirectory": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07F01A195F8476",  # noqa: mock
-                                        "BookNode": "0",
-                                        "Flags": 0,
-                                        "OwnerNode": "2",
-                                        "Sequence": 71762948,
-                                        "TakerGets": {
-                                            "currency": "534F4C4F00000000000000000000000000000000",
-                                            "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
-                                            "value": "42.50531785780174",
-                                        },
-                                        "TakerPays": "9497047",
+                    "TransactionType": "OfferCreate",
+                    "date": 772640450,
+                },
+                "meta": {
+                    "AffectedNodes": [
+                        {
+                            "ModifiedNode": {
+                                "FinalFields": {
+                                    "Account": "rhqTdSsJAaEReRsR27YzddqyGoWTNMhEvC",  # noqa: mock
+                                    "BookDirectory": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07F01A195F8476",  # noqa: mock
+                                    "BookNode": "0",
+                                    "Flags": 0,
+                                    "OwnerNode": "2",
+                                    "Sequence": 71762948,
+                                    "TakerGets": {
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                                        "value": "42.50531785780174",
                                     },
-                                    "LedgerEntryType": "Offer",
-                                    "LedgerIndex": "3ABFC9B192B73ECE8FB6E2C46E49B57D4FBC4DE8806B79D913C877C44E73549E",  # noqa: mock
-                                    "PreviousFields": {
-                                        "TakerGets": {
-                                            "currency": "534F4C4F00000000000000000000000000000000",
-                                            "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
-                                            "value": "44.756352009",
-                                        },
-                                        "TakerPays": "10000000",
+                                    "TakerPays": "9497047",
+                                },
+                                "LedgerEntryType": "Offer",
+                                "PreviousFields": {
+                                    "TakerGets": {
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                                        "value": "44.756352009",
                                     },
-                                    "PreviousTxnID": "7398CE2FDA7FF61B52C1039A219D797E526ACCCFEC4C44A9D920ED28B551B539",  # noqa: mock
-                                    "PreviousTxnLgrSeq": 88954480,
-                                }
+                                    "TakerPays": "10000000",
+                                },
+                                "LedgerIndex": "186D33545697D90A5F18C1541F2228A629435FC540D473574B3B75FEA7B4B88B",  # noqa: mock
                             }
-                        ]
+                        }
+                    ],
+                    "TransactionIndex": 0,
+                    "TransactionResult": "tesSUCCESS",
+                    "delivered_amount": {
+                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                        "value": "2.239836701211152",
                     },
-                }
-            ]
+                    "offer_changes": [
+                        {
+                            "status": "filled",
+                            "taker_gets": {
+                                "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                                "value": "2.239836701211152",
+                            },
+                            "maker_exchange_rate": "0.22452700389932698",
+                            "ledger_index": "186D33545697D90A5F18C1541F2228A629435FC540D473574B3B75FEA7B4B88B",  # noqa: mock
+                        }
+                    ],
+                },
+            }
+        ]
+
+        # Mock the message queue
+        self.data_source._message_queue = {CONSTANTS.TRADE_EVENT_TYPE: asyncio.Queue()}
+
+        # Create proper IssuedCurrency object for base currency
+        base_currency = IssuedCurrency(
+            currency="534F4C4F00000000000000000000000000000000",  # hex encoded "SOLO"
+            issuer="rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
         )
 
-        mock_get_client.return_value = mock_client
+        # Run the test
+        await self.data_source.on_message(mock_client, self.trading_pair, base_currency)
 
-        await self.data_source._process_websocket_messages_for_pair("SOLO-XRP")
+        # Verify that a trade message was added to the queue
+        self.assertFalse(self.data_source._message_queue[CONSTANTS.TRADE_EVENT_TYPE].empty())
+        trade_message = await self.data_source._message_queue[CONSTANTS.TRADE_EVENT_TYPE].get()
+        self.assertEqual(trade_message["trading_pair"], self.trading_pair)
+        self.assertIn("trade", trade_message)
 
-        mock_get_client.assert_called_once_with()
-        mock_client.send.assert_called_once()
+        trade_data = trade_message["trade"]
+        self.assertIn("trade_type", trade_data)
+        self.assertIn("trade_id", trade_data)
+        self.assertIn("update_id", trade_data)
+        self.assertIn("price", trade_data)
+        self.assertIn("amount", trade_data)
+        self.assertIn("timestamp", trade_data)
 
-    @patch("hummingbot.connector.exchange.xrpl.xrpl_api_order_book_data_source.XRPLAPIOrderBookDataSource._get_client")
-    async def test_process_websocket_messages_for_pair_exception(self, mock_get_client):
+        # Verify trade values
+        self.assertEqual(trade_data["trade_type"], float(TradeType.BUY.value))
+        self.assertEqual(trade_data["price"], Decimal("0.223431972248075594311700342586846090853214263916015625"))
+        self.assertEqual(trade_data["amount"], Decimal("2.25103415119826"))
+
+    async def test_on_message_invalid_message(self):
+        # Setup mock client
         mock_client = AsyncMock()
-        mock_client.__aenter__.return_value = mock_client
-        mock_client.__aexit__ = None
-        mock_client.send.side_effect = Exception("Error")
 
-        mock_get_client.return_value = mock_client
+        # Mock the message queue
+        self.data_source._message_queue = {CONSTANTS.TRADE_EVENT_TYPE: asyncio.Queue()}
 
-        with self.assertRaises(Exception):
-            await self.data_source._process_websocket_messages_for_pair("SOLO-XRP")
+        # Run the test
+        await self.data_source.on_message(
+            mock_client,
+            self.trading_pair,
+            {"currency": "SOLO", "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz"},  # noqa: mock
+        )
+
+        # Verify that no message was added to the queue
+        self.assertTrue(self.data_source._message_queue[CONSTANTS.TRADE_EVENT_TYPE].empty())
+
+    async def test_on_message_exception(self):
+        # Setup mock client that raises an exception
+        self.mock_client.__aiter__.side_effect = Exception("Test exception")
+
+        # Mock the message queue
+        self.data_source._message_queue = {CONSTANTS.TRADE_EVENT_TYPE: asyncio.Queue()}
+
+        # Run the test
+        with self.assertRaises(Exception) as context:
+            await self.data_source.on_message(
+                self.mock_client,
+                self.trading_pair,
+                {"currency": "SOLO", "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz"},  # noqa: mock
+            )
+        self.assertEqual(str(context.exception), "Test exception")
