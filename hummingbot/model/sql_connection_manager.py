@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 class SQLConnectionType(Enum):
     TRADE_FILLS = 1
+    MESSAGE_BROKER = 2
 
 
 class SQLConnectionManager(TransactionBase):
@@ -71,7 +72,7 @@ class SQLConnectionManager(TransactionBase):
         db_path = self.create_db_path(db_path, db_name)
         self.db_path = db_path
 
-        if connection_type is SQLConnectionType.TRADE_FILLS:
+        if connection_type in [SQLConnectionType.TRADE_FILLS, SQLConnectionType.MESSAGE_BROKER]:
             self._engine: Engine = create_engine(client_config_map.db_mode.get_url(self.db_path))
             self._metadata: MetaData = self.get_declarative_base().metadata
             self._metadata.create_all(self._engine)

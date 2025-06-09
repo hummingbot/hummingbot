@@ -57,6 +57,9 @@ class StopCommand:
         if self.kill_switch is not None:
             self.kill_switch.stop()
 
+        # Stop messaging interfaces if running
+        await self.stop_messengers()
+
         self.strategy_task = None
         self.strategy = None
         self.market_pair = None

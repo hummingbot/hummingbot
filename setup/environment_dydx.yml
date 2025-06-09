@@ -60,3 +60,7 @@ dependencies:
   - xrpl-py>=4.1.0
   - yaml>=0.2.5
   - zlib>=1.2.13
+  - httpx>=0.27,<1.0
+  - pip:
+      - xrpl-py>=4.1.0
+      - python-telegram-bot==22.0
