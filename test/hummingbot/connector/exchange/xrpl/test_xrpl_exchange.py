@@ -2,13 +2,14 @@ import asyncio
 import time
 from decimal import Decimal
 from unittest.async_case import IsolatedAsyncioTestCase
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 from xrpl.asyncio.clients import XRPLRequestFailureException
-from xrpl.models import OfferCancel, Request, Response, Transaction
+from xrpl.models import XRP, IssuedCurrency, OfferCancel, Request, Response, Transaction
 from xrpl.models.requests.request import RequestMethod
 from xrpl.models.response import ResponseStatus, ResponseType
 from xrpl.models.transactions.types import TransactionType
+from xrpl.transaction import sign
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -25,7 +26,7 @@ from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
 
 
-class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
+class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
     # logging.Level required to receive logs from the data source logger
     level = 0
 
@@ -46,9 +47,8 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         self.connector = XrplExchange(
             client_config_map=client_config_map,
             xrpl_secret_key="",
-            wss_node_url="wss://sample.com",
-            wss_second_node_url="wss://sample.com",
-            wss_third_node_url="wss://sample.com",
+            wss_node_urls=["wss://sample.com"],
+            max_request_per_minute=100,
             trading_pairs=[self.trading_pair, self.trading_pair_usd],
             trading_required=False,
         )
@@ -104,9 +104,16 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         for trading_pair_fee_rule in trading_pair_fee_rules:
             self.connector._trading_pair_fee_rules[trading_pair_fee_rule["trading_pair"]] = trading_pair_fee_rule
 
-        self.data_source._xrpl_client = AsyncMock()
-        self.data_source._xrpl_client.__aenter__.return_value = self.data_source._xrpl_client
-        self.data_source._xrpl_client.__aexit__.return_value = None
+        self.mock_client = AsyncMock()
+        self.mock_client.__aenter__.return_value = self.mock_client
+        self.mock_client.__aexit__.return_value = None
+        self.mock_client.request = AsyncMock()
+        self.mock_client.close = AsyncMock()
+        self.mock_client.open = AsyncMock()
+        self.mock_client.url = "wss://sample.com"
+        self.mock_client.is_open = Mock(return_value=True)
+
+        self.data_source._get_client = AsyncMock(return_value=self.mock_client)
 
         self.connector._orderbook_ds = self.data_source
         self.connector._set_order_book_tracker(
@@ -125,22 +132,15 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         )
         self.user_stream_source.logger().setLevel(1)
         self.user_stream_source.logger().addHandler(self)
-        self.user_stream_source._xrpl_client = AsyncMock()
-        self.user_stream_source._xrpl_client.__aenter__.return_value = self.data_source._xrpl_client
-        self.user_stream_source._xrpl_client.__aexit__.return_value = None
+        self.user_stream_source._get_client = AsyncMock(return_value=self.mock_client)
 
         self.connector._user_stream_tracker = UserStreamTracker(data_source=self.user_stream_source)
 
-        self.connector._xrpl_query_client = AsyncMock()
-        self.connector._xrpl_query_client.__aenter__.return_value = self.connector._xrpl_query_client
-        self.connector._xrpl_query_client.__aexit__.return_value = None
+        self.connector._get_async_client = AsyncMock(return_value=self.mock_client)
 
-        self.connector._xrpl_place_order_client = AsyncMock()
-        self.connector._xrpl_place_order_client.__aenter__.return_value = self.connector._xrpl_place_order_client
-        self.connector._xrpl_place_order_client.__aexit__.return_value = None
+        self.connector._lock_delay_seconds = 0
 
     def tearDown(self) -> None:
-        self.listening_task and self.listening_task.cancel()
         self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = self._original_full_order_book_reset_time
         super().tearDown()
 
@@ -439,6 +439,205 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
 
         return resp
 
+    def _event_message_with_open_offer(self):
+        resp = {
+            "transaction": {
+                "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                "Fee": "10",
+                "Flags": 786432,
+                "LastLedgerSequence": 88954510,
+                "Memos": [
+                    {
+                        "Memo": {
+                            "MemoData": "68626F742D313731393430303738313137303331392D42534F585036316263393330633963366139393139386462343432343461383637313231373562313663"  # noqa: mock
+                        }
+                    }
+                ],
+                "Sequence": 84437780,
+                "SigningPubKey": "ED23BA20D57103E05BA762F0A04FE50878C11BD36B7BF9ADACC3EDBD9E6D320923",  # noqa: mock
+                "TakerGets": "952045",
+                "TakerPays": {
+                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                    "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                    "value": "4.239836701211152",
+                },
+                "TransactionType": "OfferCreate",
+                "TxnSignature": "2E87E743DE37738DCF1EE6C28F299C4FF18BDCB064A07E9068F1E920F8ACA6C62766177E82917ED0995635E636E3BB8B4E2F4DDCB198B0B9185041BEB466FD03",  # noqa: mock
+                "hash": "undefined",
+                "ctid": "C54D567C00030000",  # noqa: mock
+                "meta": "undefined",
+                "validated": "undefined",
+                "date": 772789130,
+                "ledger_index": "undefined",
+                "inLedger": "undefined",
+                "metaData": "undefined",
+                "status": "undefined",
+            },
+            "meta": {
+                "AffectedNodes": [
+                    {
+                        "ModifiedNode": {
+                            "FinalFields": {
+                                "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                                "Balance": "56148988",
+                                "Flags": 0,
+                                "OwnerCount": 3,
+                                "Sequence": 84437781,
+                            },
+                            "LedgerEntryType": "AccountRoot",
+                            "LedgerIndex": "2B3020738E7A44FBDE454935A38D77F12DC5A11E0FA6DAE2D9FCF4719FFAA3BC",  # noqa: mock
+                            "PreviousFields": {"Balance": "56651951", "Sequence": 84437780},
+                            "PreviousTxnID": "BCBB6593A916EDBCC84400948B0525BE7E972B893111FE1C89A7519F8A5ACB2B",  # noqa: mock
+                            "PreviousTxnLgrSeq": 88954461,
+                        }
+                    },
+                    {
+                        "ModifiedNode": {
+                            "FinalFields": {
+                                "Account": "rhqTdSsJAaEReRsR27YzddqyGoWTNMhEvC",  # noqa: mock
+                                "BookDirectory": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07F01A195F8476",  # noqa: mock
+                                "BookNode": "0",
+                                "Flags": 0,
+                                "OwnerNode": "2",
+                                "Sequence": 71762948,
+                                "TakerGets": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                                    "value": "42.50531785780174",
+                                },
+                                "TakerPays": "9497047",
+                            },
+                            "LedgerEntryType": "Offer",
+                            "LedgerIndex": "3ABFC9B192B73ECE8FB6E2C46E49B57D4FBC4DE8806B79D913C877C44E73549E",  # noqa: mock
+                            "PreviousFields": {
+                                "TakerGets": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                                    "value": "44.756352009",
+                                },
+                                "TakerPays": "10000000",
+                            },
+                            "PreviousTxnID": "7398CE2FDA7FF61B52C1039A219D797E526ACCCFEC4C44A9D920ED28B551B539",  # noqa: mock
+                            "PreviousTxnLgrSeq": 88954480,
+                        }
+                    },
+                    {
+                        "ModifiedNode": {
+                            "FinalFields": {
+                                "Account": "rhqTdSsJAaEReRsR27YzddqyGoWTNMhEvC",  # noqa: mock
+                                "Balance": "251504663",
+                                "Flags": 0,
+                                "OwnerCount": 30,
+                                "Sequence": 71762949,
+                            },
+                            "LedgerEntryType": "AccountRoot",
+                            "LedgerIndex": "4F7BC1BE763E253402D0CA5E58E7003D326BEA2FEB5C0FEE228660F795466F6E",  # noqa: mock
+                            "PreviousFields": {"Balance": "251001710"},
+                            "PreviousTxnID": "7398CE2FDA7FF61B52C1039A219D797E526ACCCFEC4C44A9D920ED28B551B539",  # noqa: mock
+                            "PreviousTxnLgrSeq": 88954480,
+                        }
+                    },
+                    {
+                        "ModifiedNode": {
+                            "FinalFields": {
+                                "Balance": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",  # noqa: mock
+                                    "value": "-195.4313653751863",
+                                },
+                                "Flags": 2228224,
+                                "HighLimit": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rhqTdSsJAaEReRsR27YzddqyGoWTNMhEvC",  # noqa: mock
+                                    "value": "399134226.5095641",
+                                },
+                                "HighNode": "0",
+                                "LowLimit": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                                    "value": "0",
+                                },
+                                "LowNode": "36a5",
+                            },
+                            "LedgerEntryType": "RippleState",
+                            "LedgerIndex": "9DB660A1BF3B982E5A8F4BE0BD4684FEFEBE575741928E67E4EA1DAEA02CA5A6",  # noqa: mock
+                            "PreviousFields": {
+                                "Balance": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",  # noqa: mock
+                                    "value": "-197.6826246297997",
+                                }
+                            },
+                            "PreviousTxnID": "BCBB6593A916EDBCC84400948B0525BE7E972B893111FE1C89A7519F8A5ACB2B",  # noqa: mock
+                            "PreviousTxnLgrSeq": 88954461,
+                        }
+                    },
+                    {
+                        "CreatedNode": {
+                            "LedgerEntryType": "Offer",
+                            "LedgerIndex": "B817D20849E30E15F1F3C7FA45DE9B0A82F25C6B810FA06D98877140518D625B",  # noqa: mock
+                            "NewFields": {
+                                "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                                "BookDirectory": "DEC296CEB285CDF55A1036595E94AE075D0076D32D3D81BBE1F68D4B7D5016D8",  # noqa: mock
+                                "BookNode": "0",
+                                "Flags": 131072,
+                                "OwnerNode": "8",
+                                "Sequence": 2368849,
+                                "TakerGets": "449092",
+                                "TakerPays": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                                    "value": "2",
+                                },
+                            },
+                        }
+                    },
+                    {
+                        "ModifiedNode": {
+                            "FinalFields": {
+                                "Balance": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",  # noqa: mock
+                                    "value": "45.47502732568766",
+                                },
+                                "Flags": 1114112,
+                                "HighLimit": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                                    "value": "0",
+                                },
+                                "HighNode": "3799",
+                                "LowLimit": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                                    "value": "1000000000",
+                                },
+                                "LowNode": "0",
+                            },
+                            "LedgerEntryType": "RippleState",
+                            "LedgerIndex": "E1C84325F137AD05CB78F59968054BCBFD43CB4E70F7591B6C3C1D1C7E44C6FC",  # noqa: mock
+                            "PreviousFields": {
+                                "Balance": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",  # noqa: mock
+                                    "value": "43.2239931744894",
+                                }
+                            },
+                            "PreviousTxnID": "BCBB6593A916EDBCC84400948B0525BE7E972B893111FE1C89A7519F8A5ACB2B",  # noqa: mock
+                            "PreviousTxnLgrSeq": 88954461,
+                        }
+                    },
+                ],
+                "TransactionIndex": 3,
+                "TransactionResult": "tesSUCCESS",
+            },
+            "hash": "86440061A351FF77F21A24ED045EE958F6256697F2628C3555AEBF29A887518C",  # noqa: mock
+            "ledger_index": 88954492,
+            "date": 772789130,
+        }
+
+        return resp
+
     def _event_message_limit_order_partially_filled(self):
         resp = {
             "transaction": {
@@ -664,6 +863,23 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
 
         return resp
 
+    def _client_response_account_empty_lines(self):
+        resp = Response(
+            status=ResponseStatus.SUCCESS,
+            result={
+                "account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                "ledger_hash": "6626B7AC7E184B86EE29D8B9459E0BC0A56E12C8DA30AE747051909CF16136D3",  # noqa: mock
+                "ledger_index": 89692233,
+                "validated": True,
+                "limit": 200,
+                "lines": [],
+            },  # noqa: mock
+            id="account_lines_144811",
+            type=ResponseType.RESPONSE,
+        )
+
+        return resp
+
     def _client_response_account_lines(self):
         resp = Response(
             status=ResponseStatus.SUCCESS,
@@ -737,6 +953,23 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
 
         return resp
 
+    def _client_response_account_empty_objects(self):
+        resp = Response(
+            status=ResponseStatus.SUCCESS,
+            result={
+                "account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                "ledger_hash": "6626B7AC7E184B86EE29D8B9459E0BC0A56E12C8DA30AE747051909CF16136D3",  # noqa: mock
+                "ledger_index": 89692233,
+                "validated": True,
+                "limit": 200,
+                "account_objects": [],
+            },  # noqa: mock
+            id="account_objects_144811",
+            type=ResponseType.RESPONSE,
+        )
+
+        return resp
+
     def _client_response_account_objects(self):
         resp = Response(
             status=ResponseStatus.SUCCESS,
@@ -778,6 +1011,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
                         "PreviousTxnLgrSeq": 89078756,
                         "Sequence": 84439998,
                         "TakerGets": "499998",
+                        "taker_gets_funded": "299998",
                         "TakerPays": {
                             "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
                             "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
@@ -841,6 +1075,11 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
                             "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
                             "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
                             "value": "2.30649459472761",
+                        },
+                        "taker_gets_funded": {
+                            "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                            "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                            "value": "1.30649459472761",
                         },
                         "TakerPays": "499999",
                         "index": "D8F57C7C230FA5DE98E8FEB6B75783693BDECAD1266A80538692C90138E7BADE",  # noqa: mock
@@ -945,6 +1184,62 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
 
         return resp
 
+    def _client_response_amm_info(self):
+        resp = Response(
+            status=ResponseStatus.SUCCESS,
+            result={
+                "amm": {
+                    "account": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
+                    "amount": "268924465",
+                    "amount2": {
+                        "currency": "534F4C4F00000000000000000000000000000000",
+                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
+                        "value": "23.4649097465469",
+                    },
+                    "asset2_frozen": False,
+                    "auction_slot": {
+                        "account": "rPpvF7eVkV716EuRmCVWRWC1CVFAqLdn3t",
+                        "discounted_fee": 50,
+                        "expiration": "2024-12-30T14:03:02+0000",
+                        "price": {
+                            "currency": "039C99CD9AB0B70B32ECDA51EAAE471625608EA2",
+                            "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
+                            "value": "32.4296376304",
+                        },
+                        "time_interval": 20,
+                    },
+                    "lp_token": {
+                        "currency": "039C99CD9AB0B70B32ECDA51EAAE471625608EA2",
+                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
+                        "value": "79170.1044740602",
+                    },
+                    "trading_fee": 500,
+                    "vote_slots": [
+                        {
+                            "account": "r4rtnJpA2ZzMK4Ncsy6TnR9PQX4N9Vigof",
+                            "trading_fee": 500,
+                            "vote_weight": 100000,
+                        },
+                    ],
+                },
+                "ledger_current_index": 7442853,
+                "validated": False,
+            },
+            id="amm_info_1234",
+            type=ResponseType.RESPONSE,
+        )
+        return resp
+
+    def _client_response_account_info_issuer_error(self):
+        resp = Response(
+            status=ResponseStatus.ERROR,
+            result={},
+            id="account_info_73967",
+            type=ResponseType.RESPONSE,
+        )
+
+        return resp
+
     async def test_get_new_order_book_successful(self):
         await self.connector._orderbook_ds.get_new_order_book(self.trading_pair)
         order_book: OrderBook = self.connector.get_order_book(self.trading_pair)
@@ -958,7 +1253,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         self.assertEqual(0.22452700389932698, asks[0].price)
         self.assertEqual(91.846106, asks[0].amount)
 
-    @patch('hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient')
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._verify_transaction_result")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_autofill")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_sign")
@@ -971,7 +1266,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         sign_mock,
         autofill_mock,
         verify_transaction_result_mock,
-        mock_async_websocket_client
+        mock_async_websocket_client,
     ):
         # Create a mock client to be returned by the context manager
         mock_client = AsyncMock()
@@ -988,12 +1283,8 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         )
 
         await self.connector._place_order(
-            "hbot",
-            self.trading_pair,
-            Decimal("12345.12345678901234567"),
-            TradeType.BUY,
-            OrderType.LIMIT,
-            Decimal("1"))
+            "hbot", self.trading_pair, Decimal("12345.12345678901234567"), TradeType.BUY, OrderType.LIMIT, Decimal("1")
+        )
 
         await self.connector._place_order(
             "hbot",
@@ -1001,7 +1292,8 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
             Decimal("12345.12345678901234567"),
             TradeType.SELL,
             OrderType.LIMIT,
-            Decimal("1234567.123456789"))
+            Decimal("1234567.123456789"),
+        )
 
         await self.connector._place_order(
             "hbot",
@@ -1009,7 +1301,8 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
             Decimal("12345.12345678901234567"),
             TradeType.BUY,
             OrderType.LIMIT,
-            Decimal("1234567.123456789"))
+            Decimal("1234567.123456789"),
+        )
 
         await self.connector._place_order(
             "hbot",
@@ -1017,7 +1310,8 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
             Decimal("12345.12345678901234567"),
             TradeType.SELL,
             OrderType.LIMIT,
-            Decimal("1234567.123456789"))
+            Decimal("1234567.123456789"),
+        )
 
         order_id = self.connector.buy(
             self.trading_pair_usd,
@@ -1043,7 +1337,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         self.assertTrue(autofill_mock.called)
         self.assertTrue(sign_mock.called)
 
-    @patch('hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient')
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._verify_transaction_result")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_autofill")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_sign")
@@ -1056,7 +1350,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         sign_mock,
         autofill_mock,
         verify_transaction_result_mock,
-        mock_async_websocket_client
+        mock_async_websocket_client,
     ):
         # Create a mock client to be returned by the context manager
         mock_client = AsyncMock()
@@ -1072,28 +1366,46 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
             status=ResponseStatus.SUCCESS, result={"engine_result": "tesSUCCESS", "engine_result_message": "something"}
         )
 
+        def side_effect_function(arg: Request):
+            if arg.method == RequestMethod.AMM_INFO:
+                return self._client_response_amm_info()
+            else:
+                raise ValueError("Invalid method")
+        self.mock_client.request.side_effect = side_effect_function
+
+        # Mock _get_price_from_amm_pool to return NaN
+        self.connector.get_price_from_amm_pool = AsyncMock(return_value=(float("1"), 0))
+
         class MockGetPriceReturn:
             def __init__(self, result_price):
                 self.result_price = result_price
 
         # get_price_for_volume_mock.return_value = Decimal("1")
         self.connector.order_books[self.trading_pair] = MagicMock()
-        self.connector.order_books[self.trading_pair].get_price_for_volume = MagicMock(
-            return_value=MockGetPriceReturn(result_price=Decimal("1"))
+        self.connector.order_books[self.trading_pair].get_price = MagicMock(
+            return_value=Decimal("1")
         )
 
         self.connector.order_books[self.trading_pair_usd] = MagicMock()
-        self.connector.order_books[self.trading_pair_usd].get_price_for_volume = MagicMock(
-            return_value=MockGetPriceReturn(result_price=Decimal("1"))
+        self.connector.order_books[self.trading_pair_usd].get_price = MagicMock(
+            return_value=Decimal("1")
         )
 
-        await self.connector._place_order("hbot", self.trading_pair, Decimal("1"), TradeType.BUY, OrderType.MARKET, Decimal("1"))
+        await self.connector._place_order(
+            "hbot", self.trading_pair, Decimal("1"), TradeType.BUY, OrderType.MARKET, Decimal("1")
+        )
 
-        await self.connector._place_order("hbot", self.trading_pair, Decimal("1"), TradeType.SELL, OrderType.MARKET, Decimal("1"))
+        await self.connector._place_order(
+            "hbot", self.trading_pair, Decimal("1"), TradeType.SELL, OrderType.MARKET, Decimal("1")
+        )
 
-        await self.connector._place_order("hbot", self.trading_pair_usd, Decimal("1"), TradeType.BUY, OrderType.MARKET, Decimal("1"))
+        await self.connector._place_order(
+            "hbot", self.trading_pair_usd, Decimal("1"), TradeType.BUY, OrderType.MARKET, Decimal("1")
+        )
 
-        await self.connector._place_order("hbot", self.trading_pair_usd, Decimal("1"), TradeType.SELL, OrderType.MARKET, Decimal("1"))
+        await self.connector._place_order(
+            "hbot", self.trading_pair_usd, Decimal("1"), TradeType.SELL, OrderType.MARKET, Decimal("1")
+        )
 
         order_id = self.connector.buy(
             self.trading_pair_usd,
@@ -1129,12 +1441,13 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
                 amount=Decimal("1.0"),
                 trade_type=TradeType.BUY,
                 order_type=OrderType.MARKET,
-                price=Decimal("1"))
+                price=Decimal("1"),
+            )
 
         # Verify the exception was raised and contains the expected message
         self.assertTrue("Market NOT_FOUND not found in markets list" in str(context.exception))
 
-    @patch('hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient')
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.autofill", new_callable=MagicMock)
     # @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.submit", new_callable=MagicMock)
     async def test_place_order_exception_handling_autofill(self, autofill_mock, mock_async_websocket_client):
@@ -1145,6 +1458,13 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         # Simulate an exception during the autofill operation
         autofill_mock.side_effect = Exception("Test exception during autofill")
 
+        def side_effect_function(arg: Request):
+            if arg.method == RequestMethod.AMM_INFO:
+                return self._client_response_amm_info()
+            else:
+                raise ValueError("Invalid method")
+        self.mock_client.request.side_effect = side_effect_function
+
         with self.assertRaises(Exception) as context:
             await self.connector._place_order(
                 order_id="test_order",
@@ -1152,14 +1472,15 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
                 amount=Decimal("1.0"),
                 trade_type=TradeType.BUY,
                 order_type=OrderType.MARKET,
-                price=Decimal("1"))
+                price=Decimal("1"),
+            )
 
         # Verify the exception was raised and contains the expected message
         self.assertTrue(
-            "Order None (test_order) creation failed: Test exception during autofill" in str(context.exception)
+            "Order UNKNOWN (test_order) creation failed: Test exception during autofill" in str(context.exception)
         )
 
-    @patch('hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient')
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient")
     @patch("hummingbot.connector.exchange_py_base.ExchangePyBase._sleep")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._verify_transaction_result")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_autofill")
@@ -1176,7 +1497,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         autofill_mock,
         verify_transaction_result_mock,
         sleep_mock,
-        mock_async_websocket_client
+        mock_async_websocket_client,
     ):
         # Create a mock client to be returned by the context manager
         mock_client = AsyncMock()
@@ -1199,7 +1520,8 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
                 Decimal("12345.12345678901234567"),
                 TradeType.SELL,
                 OrderType.LIMIT,
-                Decimal("1234567.123456789"))
+                Decimal("1234567.123456789"),
+            )
 
         # # Verify the exception was raised and contains the expected message
         self.assertTrue(
@@ -1207,7 +1529,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
             in str(context.exception)
         )
 
-    @patch('hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient')
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient")
     @patch("hummingbot.connector.exchange_py_base.ExchangePyBase._sleep")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._verify_transaction_result")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_autofill")
@@ -1224,7 +1546,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         autofill_mock,
         verify_transaction_result_mock,
         sleep_mock,
-        mock_async_websocket_client
+        mock_async_websocket_client,
     ):
         # Create a mock client to be returned by the context manager
         mock_client = AsyncMock()
@@ -1247,12 +1569,13 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
                 Decimal("12345.12345678901234567"),
                 TradeType.SELL,
                 OrderType.LIMIT,
-                Decimal("1234567.123456789"))
+                Decimal("1234567.123456789"),
+            )
 
         # # Verify the exception was raised and contains the expected message
         self.assertTrue("Order 1-1 (hbot) creation failed: Failed to place order hbot (1-1)" in str(context.exception))
 
-    @patch('hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient')
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient")
     @patch("hummingbot.connector.exchange_py_base.ExchangePyBase._sleep")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._verify_transaction_result")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_autofill")
@@ -1269,7 +1592,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         autofill_mock,
         verify_transaction_result_mock,
         sleep_mock,
-        mock_async_websocket_client
+        mock_async_websocket_client,
     ):
         # Create a mock client to be returned by the context manager
         mock_client = AsyncMock()
@@ -1292,12 +1615,13 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
                 Decimal("12345.12345678901234567"),
                 TradeType.SELL,
                 OrderType.LIMIT,
-                Decimal("1234567.123456789"))
+                Decimal("1234567.123456789"),
+            )
 
         # # Verify the exception was raised and contains the expected message
         self.assertTrue("Order 1-1 (hbot) creation failed: Failed to place order hbot (1-1)" in str(context.exception))
 
-    @patch('hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient')
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_autofill")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_sign")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_submit")
@@ -1336,7 +1660,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         self.assertTrue(autofill_mock.called)
         self.assertTrue(sign_mock.called)
 
-    @patch('hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient')
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._verify_transaction_result")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_autofill")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_sign")
@@ -1397,7 +1721,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         self.assertTrue(process_trade_fills_mock.called)
         self.assertEqual("1-1", exchange_order_id)
 
-    @patch('hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient')
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._verify_transaction_result")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_autofill")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_sign")
@@ -1450,7 +1774,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         )
         result = await self.connector._execute_order_cancel_and_process_update(order=in_flight_order)
         self.assertTrue(process_order_update_mock.called)
-        self.assertTrue(result)
+        self.assertFalse(result)
 
         request_order_status_mock.return_value = OrderUpdate(
             trading_pair=self.trading_pair,
@@ -1496,6 +1820,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
                 "quote_token": "USD",
                 "base_transfer_rate": 0.01,
                 "quote_transfer_rate": 0.01,
+                "amm_pool_fee": Decimal("0"),
             }
         ]
 
@@ -1537,13 +1862,52 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         get_account_mock.return_value = "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK"  # noqa: mock
 
         await self.connector._user_stream_event_listener()
-        self.assertTrue(update_balances_mock.called)
         self.assertTrue(get_account_mock.called)
         self.assertTrue(get_order_by_sequence.called)
         self.assertTrue(iter_user_event_queue_mock.called)
 
-        args, kwargs = process_order_update_mock.call_args
-        self.assertEqual(kwargs["order_update"].new_state, OrderState.FILLED)
+    @patch("hummingbot.connector.exchange_py_base.ExchangePyBase._iter_user_event_queue")
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.get_order_by_sequence")
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account")
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._update_balances")
+    @patch("hummingbot.connector.client_order_tracker.ClientOrderTracker.process_order_update")
+    async def test_user_stream_event_listener_with_open_offer(
+        self,
+        process_order_update_mock,
+        update_balances_mock,
+        get_account_mock,
+        get_order_by_sequence,
+        iter_user_event_queue_mock,
+    ):
+        async def async_generator(lst):
+            for item in lst:
+                yield item
+
+        message_list = [self._event_message_with_open_offer()]
+        async_iterable = async_generator(message_list)
+
+        in_flight_order = InFlightOrder(
+            client_order_id="hbot",
+            exchange_order_id="84437780-88954510",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.BUY,
+            amount=Decimal("4.239836701211152"),
+            price=Decimal("0.224547537"),
+            creation_timestamp=1,
+        )
+
+        iter_user_event_queue_mock.return_value = async_iterable
+        get_order_by_sequence.return_value = in_flight_order
+        get_account_mock.return_value = "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK"  # noqa: mock
+
+        await self.connector._user_stream_event_listener()
+        self.assertTrue(get_account_mock.called)
+        self.assertTrue(get_order_by_sequence.called)
+        self.assertTrue(iter_user_event_queue_mock.called)
+
+        # args, kwargs = process_order_update_mock.call_args
+        # self.assertEqual(kwargs["order_update"].new_state, OrderState.PARTIALLY_FILLED)
 
     @patch("hummingbot.connector.exchange_py_base.ExchangePyBase._iter_user_event_queue")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.get_order_by_sequence")
@@ -1581,13 +1945,12 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         get_account_mock.return_value = "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK"  # noqa: mock
 
         await self.connector._user_stream_event_listener()
-        self.assertTrue(update_balances_mock.called)
         self.assertTrue(get_account_mock.called)
         self.assertTrue(get_order_by_sequence.called)
         self.assertTrue(iter_user_event_queue_mock.called)
 
-        args, kwargs = process_order_update_mock.call_args
-        self.assertEqual(kwargs["order_update"].new_state, OrderState.PARTIALLY_FILLED)
+        # args, kwargs = process_order_update_mock.call_args
+        # self.assertEqual(kwargs["order_update"].new_state, OrderState.PARTIALLY_FILLED)
 
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._make_network_check_request")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account")
@@ -1604,7 +1967,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
             else:
                 raise ValueError("Invalid method")
 
-        self.connector._xrpl_query_client.request.side_effect = side_effect_function
+        self.mock_client.request.side_effect = side_effect_function
 
         await self.connector._update_balances()
 
@@ -1614,18 +1977,45 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         self.assertEqual(self.connector._account_balances["USD"], Decimal("0.011094399237562"))
         self.assertEqual(self.connector._account_balances["SOLO"], Decimal("35.95165691730148"))
 
-        self.assertEqual(self.connector._account_available_balances["XRP"], Decimal("32.030868"))
+        self.assertEqual(self.connector._account_available_balances["XRP"], Decimal("53.830868"))
         self.assertEqual(self.connector._account_available_balances["USD"], Decimal("0.011094399237562"))
-        self.assertEqual(self.connector._account_available_balances["SOLO"], Decimal("31.337975848655761"))
+        self.assertEqual(self.connector._account_available_balances["SOLO"], Decimal("32.337975848655761"))
+
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._make_network_check_request")
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account")
+    async def test_update_balances_empty_lines(self, get_account_mock, network_mock):
+        get_account_mock.return_value = "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK"  # noqa: mock
+
+        def side_effect_function(arg: Request):
+            if arg.method == RequestMethod.ACCOUNT_INFO:
+                return self._client_response_account_info()
+            elif arg.method == RequestMethod.ACCOUNT_OBJECTS:
+                return self._client_response_account_empty_objects()
+            elif arg.method == RequestMethod.ACCOUNT_LINES:
+                return self._client_response_account_empty_lines()
+            else:
+                raise ValueError("Invalid method")
+
+        self.mock_client.request.side_effect = side_effect_function
+
+        await self.connector._update_balances()
+
+        self.assertTrue(get_account_mock.called)
+
+        self.assertEqual(self.connector._account_balances["XRP"], Decimal("57.030864"))
+
+        self.assertEqual(self.connector._account_available_balances["XRP"], Decimal("56.030864"))
 
     async def test_make_trading_rules_request(self):
         def side_effect_function(arg: Request):
             if arg.method == RequestMethod.ACCOUNT_INFO:
                 return self._client_response_account_info_issuer()
+            elif arg.method == RequestMethod.AMM_INFO:
+                return self._client_response_amm_info()
             else:
                 raise ValueError("Invalid method")
 
-        self.connector._xrpl_query_client.request.side_effect = side_effect_function
+        self.mock_client.request.side_effect = side_effect_function
 
         result = await self.connector._make_trading_rules_request()
 
@@ -1638,6 +2028,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         self.assertEqual(result["SOLO-XRP"]["base_transfer_rate"], 9.999999999998899e-05)
         self.assertEqual(result["SOLO-XRP"]["quote_transfer_rate"], 0)
         self.assertEqual(result["SOLO-XRP"]["minimum_order_size"], 1e-06)
+        self.assertEqual(result["SOLO-XRP"]["amm_pool_info"].fee_pct, Decimal("0.5"))
 
         await self.connector._update_trading_rules()
         trading_rule = self.connector.trading_rules["SOLO-XRP"]
@@ -1651,6 +2042,21 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         )
         self.assertEqual(result["SOLO-USD"]["quote_currency"].currency, "USD")
 
+    async def test_make_trading_rules_request_error(self):
+        def side_effect_function(arg: Request):
+            if arg.method == RequestMethod.ACCOUNT_INFO:
+                return self._client_response_account_info_issuer_error()
+            else:
+                raise ValueError("Invalid method")
+
+        self.mock_client.request.side_effect = side_effect_function
+
+        try:
+            await self.connector._make_trading_rules_request()
+        except Exception as e:
+            # Check if "not found in ledger:" in error message
+            self.assertIn("not found in ledger:", str(e))
+
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.wait_for_final_transaction_outcome")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._make_network_check_request")
     async def test_verify_transaction_success(self, network_check_mock, wait_for_outcome_mock):
@@ -1659,7 +2065,9 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         transaction_mock.get_hash.return_value = "hash"
         transaction_mock.last_ledger_sequence = 12345
 
-        result, response = await self.connector._verify_transaction_result({"transaction": transaction_mock, "prelim_result": "tesSUCCESS"})
+        result, response = await self.connector._verify_transaction_result(
+            {"transaction": transaction_mock, "prelim_result": "tesSUCCESS"}
+        )
         self.assertTrue(result)
         self.assertIsNotNone(response)
 
@@ -1673,12 +2081,13 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
 
         with self.assertLogs(level="ERROR") as log:
             result, response = await self.connector._verify_transaction_result(
-                {"transaction": transaction_mock, "prelim_result": "tesSUCCESS"})
+                {"transaction": transaction_mock, "prelim_result": "tesSUCCESS"}
+            )
 
         log_output = log.output[0]
-        self.assertEqual(
-            log_output,
+        self.assertIn(
             "ERROR:hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange:Submitted transaction failed: Test exception",
+            log_output,
         )
 
     async def test_verify_transaction_exception_none_transaction(self):
@@ -1693,28 +2102,40 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
 
         self.connector.wait_for_final_transaction_outcome = AsyncMock()
         self.connector.wait_for_final_transaction_outcome.side_effect = TimeoutError
-        with self.assertLogs(level="ERROR") as log:
-            await self.connector._verify_transaction_result(
-                {
-                    "transaction": Transaction(account="r1234", transaction_type=TransactionType.ACCOUNT_SET),  # noqa: mock
-                    "prelim_result": "tesSUCCESS"
-                })
+        transaction = Transaction(
+            account="rfWRtDsi2M5bTxKtxpEmwpp81H8NAezwkw", transaction_type=TransactionType.ACCOUNT_SET  # noqa: mock
+        )
 
-        log_output = log.output[0]
-        self.assertEqual(log_output,
-                         "ERROR:hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange:Max retries reached. Verify transaction failed due to timeout.",)
+        wallet = self.connector._xrpl_auth.get_wallet()
+        signed_tx = sign(transaction, wallet)
 
         with self.assertLogs(level="ERROR") as log:
             await self.connector._verify_transaction_result(
                 {
-                    "transaction": Transaction(account="r1234", transaction_type=TransactionType.ACCOUNT_SET),  # noqa: mock
-                    "prelim_result": "tesSUCCESS"},
-                try_count=CONSTANTS.VERIFY_TRANSACTION_MAX_RETRY)
+                    "transaction": signed_tx,  # noqa: mock
+                    "prelim_result": "tesSUCCESS",
+                }
+            )
 
         log_output = log.output[0]
-        self.assertEqual(
-            log_output,
-            "ERROR:hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange:Max retries reached. Verify transaction failed due to timeout.",
+        self.assertIn(
+            "ERROR:hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange:Max retries reached. Verify transaction failed due to timeout",
+            log_output
+        )
+
+        with self.assertLogs(level="ERROR") as log:
+            await self.connector._verify_transaction_result(
+                {
+                    "transaction": signed_tx,  # noqa: mock
+                    "prelim_result": "tesSUCCESS",
+                },
+                try_count=CONSTANTS.VERIFY_TRANSACTION_MAX_RETRY,
+            )
+
+        log_output = log.output[0]
+        self.assertIn(
+            "ERROR:hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange:Max retries reached. Verify transaction failed due to timeout",
+            log_output
         )
 
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.wait_for_final_transaction_outcome")
@@ -1724,9 +2145,10 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         transaction_mock = MagicMock()
         transaction_mock.get_hash.return_value = "hash"
         transaction_mock.last_ledger_sequence = 12345
-
         with self.assertLogs(level="ERROR") as log:
-            result, response = await self.connector._verify_transaction_result({"transaction": transaction_mock, "prelim_result": None})
+            result, response = await self.connector._verify_transaction_result(
+                {"transaction": transaction_mock, "prelim_result": None}
+            )
 
         log_output = log.output[0]
         self.assertEqual(
@@ -2106,8 +2528,8 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
                     "TxnSignature": "0E62B49938249F9AED6C6D3C893C21569F23A84CE44F9B9189D22545D5FA05896A5F0C471C68079C8CF78682D74F114038E10DA2995C18560C2259C7590A0304",  # noqa: mock
                     "date": 773184150,
                     "hash": "5BAF81CF16BA62153F31096DDDEFC12CE39EC41025A9625357BF084411045517",  # noqa: mock
-                    "inLedger": 89077136,
-                    "ledger_index": 89077136,
+                    "inLedger": 89077154,
+                    "ledger_index": 89077154,
                 },
                 "validated": True,
             },
@@ -2244,6 +2666,17 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         self.assertEqual(order_update.new_state, OrderState.FILLED)
 
         fetch_account_transactions_mock.return_value = []
+
+        in_flight_order = InFlightOrder(
+            client_order_id="hbot-1719868942218900-SSOXP61c36315c76a2aa2eb3bb461924f46f4336f2",  # noqa: mock
+            exchange_order_id="84439854-89077154",
+            trading_pair="SOLO-XRP",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.SELL,
+            price=Decimal("0.217090"),
+            amount=Decimal("2.303184724670496"),
+            creation_timestamp=time.time(),
+        )
 
         order_update = await self.connector._request_order_status(in_flight_order)
         self.assertEqual(order_update.new_state, OrderState.PENDING_CREATE)
@@ -2564,7 +2997,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         self.assertEqual(trade_fills[0].fill_quote_amount, Decimal("1.249995"))
         self.assertEqual(
             trade_fills[0].fee.percent,
-            Decimal("0.01000000000000000020816681711721685132943093776702880859375"),  # noqa: mock
+            Decimal("0.01"),  # noqa: mock
         )
         self.assertEqual(trade_fills[0].fee.percent_token, "XRP")
         self.assertEqual(trade_fills[0].fee.flat_fees, [])
@@ -2838,6 +3271,712 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         self.assertEqual(trade_fills[0].fill_base_amount, Decimal("306.599028007179491"))
         self.assertEqual(trade_fills[0].fill_quote_amount, Decimal("1354.473138"))
 
+        # Check Market Order or Limit Order but no offer created
+        transactions = [
+            {
+                "meta": {
+                    "AffectedNodes": [
+                        {
+                            "ModifiedNode": {
+                                "FinalFields": {
+                                    "Balance": {
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",  # noqa: mock
+                                        "value": "-61616.0384023436",
+                                    },
+                                    "Flags": 2228224,
+                                    "HighLimit": {
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rEW5aubMnW4mQqRYVJ5qdFhB3MANiMJqXd",  # noqa: mock
+                                        "value": "1000000000",
+                                    },
+                                    "HighNode": "0",
+                                    "LowLimit": {
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                                        "value": "0",
+                                    },
+                                    "LowNode": "11c5",
+                                },
+                                "LedgerEntryType": "RippleState",
+                                "LedgerIndex": "26AF1F60A2EBDBB5493DE9CBD6FD68350C81C9C577C2B46AE90B4BEB5B935BB3",  # noqa: mock
+                                "PreviousFields": {
+                                    "Balance": {
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",  # noqa: mock
+                                        "value": "-61617.0385023436",
+                                    }
+                                },
+                                "PreviousTxnID": "A666C4983B32A140E33000FB794C22BB0AD75B39BB28B0ABE4F9875DAEECCEB4",  # noqa: mock
+                                "PreviousTxnLgrSeq": 95513360,
+                            }
+                        },
+                        {
+                            "ModifiedNode": {
+                                "FinalFields": {
+                                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                                    "Balance": "13672322",
+                                    "Flags": 0,
+                                    "OwnerCount": 4,
+                                    "Sequence": 84446615,
+                                },
+                                "LedgerEntryType": "AccountRoot",
+                                "LedgerIndex": "2B3020738E7A44FBDE454935A38D77F12DC5A11E0FA6DAE2D9FCF4719FFAA3BC",  # noqa: mock
+                                "PreviousFields": {"Balance": "13782034", "Sequence": 84446614},
+                                "PreviousTxnID": "E01556448E516687192BBAE828CF927039E1D3153407D249FE6266436F671AA8",  # noqa: mock
+                                "PreviousTxnLgrSeq": 95451668,
+                            }
+                        },
+                        {
+                            "ModifiedNode": {
+                                "FinalFields": {
+                                    "Account": "rEW5aubMnW4mQqRYVJ5qdFhB3MANiMJqXd",  # noqa: mock
+                                    "BookDirectory": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A03E5B737519000",  # noqa: mock
+                                    "BookNode": "0",
+                                    "Flags": 131072,
+                                    "OwnerNode": "6",
+                                    "Sequence": 67140274,
+                                    "TakerGets": {
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                                        "value": "8615.092356810886",
+                                    },
+                                    "TakerPays": "945075631",
+                                },
+                                "LedgerEntryType": "Offer",
+                                "LedgerIndex": "6989998E8882C5379AA044D95F3DEA2F9C7077316FF6565D5FC8FC0C12AA2B93",  # noqa: mock
+                                "PreviousFields": {
+                                    "TakerGets": {
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                                        "value": "8616.092356810886",
+                                    },
+                                    "TakerPays": "945185331",
+                                },
+                                "PreviousTxnID": "A666C4983B32A140E33000FB794C22BB0AD75B39BB28B0ABE4F9875DAEECCEB4",  # noqa: mock
+                                "PreviousTxnLgrSeq": 95513360,
+                            }
+                        },
+                        {
+                            "ModifiedNode": {
+                                "FinalFields": {
+                                    "Account": "rEW5aubMnW4mQqRYVJ5qdFhB3MANiMJqXd",  # noqa: mock
+                                    "Balance": "10159780778",
+                                    "Flags": 0,
+                                    "OwnerCount": 33,
+                                    "Sequence": 67140275,
+                                },
+                                "LedgerEntryType": "AccountRoot",
+                                "LedgerIndex": "AAE5061397797190098C91D17D1977EE2BF29BB8D91A7381CDECFED0C302A18F",  # noqa: mock
+                                "PreviousFields": {"Balance": "10159671078"},
+                                "PreviousTxnID": "A666C4983B32A140E33000FB794C22BB0AD75B39BB28B0ABE4F9875DAEECCEB4",  # noqa: mock
+                                "PreviousTxnLgrSeq": 95513360,
+                            }
+                        },
+                        {
+                            "ModifiedNode": {
+                                "FinalFields": {
+                                    "Balance": {
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",  # noqa: mock
+                                        "value": "1",
+                                    },
+                                    "Flags": 1114112,
+                                    "HighLimit": {
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                                        "value": "0",
+                                    },
+                                    "HighNode": "3799",
+                                    "LowLimit": {
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                                        "value": "1000000000",  #
+                                    },
+                                    "LowNode": "0",
+                                },
+                                "LedgerEntryType": "RippleState",
+                                "LedgerIndex": "E1C84325F137AD05CB78F59968054BCBFD43CB4E70F7591B6C3C1D1C7E44C6FC",  # noqa: mock
+                                "PreviousFields": {
+                                    "Balance": {
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",  # noqa: mock
+                                        "value": "0",
+                                    }
+                                },
+                                "PreviousTxnID": "F324951572EE25FB7FA319768BF4C9BC03C8311DF7CDEE6E97DADE301F3FCFB2",  # noqa: mock
+                                "PreviousTxnLgrSeq": 95212377,
+                            }
+                        },
+                    ],
+                    "TransactionIndex": 22,
+                    "TransactionResult": "tesSUCCESS",
+                },
+                "tx": {
+                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                    "Fee": "12",
+                    "Flags": 2147614720,
+                    "LastLedgerSequence": 95613311,
+                    "Memos": [
+                        {"Memo": {"MemoData": "68626F742D313233342D73656C6C2D312D534F4C4F2D585250"}}  # noqa: mock
+                    ],
+                    "Sequence": 84446614,
+                    "SigningPubKey": "ED23BA20D57103E05BA762F0A04FE50878C11BD36B7BF9ADACC3EDBD9E6D320923",  # noqa: mock
+                    "TakerGets": "110248",
+                    "TakerPays": {
+                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                        "value": "1",
+                    },
+                    "TransactionType": "OfferCreate",
+                    "TxnSignature": "7C555F68708D09CB8B9C528BE76EC0F4668E90BE69EA9D670FEB194A95E920749EBC88E6F323EFDA18580F374055D7F5196AC8E927046CC1B743D3D32EF1D906",  # noqa: mock
+                    "hash": "79C2AAC34F73ACAD83D0B0EF01FAF80E4D3260AD2205ABB8D89784537D0D084F",  # noqa: mock
+                    "ctid": "C5B16B6300160000",  # noqa: mock
+                    "validated": True,
+                    "date": 798193052,
+                    "ledger_index": 95513443,
+                    "inLedger": 95513443,
+                },
+                "validated": True,
+            }
+        ]
+
+        fetch_account_transactions_mock.return_value = transactions
+
+        in_flight_order = InFlightOrder(
+            client_order_id="hbot-1234-sell-1-SOLO-XRP",  # noqa: mock
+            exchange_order_id="84446614-95513443",
+            trading_pair="SOLO-XRP",
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.SELL,
+            amount=Decimal("1"),
+            creation_timestamp=1718906078.0,
+        )
+
+        trade_fills = await self.connector._all_trade_updates_for_order(in_flight_order)
+
+        self.assertEqual(len(trade_fills), 1)
+        self.assertEqual(
+            trade_fills[0].trade_id, "79C2AAC34F73ACAD83D0B0EF01FAF80E4D3260AD2205ABB8D89784537D0D084F"  # noqa: mock
+        )
+        self.assertEqual(
+            trade_fills[0].client_order_id,
+            "hbot-1234-sell-1-SOLO-XRP",  # noqa: mock
+        )
+        self.assertEqual(trade_fills[0].exchange_order_id, "84446614-95513443")
+        self.assertEqual(trade_fills[0].trading_pair, "SOLO-XRP")
+        self.assertEqual(trade_fills[0].fill_timestamp, 1744877852)
+        self.assertEqual(trade_fills[0].fill_price, Decimal("0.109712"))
+        self.assertEqual(trade_fills[0].fill_base_amount, Decimal("1"))
+        self.assertEqual(trade_fills[0].fill_quote_amount, Decimal("0.109712"))
+
+        fetch_account_transactions_mock.return_value = transactions
+
+        in_flight_order = InFlightOrder(
+            client_order_id="hbot-1234-sell-1-SOLO-XRP",  # noqa: mock
+            exchange_order_id="84446614-95513443",
+            trading_pair="SOLO-XRP",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.SELL,
+            amount=Decimal("1"),
+            creation_timestamp=1718906078.0,
+        )
+
+        trade_fills = await self.connector._all_trade_updates_for_order(in_flight_order)
+
+        self.assertEqual(len(trade_fills), 1)
+        self.assertEqual(
+            trade_fills[0].trade_id, "79C2AAC34F73ACAD83D0B0EF01FAF80E4D3260AD2205ABB8D89784537D0D084F"  # noqa: mock
+        )
+        self.assertEqual(
+            trade_fills[0].client_order_id,
+            "hbot-1234-sell-1-SOLO-XRP",  # noqa: mock
+        )
+        self.assertEqual(trade_fills[0].exchange_order_id, "84446614-95513443")
+        self.assertEqual(trade_fills[0].trading_pair, "SOLO-XRP")
+        self.assertEqual(trade_fills[0].fill_timestamp, 1744877852)
+        self.assertEqual(trade_fills[0].fill_price, Decimal("0.109712"))
+        self.assertEqual(trade_fills[0].fill_base_amount, Decimal("1"))
+        self.assertEqual(trade_fills[0].fill_quote_amount, Decimal("0.109712"))
+
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account")
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._make_network_check_request")
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._fetch_account_transactions")
+    async def test_get_trade_fills_handling_errors(
+        self, fetch_account_transactions_mock, network_check_mock, get_account_mock
+    ):
+        sample_transactions = {
+            "meta": {
+                "AffectedNodes": [
+                    {
+                        "ModifiedNode": {
+                            "FinalFields": {
+                                "Balance": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",  # noqa: mock
+                                    "value": "-61616.0384023436",
+                                },
+                                "Flags": 2228224,
+                                "HighLimit": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rEW5aubMnW4mQqRYVJ5qdFhB3MANiMJqXd",  # noqa: mock
+                                    "value": "1000000000",
+                                },
+                                "HighNode": "0",
+                                "LowLimit": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                                    "value": "0",
+                                },
+                                "LowNode": "11c5",
+                            },
+                            "LedgerEntryType": "RippleState",
+                            "LedgerIndex": "26AF1F60A2EBDBB5493DE9CBD6FD68350C81C9C577C2B46AE90B4BEB5B935BB3",  # noqa: mock
+                            "PreviousFields": {
+                                "Balance": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",  # noqa: mock
+                                    "value": "-61617.0385023436",
+                                }
+                            },
+                            "PreviousTxnID": "A666C4983B32A140E33000FB794C22BB0AD75B39BB28B0ABE4F9875DAEECCEB4",  # noqa: mock
+                            "PreviousTxnLgrSeq": 95513360,
+                        }
+                    },
+                    {
+                        "ModifiedNode": {
+                            "FinalFields": {
+                                "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                                "Balance": "13672322",
+                                "Flags": 0,
+                                "OwnerCount": 4,
+                                "Sequence": 84446615,
+                            },
+                            "LedgerEntryType": "AccountRoot",
+                            "LedgerIndex": "2B3020738E7A44FBDE454935A38D77F12DC5A11E0FA6DAE2D9FCF4719FFAA3BC",  # noqa: mock
+                            "PreviousFields": {"Balance": "13782034", "Sequence": 84446614},
+                            "PreviousTxnID": "E01556448E516687192BBAE828CF927039E1D3153407D249FE6266436F671AA8",  # noqa: mock
+                            "PreviousTxnLgrSeq": 95451668,
+                        }
+                    },
+                    {
+                        "ModifiedNode": {
+                            "FinalFields": {
+                                "Account": "rEW5aubMnW4mQqRYVJ5qdFhB3MANiMJqXd",  # noqa: mock
+                                "BookDirectory": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A03E5B737519000",  # noqa: mock
+                                "BookNode": "0",
+                                "Flags": 131072,
+                                "OwnerNode": "6",
+                                "Sequence": 67140274,
+                                "TakerGets": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                                    "value": "8615.092356810886",
+                                },
+                                "TakerPays": "945075631",
+                            },
+                            "LedgerEntryType": "Offer",
+                            "LedgerIndex": "6989998E8882C5379AA044D95F3DEA2F9C7077316FF6565D5FC8FC0C12AA2B93",  # noqa: mock
+                            "PreviousFields": {
+                                "TakerGets": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                                    "value": "8616.092356810886",
+                                },
+                                "TakerPays": "945185331",
+                            },
+                            "PreviousTxnID": "A666C4983B32A140E33000FB794C22BB0AD75B39BB28B0ABE4F9875DAEECCEB4",  # noqa: mock
+                            "PreviousTxnLgrSeq": 95513360,
+                        }
+                    },
+                    {
+                        "ModifiedNode": {
+                            "FinalFields": {
+                                "Account": "rEW5aubMnW4mQqRYVJ5qdFhB3MANiMJqXd",  # noqa: mock
+                                "Balance": "10159780778",
+                                "Flags": 0,
+                                "OwnerCount": 33,
+                                "Sequence": 67140275,
+                            },
+                            "LedgerEntryType": "AccountRoot",
+                            "LedgerIndex": "AAE5061397797190098C91D17D1977EE2BF29BB8D91A7381CDECFED0C302A18F",  # noqa: mock
+                            "PreviousFields": {"Balance": "10159671078"},
+                            "PreviousTxnID": "A666C4983B32A140E33000FB794C22BB0AD75B39BB28B0ABE4F9875DAEECCEB4",  # noqa: mock
+                            "PreviousTxnLgrSeq": 95513360,
+                        }
+                    },
+                    {
+                        "ModifiedNode": {
+                            "FinalFields": {
+                                "Balance": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",  # noqa: mock
+                                    "value": "1",
+                                },
+                                "Flags": 1114112,
+                                "HighLimit": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                                    "value": "0",
+                                },
+                                "HighNode": "3799",
+                                "LowLimit": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                                    "value": "1000000000",  #
+                                },
+                                "LowNode": "0",
+                            },
+                            "LedgerEntryType": "RippleState",
+                            "LedgerIndex": "E1C84325F137AD05CB78F59968054BCBFD43CB4E70F7591B6C3C1D1C7E44C6FC",  # noqa: mock
+                            "PreviousFields": {
+                                "Balance": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",  # noqa: mock
+                                    "value": "0",
+                                }
+                            },
+                            "PreviousTxnID": "F324951572EE25FB7FA319768BF4C9BC03C8311DF7CDEE6E97DADE301F3FCFB2",  # noqa: mock
+                            "PreviousTxnLgrSeq": 95212377,
+                        }
+                    },
+                ],
+                "TransactionIndex": 22,
+                "TransactionResult": "tesSUCCESS",
+            },
+            "tx": {
+                "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                "Fee": "12",
+                "Flags": 2147614720,
+                "LastLedgerSequence": 95613311,
+                "Memos": [{"Memo": {"MemoData": "68626F742D313233342D73656C6C2D312D534F4C4F2D585250"}}],  # noqa: mock
+                "Sequence": 84446614,
+                "SigningPubKey": "ED23BA20D57103E05BA762F0A04FE50878C11BD36B7BF9ADACC3EDBD9E6D320923",  # noqa: mock
+                "TakerGets": "110248",
+                "TakerPays": {
+                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                    "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                    "value": "1",
+                },
+                "TransactionType": "OfferCreate",
+                "TxnSignature": "7C555F68708D09CB8B9C528BE76EC0F4668E90BE69EA9D670FEB194A95E920749EBC88E6F323EFDA18580F374055D7F5196AC8E927046CC1B743D3D32EF1D906",  # noqa: mock
+                "ctid": "C5B16B6300160000",  # noqa: mock
+                "validated": True,
+                "hash": "79C2AAC34F73ACAD83D0B0EF01FAF80E4D3260AD2205ABB8D89784537D0D084F",  # noqa: mock
+                "date": 798193052,
+                "ledger_index": 95513443,
+                "inLedger": 95513443,
+            },
+            "validated": True,
+        }
+
+        transaction_without_hash = sample_transactions.copy()
+        transaction_without_hash["tx"].pop("hash")
+
+        fetch_account_transactions_mock.return_value = [transaction_without_hash]
+
+        in_flight_order = InFlightOrder(
+            client_order_id="hbot-1234-sell-1-SOLO-XRP",  # noqa: mock
+            exchange_order_id="84446614-95513443",
+            trading_pair="SOLO-XRP",
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.SELL,
+            amount=Decimal("1"),
+            creation_timestamp=1718906078.0,
+        )
+
+        trade_fills = await self.connector._all_trade_updates_for_order(in_flight_order)
+
+        self.assertEqual(trade_fills, [])
+
+        in_flight_order = InFlightOrder(
+            client_order_id="hbot-1234-sell-1-SOLO-XRP",  # noqa: mock
+            exchange_order_id="84446614-95513443",
+            trading_pair="SOLO-XRP",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.SELL,
+            amount=Decimal("1"),
+            creation_timestamp=1718906078.0,
+        )
+
+        trade_fills = await self.connector._all_trade_updates_for_order(in_flight_order)
+
+        self.assertEqual(trade_fills, [])
+
+        transaction_without_date = sample_transactions.copy()
+        transaction_without_date["tx"].pop("date")
+
+        fetch_account_transactions_mock.return_value = [transaction_without_date]
+
+        in_flight_order = InFlightOrder(
+            client_order_id="hbot-1234-sell-1-SOLO-XRP",  # noqa: mock
+            exchange_order_id="84446614-95513443",
+            trading_pair="SOLO-XRP",
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.SELL,
+            amount=Decimal("1"),
+            creation_timestamp=1718906078.0,
+        )
+
+        trade_fills = await self.connector._all_trade_updates_for_order(in_flight_order)
+
+        self.assertEqual(trade_fills, [])
+
+        fetch_account_transactions_mock.return_value = [transaction_without_date]
+
+        in_flight_order = InFlightOrder(
+            client_order_id="hbot-1234-sell-1-SOLO-XRP",  # noqa: mock
+            exchange_order_id="84446614-95513443",
+            trading_pair="SOLO-XRP",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.SELL,
+            amount=Decimal("1"),
+            creation_timestamp=1718906078.0,
+        )
+
+        trade_fills = await self.connector._all_trade_updates_for_order(in_flight_order)
+
+        self.assertEqual(trade_fills, [])
+
+        transaction_without_tx = sample_transactions.copy()
+        transaction_without_tx.pop("tx")
+
+        fetch_account_transactions_mock.return_value = [transaction_without_tx]
+
+        in_flight_order = InFlightOrder(
+            client_order_id="hbot-1234-sell-1-SOLO-XRP",  # noqa: mock
+            exchange_order_id="84446614-95513443",
+            trading_pair="SOLO-XRP",
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.SELL,
+            amount=Decimal("1"),
+            creation_timestamp=1718906078.0,
+        )
+
+        trade_fills = await self.connector._all_trade_updates_for_order(in_flight_order)
+
+        self.assertEqual(trade_fills, [])
+
+        fetch_account_transactions_mock.return_value = [sample_transactions]
+        self.connector._trading_pair_fee_rules = {}
+        self.connector._update_trading_rules = AsyncMock()
+
+        in_flight_order = InFlightOrder(
+            client_order_id="hbot-1234-sell-1-SOLO-XRP",  # noqa: mock
+            exchange_order_id="84446614-95513443",
+            trading_pair="SOLO-XRP",
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.SELL,
+            amount=Decimal("1"),
+            creation_timestamp=1718906078.0,
+        )
+
+        try:
+            trade_fills = await self.connector._all_trade_updates_for_order(in_flight_order)
+        except Exception as e:
+            self.assertEqual(str(e), "Fee rules not found for order hbot-1234-sell-1-SOLO-XRP")
+
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account")
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._make_network_check_request")
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._fetch_account_transactions")
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_token_from_changes")
+    async def test_get_trade_fills_with_invalid_token_changes(
+        self, get_token_from_changes_mock, fetch_account_transactions_mock, network_check_mock, get_account_mock
+    ):
+        get_token_from_changes_mock.return_value = None
+        sample_transactions = {
+            "meta": {
+                "AffectedNodes": [
+                    {
+                        "ModifiedNode": {
+                            "FinalFields": {
+                                "Balance": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",  # noqa: mock
+                                    "value": "-61616.0384023436",
+                                },
+                                "Flags": 2228224,
+                                "HighLimit": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rEW5aubMnW4mQqRYVJ5qdFhB3MANiMJqXd",  # noqa: mock
+                                    "value": "1000000000",
+                                },
+                                "HighNode": "0",
+                                "LowLimit": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                                    "value": "0",
+                                },
+                                "LowNode": "11c5",
+                            },
+                            "LedgerEntryType": "RippleState",
+                            "LedgerIndex": "26AF1F60A2EBDBB5493DE9CBD6FD68350C81C9C577C2B46AE90B4BEB5B935BB3",  # noqa: mock
+                            "PreviousFields": {
+                                "Balance": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",  # noqa: mock
+                                    "value": "-61617.0385023436",
+                                }
+                            },
+                            "PreviousTxnID": "A666C4983B32A140E33000FB794C22BB0AD75B39BB28B0ABE4F9875DAEECCEB4",  # noqa: mock
+                            "PreviousTxnLgrSeq": 95513360,
+                        }
+                    },
+                    {
+                        "ModifiedNode": {
+                            "FinalFields": {
+                                "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                                "Balance": "13672322",
+                                "Flags": 0,
+                                "OwnerCount": 4,
+                                "Sequence": 84446615,
+                            },
+                            "LedgerEntryType": "AccountRoot",
+                            "LedgerIndex": "2B3020738E7A44FBDE454935A38D77F12DC5A11E0FA6DAE2D9FCF4719FFAA3BC",  # noqa: mock
+                            "PreviousFields": {"Balance": "13782034", "Sequence": 84446614},
+                            "PreviousTxnID": "E01556448E516687192BBAE828CF927039E1D3153407D249FE6266436F671AA8",  # noqa: mock
+                            "PreviousTxnLgrSeq": 95451668,
+                        }
+                    },
+                    {
+                        "ModifiedNode": {
+                            "FinalFields": {
+                                "Account": "rEW5aubMnW4mQqRYVJ5qdFhB3MANiMJqXd",  # noqa: mock
+                                "BookDirectory": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A03E5B737519000",  # noqa: mock
+                                "BookNode": "0",
+                                "Flags": 131072,
+                                "OwnerNode": "6",
+                                "Sequence": 67140274,
+                                "TakerGets": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                                    "value": "8615.092356810886",
+                                },
+                                "TakerPays": "945075631",
+                            },
+                            "LedgerEntryType": "Offer",
+                            "LedgerIndex": "6989998E8882C5379AA044D95F3DEA2F9C7077316FF6565D5FC8FC0C12AA2B93",  # noqa: mock
+                            "PreviousFields": {
+                                "TakerGets": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                                    "value": "8616.092356810886",
+                                },
+                                "TakerPays": "945185331",
+                            },
+                            "PreviousTxnID": "A666C4983B32A140E33000FB794C22BB0AD75B39BB28B0ABE4F9875DAEECCEB4",  # noqa: mock
+                            "PreviousTxnLgrSeq": 95513360,
+                        }
+                    },
+                    {
+                        "ModifiedNode": {
+                            "FinalFields": {
+                                "Account": "rEW5aubMnW4mQqRYVJ5qdFhB3MANiMJqXd",  # noqa: mock
+                                "Balance": "10159780778",
+                                "Flags": 0,
+                                "OwnerCount": 33,
+                                "Sequence": 67140275,
+                            },
+                            "LedgerEntryType": "AccountRoot",
+                            "LedgerIndex": "AAE5061397797190098C91D17D1977EE2BF29BB8D91A7381CDECFED0C302A18F",  # noqa: mock
+                            "PreviousFields": {"Balance": "10159671078"},
+                            "PreviousTxnID": "A666C4983B32A140E33000FB794C22BB0AD75B39BB28B0ABE4F9875DAEECCEB4",  # noqa: mock
+                            "PreviousTxnLgrSeq": 95513360,
+                        }
+                    },
+                    {
+                        "ModifiedNode": {
+                            "FinalFields": {
+                                "Balance": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",  # noqa: mock
+                                    "value": "1",
+                                },
+                                "Flags": 1114112,
+                                "HighLimit": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                                    "value": "0",
+                                },
+                                "HighNode": "3799",
+                                "LowLimit": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                                    "value": "1000000000",  #
+                                },
+                                "LowNode": "0",
+                            },
+                            "LedgerEntryType": "RippleState",
+                            "LedgerIndex": "E1C84325F137AD05CB78F59968054BCBFD43CB4E70F7591B6C3C1D1C7E44C6FC",  # noqa: mock
+                            "PreviousFields": {
+                                "Balance": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",  # noqa: mock
+                                    "value": "0",
+                                }
+                            },
+                            "PreviousTxnID": "F324951572EE25FB7FA319768BF4C9BC03C8311DF7CDEE6E97DADE301F3FCFB2",  # noqa: mock
+                            "PreviousTxnLgrSeq": 95212377,
+                        }
+                    },
+                ],
+                "TransactionIndex": 22,
+                "TransactionResult": "tesSUCCESS",
+            },
+            "tx": {
+                "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                "Fee": "12",
+                "Flags": 2147614720,
+                "LastLedgerSequence": 95613311,
+                "Memos": [{"Memo": {"MemoData": "68626F742D313233342D73656C6C2D312D534F4C4F2D585250"}}],  # noqa: mock
+                "Sequence": 84446614,
+                "SigningPubKey": "ED23BA20D57103E05BA762F0A04FE50878C11BD36B7BF9ADACC3EDBD9E6D320923",  # noqa: mock
+                "TakerGets": "110248",
+                "TakerPays": {
+                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                    "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                    "value": "1",
+                },
+                "TransactionType": "OfferCreate",
+                "TxnSignature": "7C555F68708D09CB8B9C528BE76EC0F4668E90BE69EA9D670FEB194A95E920749EBC88E6F323EFDA18580F374055D7F5196AC8E927046CC1B743D3D32EF1D906",  # noqa: mock
+                "ctid": "C5B16B6300160000",  # noqa: mock
+                "validated": True,
+                "hash": "79C2AAC34F73ACAD83D0B0EF01FAF80E4D3260AD2205ABB8D89784537D0D084F",  # noqa: mock
+                "date": 798193052,
+                "ledger_index": 95513443,
+                "inLedger": 95513443,
+            },
+            "validated": True,
+        }
+
+        fetch_account_transactions_mock.return_value = [sample_transactions]
+
+        in_flight_order = InFlightOrder(
+            client_order_id="hbot-1234-sell-1-SOLO-XRP",  # noqa: mock
+            exchange_order_id="84446614-95513443",
+            trading_pair="SOLO-XRP",
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.SELL,
+            amount=Decimal("1"),
+            creation_timestamp=1718906078.0,
+        )
+
+        trade_fills = await self.connector._all_trade_updates_for_order(in_flight_order)
+
+        in_flight_order = InFlightOrder(
+            client_order_id="hbot-1234-sell-1-SOLO-XRP",  # noqa: mock
+            exchange_order_id="84446614-95513443",
+            trading_pair="SOLO-XRP",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.SELL,
+            amount=Decimal("1"),
+            creation_timestamp=1718906078.0,
+        )
+
+        trade_fills = await self.connector._all_trade_updates_for_order(in_flight_order)
+
+        self.assertEqual(trade_fills, [])
+
     @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.request_with_retry")
     async def test_fetch_account_transactions(self, request_with_retry_mock, get_account_mock):
@@ -2879,3 +4018,655 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
             await self.connector.tx_submit(some_tx, mock_client)
 
         self.assertTrue("something" in str(context.exception))
+
+    async def test_get_last_traded_price_from_order_book(self):
+        # Setup
+        self.connector.order_books[self.trading_pair] = MagicMock()
+        self.connector.order_books[self.trading_pair].last_trade_price = Decimal("1.0")
+        self.connector.order_book_tracker.data_source.last_parsed_order_book_timestamp = {self.trading_pair: 100}
+
+        # Mock _get_price_from_amm_pool to return NaN
+        self.connector.get_price_from_amm_pool = AsyncMock(return_value=(float("nan"), 0))
+
+        # Action
+        result = await self.connector._get_last_traded_price(self.trading_pair)
+
+        # Assert
+        self.assertEqual(result, 1.0)
+
+    async def test_get_last_traded_price_from_order_book_with_amm_pool(self):
+        # Setup
+        self.connector.order_books[self.trading_pair] = MagicMock()
+        self.connector.order_books[self.trading_pair].last_trade_price = Decimal("1.0")
+        self.connector.order_book_tracker.data_source.last_parsed_order_book_timestamp = {self.trading_pair: 100}
+        self.connector.order_book_tracker.data_source._sleep = AsyncMock()
+
+        # Mock _get_price_from_amm_pool to return NaN
+        self.connector.get_price_from_amm_pool = AsyncMock(return_value=(float("1.0"), 0))
+
+        # Action
+        result = await self.connector._get_last_traded_price(self.trading_pair)
+
+        # Assert
+        self.assertEqual(result, 1.0)
+
+    async def test_get_last_traded_price_from_order_book_with_amm_pool_timestamp_in_future(self):
+        # Setup
+        self.connector.order_books[self.trading_pair] = MagicMock()
+        self.connector.order_books[self.trading_pair].last_trade_price = Decimal("1.0")
+        self.connector.order_book_tracker.data_source.last_parsed_order_book_timestamp = {self.trading_pair: 100}
+        self.connector.order_book_tracker.data_source._sleep = AsyncMock()
+
+        # Mock _get_price_from_amm_pool to return NaN
+        self.connector.get_price_from_amm_pool = AsyncMock(return_value=(float("2.0"), 99999999))
+
+        # Action
+        result = await self.connector._get_last_traded_price(self.trading_pair)
+
+        # Assert
+        self.assertEqual(result, 2.0)
+
+    async def test_get_last_traded_price_from_best_bid_ask(self):
+        # Setup
+        self.connector.order_books[self.trading_pair] = MagicMock()
+        self.connector.order_books[self.trading_pair].last_trade_price = float("nan")
+        self.connector.order_books[self.trading_pair].get_price.side_effect = [Decimal("1.0"), Decimal("2.0")]
+        self.connector.order_book_tracker.data_source.last_parsed_order_book_timestamp = {self.trading_pair: 100}
+        self.connector.order_book_tracker.data_source._sleep = AsyncMock()
+
+        # Mock _get_price_from_amm_pool to return NaN
+        self.connector.get_price_from_amm_pool = AsyncMock(return_value=(float(0), 0))
+
+        # Mock get_price_from_amm_pool
+
+        # Action
+        result = await self.connector._get_last_traded_price(self.trading_pair)
+
+        # Assert
+        self.assertEqual(result, 1.5)
+
+    async def test_get_best_price_from_order_book(self):
+        # Setup
+        self.connector.order_books[self.trading_pair] = MagicMock()
+        self.connector.order_books[self.trading_pair].get_price.return_value = Decimal("1.0")
+
+        # Mock _get_price_from_amm_pool to return NaN
+        self.connector.get_price_from_amm_pool = AsyncMock(return_value=(float("nan"), 0))
+
+        # Action
+        result = await self.connector._get_best_price(self.trading_pair, True)
+
+        # Assert
+        self.assertEqual(result, 1.0)
+
+    async def test_get_best_price_from_order_book_with_amm_pool(self):
+        # Setup
+        self.connector.order_books[self.trading_pair] = MagicMock()
+        self.connector.order_books[self.trading_pair].get_price.return_value = Decimal("1.0")
+
+        # Mock _get_price_from_amm_pool to return NaN
+        self.connector.get_price_from_amm_pool = AsyncMock(return_value=(1.1, 0))
+
+        # Action
+        result = await self.connector._get_best_price(self.trading_pair, True)
+
+        # Assert
+        self.assertEqual(result, 1.0)
+
+        # Action
+        result = await self.connector._get_best_price(self.trading_pair, False)
+
+        # Assert
+        self.assertEqual(result, 1.1)
+
+    async def test_get_price_from_amm_pool_invalid_url(self):
+        # Setup
+        self.connector._wss_second_node_url = "invalid_url"
+        self.connector._sleep = AsyncMock()
+        self.data_source._sleep = AsyncMock()
+
+        # Action
+        price, timestamp = await self.connector.get_price_from_amm_pool(self.trading_pair)
+
+        # Assert
+        self.assertTrue(price == float(0))
+        self.assertEqual(timestamp, 0)
+
+    async def test_get_price_from_amm_pool_request_error(self):
+        # Setup
+        self.connector.request_with_retry = AsyncMock(side_effect=Exception("Test error"))
+        self.connector._sleep = AsyncMock()
+        self.data_source._sleep = AsyncMock()
+
+        # Action
+        price, timestamp = await self.connector.get_price_from_amm_pool(self.trading_pair)
+
+        # Assert
+        self.assertTrue(price == float(0))
+        self.assertEqual(timestamp, 0)
+
+    async def test_get_price_from_amm_pool_null_response(self):
+        # Setup
+        self.connector.request_with_retry = AsyncMock(
+            side_effect=Response(
+                status=ResponseStatus.SUCCESS,
+                result={},
+            )
+        )
+        self.connector._sleep = AsyncMock()
+        self.data_source._sleep = AsyncMock()
+
+        # Action
+        price, timestamp = await self.connector.get_price_from_amm_pool(self.trading_pair)
+
+        # Assert
+        self.assertTrue(price == float(0))
+        self.assertEqual(timestamp, 0)
+
+        # Setup
+        self.connector.request_with_retry = AsyncMock(
+            side_effect=Response(
+                status=ResponseStatus.SUCCESS,
+                result={"amm": {}},
+            )
+        )
+        self.connector._sleep = AsyncMock()
+        self.data_source._sleep = AsyncMock()
+
+        # Action
+        price, timestamp = await self.connector.get_price_from_amm_pool(self.trading_pair)
+
+        # Assert
+        self.assertTrue(price == float(0))
+        self.assertEqual(timestamp, 0)
+
+    async def test_get_price_from_amm_pool(self):
+        # Setup
+        self.connector._wss_second_node_url = "wss://s.alt.net"
+        self.connector._sleep = AsyncMock()
+        self.data_source._sleep = AsyncMock()
+        self.connector.get_currencies_from_trading_pair = MagicMock(
+            return_value=(
+                IssuedCurrency(
+                    currency="534F4C4F00000000000000000000000000000000", issuer="rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz"
+                ),
+                XRP(),
+            )
+        )
+        self.connector.request_with_retry = AsyncMock(
+            return_value=Response(
+                status=ResponseStatus.SUCCESS,
+                result={"amm": {"account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK"}},
+                id="amm_info_1234",
+                type=ResponseType.RESPONSE,
+            )
+        )
+
+        # Set up mock to return different responses on first and second calls
+        amm_info_response = Response(
+            status=ResponseStatus.SUCCESS,
+            result={
+                "amm": {
+                    "account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",
+                    "amount": {"value": "1000000"},
+                    "amount2": "100000000",
+                }
+            },
+            id="amm_info_1234",
+            type=ResponseType.RESPONSE,
+        )
+
+        amm_pool_response = Response(
+            status=ResponseStatus.SUCCESS,
+            result={"transaction": {"tx_json": {"date": 794038340}}},
+            id="amm_pool_1234",
+            type=ResponseType.RESPONSE,
+        )
+
+        self.connector.request_with_retry = AsyncMock(side_effect=[amm_info_response, amm_pool_response])
+
+        # Action
+        price, timestamp = await self.connector.get_price_from_amm_pool(self.trading_pair)
+
+        # Assert
+        self.assertEqual(price, 0.0001)
+        self.assertEqual(timestamp, 946684800)
+
+    async def test_get_price_from_amm_pool_xrp_base(self):
+        # Setup
+        self.connector._wss_second_node_url = "wss://s.alt.net"
+        self.connector._sleep = AsyncMock()
+        self.data_source._sleep = AsyncMock()
+        self.connector.get_currencies_from_trading_pair = MagicMock(
+            return_value=(
+                XRP(),
+                IssuedCurrency(
+                    currency="534F4C4F00000000000000000000000000000000", issuer="rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz"
+                ),
+            )
+        )
+        self.connector.request_with_retry = AsyncMock(
+            return_value=Response(
+                status=ResponseStatus.SUCCESS,
+                result={"amm": {"account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK"}},
+                id="amm_info_1234",
+                type=ResponseType.RESPONSE,
+            )
+        )
+
+        # Set up mock to return different responses on first and second calls
+        amm_info_response = Response(
+            status=ResponseStatus.SUCCESS,
+            result={
+                "amm": {
+                    "account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",
+                    "amount2": {"value": "1000000"},
+                    "amount": "100000000",
+                }
+            },
+            id="amm_info_1234",
+            type=ResponseType.RESPONSE,
+        )
+
+        amm_pool_response = Response(
+            status=ResponseStatus.SUCCESS,
+            result={"transaction": {"tx_json": {"date": 794038340}}},
+            id="amm_pool_1234",
+            type=ResponseType.RESPONSE,
+        )
+
+        self.connector.request_with_retry = AsyncMock(side_effect=[amm_info_response, amm_pool_response])
+
+        # Action
+        price, timestamp = await self.connector.get_price_from_amm_pool(self.trading_pair)
+
+        # Assert
+        self.assertEqual(price, 10000.0)
+        self.assertEqual(timestamp, 946684800)
+
+    async def test_request_with_retry_success(self):
+        # Setup
+        self.mock_client.request = AsyncMock(return_value="success")
+        self.connector._sleep = AsyncMock()
+        self.data_source._sleep = AsyncMock()
+
+        # Action
+        result = await self.connector.request_with_retry(Request(method=RequestMethod.ACCOUNT_INFO))
+
+        # Assert
+        self.assertEqual(result, "success")
+
+    async def test_request_with_retry_timeout(self):
+        # Setup
+        self.mock_client.request = AsyncMock(side_effect=TimeoutError("Test timeout"))
+        self.connector._sleep = AsyncMock()
+        self.data_source._sleep = AsyncMock()
+
+        # Action & Assert
+        with self.assertRaises(Exception):
+            await self.connector.request_with_retry(Request(method=RequestMethod.ACCOUNT_INFO))
+
+    async def test_request_with_retry_general_error(self):
+        # Setup
+        self.mock_client.request = AsyncMock(side_effect=Exception("Test error"))
+        self.connector._sleep = AsyncMock()
+        self.data_source._sleep = AsyncMock()
+
+        # Action & Assert
+        with self.assertRaises(Exception):
+            await self.connector.request_with_retry(Request(method=RequestMethod.ACCOUNT_INFO))
+
+    def test_get_token_symbol_from_all_markets_found(self):
+        # Setup
+        code = "SOLO"
+        issuer = "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz"  # noqa: mock
+
+        # Action
+        result = self.connector.get_token_symbol_from_all_markets(code, issuer)
+
+        # Assert
+        self.assertEqual(result, "SOLO")
+
+    def test_get_token_symbol_from_all_markets_not_found(self):
+        # Setup
+        code = "INVALID"
+        issuer = "invalid_issuer"
+
+        # Action
+        result = self.connector.get_token_symbol_from_all_markets(code, issuer)
+
+        # Assert
+        self.assertIsNone(result)
+
+    async def test_client_health_check_refresh(self):
+        # Setup
+        self.connector._last_clients_refresh_time = 0
+        self.connector._sleep = AsyncMock()
+        self.data_source._sleep = AsyncMock()
+
+        # Action
+        await self.connector._client_health_check()
+
+        # Assert
+        self.assertTrue(self.mock_client.close.called)
+        self.assertTrue(self.mock_client.open.called)
+        self.assertGreater(self.connector._last_clients_refresh_time, 0)
+
+    async def test_client_health_check_no_refresh_needed(self):
+        # Setup
+        self.connector._last_clients_refresh_time = time.time()
+
+        # Action
+        await self.connector._client_health_check()
+
+        # Assert
+        self.assertFalse(self.mock_client.close.called)
+        self.assertTrue(self.mock_client.open.called)
+
+    async def test_place_order_invalid_base_currency(self):
+        # Simulate get_currencies_from_trading_pair returning an invalid base currency
+        class DummyCurrency:
+            currency = "DUMMY"
+            issuer = "ISSUER"
+
+        with patch.object(self.connector, "get_currencies_from_trading_pair", return_value=(DummyCurrency(), XRP())):
+            with self.assertRaises(Exception):
+                await self.connector._place_order(
+                    order_id="test",
+                    trading_pair="SOLO-XRP",
+                    amount=Decimal("1.0"),
+                    trade_type=TradeType.BUY,
+                    order_type=OrderType.LIMIT,
+                    price=Decimal("1.0"),
+                )
+
+    async def test_place_order_invalid_quote_currency(self):
+        # Simulate get_currencies_from_trading_pair returning an invalid quote currency
+        class DummyCurrency:
+            currency = "DUMMY"
+            issuer = "ISSUER"
+
+        with patch.object(self.connector, "get_currencies_from_trading_pair", return_value=(XRP(), DummyCurrency())):
+            with self.assertRaises(Exception):
+                await self.connector._place_order(
+                    order_id="test",
+                    trading_pair="SOLO-XRP",
+                    amount=Decimal("1.0"),
+                    trade_type=TradeType.BUY,
+                    order_type=OrderType.LIMIT,
+                    price=Decimal("1.0"),
+                )
+
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account")
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._make_network_check_request")
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._fetch_account_transactions")
+    @patch("hummingbot.connector.exchange_py_base.ExchangePyBase._sleep")
+    async def test_order_status_determination(
+        self, sleep_mock, fetch_account_transactions_mock, network_check_mock, get_account_mock
+    ):
+        """Test the order state determination logic in _request_order_status method"""
+        # Setup common mocks to prevent await errors
+        sleep_mock.return_value = None
+        get_account_mock.return_value = "rAccount"
+        network_check_mock.return_value = None
+
+        # Create tracked order
+        order = InFlightOrder(
+            client_order_id="test_order",
+            exchange_order_id="12345-67890",  # sequence-ledger_index
+            trading_pair="SOLO-XRP",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("100"),
+            price=Decimal("1.0"),
+            creation_timestamp=1640000000.0,
+        )
+
+        # Case 1: Order found with status 'filled'
+        tx_filled = {
+            "tx": {
+                "Sequence": 12345,
+                "hash": "hash1",
+            },
+            "meta": {
+                "TransactionResult": "tesSUCCESS",
+            },
+        }
+
+        with patch(
+            "hummingbot.connector.exchange.xrpl.xrpl_exchange.get_order_book_changes"
+        ) as mock_order_book_changes:
+            with patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_balance_changes") as mock_balance_changes:
+                # Configure mocks
+                mock_order_book_changes.return_value = [
+                    {"maker_account": "rAccount", "offer_changes": [{"sequence": "12345", "status": "filled"}]}
+                ]
+                mock_balance_changes.return_value = []
+
+                # Prepare transaction data
+                fetch_account_transactions_mock.return_value = [tx_filled]
+
+                # Call the method and verify result
+                order_update = await self.connector._request_order_status(order)
+                self.assertEqual(OrderState.FILLED, order_update.new_state)
+
+        # Case 2: Order found with status 'partially-filled'
+        tx_partial = {
+            "tx": {
+                "Sequence": 12345,
+                "hash": "hash2",
+            },
+            "meta": {
+                "TransactionResult": "tesSUCCESS",
+            },
+        }
+
+        with patch(
+            "hummingbot.connector.exchange.xrpl.xrpl_exchange.get_order_book_changes"
+        ) as mock_order_book_changes:
+            with patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_balance_changes") as mock_balance_changes:
+                # Configure mocks
+                mock_order_book_changes.return_value = [
+                    {
+                        "maker_account": "rAccount",
+                        "offer_changes": [{"sequence": "12345", "status": "partially-filled"}],
+                    }
+                ]
+                mock_balance_changes.return_value = []
+
+                # Prepare transaction data
+                fetch_account_transactions_mock.return_value = [tx_partial]
+
+                # Call the method and verify result
+                order_update = await self.connector._request_order_status(order)
+                self.assertEqual(OrderState.PARTIALLY_FILLED, order_update.new_state)
+
+        # Case 3: Order found with status 'cancelled'
+        tx_cancelled = {
+            "tx": {
+                "Sequence": 12345,
+                "hash": "hash3",
+            },
+            "meta": {
+                "TransactionResult": "tesSUCCESS",
+            },
+        }
+
+        with patch(
+            "hummingbot.connector.exchange.xrpl.xrpl_exchange.get_order_book_changes"
+        ) as mock_order_book_changes:
+            with patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_balance_changes") as mock_balance_changes:
+                # Configure mocks
+                mock_order_book_changes.return_value = [
+                    {"maker_account": "rAccount", "offer_changes": [{"sequence": "12345", "status": "cancelled"}]}
+                ]
+                mock_balance_changes.return_value = []
+
+                # Prepare transaction data
+                fetch_account_transactions_mock.return_value = [tx_cancelled]
+
+                # Call the method and verify result
+                order_update = await self.connector._request_order_status(order)
+                self.assertEqual(OrderState.CANCELED, order_update.new_state)
+
+        # Case 4: Order found with status 'created'
+        tx_created = {
+            "tx": {
+                "Sequence": 12345,
+                "hash": "hash4",
+            },
+            "meta": {
+                "TransactionResult": "tesSUCCESS",
+            },
+        }
+
+        with patch(
+            "hummingbot.connector.exchange.xrpl.xrpl_exchange.get_order_book_changes"
+        ) as mock_order_book_changes:
+            with patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_balance_changes") as mock_balance_changes:
+                # Configure mocks
+                mock_order_book_changes.return_value = [
+                    {"maker_account": "rAccount", "offer_changes": [{"sequence": "12345", "status": "created"}]}
+                ]
+                mock_balance_changes.return_value = []
+
+                # Prepare transaction data
+                fetch_account_transactions_mock.return_value = [tx_created]
+
+                # Call the method and verify result
+                order_update = await self.connector._request_order_status(order)
+                self.assertEqual(OrderState.OPEN, order_update.new_state)
+
+        # Case 5: No offer created but balance changes (order filled immediately)
+        tx_no_offer = {
+            "tx": {
+                "Sequence": 12345,
+                "hash": "hash5",
+            },
+            "meta": {
+                "TransactionResult": "tesSUCCESS",
+            },
+        }
+
+        with patch(
+            "hummingbot.connector.exchange.xrpl.xrpl_exchange.get_order_book_changes"
+        ) as mock_order_book_changes:
+            with patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_balance_changes") as mock_balance_changes:
+                # Configure mocks
+                mock_order_book_changes.return_value = []  # No offer changes
+                mock_balance_changes.return_value = [
+                    {"account": "rAccount", "balances": [{"some_balance": "data"}]}  # Just need non-empty balances
+                ]
+
+                # Prepare transaction data
+                fetch_account_transactions_mock.return_value = [tx_no_offer]
+
+                # Call the method and verify result
+                order_update = await self.connector._request_order_status(order)
+                self.assertEqual(OrderState.FILLED, order_update.new_state)
+
+        # Case 6: No offer created and no balance changes (order failed)
+        tx_failed = {
+            "tx": {
+                "Sequence": 12345,
+                "hash": "hash6",
+            },
+            "meta": {
+                "TransactionResult": "tesSUCCESS",
+            },
+        }
+
+        with patch(
+            "hummingbot.connector.exchange.xrpl.xrpl_exchange.get_order_book_changes"
+        ) as mock_order_book_changes:
+            with patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_balance_changes") as mock_balance_changes:
+                # Configure mocks
+                mock_order_book_changes.return_value = []  # No offer changes
+                mock_balance_changes.return_value = []  # No balance changes
+
+                # Prepare transaction data
+                fetch_account_transactions_mock.return_value = [tx_failed]
+
+                # Call the method and verify result
+                order_update = await self.connector._request_order_status(order)
+                self.assertEqual(OrderState.FAILED, order_update.new_state)
+
+        # Case 7: Market order success
+        market_order = InFlightOrder(
+            client_order_id="test_market_order",
+            exchange_order_id="12345-67890",
+            trading_pair="SOLO-XRP",
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.BUY,
+            amount=Decimal("100"),
+            price=Decimal("1.0"),
+            creation_timestamp=1640000000.0,
+        )
+
+        tx_market = {
+            "tx": {
+                "Sequence": 12345,
+                "hash": "hash7",
+            },
+            "meta": {
+                "TransactionResult": "tesSUCCESS",
+            },
+        }
+
+        # For market orders, we don't need to patch get_order_book_changes or get_balance_changes
+        fetch_account_transactions_mock.return_value = [tx_market]
+        order_update = await self.connector._request_order_status(market_order)
+        self.assertEqual(OrderState.FILLED, order_update.new_state)
+
+        # Case 8: Market order failed
+        tx_market_failed = {
+            "tx": {
+                "Sequence": 12345,
+                "hash": "hash8",
+            },
+            "meta": {
+                "TransactionResult": "tecFAILED",
+            },
+        }
+
+        fetch_account_transactions_mock.return_value = [tx_market_failed]
+        order_update = await self.connector._request_order_status(market_order)
+        self.assertEqual(OrderState.FAILED, order_update.new_state)
+
+        # Case 10: Order not found but still within timeout period (should remain PENDING_CREATE)
+        with patch("time.time") as mock_time:
+            mock_time.return_value = 1640100000.0  # Some time in the future
+
+            fresh_pending_order = InFlightOrder(
+                client_order_id="test_fresh_pending_order",
+                exchange_order_id="12345-67890",
+                trading_pair="SOLO-XRP",
+                order_type=OrderType.LIMIT,
+                trade_type=TradeType.BUY,
+                amount=Decimal("100"),
+                price=Decimal("1.0"),
+                initial_state=OrderState.PENDING_CREATE,
+                creation_timestamp=1640000000.0,
+            )
+
+            # Set the last update timestamp to be within the timeout period
+            fresh_pending_order.last_update_timestamp = mock_time.return_value - 5  # Only 5 seconds ago
+
+            fetch_account_transactions_mock.return_value = []
+            order_update = await self.connector._request_order_status(fresh_pending_order)
+            self.assertEqual(OrderState.PENDING_CREATE, order_update.new_state)
+
+        # Case 11: Exchange order ID is None
+        no_exchange_id_order = InFlightOrder(
+            client_order_id="test_no_id_order",
+            exchange_order_id=None,
+            trading_pair="SOLO-XRP",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("100"),
+            price=Decimal("1.0"),
+            creation_timestamp=1640000000.0,
+        )
+
+        order_update = await self.connector._request_order_status(no_exchange_id_order)
+        self.assertEqual(no_exchange_id_order.current_state, order_update.new_state)

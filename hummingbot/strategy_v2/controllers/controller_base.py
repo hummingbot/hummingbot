@@ -2,18 +2,19 @@ import asyncio
 import importlib
 import inspect
 from decimal import Decimal
-from typing import TYPE_CHECKING, Callable, Dict, List, Set
+from typing import TYPE_CHECKING, Callable, List
 
 from pydantic import ConfigDict, Field, field_validator
 
 from hummingbot.client.config.config_data_types import BaseClientModel
-from hummingbot.core.data_type.trade_fee import TokenAmount
+from hummingbot.core.data_type.common import MarketDict
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
 from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executor_actions import ExecutorAction
 from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
+from hummingbot.strategy_v2.models.position_config import InitialPositionConfig
 from hummingbot.strategy_v2.runnable_base import RunnableBase
 from hummingbot.strategy_v2.utils.common import generate_unique_id
 
@@ -46,6 +47,13 @@ class ControllerConfigBase(BaseClientModel):
     candles_config: List[CandlesConfig] = Field(
         default=[],
         json_schema_extra={"is_updatable": True})
+    initial_positions: List[InitialPositionConfig] = Field(
+        default=[],
+        json_schema_extra={
+            "prompt": "Enter initial positions as a list of InitialPositionConfig objects: ",
+            "prompt_on_new": False,
+            "is_updatable": False
+        })
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @field_validator('id', mode="before")
@@ -63,6 +71,13 @@ class ControllerConfigBase(BaseClientModel):
         elif isinstance(v, list):
             return v
         raise ValueError("Invalid type for candles_config. Expected str or List[CandlesConfig]")
+
+    @field_validator('initial_positions', mode="before")
+    @classmethod
+    def parse_initial_positions(cls, v) -> List[InitialPositionConfig]:
+        if isinstance(v, list):
+            return v
+        raise ValueError("Invalid type for initial_positions. Expected List[InitialPositionConfig]")
 
     @staticmethod
     def parse_candles_config_str(v: str) -> List[CandlesConfig]:
@@ -89,7 +104,7 @@ class ControllerConfigBase(BaseClientModel):
                 configs.append(config)
         return configs
 
-    def update_markets(self, markets: Dict[str, Set[str]]) -> Dict[str, Set[str]]:
+    def update_markets(self, markets: MarketDict) -> MarketDict:
         """
         Update the markets dict of the script from the config.
         """
@@ -115,6 +130,7 @@ class ControllerBase(RunnableBase):
     """
     Base class for controllers.
     """
+
     def __init__(self, config: ControllerConfigBase, market_data_provider: MarketDataProvider,
                  actions_queue: asyncio.Queue, update_interval: float = 1.0):
         super().__init__(update_interval=update_interval)
@@ -142,18 +158,12 @@ class ControllerBase(RunnableBase):
         for candles_config in self.config.candles_config:
             self.market_data_provider.initialize_candles_feed(candles_config)
 
-    def get_balance_requirements(self) -> List[TokenAmount]:
-        """
-        Get the balance requirements for the controller.
-        """
-        return []
-
     def update_config(self, new_config: ControllerConfigBase):
         """
         Update the controller configuration. With the variables that in the client_data have the is_updatable flag set
         to True. This will be only available for those variables that don't interrupt the bot operation.
         """
-        for name, field_info in self.config.model_fields.items():
+        for name, field_info in self.config.__class__.model_fields.items():
             json_schema_extra = field_info.json_schema_extra or {}
             if json_schema_extra.get("is_updatable", False):
                 setattr(self.config, name, getattr(new_config, name))

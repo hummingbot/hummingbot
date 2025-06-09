@@ -6,6 +6,7 @@ import pandas as pd
 
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import PriceType
+from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book_query_result import OrderBookQueryResult
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
@@ -160,10 +161,22 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
             result = self.provider.get_rate("BTC-USDT")
             self.assertEqual(result, 100)
 
+    def test_get_funding_info(self):
+        self.mock_connector.get_funding_info.return_value = FundingInfo(
+            trading_pair="BTC-USDT",
+            index_price=Decimal("10000"),
+            mark_price=Decimal("10000"),
+            next_funding_utc_timestamp=1234567890,
+            rate=Decimal("0.01")
+        )
+        result = self.provider.get_funding_info("mock_connector", "BTC-USDT")
+        self.assertIsInstance(result, FundingInfo)
+        self.assertEqual(result.trading_pair, "BTC-USDT")
+
     @patch.object(MarketDataProvider, "update_rates_task", MagicMock())
     def test_initialize_rate_sources(self):
         self.provider.initialize_rate_sources([ConnectorPair(connector_name="binance", trading_pair="BTC-USDT")])
-        self.assertEqual(len(self.provider._rate_sources), 1)
+        self.assertEqual(len(self.provider._rates_required), 1)
         self.provider.stop()
 
     async def test_safe_get_last_traded_prices(self):

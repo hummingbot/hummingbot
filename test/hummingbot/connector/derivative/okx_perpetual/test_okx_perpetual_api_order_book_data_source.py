@@ -21,7 +21,6 @@ from hummingbot.connector.derivative.okx_perpetual.okx_perpetual_derivative impo
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
-from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
 BASE_ASSET = "COINALPHA"
 QUOTE_ASSET = "HBOT"
@@ -72,8 +71,6 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
             bidict({f"{self.base_asset}{self.quote_asset}": self.trading_pair}))
 
     async def asyncSetUp(self) -> None:
-        await super().asyncSetUp()
-        await ConnectionsFactory().close()
         self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()
 

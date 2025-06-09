@@ -7,10 +7,14 @@ from typing import Dict, List, Optional, Tuple
 import pandas as pd
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter, get_connector_class
+from hummingbot.client.config.config_helpers import (
+    ClientConfigAdapter,
+    api_keys_from_connector_config_map,
+    get_connector_class,
+)
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.core.data_type.common import PriceType, TradeType
+from hummingbot.core.data_type.common import GroupedSetDict, LazyDict, PriceType, TradeType
 from hummingbot.core.data_type.order_book_query_result import OrderBookQueryResult
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
@@ -38,8 +42,8 @@ class MarketDataProvider:
         self._rates_update_task = None
         self._rates_update_interval = rates_update_interval
         self._rates = {}
-        self._rate_sources = {}
-        self._rates_required = {}
+        self._rate_sources = LazyDict[str, ConnectorBase](self.get_non_trading_connector)
+        self._rates_required = GroupedSetDict[str, ConnectorPair]()
         self.conn_settings = AllConnectorSettings.get_connector_settings()
 
     def stop(self):
@@ -66,17 +70,11 @@ class MarketDataProvider:
         :param connector_pair: ConnectorPair
         """
         for connector_pair in connector_pairs:
+            connector_name, _ = connector_pair
             if connector_pair.is_amm_connector():
-                if "gateway" not in self._rates_required:
-                    self._rates_required["gateway"] = []
-                self._rates_required["gateway"].append(connector_pair)
+                self._rates_required.add_or_update("gateway", connector_pair)
                 continue
-            if connector_pair.connector_name not in self._rates_required:
-                self._rates_required[connector_pair.connector_name] = []
-            self._rates_required[connector_pair.connector_name].append(connector_pair)
-            if connector_pair.connector_name not in self._rate_sources:
-                self._rate_sources[connector_pair.connector_name] = self.get_non_trading_connector(
-                    connector_pair.connector_name)
+            self._rates_required.add_or_update(connector_name, connector_pair)
         if not self._rates_update_task:
             self._rates_update_task = safe_ensure_future(self.update_rates_task())
 
@@ -186,17 +184,24 @@ class MarketDataProvider:
             raise ValueError(f"Connector {connector_name} not found")
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
-        connector_config = AllConnectorSettings.get_connector_config_keys(connector_name)
-        api_keys = {key: "" for key in connector_config.__fields__.keys() if key != "connector"}
         init_params = conn_setting.conn_init_parameters(
             trading_pairs=[],
             trading_required=False,
-            api_keys=api_keys,
+            api_keys=self.get_connector_config_map(connector_name),
             client_config_map=client_config_map,
         )
         connector_class = get_connector_class(connector_name)
         connector = connector_class(**init_params)
         return connector
+
+    @staticmethod
+    def get_connector_config_map(connector_name: str):
+        connector_config = AllConnectorSettings.get_connector_config_keys(connector_name)
+        if getattr(connector_config, "use_auth_for_public_endpoints", False):
+            api_keys = api_keys_from_connector_config_map(ClientConfigAdapter(connector_config))
+        else:
+            api_keys = {key: "" for key in connector_config.__class__.model_fields.keys() if key != "connector"}
+        return api_keys
 
     def get_balance(self, connector_name: str, asset: str):
         connector = self.get_connector(connector_name)
@@ -222,6 +227,16 @@ class MarketDataProvider:
         """
         connector = self.get_connector(connector_name)
         return connector.get_price_by_type(trading_pair, price_type)
+
+    def get_funding_info(self, connector_name: str, trading_pair: str):
+        """
+        Retrieves the funding rate for a trading pair from the specified connector.
+        :param connector_name: str
+        :param trading_pair: str
+        :return: Funding rate.
+        """
+        connector = self.get_connector(connector_name)
+        return connector.get_funding_info(trading_pair)
 
     def get_candles_df(self, connector_name: str, trading_pair: str, interval: str, max_records: int = 500):
         """
