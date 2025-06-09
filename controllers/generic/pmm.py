@@ -5,7 +5,6 @@ from pydantic import Field, field_validator
 from pydantic_core.core_schema import ValidationInfo
 
 from hummingbot.core.data_type.common import MarketDict, OrderType, PositionMode, PriceType, TradeType
-from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.strategy_v2.controllers.controller_base import ControllerBase, ControllerConfigBase
 from hummingbot.strategy_v2.executors.data_types import ConnectorPair
@@ -450,16 +449,6 @@ class PMM(ControllerBase):
         elif self.processed_data["current_base_pct"] > self.config.max_base_pct:
             return sell_ids_missing
         return buy_ids_missing + sell_ids_missing
-
-    def get_balance_requirements(self) -> List[TokenAmount]:
-        """
-        Get the balance requirements for the controller.
-        """
-        base_asset, quote_asset = self.config.trading_pair.split("-")
-        _, amounts_quote = self.config.get_spreads_and_amounts_in_quote(TradeType.BUY)
-        _, amounts_base = self.config.get_spreads_and_amounts_in_quote(TradeType.SELL)
-        return [TokenAmount(base_asset, Decimal(sum(amounts_base) / self.processed_data["reference_price"])),
-                TokenAmount(quote_asset, Decimal(sum(amounts_quote)))]
 
     def to_format_status(self) -> List[str]:
         """

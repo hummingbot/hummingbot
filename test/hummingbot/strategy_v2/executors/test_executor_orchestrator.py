@@ -7,6 +7,7 @@ from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
+from hummingbot.model.position import Position
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 from hummingbot.strategy_v2.executors.arbitrage_executor.arbitrage_executor import ArbitrageExecutor
 from hummingbot.strategy_v2.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig
@@ -32,7 +33,9 @@ class TestExecutorOrchestrator(unittest.TestCase):
     def setUp(self, markets_recorder: MagicMock):
         markets_recorder.return_value = MagicMock(spec=MarketsRecorder)
         markets_recorder.get_all_executors = MagicMock(return_value=[])
+        markets_recorder.get_all_positions = MagicMock(return_value=[])
         markets_recorder.store_or_update_executor = MagicMock(return_value=None)
+        markets_recorder.update_or_store_position = MagicMock(return_value=None)
         self.mock_strategy = self.create_mock_strategy()
         self.orchestrator = ExecutorOrchestrator(strategy=self.mock_strategy)
 
@@ -52,6 +55,8 @@ class TestExecutorOrchestrator(unittest.TestCase):
         }
         strategy.market_data_provider = MagicMock(spec=MarketDataProvider)
         strategy.market_data_provider.get_price_by_type = MagicMock(return_value=Decimal(230))
+        # Add the controllers attribute that ExecutorOrchestrator now checks for
+        strategy.controllers = {}
         return strategy
 
     @patch.object(PositionExecutor, "start")
@@ -194,14 +199,90 @@ class TestExecutorOrchestrator(unittest.TestCase):
 
         # Set up mock to return executor info
         mock_markets_recorder.get_all_executors.return_value = [executor_info]
+        mock_markets_recorder.get_all_positions.return_value = []
+
+        # Add the controller to the strategy's controllers dict
+        self.mock_strategy.controllers = {"test": MagicMock()}
 
         orchestrator = ExecutorOrchestrator(strategy=self.mock_strategy)
         self.assertEqual(len(orchestrator.cached_performance), 1)
 
+    @patch("hummingbot.strategy_v2.executors.executor_orchestrator.MarketsRecorder.get_instance")
+    def test_initialize_cached_performance_with_positions(self, mock_get_instance: MagicMock):
+        # Create mock markets recorder
+        mock_markets_recorder = MagicMock(spec=MarketsRecorder)
+        mock_get_instance.return_value = mock_markets_recorder
+
+        # Create mock position from database
+        position1 = Position(
+            id="pos1",
+            timestamp=1234,
+            controller_id="controller1",
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            side=TradeType.BUY.name,
+            amount=Decimal("1"),
+            breakeven_price=Decimal("1000"),
+            unrealized_pnl_quote=Decimal("50"),
+            cum_fees_quote=Decimal("5"),
+            volume_traded_quote=Decimal("1000")
+        )
+
+        position2 = Position(
+            id="pos2",
+            timestamp=1235,
+            controller_id="controller2",
+            connector_name="binance",
+            trading_pair="BTC-USDT",
+            side=TradeType.SELL.name,
+            amount=Decimal("0.1"),
+            breakeven_price=Decimal("50000"),
+            unrealized_pnl_quote=Decimal("-100"),
+            cum_fees_quote=Decimal("10"),
+            volume_traded_quote=Decimal("5000")
+        )
+
+        # Set up mock to return executor info and positions
+        mock_markets_recorder.get_all_executors.return_value = []
+        mock_markets_recorder.get_all_positions.return_value = [position1, position2]
+
+        # Add the controllers to the strategy's controllers dict
+        self.mock_strategy.controllers = {"controller1": MagicMock(), "controller2": MagicMock()}
+
+        orchestrator = ExecutorOrchestrator(strategy=self.mock_strategy)
+
+        # Check that positions were loaded
+        self.assertEqual(len(orchestrator.cached_performance), 2)
+        self.assertIn("controller1", orchestrator.cached_performance)
+        self.assertIn("controller2", orchestrator.cached_performance)
+
+        # Check that positions were converted to PositionHold objects
+        self.assertEqual(len(orchestrator.positions_held["controller1"]), 1)
+        self.assertEqual(len(orchestrator.positions_held["controller2"]), 1)
+
+        # Verify position data was correctly loaded
+        position_hold1 = orchestrator.positions_held["controller1"][0]
+        self.assertEqual(position_hold1.connector_name, "binance")
+        self.assertEqual(position_hold1.trading_pair, "ETH-USDT")
+        self.assertEqual(position_hold1.side, TradeType.BUY)
+        self.assertEqual(position_hold1.buy_amount_base, Decimal("1"))
+        self.assertEqual(position_hold1.buy_amount_quote, Decimal("1000"))
+        self.assertEqual(position_hold1.volume_traded_quote, Decimal("1000"))
+        self.assertEqual(position_hold1.cum_fees_quote, Decimal("5"))
+
+        position_hold2 = orchestrator.positions_held["controller2"][0]
+        self.assertEqual(position_hold2.connector_name, "binance")
+        self.assertEqual(position_hold2.trading_pair, "BTC-USDT")
+        self.assertEqual(position_hold2.side, TradeType.SELL)
+        self.assertEqual(position_hold2.sell_amount_base, Decimal("0.1"))
+        self.assertEqual(position_hold2.sell_amount_quote, Decimal("5000"))
+        self.assertEqual(position_hold2.volume_traded_quote, Decimal("5000"))
+        self.assertEqual(position_hold2.cum_fees_quote, Decimal("10"))
+
     @patch.object(MarketsRecorder, "get_instance")
     def test_store_all_positions(self, markets_recorder_mock):
         markets_recorder_mock.return_value = MagicMock(spec=MarketsRecorder)
-        markets_recorder_mock.store_position = MagicMock(return_value=None)
+        markets_recorder_mock.update_or_store_position = MagicMock(return_value=None)
         position_held = PositionHold("binance", "SOL-USDT", side=TradeType.BUY)
         executor_info = ExecutorInfo(
             id="123", timestamp=1234, type="position_executor",
@@ -278,3 +359,136 @@ class TestExecutorOrchestrator(unittest.TestCase):
         position_executor.config.id = "123"
         self.orchestrator.active_executors["test"] = [position_executor]
         self.orchestrator.stop_executor(StopExecutorAction(executor_id="123", controller_id="test"))
+
+    @patch("hummingbot.strategy_v2.executors.executor_orchestrator.MarketsRecorder.get_instance")
+    def test_generate_performance_report_with_loaded_positions(self, mock_get_instance: MagicMock):
+        # Create mock markets recorder
+        mock_markets_recorder = MagicMock(spec=MarketsRecorder)
+        mock_get_instance.return_value = mock_markets_recorder
+
+        # Create a position from database
+        db_position = Position(
+            id="pos1",
+            timestamp=1234,
+            controller_id="test",
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            side=TradeType.BUY.name,
+            amount=Decimal("2"),
+            breakeven_price=Decimal("1000"),
+            unrealized_pnl_quote=Decimal("100"),
+            cum_fees_quote=Decimal("10"),
+            volume_traded_quote=Decimal("2000")
+        )
+
+        # Set up mock to return position
+        mock_markets_recorder.get_all_executors.return_value = []
+        mock_markets_recorder.get_all_positions.return_value = [db_position]
+
+        # Add the controller to the strategy's controllers dict
+        self.mock_strategy.controllers = {"test": MagicMock()}
+
+        # Create orchestrator which will load the position
+        orchestrator = ExecutorOrchestrator(strategy=self.mock_strategy)
+
+        # Generate performance report
+        report = orchestrator.generate_performance_report(controller_id="test")
+
+        # Verify the report includes data from the loaded position
+        self.assertEqual(report.volume_traded, Decimal("2000"))
+        # The unrealized PnL should be calculated fresh based on current price (230)
+        # For a BUY position: (current_price - breakeven_price) * amount = (230 - 1000) * 2 = -1540
+        self.assertEqual(report.unrealized_pnl_quote, Decimal("-1540"))
+        # Check that the report has the position summary
+        self.assertTrue(hasattr(report, "positions_summary"))
+        self.assertEqual(len(report.positions_summary), 1)
+        self.assertEqual(report.positions_summary[0].amount, Decimal("2"))
+        self.assertEqual(report.positions_summary[0].breakeven_price, Decimal("1000"))
+
+    @patch("hummingbot.strategy_v2.executors.executor_orchestrator.MarketsRecorder.get_instance")
+    def test_initial_positions_override(self, mock_get_instance: MagicMock):
+        # Create mock markets recorder
+        mock_markets_recorder = MagicMock(spec=MarketsRecorder)
+        mock_get_instance.return_value = mock_markets_recorder
+
+        # Create a database position that should be ignored due to override
+        db_position = Position(
+            id="db_pos1",
+            timestamp=1234,
+            controller_id="test_controller",
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            side=TradeType.BUY.name,
+            amount=Decimal("5"),
+            breakeven_price=Decimal("2000"),
+            unrealized_pnl_quote=Decimal("0"),
+            cum_fees_quote=Decimal("0"),
+            volume_traded_quote=Decimal("10000")
+        )
+
+        # Import the shared InitialPositionConfig
+        from hummingbot.strategy_v2.models.position_config import InitialPositionConfig
+
+        # Create initial position configs that should override the database
+        initial_positions = {
+            "test_controller": [
+                InitialPositionConfig(
+                    connector_name="binance",
+                    trading_pair="ETH-USDT",
+                    amount=Decimal("2"),
+                    side=TradeType.BUY
+                ),
+                InitialPositionConfig(
+                    connector_name="binance",
+                    trading_pair="BTC-USDT",
+                    amount=Decimal("0.1"),
+                    side=TradeType.SELL
+                )
+            ]
+        }
+
+        # Set up mock to return both executors and positions
+        mock_markets_recorder.get_all_executors.return_value = []
+        mock_markets_recorder.get_all_positions.return_value = [db_position]
+
+        # Add the controller to the strategy's controllers dict
+        self.mock_strategy.controllers = {"test_controller": MagicMock()}
+
+        # Create orchestrator with initial position overrides
+        orchestrator = ExecutorOrchestrator(
+            strategy=self.mock_strategy,
+            initial_positions_by_controller=initial_positions
+        )
+
+        # Verify that the database position was NOT loaded
+        # and instead the initial positions were created
+        self.assertEqual(len(orchestrator.positions_held["test_controller"]), 2)
+
+        # Check first position (ETH-USDT BUY)
+        eth_position = orchestrator.positions_held["test_controller"][0]
+        self.assertEqual(eth_position.connector_name, "binance")
+        self.assertEqual(eth_position.trading_pair, "ETH-USDT")
+        self.assertEqual(eth_position.side, TradeType.BUY)
+        self.assertEqual(eth_position.buy_amount_base, Decimal("2"))
+        self.assertTrue(eth_position.buy_amount_quote.is_nan())  # Initially NaN
+        self.assertEqual(eth_position.volume_traded_quote, Decimal("0"))  # Fresh start
+        self.assertEqual(eth_position.cum_fees_quote, Decimal("0"))  # Fresh start
+
+        # Check second position (BTC-USDT SELL)
+        btc_position = orchestrator.positions_held["test_controller"][1]
+        self.assertEqual(btc_position.connector_name, "binance")
+        self.assertEqual(btc_position.trading_pair, "BTC-USDT")
+        self.assertEqual(btc_position.side, TradeType.SELL)
+        self.assertEqual(btc_position.sell_amount_base, Decimal("0.1"))
+        self.assertTrue(btc_position.sell_amount_quote.is_nan())  # Initially NaN
+        self.assertEqual(btc_position.volume_traded_quote, Decimal("0"))  # Fresh start
+        self.assertEqual(btc_position.cum_fees_quote, Decimal("0"))  # Fresh start
+
+        # Test that lazy calculation works when getting position summary
+        eth_summary = eth_position.get_position_summary(Decimal("230"))
+        self.assertEqual(eth_position.buy_amount_quote, Decimal("2") * Decimal("230"))  # Now calculated
+        self.assertEqual(eth_summary.breakeven_price, Decimal("230"))
+
+        btc_summary = btc_position.get_position_summary(Decimal("230"))
+        self.assertEqual(btc_position.sell_amount_quote, Decimal("0.1") * Decimal("230"))  # Now calculated
+        self.assertEqual(btc_summary.breakeven_price, Decimal("230"))
