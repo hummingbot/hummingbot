@@ -1,5 +1,7 @@
 
+import asyncio
 import json
+from typing import Awaitable
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
@@ -21,6 +23,10 @@ class DerivePerpetualAuthTests(TestCase):
                                         sub_id=self.sub_id,
                                         trading_required=True,
                                         domain=self.domain)
+
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
+        ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
+        return ret
 
     def test_initialization(self):
         self.assertEqual(self.auth._api_key, self.api_key)
@@ -46,24 +52,26 @@ class DerivePerpetualAuthTests(TestCase):
         self.assertEqual(headers["X-LyraSignature"], mock_signature)
 
     @patch("hummingbot.core.web_assistant.connections.data_types.WSRequest.send_with_connection")
-    async def test_ws_authenticate(self, mock_send):
+    def test_ws_authenticate(self, mock_send):
         mock_send.return_value = None
         request = MagicMock(spec=WSRequest)
         request.endpoint = None
         request.payload = {}
-        authenticated_request = await self.auth.ws_authenticate(request)
+
+        authenticated_request = self.async_run_with_timeout(self.auth.ws_authenticate(request))
 
         self.assertEqual(authenticated_request.endpoint, request.endpoint)
         self.assertEqual(authenticated_request.payload, request.payload)
 
     @patch("hummingbot.connector.derivative.derive_perpetual.derive_perpetual_auth.DerivePerpetualAuth.header_for_authentication")
-    async def test_rest_authenticate(self, mock_header_for_auth):
+    def test_rest_authenticate(self, mock_header_for_auth):
         mock_header_for_auth.return_value = {"header": "value"}
 
         request = RESTRequest(
             method=RESTMethod.POST, url="/test", data=json.dumps({"key": "value"}), headers={}
         )
-        authenticated_request = await (self.auth.rest_authenticate(request))
+
+        authenticated_request = self.async_run_with_timeout(self.auth.rest_authenticate(request))
 
         self.assertIn("header", authenticated_request.headers)
         self.assertEqual(authenticated_request.headers["header"], "value")

@@ -59,3 +59,54 @@ class TestAmmGatewayDataFeed(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest)
         self.assertEqual(2, gateway_client_mock.get_price.call_count)
         self.assertEqual(Decimal("1"), self.data_feed.price_dict["HBOT-USDT"].buy_price)
         self.assertEqual(Decimal("2"), self.data_feed.price_dict["HBOT-USDT"].sell_price)
+
+    def test_is_ready_empty_price_dict(self):
+        # Test line 76: is_ready returns False when price_dict is empty
+        self.data_feed._price_dict = {}
+        self.assertFalse(self.data_feed.is_ready())
+
+    def test_is_ready_with_prices(self):
+        # Test line 76: is_ready returns True when price_dict has data
+        from hummingbot.data_feed.amm_gateway_data_feed import TokenBuySellPrice
+        self.data_feed._price_dict = {
+            "HBOT-USDT": TokenBuySellPrice(
+                base="HBOT",
+                quote="USDT",
+                connector="connector",
+                chain="chain",
+                network="network",
+                order_amount_in_base=Decimal("1"),
+                buy_price=Decimal("1"),
+                sell_price=Decimal("2"),
+            )
+        }
+        self.assertTrue(self.data_feed.is_ready())
+
+    @patch("hummingbot.data_feed.amm_gateway_data_feed.AmmGatewayDataFeed.gateway_client", new_callable=AsyncMock)
+    async def test_register_token_buy_sell_price_exception(self, gateway_client_mock: AsyncMock):
+        # Test lines 132-133: exception handling in _register_token_buy_sell_price
+        gateway_client_mock.get_price.side_effect = Exception("API error")
+        await self.data_feed._register_token_buy_sell_price("HBOT-USDT")
+        self.assertTrue(
+            self.is_logged(log_level=LogLevel.WARNING,
+                           message="Failed to get price for HBOT-USDT: API error"))
+
+    @patch("hummingbot.data_feed.amm_gateway_data_feed.AmmGatewayDataFeed.gateway_client", new_callable=AsyncMock)
+    async def test_request_token_price_returns_none(self, gateway_client_mock: AsyncMock):
+        # Test line 151: _request_token_price returns None when price is not in response
+        from hummingbot.core.data_type.common import TradeType
+
+        # Case 1: Empty response
+        gateway_client_mock.get_price.return_value = {}
+        result = await self.data_feed._request_token_price("HBOT-USDT", TradeType.BUY)
+        self.assertIsNone(result)
+
+        # Case 2: Response with null price
+        gateway_client_mock.get_price.return_value = {"price": None}
+        result = await self.data_feed._request_token_price("HBOT-USDT", TradeType.BUY)
+        self.assertIsNone(result)
+
+        # Case 3: No response (None)
+        gateway_client_mock.get_price.return_value = None
+        result = await self.data_feed._request_token_price("HBOT-USDT", TradeType.BUY)
+        self.assertIsNone(result)

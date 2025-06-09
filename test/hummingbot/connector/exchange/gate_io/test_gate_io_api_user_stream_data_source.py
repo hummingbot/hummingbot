@@ -32,7 +32,6 @@ class TestGateIoAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
         cls.api_secret_key = "someSecretKey"
 
     async def asyncSetUp(self) -> None:
-        await super().asyncSetUp()
         self.log_records = []
         self.listening_task: Optional[asyncio.Task] = None
         self.mocking_assistant = NetworkMockingAssistant(self.local_event_loop)
@@ -140,8 +139,8 @@ class TestGateIoAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
             "payload": [self.ex_trading_pair],
             "auth": {
                 "KEY": self.api_key,
-                "SIGN": '005d2e6996fa7783459453d36ff871d8d5cfe225a098f37ac234543811c79e3c' # noqa: mock
-                        'db8f41684f3ad9491f65c15ed880ce7baee81f402eb1df56b1bba188c0e7838c', # noqa: mock
+                "SIGN": '005d2e6996fa7783459453d36ff871d8d5cfe225a098f37ac234543811c79e3c'  # noqa: mock
+                        'db8f41684f3ad9491f65c15ed880ce7baee81f402eb1df56b1bba188c0e7838c',  # noqa: mock
                 "method": "api_key"},
         }
         self.assertEqual(expected_orders_subscription, sent_subscription_messages[0])
@@ -152,8 +151,8 @@ class TestGateIoAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
             "payload": [self.ex_trading_pair],
             "auth": {
                 "KEY": self.api_key,
-                "SIGN": '0f34bf79558905d2b5bc7790febf1099d38ff1aa39525a077db32bcbf9135268' # noqa: mock
-                        'caf23cdf2d62315841500962f788f7c5f4c3f4b8a057b2184366687b1f74af69', # noqa: mock
+                "SIGN": '0f34bf79558905d2b5bc7790febf1099d38ff1aa39525a077db32bcbf9135268'  # noqa: mock
+                        'caf23cdf2d62315841500962f788f7c5f4c3f4b8a057b2184366687b1f74af69',  # noqa: mock
                 "method": "api_key"}
         }
         self.assertEqual(expected_trades_subscription, sent_subscription_messages[1])
@@ -163,8 +162,8 @@ class TestGateIoAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
             "event": "subscribe",
             "auth": {
                 "KEY": self.api_key,
-                "SIGN": '90f5e732fc586d09c4a1b7de13f65b668c7ce90678b30da87aa137364bac0b97' # noqa: mock
-                        '16b34219b689fb754e821872933a0e12b1d415867b9fbb8ec441bc86e77fb79c', # noqa: mock
+                "SIGN": '90f5e732fc586d09c4a1b7de13f65b668c7ce90678b30da87aa137364bac0b97'  # noqa: mock
+                        '16b34219b689fb754e821872933a0e12b1d415867b9fbb8ec441bc86e77fb79c',  # noqa: mock
                 "method": "api_key"}
         }
         self.assertEqual(expected_balances_subscription, sent_subscription_messages[2])

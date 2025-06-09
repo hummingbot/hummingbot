@@ -224,6 +224,9 @@ class HummingbotCompleter(Completer):
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("gateway connect ")
 
+    def _complete_gateway_network_selection(self, document: Document) -> bool:
+        return "Which" in self.prompt_text and "network do you want to connect to?" in self.prompt_text
+
     def _complete_gateway_connector_tokens_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("gateway connector-tokens ")
@@ -344,7 +347,7 @@ class HummingbotCompleter(Completer):
             for c in self._gateway_chain_completer.get_completions(document, complete_event):
                 yield c
 
-        elif self._complete_gateway_network(document):
+        elif self._complete_gateway_network(document) or self._complete_gateway_network_selection(document):
             for c in self._gateway_network_completer.get_completions(document, complete_event):
                 yield c
 

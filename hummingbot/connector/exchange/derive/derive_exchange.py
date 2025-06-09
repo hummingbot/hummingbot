@@ -382,6 +382,7 @@ class DeriveExchange(ExchangePyBase):
             "label": order_id,
             "is_bid": True if trade_type is TradeType.BUY else False,
             "direction": "buy" if trade_type is TradeType.BUY else "sell",
+            "referral_code": CONSTANTS.REFERRAL_CODE,
             "order_type": price_type,
             "mmp": False,
             "time_in_force": param_order_type,

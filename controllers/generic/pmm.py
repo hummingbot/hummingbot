@@ -1,11 +1,10 @@
 from decimal import Decimal
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 from pydantic import Field, field_validator
 from pydantic_core.core_schema import ValidationInfo
 
-from hummingbot.core.data_type.common import OrderType, PositionMode, PriceType, TradeType
-from hummingbot.core.data_type.trade_fee import TokenAmount
+from hummingbot.core.data_type.common import MarketDict, OrderType, PositionMode, PriceType, TradeType
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.strategy_v2.controllers.controller_base import ControllerBase, ControllerConfigBase
 from hummingbot.strategy_v2.executors.data_types import ConnectorPair
@@ -40,7 +39,7 @@ class PMMConfig(ControllerConfigBase):
         default=Decimal("0.05"),
         json_schema_extra={
             "prompt_on_new": True,
-            "prompt": "Enter the portfolio allocation (e.g., 0.05 for 5%):",
+            "prompt": "Enter the maximum quote exposure percentage around mid price (e.g., 0.05 for 5% of total quote allocation):",
         }
     )
     target_base_pct: Decimal = Field(
@@ -136,6 +135,7 @@ class PMMConfig(ControllerConfigBase):
         }
     )
     global_take_profit: Decimal = Decimal("0.02")
+    global_stop_loss: Decimal = Decimal("0.05")
 
     @field_validator("take_profit", mode="before")
     @classmethod
@@ -234,11 +234,8 @@ class PMMConfig(ControllerConfigBase):
         spreads = getattr(self, f'{trade_type.name.lower()}_spreads')
         return spreads, [amt_pct * self.total_amount_quote * self.portfolio_allocation for amt_pct in normalized_amounts_pct]
 
-    def update_markets(self, markets: Dict[str, Set[str]]) -> Dict[str, Set[str]]:
-        if self.connector_name not in markets:
-            markets[self.connector_name] = set()
-        markets[self.connector_name].add(self.trading_pair)
-        return markets
+    def update_markets(self, markets: MarketDict) -> MarketDict:
+        return markets.add_or_update(self.connector_name, self.trading_pair)
 
 
 class PMM(ControllerBase):
@@ -266,8 +263,20 @@ class PMM(ControllerBase):
         Create actions proposal based on the current state of the controller.
         """
         create_actions = []
-        if self.processed_data["current_base_pct"] > self.config.target_base_pct and self.processed_data["unrealized_pnl_pct"] > self.config.global_take_profit:
-            # Create a global take profit executor
+
+        # Check if a position reduction executor for TP/SL is already sent
+        reduction_executor_exists = any(
+            executor.is_active and
+            executor.custom_info.get("level_id") == "global_tp_sl"
+            for executor in self.executors_info
+        )
+
+        if (not reduction_executor_exists and
+            self.processed_data["current_base_pct"] > self.config.target_base_pct and
+            (self.processed_data["unrealized_pnl_pct"] > self.config.global_take_profit or
+             self.processed_data["unrealized_pnl_pct"] < -self.config.global_stop_loss)):
+
+            # Create a global take profit or stop loss executor
             create_actions.append(CreateExecutorAction(
                 controller_id=self.config.id,
                 executor_config=OrderExecutorConfig(
@@ -278,6 +287,7 @@ class PMM(ControllerBase):
                     amount=self.processed_data["position_amount"],
                     execution_strategy=ExecutionStrategy.MARKET,
                     price=self.processed_data["reference_price"],
+                    level_id="global_tp_sl"  # Use a specific level_id to identify this as a TP/SL executor
                 )
             ))
             return create_actions
@@ -440,81 +450,198 @@ class PMM(ControllerBase):
             return sell_ids_missing
         return buy_ids_missing + sell_ids_missing
 
-    def get_balance_requirements(self) -> List[TokenAmount]:
-        """
-        Get the balance requirements for the controller.
-        """
-        base_asset, quote_asset = self.config.trading_pair.split("-")
-        _, amounts_quote = self.config.get_spreads_and_amounts_in_quote(TradeType.BUY)
-        _, amounts_base = self.config.get_spreads_and_amounts_in_quote(TradeType.SELL)
-        return [TokenAmount(base_asset, Decimal(sum(amounts_base) / self.processed_data["reference_price"])),
-                TokenAmount(quote_asset, Decimal(sum(amounts_quote)))]
-
     def to_format_status(self) -> List[str]:
         """
         Get the status of the controller in a formatted way with ASCII visualizations.
         """
-        status = []
-        status.append(f"Controller ID: {self.config.id}")
-        status.append(f"Connector: {self.config.connector_name}")
-        status.append(f"Trading Pair: {self.config.trading_pair}")
-        status.append(f"Portfolio Allocation: {self.config.portfolio_allocation}")
-        status.append(f"Reference Price: {self.processed_data['reference_price']}")
-        status.append(f"Spread Multiplier: {self.processed_data['spread_multiplier']}")
+        from decimal import Decimal
+        from itertools import zip_longest
 
-        # Base percentage visualization
+        status = []
+
+        # Get all required data
         base_pct = self.processed_data['current_base_pct']
         min_pct = self.config.min_base_pct
         max_pct = self.config.max_base_pct
         target_pct = self.config.target_base_pct
-        # Create base percentage bar
-        bar_width = 50
+        skew = base_pct - target_pct
+        skew_pct = skew / target_pct if target_pct != 0 else Decimal('0')
+        max_skew = getattr(self.config, 'max_skew', Decimal('0.0'))
+
+        # Fixed widths - adjusted based on screenshot analysis
+        outer_width = 92  # Total width including outer borders
+        inner_width = outer_width - 4  # Inner content width
+        half_width = (inner_width) // 2 - 1  # Width of each column in split sections
+        bar_width = inner_width - 15  # Width of visualization bars (accounting for label)
+
+        # Header - omit ID since it's shown above in controller header
+        status.append("╒" + "═" * (inner_width) + "╕")
+
+        header_line = (
+            f"{self.config.connector_name}:{self.config.trading_pair}  "
+            f"Price: {self.processed_data['reference_price']}  "
+            f"Alloc: {self.config.portfolio_allocation:.1%}  "
+            f"Spread Mult: {self.processed_data['spread_multiplier']} |"
+        )
+
+        status.append(f"│ {header_line:<{inner_width}} │")
+
+        # Position and PnL sections with precise widths
+        status.append(f"├{'─' * half_width}┬{'─' * half_width}┤")
+        status.append(f"│ {'POSITION STATUS':<{half_width - 2}} │ {'PROFIT & LOSS':<{half_width - 2}} │")
+        status.append(f"├{'─' * half_width}┼{'─' * half_width}┤")
+
+        # Position data for left column
+        position_info = [
+            f"Current: {base_pct:.2%}",
+            f"Target: {target_pct:.2%}",
+            f"Min/Max: {min_pct:.2%}/{max_pct:.2%}",
+            f"Skew: {skew_pct:+.2%} (max {max_skew:.2%})"
+        ]
+
+        # PnL data for right column
+        pnl_info = []
+        if 'unrealized_pnl_pct' in self.processed_data:
+            pnl = self.processed_data['unrealized_pnl_pct']
+            pnl_sign = "+" if pnl >= 0 else ""
+            pnl_info = [
+                f"Unrealized: {pnl_sign}{pnl:.2%}",
+                f"Take Profit: {self.config.global_take_profit:.2%}",
+                f"Stop Loss: {-self.config.global_stop_loss:.2%}",
+                f"Leverage: {self.config.leverage}x"
+            ]
+
+        # Display position and PnL info side by side with exact spacing
+        for pos_line, pnl_line in zip_longest(position_info, pnl_info, fillvalue=""):
+            status.append(f"│ {pos_line:<{half_width - 2}} │ {pnl_line:<{half_width - 2}} │")
+
+        # Adjust visualization section - ensure consistent spacing
+        status.append(f"├{'─' * (inner_width)}┤")
+        status.append(f"│ {'VISUALIZATIONS':<{inner_width}} │")
+        status.append(f"├{'─' * (inner_width)}┤")
+
+        # Position bar with exact spacing and characters
         filled_width = int(base_pct * bar_width)
         min_pos = int(min_pct * bar_width)
         max_pos = int(max_pct * bar_width)
         target_pos = int(target_pct * bar_width)
-        base_bar = "Base %: ["
+
+        # Build position bar character by character
+        position_bar = ""
         for i in range(bar_width):
             if i == filled_width:
-                base_bar += "O"  # Current position
+                position_bar += "◆"  # Current position
             elif i == min_pos:
-                base_bar += "m"  # Min threshold
+                position_bar += "┃"  # Min threshold
             elif i == max_pos:
-                base_bar += "M"  # Max threshold
+                position_bar += "┃"  # Max threshold
             elif i == target_pos:
-                base_bar += "T"  # Target threshold
+                position_bar += "┇"  # Target threshold
             elif i < filled_width:
-                base_bar += "="
+                position_bar += "█"  # Filled area
             else:
-                base_bar += " "
-        base_bar += f"] {base_pct:.2%}"
-        status.append(base_bar)
-        status.append(f"Min: {min_pct:.2%} | Target: {target_pct:.2%} | Max: {max_pct:.2%}")
-        # Skew visualization
-        skew = base_pct - target_pct
-        skew_pct = skew / target_pct if target_pct != 0 else Decimal('0')
-        max_skew = getattr(self.config, 'max_skew', Decimal('0.0'))
-        skew_bar_width = 30
-        skew_bar = "Skew:    "
+                position_bar += "░"  # Empty area
+
+        # Ensure consistent label spacing as seen in screenshot
+        status.append(f"│ Position: [{position_bar}] │")
+
+        # Skew visualization with exact spacing
+        skew_bar_width = bar_width
         center = skew_bar_width // 2
         skew_pos = center + int(skew_pct * center * 2)
-        skew_pos = max(0, min(skew_bar_width, skew_pos))
+        skew_pos = max(0, min(skew_bar_width - 1, skew_pos))
+
+        # Build skew bar character by character
+        skew_bar = ""
         for i in range(skew_bar_width):
             if i == center:
-                skew_bar += "|"  # Center line
+                skew_bar += "┃"  # Center line
             elif i == skew_pos:
-                skew_bar += "*"  # Current skew
+                skew_bar += "⬤"  # Current skew
             else:
-                skew_bar += "-"
-        skew_bar += f" {skew_pct:+.2%} (max: {max_skew:.2%})"
-        status.append(skew_bar)
-        # Active executors summary
-        status.append("\nActive Executors:")
-        active_buy = sum(1 for info in self.executors_info if self.get_trade_type_from_level_id(info.custom_info["level_id"]) == TradeType.BUY)
-        active_sell = sum(1 for info in self.executors_info if self.get_trade_type_from_level_id(info.custom_info["level_id"]) == TradeType.SELL)
-        status.append(f"Total: {len(self.executors_info)} (Buy: {active_buy}, Sell: {active_sell})")
-        # Deviation info
+                skew_bar += "─"  # Empty line
+
+        # Match spacing from screenshot with exact character counts
+        status.append(f"│ Skew:     [{skew_bar}] │")
+
+        # PnL visualization if available
+        if 'unrealized_pnl_pct' in self.processed_data:
+            pnl = self.processed_data['unrealized_pnl_pct']
+            take_profit = self.config.global_take_profit
+            stop_loss = -self.config.global_stop_loss
+
+            pnl_bar_width = bar_width
+            center = pnl_bar_width // 2
+
+            # Calculate positions with exact scaling
+            max_range = max(abs(take_profit), abs(stop_loss), abs(pnl)) * Decimal("1.2")
+            scale = (pnl_bar_width // 2) / max_range
+
+            pnl_pos = center + int(pnl * scale)
+            take_profit_pos = center + int(take_profit * scale)
+            stop_loss_pos = center + int(stop_loss * scale)
+
+            # Ensure positions are within bounds
+            pnl_pos = max(0, min(pnl_bar_width - 1, pnl_pos))
+            take_profit_pos = max(0, min(pnl_bar_width - 1, take_profit_pos))
+            stop_loss_pos = max(0, min(pnl_bar_width - 1, stop_loss_pos))
+
+            # Build PnL bar character by character
+            pnl_bar = ""
+            for i in range(pnl_bar_width):
+                if i == center:
+                    pnl_bar += "│"  # Center line
+                elif i == pnl_pos:
+                    pnl_bar += "⬤"  # Current PnL
+                elif i == take_profit_pos:
+                    pnl_bar += "T"  # Take profit line
+                elif i == stop_loss_pos:
+                    pnl_bar += "S"  # Stop loss line
+                elif (pnl >= 0 and center <= i < pnl_pos) or (pnl < 0 and pnl_pos < i <= center):
+                    pnl_bar += "█" if pnl >= 0 else "▓"
+                else:
+                    pnl_bar += "─"
+
+        # Match spacing from screenshot
+        status.append(f"│ PnL:      [{pnl_bar}] │")
+
+        # Executors section with precise column widths
+        status.append(f"├{'─' * half_width}┬{'─' * half_width}┤")
+        status.append(f"│ {'EXECUTORS STATUS':<{half_width - 2}} │ {'EXECUTOR VISUALIZATION':<{half_width - 2}} │")
+        status.append(f"├{'─' * half_width}┼{'─' * half_width}┤")
+
+        # Count active executors by type
+        active_buy = sum(1 for info in self.executors_info
+                         if info.is_active and self.get_trade_type_from_level_id(info.custom_info["level_id"]) == TradeType.BUY)
+        active_sell = sum(1 for info in self.executors_info
+                          if info.is_active and self.get_trade_type_from_level_id(info.custom_info["level_id"]) == TradeType.SELL)
+        total_active = sum(1 for info in self.executors_info if info.is_active)
+
+        # Executor information with fixed formatting
+        executor_info = [
+            f"Total Active: {total_active}",
+            f"Total Created: {len(self.executors_info)}",
+            f"Buy Executors: {active_buy}",
+            f"Sell Executors: {active_sell}"
+        ]
+
         if 'deviation' in self.processed_data:
-            deviation = self.processed_data['deviation']
-            status.append(f"Deviation: {deviation:.4f}")
+            executor_info.append(f"Target Deviation: {self.processed_data['deviation']:.4f}")
+
+        # Visualization with consistent block characters for buy/sell representation
+        buy_bars = "▮" * active_buy if active_buy > 0 else "─"
+        sell_bars = "▮" * active_sell if active_sell > 0 else "─"
+
+        executor_viz = [
+            f"Buy:  {buy_bars}",
+            f"Sell: {sell_bars}"
+        ]
+
+        # Display with fixed width columns
+        for exec_line, viz_line in zip_longest(executor_info, executor_viz, fillvalue=""):
+            status.append(f"│ {exec_line:<{half_width - 2}} │ {viz_line:<{half_width - 2}} │")
+
+        # Bottom border with exact width
+        status.append(f"╘{'═' * (inner_width)}╛")
+
         return status

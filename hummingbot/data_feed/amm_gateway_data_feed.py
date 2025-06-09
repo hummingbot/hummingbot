@@ -73,7 +73,7 @@ class AmmGatewayDataFeed(NetworkBase):
         return self._price_dict
 
     def is_ready(self) -> bool:
-        return len(self._price_dict) == len(self.trading_pairs)
+        return len(self._price_dict) > 0
 
     async def check_network(self) -> NetworkStatus:
         is_gateway_online = await self.gateway_client.ping_gateway()
@@ -108,24 +108,31 @@ class AmmGatewayDataFeed(NetworkBase):
             asyncio.create_task(self._register_token_buy_sell_price(trading_pair))
             for trading_pair in self.trading_pairs
         ]
-        await asyncio.gather(*token_price_tasks)
+        await asyncio.gather(*token_price_tasks, return_exceptions=True)
 
     async def _register_token_buy_sell_price(self, trading_pair: str) -> None:
-        base, quote = split_hb_trading_pair(trading_pair)
-        token_buy_price_task = asyncio.create_task(self._request_token_price(trading_pair, TradeType.BUY))
-        token_sell_price_task = asyncio.create_task(self._request_token_price(trading_pair, TradeType.SELL))
-        self._price_dict[trading_pair] = TokenBuySellPrice(
-            base=base,
-            quote=quote,
-            connector=self.connector,
-            chain=self.chain,
-            network=self.network,
-            order_amount_in_base=self.order_amount_in_base,
-            buy_price=await token_buy_price_task,
-            sell_price=await token_sell_price_task,
-        )
+        try:
+            base, quote = split_hb_trading_pair(trading_pair)
+            token_buy_price_task = asyncio.create_task(self._request_token_price(trading_pair, TradeType.BUY))
+            token_sell_price_task = asyncio.create_task(self._request_token_price(trading_pair, TradeType.SELL))
+            buy_price = await token_buy_price_task
+            sell_price = await token_sell_price_task
 
-    async def _request_token_price(self, trading_pair: str, trade_type: TradeType) -> Decimal:
+            if buy_price is not None and sell_price is not None:
+                self._price_dict[trading_pair] = TokenBuySellPrice(
+                    base=base,
+                    quote=quote,
+                    connector=self.connector,
+                    chain=self.chain,
+                    network=self.network,
+                    order_amount_in_base=self.order_amount_in_base,
+                    buy_price=buy_price,
+                    sell_price=sell_price,
+                )
+        except Exception as e:
+            self.logger().warning(f"Failed to get price for {trading_pair}: {e}")
+
+    async def _request_token_price(self, trading_pair: str, trade_type: TradeType) -> Optional[Decimal]:
         base, quote = split_hb_trading_pair(trading_pair)
         connector, chain, network = self.connector_chain_network.split("_")
         token_price = await self.gateway_client.get_price(
@@ -136,8 +143,12 @@ class AmmGatewayDataFeed(NetworkBase):
             quote,
             self.order_amount_in_base,
             trade_type,
+            fail_silently=True,
         )
-        return Decimal(token_price["price"])
+
+        if token_price and "price" in token_price and token_price["price"] is not None:
+            return Decimal(token_price["price"])
+        return None
 
     @staticmethod
     async def _async_sleep(delay: float) -> None:

@@ -11,13 +11,6 @@ from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.rate_oracle.sources.dexalot_rate_source import DexalotRateSource
 from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
-# Override the async_ttl_cache decorator to be a no-op.
-# def async_ttl_cache(ttl: int = 3600, maxsize: int = 1):
-#     def decorator(fn):
-#         return fn
-#
-#     return decorator
-
 
 class DexalotRateSourceTest(IsolatedAsyncioWrapperTestCase):
     @classmethod
@@ -32,7 +25,6 @@ class DexalotRateSourceTest(IsolatedAsyncioWrapperTestCase):
         super().setUp()
 
     async def asyncSetUp(self):
-        await super().asyncSetUp()
         await ConnectionsFactory().close()
         self.factory = ConnectionsFactory()
         self.mocking_assistant = NetworkMockingAssistant("__this_is_not_a_loop__")
