@@ -425,7 +425,6 @@ class MarketMakingControllerBase(ControllerBase):
             amount=amount,
             price=reference_price,  # Will be ignored for market orders
             level_id="position_rebalance",
-            controller_id=self.config.id
         )
 
         return CreateExecutorAction(
