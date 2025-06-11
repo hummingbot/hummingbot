@@ -12,7 +12,7 @@ from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, StopExecutorAction
 
 
-class GenericV2StrategyWithCashOutConfig(StrategyV2ConfigBase):
+class V2WithControllersConfig(StrategyV2ConfigBase):
     script_file_name: str = os.path.basename(__file__)
     candles_config: List[CandlesConfig] = []
     markets: Dict[str, Set[str]] = {}
@@ -20,7 +20,7 @@ class GenericV2StrategyWithCashOutConfig(StrategyV2ConfigBase):
     max_controller_drawdown: Optional[float] = None
 
 
-class GenericV2StrategyWithCashOut(StrategyV2Base):
+class V2WithControllers(StrategyV2Base):
     """
     This script runs a generic strategy with cash out feature. Will also check if the controllers configs have been
     updated and apply the new settings.
@@ -33,7 +33,7 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
     """
     performance_report_interval: int = 1
 
-    def __init__(self, connectors: Dict[str, ConnectorBase], config: GenericV2StrategyWithCashOutConfig):
+    def __init__(self, connectors: Dict[str, ConnectorBase], config: V2WithControllersConfig):
         super().__init__(connectors, config)
         self.config = config
         self.max_pnl_by_controller = {}
