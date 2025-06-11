@@ -114,6 +114,7 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             "prompt": "Enter the position rebalance threshold percentage (e.g., 0.05 for 5%): ",
             "prompt_on_new": True, "is_updatable": True}
     )
+    skip_rebalance: bool = Field(default=False)
 
     @field_validator("trailing_stop", mode="before")
     @classmethod
@@ -360,10 +361,7 @@ class MarketMakingControllerBase(ControllerBase):
         Only applies to spot trading (not perpetual contracts).
         """
         # Skip position rebalancing for perpetual contracts
-        if "_perpetual" in self.config.connector_name:
-            return None
-
-        if "reference_price" not in self.processed_data:
+        if "_perpetual" in self.config.connector_name or "reference_price" not in self.processed_data or self.config.skip_rebalance:
             return None
 
         active_rebalance = self.filter_executors(
@@ -374,8 +372,7 @@ class MarketMakingControllerBase(ControllerBase):
             # If there's already an active rebalance executor, skip rebalancing
             return None
 
-        reference_price = self.processed_data["reference_price"]
-        required_base_amount = self.config.get_required_base_amount(reference_price)
+        required_base_amount = self.config.get_required_base_amount(Decimal(self.processed_data["reference_price"]))
         current_base_amount = self.get_current_base_position()
 
         # Calculate the difference
