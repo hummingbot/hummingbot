@@ -185,10 +185,9 @@ class StrategyV2Base(ScriptStrategyBase):
         super().__init__(connectors, config)
         self.config = config
 
-        # Initialize empty dictionaries to hold controllers, executors info and positions held
+        # Initialize empty dictionaries to hold controllers and unified controller reports
         self.controllers: Dict[str, ControllerBase] = {}
-        self.executors_info: Dict[str, List[ExecutorInfo]] = {}
-        self.positions_held: Dict[str, List[PositionSummary]] = {}
+        self.controller_reports: Dict[str, Dict] = {}
 
         # Initialize the market data provider and executor orchestrator
         self.market_data_provider = MarketDataProvider(connectors)
@@ -266,7 +265,7 @@ class StrategyV2Base(ScriptStrategyBase):
                 self.update_executors_info()
                 controller_id = actions[0].controller_id
                 controller = self.controllers.get(controller_id)
-                controller.executors_info = self.executors_info.get(controller_id, [])
+                controller.executors_info = self.get_executors_by_controller(controller_id)
                 controller.executors_update_event.set()
             except asyncio.CancelledError:
                 raise
@@ -275,18 +274,19 @@ class StrategyV2Base(ScriptStrategyBase):
 
     def update_executors_info(self):
         """
-        Update the local state of the executors and publish the updates to the active controllers.
-        In this case we are going to update the controllers directly with the executors info so the event is not
-        set and is managed with the async queue.
+        Update the unified controller reports and publish the updates to the active controllers.
         """
         try:
-            self.executors_info = self.executor_orchestrator.get_executors_report()
-            self.positions_held = self.executor_orchestrator.get_positions_report()
-            for controllers in self.controllers.values():
-                controllers.executors_info = self.executors_info.get(controllers.config.id, [])
-                controllers.positions_held = self.positions_held.get(controllers.config.id, [])
+            # Get all reports in a single call and store them
+            self.controller_reports = self.executor_orchestrator.get_all_reports()
+
+            # Update each controller with its specific data
+            for controller_id, controller in self.controllers.items():
+                controller_report = self.controller_reports.get(controller_id, {})
+                controller.executors_info = controller_report.get("executors", [])
+                controller.positions_held = controller_report.get("positions", [])
         except Exception as e:
-            self.logger().error(f"Error updating executors info: {e}", exc_info=True)
+            self.logger().error(f"Error updating controller reports: {e}", exc_info=True)
 
     @staticmethod
     def is_perpetual(connector: str) -> bool:
@@ -349,10 +349,21 @@ class StrategyV2Base(ScriptStrategyBase):
         return []
 
     def get_executors_by_controller(self, controller_id: str) -> List[ExecutorInfo]:
-        return self.executors_info.get(controller_id, [])
+        """Get executors for a specific controller from the unified reports."""
+        return self.controller_reports.get(controller_id, {}).get("executors", [])
 
     def get_all_executors(self) -> List[ExecutorInfo]:
-        return [executor for executors in self.executors_info.values() for executor in executors]
+        """Get all executors from all controllers."""
+        return [executor for report in self.controller_reports.values()
+                for executor in report.get("executors", [])]
+
+    def get_positions_by_controller(self, controller_id: str) -> List[PositionSummary]:
+        """Get positions for a specific controller from the unified reports."""
+        return self.controller_reports.get(controller_id, {}).get("positions", [])
+
+    def get_performance_report(self, controller_id: str):
+        """Get performance report for a specific controller."""
+        return self.controller_reports.get(controller_id, {}).get("performance")
 
     def set_leverage(self, connector: str, trading_pair: str, leverage: int):
         self.connectors[connector].set_leverage(trading_pair, leverage)
@@ -383,10 +394,12 @@ class StrategyV2Base(ScriptStrategyBase):
     def format_status(self) -> str:
         if not self.ready_to_trade:
             return "Market connectors are not ready."
+
         lines = []
         warning_lines = []
         warning_lines.extend(self.network_warning(self.get_market_trading_pair_tuples()))
 
+        # Basic account info
         balance_df = self.get_balance_df()
         lines.extend(["", "  Balances:"] + ["    " + line for line in balance_df.to_string(index=False).split("\n")])
 
