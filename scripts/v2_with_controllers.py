@@ -12,7 +12,7 @@ from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, StopExecutorAction
 
 
-class GenericV2StrategyWithCashOutConfig(StrategyV2ConfigBase):
+class V2WithControllersConfig(StrategyV2ConfigBase):
     script_file_name: str = os.path.basename(__file__)
     candles_config: List[CandlesConfig] = []
     markets: Dict[str, Set[str]] = {}
@@ -20,7 +20,7 @@ class GenericV2StrategyWithCashOutConfig(StrategyV2ConfigBase):
     max_controller_drawdown: Optional[float] = None
 
 
-class GenericV2StrategyWithCashOut(StrategyV2Base):
+class V2WithControllers(StrategyV2Base):
     """
     This script runs a generic strategy with cash out feature. Will also check if the controllers configs have been
     updated and apply the new settings.
@@ -33,11 +33,10 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
     """
     performance_report_interval: int = 1
 
-    def __init__(self, connectors: Dict[str, ConnectorBase], config: GenericV2StrategyWithCashOutConfig):
+    def __init__(self, connectors: Dict[str, ConnectorBase], config: V2WithControllersConfig):
         super().__init__(connectors, config)
         self.config = config
         self.max_pnl_by_controller = {}
-        self.performance_reports = {}
         self.max_global_pnl = Decimal("0")
         self.drawdown_exited_controllers = []
         self.closed_executors_buffer: int = 30
@@ -64,7 +63,6 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
 
     def on_tick(self):
         super().on_tick()
-        self.performance_reports = {controller_id: self.executor_orchestrator.generate_performance_report(controller_id=controller_id).dict() for controller_id in self.controllers.keys()}
         self.check_manual_kill_switch()
         self.control_max_drawdown()
         self.send_performance_report()
@@ -79,7 +77,7 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
         for controller_id, controller in self.controllers.items():
             if controller.status != RunnableStatus.RUNNING:
                 continue
-            controller_pnl = self.performance_reports[controller_id]["global_pnl_quote"]
+            controller_pnl = self.get_performance_report(controller_id).global_pnl_quote
             last_max_pnl = self.max_pnl_by_controller[controller_id]
             if controller_pnl > last_max_pnl:
                 self.max_pnl_by_controller[controller_id] = controller_pnl
@@ -89,7 +87,7 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
                     self.logger().info(f"Controller {controller_id} reached max drawdown. Stopping the controller.")
                     controller.stop()
                     executors_order_placed = self.filter_executors(
-                        executors=self.executors_info[controller_id],
+                        executors=self.get_executors_by_controller(controller_id),
                         filter_func=lambda x: x.is_active and not x.is_trading,
                     )
                     self.executor_orchestrator.execute_actions(
@@ -98,7 +96,7 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
                     self.drawdown_exited_controllers.append(controller_id)
 
     def check_max_global_drawdown(self):
-        current_global_pnl = sum([report["global_pnl_quote"] for report in self.performance_reports.values()])
+        current_global_pnl = sum([self.get_performance_report(controller_id).global_pnl_quote for controller_id in self.controllers.keys()])
         if current_global_pnl > self.max_global_pnl:
             self.max_global_pnl = current_global_pnl
         else:
@@ -110,7 +108,8 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
 
     def send_performance_report(self):
         if self.current_timestamp - self._last_performance_report_timestamp >= self.performance_report_interval and self.mqtt_enabled:
-            self._pub(self.performance_reports)
+            performance_reports = {controller_id: self.get_performance_report(controller_id).dict() for controller_id in self.controllers.keys()}
+            self._pub(performance_reports)
             self._last_performance_report_timestamp = self.current_timestamp
 
     def check_manual_kill_switch(self):
