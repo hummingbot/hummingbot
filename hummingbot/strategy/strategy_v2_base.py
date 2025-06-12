@@ -408,117 +408,93 @@ class StrategyV2Base(ScriptStrategyBase):
             lines.extend(["", "  Orders:"] + ["    " + line for line in df.to_string(index=False).split("\n")])
         except ValueError:
             lines.extend(["", "  No active maker orders."])
-        columns_to_show = ["type", "side", "status", "net_pnl_pct", "net_pnl_quote", "cum_fees_quote",
-                           "filled_amount_quote", "is_trading", "close_type", "age"]
 
-        # Initialize global performance metrics
-        global_realized_pnl_quote = Decimal(0)
-        global_unrealized_pnl_quote = Decimal(0)
-        global_volume_traded = Decimal(0)
-        global_close_type_counts = {}
+        # Controller sections
+        performance_data = []
 
-        # Process each controller
         for controller_id, controller in self.controllers.items():
-            lines.append(f"\n\nController: {controller_id}")
-            # Append controller market data metrics
+            lines.append(f"\n{'=' * 60}")
+            lines.append(f"Controller: {controller_id}")
+            lines.append(f"{'=' * 60}")
+
+            # Controller status
             lines.extend(controller.to_format_status())
-            # executors_list = self.get_executors_by_controller(controller_id)
-            # if len(executors_list) == 0:
-            #     lines.append("No executors found.")
-            # else:
-            #     # In memory executors info
-            #     executors_df = self.executors_info_to_df(executors_list)
-            #     executors_df["age"] = self.current_timestamp - executors_df["timestamp"]
-            #     lines.extend([format_df_for_printout(executors_df[columns_to_show], table_format="psql")])
 
-            # Generate performance report for each controller
-            performance_report = self.executor_orchestrator.generate_performance_report(controller_id)
+            # Last 6 executors table
+            executors_list = self.get_executors_by_controller(controller_id)
+            if executors_list:
+                lines.append("\n  Recent Executors (Last 6):")
+                # Sort by timestamp and take last 6
+                recent_executors = sorted(executors_list, key=lambda x: x.timestamp, reverse=True)[:6]
+                executors_df = self.executors_info_to_df(recent_executors)
+                if not executors_df.empty:
+                    executors_df["age"] = self.current_timestamp - executors_df["timestamp"]
+                    executor_columns = ["type", "side", "status", "net_pnl_pct", "net_pnl_quote",
+                                        "filled_amount_quote", "is_trading", "close_type", "age"]
+                    available_columns = [col for col in executor_columns if col in executors_df.columns]
+                    lines.append(format_df_for_printout(executors_df[available_columns],
+                                                        table_format="psql", index=False))
+            else:
+                lines.append("  No executors found.")
 
-            # Append performance metrics
-            controller_performance_info = [
-                f"Realized PNL (Quote): {performance_report.realized_pnl_quote:.2f} | Unrealized PNL (Quote): {performance_report.unrealized_pnl_quote:.2f}"
-                f"--> Global PNL (Quote): {performance_report.global_pnl_quote:.2f} | Global PNL (%): {performance_report.global_pnl_pct:.2f}%",
-                f"Total Volume Traded: {performance_report.volume_traded:.2f}"
-            ]
+            # Positions table
+            positions = self.get_positions_by_controller(controller_id)
+            if positions:
+                lines.append("\n  Positions Held:")
+                positions_data = []
+                for pos in positions:
+                    positions_data.append({
+                        "Connector": pos.connector_name,
+                        "Trading Pair": pos.trading_pair,
+                        "Side": pos.side.name,
+                        "Amount": f"{pos.amount:.4f}",
+                        "Value (USD)": f"${pos.amount * pos.breakeven_price:.2f}",
+                        "Breakeven Price": f"{pos.breakeven_price:.6f}",
+                        "Unrealized PnL": f"${pos.unrealized_pnl_quote:+.2f}",
+                        "Realized PnL": f"${pos.realized_pnl_quote:+.2f}",
+                        "Fees": f"${pos.cum_fees_quote:.2f}"
+                    })
+                positions_df = pd.DataFrame(positions_data)
+                lines.append(format_df_for_printout(positions_df, table_format="psql", index=False))
+            else:
+                lines.append("  No positions held.")
 
-            # Add position summary if available
-            if hasattr(performance_report, "positions_summary") and performance_report.positions_summary:
-                controller_performance_info.append("\nPositions Held Summary:")
-                controller_performance_info.append("-" * 170)
-                controller_performance_info.append(
-                    f"{'Connector':<20} | "
-                    f"{'Trading Pair':<12} | "
-                    f"{'Side':<4} | "
-                    f"{'Volume':<12} | "
-                    f"{'Units':<10} | "
-                    f"{'Value (USD)':<12} | "
-                    f"{'BEP':<16} | "
-                    f"{'Realized PNL':<12} | "
-                    f"{'Unreal. PNL':<12} | "
-                    f"{'Fees':<10} | "
-                    f"{'Global PNL':<12}"
-                )
-                controller_performance_info.append("-" * 170)
-                for pos in performance_report.positions_summary:
-                    controller_performance_info.append(
-                        f"{pos.connector_name:<20} | "
-                        f"{pos.trading_pair:<12} | "
-                        f"{pos.side.name:<4} | "
-                        f"${pos.volume_traded_quote:>11.2f} | "
-                        f"{pos.amount:>10.4f} | "
-                        f"${pos.amount * pos.breakeven_price:<11.2f} | "
-                        f"{pos.breakeven_price:>16.6f} | "
-                        f"${pos.realized_pnl_quote:>+11.2f} | "
-                        f"${pos.unrealized_pnl_quote:>+11.2f} | "
-                        f"${pos.cum_fees_quote:>9.2f} | "
-                        f"${pos.global_pnl_quote:>10.2f}"
-                    )
-                controller_performance_info.append("-" * 170)
+            # Collect performance data for summary table
+            performance_report = self.get_performance_report(controller_id)
+            if performance_report:
+                performance_data.append({
+                    "Controller": controller_id,
+                    "Realized PnL": f"${performance_report.realized_pnl_quote:.2f}",
+                    "Unrealized PnL": f"${performance_report.unrealized_pnl_quote:.2f}",
+                    "Global PnL": f"${performance_report.global_pnl_quote:.2f}",
+                    "Global PnL %": f"{performance_report.global_pnl_pct:.2f}%",
+                    "Volume Traded": f"${performance_report.volume_traded:.2f}"
+                })
 
-            # Append close type counts
-            if performance_report.close_type_counts:
-                controller_performance_info.append("Close Types Count:")
-                for close_type, count in performance_report.close_type_counts.items():
-                    controller_performance_info.append(f"  {close_type}: {count}")
-            lines.extend(controller_performance_info)
+        # Performance summary table
+        if performance_data:
+            lines.append(f"\n{'=' * 80}")
+            lines.append("PERFORMANCE SUMMARY")
+            lines.append(f"{'=' * 80}")
 
-            # Aggregate global metrics and close type counts
-            global_realized_pnl_quote += performance_report.realized_pnl_quote
-            global_unrealized_pnl_quote += performance_report.unrealized_pnl_quote
-            global_volume_traded += performance_report.volume_traded
-            for close_type, value in performance_report.close_type_counts.items():
-                global_close_type_counts[close_type] = global_close_type_counts.get(close_type, 0) + value
+            # Calculate global totals
+            global_realized = sum(Decimal(p["Realized PnL"].replace("$", "")) for p in performance_data)
+            global_unrealized = sum(Decimal(p["Unrealized PnL"].replace("$", "")) for p in performance_data)
+            global_total = global_realized + global_unrealized
+            global_volume = sum(Decimal(p["Volume Traded"].replace("$", "")) for p in performance_data)
+            global_pnl_pct = (global_total / global_volume) * 100 if global_volume > 0 else Decimal(0)
 
-        main_executors_list = self.get_executors_by_controller("main")
-        if len(main_executors_list) > 0:
-            lines.append("\n\nMain Controller Executors:")
-            main_executors_df = self.executors_info_to_df(main_executors_list)
-            main_executors_df["age"] = self.current_timestamp - main_executors_df["timestamp"]
-            lines.extend([format_df_for_printout(main_executors_df[columns_to_show], table_format="psql")])
-            main_performance_report = self.executor_orchestrator.generate_performance_report("main")
-            # Aggregate global metrics and close type counts
-            global_realized_pnl_quote += main_performance_report.realized_pnl_quote
-            global_unrealized_pnl_quote += main_performance_report.unrealized_pnl_quote
-            global_volume_traded += main_performance_report.volume_traded
-            for close_type, value in main_performance_report.close_type_counts.items():
-                global_close_type_counts[close_type] = global_close_type_counts.get(close_type, 0) + value
+            # Add global row
+            performance_data.append({
+                "Controller": "GLOBAL TOTAL",
+                "Realized PnL": f"${global_realized:.2f}",
+                "Unrealized PnL": f"${global_unrealized:.2f}",
+                "Global PnL": f"${global_total:.2f}",
+                "Global PnL %": f"{global_pnl_pct:.2f}%",
+                "Volume Traded": f"${global_volume:.2f}"
+            })
 
-        # Calculate and append global performance metrics
-        global_pnl_quote = global_realized_pnl_quote + global_unrealized_pnl_quote
-        global_pnl_pct = (global_pnl_quote / global_volume_traded) * 100 if global_volume_traded != 0 else Decimal(0)
+            performance_df = pd.DataFrame(performance_data)
+            lines.append(format_df_for_printout(performance_df, table_format="psql", index=False))
 
-        global_performance_summary = [
-            "\n\nGlobal Performance Summary:",
-            f"Global PNL (Quote): {global_pnl_quote:.2f} | Global PNL (%): {global_pnl_pct:.2f}% | Total Volume Traded (Global): {global_volume_traded:.2f}"
-        ]
-
-        # Append global close type counts
-        if global_close_type_counts:
-            global_performance_summary.append("Global Close Types Count:")
-            for close_type, count in global_close_type_counts.items():
-                global_performance_summary.append(f"  {close_type}: {count}")
-
-        lines.extend(global_performance_summary)
-
-        # Combine original and extra information
         return "\n".join(lines)
