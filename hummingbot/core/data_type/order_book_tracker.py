@@ -148,19 +148,31 @@ class OrderBookTracker:
         fall-back mechanism for when the web socket update channel fails.
         '''
         await self._order_books_initialized.wait()
+        MAX_EXPECTED_TRADE_INTERVAL = 60.0 * 3  # 3 minutes since last trade
         while True:
             try:
-                outdateds = [t_pair for t_pair, o_book in self._order_books.items()
-                             if o_book.last_applied_trade < time.perf_counter() - (60. * 3)
-                             and o_book.last_trade_price_rest_updated < time.perf_counter() - 5]
-                if outdateds:
-                    args = {"trading_pairs": outdateds}
+                outdated_pairs = [
+                    t_pair for t_pair, o_book in self._order_books.items()
+                    if (o_book.last_applied_trade < time.perf_counter() - MAX_EXPECTED_TRADE_INTERVAL and  # No trades for 3 min
+                        o_book.last_trade_price_rest_updated < time.perf_counter() - o_book.max_trade_interval)  # Using interval from OrderBook
+                ]
+
+                if outdated_pairs:
+                    args = {"trading_pairs": outdated_pairs}
                     if self._domain is not None:
                         args["domain"] = self._domain
                     last_prices = await self._data_source.get_last_traded_prices(**args)
                     for trading_pair, last_price in last_prices.items():
-                        self._order_books[trading_pair].last_trade_price = last_price
-                        self._order_books[trading_pair].last_trade_price_rest_updated = time.perf_counter()
+                        o_book = self._order_books[trading_pair]
+                        o_book.last_trade_price_rest_updated = time.perf_counter()
+                        if o_book.last_trade_price != last_price:
+                            o_book.last_trade_price = last_price
+                            # Heuristically reduce the max trade interval each update
+                            o_book.max_trade_interval = max(o_book.max_trade_interval / 2, 5)
+                        else:
+                            # If the price hasn't changed then increase the interval that we allow before reattempting the REST API.
+                            # This allows us to avoid spamming the API for super low liquidity pairs
+                            o_book.max_trade_interval *= 2
                 else:
                     await asyncio.sleep(1)
             except asyncio.CancelledError:
