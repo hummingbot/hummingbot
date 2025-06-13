@@ -445,7 +445,7 @@ class FoxbitExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.private_rest_url(CONSTANTS.GET_ORDER_BY_ID.format(order.exchange_order_id))
+        url = web_utils.private_rest_url(CONSTANTS.GET_ORDER_BY_CLIENT_ID.format(order.exchange_order_id))
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_status_request_canceled_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
@@ -467,7 +467,7 @@ class FoxbitExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         """
         :return: the URL configured
         """
-        url = web_utils.private_rest_url(CONSTANTS.GET_ORDER_BY_ID.format(order.exchange_order_id))
+        url = web_utils.private_rest_url(CONSTANTS.GET_ORDER_BY_CLIENT_ID.format(order.exchange_order_id))
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_status_request_open_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
@@ -478,7 +478,7 @@ class FoxbitExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.private_rest_url(CONSTANTS.GET_ORDER_BY_ID.format(order.exchange_order_id))
+        url = web_utils.private_rest_url(CONSTANTS.GET_ORDER_BY_CLIENT_ID.format(order.exchange_order_id))
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.get(regex_url, status=401, callback=callback)
         return url
@@ -488,7 +488,7 @@ class FoxbitExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.private_rest_url(CONSTANTS.GET_ORDER_BY_ID.format(order.exchange_order_id))
+        url = web_utils.private_rest_url(CONSTANTS.GET_ORDER_BY_CLIENT_ID.format(order.exchange_order_id))
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_status_request_partially_filled_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
@@ -794,7 +794,7 @@ class FoxbitExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         )
         order = self.exchange.in_flight_orders["OID1"]
 
-        url = web_utils.private_rest_url(CONSTANTS.GET_ORDER_BY_ID.format(order.exchange_order_id))
+        url = web_utils.private_rest_url(CONSTANTS.GET_ORDER_BY_CLIENT_ID.format(order.exchange_order_id))
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         order_status = {
