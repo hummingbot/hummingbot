@@ -492,3 +492,204 @@ class TestExecutorOrchestrator(unittest.TestCase):
         btc_summary = btc_position.get_position_summary(Decimal("230"))
         self.assertEqual(btc_position.sell_amount_quote, Decimal("0.1") * Decimal("230"))  # Now calculated
         self.assertEqual(btc_summary.breakeven_price, Decimal("230"))
+
+    def test_get_all_reports_with_done_position_hold_executors(self):
+        """Test get_all_reports with executors that need position updates"""
+        # This tests the high-level functionality that exercises lines 413,415,423-424,426,428-430,433,436,438-439,442,447-448
+
+        # Create an executor that meets criteria for position hold processing
+        config = PositionExecutorConfig(
+            timestamp=1234, trading_pair="ETH-USDT", connector_name="binance",
+            side=TradeType.BUY, amount=Decimal(10), entry_price=Decimal(100),
+        )
+        config.id = "test_executor_id"
+
+        executor = MagicMock()
+        executor.executor_info = ExecutorInfo(
+            id="test_executor_id", timestamp=1234, type="position_executor",
+            status=RunnableStatus.TERMINATED, config=config,
+            filled_amount_quote=Decimal(1000), net_pnl_quote=Decimal(50), net_pnl_pct=Decimal(5),
+            cum_fees_quote=Decimal(5), is_trading=False, is_active=False,
+            custom_info={"held_position_orders": [
+                {"client_order_id": "order_1", "executed_amount_base": Decimal("5"),
+                 "executed_amount_quote": Decimal("1000"), "trade_type": "BUY",
+                 "cumulative_fee_paid_quote": Decimal("5")}
+            ]},
+            close_type=CloseType.POSITION_HOLD,
+            connector_name="binance",
+            trading_pair="ETH-USDT"
+        )
+        # Since is_done is a computed property based on status, and we set status=TERMINATED, is_done will be True
+
+        # Set up orchestrator with the executor
+        self.orchestrator.active_executors = {"test_controller": [executor]}
+        self.orchestrator.positions_held = {"test_controller": []}
+        self.orchestrator.executors_ids_position_held = []
+        self.orchestrator.cached_performance = {"test_controller": PerformanceReport()}
+
+        # Call get_all_reports which should trigger position processing
+        result = self.orchestrator.get_all_reports()
+
+        # Verify that the executor was processed and position created
+        self.assertIn("test_executor_id", self.orchestrator.executors_ids_position_held)
+        self.assertEqual(len(self.orchestrator.positions_held["test_controller"]), 1)
+
+        # Verify the position was created correctly
+        position = self.orchestrator.positions_held["test_controller"][0]
+        self.assertEqual(position.connector_name, "binance")
+        self.assertEqual(position.trading_pair, "ETH-USDT")
+        self.assertEqual(position.side, TradeType.BUY)
+
+        # Verify report structure
+        self.assertIn("test_controller", result)
+        self.assertIn("executors", result["test_controller"])
+        self.assertIn("positions", result["test_controller"])
+        self.assertIn("performance", result["test_controller"])
+
+    def test_get_all_reports_with_perpetual_executors(self):
+        """Test get_all_reports with perpetual market executors to exercise position side logic"""
+        # This tests lines 454-456,458-460,462-465,467 through high-level functionality
+
+        from hummingbot.core.data_type.common import PositionAction, PositionMode
+        from hummingbot.strategy_v2.executors.order_executor.data_types import ExecutionStrategy, OrderExecutorConfig
+
+        # Create config with position_action for perpetual market using OrderExecutorConfig
+        config = OrderExecutorConfig(
+            timestamp=1234, trading_pair="ETH-USDT", connector_name="binance_perpetual",
+            side=TradeType.BUY, amount=Decimal(10), execution_strategy=ExecutionStrategy.MARKET,
+            position_action=PositionAction.CLOSE
+        )
+        config.id = "perp_executor_id"
+
+        executor = MagicMock()
+        executor.executor_info = ExecutorInfo(
+            id="perp_executor_id", timestamp=1234, type="order_executor",
+            status=RunnableStatus.TERMINATED, config=config,
+            filled_amount_quote=Decimal(1000), net_pnl_quote=Decimal(50), net_pnl_pct=Decimal(5),
+            cum_fees_quote=Decimal(5), is_trading=False, is_active=False,
+            custom_info={"held_position_orders": [
+                {"client_order_id": "order_2", "executed_amount_base": Decimal("3"),
+                 "executed_amount_quote": Decimal("600"), "trade_type": "SELL",
+                 "cumulative_fee_paid_quote": Decimal("3")}
+            ]},
+            close_type=CloseType.POSITION_HOLD,
+            connector_name="binance_perpetual",
+            trading_pair="ETH-USDT"
+        )
+        # Since status=TERMINATED, is_done will be True
+
+        # Set up perpetual market with HEDGE mode
+        mock_market = MagicMock()
+        mock_market.position_mode = PositionMode.HEDGE
+        self.mock_strategy.connectors = {"binance_perpetual": mock_market}
+
+        # Set up orchestrator
+        self.orchestrator.active_executors = {"perp_controller": [executor]}
+        self.orchestrator.positions_held = {"perp_controller": []}
+        self.orchestrator.executors_ids_position_held = []
+        self.orchestrator.cached_performance = {"perp_controller": PerformanceReport()}
+
+        # Call get_all_reports
+        self.orchestrator.get_all_reports()
+
+        # Verify that the executor was processed
+        self.assertIn("perp_executor_id", self.orchestrator.executors_ids_position_held)
+        self.assertEqual(len(self.orchestrator.positions_held["perp_controller"]), 1)
+
+        # Verify the position side logic was applied (CLOSE action should use opposite side)
+        position = self.orchestrator.positions_held["perp_controller"][0]
+        self.assertEqual(position.side, TradeType.SELL)  # Opposite of BUY due to CLOSE action
+
+    def test_get_all_reports_with_existing_positions(self):
+        """Test get_all_reports with existing positions to exercise find_existing_position logic"""
+        # This tests lines 475-476,480-482,485,487 through high-level functionality
+
+        # Create existing position
+        existing_position = PositionHold("binance", "ETH-USDT", TradeType.BUY)
+        existing_position.buy_amount_base = Decimal("2")
+        existing_position.buy_amount_quote = Decimal("400")
+        existing_position.volume_traded_quote = Decimal("400")
+
+        # Create executor that should add to existing position
+        config = PositionExecutorConfig(
+            timestamp=1234, trading_pair="ETH-USDT", connector_name="binance",
+            side=TradeType.BUY, amount=Decimal(10), entry_price=Decimal(100),
+        )
+        config.id = "add_to_position_id"
+
+        executor = MagicMock()
+        executor.executor_info = ExecutorInfo(
+            id="add_to_position_id", timestamp=1234, type="position_executor",
+            status=RunnableStatus.TERMINATED, config=config,
+            filled_amount_quote=Decimal(600), net_pnl_quote=Decimal(30), net_pnl_pct=Decimal(5),
+            cum_fees_quote=Decimal(3), is_trading=False, is_active=False,
+            custom_info={"held_position_orders": [
+                {"client_order_id": "order_3", "executed_amount_base": Decimal("3"),
+                 "executed_amount_quote": Decimal("600"), "trade_type": "BUY",
+                 "cumulative_fee_paid_quote": Decimal("3")}
+            ]},
+            close_type=CloseType.POSITION_HOLD
+        )
+        # Since status=TERMINATED, is_done will be True
+
+        # Set up orchestrator with existing position
+        self.orchestrator.active_executors = {"existing_pos_controller": [executor]}
+        self.orchestrator.positions_held = {"existing_pos_controller": [existing_position]}
+        self.orchestrator.executors_ids_position_held = []
+        self.orchestrator.cached_performance = {"existing_pos_controller": PerformanceReport()}
+
+        # Call get_all_reports
+        result = self.orchestrator.get_all_reports()
+
+        # Verify that the executor was processed and added to existing position
+        self.assertIn("add_to_position_id", self.orchestrator.executors_ids_position_held)
+        self.assertEqual(len(self.orchestrator.positions_held["existing_pos_controller"]), 1)  # Still one position
+
+        # Verify the existing position was updated
+        self.assertEqual(existing_position.buy_amount_base, Decimal("5"))  # 2 + 3
+        self.assertEqual(existing_position.buy_amount_quote, Decimal("1000"))  # 400 + 600
+        self.assertEqual(existing_position.volume_traded_quote, Decimal("1000"))  # 400 + 600
+
+        # Verify position appears in the report
+        positions_in_report = result["existing_pos_controller"]["positions"]
+        self.assertEqual(len(positions_in_report), 1)
+        self.assertEqual(positions_in_report[0].amount, Decimal("5"))
+
+    def test_get_all_reports_comprehensive_controller_aggregation(self):
+        """Test get_all_reports aggregating controllers from different sources"""
+        # This tests lines 545,548-549,552,557 comprehensively
+
+        # Set up orchestrator with controllers spread across different data structures
+        # Controller 1: Has active executors only
+        self.orchestrator.active_executors = {"controller1": [MagicMock()]}
+
+        # Controller 2: Has positions only
+        position = PositionHold("binance", "BTC-USDT", TradeType.SELL)
+        self.orchestrator.positions_held = {"controller2": [position]}
+
+        # Controller 3: Has cached performance only
+        self.orchestrator.cached_performance = {"controller3": PerformanceReport()}
+
+        # Controller 4: Has multiple data types
+        self.orchestrator.active_executors["controller4"] = [MagicMock()]
+        self.orchestrator.positions_held["controller4"] = [PositionHold("binance", "ADA-USDT", TradeType.BUY)]
+        self.orchestrator.cached_performance["controller4"] = PerformanceReport()
+
+        # Call get_all_reports
+        result = self.orchestrator.get_all_reports()
+
+        # Verify all controllers are included
+        expected_controllers = {"controller1", "controller2", "controller3", "controller4"}
+        self.assertEqual(set(result.keys()), expected_controllers)
+
+        # Verify each controller has the expected structure
+        for controller_id in expected_controllers:
+            self.assertIn("executors", result[controller_id])
+            self.assertIn("positions", result[controller_id])
+            self.assertIn("performance", result[controller_id])
+
+        # Verify that controllers with no data have empty lists/reports
+        self.assertEqual(len(result["controller1"]["positions"]), 0)
+        self.assertEqual(len(result["controller2"]["executors"]), 0)
+        self.assertEqual(len(result["controller3"]["executors"]), 0)
+        self.assertEqual(len(result["controller3"]["positions"]), 0)
