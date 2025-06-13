@@ -185,7 +185,7 @@ class FoxbitExchange(ExchangePyBase):
         :return: trading pair in client notation
         """
         symbol_map = await self.trading_pair_instrument_id_map()
-        return symbol_map[instrument_id]
+        return symbol_map.get(instrument_id)
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
