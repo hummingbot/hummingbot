@@ -14,6 +14,7 @@ from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
 from hummingbot.client.config.config_data_types import BaseClientModel, BaseConnectorConfigMap
 from hummingbot.client.config.config_helpers import (
     ClientConfigAdapter,
+    MostRecentConfigLoadCache,
     ReadOnlyClientConfigAdapter,
     get_connector_config_yml_path,
     get_strategy_config_map,
@@ -185,3 +186,26 @@ class ReadOnlyClientAdapterTest(unittest.TestCase):
 
         self.assertEqual("Cannot set an attribute on a read-only client adapter", str(context.exception))
         self.assertEqual(initial_instance_id, read_only_adapter.instance_id)
+
+
+class MostRecentConfigLoadCacheTest(unittest.TestCase):
+    def setUp(self) -> None:
+        # Reset the singleton instance before each test
+        MostRecentConfigLoadCache._instance = None
+
+    def test_singleton_behavior(self):
+        # Test that _get_instance returns the same instance
+        instance1 = MostRecentConfigLoadCache._get_instance()
+        instance2 = MostRecentConfigLoadCache._get_instance()
+        self.assertIs(instance1, instance2)
+
+    def test_initial_state(self):
+        # Test that the initial client_config_map is None
+        self.assertIsNone(MostRecentConfigLoadCache.get_client_config_map())
+
+    def test_set_and_get_client_config_map(self):
+        # Test setting and getting the client_config_map
+        config_map = ClientConfigAdapter(ClientConfigMap())
+        MostRecentConfigLoadCache.set_client_config_map(config_map)
+        retrieved_config_map = MostRecentConfigLoadCache.get_client_config_map()
+        self.assertIs(config_map, retrieved_config_map)
