@@ -28,10 +28,9 @@ def get_client_order_id(is_buy: bool) -> str:
     :param is_buy: True if the order is a buy order, False if the order is a sell order
     :return: an identifier for the new order to be used in the client
     """
-    side = "1" if is_buy else "2"
-    instance_order_id_prefix = os.environ.get('INSTANCE_ORDER_ID_PREFIX') or "000"
-    new_id = str(get_tracking_nonce())[4:]
-    return f"{side}{instance_order_id_prefix}{new_id}"
+    newId = str(get_tracking_nonce())[4:]
+    side = "00" if is_buy else "01"
+    return f"{CONSTANTS.HBOT_ORDER_ID_PREFIX}{side}{newId}"
 
 
 def get_ws_message_frame(endpoint: str,

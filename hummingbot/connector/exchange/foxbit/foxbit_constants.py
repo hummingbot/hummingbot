@@ -28,7 +28,6 @@ MY_TRADES_PATH_URL = "trades"
 ORDER_PATH_URL = "orders"
 CANCEL_ORDER_PATH_URL = "orders/cancel"
 GET_ORDER_BY_CLIENT_ID = "orders/by-client-order-id/{}"
-GET_ORDER_BY_ID = "orders/by-order-id/{}"
 
 WS_HEADER = {
     "Content-Type": "application/json",
