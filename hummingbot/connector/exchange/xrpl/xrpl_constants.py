@@ -106,6 +106,10 @@ REQUEST_ORDERBOOK_INTERVAL = 10
 # Client refresh interval
 CLIENT_REFRESH_INTERVAL = 30
 
+# Websocket configuration
+WEBSOCKET_MAX_SIZE_BYTES = 2**22  # 4MB
+WEBSOCKET_CONNECTION_TIMEOUT = 30
+
 # XRPL maximum digit for issued currency
 XRPL_MAX_DIGIT = 16
 

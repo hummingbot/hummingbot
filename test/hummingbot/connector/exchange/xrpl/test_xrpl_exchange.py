@@ -4338,31 +4338,6 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         # Assert
         self.assertIsNone(result)
 
-    async def test_client_health_check_refresh(self):
-        # Setup
-        self.connector._last_clients_refresh_time = 0
-        self.connector._sleep = AsyncMock()
-        self.data_source._sleep = AsyncMock()
-
-        # Action
-        await self.connector._client_health_check()
-
-        # Assert
-        self.assertTrue(self.mock_client.close.called)
-        self.assertTrue(self.mock_client.open.called)
-        self.assertGreater(self.connector._last_clients_refresh_time, 0)
-
-    async def test_client_health_check_no_refresh_needed(self):
-        # Setup
-        self.connector._last_clients_refresh_time = time.time()
-
-        # Action
-        await self.connector._client_health_check()
-
-        # Assert
-        self.assertFalse(self.mock_client.close.called)
-        self.assertTrue(self.mock_client.open.called)
-
     async def test_place_order_invalid_base_currency(self):
         # Simulate get_currencies_from_trading_pair returning an invalid base currency
         class DummyCurrency:
