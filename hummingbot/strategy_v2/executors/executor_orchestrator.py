@@ -1,6 +1,7 @@
+import gc
 import logging
 import uuid
-from copy import deepcopy
+from collections import deque
 from decimal import Decimal
 from typing import TYPE_CHECKING, Dict, List, Optional
 
@@ -161,9 +162,8 @@ class ExecutorOrchestrator:
         self.executors_update_interval = executors_update_interval
         self.executors_max_retries = executors_max_retries
         self.active_executors = {}
-        self.archived_executors = {}
         self.positions_held = {}
-        self.executors_ids_position_held = []
+        self.executors_ids_position_held = deque(maxlen=50)
         self.cached_performance = {}
         self.initial_positions_by_controller = initial_positions_by_controller or {}
         self._initialize_cached_performance()
@@ -181,7 +181,6 @@ class ExecutorOrchestrator:
             if controller_id not in self.cached_performance:
                 self.cached_performance[controller_id] = PerformanceReport()
                 self.active_executors[controller_id] = []
-                self.archived_executors[controller_id] = []
                 self.positions_held[controller_id] = []
             self._update_cached_performance(controller_id, executor)
 
@@ -199,7 +198,6 @@ class ExecutorOrchestrator:
             if controller_id not in self.cached_performance:
                 self.cached_performance[controller_id] = PerformanceReport()
                 self.active_executors[controller_id] = []
-                self.archived_executors[controller_id] = []
                 self.positions_held[controller_id] = []
             self._load_position_from_db(controller_id, position)
 
@@ -255,7 +253,6 @@ class ExecutorOrchestrator:
             if controller_id not in self.cached_performance:
                 self.cached_performance[controller_id] = PerformanceReport()
                 self.active_executors[controller_id] = []
-                self.archived_executors[controller_id] = []
                 self.positions_held[controller_id] = []
 
             for position_config in initial_positions:
@@ -299,6 +296,9 @@ class ExecutorOrchestrator:
                     executor.early_stop()
         # Store all positions
         self.store_all_positions()
+        # Clear executors and trigger garbage collection
+        self.active_executors.clear()
+        gc.collect()
 
     def store_all_positions(self):
         """
@@ -327,8 +327,9 @@ class ExecutorOrchestrator:
                 )
                 # Store or update the position in the database
                 markets_recorder.update_or_store_position(position_record)
-                # Remove the position from the list
-                self.positions_held[controller_id].remove(position)
+
+        # Clear all positions after storing (avoid modifying list while iterating)
+        self.positions_held.clear()
 
     def store_all_executors(self):
         for controller_id, executors_list in self.active_executors.items():
@@ -345,7 +346,6 @@ class ExecutorOrchestrator:
         controller_id = action.controller_id
         if controller_id not in self.cached_performance:
             self.active_executors[controller_id] = []
-            self.archived_executors[controller_id] = []
             self.positions_held[controller_id] = []
             self.cached_performance[controller_id] = PerformanceReport()
 
@@ -510,8 +510,9 @@ class ExecutorOrchestrator:
             self.logger().error(f"Executor info: {executor.executor_info} | Config: {executor.config}")
 
         self.active_executors[controller_id].remove(executor)
-        self.archived_executors[controller_id].append(executor.executor_info)
         del executor
+        # Trigger garbage collection after executor cleanup
+        gc.collect()
 
     def get_executors_report(self) -> Dict[str, List[ExecutorInfo]]:
         """
@@ -564,26 +565,32 @@ class ExecutorOrchestrator:
         }
 
     def generate_performance_report(self, controller_id: str) -> PerformanceReport:
-        # Start with a deep copy of the cached performance for this controller
-        report = deepcopy(self.cached_performance.get(controller_id, PerformanceReport()))
+        # Create a new report starting from cached base values
+        report = PerformanceReport()
+        cached_report = self.cached_performance.get(controller_id, PerformanceReport())
+
+        # Start with cached values (from DB)
+        report.realized_pnl_quote = cached_report.realized_pnl_quote
+        report.volume_traded = cached_report.volume_traded
+        report.close_type_counts = cached_report.close_type_counts.copy() if cached_report.close_type_counts else {}
 
         # Add data from active executors
         active_executors = self.active_executors.get(controller_id, [])
         positions = self.positions_held.get(controller_id, [])
+
         for executor in active_executors:
             executor_info = executor.executor_info
             if not executor_info.is_done:
                 report.unrealized_pnl_quote += executor_info.net_pnl_quote
             else:
                 report.realized_pnl_quote += executor_info.net_pnl_quote
-                if executor_info.close_type in report.close_type_counts:
-                    report.close_type_counts[executor_info.close_type] += 1
-                else:
-                    report.close_type_counts[executor_info.close_type] = 1
+                if executor_info.close_type:
+                    report.close_type_counts[executor_info.close_type] = report.close_type_counts.get(executor_info.close_type, 0) + 1
 
             report.volume_traded += executor_info.filled_amount_quote
 
-        # Add data from positions held
+        # Add data from positions held and collect position summaries
+        positions_summary = []
         for position in positions:
             mid_price = self.strategy.market_data_provider.get_price_by_type(
                 position.connector_name, position.trading_pair, PriceType.MidPrice)
@@ -593,10 +600,10 @@ class ExecutorOrchestrator:
             report.realized_pnl_quote += position_summary.realized_pnl_quote - position_summary.cum_fees_quote
             report.volume_traded += position_summary.volume_traded_quote
             report.unrealized_pnl_quote += position_summary.unrealized_pnl_quote
-            # Store position summary in report for controller access
-            if not hasattr(report, "positions_summary"):
-                report.positions_summary = []
-            report.positions_summary.append(position_summary)
+            positions_summary.append(position_summary)
+
+        # Set the positions summary (don't use dynamic attribute)
+        report.positions_summary = positions_summary
 
         # Calculate global PNL values
         report.global_pnl_quote = report.unrealized_pnl_quote + report.realized_pnl_quote
