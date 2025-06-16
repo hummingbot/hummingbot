@@ -455,7 +455,9 @@ KEYS = XRPLConfigMap.model_construct()
 class RateLimiter:
     _logger = None
 
-    def __init__(self, requests_per_10s: float, burst_tokens: int = 0, max_burst_tokens: int = 5, wait_margin_factor: float = 1.5):
+    def __init__(
+        self, requests_per_10s: float, burst_tokens: int = 0, max_burst_tokens: int = 5, wait_margin_factor: float = 1.5
+    ):
         """
         Simple rate limiter that measures and controls request rate in 10-second batches.
 

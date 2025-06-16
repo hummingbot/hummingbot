@@ -1078,7 +1078,9 @@ class XrplExchange(ExchangePyBase):
                     tx_date = tx.get("date", None)
 
                     if tx_hash is None or tx_date is None:
-                        raise ValueError(f"Missing required transaction data for order {order.client_order_id}, changes: {changes}, tx: {tx}, base_change: {base_change}, quote_change: {quote_change}")
+                        raise ValueError(
+                            f"Missing required transaction data for order {order.client_order_id}, changes: {changes}, tx: {tx}, base_change: {base_change}, quote_change: {quote_change}"
+                        )
 
                     if base_value is None or quote_value is None:
                         self.logger().debug(
@@ -1602,7 +1604,6 @@ class XrplExchange(ExchangePyBase):
         return return_transactions
 
     async def _update_balances(self):
-        await self._client_health_check()
         self._node_pool.add_burst_tokens(3)
 
         account_address = self._xrpl_auth.get_account()
@@ -1711,8 +1712,18 @@ class XrplExchange(ExchangePyBase):
 
             account_available_balances[token_symbol] -= amount
 
-        self._account_balances = account_balances
-        self._account_available_balances = account_available_balances
+        # Clear existing dictionaries to prevent reference retention
+        if self._account_balances is not None:
+            self._account_balances.clear()
+            self._account_balances.update(account_balances)
+        else:
+            self._account_balances = account_balances
+
+        if self._account_available_balances is not None:
+            self._account_available_balances.clear()
+            self._account_available_balances.update(account_available_balances)
+        else:
+            self._account_available_balances = account_available_balances
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, XRPLMarket]):
         markets = exchange_info
@@ -1926,6 +1937,7 @@ class XrplExchange(ExchangePyBase):
         trading_pair_fee_rules = self._format_trading_pair_fee_rules(trading_rules_info)
         self._trading_rules.clear()
         self._trading_pair_fee_rules.clear()
+
         for trading_rule in trading_rules_list:
             self._trading_rules[trading_rule.trading_pair] = trading_rule
 
@@ -1945,39 +1957,13 @@ class XrplExchange(ExchangePyBase):
 
     async def _make_network_check_request(self):
         client = await self._get_async_client()
-        await client.open()
-
-    async def _client_health_check(self):
-        # Clear client memory to prevent memory leak
-        if time.time() - self._last_clients_refresh_time > CONSTANTS.CLIENT_REFRESH_INTERVAL:
-            async with self._xrpl_query_client_lock:
-                client = await self._get_async_client()
-                await client.close()
-
-            self._last_clients_refresh_time = time.time()
-
-        max_retries = 3
-        retry_count = 0
-        while retry_count < max_retries:
-            try:
-                client = await self._get_async_client()
-                await client.open()
-                return
-            except (TimeoutError, asyncio.exceptions.TimeoutError) as e:
-                retry_count += 1
-                self.logger().warning(
-                    f"TimeoutError when opening XRPL query client (attempt {retry_count}/{max_retries}): {e}"
-                )
-                if retry_count < max_retries:
-                    await self._sleep(CONSTANTS.REQUEST_RETRY_INTERVAL)
-                else:
-                    self.logger().error(
-                        f"Failed to open XRPL query client after {max_retries} attempts due to timeout."
-                    )
-                    raise
+        try:
+            await client.open()
+        finally:
+            # Ensure client is always closed to prevent memory leak
+            await client.close()
 
     async def _make_trading_rules_request(self) -> Dict[str, Any]:
-        await self._client_health_check()
         zeroTransferRate = 1000000000
         trading_rules_info = {}
 
@@ -2145,20 +2131,21 @@ class XrplExchange(ExchangePyBase):
         lock: Optional[Lock] = None,
         delay_time: float = 0.0,
     ) -> Response:
+        # Use proper context manager to prevent memory leaks
         client = await self._get_async_client()
         try:
+            # Configure client before using in context manager
             await client.open()
-            # Check if websocket exists before setting max_size
             if hasattr(client, "_websocket") and client._websocket is not None:
-                client._websocket.max_size = 2**23
+                client._websocket.max_size = CONSTANTS.WEBSOCKET_MAX_SIZE_BYTES
+                client._websocket.ping_timeout = CONSTANTS.WEBSOCKET_CONNECTION_TIMEOUT
 
+            # Use context manager properly - client is already opened
             if lock is not None:
                 async with lock:
-                    async with client:
-                        resp = await client.request(request)
-            else:
-                async with client:
                     resp = await client.request(request)
+            else:
+                resp = await client.request(request)
 
             await self._sleep(delay_time)
             return resp
@@ -2175,6 +2162,9 @@ class XrplExchange(ExchangePyBase):
             else:
                 self.logger().error(f"Max retries reached. Request {request} failed: {e}", exc_info=True)
                 raise e
+        finally:
+            # Ensure client is always closed to prevent memory leak
+            await client.close()
 
     def get_token_symbol_from_all_markets(self, code: str, issuer: str) -> Optional[str]:
         all_markets = self._make_xrpl_trading_pairs_request()
