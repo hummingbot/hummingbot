@@ -382,7 +382,8 @@ class TestRateLimiter(IsolatedAsyncioWrapperTestCase):
 
         # Test without burst token, under rate limit
         wait_time = await self.rate_limiter.acquire(use_burst=False)
-        self.assertEqual(wait_time, 9.5)
+        # Expected wait time: 9.5 * 1.5 (default wait_margin_factor) = 14.25
+        self.assertEqual(wait_time, 14.25)
 
         # Test without burst token, over rate limit
         now = time.time()
