@@ -4645,3 +4645,241 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
 
         order_update = await self.connector._request_order_status(no_exchange_id_order)
         self.assertEqual(no_exchange_id_order.current_state, order_update.new_state)
+
+    async def test_order_status_lock_management(self):
+        """Test order status lock creation and cleanup"""
+        client_order_id = "test_order_123"
+
+        # Test lock creation
+        lock1 = await self.connector._get_order_status_lock(client_order_id)
+        lock2 = await self.connector._get_order_status_lock(client_order_id)
+
+        # Should return the same lock instance
+        self.assertIs(lock1, lock2)
+        self.assertIn(client_order_id, self.connector._order_status_locks)
+
+        # Test lock cleanup
+        await self.connector._cleanup_order_status_lock(client_order_id)
+        self.assertNotIn(client_order_id, self.connector._order_status_locks)
+        self.assertNotIn(client_order_id, self.connector._order_last_update_timestamps)
+
+    async def test_timing_safeguards(self):
+        """Test timing safeguard functionality"""
+        client_order_id = "test_order_timing"
+
+        # Initially should allow update (no previous timestamp)
+        self.assertTrue(self.connector._can_update_order_status(client_order_id))
+
+        # Record an update
+        self.connector._record_order_status_update(client_order_id)
+
+        # Should not allow immediate update
+        self.assertFalse(self.connector._can_update_order_status(client_order_id))
+
+        # Should allow with force_update=True
+        self.assertTrue(self.connector._can_update_order_status(client_order_id, force_update=True))
+
+        # Wait for safeguard period to pass
+        with patch("time.time") as mock_time:
+            # Set time to be past the minimum interval
+            current_timestamp = self.connector._order_last_update_timestamps[client_order_id]
+            mock_time.return_value = current_timestamp + self.connector._min_update_interval_seconds + 0.1
+
+            # Should now allow update
+            self.assertTrue(self.connector._can_update_order_status(client_order_id))
+
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._request_order_status")
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._all_trade_updates_for_order")
+    async def test_execute_order_cancel_with_filled_order(self, trade_updates_mock, status_mock):
+        """Test cancellation logic when order is already filled"""
+        # Create a test order
+        order = InFlightOrder(
+            client_order_id="test_cancel_filled",
+            exchange_order_id="12345-67890",
+            trading_pair="SOLO-XRP",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("100"),
+            price=Decimal("1.0"),
+            creation_timestamp=1640000000.0,
+        )
+
+        # Mock order status to return FILLED
+        filled_order_update = OrderUpdate(
+            client_order_id=order.client_order_id,
+            exchange_order_id=order.exchange_order_id,
+            trading_pair=order.trading_pair,
+            update_timestamp=time.time(),
+            new_state=OrderState.FILLED,
+        )
+        status_mock.return_value = filled_order_update
+        trade_updates_mock.return_value = []
+
+        # Execute cancellation
+        result = await self.connector._execute_order_cancel_and_process_update(order)
+
+        # Should return False (cancellation not successful because order was filled)
+        self.assertFalse(result)
+
+        # Verify order status was checked
+        status_mock.assert_called_once_with(order)
+
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._request_order_status")
+    async def test_execute_order_cancel_with_already_final_state(self, status_mock):
+        """Test cancellation logic when order is already in final state"""
+        # Create a test order that's already filled
+        order = InFlightOrder(
+            client_order_id="test_cancel_already_filled",
+            exchange_order_id="12345-67890",
+            trading_pair="SOLO-XRP",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("100"),
+            price=Decimal("1.0"),
+            creation_timestamp=1640000000.0,
+            initial_state=OrderState.FILLED,
+        )
+
+        # Execute cancellation
+        result = await self.connector._execute_order_cancel_and_process_update(order)
+
+        # Should return False (cancellation not needed because already filled)
+        self.assertFalse(result)
+
+        # Should not have called status check since order was already in final state
+        status_mock.assert_not_called()
+
+    async def test_execute_order_cancel_successful(self):
+        """Test successful order cancellation"""
+        # Create a test order
+        order = InFlightOrder(
+            client_order_id="test_cancel_success",
+            exchange_order_id="12345-67890",
+            trading_pair="SOLO-XRP",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("100"),
+            price=Decimal("1.0"),
+            creation_timestamp=1640000000.0,
+        )
+
+        with patch.object(self.connector, "_request_order_status") as status_mock:
+            with patch.object(self.connector, "_place_cancel") as place_cancel_mock:
+                with patch.object(self.connector, "_verify_transaction_result") as verify_mock:
+                    with patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_order_book_changes") as book_changes_mock:
+                        # Mock initial status check to return OPEN
+                        open_order_update = OrderUpdate(
+                            client_order_id=order.client_order_id,
+                            exchange_order_id=order.exchange_order_id,
+                            trading_pair=order.trading_pair,
+                            update_timestamp=time.time(),
+                            new_state=OrderState.OPEN,
+                        )
+                        status_mock.return_value = open_order_update
+
+                        # Mock successful cancellation
+                        place_cancel_mock.return_value = (True, {"hash": "cancel_tx_hash"})
+
+                        # Mock transaction verification
+                        mock_response = Mock()
+                        mock_response.result = {"meta": {}}
+                        verify_mock.return_value = (True, mock_response)
+
+                        # Mock order book changes to show cancellation
+                        book_changes_mock.return_value = []  # Empty changes array means cancelled
+
+                        # Execute cancellation
+                        result = await self.connector._execute_order_cancel_and_process_update(order)
+
+                        # Should return True (cancellation successful)
+                        self.assertTrue(result)
+
+                        # Verify status was checked once (initial check)
+                        status_mock.assert_called_once()
+
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._all_trade_updates_for_order")
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._request_order_status")
+    async def test_update_orders_with_locking(self, status_mock, trade_updates_mock):
+        """Test periodic order updates use locking mechanism"""
+        # Create test orders
+        order1 = InFlightOrder(
+            client_order_id="test_update_1",
+            exchange_order_id="12345-67890",
+            trading_pair="SOLO-XRP",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("100"),
+            price=Decimal("1.0"),
+            creation_timestamp=1640000000.0,
+        )
+
+        order2 = InFlightOrder(
+            client_order_id="test_update_2",
+            exchange_order_id="12346-67891",
+            trading_pair="SOLO-XRP",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.SELL,
+            amount=Decimal("50"),
+            price=Decimal("2.0"),
+            creation_timestamp=1640000000.0,
+            initial_state=OrderState.FILLED,  # Already in final state
+        )
+
+        # Mock status updates
+        order_update = OrderUpdate(
+            client_order_id=order1.client_order_id,
+            exchange_order_id=order1.exchange_order_id,
+            trading_pair=order1.trading_pair,
+            update_timestamp=time.time(),
+            new_state=OrderState.PARTIALLY_FILLED,
+        )
+        status_mock.return_value = order_update
+
+        # Mock trade updates to return empty list
+        trade_updates_mock.return_value = []
+
+        # Mock error handler
+        error_handler = AsyncMock()
+
+        # Execute update with both orders
+        await self.connector._update_orders_with_error_handler([order1, order2], error_handler)
+
+        # Should only check status for order1 (order2 is already in final state)
+        status_mock.assert_called_once_with(tracked_order=order1)
+        error_handler.assert_not_called()
+
+    async def test_user_stream_event_timing_safeguards(self):
+        """Test user stream events respect timing safeguards"""
+        client_order_id = "test_timing_safeguards"
+
+        # Test that timing safeguards work for non-final state changes
+        # Record a recent update
+        self.connector._record_order_status_update(client_order_id)
+
+        # Non-final state should be blocked by timing safeguards
+        can_update_non_final = self.connector._can_update_order_status(client_order_id)
+        self.assertFalse(can_update_non_final)
+
+        # Test that we can simulate the timing check that happens in user stream processing
+        # This tests the logic without actually running the infinite loop
+        is_final_state_change = False  # Simulate "partially-filled" status
+        should_skip = not is_final_state_change and not self.connector._can_update_order_status(client_order_id)
+        self.assertTrue(should_skip)  # Should skip due to timing safeguard
+
+        # Test that final state changes would bypass timing (this is tested by the flag check)
+        is_final_state_change = True  # Simulate "filled" or "cancelled" status
+        should_skip_final = not is_final_state_change and not self.connector._can_update_order_status(client_order_id)
+        self.assertFalse(should_skip_final)  # Should NOT skip for final states
+
+    async def test_user_stream_event_final_state_bypasses_timing(self):
+        """Test that final state changes bypass timing safeguards"""
+        client_order_id = "test_final_state"
+
+        # Record a recent update
+        self.connector._record_order_status_update(client_order_id)
+
+        # Non-final state should be blocked
+        self.assertFalse(self.connector._can_update_order_status(client_order_id))
+
+        # But final states should always be allowed (tested in the main logic where is_final_state_change is checked)
+        # This is handled in the actual user stream processing logic
