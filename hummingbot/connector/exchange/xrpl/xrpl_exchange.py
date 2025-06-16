@@ -604,7 +604,7 @@ class XrplExchange(ExchangePyBase):
             # Check current order state before attempting cancellation
             current_state = order.current_state
             if current_state in [OrderState.FILLED, OrderState.CANCELED]:
-                self.logger().info(
+                self.logger().debug(
                     f"Order {order.client_order_id} is already in final state {current_state}, skipping cancellation"
                 )
                 return current_state == OrderState.CANCELED
@@ -634,7 +634,7 @@ class XrplExchange(ExchangePyBase):
 
                 # If order is filled/partially filled, process the fills and don't cancel
                 if fresh_order_update.new_state in [OrderState.FILLED, OrderState.PARTIALLY_FILLED]:
-                    self.logger().info(
+                    self.logger().debug(
                         f"Order {order.client_order_id} is {fresh_order_update.new_state.name}, processing fills instead of canceling"
                     )
 
@@ -651,7 +651,7 @@ class XrplExchange(ExchangePyBase):
 
                 # If order is already canceled, return success
                 elif fresh_order_update.new_state == OrderState.CANCELED:
-                    self.logger().info(f"Order {order.client_order_id} already canceled")
+                    self.logger().debug(f"Order {order.client_order_id} already canceled")
                     return True
 
             except Exception as status_check_error:
@@ -706,7 +706,7 @@ class XrplExchange(ExchangePyBase):
 
                 if status == "cancelled":
                     # Enhanced logging for debugging race conditions
-                    self.logger().info(
+                    self.logger().debug(
                         f"[CANCELLATION] Order {order.client_order_id} successfully canceled "
                         f"(previous state: {order.current_state.name})"
                     )
@@ -727,7 +727,7 @@ class XrplExchange(ExchangePyBase):
                         final_status_check = await self._request_order_status(order)
                         if final_status_check.new_state == OrderState.FILLED:
                             # Enhanced logging for debugging race conditions
-                            self.logger().info(
+                            self.logger().debug(
                                 f"[CANCELLATION_RACE_CONDITION] Order {order.client_order_id} was filled during cancellation attempt "
                                 f"(previous state: {order.current_state.name} -> {final_status_check.new_state.name})"
                             )
@@ -891,7 +891,7 @@ class XrplExchange(ExchangePyBase):
                         )
 
                         # Enhanced logging for debugging race conditions
-                        self.logger().info(
+                        self.logger().debug(
                             f"[USER_STREAM_MARKET] Order {tracked_order.client_order_id} state transition: "
                             f"{tracked_order.current_state.name} -> {new_order_state.name} "
                             f"(tx_status: {tx_status})"
@@ -1756,7 +1756,7 @@ class XrplExchange(ExchangePyBase):
                     ]:
 
                         # Enhanced logging for debugging race conditions
-                        self.logger().info(
+                        self.logger().debug(
                             f"[PERIODIC_UPDATE] Order {order.client_order_id} state transition: "
                             f"{order.current_state.name} -> {order_update.new_state.name}"
                         )
