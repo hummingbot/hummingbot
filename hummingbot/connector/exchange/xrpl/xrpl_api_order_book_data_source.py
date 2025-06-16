@@ -60,8 +60,9 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     node_url = client.url
                     if not client.is_open():
                         await client.open()
-                    client._websocket.max_size = CONSTANTS.WEBSOCKET_MAX_SIZE_BYTES  # type: ignore
-                    client._websocket.ping_timeout = CONSTANTS.WEBSOCKET_CONNECTION_TIMEOUT
+                    if client._websocket is not None:
+                        client._websocket.max_size = CONSTANTS.WEBSOCKET_MAX_SIZE_BYTES
+                        client._websocket.ping_timeout = CONSTANTS.WEBSOCKET_CONNECTION_TIMEOUT
                     orderbook_asks_task = self.fetch_order_book_side(
                         client, "current", base_currency, quote_currency, CONSTANTS.ORDER_BOOK_DEPTH
                     )
@@ -222,17 +223,19 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 client = await self._get_client()
                 async with client as ws_client:
-                    ws_client._websocket.max_size = CONSTANTS.WEBSOCKET_MAX_SIZE_BYTES  # type: ignore
-                    ws_client._websocket.ping_timeout = CONSTANTS.WEBSOCKET_CONNECTION_TIMEOUT
+                    if ws_client._websocket is not None:
+                        ws_client._websocket.max_size = CONSTANTS.WEBSOCKET_MAX_SIZE_BYTES
+                        ws_client._websocket.ping_timeout = CONSTANTS.WEBSOCKET_CONNECTION_TIMEOUT
                     # Set up a listener task
                     listener = asyncio.create_task(self.on_message(ws_client, trading_pair, base_currency))
                     # Subscribe to the order book
                     await ws_client.send(subscribe)
-                    # Keep the connection open
-                    while ws_client.is_open():
-                        retry_count = 0
-                        await asyncio.sleep(0)
-                    listener.cancel()
+
+                    # Wait for listener to complete naturally when connection closes
+                    # The on_message async iterator will exit when WebSocket closes
+                    # WebSocket ping/pong mechanism handles keep-alive automatically
+                    retry_count = 0
+                    await listener
             except asyncio.CancelledError:
                 self.logger().info(f"Order book listener task for {trading_pair} has been cancelled. Exiting...")
                 raise
