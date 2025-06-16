@@ -63,10 +63,10 @@ class XRPLAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     # subscribe to the ledger
                     await ws_client.send(subscribe)
 
-                    # Reopen the connection if it closes
-                    while ws_client.is_open():
-                        await asyncio.sleep(0)
-                    listener.cancel()
+                    # Wait for listener to complete naturally when connection closes
+                    # The on_message async iterator will exit when WebSocket closes
+                    # WebSocket ping/pong mechanism handles keep-alive automatically
+                    await listener
             except asyncio.CancelledError:
                 self.logger().info("User stream listener task has been cancelled. Exiting...")
                 raise
