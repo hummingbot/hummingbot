@@ -1016,7 +1016,7 @@ class XrplExchange(ExchangePyBase):
                             )
 
                             # Enhanced logging for debugging race conditions
-                            self.logger().info(
+                            self.logger().debug(
                                 f"[USER_STREAM] Order {tracked_order.client_order_id} state transition: "
                                 f"{tracked_order.current_state.name} -> {new_order_state.name} "
                                 f"(sequence: {offer_change['sequence']}, status: {status})"
