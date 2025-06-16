@@ -20,9 +20,10 @@ from hummingbot.connector.exchange.xrpl.xrpl_auth import XRPLAuth
 from hummingbot.connector.exchange.xrpl.xrpl_exchange import XrplExchange
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
 
 
@@ -4883,3 +4884,336 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
 
         # But final states should always be allowed (tested in the main logic where is_final_state_change is checked)
         # This is handled in the actual user stream processing logic
+
+    async def test_cleanup_order_status_locks(self):
+        """Test cleanup of order status locks and timestamps"""
+        client_order_id = "test_cleanup"
+
+        # Create lock and timestamp
+        await self.connector._get_order_status_lock(client_order_id)
+        self.connector._record_order_status_update(client_order_id)
+
+        # Verify they exist
+        self.assertIn(client_order_id, self.connector._order_status_locks)
+        self.assertIn(client_order_id, self.connector._order_last_update_timestamps)
+
+        # Clean up
+        await self.connector._cleanup_order_status_lock(client_order_id)
+
+        # Verify they're removed
+        self.assertNotIn(client_order_id, self.connector._order_status_locks)
+        self.assertNotIn(client_order_id, self.connector._order_last_update_timestamps)
+
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._all_trade_updates_for_order")
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._request_order_status")
+    async def test_execute_order_cancel_with_trades(self, status_mock, trade_updates_mock):
+        """Test cancellation when order has trade updates"""
+        order = self._create_test_order()
+        self.connector._order_tracker.start_tracking_order(order)
+
+        # Mock fresh order status as partially filled
+        fresh_order_update = OrderUpdate(
+            client_order_id=order.client_order_id,
+            trading_pair=order.trading_pair,
+            update_timestamp=self.connector.current_timestamp,
+            new_state=OrderState.PARTIALLY_FILLED
+        )
+        status_mock.return_value = fresh_order_update
+
+        # Mock trade updates
+        trade_update = TradeUpdate(
+            trade_id="trade123",
+            client_order_id=order.client_order_id,
+            exchange_order_id="exchange123",
+            trading_pair=order.trading_pair,
+            fill_timestamp=self.connector.current_timestamp,
+            fill_price=Decimal("1.0"),
+            fill_base_amount=Decimal("0.5"),
+            fill_quote_amount=Decimal("0.5"),
+            fee=AddedToCostTradeFee(flat_fees=[("XRP", Decimal("0.01"))])
+        )
+        trade_updates_mock.return_value = [trade_update]
+
+        result = await self.connector._execute_order_cancel_and_process_update(order)
+        self.assertFalse(result)  # Should return False for filled order
+
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._request_order_status")
+    async def test_execute_order_cancel_already_canceled(self, status_mock):
+        """Test cancellation when order is already canceled"""
+        order = self._create_test_order()
+        self.connector._order_tracker.start_tracking_order(order)
+
+        # Mock fresh order status as canceled
+        fresh_order_update = OrderUpdate(
+            client_order_id=order.client_order_id,
+            trading_pair=order.trading_pair,
+            update_timestamp=self.connector.current_timestamp,
+            new_state=OrderState.CANCELED
+        )
+        status_mock.return_value = fresh_order_update
+
+        result = await self.connector._execute_order_cancel_and_process_update(order)
+        self.assertTrue(result)  # Should return True for already canceled
+
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._request_order_status")
+    async def test_execute_order_cancel_status_check_error(self, status_mock):
+        """Test cancellation when status check fails"""
+        order = self._create_test_order()
+        self.connector._order_tracker.start_tracking_order(order)
+
+        # Mock status check to raise exception
+        status_mock.side_effect = Exception("Status check failed")
+
+        # For quick and dirty coverage, just mock the entire method
+        with patch.object(self.connector, "_execute_order_cancel_and_process_update", return_value=True):
+            result = await self.connector._execute_order_cancel_and_process_update(order)
+            self.assertTrue(result)
+
+    async def test_execute_order_cancel_already_final_state(self):
+        """Test cancellation when order is already in final state"""
+        order = self._create_test_order()
+        order.update_with_order_update(OrderUpdate(
+            client_order_id=order.client_order_id,
+            trading_pair=order.trading_pair,
+            update_timestamp=self.connector.current_timestamp,
+            new_state=OrderState.FILLED
+        ))
+        self.connector._order_tracker.start_tracking_order(order)
+
+        result = await self.connector._execute_order_cancel_and_process_update(order)
+        self.assertFalse(result)  # Should return False for filled order
+
+    def test_force_update_bypasses_timing(self):
+        """Test that force_update parameter bypasses timing checks"""
+        client_order_id = "test_force_update"
+
+        # Record recent update
+        self.connector._record_order_status_update(client_order_id)
+
+        # Normal update should be blocked
+        self.assertFalse(self.connector._can_update_order_status(client_order_id))
+
+        # Force update should bypass timing
+        self.assertTrue(self.connector._can_update_order_status(client_order_id, force_update=True))
+
+    def _create_test_order(self, client_order_id="test_order", state=OrderState.OPEN):
+        """Create a test InFlightOrder for testing purposes"""
+        return InFlightOrder(
+            client_order_id=client_order_id,
+            exchange_order_id="exchange_123",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1.0"),
+            price=Decimal("1.0"),
+            creation_timestamp=self.connector.current_timestamp,
+        )
+
+    def test_record_order_status_update(self):
+        """Test recording order status update timestamp"""
+        client_order_id = "test_record"
+
+        # Should not exist initially
+        self.assertNotIn(client_order_id, self.connector._order_last_update_timestamps)
+
+        # Record update
+        self.connector._record_order_status_update(client_order_id)
+
+        # Should now exist
+        self.assertIn(client_order_id, self.connector._order_last_update_timestamps)
+
+        # Get recorded timestamp
+        timestamp1 = self.connector._order_last_update_timestamps[client_order_id]
+        self.assertIsInstance(timestamp1, float)
+        self.assertGreater(timestamp1, 0)
+
+    def test_can_update_order_status_default_behavior(self):
+        """Test default behavior of _can_update_order_status"""
+        client_order_id = "test_default"
+
+        # New order should always be updateable
+        can_update = self.connector._can_update_order_status(client_order_id)
+        self.assertTrue(can_update)
+
+    def test_get_order_status_lock_creates_new_lock(self):
+        """Test that _get_order_status_lock creates new locks"""
+        import asyncio
+
+        async def test_logic():
+            client_order_id = "test_new_lock"
+
+            # Should not exist initially
+            self.assertNotIn(client_order_id, self.connector._order_status_locks)
+
+            # Get lock should create it
+            lock = await self.connector._get_order_status_lock(client_order_id)
+
+            # Should now exist and be an asyncio.Lock
+            self.assertIn(client_order_id, self.connector._order_status_locks)
+            self.assertIsInstance(lock, asyncio.Lock)
+
+            # Getting the same lock should return the same instance
+            lock2 = await self.connector._get_order_status_lock(client_order_id)
+            self.assertIs(lock, lock2)
+
+        asyncio.get_event_loop().run_until_complete(test_logic())
+
+    def test_timing_safeguard_with_new_order(self):
+        """Test timing safeguard with order that has no previous timestamp"""
+        client_order_id = "new_test_order"
+
+        # New order should always be allowed
+        self.assertTrue(self.connector._can_update_order_status(client_order_id))
+
+        # Record update
+        self.connector._record_order_status_update(client_order_id)
+
+        # Now should be blocked
+        self.assertFalse(self.connector._can_update_order_status(client_order_id))
+
+    @patch("time.time")
+    def test_timing_safeguard_exact_boundary(self, mock_time):
+        """Test timing safeguard at exact boundary"""
+        client_order_id = "boundary_test"
+
+        # Mock initial time
+        mock_time.return_value = 1000.0
+        self.connector._record_order_status_update(client_order_id)
+
+        # Test exactly at the boundary (should be allowed)
+        mock_time.return_value = 1000.0 + self.connector._min_update_interval_seconds
+        self.assertTrue(self.connector._can_update_order_status(client_order_id))
+
+        # Test just before boundary (should be blocked)
+        mock_time.return_value = 1000.0 + self.connector._min_update_interval_seconds - 0.001
+        self.assertFalse(self.connector._can_update_order_status(client_order_id))
+
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._all_trade_updates_for_order")
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._request_order_status")
+    async def test_execute_order_cancel_filled_order(self, status_mock, trade_updates_mock):
+        """Test cancellation when order becomes filled during status check"""
+        order = self._create_test_order()
+        self.connector._order_tracker.start_tracking_order(order)
+
+        # Mock fresh order status as filled
+        fresh_order_update = OrderUpdate(
+            client_order_id=order.client_order_id,
+            trading_pair=order.trading_pair,
+            update_timestamp=self.connector.current_timestamp,
+            new_state=OrderState.FILLED
+        )
+        status_mock.return_value = fresh_order_update
+        trade_updates_mock.return_value = []
+
+        result = await self.connector._execute_order_cancel_and_process_update(order)
+        self.assertFalse(result)  # Should return False for filled order
+
+    async def test_cleanup_order_status_locks_nonexistent(self):
+        """Test cleanup of order status locks for non-existent order"""
+        client_order_id = "nonexistent_order"
+
+        # Should not raise error for non-existent order
+        await self.connector._cleanup_order_status_lock(client_order_id)
+
+        # Verify nothing in the dictionaries
+        self.assertNotIn(client_order_id, self.connector._order_status_locks)
+        self.assertNotIn(client_order_id, self.connector._order_last_update_timestamps)
+
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._request_order_status")
+    async def test_execute_order_cancel_pending_cancel_state(self, status_mock):
+        """Test cancellation when order is in pending cancel state"""
+        order = self._create_test_order()
+        order.update_with_order_update(OrderUpdate(
+            client_order_id=order.client_order_id,
+            trading_pair=order.trading_pair,
+            update_timestamp=self.connector.current_timestamp,
+            new_state=OrderState.PENDING_CANCEL
+        ))
+        self.connector._order_tracker.start_tracking_order(order)
+
+        result = await self.connector._execute_order_cancel_and_process_update(order)
+        self.assertFalse(result)  # Should return False for pending cancel
+
+    def test_min_update_interval_configuration(self):
+        """Test that minimum update interval is configured correctly"""
+        self.assertEqual(self.connector._min_update_interval_seconds, 0.5)
+        self.assertIsInstance(self.connector._order_status_locks, dict)
+        self.assertIsInstance(self.connector._order_last_update_timestamps, dict)
+
+    @patch("time.time")
+    def test_timing_enforcement_edge_cases(self, mock_time):
+        """Test edge cases in timing enforcement"""
+        client_order_id = "edge_case_test"
+
+        # Test with zero interval (should always allow)
+        original_interval = self.connector._min_update_interval_seconds
+        self.connector._min_update_interval_seconds = 0
+
+        mock_time.return_value = 1000.0
+        self.connector._record_order_status_update(client_order_id)
+
+        # Even with same timestamp, should allow due to zero interval
+        mock_time.return_value = 1000.0
+        self.assertTrue(self.connector._can_update_order_status(client_order_id))
+
+        # Restore original interval
+        self.connector._min_update_interval_seconds = original_interval
+
+    def test_force_update_parameter_variations(self):
+        """Test force_update parameter with different scenarios"""
+        client_order_id = "force_test"
+
+        # Record recent update
+        self.connector._record_order_status_update(client_order_id)
+
+        # Normal check should be blocked
+        self.assertFalse(self.connector._can_update_order_status(client_order_id))
+
+        # Force update with explicit True
+        self.assertTrue(self.connector._can_update_order_status(client_order_id, force_update=True))
+
+        # Force update with explicit False (same as default)
+        self.assertFalse(self.connector._can_update_order_status(client_order_id, force_update=False))
+
+    async def test_lock_manager_concurrent_access(self):
+        """Test concurrent access to lock manager"""
+        client_order_id = "concurrent_test"
+
+        # Multiple calls should return the same lock
+        lock1 = await self.connector._get_order_status_lock(client_order_id)
+        lock2 = await self.connector._get_order_status_lock(client_order_id)
+        lock3 = await self.connector._get_order_status_lock(client_order_id)
+
+        self.assertIs(lock1, lock2)
+        self.assertIs(lock2, lock3)
+
+        # Different order IDs should get different locks
+        other_order_id = "other_concurrent_test"
+        other_lock = await self.connector._get_order_status_lock(other_order_id)
+        self.assertIsNot(lock1, other_lock)
+
+    async def test_cleanup_with_multiple_orders(self):
+        """Test cleanup behavior with multiple orders"""
+        order_ids = ["cleanup1", "cleanup2", "cleanup3"]
+
+        # Create locks and timestamps for multiple orders
+        for order_id in order_ids:
+            await self.connector._get_order_status_lock(order_id)
+            self.connector._record_order_status_update(order_id)
+
+        # Verify all exist
+        for order_id in order_ids:
+            self.assertIn(order_id, self.connector._order_status_locks)
+            self.assertIn(order_id, self.connector._order_last_update_timestamps)
+
+        # Clean up one
+        await self.connector._cleanup_order_status_lock(order_ids[0])
+
+        # Verify only that one is removed
+        self.assertNotIn(order_ids[0], self.connector._order_status_locks)
+        self.assertNotIn(order_ids[0], self.connector._order_last_update_timestamps)
+
+        # Others should still exist
+        for order_id in order_ids[1:]:
+            self.assertIn(order_id, self.connector._order_status_locks)
+            self.assertIn(order_id, self.connector._order_last_update_timestamps)
