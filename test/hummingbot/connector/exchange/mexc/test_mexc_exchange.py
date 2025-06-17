@@ -482,7 +482,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             erroneous_order: InFlightOrder,
             mock_api: aioresponses) -> List[str]:
         """
-        :return: a list of all configured URLs for the cancelations
+        :return: a list of all configured URLs for the cancellations
         """
         all_urls = []
         url = self.configure_successful_cancelation_response(order=successful_order, mock_api=mock_api)
