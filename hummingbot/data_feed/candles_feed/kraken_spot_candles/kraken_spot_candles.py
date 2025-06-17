@@ -72,7 +72,7 @@ class KrakenSpotCandles(CandlesBase):
     def get_exchange_trading_pair(self, hb_trading_pair: str, delimiter: str = "") -> str:
         """
         Note: The result of this method can safely be used to submit/make queries.
-        Result shouldn't be used to parse responses as Kraken add special formating to most pairs.
+        Result shouldn't be used to parse responses as Kraken add special formatting to most pairs.
         """
         if "-" in hb_trading_pair:
             base, quote = hb_trading_pair.split("-")
