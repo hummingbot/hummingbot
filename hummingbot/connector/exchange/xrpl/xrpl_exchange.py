@@ -286,6 +286,43 @@ class XrplExchange(ExchangePyBase):
         """
         self._order_last_update_timestamps[client_order_id] = time.time()
 
+    async def _process_final_order_state(self, tracked_order: InFlightOrder, new_state: OrderState,
+                                         update_timestamp: float, trade_update: Optional[TradeUpdate] = None):
+        """
+        Process order reaching a final state (FILLED, CANCELED, FAILED).
+        This ensures proper order completion flow and cleanup.
+
+        :param tracked_order: The order that reached a final state
+        :param new_state: The final state (FILLED, CANCELED, or FAILED)
+        :param update_timestamp: Timestamp of the state change
+        :param trade_update: Optional trade update to process
+        """
+        # For FILLED orders, process trade updates FIRST so the completely_filled_event gets set
+        # This is critical for the base class wait_until_completely_filled() mechanism
+        if trade_update and new_state == OrderState.FILLED:
+            self._order_tracker.process_trade_update(trade_update)
+
+        order_update = OrderUpdate(
+            client_order_id=tracked_order.client_order_id,
+            exchange_order_id=tracked_order.exchange_order_id,
+            trading_pair=tracked_order.trading_pair,
+            update_timestamp=update_timestamp,
+            new_state=new_state,
+        )
+
+        # Process the order update (this will call _trigger_order_completion -> stop_tracking_order)
+        # For FILLED orders, this will wait for completely_filled_event before proceeding
+        self._order_tracker.process_order_update(order_update)
+
+        # Process trade updates for non-FILLED states or if no trade update was provided for FILLED
+        if trade_update and new_state != OrderState.FILLED:
+            self._order_tracker.process_trade_update(trade_update)
+
+        # XRPL-specific cleanup
+        await self._cleanup_order_status_lock(tracked_order.client_order_id)
+
+        self.logger().info(f"Order {tracked_order.client_order_id} reached final state: {new_state.name}")
+
     def _get_fee(
         self,
         base_currency: str,
@@ -594,6 +631,12 @@ class XrplExchange(ExchangePyBase):
         return cancel_result, cancel_data
 
     async def _execute_order_cancel_and_process_update(self, order: InFlightOrder) -> bool:
+        # Early exit if order is not being tracked and is already in a final state
+        is_actively_tracked = order.client_order_id in self._order_tracker.active_orders
+        if not is_actively_tracked and order.current_state in [OrderState.FILLED, OrderState.CANCELED, OrderState.FAILED]:
+            self.logger().debug(f"Order {order.client_order_id} is not being tracked and already in final state {order.current_state}, cancellation not needed")
+            return order.current_state == OrderState.CANCELED
+
         # Use order-specific lock to prevent concurrent status updates
         order_lock = await self._get_order_status_lock(order.client_order_id)
 
@@ -601,9 +644,14 @@ class XrplExchange(ExchangePyBase):
             if not self.ready:
                 await self._sleep(3)
 
+            # Double-check if order state changed after acquiring lock
+            if not is_actively_tracked and order.current_state in [OrderState.FILLED, OrderState.CANCELED, OrderState.FAILED]:
+                self.logger().debug(f"Order {order.client_order_id} is no longer being tracked after acquiring lock and in final state {order.current_state}, cancellation not needed")
+                return order.current_state == OrderState.CANCELED
+
             # Check current order state before attempting cancellation
             current_state = order.current_state
-            if current_state in [OrderState.FILLED, OrderState.CANCELED]:
+            if current_state in [OrderState.FILLED, OrderState.CANCELED, OrderState.FAILED]:
                 self.logger().debug(
                     f"Order {order.client_order_id} is already in final state {current_state}, skipping cancellation"
                 )
@@ -639,19 +687,27 @@ class XrplExchange(ExchangePyBase):
                     )
 
                     trade_updates = await self._all_trade_updates_for_order(order)
-                    if len(trade_updates) > 0:
-                        for trade_update in trade_updates:
-                            self._order_tracker.process_trade_update(trade_update)
+                    first_trade_update = trade_updates[0] if len(trade_updates) > 0 else None
 
                     if fresh_order_update.new_state == OrderState.FILLED:
+                        # Use centralized final state processing for filled orders
+                        await self._process_final_order_state(order, OrderState.FILLED, fresh_order_update.update_timestamp, first_trade_update)
+                        # Process any remaining trade updates
+                        for trade_update in trade_updates[1:]:
+                            self._order_tracker.process_trade_update(trade_update)
+                    else:
+                        # For partially filled, use regular order update
                         self._order_tracker.process_order_update(fresh_order_update)
-                        order.completely_filled_event.set()
+                        for trade_update in trade_updates:
+                            self._order_tracker.process_trade_update(trade_update)
 
                     return False  # Cancellation not needed/successful
 
                 # If order is already canceled, return success
                 elif fresh_order_update.new_state == OrderState.CANCELED:
                     self.logger().debug(f"Order {order.client_order_id} already canceled")
+                    # Use centralized final state processing for already cancelled orders
+                    await self._process_final_order_state(order, OrderState.CANCELED, fresh_order_update.update_timestamp)
                     return True
 
             except Exception as status_check_error:
@@ -711,15 +767,8 @@ class XrplExchange(ExchangePyBase):
                         f"(previous state: {order.current_state.name})"
                     )
 
-                    order_update: OrderUpdate = OrderUpdate(
-                        client_order_id=order.client_order_id,
-                        trading_pair=order.trading_pair,
-                        update_timestamp=self._time(),
-                        new_state=OrderState.CANCELED,
-                    )
-                    self._order_tracker.process_order_update(order_update)
-                    # Clean up the order lock when order reaches final state
-                    await self._cleanup_order_status_lock(order.client_order_id)
+                    # Use centralized final state processing for successful cancellation
+                    await self._process_final_order_state(order, OrderState.CANCELED, self._time())
                     return True
                 else:
                     # Check if order was actually filled during cancellation attempt
@@ -732,12 +781,12 @@ class XrplExchange(ExchangePyBase):
                                 f"(previous state: {order.current_state.name} -> {final_status_check.new_state.name})"
                             )
                             trade_updates = await self._all_trade_updates_for_order(order)
-                            if len(trade_updates) > 0:
-                                for trade_update in trade_updates:
-                                    self._order_tracker.process_trade_update(trade_update)
-                            self._order_tracker.process_order_update(final_status_check)
-                            order.completely_filled_event.set()
-                            await self._cleanup_order_status_lock(order.client_order_id)
+                            first_trade_update = trade_updates[0] if len(trade_updates) > 0 else None
+                            # Use centralized final state processing for filled during cancellation
+                            await self._process_final_order_state(order, OrderState.FILLED, final_status_check.update_timestamp, first_trade_update)
+                            # Process any remaining trade updates
+                            for trade_update in trade_updates[1:]:
+                                self._order_tracker.process_trade_update(trade_update)
                             return False  # Cancellation not successful because order filled
                     except Exception as final_check_error:
                         self.logger().warning(
@@ -882,14 +931,6 @@ class XrplExchange(ExchangePyBase):
                         else:
                             new_order_state = OrderState.FILLED
 
-                        order_update = OrderUpdate(
-                            client_order_id=tracked_order.client_order_id,
-                            exchange_order_id=tracked_order.exchange_order_id,
-                            trading_pair=tracked_order.trading_pair,
-                            update_timestamp=time.time(),
-                            new_state=new_order_state,
-                        )
-
                         # Enhanced logging for debugging race conditions
                         self.logger().debug(
                             f"[USER_STREAM_MARKET] Order {tracked_order.client_order_id} state transition: "
@@ -897,24 +938,34 @@ class XrplExchange(ExchangePyBase):
                             f"(tx_status: {tx_status})"
                         )
 
-                        self._order_tracker.process_order_update(order_update=order_update)
+                        update_timestamp = time.time()
+                        trade_update = None
+
+                        if new_order_state in [OrderState.FILLED, OrderState.PARTIALLY_FILLED]:
+                            trade_update = await self.process_trade_fills(event_message, tracked_order)
+                            if trade_update is None:
+                                self.logger().error(
+                                    f"Failed to process trade fills for order {tracked_order.client_order_id} ({tracked_order.exchange_order_id}), order state: {new_order_state}, data: {event_message}"
+                                )
 
                         # Record the update timestamp
                         self._record_order_status_update(tracked_order.client_order_id)
 
-                        if new_order_state in [OrderState.FILLED, OrderState.PARTIALLY_FILLED]:
-                            trade_update = await self.process_trade_fills(event_message, tracked_order)
-                            if trade_update is not None:
+                        # Process final state using centralized method (handles stop_tracking_order)
+                        if new_order_state in [OrderState.FILLED, OrderState.FAILED]:
+                            await self._process_final_order_state(tracked_order, new_order_state, update_timestamp, trade_update)
+                        else:
+                            # For non-final states, use regular order update
+                            order_update = OrderUpdate(
+                                client_order_id=tracked_order.client_order_id,
+                                exchange_order_id=tracked_order.exchange_order_id,
+                                trading_pair=tracked_order.trading_pair,
+                                update_timestamp=update_timestamp,
+                                new_state=new_order_state,
+                            )
+                            self._order_tracker.process_order_update(order_update=order_update)
+                            if trade_update:
                                 self._order_tracker.process_trade_update(trade_update)
-
-                                if new_order_state == OrderState.FILLED:
-                                    tracked_order.completely_filled_event.set()
-                                    # Clean up lock for completed order
-                                    await self._cleanup_order_status_lock(tracked_order.client_order_id)
-                            else:
-                                self.logger().error(
-                                    f"Failed to process trade fills for order {tracked_order.client_order_id} ({tracked_order.exchange_order_id}), order state: {new_order_state}, data: {event_message}"
-                                )
 
                 # Handle state updates for orders
                 for order_book_change in order_book_changes:
@@ -1007,14 +1058,6 @@ class XrplExchange(ExchangePyBase):
                             self.logger().debug(
                                 f"Order update for order '{tracked_order.client_order_id}' with sequence '{offer_change['sequence']}': '{new_order_state}'"
                             )
-                            order_update = OrderUpdate(
-                                client_order_id=tracked_order.client_order_id,
-                                exchange_order_id=tracked_order.exchange_order_id,
-                                trading_pair=tracked_order.trading_pair,
-                                update_timestamp=time.time(),
-                                new_state=new_order_state,
-                            )
-
                             # Enhanced logging for debugging race conditions
                             self.logger().debug(
                                 f"[USER_STREAM] Order {tracked_order.client_order_id} state transition: "
@@ -1022,27 +1065,34 @@ class XrplExchange(ExchangePyBase):
                                 f"(sequence: {offer_change['sequence']}, status: {status})"
                             )
 
-                            self._order_tracker.process_order_update(order_update=order_update)
+                            update_timestamp = time.time()
+                            trade_update = None
 
                             # Record the update timestamp
                             self._record_order_status_update(tracked_order.client_order_id)
 
                             if new_order_state in [OrderState.FILLED, OrderState.PARTIALLY_FILLED]:
                                 trade_update = await self.process_trade_fills(event_message, tracked_order)
-                                if trade_update is not None:
-                                    self._order_tracker.process_trade_update(trade_update)
-
-                                    if new_order_state == OrderState.FILLED:
-                                        tracked_order.completely_filled_event.set()
-                                        # Clean up lock for completed order
-                                        await self._cleanup_order_status_lock(tracked_order.client_order_id)
-                                    elif new_order_state == OrderState.CANCELED:
-                                        # Clean up lock for canceled order
-                                        await self._cleanup_order_status_lock(tracked_order.client_order_id)
-                                else:
+                                if trade_update is None:
                                     self.logger().error(
                                         f"Failed to process trade fills for order {tracked_order.client_order_id} ({tracked_order.exchange_order_id}), order state: {new_order_state}, data: {event_message}"
                                     )
+
+                            # Process final state using centralized method (handles stop_tracking_order)
+                            if new_order_state in [OrderState.FILLED, OrderState.CANCELED, OrderState.FAILED]:
+                                await self._process_final_order_state(tracked_order, new_order_state, update_timestamp, trade_update)
+                            else:
+                                # For non-final states, use regular order update
+                                order_update = OrderUpdate(
+                                    client_order_id=tracked_order.client_order_id,
+                                    exchange_order_id=tracked_order.exchange_order_id,
+                                    trading_pair=tracked_order.trading_pair,
+                                    update_timestamp=update_timestamp,
+                                    new_state=new_order_state,
+                                )
+                                self._order_tracker.process_order_update(order_update=order_update)
+                                if trade_update:
+                                    self._order_tracker.process_trade_update(trade_update)
 
                 # Handle balance changes
                 for balance_change in balance_changes:
