@@ -100,8 +100,8 @@ class XrplExchange(ExchangePyBase):
         self._node_pool = XRPLNodePool(
             node_urls=wss_node_urls,
             requests_per_10s=0.3 if isinstance(max_request_per_minute, str) else max_request_per_minute / 6,
-            burst_tokens=10,  # Start with 5 burst tokens Bad nodes cool down after 10 minutes
-            max_burst_tokens=10,
+            burst_tokens=25,  # Higher initial pool for startup and emergency operations
+            max_burst_tokens=30,  # Allow accumulation for batch operations like mass cancellations
             proactive_switch_interval=100,
             cooldown=100,
         )
@@ -430,7 +430,7 @@ class XrplExchange(ExchangePyBase):
         return o_id, transact_time, resp
 
     async def _place_order_and_process_update(self, order: InFlightOrder, **kwargs) -> str:
-        self._node_pool.add_burst_tokens(5)
+        self._node_pool.add_burst_tokens(5)  # Optimal: covers order placement + verification + status check
         exchange_order_id, update_timestamp, order_creation_resp = await self._place_order(
             order_id=order.client_order_id,
             trading_pair=order.trading_pair,
@@ -546,7 +546,7 @@ class XrplExchange(ExchangePyBase):
             return False, {}
 
         try:
-            self._node_pool.add_burst_tokens(3)
+            self._node_pool.add_burst_tokens(6)  # Increased: covers status check + cancel + verification (3-5 requests)
             async with self._xrpl_place_order_client_lock:
                 async with await self._get_async_client() as client:
                     sequence, _ = exchange_order_id.split("-")
@@ -1829,7 +1829,7 @@ class XrplExchange(ExchangePyBase):
         return return_transactions
 
     async def _update_balances(self):
-        self._node_pool.add_burst_tokens(3)
+        self._node_pool.add_burst_tokens(1)  # Reduced: only needs 1 request for account info
 
         account_address = self._xrpl_auth.get_account()
 
