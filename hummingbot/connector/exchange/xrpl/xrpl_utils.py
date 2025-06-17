@@ -651,7 +651,7 @@ class XRPLNodePool:
                 self.logger().debug(f"Switching node: proactive or current node is bad. Current: {self._current_node}")
                 await self._rotate_node_locked(now)
 
-            if time.time() - self._init_time > 20:
+            if time.time() - self._init_time > 40:
                 wait_time = await self._rate_limiter.acquire(use_burst)
                 self.logger().debug(f"Rate limited: waiting {wait_time:.2f}s")
                 await asyncio.sleep(wait_time)
