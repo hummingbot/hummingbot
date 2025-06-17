@@ -131,7 +131,7 @@ MARKETS = {
         "base": "XRP",
         "quote": "USDC",
         "base_issuer": "",
-        "quote_issuer": "rcEGREd8NmkKRE8GE424sksyt1tJVFZwu",
+        "quote_issuer": "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE",
     },
     "IBTC-RLUSD": {
         "base": "iBTC",
@@ -293,7 +293,7 @@ MARKETS = {
         "base": "USD",
         "quote": "USDC",
         "base_issuer": "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq",
-        "quote_issuer": "rcEGREd8NmkKRE8GE424sksyt1tJVFZwu",
+        "quote_issuer": "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE",
     },
     "USD-WXRP": {
         "base": "USD",
@@ -365,7 +365,7 @@ MARKETS = {
         "base": "EUR",
         "quote": "USDC",
         "base_issuer": "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq",
-        "quote_issuer": "rcEGREd8NmkKRE8GE424sksyt1tJVFZwu",
+        "quote_issuer": "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE",
     },
     "EUR-WXRP": {
         "base": "EUR",
@@ -406,7 +406,7 @@ MARKETS = {
     "USDC-XRP": {
         "base": "USDC",
         "quote": "XRP",
-        "base_issuer": "rcEGREd8NmkKRE8GE424sksyt1tJVFZwu",
+        "base_issuer": "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE",
         "quote_issuer": "",
     },
     "SOLO-XRP": {
@@ -545,12 +545,12 @@ MARKETS = {
         "base": "RLUSD",
         "quote": "USDC",
         "base_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
-        "quote_issuer": "rcEGREd8NmkKRE8GE424sksyt1tJVFZwu",
+        "quote_issuer": "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE",
     },
     "USDC-RLUSD": {
         "base": "USDC",
         "quote": "RLUSD",
-        "base_issuer": "rcEGREd8NmkKRE8GE424sksyt1tJVFZwu",
+        "base_issuer": "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE",
         "quote_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
     },
     "RLUSD-BTC": {
@@ -683,6 +683,6 @@ MARKETS = {
         "base": "iBTC",
         "quote": "USDC",
         "base_issuer": "rGcyRGrZPaJAZbZDi4NqRFLA5GQH63iFpD",
-        "quote_issuer": "rcEGREd8NmkKRE8GE424sksyt1tJVFZwu",
+        "quote_issuer": "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE",
     },
 }
