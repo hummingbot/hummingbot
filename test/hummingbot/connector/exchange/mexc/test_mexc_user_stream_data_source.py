@@ -243,10 +243,6 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         # Cancel the task for cleanup
         self.data_source._manage_listen_key_task.cancel()
-        try:
-            await self.data_source._manage_listen_key_task
-        except asyncio.CancelledError:
-            pass
 
     async def test_cancel_listen_key_task(self):
         # Create a mock task
@@ -374,7 +370,7 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(mock_task, self.data_source._manage_listen_key_task)
 
     async def test_ensure_listen_key_task_running_with_done_task_cancelled_error(self):
-        mock_task = AsyncMock()
+        mock_task = MagicMock()
         mock_task.done.return_value = True
         mock_task.side_effect = asyncio.CancelledError()
         self.data_source._manage_listen_key_task = mock_task
@@ -387,7 +383,7 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.assertNotEqual(mock_task, self.data_source._manage_listen_key_task)
 
     async def test_ensure_listen_key_task_running_with_done_task_exception(self):
-        mock_task = AsyncMock()
+        mock_task = MagicMock()
         mock_task.done.return_value = True
         mock_task.side_effect = Exception("Test exception")
         self.data_source._manage_listen_key_task = mock_task
