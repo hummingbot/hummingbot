@@ -65,7 +65,5 @@ class PerformanceReport(BaseModel):
     global_pnl_quote: Decimal = Decimal("0")
     global_pnl_pct: Decimal = Decimal("0")
     volume_traded: Decimal = Decimal("0")
-    open_order_volume: Decimal = Decimal("0")
-    inventory_imbalance: Decimal = Decimal("0")
     positions_summary: List = []
     close_type_counts: Dict[CloseType, int] = {}
