@@ -609,7 +609,7 @@ class FoxbitExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     @aioresponses()
     @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_seconds_counter")
-    def test_update_time_synchronizer_successfully(self, mock_api, seconds_counter_mock):
+    async def test_update_time_synchronizer_successfully(self, mock_api, seconds_counter_mock):
         request_sent_event = asyncio.Event()
         seconds_counter_mock.side_effect = [0, 0, 0]
 
@@ -623,7 +623,7 @@ class FoxbitExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                      body=json.dumps(response),
                      callback=lambda *args, **kwargs: request_sent_event.set())
 
-        self.async_run_with_timeout(self.exchange._update_time_synchronizer())
+        await self.exchange._update_time_synchronizer()
 
         self.assertEqual(response["timestamp"] * 1e-3, self.exchange._time_synchronizer.time())
 
@@ -658,9 +658,8 @@ class FoxbitExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         mock_api.get(regex_url,
                      exception=asyncio.CancelledError)
 
-        self.assertRaises(
-            asyncio.CancelledError,
-            self.async_run_with_timeout, self.exchange._update_time_synchronizer())
+        with self.assertRaises():
+            await self.exchange._update_time_synchronizer()
 
     @aioresponses()
     async def test_update_order_fills_from_trades_triggers_filled_event(self, mock_api):
@@ -821,7 +820,7 @@ class FoxbitExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
         self.exchange._update_order_status()
 
-        request = self._all_executed_requests(mock_api, web_utils.private_rest_url(CONSTANTS.GET_ORDER_BY_ID.format(order.exchange_order_id)))
+        request = self._all_executed_requests(mock_api, web_utils.private_rest_url(CONSTANTS.GET_ORDER_BY_CLIENT_ID.format(order.exchange_order_id)))
         self.assertEqual([], request)
 
     @aioresponses()

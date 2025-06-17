@@ -105,7 +105,6 @@ RATE_LIMITS = [
     RateLimit(limit_id=PING_PATH_URL, limit=5, time_interval=ONE_SECOND),
     RateLimit(limit_id=ACCOUNTS_PATH_URL, limit=15, time_interval=ONE_SECOND),
     RateLimit(limit_id=MY_TRADES_PATH_URL, limit=5, time_interval=ONE_SECOND),
-    RateLimit(limit_id=GET_ORDER_BY_ID, limit=30, time_interval=TWO_SECONDS),
     RateLimit(limit_id=GET_ORDER_BY_CLIENT_ID, limit=30, time_interval=TWO_SECONDS),
     RateLimit(limit_id=CANCEL_ORDER_PATH_URL, limit=30, time_interval=TWO_SECONDS),
     RateLimit(limit_id=ORDER_PATH_URL, limit=30, time_interval=TWO_SECONDS),
