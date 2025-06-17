@@ -1,4 +1,3 @@
-import gc
 import logging
 import uuid
 from collections import deque
@@ -298,7 +297,6 @@ class ExecutorOrchestrator:
         self.store_all_positions()
         # Clear executors and trigger garbage collection
         self.active_executors.clear()
-        gc.collect()
 
     def store_all_positions(self):
         """
@@ -512,7 +510,6 @@ class ExecutorOrchestrator:
         self.active_executors[controller_id].remove(executor)
         del executor
         # Trigger garbage collection after executor cleanup
-        gc.collect()
 
     def get_executors_report(self) -> Dict[str, List[ExecutorInfo]]:
         """
