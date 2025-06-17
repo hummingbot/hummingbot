@@ -52,7 +52,7 @@ class ExecutorInfo(BaseModel):
         return self.config.connector_name
 
     def to_dict(self):
-        base_dict = self.dict()
+        base_dict = self.model_dump()
         base_dict["side"] = self.side
         return base_dict
 
@@ -65,7 +65,5 @@ class PerformanceReport(BaseModel):
     global_pnl_quote: Decimal = Decimal("0")
     global_pnl_pct: Decimal = Decimal("0")
     volume_traded: Decimal = Decimal("0")
-    open_order_volume: Decimal = Decimal("0")
-    inventory_imbalance: Decimal = Decimal("0")
     positions_summary: List = []
     close_type_counts: Dict[CloseType, int] = {}

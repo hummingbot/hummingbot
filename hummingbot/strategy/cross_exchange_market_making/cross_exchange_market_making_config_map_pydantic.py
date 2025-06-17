@@ -197,7 +197,7 @@ ORDER_REFRESH_MODELS = {
 
 
 class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap):
-    strategy: str = Field(default="cross_exchange_market_making", client_data=None)
+    strategy: str = Field(default="cross_exchange_market_making")
 
     min_profitability: Decimal = Field(
         default=...,
