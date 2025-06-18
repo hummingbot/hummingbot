@@ -523,7 +523,7 @@ class ExchangePyBase(ExchangeBase, ABC):
             trading_pair=trading_pair,
             update_timestamp=self.current_timestamp,
             new_state=OrderState.FAILED,
-            misc_updates=misc_updates if misc_updates else None
+            misc_updates=misc_updates
         )
         self._order_tracker.process_order_update(order_update)
 
