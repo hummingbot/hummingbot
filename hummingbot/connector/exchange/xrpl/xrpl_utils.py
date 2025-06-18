@@ -455,7 +455,9 @@ KEYS = XRPLConfigMap.model_construct()
 class RateLimiter:
     _logger = None
 
-    def __init__(self, requests_per_10s: float, burst_tokens: int = 0, max_burst_tokens: int = 5):
+    def __init__(
+        self, requests_per_10s: float, burst_tokens: int = 0, max_burst_tokens: int = 5, wait_margin_factor: float = 1.5
+    ):
         """
         Simple rate limiter that measures and controls request rate in 10-second batches.
 
@@ -463,6 +465,7 @@ class RateLimiter:
             requests_per_10s: Maximum requests allowed per 10 seconds
             burst_tokens: Initial number of burst tokens available
             max_burst_tokens: Maximum number of burst tokens that can be accumulated
+            wait_margin_factor: Multiplier for wait time to add safety margin (default 1.5)
         """
         self._rate_limit = requests_per_10s
         self._max_burst_tokens = max_burst_tokens
@@ -470,6 +473,7 @@ class RateLimiter:
         self._request_times = deque(maxlen=1000)  # Store request timestamps for rate calculation
         self._last_rate_log = time.time()
         self._rate_log_interval = 10.0  # Log rate every 10 seconds
+        self._wait_margin_factor = max(1.0, wait_margin_factor)  # Ensure factor is at least 1.0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -487,16 +491,22 @@ class RateLimiter:
         if not self._request_times:
             return 0.0
 
-        # Calculate rate over the last 10 seconds
-        time_span = min(10.0, now - self._request_times[0])
-        if time_span == 0:
+        # Calculate rate over the last 10 seconds using a more accurate method
+        request_count = len(self._request_times)
+
+        # If we have less than 2 requests, rate is essentially 0
+        if request_count < 2:
             return 0.0
 
-        # Use a more stable rate calculation that won't produce extreme values
-        # Cap the time_span to prevent division by very small numbers
-        min_time_span = 0.1  # Minimum 100ms window
-        effective_time_span = max(time_span, min_time_span)
-        return len(self._request_times) * 10.0 / effective_time_span
+        # Use the full 10-second window or the actual time span, whichever is larger
+        # This prevents artificially high rates from short bursts
+        time_span = now - self._request_times[0]
+        measurement_window = max(10.0, time_span)
+
+        # Calculate requests per 10 seconds based on the measurement window
+        # This gives a more stable rate that doesn't spike for short bursts
+        rate_per_second = request_count / measurement_window
+        return rate_per_second * 10.0
 
     def _log_rate_status(self):
         """Log current rate status"""
@@ -539,7 +549,9 @@ class RateLimiter:
 
         # Calculate wait time needed to get under rate limit
         # We need to wait until enough old requests expire
-        wait_time = 10.0 * (current_rate - self._rate_limit) / current_rate
+        base_wait_time = 10.0 * (current_rate - self._rate_limit) / current_rate
+        # Apply safety margin factor to wait longer and stay under limit
+        wait_time = base_wait_time * self._wait_margin_factor
         self._log_rate_status()
         return wait_time
 
@@ -574,6 +586,7 @@ class XRPLNodePool:
         max_burst_tokens: int = 5,
         proactive_switch_interval: int = 30,
         cooldown: int = 600,
+        wait_margin_factor: float = 1.5,
     ):
         """
         Initialize XRPLNodePool with rate limiting.
@@ -585,6 +598,7 @@ class XRPLNodePool:
             max_burst_tokens: Maximum number of burst tokens that can be accumulated
             proactive_switch_interval: Seconds between proactive node switches (0 to disable)
             cooldown: Seconds a node is considered bad after being rate-limited
+            wait_margin_factor: Multiplier for wait time to add safety margin (default 1.5)
         """
         if not node_urls or len(node_urls) == 0:
             node_urls = self.DEFAULT_NODES.copy()
@@ -603,6 +617,7 @@ class XRPLNodePool:
             requests_per_10s=requests_per_10s,
             burst_tokens=burst_tokens,
             max_burst_tokens=max_burst_tokens,
+            wait_margin_factor=wait_margin_factor,
         )
         self.logger().info(
             f"Initialized XRPLNodePool with {len(node_urls)} nodes, "
@@ -643,7 +658,6 @@ class XRPLNodePool:
                 await self._rotate_node_locked(now)
 
             if time.time() - self._init_time > 40:
-                # Wait for rate limiter if needed
                 wait_time = await self._rate_limiter.acquire(use_burst)
                 self.logger().debug(f"Rate limited: waiting {wait_time:.2f}s")
                 await asyncio.sleep(wait_time)

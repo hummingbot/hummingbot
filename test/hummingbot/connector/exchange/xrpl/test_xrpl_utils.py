@@ -381,8 +381,10 @@ class TestRateLimiter(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(self.rate_limiter.burst_tokens, 1)  # One token used
 
         # Test without burst token, under rate limit
+        now = time.time()
+        self.rate_limiter._request_times.extend([now - i for i in range(8)])  # Add 8 requests
         wait_time = await self.rate_limiter.acquire(use_burst=False)
-        self.assertEqual(wait_time, 9.5)
+        self.assertEqual(wait_time, 0.0)
 
         # Test without burst token, over rate limit
         now = time.time()
