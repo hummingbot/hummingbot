@@ -491,16 +491,22 @@ class RateLimiter:
         if not self._request_times:
             return 0.0
 
-        # Calculate rate over the last 10 seconds
-        time_span = min(10.0, now - self._request_times[0])
-        if time_span == 0:
+        # Calculate rate over the last 10 seconds using a more accurate method
+        request_count = len(self._request_times)
+
+        # If we have less than 2 requests, rate is essentially 0
+        if request_count < 2:
             return 0.0
 
-        # Use a more stable rate calculation that won't produce extreme values
-        # Cap the time_span to prevent division by very small numbers
-        min_time_span = 0.1  # Minimum 100ms window
-        effective_time_span = max(time_span, min_time_span)
-        return len(self._request_times) * 10.0 / effective_time_span
+        # Use the full 10-second window or the actual time span, whichever is larger
+        # This prevents artificially high rates from short bursts
+        time_span = now - self._request_times[0]
+        measurement_window = max(10.0, time_span)
+
+        # Calculate requests per 10 seconds based on the measurement window
+        # This gives a more stable rate that doesn't spike for short bursts
+        rate_per_second = request_count / measurement_window
+        return rate_per_second * 10.0
 
     def _log_rate_status(self):
         """Log current rate status"""

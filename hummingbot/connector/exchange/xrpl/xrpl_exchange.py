@@ -665,7 +665,7 @@ class XrplExchange(ExchangePyBase):
         return o_id, transact_time, resp
 
     async def _place_order_and_process_update(self, order: InFlightOrder, **kwargs) -> str:
-        self._node_pool.add_burst_tokens(8)
+        self._node_pool.add_burst_tokens(5)
         async with self._xrpl_place_order_client_lock:
             exchange_order_id, update_timestamp, order_creation_resp = await self._place_order(
                 order_id=order.client_order_id,
@@ -782,7 +782,7 @@ class XrplExchange(ExchangePyBase):
             return False, {}
 
         try:
-            self._node_pool.add_burst_tokens(8)
+            self._node_pool.add_burst_tokens(5)
             async with await self._get_async_client() as client:
                 sequence, _ = exchange_order_id.split("-")
                 memo = Memo(
@@ -2263,6 +2263,7 @@ class XrplExchange(ExchangePyBase):
             self.logger().exception(f"There was an error requesting exchange info: {e}")
 
     async def _make_network_check_request(self):
+        self._node_pool.add_burst_tokens(1)
         client = await self._get_async_client()
         try:
             await client.open()
