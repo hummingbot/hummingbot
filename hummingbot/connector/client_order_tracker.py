@@ -380,14 +380,15 @@ class ClientOrderTracker:
         )
 
     def _trigger_failure_event(self, order: InFlightOrder, order_update: OrderUpdate):
+        misc_updates = order_update.misc_updates or {}
         self._connector.trigger_event(
             MarketEvent.OrderFailure,
             MarketOrderFailureEvent(
                 timestamp=self.current_timestamp,
                 order_id=order.client_order_id,
                 order_type=order.order_type,
-                error_type=order_update.misc_updates.get("error_type"),
-                error_message=order_update.misc_updates.get("error_message")
+                error_type=misc_updates.get("error_type"),
+                error_message=misc_updates.get("error_message")
             ),
         )
 
