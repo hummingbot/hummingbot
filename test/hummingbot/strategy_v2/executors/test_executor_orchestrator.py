@@ -127,7 +127,6 @@ class TestExecutorOrchestrator(unittest.TestCase):
         config_mock.controller_id = "test"
         position_executor.config = config_mock
         self.orchestrator.active_executors["test"] = [position_executor]
-        self.orchestrator.archived_executors["test"] = []
         self.orchestrator.cached_performance["test"] = PerformanceReport()
         actions = [StoreExecutorAction(executor_id="test", controller_id="test")]
         self.orchestrator.execute_actions(actions)
@@ -302,7 +301,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
             "main": [position_held]
         }
         self.orchestrator.store_all_positions()
-        self.assertEqual(len(self.orchestrator.positions_held["main"]), 0)
+        self.assertEqual(len(self.orchestrator.positions_held), 0)
 
     def test_get_positions_report(self):
         position_held = PositionHold("binance", "SOL-USDT", side=TradeType.BUY)

@@ -31,7 +31,6 @@ class MexcAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         cls.domain = "com"
 
     async def asyncSetUp(self) -> None:
-        await super().asyncSetUp()
         self.log_records = []
         self.listening_task = None
         self.mocking_assistant = NetworkMockingAssistant(self.local_event_loop)
