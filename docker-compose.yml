@@ -29,17 +29,22 @@ services:
 #      - CONFIG_FILE_NAME=v2_with_controllers.py
 #      - SCRIPT_CONFIG=conf_v2_with_controllers.yml
 
-  # gateway:
-  #  restart: always
-  #  container_name: gateway
-  #  image: hummingbot/gateway:latest
-  #  ports:
-  #    - "15888:15888"
-  #    - "8080:8080"
-  #  volumes:
-  #    - "./gateway_files/conf:/home/gateway/conf"
-  #    - "./gateway_files/logs:/home/gateway/logs"
-  #    - "./gateway_files/db:/home/gateway/db"
-  #    - "./certs:/home/gateway/certs"
-  #  environment:
-  #    - GATEWAY_PASSPHRASE=a
+#   gateway:
+#     restart: always
+#     container_name: gateway
+#     image: hummingbot/gateway:latest
+#     ports:
+#       - "15888:15888"
+#       - "8080:8080"
+#     volumes:
+#       - gateway_conf:/home/gateway/conf
+#       - gateway_logs:/home/gateway/logs
+#       - gateway_db:/home/gateway/db
+#       - ./certs:/home/gateway/certs
+#     environment:
+#       - GATEWAY_PASSPHRASE=a
+
+# volumes:
+#   gateway_conf:
+#   gateway_logs:
+#   gateway_db:
