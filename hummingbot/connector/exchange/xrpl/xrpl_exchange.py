@@ -583,22 +583,21 @@ class XrplExchange(ExchangePyBase):
             request = await strategy.create_order_transaction()
 
             while retry < CONSTANTS.PLACE_ORDER_MAX_RETRY:
-                async with self._xrpl_place_order_client_lock:
-                    async with await self._get_async_client() as client:
-                        filled_tx = await self.tx_autofill(request, client)
-                        signed_tx = self.tx_sign(filled_tx, self._xrpl_auth.get_wallet())
-                        o_id = f"{signed_tx.sequence}-{signed_tx.last_ledger_sequence}"
-                        submit_response = await self.tx_submit(signed_tx, client, fail_hard=True)
-                        transact_time = time.time()
-                        prelim_result = submit_response.result["engine_result"]
+                async with await self._get_async_client() as client:
+                    filled_tx = await self.tx_autofill(request, client)
+                    signed_tx = self.tx_sign(filled_tx, self._xrpl_auth.get_wallet())
+                    o_id = f"{signed_tx.sequence}-{signed_tx.last_ledger_sequence}"
+                    submit_response = await self.tx_submit(signed_tx, client, fail_hard=True)
+                    transact_time = time.time()
+                    prelim_result = submit_response.result["engine_result"]
 
-                        submit_data = {"transaction": signed_tx, "prelim_result": prelim_result}
+                    submit_data = {"transaction": signed_tx, "prelim_result": prelim_result}
 
-                        self.logger().info(
-                            f"Submitted order {order_id} ({o_id}): type={order_type}, "
-                            f"pair={trading_pair}, amount={amount}, price={price}, "
-                            f"prelim_result={prelim_result}, tx_hash={submit_response.result.get('tx_json', {}).get('hash', 'unknown')}"
-                        )
+                    self.logger().info(
+                        f"Submitted order {order_id} ({o_id}): type={order_type}, "
+                        f"pair={trading_pair}, amount={amount}, price={price}, "
+                        f"prelim_result={prelim_result}, tx_hash={submit_response.result.get('tx_json', {}).get('hash', 'unknown')}"
+                    )
 
                 order_update: OrderUpdate = OrderUpdate(
                     client_order_id=order_id,
@@ -667,15 +666,16 @@ class XrplExchange(ExchangePyBase):
 
     async def _place_order_and_process_update(self, order: InFlightOrder, **kwargs) -> str:
         self._node_pool.add_burst_tokens(5)  # Optimal: covers order placement + verification + status check
-        exchange_order_id, update_timestamp, order_creation_resp = await self._place_order(
-            order_id=order.client_order_id,
-            trading_pair=order.trading_pair,
-            amount=order.amount,
-            trade_type=order.trade_type,
-            order_type=order.order_type,
-            price=order.price,
-            **kwargs,
-        )
+        async with self._xrpl_place_order_client_lock:
+            exchange_order_id, update_timestamp, order_creation_resp = await self._place_order(
+                order_id=order.client_order_id,
+                trading_pair=order.trading_pair,
+                amount=order.amount,
+                trade_type=order.trade_type,
+                order_type=order.order_type,
+                price=order.price,
+                **kwargs,
+            )
 
         order_update = await self._request_order_status(
             order,
@@ -783,42 +783,37 @@ class XrplExchange(ExchangePyBase):
 
         try:
             self._node_pool.add_burst_tokens(6)  # Increased: covers status check + cancel + verification (3-5 requests)
-            async with self._xrpl_place_order_client_lock:
-                async with await self._get_async_client() as client:
-                    sequence, _ = exchange_order_id.split("-")
-                    memo = Memo(
-                        memo_data=convert_string_to_hex(order_id, padding=False),
-                    )
-                    request = OfferCancel(
-                        account=self._xrpl_auth.get_account(), offer_sequence=int(sequence), memos=[memo]
-                    )
+            async with await self._get_async_client() as client:
+                sequence, _ = exchange_order_id.split("-")
+                memo = Memo(
+                    memo_data=convert_string_to_hex(order_id, padding=False),
+                )
+                request = OfferCancel(account=self._xrpl_auth.get_account(), offer_sequence=int(sequence), memos=[memo])
 
-                    filled_tx = await self.tx_autofill(request, client)
-                    signed_tx = self.tx_sign(filled_tx, self._xrpl_auth.get_wallet())
+                filled_tx = await self.tx_autofill(request, client)
+                signed_tx = self.tx_sign(filled_tx, self._xrpl_auth.get_wallet())
 
-                    submit_response = await self.tx_submit(signed_tx, client, fail_hard=True)
-                    prelim_result = submit_response.result["engine_result"]
+                submit_response = await self.tx_submit(signed_tx, client, fail_hard=True)
+                prelim_result = submit_response.result["engine_result"]
 
-                    self.logger().info(
-                        f"Submitted cancel for order {order_id} ({exchange_order_id}): "
-                        f"prelim_result={prelim_result}, tx_hash={submit_response.result.get('tx_json', {}).get('hash', 'unknown')}"
-                    )
+                self.logger().info(
+                    f"Submitted cancel for order {order_id} ({exchange_order_id}): "
+                    f"prelim_result={prelim_result}, tx_hash={submit_response.result.get('tx_json', {}).get('hash', 'unknown')}"
+                )
 
-                if prelim_result is None:
-                    raise Exception(
-                        f"prelim_result is None for {order_id} ({exchange_order_id}), data: {submit_response}"
-                    )
+            if prelim_result is None:
+                raise Exception(f"prelim_result is None for {order_id} ({exchange_order_id}), data: {submit_response}")
 
-                if prelim_result[0:3] == "tes":
-                    cancel_result = True
-                elif prelim_result == "temBAD_SEQUENCE":
-                    cancel_result = True
-                else:
-                    cancel_result = False
-                    self.logger().error(f"Order cancellation failed: {prelim_result}, data: {submit_response}")
-
+            if prelim_result[0:3] == "tes":
                 cancel_result = True
-                cancel_data = {"transaction": signed_tx, "prelim_result": prelim_result}
+            elif prelim_result == "temBAD_SEQUENCE":
+                cancel_result = True
+            else:
+                cancel_result = False
+                self.logger().error(f"Order cancellation failed: {prelim_result}, data: {submit_response}")
+
+            cancel_result = True
+            cancel_data = {"transaction": signed_tx, "prelim_result": prelim_result}
 
         except Exception as e:
             self.logger().error(
@@ -839,166 +834,181 @@ class XrplExchange(ExchangePyBase):
         # Use order-specific lock to prevent concurrent status updates
         order_lock = await self._get_order_status_lock(order.client_order_id)
 
-        async with order_lock:
-            if not self.ready:
-                await self._sleep(3)
+        async with self._xrpl_place_order_client_lock:
+            async with order_lock:
+                if not self.ready:
+                    await self._sleep(3)
 
-            # Double-check if order state changed after acquiring lock
-            if not is_actively_tracked and order.current_state in [OrderState.FILLED, OrderState.CANCELED, OrderState.FAILED]:
-                self.logger().debug(f"Order {order.client_order_id} is no longer being tracked after acquiring lock and in final state {order.current_state}, cancellation not needed")
-                return order.current_state == OrderState.CANCELED
-
-            # Check current order state before attempting cancellation
-            current_state = order.current_state
-            if current_state in [OrderState.FILLED, OrderState.CANCELED, OrderState.FAILED]:
-                self.logger().debug(
-                    f"Order {order.client_order_id} is already in final state {current_state}, skipping cancellation"
-                )
-                return current_state == OrderState.CANCELED
-
-            retry = 0
-            submitted = False
-            verified = False
-            resp = None
-            submit_data = {}
-
-            update_timestamp = self.current_timestamp
-            if update_timestamp is None or math.isnan(update_timestamp):
-                update_timestamp = self._time()
-
-            # Mark order as pending cancellation
-            order_update: OrderUpdate = OrderUpdate(
-                client_order_id=order.client_order_id,
-                trading_pair=order.trading_pair,
-                update_timestamp=update_timestamp,
-                new_state=OrderState.PENDING_CANCEL,
-            )
-            self._order_tracker.process_order_update(order_update)
-
-            # Get fresh order status before attempting cancellation
-            try:
-                fresh_order_update = await self._request_order_status(order)
-
-                # If order is filled/partially filled, process the fills and don't cancel
-                if fresh_order_update.new_state in [OrderState.FILLED, OrderState.PARTIALLY_FILLED]:
+                # Double-check if order state changed after acquiring lock
+                if not is_actively_tracked and order.current_state in [
+                    OrderState.FILLED,
+                    OrderState.CANCELED,
+                    OrderState.FAILED,
+                ]:
                     self.logger().debug(
-                        f"Order {order.client_order_id} is {fresh_order_update.new_state.name}, processing fills instead of canceling"
+                        f"Order {order.client_order_id} is no longer being tracked after acquiring lock and in final state {order.current_state}, cancellation not needed"
                     )
+                    return order.current_state == OrderState.CANCELED
 
-                    trade_updates = await self._all_trade_updates_for_order(order)
-                    first_trade_update = trade_updates[0] if len(trade_updates) > 0 else None
-
-                    if fresh_order_update.new_state == OrderState.FILLED:
-                        # Use centralized final state processing for filled orders
-                        await self._process_final_order_state(order, OrderState.FILLED, fresh_order_update.update_timestamp, first_trade_update)
-                        # Process any remaining trade updates
-                        for trade_update in trade_updates[1:]:
-                            self._order_tracker.process_trade_update(trade_update)
-                    else:
-                        # For partially filled, use regular order update
-                        self._order_tracker.process_order_update(fresh_order_update)
-                        for trade_update in trade_updates:
-                            self._order_tracker.process_trade_update(trade_update)
-
-                    return False  # Cancellation not needed/successful
-
-                # If order is already canceled, return success
-                elif fresh_order_update.new_state == OrderState.CANCELED:
-                    self.logger().debug(f"Order {order.client_order_id} already canceled")
-                    # Use centralized final state processing for already cancelled orders
-                    await self._process_final_order_state(order, OrderState.CANCELED, fresh_order_update.update_timestamp)
-                    return True
-
-            except Exception as status_check_error:
-                self.logger().warning(
-                    f"Failed to check order status before cancellation for {order.client_order_id}: {status_check_error}"
-                )
-
-            # Proceed with cancellation attempt
-            while retry < CONSTANTS.CANCEL_MAX_RETRY:
-                submitted, submit_data = await self._place_cancel(order.client_order_id, order)
-                verified, resp = await self._verify_transaction_result(submit_data)
-
-                if submitted and verified:
-                    retry = CONSTANTS.CANCEL_MAX_RETRY
-                else:
-                    retry += 1
-                    self.logger().info(
-                        f"Order cancellation failed. Retrying in {CONSTANTS.CANCEL_RETRY_INTERVAL} seconds..."
-                    )
-                    await self._sleep(CONSTANTS.CANCEL_RETRY_INTERVAL)
-
-            if submitted and verified:
-                if resp is None:
-                    self.logger().error(
-                        f"Failed to cancel order {order.client_order_id} ({order.exchange_order_id}), data: {order}, submit_data: {submit_data}"
-                    )
-                    return False
-
-                meta = resp.result.get("meta", {})
-                # Handle case where exchange_order_id might be None
-                if order.exchange_order_id is None:
-                    self.logger().error(
-                        f"Cannot process cancel for order {order.client_order_id} with None exchange_order_id"
-                    )
-                    return False
-
-                sequence, ledger_index = order.exchange_order_id.split("-")
-                changes_array = get_order_book_changes(meta)
-                changes_array = [x for x in changes_array if x.get("maker_account") == self._xrpl_auth.get_account()]
-                status = "UNKNOWN"
-
-                for offer_change in changes_array:
-                    changes = offer_change.get("offer_changes", [])
-
-                    for found_tx in changes:
-                        if int(found_tx.get("sequence")) == int(sequence):
-                            status = found_tx.get("status")
-                            break
-
-                if len(changes_array) == 0:
-                    status = "cancelled"
-
-                if status == "cancelled":
-                    # Enhanced logging for debugging race conditions
+                # Check current order state before attempting cancellation
+                current_state = order.current_state
+                if current_state in [OrderState.FILLED, OrderState.CANCELED, OrderState.FAILED]:
                     self.logger().debug(
-                        f"[CANCELLATION] Order {order.client_order_id} successfully canceled "
-                        f"(previous state: {order.current_state.name})"
+                        f"Order {order.client_order_id} is already in final state {current_state}, skipping cancellation"
                     )
+                    return current_state == OrderState.CANCELED
 
-                    # Use centralized final state processing for successful cancellation
-                    await self._process_final_order_state(order, OrderState.CANCELED, self._time())
-                    return True
-                else:
-                    # Check if order was actually filled during cancellation attempt
-                    try:
-                        final_status_check = await self._request_order_status(order)
-                        if final_status_check.new_state == OrderState.FILLED:
-                            # Enhanced logging for debugging race conditions
-                            self.logger().debug(
-                                f"[CANCELLATION_RACE_CONDITION] Order {order.client_order_id} was filled during cancellation attempt "
-                                f"(previous state: {order.current_state.name} -> {final_status_check.new_state.name})"
+                retry = 0
+                submitted = False
+                verified = False
+                resp = None
+                submit_data = {}
+
+                update_timestamp = self.current_timestamp
+                if update_timestamp is None or math.isnan(update_timestamp):
+                    update_timestamp = self._time()
+
+                # Mark order as pending cancellation
+                order_update: OrderUpdate = OrderUpdate(
+                    client_order_id=order.client_order_id,
+                    trading_pair=order.trading_pair,
+                    update_timestamp=update_timestamp,
+                    new_state=OrderState.PENDING_CANCEL,
+                )
+                self._order_tracker.process_order_update(order_update)
+
+                # Get fresh order status before attempting cancellation
+                try:
+                    fresh_order_update = await self._request_order_status(order)
+
+                    # If order is filled/partially filled, process the fills and don't cancel
+                    if fresh_order_update.new_state in [OrderState.FILLED, OrderState.PARTIALLY_FILLED]:
+                        self.logger().debug(
+                            f"Order {order.client_order_id} is {fresh_order_update.new_state.name}, processing fills instead of canceling"
+                        )
+
+                        trade_updates = await self._all_trade_updates_for_order(order)
+                        first_trade_update = trade_updates[0] if len(trade_updates) > 0 else None
+
+                        if fresh_order_update.new_state == OrderState.FILLED:
+                            # Use centralized final state processing for filled orders
+                            await self._process_final_order_state(
+                                order, OrderState.FILLED, fresh_order_update.update_timestamp, first_trade_update
                             )
-                            trade_updates = await self._all_trade_updates_for_order(order)
-                            first_trade_update = trade_updates[0] if len(trade_updates) > 0 else None
-                            # Use centralized final state processing for filled during cancellation
-                            await self._process_final_order_state(order, OrderState.FILLED, final_status_check.update_timestamp, first_trade_update)
                             # Process any remaining trade updates
                             for trade_update in trade_updates[1:]:
                                 self._order_tracker.process_trade_update(trade_update)
-                            return False  # Cancellation not successful because order filled
-                    except Exception as final_check_error:
-                        self.logger().warning(
-                            f"Failed final status check for order {order.client_order_id}: {final_check_error}"
+                        else:
+                            # For partially filled, use regular order update
+                            self._order_tracker.process_order_update(fresh_order_update)
+                            for trade_update in trade_updates:
+                                self._order_tracker.process_trade_update(trade_update)
+
+                        return False  # Cancellation not needed/successful
+
+                    # If order is already canceled, return success
+                    elif fresh_order_update.new_state == OrderState.CANCELED:
+                        self.logger().debug(f"Order {order.client_order_id} already canceled")
+                        # Use centralized final state processing for already cancelled orders
+                        await self._process_final_order_state(
+                            order, OrderState.CANCELED, fresh_order_update.update_timestamp
+                        )
+                        return True
+
+                except Exception as status_check_error:
+                    self.logger().warning(
+                        f"Failed to check order status before cancellation for {order.client_order_id}: {status_check_error}"
+                    )
+
+                # Proceed with cancellation attempt
+                while retry < CONSTANTS.CANCEL_MAX_RETRY:
+                    submitted, submit_data = await self._place_cancel(order.client_order_id, order)
+                    verified, resp = await self._verify_transaction_result(submit_data)
+
+                    if submitted and verified:
+                        retry = CONSTANTS.CANCEL_MAX_RETRY
+                    else:
+                        retry += 1
+                        self.logger().info(
+                            f"Order cancellation failed. Retrying in {CONSTANTS.CANCEL_RETRY_INTERVAL} seconds..."
+                        )
+                        await self._sleep(CONSTANTS.CANCEL_RETRY_INTERVAL)
+
+                if submitted and verified:
+                    if resp is None:
+                        self.logger().error(
+                            f"Failed to cancel order {order.client_order_id} ({order.exchange_order_id}), data: {order}, submit_data: {submit_data}"
+                        )
+                        return False
+
+                    meta = resp.result.get("meta", {})
+                    # Handle case where exchange_order_id might be None
+                    if order.exchange_order_id is None:
+                        self.logger().error(
+                            f"Cannot process cancel for order {order.client_order_id} with None exchange_order_id"
+                        )
+                        return False
+
+                    sequence, ledger_index = order.exchange_order_id.split("-")
+                    changes_array = get_order_book_changes(meta)
+                    changes_array = [
+                        x for x in changes_array if x.get("maker_account") == self._xrpl_auth.get_account()
+                    ]
+                    status = "UNKNOWN"
+
+                    for offer_change in changes_array:
+                        changes = offer_change.get("offer_changes", [])
+
+                        for found_tx in changes:
+                            if int(found_tx.get("sequence")) == int(sequence):
+                                status = found_tx.get("status")
+                                break
+
+                    if len(changes_array) == 0:
+                        status = "cancelled"
+
+                    if status == "cancelled":
+                        # Enhanced logging for debugging race conditions
+                        self.logger().debug(
+                            f"[CANCELLATION] Order {order.client_order_id} successfully canceled "
+                            f"(previous state: {order.current_state.name})"
                         )
 
-                    await self._order_tracker.process_order_not_found(order.client_order_id)
-                    await self._cleanup_order_status_lock(order.client_order_id)
-                    return False
+                        # Use centralized final state processing for successful cancellation
+                        await self._process_final_order_state(order, OrderState.CANCELED, self._time())
+                        return True
+                    else:
+                        # Check if order was actually filled during cancellation attempt
+                        try:
+                            final_status_check = await self._request_order_status(order)
+                            if final_status_check.new_state == OrderState.FILLED:
+                                # Enhanced logging for debugging race conditions
+                                self.logger().debug(
+                                    f"[CANCELLATION_RACE_CONDITION] Order {order.client_order_id} was filled during cancellation attempt "
+                                    f"(previous state: {order.current_state.name} -> {final_status_check.new_state.name})"
+                                )
+                                trade_updates = await self._all_trade_updates_for_order(order)
+                                first_trade_update = trade_updates[0] if len(trade_updates) > 0 else None
+                                # Use centralized final state processing for filled during cancellation
+                                await self._process_final_order_state(
+                                    order, OrderState.FILLED, final_status_check.update_timestamp, first_trade_update
+                                )
+                                # Process any remaining trade updates
+                                for trade_update in trade_updates[1:]:
+                                    self._order_tracker.process_trade_update(trade_update)
+                                return False  # Cancellation not successful because order filled
+                        except Exception as final_check_error:
+                            self.logger().warning(
+                                f"Failed final status check for order {order.client_order_id}: {final_check_error}"
+                            )
 
-            await self._order_tracker.process_order_not_found(order.client_order_id)
-            await self._cleanup_order_status_lock(order.client_order_id)
-            return False
+                        await self._order_tracker.process_order_not_found(order.client_order_id)
+                        await self._cleanup_order_status_lock(order.client_order_id)
+                        return False
+
+                await self._order_tracker.process_order_not_found(order.client_order_id)
+                await self._cleanup_order_status_lock(order.client_order_id)
+                return False
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         """
