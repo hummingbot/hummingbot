@@ -432,21 +432,27 @@ class ExchangePyBase(ExchangeBase, ABC):
 
         if order_type not in self.supported_order_types():
             self.logger().error(f"{order_type} is not in the list of supported order types")
-            self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
+            self._update_order_after_failure(
+                order_id=order_id, trading_pair=trading_pair,
+                exception=ValueError(f"{order_type} is not in the list of supported order types"))
             return
 
         elif quantized_amount < trading_rule.min_order_size:
             self.logger().warning(f"{trade_type.name.title()} order amount {amount} is lower than the minimum order "
                                   f"size {trading_rule.min_order_size}. The order will not be created, increase the "
                                   f"amount to be higher than the minimum order size.")
-            self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
+            self._update_order_after_failure(
+                order_id=order_id, trading_pair=trading_pair,
+                exception=ValueError(f"Order amount {amount} is lower than minimum order size {trading_rule.min_order_size}"))
             return
 
         elif notional_size < trading_rule.min_notional_size:
             self.logger().warning(f"{trade_type.name.title()} order notional {notional_size} is lower than the "
                                   f"minimum notional size {trading_rule.min_notional_size}. The order will not be "
                                   f"created. Increase the amount or the price to be higher than the minimum notional.")
-            self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
+            self._update_order_after_failure(
+                order_id=order_id, trading_pair=trading_pair,
+                exception=ValueError(f"Order notional {notional_size} is lower than minimum notional size {trading_rule.min_notional_size}"))
             return
         try:
             await self._place_order_and_process_update(order=order, **kwargs,)
@@ -504,18 +510,24 @@ class ExchangePyBase(ExchangeBase, ABC):
             exc_info=True,
             app_warning_msg=f"Failed to submit {trade_type.name.upper()} order to {self.name_cap}. Check API key and network connection."
         )
-        self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
+        self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair, exception=exception)
 
-    def _update_order_after_failure(self, order_id: str, trading_pair: str):
+    def _update_order_after_failure(self, order_id: str, trading_pair: str, exception: Optional[Exception] = None):
+        misc_updates = {}
+        if exception:
+            misc_updates['error_message'] = str(exception)
+            misc_updates['error_type'] = exception.__class__.__name__
+
         order_update: OrderUpdate = OrderUpdate(
             client_order_id=order_id,
             trading_pair=trading_pair,
             update_timestamp=self.current_timestamp,
             new_state=OrderState.FAILED,
+            misc_updates=misc_updates if misc_updates else None
         )
         self._order_tracker.process_order_update(order_update)
 
-    async def _execute_order_cancel(self, order: InFlightOrder) -> str:
+    async def _execute_order_cancel(self, order: InFlightOrder) -> Optional[str]:
         try:
             cancelled = await self._execute_order_cancel_and_process_update(order=order)
             if cancelled:
@@ -535,6 +547,7 @@ class ExchangePyBase(ExchangeBase, ABC):
                 await self._order_tracker.process_order_not_found(order.client_order_id)
             else:
                 self.logger().error(f"Failed to cancel order {order.client_order_id}", exc_info=True)
+        return None
 
     async def _execute_order_cancel_and_process_update(self, order: InFlightOrder) -> bool:
         cancelled = await self._place_cancel(order.client_order_id, order)
@@ -985,7 +998,7 @@ class ExchangePyBase(ExchangeBase, ABC):
         is_not_found = self._is_order_not_found_during_status_update_error(status_update_exception=error)
         self.logger().debug(f"Order update error for lost order {order.client_order_id}\n{order}\nIs order not found: {is_not_found} ({error})")
         if is_not_found:
-            self._update_order_after_failure(order.client_order_id, order.trading_pair)
+            self._update_order_after_failure(order.client_order_id, order.trading_pair, exception=error)
         else:
             self.logger().warning(f"Error fetching status update for the lost order {order.client_order_id}: {error}.")
 
