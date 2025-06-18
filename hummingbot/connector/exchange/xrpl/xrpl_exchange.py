@@ -665,7 +665,7 @@ class XrplExchange(ExchangePyBase):
         return o_id, transact_time, resp
 
     async def _place_order_and_process_update(self, order: InFlightOrder, **kwargs) -> str:
-        self._node_pool.add_burst_tokens(5)  # Optimal: covers order placement + verification + status check
+        self._node_pool.add_burst_tokens(8)
         async with self._xrpl_place_order_client_lock:
             exchange_order_id, update_timestamp, order_creation_resp = await self._place_order(
                 order_id=order.client_order_id,
@@ -782,7 +782,7 @@ class XrplExchange(ExchangePyBase):
             return False, {}
 
         try:
-            self._node_pool.add_burst_tokens(6)  # Increased: covers status check + cancel + verification (3-5 requests)
+            self._node_pool.add_burst_tokens(8)
             async with await self._get_async_client() as client:
                 sequence, _ = exchange_order_id.split("-")
                 memo = Memo(
@@ -1911,7 +1911,7 @@ class XrplExchange(ExchangePyBase):
         return return_transactions
 
     async def _update_balances(self):
-        self._node_pool.add_burst_tokens(1)  # Reduced: only needs 1 request for account info
+        self._node_pool.add_burst_tokens(4)
 
         account_address = self._xrpl_auth.get_account()
 
