@@ -432,9 +432,7 @@ class ClientOrderTracker:
 
         elif tracked_order.is_filled:
             self._trigger_completed_event(tracked_order)
-            self.logger().info(
-                f"{tracked_order.trade_type.name.upper()} order {tracked_order.client_order_id} completely filled."
-            )
+            self.logger().info(f"{tracked_order.trade_type.name.upper()} order {tracked_order.client_order_id} completely filled.")
 
         elif tracked_order.is_failure:
             self._trigger_failure_event(tracked_order, order_update)
