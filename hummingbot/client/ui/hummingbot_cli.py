@@ -60,7 +60,7 @@ class HummingbotCLI(PubSub):
         self.client_config_map: Union[ClientConfigAdapter, ClientConfigMap] = client_config_map
         self.command_tabs = command_tabs
         self.search_field = create_search_field()
-        self.input_field = create_input_field(completer=completer)
+        self.input_field = create_input_field(completer=completer, client_config_map=client_config_map)
         self.output_field = create_output_field(client_config_map)
         self.log_field = create_log_field(self.search_field)
         self.right_pane_toggle = create_log_toggle(self.toggle_right_pane)
