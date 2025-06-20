@@ -103,12 +103,9 @@ class MarketsRecorder:
         self._fail_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_fail_order)
         self._complete_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_complete_order)
         self._expire_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_expire_order)
-        self._funding_payment_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(
-            self._did_complete_funding_payment)
-        self._update_range_position_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(
-            self._did_update_range_position)
-        self._close_range_position_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(
-            self._did_close_position)
+        self._funding_payment_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_complete_funding_payment)
+        self._update_range_position_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_update_range_position)
+        self._close_range_position_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_close_position)
 
         self._event_pairs: List[Tuple[MarketEvent, SourceInfoEventForwarder]] = [
             (MarketEvent.BuyOrderCreated, self._create_order_forwarder),
@@ -185,6 +182,36 @@ class MarketsRecorder:
                 market.add_listener(event_pair[0], event_pair[1])
         if self._market_data_collection_config.market_data_collection_enabled:
             self._start_market_data_recording()
+
+    def add_market(self, market: ConnectorBase):
+        """Add a new market/connector dynamically."""
+        if market not in self._markets:
+            self._markets.append(market)
+
+            # Add trade fills from recorder
+            trade_fills = self.get_trades_for_config(self._config_file_path, 2000)
+            market.add_trade_fills_from_market_recorder({TradeFillOrderDetails(tf.market,
+                                                                               tf.exchange_trade_id,
+                                                                               tf.symbol) for tf in trade_fills
+                                                         if tf.market == market.name})
+
+            # Add exchange order IDs
+            exchange_order_ids = self.get_orders_for_config_and_market(self._config_file_path, market, True, 2000)
+            market.add_exchange_order_ids_from_market_recorder({o.exchange_order_id: o.id for o in exchange_order_ids})
+
+            # Add event listeners
+            for event_pair in self._event_pairs:
+                market.add_listener(event_pair[0], event_pair[1])
+
+    def remove_market(self, market: ConnectorBase):
+        """Remove a market/connector dynamically."""
+        if market in self._markets:
+            # Remove event listeners
+            for event_pair in self._event_pairs:
+                market.remove_listener(event_pair[0], event_pair[1])
+
+            # Remove from markets list
+            self._markets.remove(market)
 
     def stop(self):
         for market in self._markets:
