@@ -95,4 +95,7 @@ coverage.xml
 
 .env
 
+# LLM files
 **/.claude/settings.local.json
+**/CLAUDE.md
+/docs/
