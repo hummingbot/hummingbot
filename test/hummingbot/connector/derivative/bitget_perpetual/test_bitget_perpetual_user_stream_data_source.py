@@ -15,7 +15,6 @@ from hummingbot.connector.derivative.bitget_perpetual.bitget_perpetual_user_stre
 )
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
-from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
 
 class BitgetPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
@@ -67,8 +66,6 @@ class BitgetPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
             bidict({f"{self.base_asset}{self.quote_asset}_UMCBL": self.trading_pair}))
 
     async def asyncSetUp(self) -> None:
-        await super().asyncSetUp()
-        await ConnectionsFactory().close()
         self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()
 

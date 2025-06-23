@@ -454,7 +454,7 @@ class AmmArbStrategy(StrategyPyBase):
         )
         log_msg: str = f"Buy order completed on {market_info.market.name}: {order_completed_event.order_id}."
         if self.is_gateway_market(market_info):
-            log_msg += f" signature: {order_completed_event.exchange_order_id}"
+            log_msg += f" txHash: {order_completed_event.exchange_order_id}"
         self.log_with_clock(logging.INFO, log_msg)
         self.notify_hb_app_with_timestamp(f"Bought {order_completed_event.base_asset_amount:.8f} "
                                           f"{order_completed_event.base_asset}-{order_completed_event.quote_asset} "
@@ -468,7 +468,7 @@ class AmmArbStrategy(StrategyPyBase):
         )
         log_msg: str = f"Sell order completed on {market_info.market.name}: {order_completed_event.order_id}."
         if self.is_gateway_market(market_info):
-            log_msg += f" signature: {order_completed_event.exchange_order_id}"
+            log_msg += f" txHash: {order_completed_event.exchange_order_id}"
         self.log_with_clock(logging.INFO, log_msg)
         self.notify_hb_app_with_timestamp(f"Sold {order_completed_event.base_asset_amount:.8f} "
                                           f"{order_completed_event.base_asset}-{order_completed_event.quote_asset} "

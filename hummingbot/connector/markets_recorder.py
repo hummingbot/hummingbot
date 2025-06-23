@@ -196,7 +196,7 @@ class MarketsRecorder:
     def store_or_update_executor(self, executor):
         with self._sql_manager.get_new_session() as session:
             existing_executor = session.query(Executors).filter(Executors.id == executor.config.id).one_or_none()
-            serialized_config = executor.executor_info.json()
+            serialized_config = executor.executor_info.model_dump_json()
             executor_dict = json.loads(serialized_config)
             if existing_executor:
                 # Update existing executor
@@ -211,6 +211,30 @@ class MarketsRecorder:
     def store_position(self, position: Position):
         with self._sql_manager.get_new_session() as session:
             session.add(position)
+            session.commit()
+
+    def update_or_store_position(self, position: Position):
+        with self._sql_manager.get_new_session() as session:
+            # Check if a position already exists for this controller, connector, trading pair, and side
+            existing_position = session.query(Position).filter(
+                Position.controller_id == position.controller_id,
+                Position.connector_name == position.connector_name,
+                Position.trading_pair == position.trading_pair,
+                Position.side == position.side
+            ).first()
+
+            if existing_position:
+                # Update the existing position
+                existing_position.timestamp = position.timestamp
+                existing_position.volume_traded_quote = position.volume_traded_quote
+                existing_position.amount = position.amount
+                existing_position.breakeven_price = position.breakeven_price
+                existing_position.unrealized_pnl_quote = position.unrealized_pnl_quote
+                existing_position.cum_fees_quote = position.cum_fees_quote
+            else:
+                # Insert new position
+                session.add(position)
+
             session.commit()
 
     def store_controller_config(self, controller_config: ControllerConfigBase):
@@ -238,6 +262,21 @@ class MarketsRecorder:
         with self._sql_manager.get_new_session() as session:
             executors = session.query(Executors).all()
             return [executor.to_executor_info() for executor in executors]
+
+    def get_positions_by_ids(self, position_ids: List[str]) -> List[Position]:
+        with self._sql_manager.get_new_session() as session:
+            positions = session.query(Position).filter(Position.id.in_(position_ids)).all()
+            return positions
+
+    def get_positions_by_controller(self, controller_id: str = None) -> List[Position]:
+        with self._sql_manager.get_new_session() as session:
+            positions = session.query(Position).filter(Position.controller_id == controller_id).all()
+            return positions
+
+    def get_all_positions(self) -> List[Position]:
+        with self._sql_manager.get_new_session() as session:
+            positions = session.query(Position).all()
+            return positions
 
     def get_orders_for_config_and_market(self, config_file_path: str, market: ConnectorBase,
                                          with_exchange_order_id_present: Optional[bool] = False,

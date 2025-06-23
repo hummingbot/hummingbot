@@ -14,12 +14,12 @@ from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction,
 from hummingbot.strategy_v2.models.executors import CloseType
 
 
-class PMMConfig(ControllerConfigBase):
+class PMMAdjustedConfig(ControllerConfigBase):
     """
     This class represents the base configuration for a market making controller.
     """
     controller_type: str = "generic"
-    controller_name: str = "pmm"
+    controller_name: str = "pmm_adjusted"
     candles_config: List[CandlesConfig] = []
     connector_name: str = Field(
         default="binance",
@@ -35,6 +35,10 @@ class PMMConfig(ControllerConfigBase):
             "prompt": "Enter the trading pair to trade on (e.g., BTC-FDUSD):",
         }
     )
+    candles_connector_name: str = Field(default="binance")
+    candles_trading_pair: str = Field(default="BTC-USDT")
+    candles_interval: str = Field(default="1s")
+
     portfolio_allocation: Decimal = Field(
         default=Decimal("0.05"),
         json_schema_extra={
@@ -238,16 +242,21 @@ class PMMConfig(ControllerConfigBase):
         return markets.add_or_update(self.connector_name, self.trading_pair)
 
 
-class PMM(ControllerBase):
+class PMMAdjusted(ControllerBase):
     """
     This class represents the base class for a market making controller.
     """
 
-    def __init__(self, config: PMMConfig, *args, **kwargs):
+    def __init__(self, config: PMMAdjustedConfig, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
         self.config = config
         self.market_data_provider.initialize_rate_sources([ConnectorPair(
             connector_name=config.connector_name, trading_pair=config.trading_pair)])
+        self.config.candles_config = [
+            CandlesConfig(connector=self.config.candles_connector_name,
+                          trading_pair=self.config.candles_trading_pair,
+                          interval=self.config.candles_interval)
+        ]
 
     def determine_executor_actions(self) -> List[ExecutorAction]:
         """
@@ -385,8 +394,7 @@ class PMM(ControllerBase):
         and spread multiplier based on the market data. By default, it will update the reference price as mid price and
         the spread multiplier as 1.
         """
-        reference_price = self.market_data_provider.get_price_by_type(self.config.connector_name,
-                                                                      self.config.trading_pair, PriceType.MidPrice)
+        reference_price = self.get_current_candles_price()
         position_held = next((position for position in self.positions_held if
                               (position.trading_pair == self.config.trading_pair) &
                               (position.connector_name == self.config.connector_name)), None)
@@ -405,6 +413,20 @@ class PMM(ControllerBase):
         self.processed_data = {"reference_price": Decimal(reference_price), "spread_multiplier": Decimal("1"),
                                "deviation": deviation, "current_base_pct": current_base_pct,
                                "unrealized_pnl_pct": unrealized_pnl_pct, "position_amount": position_amount}
+
+    def get_current_candles_price(self) -> Decimal:
+        """
+        Get the current price from the candles data provider.
+        """
+        candles = self.market_data_provider.get_candles_df(self.config.candles_connector_name,
+                                                           self.config.candles_trading_pair,
+                                                           self.config.candles_interval)
+        if candles is not None and not candles.empty:
+            last_candle = candles.iloc[-1]
+            return Decimal(last_candle['close'])
+        else:
+            self.logger().warning(f"No candles data available for {self.config.candles_connector_name} - {self.config.candles_trading_pair} at {self.config.candles_interval}. Using last known price.")
+            return Decimal(self.market_data_provider.get_price_by_type(self.config.connector_name, self.config.trading_pair, PriceType.MidPrice))
 
     def get_executor_config(self, level_id: str, price: Decimal, amount: Decimal):
         """
