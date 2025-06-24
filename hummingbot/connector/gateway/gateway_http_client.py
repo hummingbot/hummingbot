@@ -616,3 +616,117 @@ class GatewayHttpClient:
         """
         path = f"chains/{chain}/{endpoint}"
         return await self.api_request(method, path, params or {}, fail_silently=fail_silently)
+
+    async def get_wallets(self, chain: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Get wallets from gateway, optionally filtered by chain.
+
+        :param chain: Optional chain name to filter wallets
+        :return: List of wallet objects with chain and walletAddresses
+        """
+        params = {"chain": chain} if chain else {}
+        response = await self.api_request("get", "wallet", params, fail_silently=False)
+        return response if isinstance(response, list) else []
+
+    async def add_wallet(self, chain: str, private_key: str) -> Dict[str, Any]:
+        """
+        Add a wallet to gateway.
+
+        :param chain: Chain name (e.g., "ethereum", "solana")
+        :param private_key: Private key for the wallet
+        :return: Response with wallet address
+        """
+        return await self.api_request(
+            "post",
+            "wallet/add",
+            {"chain": chain, "privateKey": private_key},
+            fail_silently=False
+        )
+
+    async def remove_wallet(self, chain: str, address: str) -> Dict[str, Any]:
+        """
+        Remove a wallet from gateway.
+
+        :param chain: Chain name (e.g., "ethereum", "solana")
+        :param address: Wallet address to remove
+        :return: Response indicating success/failure
+        """
+        return await self.api_request(
+            "delete",
+            "wallet/remove",
+            {"chain": chain, "address": address},
+            fail_silently=False
+        )
+
+    async def approve_token(self, network: str, address: str, token: str, connector: str) -> Dict[str, Any]:
+        """
+        Approve token for spending on a DEX.
+
+        :param network: Network name
+        :param address: Wallet address
+        :param token: Token symbol to approve
+        :param connector: Connector name
+        :return: Transaction response with hash
+        """
+        return await self.connector_request(
+            "post",
+            connector,
+            "approve",
+            {
+                "network": network,
+                "address": address,
+                "token": token
+            }
+        )
+
+    async def get_transaction_status(self, chain: str, network: str, tx_hash: str) -> Dict[str, Any]:
+        """
+        Get transaction status from chain.
+
+        :param chain: Chain name
+        :param network: Network name
+        :param tx_hash: Transaction hash
+        :return: Transaction status
+        """
+        return await self.chain_request(
+            "post",
+            chain,
+            "poll",
+            {
+                "network": network,
+                "signature": tx_hash
+            }
+        )
+
+    async def get_allowances(
+            self,
+            chain: str,
+            network: str,
+            address: str,
+            tokens: List[str],
+            connector: str,
+            fail_silently: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Get token allowances for a wallet.
+
+        :param chain: Chain name
+        :param network: Network name
+        :param address: Wallet address
+        :param tokens: List of token symbols
+        :param connector: Connector name
+        :param fail_silently: Whether to suppress errors
+        :return: Allowances by token
+        """
+        return await self.chain_request(
+            "post",
+            chain,
+            "allowances",
+            {
+                "network": network,
+                "address": address,
+                "tokens": tokens,
+                "spender": connector
+            },
+            fail_silently=fail_silently
+        )

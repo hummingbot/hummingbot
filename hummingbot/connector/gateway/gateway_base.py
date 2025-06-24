@@ -63,7 +63,7 @@ class GatewayBase(ConnectorBase):
                  connector_name: str,
                  chain: str,
                  network: str,
-                 address: str,
+                 address: str = "",  # Made optional, will be fetched dynamically
                  trading_pairs: List[str] = [],
                  trading_required: bool = True
                  ):
@@ -71,7 +71,7 @@ class GatewayBase(ConnectorBase):
         :param connector_name: name of connector on gateway
         :param chain: refers to a block chain, e.g. solana
         :param network: refers to a network of a particular blockchain e.g. mainnet or devnet
-        :param address: the address of the sol wallet which has been added on gateway
+        :param address: (deprecated) wallet address - now fetched dynamically from gateway
         :param trading_pairs: a list of trading pairs
         :param trading_required: Whether actual trading is needed. Useful for some functionalities or commands like the balance command
         """
@@ -83,7 +83,10 @@ class GatewayBase(ConnectorBase):
         self._trading_pairs = trading_pairs
         self._tokens = set()
         [self._tokens.update(set(trading_pair.split("_")[0].split("-"))) for trading_pair in trading_pairs]
-        self._wallet_address = address
+        self._wallet_address = address  # May be empty, will be fetched dynamically
+        self._wallet_cache = None  # Cache for wallet address
+        self._wallet_cache_timestamp = 0
+        self._wallet_cache_ttl = 300  # 5 minutes cache TTL
         self._trading_required = trading_required
         self._last_poll_timestamp = 0.0
         self._last_balance_poll_timestamp = time.time()
@@ -126,7 +129,63 @@ class GatewayBase(ConnectorBase):
 
     @property
     def address(self):
-        return self._wallet_address
+        """Get wallet address, fetching from gateway if needed."""
+        if self._wallet_address:
+            return self._wallet_address
+
+        # Try to get from cache first
+        current_time = time.time()
+        if self._wallet_cache and (current_time - self._wallet_cache_timestamp) < self._wallet_cache_ttl:
+            return self._wallet_cache
+
+        # Fetch from gateway synchronously (property can't be async)
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # If we're in an async context, we can't use run_until_complete
+                # Return cached value or raise error
+                if self._wallet_cache:
+                    return self._wallet_cache
+                raise ValueError(f"No wallet found for chain {self._chain}. Please add one with 'gateway wallet add {self._chain}'")
+            else:
+                # Sync context, we can fetch
+                wallet_address = loop.run_until_complete(self.get_wallet_for_chain())
+                return wallet_address
+        except Exception:
+            if self._wallet_cache:
+                return self._wallet_cache
+            raise ValueError(f"No wallet found for chain {self._chain}. Please add one with 'gateway wallet add {self._chain}'")
+
+    async def get_wallet_for_chain(self) -> str:
+        """
+        Get wallet address for this chain from gateway.
+        Caches the result for performance.
+        """
+        # Check cache first
+        current_time = time.time()
+        if self._wallet_cache and (current_time - self._wallet_cache_timestamp) < self._wallet_cache_ttl:
+            return self._wallet_cache
+
+        # Fetch from gateway
+        try:
+            wallets = await self._get_gateway_instance().get_wallets(self._chain)
+            if not wallets or not wallets[0].get("walletAddresses"):
+                raise ValueError(f"No wallet found for chain {self._chain}")
+
+            # Use first wallet (in future, could use preferences)
+            wallet_address = wallets[0]["walletAddresses"][0]
+
+            # Update cache
+            self._wallet_cache = wallet_address
+            self._wallet_cache_timestamp = current_time
+
+            # Also update the instance variable for backward compatibility
+            self._wallet_address = wallet_address
+
+            return wallet_address
+        except Exception as e:
+            self.logger().error(f"Failed to fetch wallet for chain {self._chain}: {str(e)}")
+            raise
 
     async def all_trading_pairs(self) -> List[str]:
         """
@@ -192,6 +251,13 @@ class GatewayBase(ConnectorBase):
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
         self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
+
+        # Ensure wallet address is fetched on startup if not provided
+        if not self._wallet_address:
+            try:
+                await self.get_wallet_for_chain()
+            except Exception as e:
+                self.logger().error(f"Failed to fetch wallet address on startup: {str(e)}")
 
     async def stop_network(self):
         if self._status_polling_task is not None:

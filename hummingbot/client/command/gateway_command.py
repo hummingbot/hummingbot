@@ -28,7 +28,6 @@ from hummingbot.core.utils.gateway_config_utils import (
     build_config_dict_display,
     build_connector_display,
     build_connector_tokens_display,
-    build_wallet_display,
     flatten,
     search_configs,
 )
@@ -120,6 +119,37 @@ class GatewayCommand(GatewayChainApiManager):
         else:
             safe_ensure_future(
                 self._show_gateway_configuration(key), loop=self.ev_loop)
+
+    @ensure_gateway_online
+    def gateway_wallet(self, action: str = None, chain: str = None, address: str = None):
+        """
+        Manage wallets in gateway.
+        Usage:
+            gateway wallet list [chain]     - List all wallets or filter by chain
+            gateway wallet add <chain>      - Add a new wallet for a chain
+            gateway wallet remove <chain> <address> - Remove a wallet
+        """
+        if action is None:
+            self.notify("\nUsage:")
+            self.notify("  gateway wallet list [chain]     - List all wallets or filter by chain")
+            self.notify("  gateway wallet add <chain>      - Add a new wallet for a chain")
+            self.notify("  gateway wallet remove <chain> <address> - Remove a wallet")
+            return
+
+        if action == "list":
+            safe_ensure_future(self._gateway_wallet_list(chain), loop=self.ev_loop)
+        elif action == "add":
+            if chain is None:
+                self.notify("Error: chain parameter is required for 'add' action")
+                return
+            safe_ensure_future(self._gateway_wallet_add(chain), loop=self.ev_loop)
+        elif action == "remove":
+            if chain is None or address is None:
+                self.notify("Error: both chain and address parameters are required for 'remove' action")
+                return
+            safe_ensure_future(self._gateway_wallet_remove(chain, address), loop=self.ev_loop)
+        else:
+            self.notify(f"Error: Unknown action '{action}'. Use 'list', 'add', or 'remove'.")
 
     async def _test_connection(self):
         # test that the gateway is running
@@ -264,105 +294,27 @@ class GatewayCommand(GatewayChainApiManager):
                 if self.app.to_stop_config:
                     return
 
-                # get wallets for the selected chain
+                # Check if at least one wallet exists for the chain
                 wallets_response: List[Dict[str, Any]] = await self._get_gateway_instance().get_wallets()
                 matching_wallets: List[Dict[str, Any]] = [
                     w for w in wallets_response if w["chain"] == chain]
-                wallets: List[str]
-                if len(matching_wallets) < 1:
-                    wallets = []
-                else:
-                    wallets = matching_wallets[0]['walletAddresses']
 
-                # if the user has no wallet, ask them to select one
-                if len(wallets) < 1:
-                    wallet_address = await self._prompt_for_wallet_address(
-                        chain=chain, network=network
-                    )
-
-                # the user has a wallet. Ask if they want to use it or create a new one.
-                else:
-                    # print table
-                    while True:
-                        use_existing_wallet: str = await self.app.prompt(
-                            prompt=f"Do you want to connect to {chain}-{network} with one of your existing wallets on "
-                                   f"Gateway? (Yes/No) >>> "
-                        )
-                        if self.app.to_stop_config:
-                            return
-                        if use_existing_wallet in ["Y", "y", "Yes", "yes", "N", "n", "No", "no"]:
-                            break
-                        self.notify(
-                            "Invalid input. Please try again or exit config [CTRL + x].\n")
-
-                    self.app.clear_input()
-                    # they use an existing wallet
-                    if use_existing_wallet is not None and use_existing_wallet in ["Y", "y", "Yes", "yes"]:
-                        native_token: str = await self._get_native_currency_symbol(chain, network)
-                        wallet_table: List[Dict[str, Any]] = []
-                        for w in wallets:
-                            balances: Dict[str, Any] = await self._get_gateway_instance().get_balances(
-                                chain, network, w, [native_token]
-                            )
-                            balance = (
-                                balances['balances'].get(native_token)
-                                or balances['balances']['total'].get(native_token)
-                            )
-                            wallet_table.append(
-                                {"balance": balance, "address": w})
-
-                        wallet_df: pd.DataFrame = build_wallet_display(
-                            native_token, wallet_table)
-                        self.notify(wallet_df.to_string(index=False))
-                        self.app.input_field.completer.set_list_gateway_wallets_parameters(
-                            wallets_response, chain)
-
-                        while True:
-                            wallet_address: str = await self.app.prompt(prompt="Select a gateway wallet >>> ")
-                            if self.app.to_stop_config:
-                                return
-                            if wallet_address in wallets:
-                                self.notify(
-                                    f"You have selected {wallet_address}.")
-                                break
-                            self.notify("Error: Invalid wallet address")
-
-                    # they want to create a new wallet even though they have other ones
-                    else:
-                        while True:
-                            try:
-                                wallet_address = await self._prompt_for_wallet_address(
-                                    chain=chain, network=network
-                                )
-                                break
-                            except Exception:
-                                self.notify(
-                                    "Error adding wallet. Check private key.\n")
-
-                        # display wallet balance
-                        native_token: str = await self._get_native_currency_symbol(chain, network)
-                        balances: Dict[str, Any] = await self._get_gateway_instance().get_balances(
-                            chain, network, wallet_address, [
-                                native_token], connector
-                        )
-                        wallet_table: List[Dict[str, Any]] = [{"balance": balances['balances'].get(
-                            native_token) or balances['balances']['total'].get(native_token), "address": wallet_address}]
-                        wallet_df: pd.DataFrame = build_wallet_display(
-                            native_token, wallet_table)
-                        self.notify(wallet_df.to_string(index=False))
+                if len(matching_wallets) < 1 or len(matching_wallets[0].get('walletAddresses', [])) < 1:
+                    self.notify(f"\nNo wallet found for {chain}.")
+                    self.notify(f"Please add a wallet first using: gateway wallet add {chain}")
+                    return
 
                 self.app.clear_input()
 
-                # write wallets to Gateway connectors settings.
+                # write connectors settings (without wallet address)
                 GatewayConnectionSetting.upsert_connector_spec(
                     connector_name=connector,
                     chain=chain,
                     network=network,
                     trading_types=trading_types,
-                    wallet_address=wallet_address,
                 )
                 self.notify(
-                    f"The {connector} connector now uses wallet {wallet_address} on {chain}-{network}")
+                    f"The {connector} connector has been configured for {chain}-{network}")
 
                 # update AllConnectorSettings and fee overrides.
                 AllConnectorSettings.create_connector_settings()
@@ -374,27 +326,6 @@ class GatewayCommand(GatewayChainApiManager):
                 # Reload completer here to include newly added gateway connectors
                 self.app.input_field.completer = load_completer(self)
 
-    async def _prompt_for_wallet_address(
-        self,           # type: HummingbotApplication
-        chain: str,
-        network: str,
-    ) -> Tuple[Optional[str], Dict[str, str]]:
-        self.app.clear_input()
-        self.placeholder_mode = True
-        wallet_private_key = await self.app.prompt(
-            prompt=f"Enter your {chain}-{network} wallet private key >>> ",
-            is_password=True
-        )
-        self.app.clear_input()
-        if self.app.to_stop_config:
-            return
-
-        response: Dict[str, Any] = await self._get_gateway_instance().add_wallet(
-            chain, network, wallet_private_key
-        )
-        wallet_address: str = response["address"]
-        return wallet_address
-
     async def _get_balance_for_exchange(self, exchange_name: str):
         gateway_connections = GatewayConnectionSetting.load()
         network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
@@ -405,9 +336,18 @@ class GatewayCommand(GatewayChainApiManager):
             self.notify(
                 f"'{exchange_name}' is not available. You can add and review exchange with 'gateway connect'.")
         else:
-            chain, network, address = (
-                conf["chain"], conf["network"], conf["wallet_address"]
-            )
+            chain, network = conf["chain"], conf["network"]
+
+            # Get wallet address dynamically from gateway
+            try:
+                wallets_resp = await self._get_gateway_instance().get_wallets(chain)
+                if not wallets_resp or not wallets_resp[0].get("walletAddresses"):
+                    self.notify(f"No wallet found for {chain}. Please add one with 'gateway wallet add {chain}'")
+                    return
+                address = wallets_resp[0]["walletAddresses"][0]
+            except Exception as e:
+                self.notify(f"Error fetching wallet: {str(e)}")
+                return
 
             connector_chain_network = [
                 w for w in gateway_connections
@@ -457,13 +397,33 @@ class GatewayCommand(GatewayChainApiManager):
         network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
         self.notify("Updating gateway balances, please wait...")
 
+        # Get all wallets from gateway
+        wallets_by_chain = {}
+        try:
+            all_wallets = await self._get_gateway_instance().get_wallets()
+            for wallet_info in all_wallets:
+                chain = wallet_info.get("chain")
+                addresses = wallet_info.get("walletAddresses", [])
+                if addresses:
+                    wallets_by_chain[chain] = addresses[0]  # Use first wallet
+        except Exception as e:
+            self.notify(f"Error fetching wallets: {str(e)}")
+            return
+
         try:
             bal_resp = await asyncio.wait_for(
                 self.all_balances_all_exc(self.client_config_map), network_timeout
             )
 
             for conf in network_connections:
-                chain, network, address, connector = conf["chain"], conf["network"], conf["wallet_address"], conf["connector"]
+                chain, network, connector = conf["chain"], conf["network"], conf["connector"]
+
+                # Get wallet address for this chain
+                address = wallets_by_chain.get(chain)
+                if not address:
+                    self.notify(f"\nNo wallet found for {chain}. Please add one with 'gateway wallet add {chain}'")
+                    continue
+
                 exchange_key = f'{connector}_{chain}_{network}'
                 exchange_found = False
                 for exchange, bals in bal_resp.items():
@@ -747,16 +707,20 @@ class GatewayCommand(GatewayChainApiManager):
         else:
             self.logger().info(
                 f"Connector {conf['connector']} Tokens {tokens} will now be approved for spending for '{connector_chain_network}'.")
-            # get wallets for the selected chain
-            gateway_connections_conf: List[Dict[str,
-                                                str]] = GatewayConnectionSetting.load()
-            if len(gateway_connections_conf) < 1:
-                self.notify("No existing wallet.\n")
-                return
-            connector_wallet: List[Dict[str, Any]] = [w for w in gateway_connections_conf if w["chain"] ==
-                                                      conf['chain'] and w["connector"] == conf['connector'] and w["network"] == conf['network']]
+
+            # Get wallet for the chain from gateway
             try:
-                resp: Dict[str, Any] = await self._get_gateway_instance().approve_token(conf['network'], connector_wallet[0]['wallet_address'], tokens, conf['connector'])
+                wallets_resp = await self._get_gateway_instance().get_wallets(conf['chain'])
+                if not wallets_resp or not wallets_resp[0].get("walletAddresses"):
+                    self.notify(f"No wallet found for {conf['chain']}. Please add one with 'gateway wallet add {conf['chain']}'")
+                    return
+                wallet_address = wallets_resp[0]["walletAddresses"][0]
+            except Exception as e:
+                self.notify(f"Error fetching wallet: {str(e)}")
+                return
+
+            try:
+                resp: Dict[str, Any] = await self._get_gateway_instance().approve_token(conf['network'], wallet_address, tokens, conf['connector'])
                 transaction_hash: Optional[str] = resp.get(
                     "approval", {}).get("hash")
                 displayed_pending: bool = False
@@ -766,9 +730,9 @@ class GatewayCommand(GatewayChainApiManager):
                         "txStatus")
                     if transaction_status == 1:
                         self.logger().info(
-                            f"Token {tokens} is approved for spending for '{conf['connector']}' for Wallet: {connector_wallet[0]['wallet_address']}.")
+                            f"Token {tokens} is approved for spending for '{conf['connector']}' for Wallet: {wallet_address}.")
                         self.notify(
-                            f"Token {tokens} is approved for spending for '{conf['connector']}' for Wallet: {connector_wallet[0]['wallet_address']}.")
+                            f"Token {tokens} is approved for spending for '{conf['connector']}' for Wallet: {wallet_address}.")
                         break
                     elif transaction_status == 2:
                         if not displayed_pending:
@@ -824,10 +788,27 @@ class GatewayCommand(GatewayChainApiManager):
         try:
             allowance_tasks = []
 
+            # Get wallets from gateway first
+            wallets_by_chain = {}
+            try:
+                all_wallets = await gateway_instance.get_wallets()
+                for wallet_info in all_wallets:
+                    chain = wallet_info.get("chain")
+                    addresses = wallet_info.get("walletAddresses", [])
+                    if addresses:
+                        wallets_by_chain[chain] = addresses[0]  # Use first wallet
+            except Exception as e:
+                self.notify(f"Error fetching wallets: {str(e)}")
+                return
+
             for conf in gateway_connections:
-                chain, network, address = (
-                    conf["chain"], conf["network"], conf["wallet_address"]
-                )
+                chain, network = conf["chain"], conf["network"]
+
+                # Get wallet address for this chain
+                address = wallets_by_chain.get(chain)
+                if not address:
+                    self.notify(f"\nNo wallet found for {chain}. Skipping {conf['connector']}_{chain}_{network}")
+                    continue
 
                 # Get configured tokens - don't add native token as it doesn't need allowances
                 tokens_str = conf.get("tokens", "")
@@ -854,7 +835,8 @@ class GatewayCommand(GatewayChainApiManager):
 
             # Process each allowance response
             for conf, allowance_future in allowance_tasks:
-                chain, network, address, connector = conf["chain"], conf["network"], conf["wallet_address"], conf["connector"]
+                chain, network, connector = conf["chain"], conf["network"], conf["connector"]
+                address = wallets_by_chain.get(chain)  # Get address from our cached wallets
                 exchange_key = f'{connector}_{chain}_{network}'
 
                 allowance_resp = await allowance_future
@@ -884,3 +866,112 @@ class GatewayCommand(GatewayChainApiManager):
         except asyncio.TimeoutError:
             self.notify("\nA network error prevented the allowances from updating. See logs for more details.")
             raise
+
+    async def _gateway_wallet_list(self, chain: Optional[str] = None):
+        """List wallets from gateway, optionally filtered by chain."""
+        try:
+            wallets = await self._get_gateway_instance().get_wallets(chain)
+
+            if not wallets:
+                if chain:
+                    self.notify(f"No wallets found for chain '{chain}'")
+                else:
+                    self.notify("No wallets found in gateway")
+                return
+
+            # Display wallets grouped by chain
+            for wallet_info in wallets:
+                chain_name = wallet_info.get("chain", "unknown")
+                addresses = wallet_info.get("walletAddresses", [])
+
+                self.notify(f"\nChain: {chain_name}")
+                if not addresses:
+                    self.notify("  No wallets")
+                else:
+                    # Get native token for balance display
+                    try:
+                        native_token = await self._get_native_currency_symbol(chain_name, "mainnet")
+                        # Get balance for each wallet
+                        for address in addresses:
+                            try:
+                                network = "mainnet-beta" if chain_name == "solana" else "mainnet"
+                                balance_resp = await self._get_gateway_instance().get_balances(
+                                    chain_name, network, address, [native_token]
+                                )
+                                balance = balance_resp.get("balances", {}).get(native_token, "0")
+                                self.notify(f"  {address} - Balance: {balance} {native_token}")
+                            except Exception:
+                                self.notify(f"  {address}")
+                    except Exception:
+                        # If we can't get balances, just show addresses
+                        for address in addresses:
+                            self.notify(f"  {address}")
+
+        except Exception as e:
+            self.notify(f"Error fetching wallets: {str(e)}")
+
+    async def _gateway_wallet_add(self, chain: str):
+        """Add a new wallet to gateway."""
+        with begin_placeholder_mode(self):
+            try:
+                # Prompt for private key
+                private_key = await self.app.prompt(
+                    prompt=f"Enter the private key for your {chain} wallet >>> ",
+                    is_password=True
+                )
+
+                if self.app.to_stop_config:
+                    return
+
+                if not private_key:
+                    self.notify("Error: Private key cannot be empty")
+                    return
+
+                # Add wallet to gateway
+                self.notify(f"Adding wallet to {chain}...")
+                response = await self._get_gateway_instance().add_wallet(chain, private_key)
+
+                wallet_address = response.get("address")
+                if wallet_address:
+                    self.notify(f"Successfully added wallet: {wallet_address}")
+
+                    # Show balance
+                    try:
+                        native_token = await self._get_native_currency_symbol(chain, "mainnet")
+                        network = "mainnet-beta" if chain == "solana" else "mainnet"
+                        balance_resp = await self._get_gateway_instance().get_balances(
+                            chain, network, wallet_address, [native_token]
+                        )
+                        balance = balance_resp.get("balances", {}).get(native_token, "0")
+                        self.notify(f"Balance: {balance} {native_token}")
+                    except Exception:
+                        pass
+                else:
+                    self.notify("Error: Failed to add wallet")
+
+            except Exception as e:
+                self.notify(f"Error adding wallet: {str(e)}")
+
+    async def _gateway_wallet_remove(self, chain: str, address: str):
+        """Remove a wallet from gateway."""
+        try:
+            # Confirm removal
+            with begin_placeholder_mode(self):
+                confirm = await self.app.prompt(
+                    prompt=f"Are you sure you want to remove wallet {address} from {chain}? (Yes/No) >>> "
+                )
+
+                if self.app.to_stop_config:
+                    return
+
+                if confirm.lower() not in ["y", "yes"]:
+                    self.notify("Wallet removal cancelled")
+                    return
+
+            # Remove wallet
+            self.notify(f"Removing wallet {address} from {chain}...")
+            await self._get_gateway_instance().remove_wallet(chain, address)
+            self.notify(f"Successfully removed wallet: {address}")
+
+        except Exception as e:
+            self.notify(f"Error removing wallet: {str(e)}")

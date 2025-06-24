@@ -117,15 +117,17 @@ class GatewayConnectionSetting:
         chain: str,
         network: str,
         trading_types: str,
-        wallet_address: str,
+        wallet_address: Optional[str] = None,  # Made optional for backward compatibility during migration
     ):
         new_connector_spec: Dict[str, str] = {
             "connector": connector_name,
             "chain": chain,
             "network": network,
             "trading_types": trading_types,
-            "wallet_address": wallet_address,
         }
+        # Only include wallet_address if provided (for backward compatibility)
+        if wallet_address:
+            new_connector_spec["wallet_address"] = wallet_address
         updated: bool = False
         connectors_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
         for i, c in enumerate(connectors_conf):
