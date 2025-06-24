@@ -54,6 +54,13 @@ class HummingbotCompleter(Completer):
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)
         self._history_completer = WordCompleter(["--days", "--verbose", "--precision"], ignore_case=True)
         self._gateway_completer = WordCompleter(["list", "balance", "config", "generate-certs", "test-connection", "allowance", "approve-tokens", "wallet"], ignore_case=True)
+
+        # Initialize gateway wallet chain completer first
+        self._gateway_wallet_chain_completer = WordCompleter([
+            "ethereum",
+            "solana"
+        ], ignore_case=True)
+
         self._gateway_balance_completer = self._gateway_wallet_chain_completer
         self._gateway_allowance_completer = self._gateway_wallet_chain_completer
         self._gateway_approve_tokens_completer = self._exchange_ethereum_completer
@@ -72,12 +79,6 @@ class HummingbotCompleter(Completer):
         self._gateway_networks = []
         self._list_gateway_wallets_parameters = {"wallets": [], "chain": ""}
         self._cached_gateway_chains = []  # Cache for dynamically fetched chains
-        # Fallback chains for gateway wallet commands when gateway is offline
-        # Based on the actual chains returned by gateway /chains endpoint
-        self._gateway_wallet_chain_completer = WordCompleter([
-            "ethereum",
-            "solana"
-        ], ignore_case=True)
 
     def get_strategies_v2_with_config(self):
         file_names = file_name_list(str(SCRIPT_STRATEGIES_PATH), "py")

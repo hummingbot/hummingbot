@@ -219,9 +219,8 @@ class GatewayCommand(GatewayChainApiManager):
         self.notify("Updating gateway balances, please wait...")
 
         try:
-            # Get all wallets and chains from gateway
+            # Get all wallets from gateway
             all_wallets = await self._get_gateway_instance().get_wallets()
-            chains_resp = await self._get_gateway_instance().get_chains()
 
             if not all_wallets:
                 self.notify("No wallets found in gateway. Please add wallets with 'gateway wallet add <chain>'")
@@ -240,29 +239,28 @@ class GatewayCommand(GatewayChainApiManager):
                 if chain_filter and chain.lower() != chain_filter.lower():
                     continue
 
-                # Get networks for this chain
-                chain_info = next((c for c in chains_resp if c["chain"] == chain), None)
-                if not chain_info:
-                    continue
-
-                networks = chain_info.get("networks", [])
-                for network in networks:
-                    # Apply network filter
-                    if network_filter and network.lower() != network_filter.lower():
+                # Get default network for this chain
+                if network_filter:
+                    # If user specified a network, use it
+                    default_network = network_filter
+                else:
+                    # Get the default (first) network for this chain
+                    default_network = await self._get_default_network_for_chain(chain)
+                    if not default_network:
                         continue
 
-                    # Use all addresses or filter by specific address
-                    if address_filter:
-                        # Check if address_filter matches any wallet address
-                        matching_addresses = [addr for addr in addresses if addr.lower() == address_filter.lower()]
-                        if not matching_addresses:
-                            continue
-                        use_addresses = matching_addresses
-                    else:
-                        use_addresses = addresses[:1]  # Just use first (default) address
+                # Use all addresses or filter by specific address
+                if address_filter:
+                    # Check if address_filter matches any wallet address
+                    matching_addresses = [addr for addr in addresses if addr.lower() == address_filter.lower()]
+                    if not matching_addresses:
+                        continue
+                    use_addresses = matching_addresses
+                else:
+                    use_addresses = addresses[:1]  # Just use first (default) address
 
-                    for address in use_addresses:
-                        chain_network_combos.append((chain, network, address))
+                for address in use_addresses:
+                    chain_network_combos.append((chain, default_network, address))
 
             if not chain_network_combos:
                 self.notify("No matching wallets found for the specified filters.")
@@ -562,9 +560,8 @@ class GatewayCommand(GatewayChainApiManager):
         network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
         self.notify("Checking token allowances, please wait...")
         try:
-            # Get all wallets and chains from gateway
+            # Get all wallets and connectors from gateway
             all_wallets = await self._get_gateway_instance().get_wallets()
-            chains_resp = await self._get_gateway_instance().get_chains()
             connectors_resp = await self._get_gateway_instance().get_connectors()
 
             if not all_wallets:
@@ -587,28 +584,27 @@ class GatewayCommand(GatewayChainApiManager):
                 if chain_filter and chain.lower() != chain_filter.lower():
                     continue
 
-                # Get networks for this chain
-                chain_info = next((c for c in chains_resp if c["chain"] == chain), None)
-                if not chain_info:
-                    continue
-
-                networks = chain_info.get("networks", [])
-                for network in networks:
-                    # Apply network filter
-                    if network_filter and network.lower() != network_filter.lower():
+                # Get default network for this chain
+                if network_filter:
+                    # If user specified a network, use it
+                    default_network = network_filter
+                else:
+                    # Get the default (first) network for this chain
+                    default_network = await self._get_default_network_for_chain(chain)
+                    if not default_network:
                         continue
 
-                    # Use all addresses or filter by specific address
-                    if address_filter:
-                        matching_addresses = [addr for addr in addresses if addr.lower() == address_filter.lower()]
-                        if not matching_addresses:
-                            continue
-                        use_addresses = matching_addresses
-                    else:
-                        use_addresses = addresses[:1]  # Just use first (default) address
+                # Use all addresses or filter by specific address
+                if address_filter:
+                    matching_addresses = [addr for addr in addresses if addr.lower() == address_filter.lower()]
+                    if not matching_addresses:
+                        continue
+                    use_addresses = matching_addresses
+                else:
+                    use_addresses = addresses[:1]  # Just use first (default) address
 
-                    for address in use_addresses:
-                        chain_network_combos.append((chain, network, address))
+                for address in use_addresses:
+                    chain_network_combos.append((chain, default_network, address))
 
             if not chain_network_combos:
                 if chain_filter and chain_filter.lower() not in ethereum_compatible_chains:
