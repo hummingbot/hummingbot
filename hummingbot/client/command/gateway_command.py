@@ -285,8 +285,12 @@ class GatewayCommand(GatewayChainApiManager):
                             tokens_to_check = default_tokens_cache[cache_key]
                         else:
                             # Fetch default tokens from gateway token list
-                            tokens_to_check = await self._get_default_tokens_for_chain_network(chain, network)
-                            default_tokens_cache[cache_key] = tokens_to_check
+                            try:
+                                tokens_to_check = await self._get_default_tokens_for_chain_network(chain, network)
+                                default_tokens_cache[cache_key] = tokens_to_check
+                            except Exception as e:
+                                self.notify(f"Warning: Could not fetch tokens for {chain}:{network}: {str(e)}")
+                                tokens_to_check = []
 
                         if not tokens_to_check:
                             # Fallback to native token
@@ -305,6 +309,7 @@ class GatewayCommand(GatewayChainApiManager):
 
                     # Get balances from gateway
                     try:
+                        self.notify(f"Fetching balances for {chain}:{network} address {address[:8]}... tokens: {tokens_to_check}")
                         balances_resp = await asyncio.wait_for(
                             self._get_gateway_instance().get_balances(chain, network, address, tokens_to_check),
                             balance_timeout
