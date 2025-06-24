@@ -842,13 +842,16 @@ class GatewayCommand(GatewayChainApiManager):
     async def _get_default_network_for_chain(self, chain: str) -> Optional[str]:
         """Get the default (first) network for a given chain."""
         try:
-            # Get all configurations from gateway
-            chain_config = await self._get_gateway_instance().get_configuration(chain)
-            if chain_config and "networks" in chain_config:
-                networks = chain_config["networks"]
-                if networks:
-                    # Return the first network
-                    return list(networks.keys())[0]
+            # Get chains from gateway
+            chains_resp = await self._get_gateway_instance().get_chains()
+            if chains_resp:
+                # Find the chain info
+                chain_info = next((c for c in chains_resp if c["chain"] == chain), None)
+                if chain_info:
+                    networks = chain_info.get("networks", [])
+                    if networks:
+                        # Return the first network
+                        return networks[0]
         except Exception:
             pass
         return None
