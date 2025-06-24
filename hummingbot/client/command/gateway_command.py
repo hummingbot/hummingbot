@@ -268,9 +268,6 @@ class GatewayCommand(GatewayChainApiManager):
                 self.notify("No matching wallets found for the specified filters.")
                 return
 
-            # Cache for default tokens to avoid multiple fetches
-            default_tokens_cache = {}
-
             # Process each chain/network/address combination
             for chain, network, address in chain_network_combos:
                 try:
@@ -279,31 +276,11 @@ class GatewayCommand(GatewayChainApiManager):
                         # User specified tokens (comma-separated)
                         tokens_to_check = [token.strip() for token in tokens_filter.split(",")]
                     else:
-                        # Check cache first
-                        cache_key = f"{chain}:{network}"
-                        if cache_key in default_tokens_cache:
-                            tokens_to_check = default_tokens_cache[cache_key]
-                        else:
-                            # Fetch default tokens from gateway token list
-                            try:
-                                tokens_to_check = await self._get_default_tokens_for_chain_network(chain, network)
-                                default_tokens_cache[cache_key] = tokens_to_check
-                            except Exception as e:
-                                self.notify(f"Warning: Could not fetch tokens for {chain}:{network}: {str(e)}")
-                                tokens_to_check = []
+                        # Don't pass any tokens - let gateway return all available balances
+                        tokens_to_check = []
 
-                        if not tokens_to_check:
-                            # Fallback to native token
-                            native_token = await self._get_native_currency_symbol(chain, network)
-                            tokens_to_check = [native_token] if native_token else []
-
-                        # Always ensure native token is included when not filtering by specific tokens
-                        if not tokens_filter:
-                            native_token = await self._get_native_currency_symbol(chain, network)
-                            if native_token and native_token not in tokens_to_check:
-                                tokens_to_check.append(native_token)
-
-                    if not tokens_to_check:
+                    # Skip the token check for when we want all balances
+                    if tokens_filter and not tokens_to_check:
                         self.notify(f"\nNo tokens specified for {chain}:{network}")
                         continue
 
@@ -326,7 +303,7 @@ class GatewayCommand(GatewayChainApiManager):
                         # Show all requested tokens even if zero
                         display_balances = balances
                     else:
-                        # For default tokens, show non-zero balances and always show native token
+                        # For all balances (no token filter), show non-zero balances and always show native token
                         display_balances = {}
                         native_token = await self._get_native_currency_symbol(chain, network)
 
