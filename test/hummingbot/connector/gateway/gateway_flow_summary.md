@@ -16,7 +16,7 @@ All tests passed successfully, demonstrating the complete Gateway transaction fl
     └────┬─────┘
          │
 ┌────────▼────────┐     ┌─────────────────┐
-│ GatewayTxHandler├─────►│ Gateway Service │
+│ GatewayHttpClient├─────►│ Gateway Service │
 └────────┬────────┘     └─────────────────┘
          │                       │
          │ Fee Retry Logic       │ HTTP/REST

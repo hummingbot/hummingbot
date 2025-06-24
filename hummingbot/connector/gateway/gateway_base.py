@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union, cast
 from hummingbot.client.settings import GatewayConnectionSetting
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.connector.gateway.gateway_tx_handler import GatewayTxHandler
+from hummingbot.connector.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeFeeBase, TradeUpdate
@@ -331,11 +331,11 @@ class GatewayBase(ConnectorBase):
         """
         return []
 
-    def _get_gateway_instance(self) -> GatewayTxHandler:
+    def _get_gateway_instance(self) -> GatewayHttpClient:
         """
         Returns the Gateway transaction handler instance.
         """
-        gateway_instance = GatewayTxHandler.get_instance(self._client_config)
+        gateway_instance = GatewayHttpClient.get_instance(self._client_config)
         return gateway_instance
 
     def start_tracking_order(self,
@@ -481,7 +481,7 @@ class GatewayBase(ConnectorBase):
     def update_order_transaction_hash(self, order_id: str, transaction_hash: str):
         """
         Updates an order with its transaction hash (exchange_order_id).
-        This is called by GatewayTxHandler when a transaction is submitted.
+        This is called by GatewayHttpClient when a transaction is submitted.
         """
         # Get the in-flight order to retrieve trading_pair
         in_flight_order = self._order_tracker.fetch_order(order_id)

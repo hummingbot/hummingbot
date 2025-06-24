@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Dict, Generator, Optional
 
-from hummingbot.connector.gateway.gateway_tx_handler import GatewayTxHandler
+from hummingbot.connector.gateway.gateway_http_client import GatewayHttpClient
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -32,7 +32,7 @@ class GatewayChainApiManager:
         ignore it, but let the user know they cannot connect to the node.
         """
 
-        resp = await GatewayTxHandler.get_instance().get_network_status(chain, network)
+        resp = await GatewayHttpClient.get_instance().get_network_status(chain, network)
 
         if resp.get("currentBlockNumber", -1) > 0:
             self.notify(f"Successfully pinged the node url for {chain}-{network}: {node_url}.")
@@ -80,7 +80,7 @@ class GatewayChainApiManager:
         Check if gateway node URL for a chain and network works
         """
         # XXX: This should be removed once nodeAPIKey is deprecated from Gateway service
-        chain_config: Dict[str, Any] = await GatewayTxHandler.get_instance().get_configuration(chain)
+        chain_config: Dict[str, Any] = await GatewayHttpClient.get_instance().get_configuration(chain)
         if chain_config is not None:
             networks: Optional[Dict[str, Any]] = chain_config.get("networks")
             if networks is not None:
@@ -127,13 +127,13 @@ class GatewayChainApiManager:
         """
         Update a chain and network's node URL in gateway
         """
-        await GatewayTxHandler.get_instance().update_config(f"{chain}.networks.{network}.nodeURL", node_url)
+        await GatewayHttpClient.get_instance().update_config(f"{chain}.networks.{network}.nodeURL", node_url)
 
     async def _get_native_currency_symbol(self, chain: str, network: str) -> Optional[str]:
         """
         Get the native currency symbol for a chain and network from gateway config
         """
-        chain_config: Dict[str, Any] = await GatewayTxHandler.get_instance().get_configuration(chain)
+        chain_config: Dict[str, Any] = await GatewayHttpClient.get_instance().get_configuration(chain)
         if chain_config is not None:
             networks: Optional[Dict[str, Any]] = chain_config.get("networks")
             if networks is not None:

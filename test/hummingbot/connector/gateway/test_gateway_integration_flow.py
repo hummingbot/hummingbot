@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 Integration test for complete Gateway transaction flow.
-Tests the flow from GatewayLP -> GatewaySwap -> GatewayTxHandler with fee retry logic.
+Tests the flow from GatewayLP -> GatewaySwap -> GatewayHttpClient with fee retry logic.
 """
 
 import asyncio

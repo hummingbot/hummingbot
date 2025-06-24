@@ -1,6 +1,6 @@
 """
 Test module for Gateway Transaction Handler including fee retry logic.
-Tests the complete flow: GatewayLP -> GatewayTxHandler -> fee calculation -> retry logic
+Tests the complete flow: GatewayLP -> GatewayHttpClient -> fee calculation -> retry logic
 """
 import asyncio
 import sys
@@ -15,8 +15,8 @@ sys.path.insert(0, '/Users/feng/hummingbot')
 sys.modules['hummingbot.connector.exchange_base'] = Mock()
 sys.modules['hummingbot.connector.connector_base'] = Mock()
 
+from hummingbot.connector.gateway.gateway_http_client import GatewayHttpClient  # noqa: E402
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder  # noqa: E402
-from hummingbot.connector.gateway.gateway_tx_handler import GatewayTxHandler  # noqa: E402
 from hummingbot.core.data_type.common import OrderType, TradeType  # noqa: E402
 from hummingbot.core.data_type.in_flight_order import OrderState  # noqa: E402
 
@@ -38,7 +38,7 @@ class MockGatewaySwap:
     @property
     def tx_handler(self):
         if self._tx_handler is None:
-            self._tx_handler = GatewayTxHandler(self._gateway_instance)
+            self._tx_handler = GatewayHttpClient(self._gateway_instance)
         return self._tx_handler
 
     def create_market_order_id(self, side, trading_pair):
@@ -73,7 +73,7 @@ class MockGatewayLp(MockGatewaySwap):
     pass
 
 
-class TestGatewayTxHandler(unittest.TestCase):
+class TestGatewayHttpClient(unittest.TestCase):
     """
     Test class for Gateway transaction handler functionality
     """
@@ -141,13 +141,13 @@ class TestGatewayTxHandler(unittest.TestCase):
         self.lp_connector._gateway_instance = self.gateway_instance_mock
 
         # Create transaction handler
-        self.tx_handler = GatewayTxHandler(self.gateway_instance_mock)
+        self.tx_handler = GatewayHttpClient(self.gateway_instance_mock)
 
     def async_run_with_timeout(self, coroutine, timeout: float = 1):
         return self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
 
     def test_gateway_tx_handler_initialization(self):
-        """Test that GatewayTxHandler initializes correctly"""
+        """Test that GatewayHttpClient initializes correctly"""
         self.assertIsNotNone(self.tx_handler)
         self.assertEqual(self.tx_handler.gateway_client, self.gateway_instance_mock)
         self.assertEqual(len(self.tx_handler._config_cache), 0)
@@ -156,12 +156,12 @@ class TestGatewayTxHandler(unittest.TestCase):
     def test_swap_connector_tx_handler_property(self):
         """Test that swap connector properly initializes tx_handler"""
         self.assertIsNotNone(self.swap_connector.tx_handler)
-        self.assertIsInstance(self.swap_connector.tx_handler, GatewayTxHandler)
+        self.assertIsInstance(self.swap_connector.tx_handler, GatewayHttpClient)
 
     def test_lp_connector_inherits_tx_handler(self):
         """Test that LP connector inherits tx_handler from GatewaySwap"""
         self.assertIsNotNone(self.lp_connector.tx_handler)
-        self.assertIsInstance(self.lp_connector.tx_handler, GatewayTxHandler)
+        self.assertIsInstance(self.lp_connector.tx_handler, GatewayHttpClient)
 
     def test_successful_sell_order_first_attempt(self):
         """Test successful SELL order on first attempt"""

@@ -5,7 +5,7 @@ from typing import Dict, Optional, Set
 
 from pydantic import BaseModel
 
-from hummingbot.connector.gateway.gateway_tx_handler import GatewayTxHandler
+from hummingbot.connector.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.network_base import NetworkBase
@@ -27,7 +27,7 @@ class TokenBuySellPrice(BaseModel):
 
 class AmmGatewayDataFeed(NetworkBase):
     dex_logger: Optional[HummingbotLogger] = None
-    gateway_client = GatewayTxHandler.get_instance()
+    gateway_client = GatewayHttpClient.get_instance()
 
     def __init__(
         self,

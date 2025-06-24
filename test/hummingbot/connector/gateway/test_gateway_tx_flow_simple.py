@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock
 
 
 class MockGatewayTxHandler:
-    """Simplified version of GatewayTxHandler for testing"""
+    """Simplified version of GatewayHttpClient for testing"""
 
     def __init__(self, connector_name: str, chain: str, network: str):
         self.connector_name = connector_name

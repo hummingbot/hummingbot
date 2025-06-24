@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 
-class GatewayTxHandler:
+class GatewayHttpClient:
     """
     Unified handler for Gateway transactions and HTTP communications.
     Manages fee determination, retry logic, and all Gateway API interactions.
@@ -45,20 +45,20 @@ class GatewayTxHandler:
     __instance = None
 
     @staticmethod
-    def get_instance(client_config_map: Optional["ClientConfigAdapter"] = None) -> "GatewayTxHandler":
-        if GatewayTxHandler.__instance is None:
-            GatewayTxHandler.__instance = object.__new__(GatewayTxHandler)
-            GatewayTxHandler.__instance.__init__(client_config_map)
-        elif client_config_map is not None and GatewayTxHandler.__instance._client_config_map != client_config_map:
+    def get_instance(client_config_map: Optional["ClientConfigAdapter"] = None) -> "GatewayHttpClient":
+        if GatewayHttpClient.__instance is None:
+            GatewayHttpClient.__instance = object.__new__(GatewayHttpClient)
+            GatewayHttpClient.__instance.__init__(client_config_map)
+        elif client_config_map is not None and GatewayHttpClient.__instance._client_config_map != client_config_map:
             # Update the client config map if it's different
-            GatewayTxHandler.__instance._client_config_map = client_config_map
+            GatewayHttpClient.__instance._client_config_map = client_config_map
             # Update base_url based on new config
             api_host = client_config_map.gateway.gateway_api_host
             api_port = client_config_map.gateway.gateway_api_port
             use_ssl = getattr(client_config_map.gateway, "gateway_use_ssl", False)
             protocol = "https" if use_ssl else "http"
-            GatewayTxHandler.__instance._base_url = f"{protocol}://{api_host}:{api_port}"
-        return GatewayTxHandler.__instance
+            GatewayHttpClient.__instance._base_url = f"{protocol}://{api_host}:{api_port}"
+        return GatewayHttpClient.__instance
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -83,7 +83,7 @@ class GatewayTxHandler:
         self._pending_transactions: Dict[str, Dict[str, Any]] = {}
         self._fee_estimates: Dict[str, Dict[str, Any]] = {}  # {"chain:network": {"fee_per_compute_unit": int, "denomination": str, "timestamp": float}}
         self._compute_units_cache: Dict[str, int] = {}  # {"tx_type:chain:network": compute_units}
-        GatewayTxHandler.__instance = self
+        GatewayHttpClient.__instance = self
 
     @property
     def base_url(self) -> str:
@@ -157,7 +157,7 @@ class GatewayTxHandler:
             url = f"{self.base_url}/{path_url}"
         else:
             url = self.base_url
-        client = GatewayTxHandler._http_client(self._client_config_map)
+        client = GatewayHttpClient._http_client(self._client_config_map)
 
         parsed_response = {}
         try:

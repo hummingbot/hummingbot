@@ -9,7 +9,7 @@
 # from hummingbot.client.config.config_data_types import BaseClientModel
 # from hummingbot.client.settings import GatewayConnectionSetting
 # from hummingbot.connector.connector_base import ConnectorBase
-# from hummingbot.connector.gateway.gateway_tx_handler import GatewayTxHandler
+# from hummingbot.connector.gateway.gateway_http_client import GatewayHttpClient
 # from hummingbot.core.utils.async_utils import safe_ensure_future
 # from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
@@ -89,7 +89,7 @@
 #         """Check if Gateway server is online and verify wallet connection"""
 #         self.logger().info("Checking Gateway server status...")
 #         try:
-#             gateway = GatewayTxHandler.get_instance()
+#             gateway = GatewayHttpClient.get_instance()
 #             if await gateway.ping_gateway():
 #                 self.gateway_ready = True
 #                 self.logger().info("Gateway server is online!")
@@ -126,7 +126,7 @@
 #         """Fetch pool information to get tokens and current price"""
 #         try:
 #             self.logger().info(f"Fetching information for pool {self.config.pool_address}...")
-#             pool_info = await GatewayTxHandler.get_instance().connector_request(
+#             pool_info = await GatewayHttpClient.get_instance().connector_request(
 #                 "get",
 #                 self.config.connector,
 #                 "pool-info",
@@ -273,7 +273,7 @@
 #             if self.config.quote_token_amount > 0:
 #                 params["quoteTokenAmount"] = float(self.config.quote_token_amount)
 
-#             response = await GatewayTxHandler.get_instance().connector_request(
+#             response = await GatewayHttpClient.get_instance().connector_request(
 #                 "post",
 #                 self.config.connector,
 #                 "open-position",
@@ -393,7 +393,7 @@
 
 #                 # Close position
 #                 self.logger().info(f"Closing position {self.position_address}...")
-#                 response = await GatewayTxHandler.get_instance().connector_request(
+#                 response = await GatewayHttpClient.get_instance().connector_request(
 #                     "post",
 #                     self.config.connector,
 #                     "close-position",
@@ -464,7 +464,7 @@
 #             poll_attempts += 1
 #             try:
 #                 # Use the get_transaction_status method to check transaction status
-#                 poll_data = await GatewayTxHandler.get_instance().chain_request(
+#                 poll_data = await GatewayHttpClient.get_instance().chain_request(
 #                     "post",
 #                     self.config.chain,
 #                     "poll",

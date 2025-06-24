@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from hummingbot.client.settings import GATEWAY_CONNECTORS
 from hummingbot.client.ui.completer import load_completer
-from hummingbot.connector.gateway.gateway_tx_handler import GatewayTxHandler
+from hummingbot.connector.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import build_config_namespace_keys
 
@@ -133,6 +133,6 @@ class GatewayStatusMonitor:
             self.logger().error("Error fetching gateway configs. Please check that Gateway service is online. ",
                                 exc_info=True)
 
-    def _get_gateway_instance(self) -> GatewayTxHandler:
-        gateway_instance = GatewayTxHandler.get_instance(self._app.client_config_map)
+    def _get_gateway_instance(self) -> GatewayHttpClient:
+        gateway_instance = GatewayHttpClient.get_instance(self._app.client_config_map)
         return gateway_instance

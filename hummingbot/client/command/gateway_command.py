@@ -20,9 +20,9 @@ from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.client.settings import AllConnectorSettings, GatewayConnectionSetting, gateway_connector_trading_pairs
 from hummingbot.client.ui.completer import load_completer
 from hummingbot.client.ui.interface_utils import format_df_for_printout
+from hummingbot.connector.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.connector.gateway.gateway_paths import get_gateway_paths
 from hummingbot.connector.gateway.gateway_status_monitor import GatewayStatus
-from hummingbot.connector.gateway.gateway_tx_handler import GatewayTxHandler
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.gateway_config_utils import (
     build_config_dict_display,
@@ -790,15 +790,15 @@ class GatewayCommand(GatewayChainApiManager):
 
     def _get_gateway_instance(
         self  # type: HummingbotApplication
-    ) -> GatewayTxHandler:
-        gateway_instance = GatewayTxHandler.get_instance(
+    ) -> GatewayHttpClient:
+        gateway_instance = GatewayHttpClient.get_instance(
             self.client_config_map)
         return gateway_instance
 
     async def _get_allowances(self, exchange_name: Optional[str] = None):
         """Get token allowances for Ethereum-based connectors"""
         gateway_connections = GatewayConnectionSetting.load()
-        gateway_instance = GatewayTxHandler.get_instance(self.client_config_map)
+        gateway_instance = GatewayHttpClient.get_instance(self.client_config_map)
         self.notify("Checking token allowances, please wait...")
 
         # If specific exchange requested, filter for just that one
