@@ -617,6 +617,23 @@ class GatewayHttpClient:
         path = f"chains/{chain}/{endpoint}"
         return await self.api_request(method, path, params or {}, fail_silently=fail_silently)
 
+    async def get_chains(self) -> List[Dict[str, Any]]:
+        """
+        Get available chains from gateway.
+
+        :return: List of chain configurations with networks
+        """
+        response = await self.api_request("get", "chains", fail_silently=False)
+        return response.get("chains", [])
+
+    async def get_connectors(self) -> Dict[str, Any]:
+        """
+        Get available connectors from gateway.
+
+        :return: Dictionary containing connector information
+        """
+        return await self.api_request("get", "connectors", fail_silently=False)
+
     async def get_wallets(self, chain: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         Get wallets from gateway, optionally filtered by chain.
@@ -728,5 +745,22 @@ class GatewayHttpClient:
                 "tokens": tokens,
                 "spender": connector
             },
+            fail_silently=fail_silently
+        )
+
+    async def get_tokens(self, chain: str, network: str, fail_silently: bool = True) -> List[Dict[str, Any]]:
+        """
+        Get list of available tokens for a chain/network.
+
+        :param chain: Chain name
+        :param network: Network name
+        :param fail_silently: Whether to suppress errors
+        :return: List of token information
+        """
+        return await self.chain_request(
+            "get",
+            chain,
+            "tokens",
+            {"network": network},
             fail_silently=fail_silently
         )

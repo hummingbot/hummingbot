@@ -90,6 +90,24 @@ class GatewayStatusMonitor:
                         gateway_connectors = await gateway.api_request("get", "connectors", fail_silently=True)
                         GATEWAY_CONNECTORS.clear()
                         GATEWAY_CONNECTORS.extend([connector["name"] for connector in gateway_connectors.get("connectors", [])])
+
+                        # Fetch chains from the /chains endpoint
+                        try:
+                            chains_response = await gateway.api_request("get", "chains", fail_silently=True)
+                            if chains_response and "chains" in chains_response:
+                                chains_list = []
+                                for chain_info in chains_response["chains"]:
+                                    if "chain" in chain_info:
+                                        chains_list.append(chain_info["chain"])
+
+                                # Update chains in the completer if available
+                                if chains_list and hasattr(self._app, 'app') and hasattr(self._app.app, 'input_field') and hasattr(self._app.app.input_field, 'completer'):
+                                    completer = self._app.app.input_field.completer
+                                    if hasattr(completer, 'update_gateway_chains'):
+                                        completer.update_gateway_chains(chains_list)
+                        except Exception:
+                            pass
+
                         await self.update_gateway_config_key_list()
 
                     self._gateway_status = GatewayStatus.ONLINE

@@ -99,9 +99,9 @@ class MockGatewayHTTPClient:
         return {"success": True}
 
     async def get_balances(self, chain: str, network: str, wallet_address: str,
-                           token_symbols: List[str]) -> Dict[str, Decimal]:
+                           token_symbols: List[str]) -> Dict[str, Any]:
         """Mock get balances"""
-        # Return mock balances
+        # Return mock balances in gateway format
         balances = {}
         # Map of chain to native token
         native_tokens = {
@@ -113,18 +113,24 @@ class MockGatewayHTTPClient:
 
         for token in token_symbols:
             if token == native_token:  # Native token
-                balances[token] = Decimal("10.5")
+                balances[token] = "10.5"
             else:
-                balances[token] = Decimal("1000.0")
-        return balances
+                balances[token] = "1000.0"
+        return {"balances": balances}
 
     async def get_allowances(self, chain: str, network: str, wallet_address: str,
-                             token_symbols: List[str], spender: str) -> Dict[str, Decimal]:
+                             token_symbols: List[str], spender: str, fail_silently: bool = True) -> Dict[str, Any]:
         """Mock get allowances"""
-        allowances = {}
+        approvals = {}
         for token in token_symbols:
-            allowances[token] = Decimal("999999999")
-        return allowances
+            # Return varying allowances for testing
+            if token.upper() == "USDC":
+                approvals[token] = "999999999"  # Unlimited
+            elif token.upper() == "USDT":
+                approvals[token] = "1000000"    # Limited
+            else:
+                approvals[token] = "0"          # No allowance
+        return {"approvals": approvals}
 
     async def approve_token(self, chain: str, network: str, wallet_address: str,
                             token: str, spender: str, amount: Decimal) -> Dict[str, Any]:
@@ -150,17 +156,70 @@ class MockGatewayHTTPClient:
                 "timestamp": self.current_timestamp
             }
 
-    async def chain_request(self, method: str, chain: str, endpoint: str, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Mock chain request"""
-        if endpoint == "chain/tokens":
+    async def get_chains(self) -> List[Dict[str, Any]]:
+        """Mock get chains"""
+        return [
+            {"chain": "solana", "networks": ["mainnet-beta", "devnet"]},
+            {"chain": "ethereum", "networks": ["mainnet", "testnet"]},
+            {"chain": "polygon", "networks": ["mainnet", "testnet"]}
+        ]
+
+    async def get_connectors(self) -> Dict[str, Any]:
+        """Mock get connectors"""
+        return {
+            "connectors": [
+                {"name": "uniswap", "chain": "ethereum", "networks": ["mainnet", "testnet"], "trading_types": ["swap"]},
+                {"name": "pancakeswap", "chain": "bsc", "networks": ["mainnet"], "trading_types": ["swap"]},
+                {"name": "raydium", "chain": "solana", "networks": ["mainnet-beta"], "trading_types": ["swap"]}
+            ]
+        }
+
+    async def get_tokens(self, chain: str, network: str, fail_silently: bool = True) -> Dict[str, Any]:
+        """Mock get tokens"""
+        if chain.lower() == "solana":
             return {
                 "tokens": [
                     {"symbol": "SOL", "address": "11111111111111111111111111111111", "decimals": 9},
                     {"symbol": "USDC", "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "decimals": 6},
+                    {"symbol": "RAY", "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R", "decimals": 6},
+                    {"symbol": "ORCA", "address": "orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE", "decimals": 6}
+                ]
+            }
+        elif chain.lower() == "ethereum":
+            return {
+                "tokens": [
                     {"symbol": "ETH", "address": "0x0000000000000000000000000000000000000000", "decimals": 18},
+                    {"symbol": "USDC", "address": "0xA0b86a33E6C8d3b2b9D8C5E6A8B2D8", "decimals": 6},
+                    {"symbol": "USDT", "address": "0xdAC17F958D2ee523a2206206994597C13D831ec7", "decimals": 6},
                     {"symbol": "DAI", "address": "0x6B175474E89094C44Da98b954EedeAC495271d0F", "decimals": 18}
                 ]
             }
+        else:
+            return {
+                "tokens": [
+                    {"symbol": "MATIC", "address": "0x0000000000000000000000000000000000001010", "decimals": 18},
+                    {"symbol": "USDC", "address": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", "decimals": 6}
+                ]
+            }
+
+    async def api_request(self, method: str, endpoint: str, params: Dict[str, Any] = None, fail_silently: bool = True) -> Dict[str, Any]:
+        """Mock API request"""
+        if endpoint == "chains":
+            return {
+                "chains": [
+                    {"chain": "solana", "networks": ["mainnet-beta", "devnet"]},
+                    {"chain": "ethereum", "networks": ["mainnet", "testnet"]}
+                ]
+            }
+        elif endpoint == "connectors":
+            return await self.get_connectors()
+        return {"success": True}
+
+    async def chain_request(self, method: str, chain: str, endpoint: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Mock chain request"""
+        if endpoint == "chain/tokens" or endpoint == "tokens":
+            network = params.get("network", "mainnet")
+            return await self.get_tokens(chain, network)
         return {"success": True}
 
 

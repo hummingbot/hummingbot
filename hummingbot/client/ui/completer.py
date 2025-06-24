@@ -14,7 +14,6 @@ from hummingbot.client import settings
 from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
 from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.client.settings import (
-    GATEWAY_CONNECTORS,
     SCRIPT_STRATEGIES_PATH,
     SCRIPT_STRATEGY_CONF_DIR_PATH,
     STRATEGIES,
@@ -54,13 +53,13 @@ class HummingbotCompleter(Completer):
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)
         self._history_completer = WordCompleter(["--days", "--verbose", "--precision"], ignore_case=True)
-        self._gateway_completer = WordCompleter(["list", "balance", "config", "connect", "connector-tokens", "generate-certs", "test-connection", "allowance", "approve-tokens"], ignore_case=True)
-        self._gateway_connect_completer = WordCompleter(GATEWAY_CONNECTORS, ignore_case=True)
-        self._gateway_connector_tokens_completer = self._exchange_amm_completer
-        self._gateway_balance_completer = self._exchange_amm_completer
-        self._gateway_allowance_completer = self._exchange_ethereum_completer
+        self._gateway_completer = WordCompleter(["list", "balance", "config", "generate-certs", "test-connection", "allowance", "approve-tokens", "wallet"], ignore_case=True)
+        self._gateway_balance_completer = self._gateway_wallet_chain_completer
+        self._gateway_allowance_completer = self._gateway_wallet_chain_completer
         self._gateway_approve_tokens_completer = self._exchange_ethereum_completer
         self._gateway_config_completer = WordCompleter(hummingbot_application.gateway_config_keys, ignore_case=True)
+        self._gateway_wallet_completer = WordCompleter(["list", "add", "remove"], ignore_case=True)
+        self._gateway_wallet_action_completer = WordCompleter(["list", "add", "remove"], ignore_case=True)
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
         self._script_strategy_completer = WordCompleter(file_name_list(str(SCRIPT_STRATEGIES_PATH), "py"))
         self._script_conf_completer = WordCompleter(["--conf"], ignore_case=True)
@@ -72,6 +71,13 @@ class HummingbotCompleter(Completer):
         self._gateway_chains = []
         self._gateway_networks = []
         self._list_gateway_wallets_parameters = {"wallets": [], "chain": ""}
+        self._cached_gateway_chains = []  # Cache for dynamically fetched chains
+        # Fallback chains for gateway wallet commands when gateway is offline
+        # Based on the actual chains returned by gateway /chains endpoint
+        self._gateway_wallet_chain_completer = WordCompleter([
+            "ethereum",
+            "solana"
+        ], ignore_case=True)
 
     def get_strategies_v2_with_config(self):
         file_names = file_name_list(str(SCRIPT_STRATEGIES_PATH), "py")
@@ -118,6 +124,10 @@ class HummingbotCompleter(Completer):
     def set_list_gateway_wallets_parameters(self, wallets, chain):
         self._list_gateway_wallets_parameters = {"wallets": wallets, "chain": chain}
 
+    def update_gateway_chains(self, chains: List[str]):
+        """Update the cached gateway chains list"""
+        self._cached_gateway_chains = sorted(chains) if chains else []
+
     @property
     def prompt_text(self) -> str:
         return self.hummingbot_application.app.prompt_text
@@ -152,6 +162,50 @@ class HummingbotCompleter(Completer):
     @property
     def _gateway_wallet_address_completer(self):
         return WordCompleter(list_gateway_wallets(self._list_gateway_wallets_parameters["wallets"], self._list_gateway_wallets_parameters["chain"]), ignore_case=True)
+
+    @property
+    def _gateway_available_chains_completer(self):
+        """Get available chains from gateway configuration"""
+        chains = []
+        try:
+            # If we have access to the gateway instance, fetch chains
+            if hasattr(self.hummingbot_application, '_gateway_monitor') and self.hummingbot_application._gateway_monitor:
+                gateway_instance = self.hummingbot_application._gateway_monitor._get_gateway_instance()
+                if gateway_instance:
+                    # Synchronously fetch connectors to extract chains
+                    import asyncio
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        # We're in an async context, we need to get chains that were already fetched
+                        # Check if we have cached gateway chains
+                        if hasattr(self, '_cached_gateway_chains') and self._cached_gateway_chains:
+                            chains = self._cached_gateway_chains
+                    else:
+                        # We can run async code
+                        try:
+                            chains_response = loop.run_until_complete(
+                                gateway_instance.api_request("get", "chains", fail_silently=True)
+                            )
+                            if chains_response and "chains" in chains_response:
+                                # Extract chain names
+                                chains = []
+                                for chain_info in chains_response["chains"]:
+                                    if "chain" in chain_info:
+                                        chains.append(chain_info["chain"])
+                                chains = sorted(chains)
+                                # Cache the chains
+                                self._cached_gateway_chains = chains
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+
+        # If we got chains dynamically, use them; otherwise fall back to static list
+        if chains:
+            return WordCompleter(chains, ignore_case=True)
+        else:
+            # Return the static completer as fallback
+            return self._gateway_wallet_chain_completer
 
     @property
     def _option_completer(self):
@@ -220,16 +274,8 @@ class HummingbotCompleter(Completer):
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("history ")
 
-    def _complete_gateway_connect_arguments(self, document: Document) -> bool:
-        text_before_cursor: str = document.text_before_cursor
-        return text_before_cursor.startswith("gateway connect ")
-
     def _complete_gateway_network_selection(self, document: Document) -> bool:
         return "Which" in self.prompt_text and "network do you want to connect to?" in self.prompt_text
-
-    def _complete_gateway_connector_tokens_arguments(self, document: Document) -> bool:
-        text_before_cursor: str = document.text_before_cursor
-        return text_before_cursor.startswith("gateway connector-tokens ")
 
     def _complete_gateway_balance_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -245,11 +291,23 @@ class HummingbotCompleter(Completer):
 
     def _complete_gateway_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
-        return text_before_cursor.startswith("gateway ") and not text_before_cursor.startswith("gateway config ")
+        return (text_before_cursor.startswith("gateway ") and
+                not text_before_cursor.startswith("gateway config ") and
+                not text_before_cursor.startswith("gateway wallet "))
 
     def _complete_gateway_config_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("gateway config ")
+
+    def _complete_gateway_wallet_arguments(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return text_before_cursor.startswith("gateway wallet ") and text_before_cursor.count(" ") == 2
+
+    def _complete_gateway_wallet_chain_arguments(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return (text_before_cursor.startswith("gateway wallet add ") or
+                text_before_cursor.startswith("gateway wallet remove ") or
+                (text_before_cursor.startswith("gateway wallet list ") and text_before_cursor.count(" ") == 3))
 
     def _complete_script_strategy_files(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -406,14 +464,6 @@ class HummingbotCompleter(Completer):
             for c in self._history_completer.get_completions(document, complete_event):
                 yield c
 
-        elif self._complete_gateway_connect_arguments(document):
-            for c in self._gateway_connect_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_gateway_connector_tokens_arguments(document):
-            for c in self._gateway_connector_tokens_completer.get_completions(document, complete_event):
-                yield c
-
         elif self._complete_gateway_balance_arguments(document):
             for c in self._gateway_balance_completer.get_completions(document, complete_event):
                 yield c
@@ -424,6 +474,14 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_gateway_approve_tokens_arguments(document):
             for c in self._gateway_approve_tokens_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_gateway_wallet_chain_arguments(document):
+            for c in self._gateway_available_chains_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_gateway_wallet_arguments(document):
+            for c in self._gateway_wallet_action_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_gateway_arguments(document):
