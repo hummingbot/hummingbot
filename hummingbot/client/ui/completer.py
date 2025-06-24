@@ -79,6 +79,7 @@ class HummingbotCompleter(Completer):
         self._gateway_networks = []
         self._list_gateway_wallets_parameters = {"wallets": [], "chain": ""}
         self._cached_gateway_chains = []  # Cache for dynamically fetched chains
+        self._cached_gateway_networks = {}  # Cache for dynamically fetched networks by chain
 
     def get_strategies_v2_with_config(self):
         file_names = file_name_list(str(SCRIPT_STRATEGIES_PATH), "py")
@@ -188,11 +189,15 @@ class HummingbotCompleter(Completer):
                                 gateway_instance.api_request("get", "chains", fail_silently=True)
                             )
                             if chains_response and "chains" in chains_response:
-                                # Extract chain names
+                                # Extract chain names and cache networks
                                 chains = []
                                 for chain_info in chains_response["chains"]:
                                     if "chain" in chain_info:
-                                        chains.append(chain_info["chain"])
+                                        chain_name = chain_info["chain"]
+                                        chains.append(chain_name)
+                                        # Cache networks for this chain
+                                        if "networks" in chain_info:
+                                            self._cached_gateway_networks[chain_name] = chain_info["networks"]
                                 chains = sorted(chains)
                                 # Cache the chains
                                 self._cached_gateway_chains = chains
@@ -207,6 +212,49 @@ class HummingbotCompleter(Completer):
         else:
             # Return the static completer as fallback
             return self._gateway_wallet_chain_completer
+
+    def _get_networks_for_chain_completer(self, chain: str):
+        """Get network completer for a specific chain"""
+        networks = []
+
+        # Check cache first
+        if chain in self._cached_gateway_networks:
+            networks = self._cached_gateway_networks[chain]
+        else:
+            # Try to fetch from gateway if not cached
+            try:
+                if hasattr(self.hummingbot_application, '_gateway_monitor') and self.hummingbot_application._gateway_monitor:
+                    gateway_instance = self.hummingbot_application._gateway_monitor._get_gateway_instance()
+                    if gateway_instance:
+                        import asyncio
+                        loop = asyncio.get_event_loop()
+                        if not loop.is_running():
+                            try:
+                                chains_response = loop.run_until_complete(
+                                    gateway_instance.api_request("get", "chains", fail_silently=True)
+                                )
+                                if chains_response and "chains" in chains_response:
+                                    for chain_info in chains_response["chains"]:
+                                        if chain_info.get("chain") == chain and "networks" in chain_info:
+                                            networks = chain_info["networks"]
+                                            # Cache for future use
+                                            self._cached_gateway_networks[chain] = networks
+                                            break
+                            except Exception:
+                                pass
+            except Exception:
+                pass
+
+        # Fallback to common networks if no cache
+        if not networks:
+            if chain == "ethereum":
+                networks = ["mainnet", "base", "arbitrum", "optimism", "polygon", "avalanche", "bsc"]
+            elif chain == "solana":
+                networks = ["mainnet-beta", "devnet"]
+            else:
+                networks = ["mainnet", "testnet"]
+
+        return WordCompleter(networks, ignore_case=True)
 
     @property
     def _option_completer(self):
@@ -282,9 +330,41 @@ class HummingbotCompleter(Completer):
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("gateway balance ")
 
+    def _complete_gateway_balance_network(self, document: Document) -> bool:
+        """Check if we're completing the network argument for gateway balance"""
+        text_before_cursor: str = document.text_before_cursor
+        if not text_before_cursor.startswith("gateway balance "):
+            return False
+
+        # Count the number of arguments after "gateway balance"
+        cmd_part = text_before_cursor.replace("gateway balance ", "").strip()
+        if not cmd_part:
+            return False
+
+        args = cmd_part.split()
+        # If we have exactly 1 argument (chain) and we're starting the 2nd argument (network)
+        # or if we have 2 arguments and we're in the middle of typing the network
+        return len(args) == 1 and text_before_cursor.endswith(" ") or (len(args) == 2 and not text_before_cursor.endswith(" "))
+
     def _complete_gateway_allowance_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("gateway allowance ")
+
+    def _complete_gateway_allowance_network(self, document: Document) -> bool:
+        """Check if we're completing the network argument for gateway allowance"""
+        text_before_cursor: str = document.text_before_cursor
+        if not text_before_cursor.startswith("gateway allowance "):
+            return False
+
+        # Count the number of arguments after "gateway allowance"
+        cmd_part = text_before_cursor.replace("gateway allowance ", "").strip()
+        if not cmd_part:
+            return False
+
+        args = cmd_part.split()
+        # If we have exactly 1 argument (chain) and we're starting the 2nd argument (network)
+        # or if we have 2 arguments and we're in the middle of typing the network
+        return len(args) == 1 and text_before_cursor.endswith(" ") or (len(args) == 2 and not text_before_cursor.endswith(" "))
 
     def _complete_gateway_approve_tokens_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -465,9 +545,31 @@ class HummingbotCompleter(Completer):
             for c in self._history_completer.get_completions(document, complete_event):
                 yield c
 
+        elif self._complete_gateway_balance_network(document):
+            # Extract the chain from the command to get appropriate networks
+            text_before_cursor: str = document.text_before_cursor
+            cmd_part = text_before_cursor.replace("gateway balance ", "").strip()
+            args = cmd_part.split()
+            if args:
+                chain = args[0]
+                network_completer = self._get_networks_for_chain_completer(chain)
+                for c in network_completer.get_completions(document, complete_event):
+                    yield c
+
         elif self._complete_gateway_balance_arguments(document):
             for c in self._gateway_balance_completer.get_completions(document, complete_event):
                 yield c
+
+        elif self._complete_gateway_allowance_network(document):
+            # Extract the chain from the command to get appropriate networks
+            text_before_cursor: str = document.text_before_cursor
+            cmd_part = text_before_cursor.replace("gateway allowance ", "").strip()
+            args = cmd_part.split()
+            if args:
+                chain = args[0]
+                network_completer = self._get_networks_for_chain_completer(chain)
+                for c in network_completer.get_completions(document, complete_event):
+                    yield c
 
         elif self._complete_gateway_allowance_arguments(document):
             for c in self._gateway_allowance_completer.get_completions(document, complete_event):
