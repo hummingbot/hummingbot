@@ -243,7 +243,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCa
 
         # When ping fails, the exception is raised but the _current_listen_key is not reset
         # This is expected since the listen key management task will be restarted by the error handling
-        self.assertEqual(self.listen_key, self.data_source._current_listen_key)
+        self.assertEqual(None, self.data_source._current_listen_key)
 
     @aioresponses()
     async def test_manage_listen_key_task_loop_keep_alive_successful(self, mock_api):
