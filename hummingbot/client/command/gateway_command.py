@@ -217,7 +217,7 @@ class GatewayCommand(GatewayChainApiManager):
                             address_filter: Optional[str] = None, tokens_filter: Optional[str] = None):
         network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
         # Use longer timeout for balance requests since some networks like Base can be slow
-        balance_timeout = max(network_timeout, 60.0)  # At least 60 seconds
+        balance_timeout = max(network_timeout, 10.0)  # At least 10 seconds
         self.notify("Updating gateway balances, please wait...")
 
         try:
