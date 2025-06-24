@@ -55,7 +55,7 @@ class GatewayHttpClient:
             # Update base_url based on new config
             api_host = client_config_map.gateway.gateway_api_host
             api_port = client_config_map.gateway.gateway_api_port
-            use_ssl = getattr(client_config_map.gateway, "gateway_use_ssl", False)
+            use_ssl = getattr(client_config_map.gateway, "gateway_use_ssl", True)
             protocol = "https" if use_ssl else "http"
             GatewayHttpClient.__instance._base_url = f"{protocol}://{api_host}:{api_port}"
         return GatewayHttpClient.__instance

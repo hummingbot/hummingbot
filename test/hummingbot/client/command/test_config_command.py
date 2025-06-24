@@ -84,6 +84,7 @@ class ConfigCommandTest(unittest.TestCase):
                            "    | gateway                           |                      |\n"
                            "    | ∟ gateway_api_host                | localhost            |\n"
                            "    | ∟ gateway_api_port                | 15888                |\n"
+                           "    | ∟ gateway_use_ssl                 | True                 |\n"
                            "    | rate_oracle_source                | binance              |\n"
                            "    | global_token                      |                      |\n"
                            "    | ∟ global_token_name               | USDT                 |\n"
