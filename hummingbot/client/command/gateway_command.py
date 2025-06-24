@@ -216,6 +216,8 @@ class GatewayCommand(GatewayChainApiManager):
     async def _get_balances(self, chain_filter: Optional[str] = None, network_filter: Optional[str] = None,
                             address_filter: Optional[str] = None, tokens_filter: Optional[str] = None):
         network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
+        # Use longer timeout for balance requests since some networks like Base can be slow
+        balance_timeout = max(network_timeout, 60.0)  # At least 60 seconds
         self.notify("Updating gateway balances, please wait...")
 
         try:
@@ -302,12 +304,17 @@ class GatewayCommand(GatewayChainApiManager):
                         continue
 
                     # Get balances from gateway
-                    balances_resp = await asyncio.wait_for(
-                        self._get_gateway_instance().get_balances(chain, network, address, tokens_to_check),
-                        network_timeout
-                    )
-
-                    balances = balances_resp.get("balances", {})
+                    try:
+                        balances_resp = await asyncio.wait_for(
+                            self._get_gateway_instance().get_balances(chain, network, address, tokens_to_check),
+                            balance_timeout
+                        )
+                        balances = balances_resp.get("balances", {})
+                    except asyncio.TimeoutError:
+                        self.notify(f"\nTimeout getting balance for {chain}:{network}")
+                        self.notify("This may happen if the network is congested or the RPC endpoint is slow.")
+                        self.notify("Try again or check your gateway configuration.")
+                        continue
 
                     # Filter out zero balances unless user specified specific tokens or we're showing native token
                     if tokens_filter:
@@ -347,10 +354,11 @@ class GatewayCommand(GatewayChainApiManager):
                     else:
                         self.notify("    No balances found")
 
-                except asyncio.TimeoutError:
-                    self.notify(f"\nTimeout getting balance for {chain}:{network}")
                 except Exception as e:
                     self.notify(f"\nError getting balance for {chain}:{network}: {str(e)}")
+                    if "internalServerError" in str(e) or "Cannot read properties of undefined" in str(e):
+                        self.notify("This may be a gateway server configuration issue.")
+                        self.notify("Check that the RPC endpoint for this network is properly configured.")
 
         except Exception as e:
             self.notify(f"Error fetching gateway data: {str(e)}")
