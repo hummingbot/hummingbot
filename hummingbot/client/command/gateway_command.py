@@ -291,6 +291,12 @@ class GatewayCommand(GatewayChainApiManager):
                             native_token = await self._get_native_currency_symbol(chain, network)
                             tokens_to_check = [native_token] if native_token else []
 
+                        # Always ensure native token is included when not filtering by specific tokens
+                        if not tokens_filter:
+                            native_token = await self._get_native_currency_symbol(chain, network)
+                            if native_token and native_token not in tokens_to_check:
+                                tokens_to_check.append(native_token)
+
                     if not tokens_to_check:
                         self.notify(f"\nNo tokens specified for {chain}:{network}")
                         continue
@@ -303,16 +309,23 @@ class GatewayCommand(GatewayChainApiManager):
 
                     balances = balances_resp.get("balances", {})
 
-                    # Filter out zero balances unless user specified specific tokens
+                    # Filter out zero balances unless user specified specific tokens or we're showing native token
                     if tokens_filter:
                         # Show all requested tokens even if zero
                         display_balances = balances
                     else:
-                        # Only show non-zero balances
-                        display_balances = {token: bal for token, bal in balances.items() if float(bal) > 0}
+                        # For default tokens, show non-zero balances and always show native token
+                        display_balances = {}
+                        native_token = await self._get_native_currency_symbol(chain, network)
+
+                        for token, bal in balances.items():
+                            balance_val = float(bal) if bal else 0
+                            # Always include native token (even if zero), include others only if non-zero
+                            if (native_token and token.upper() == native_token.upper()) or balance_val > 0:
+                                display_balances[token] = bal
 
                     # Display results
-                    self.notify(f"\nChain: {chain.upper()}")
+                    self.notify(f"\nChain: {chain.lower()}")
                     self.notify(f"Network: {network}")
                     self.notify(f"Address: {address}")
 
@@ -670,7 +683,7 @@ class GatewayCommand(GatewayChainApiManager):
                             allowances = allowances_resp.get("approvals", {}) if allowances_resp else {}
 
                             # Display results
-                            self.notify(f"\nChain: {chain.upper()}")
+                            self.notify(f"\nChain: {chain.lower()}")
                             self.notify(f"Network: {network}")
                             self.notify(f"Address: {address}")
                             self.notify(f"Connector: {connector}")
@@ -734,7 +747,7 @@ class GatewayCommand(GatewayChainApiManager):
                 chain_name = wallet_info.get("chain", "unknown")
                 addresses = wallet_info.get("walletAddresses", [])
 
-                self.notify(f"\nChain: {chain_name}")
+                self.notify(f"\nChain: {chain_name.lower()}")
                 if not addresses:
                     self.notify("  No wallets")
                 else:
