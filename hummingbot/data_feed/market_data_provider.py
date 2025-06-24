@@ -53,10 +53,10 @@ class MarketDataProvider:
             self._rates_update_task.cancel()
             self._rates_update_task = None
         self.candles_feeds.clear()
+        self._rates_required.clear()
 
     @property
     def ready(self) -> bool:
-        # TODO: unify the ready property for connectors and feeds
         all_connectors_running = all(connector.ready for connector in self.connectors.values())
         all_candles_feeds_running = all(feed.ready for feed in self.candles_feeds.values())
         return all_connectors_running and all_candles_feeds_running
@@ -67,7 +67,7 @@ class MarketDataProvider:
     def initialize_rate_sources(self, connector_pairs: List[ConnectorPair]):
         """
         Initializes a rate source based on the given connector pair.
-        :param connector_pair: ConnectorPair
+        :param connector_pairs: List[ConnectorPair]
         """
         for connector_pair in connector_pairs:
             connector_name, _ = connector_pair
@@ -78,37 +78,64 @@ class MarketDataProvider:
         if not self._rates_update_task:
             self._rates_update_task = safe_ensure_future(self.update_rates_task())
 
+    def remove_rate_sources(self, connector_pairs: List[ConnectorPair]):
+        """
+        Removes rate sources for the given connector pairs.
+        :param connector_pairs: List[ConnectorPair]
+        """
+        for connector_pair in connector_pairs:
+            connector_name, _ = connector_pair
+            if connector_pair.is_amm_connector():
+                self._rates_required.remove("gateway", connector_pair)
+                continue
+            self._rates_required.remove(connector_name, connector_pair)
+
+        # Stop the rates update task if no more rates are required
+        if len(self._rates_required) == 0 and self._rates_update_task:
+            self._rates_update_task.cancel()
+            self._rates_update_task = None
+
     async def update_rates_task(self):
         """
         Updates the rates for all rate sources.
         """
-        while True:
-            rate_oracle = RateOracle.get_instance()
-            for connector, connector_pairs in self._rates_required.items():
-                if connector == "gateway":
-                    tasks = []
-                    gateway_client = GatewayHttpClient.get_instance()
-                    for connector_pair in connector_pairs:
-                        connector, chain, network = connector_pair.connector_name.split("_")
-                        base, quote = connector_pair.trading_pair.split("-")
-                        tasks.append(
-                            gateway_client.get_price(
-                                chain=chain, network=network, connector=connector,
-                                base_asset=base, quote_asset=quote, amount=Decimal("1"),
-                                side=TradeType.BUY))
-                    try:
-                        results = await asyncio.gather(*tasks)
-                        for connector_pair, rate in zip(connector_pairs, results):
-                            rate_oracle.set_price(connector_pair.trading_pair, Decimal(rate["price"]))
-                    except Exception as e:
-                        self.logger().error(f"Error fetching prices from {connector_pairs}: {e}", exc_info=True)
-                else:
-                    connector = self._rate_sources[connector]
-                    prices = await self._safe_get_last_traded_prices(connector,
-                                                                     [pair.trading_pair for pair in connector_pairs])
-                    for pair, rate in prices.items():
-                        rate_oracle.set_price(pair, rate)
-            await asyncio.sleep(self._rates_update_interval)
+        try:
+            while True:
+                # Exit if no more rates to update
+                if len(self._rates_required) == 0:
+                    break
+
+                rate_oracle = RateOracle.get_instance()
+                for connector, connector_pairs in self._rates_required.items():
+                    if connector == "gateway":
+                        tasks = []
+                        gateway_client = GatewayHttpClient.get_instance()
+                        for connector_pair in connector_pairs:
+                            connector, chain, network = connector_pair.connector_name.split("_")
+                            base, quote = connector_pair.trading_pair.split("-")
+                            tasks.append(
+                                gateway_client.get_price(
+                                    chain=chain, network=network, connector=connector,
+                                    base_asset=base, quote_asset=quote, amount=Decimal("1"),
+                                    side=TradeType.BUY))
+                        try:
+                            results = await asyncio.gather(*tasks)
+                            for connector_pair, rate in zip(connector_pairs, results):
+                                rate_oracle.set_price(connector_pair.trading_pair, Decimal(rate["price"]))
+                        except Exception as e:
+                            self.logger().error(f"Error fetching prices from {connector_pairs}: {e}", exc_info=True)
+                    else:
+                        connector_instance = self._rate_sources[connector]
+                        prices = await self._safe_get_last_traded_prices(connector_instance,
+                                                                         [pair.trading_pair for pair in connector_pairs])
+                        for pair, rate in prices.items():
+                            rate_oracle.set_price(pair, rate)
+
+                await asyncio.sleep(self._rates_update_interval)
+        except asyncio.CancelledError:
+            raise
+        finally:
+            self._rates_update_task = None
 
     def initialize_candles_feed(self, config: CandlesConfig):
         """
@@ -139,7 +166,11 @@ class MarketDataProvider:
             # Existing feed is sufficient, return it
             return existing_feed
         else:
-            # Create a new feed or restart the existing one with updated max_records
+            # Stop the existing feed if it exists before creating a new one
+            if existing_feed and hasattr(existing_feed, 'stop'):
+                existing_feed.stop()
+
+            # Create a new feed with updated max_records
             candle_feed = CandlesFactory.get_candle(config)
             self.candles_feeds[key] = candle_feed
             if hasattr(candle_feed, 'start'):
