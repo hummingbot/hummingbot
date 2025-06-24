@@ -106,7 +106,7 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
     gateway_allowance_parser.add_argument("chain", nargs="?", default=None, help="Chain name filter (e.g., ethereum, polygon)")
     gateway_allowance_parser.add_argument("network", nargs="?", default=None, help="Network name filter (e.g., mainnet)")
     gateway_allowance_parser.add_argument("address", nargs="?", default=None, help="Wallet address filter")
-    gateway_allowance_parser.add_argument("tokens", nargs="?", default=None, help="Comma-separated token symbols (e.g., USDC,USDT,DAI)")
+    gateway_allowance_parser.add_argument("tokens", nargs="?", default=None, help="Comma-separated token symbols (e.g., USDC,USDT,DAI) or 'all' for all available tokens")
     gateway_allowance_parser.set_defaults(func=hummingbot.gateway_allowance)
 
     gateway_config_parser = gateway_subparsers.add_parser("config", help="View or update gateway configuration")

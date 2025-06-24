@@ -643,37 +643,36 @@ class GatewayCommand(GatewayChainApiManager):
                     self.notify("No matching Ethereum-compatible wallets found for the specified filters.")
                 return
 
-            # Cache for default tokens to avoid multiple fetches
-            default_tokens_cache = {}
-
             # Process each chain/network/address combination
             for chain, network, address in chain_network_combos:
                 try:
                     # Determine tokens to check allowances for
                     if tokens_filter:
-                        # User specified tokens (comma-separated)
-                        tokens_to_check = [token.strip() for token in tokens_filter.split(",")]
-                    else:
-                        # Check cache first
-                        cache_key = f"{chain}:{network}"
-                        if cache_key in default_tokens_cache:
-                            tokens_to_check = default_tokens_cache[cache_key]
+                        if tokens_filter.lower() == "all":
+                            # User wants all tokens - fetch from gateway
+                            self.notify("Fetching all available token allowances (this may take a while)...")
+                            try:
+                                tokens_to_check = await self._get_default_tokens_for_chain_network(chain, network)
+                                # For allowances, we typically only care about ERC-20 style tokens, not native tokens
+                                native_token = await self._get_native_currency_symbol(chain, network)
+                                if native_token:
+                                    tokens_to_check = [token for token in tokens_to_check if token.upper() != native_token.upper()]
+                            except Exception as e:
+                                self.notify(f"Warning: Could not fetch tokens for {chain}:{network}: {str(e)}")
+                                tokens_to_check = []
                         else:
-                            # Fetch default tokens from gateway token list
-                            tokens_to_check = await self._get_default_tokens_for_chain_network(chain, network)
-                            # For allowances, we typically only care about ERC-20 style tokens, not native tokens
-                            # Filter out native token for this chain
-                            native_token = await self._get_native_currency_symbol(chain, network)
-                            if native_token:
-                                tokens_to_check = [token for token in tokens_to_check if token.upper() != native_token.upper()]
-                            default_tokens_cache[cache_key] = tokens_to_check
+                            # User specified tokens (comma-separated)
+                            tokens_to_check = [token.strip() for token in tokens_filter.split(",")]
+                    else:
+                        # For performance, only check common ERC-20 tokens by default
+                        tokens_to_check = self._get_fallback_erc20_tokens()
 
-                        if not tokens_to_check:
-                            # Fallback to common ERC-20 tokens
-                            tokens_to_check = self._get_fallback_erc20_tokens()
+                        self.notify(f"Checking common tokens: {', '.join(tokens_to_check)}")
+                        self.notify("(Use 'gateway allowance ethereum base all' to check all available tokens)")
 
-                    if not tokens_to_check:
-                        self.notify(f"\nNo tokens specified for allowance check on {chain}:{network}")
+                    # Skip if user specified tokens but the list is empty (after filtering out empty strings)
+                    if tokens_filter and tokens_filter.lower() != "all" and not tokens_to_check:
+                        self.notify(f"\nNo valid tokens specified for allowance check on {chain}:{network}")
                         continue
 
                     # Find connectors for this chain to check allowances against
