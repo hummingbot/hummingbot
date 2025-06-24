@@ -273,15 +273,35 @@ class GatewayCommand(GatewayChainApiManager):
                 try:
                     # Determine tokens to check
                     if tokens_filter:
-                        # User specified tokens (comma-separated)
-                        tokens_to_check = [token.strip() for token in tokens_filter.split(",")]
+                        if tokens_filter.lower() == "all":
+                            # User wants all tokens - pass empty list to get all balances
+                            self.notify("Fetching all available token balances (this may take a while)...")
+                            tokens_to_check = []
+                        else:
+                            # User specified tokens (comma-separated)
+                            tokens_to_check = [token.strip() for token in tokens_filter.split(",")]
                     else:
-                        # Don't pass any tokens - let gateway return all available balances
-                        tokens_to_check = []
+                        # For performance, only check native token and a few common tokens
+                        native_token = await self._get_native_currency_symbol(chain, network)
+                        if native_token:
+                            # Only check native token and top stablecoins by default
+                            common_tokens = ["USDC", "USDT", "DAI", "WETH"]
+                            tokens_to_check = [native_token]
 
-                    # Skip the token check for when we want all balances
-                    if tokens_filter and not tokens_to_check:
-                        self.notify(f"\nNo tokens specified for {chain}:{network}")
+                            # Add common tokens that aren't the native token
+                            for token in common_tokens:
+                                if token.upper() != native_token.upper() and token not in tokens_to_check:
+                                    tokens_to_check.append(token)
+                        else:
+                            # Fallback to just common tokens
+                            tokens_to_check = ["ETH", "USDC", "USDT", "DAI", "WETH"]
+
+                        self.notify(f"Checking common tokens: {', '.join(tokens_to_check)}")
+                        self.notify("(Use 'gateway balance ethereum base all' to check all available tokens)")
+
+                    # Skip if user specified tokens but the list is empty (after filtering out empty strings)
+                    if tokens_filter and tokens_filter.lower() != "all" and not tokens_to_check:
+                        self.notify(f"\nNo valid tokens specified for {chain}:{network}")
                         continue
 
                     # Get balances from gateway
@@ -299,11 +319,11 @@ class GatewayCommand(GatewayChainApiManager):
                         continue
 
                     # Filter out zero balances unless user specified specific tokens or we're showing native token
-                    if tokens_filter:
+                    if tokens_filter and tokens_filter.lower() != "all":
                         # Show all requested tokens even if zero
                         display_balances = balances
                     else:
-                        # For all balances (no token filter), show non-zero balances and always show native token
+                        # For default tokens or "all" mode, show non-zero balances and always show native token
                         display_balances = {}
                         native_token = await self._get_native_currency_symbol(chain, network)
 
@@ -312,6 +332,13 @@ class GatewayCommand(GatewayChainApiManager):
                             # Always include native token (even if zero), include others only if non-zero
                             if (native_token and token.upper() == native_token.upper()) or balance_val > 0:
                                 display_balances[token] = bal
+
+                        # If using "all" mode, show a summary
+                        if tokens_filter and tokens_filter.lower() == "all":
+                            total_tokens = len(balances)
+                            shown_tokens = len(display_balances)
+                            if shown_tokens < total_tokens:
+                                self.notify(f"Showing {shown_tokens} tokens with balances out of {total_tokens} total tokens")
 
                     # Display results
                     self.notify(f"\nChain: {chain.lower()}")
