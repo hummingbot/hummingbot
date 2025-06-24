@@ -29,6 +29,9 @@ class StopCommand:
             import appnope
             appnope.nap()
 
+        if self.clock:
+            self.clock.remove_iterator(self.strategy)
+
         if isinstance(self.strategy, ScriptStrategyBase):
             await self.strategy.on_stop()
 
@@ -36,11 +39,9 @@ class StopCommand:
             # Remove the strategy from clock before cancelling orders, to
             # prevent race condition where the strategy tries to create more
             # orders during cancellation.
-            if self.clock:
-                self.clock.remove_iterator(self.strategy)
             success = await self._cancel_outstanding_orders()
             # Give some time for cancellation events to trigger
-            await asyncio.sleep(2)
+            await asyncio.sleep(3.0)
             if success:
                 # Only erase markets when cancellation has been successful
                 self.markets = {}
