@@ -215,30 +215,6 @@ class HummingbotApplication(*commands):
         except Exception as e:
             self.logger().error(e, exc_info=True)
 
-    async def _cancel_outstanding_orders(self) -> bool:
-        success = True
-        try:
-            kill_timeout: float = self.KILL_TIMEOUT
-            self.notify("Canceling outstanding orders...")
-
-            for market_name, market in self.trading_core.markets.items():
-                cancellation_results = await market.cancel_all(kill_timeout)
-                uncancelled = list(filter(lambda cr: cr.success is False, cancellation_results))
-                if len(uncancelled) > 0:
-                    success = False
-                    uncancelled_order_ids = list(map(lambda cr: cr.order_id, uncancelled))
-                    self.notify("\nFailed to cancel the following orders on %s:\n%s" % (
-                        market_name,
-                        '\n'.join(uncancelled_order_ids)
-                    ))
-        except Exception:
-            self.logger().error("Error canceling outstanding orders.", exc_info=True)
-            success = False
-
-        if success:
-            self.notify("All outstanding orders canceled.")
-        return success
-
     async def run(self):
         """Run the application - either UI mode or headless mode."""
         if self.headless_mode:
