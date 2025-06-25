@@ -129,7 +129,7 @@ class GatewayBase(ConnectorBase):
 
     @property
     def address(self):
-        """Get wallet address, fetching from gateway if needed."""
+        """Get wallet address, using default from gateway client."""
         if self._wallet_address:
             return self._wallet_address
 
@@ -137,6 +137,14 @@ class GatewayBase(ConnectorBase):
         current_time = time.time()
         if self._wallet_cache and (current_time - self._wallet_cache_timestamp) < self._wallet_cache_ttl:
             return self._wallet_cache
+
+        # Try to get default wallet from gateway client
+        gateway_instance = self._get_gateway_instance()
+        default_wallet = gateway_instance.get_default_wallet(self._chain)
+        if default_wallet:
+            self._wallet_cache = default_wallet
+            self._wallet_cache_timestamp = current_time
+            return default_wallet
 
         # Fetch from gateway synchronously (property can't be async)
         try:
@@ -159,29 +167,42 @@ class GatewayBase(ConnectorBase):
     async def get_wallet_for_chain(self) -> str:
         """
         Get wallet address for this chain from gateway.
-        Caches the result for performance.
+        Uses the default wallet from gateway client if no address was provided.
         """
+        # If wallet address was explicitly provided, use it
+        if self._wallet_address:
+            return self._wallet_address
+
         # Check cache first
         current_time = time.time()
         if self._wallet_cache and (current_time - self._wallet_cache_timestamp) < self._wallet_cache_ttl:
             return self._wallet_cache
 
-        # Fetch from gateway
+        # Get default wallet from gateway client
+        gateway_instance = self._get_gateway_instance()
+        default_wallet = gateway_instance.get_default_wallet(self._chain)
+
+        if default_wallet:
+            # Update cache
+            self._wallet_cache = default_wallet
+            self._wallet_cache_timestamp = current_time
+            self._wallet_address = default_wallet
+            return default_wallet
+
+        # Fallback to fetching from gateway if not cached
         try:
-            wallets = await self._get_gateway_instance().get_wallets(self._chain)
+            wallets = await gateway_instance.get_wallets(self._chain)
             if not wallets or not wallets[0].get("walletAddresses"):
                 error_msg = f"No wallet found for chain {self._chain}. Please add one with 'gateway wallet add {self._chain}'"
                 self.logger().error(error_msg)
                 raise ValueError(error_msg)
 
-            # Use first wallet (in future, could use preferences)
+            # Use first wallet
             wallet_address = wallets[0]["walletAddresses"][0]
 
             # Update cache
             self._wallet_cache = wallet_address
             self._wallet_cache_timestamp = current_time
-
-            # Also update the instance variable for backward compatibility
             self._wallet_address = wallet_address
 
             return wallet_address

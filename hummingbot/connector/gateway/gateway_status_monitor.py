@@ -135,6 +135,12 @@ class GatewayStatusMonitor:
                 if self.gateway_status is GatewayStatus.ONLINE:
                     if not self._gateway_ready_event.is_set():
                         self.logger().info("Gateway Service is ONLINE.")
+                        # Initialize gateway with all necessary data
+                        gateway_instance = self._get_gateway_instance()
+                        await gateway_instance.initialize_gateway()
+                        # Load gateway connectors info for use in config_helpers
+                        from hummingbot.client.config.config_helpers import load_gateway_connectors
+                        await load_gateway_connectors()
                     self._gateway_ready_event.set()
                 else:
                     self._gateway_ready_event.clear()

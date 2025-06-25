@@ -84,6 +84,17 @@ class GatewayHttpClient:
         self._pending_transactions: Dict[str, Dict[str, Any]] = {}
         self._fee_estimates: Dict[str, Dict[str, Any]] = {}  # {"chain:network": {"fee_per_compute_unit": int, "denomination": str, "timestamp": float}}
         self._compute_units_cache: Dict[str, int] = {}  # {"tx_type:chain:network": compute_units}
+
+        # Gateway state caches
+        self._wallets_cache: Dict[str, List[Dict[str, Any]]] = {}  # {"chain": [wallet_info]}
+        self._default_wallets: Dict[str, str] = {}  # {"chain": "default_address"}
+        self._connectors_cache: Dict[str, Dict[str, Any]] = {}  # Connector information
+        self._chains_cache: List[Dict[str, Any]] = []  # Available chains
+        self._tokens_cache: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}  # {"chain:network": tokens}
+        self._cache_initialized = False
+        self._cache_timestamp = 0
+        self._cache_ttl = 300  # 5 minutes
+
         GatewayHttpClient.__instance = self
 
     @property
@@ -769,6 +780,85 @@ class GatewayHttpClient:
             {"network": network},
             fail_silently=fail_silently
         )
+
+    async def initialize_gateway(self) -> None:
+        """
+        Initialize the gateway by loading all necessary information.
+        This should be called once when the gateway comes online.
+        """
+        if self._cache_initialized and (self.current_timestamp - self._cache_timestamp) < self._cache_ttl:
+            return  # Cache is still valid
+
+        try:
+            # Load chains
+            self._chains_cache = await self.get_chains()
+
+            # Load connectors
+            connectors_response = await self.get_connectors()
+            self._connectors_cache = {c["name"]: c for c in connectors_response.get("connectors", [])}
+
+            # Load wallets for each chain
+            all_wallets = await self.get_wallets()
+            for wallet_info in all_wallets:
+                chain = wallet_info.get("chain")
+                if chain:
+                    if chain not in self._wallets_cache:
+                        self._wallets_cache[chain] = []
+                    self._wallets_cache[chain].append(wallet_info)
+
+                    # Set default wallet (first one)
+                    if chain not in self._default_wallets and wallet_info.get("walletAddresses"):
+                        self._default_wallets[chain] = wallet_info["walletAddresses"][0]
+
+            # Load initial gas prices for common networks
+            for chain_info in self._chains_cache:
+                chain = chain_info.get("chain")
+                networks = chain_info.get("networks", [])
+                if networks and chain in self._default_wallets:
+                    # Get gas price for the first network
+                    try:
+                        await self.estimate_gas(chain, networks[0])
+                    except Exception:
+                        pass  # Ignore errors for gas price estimation
+
+            self._cache_initialized = True
+            self._cache_timestamp = self.current_timestamp
+            self.logger().info(f"Gateway initialized with {len(self._chains_cache)} chains, "
+                               f"{len(self._connectors_cache)} connectors, "
+                               f"and wallets for {len(self._wallets_cache)} chains")
+
+        except Exception as e:
+            self.logger().error(f"Failed to initialize gateway: {str(e)}", exc_info=True)
+
+    def get_default_wallet(self, chain: str) -> Optional[str]:
+        """
+        Get the default wallet address for a chain.
+
+        :param chain: Chain name
+        :return: Default wallet address or None
+        """
+        return self._default_wallets.get(chain)
+
+    def get_connector_info(self, connector_name: str) -> Optional[Dict[str, Any]]:
+        """
+        Get cached connector information.
+
+        :param connector_name: Connector name
+        :return: Connector info or None
+        """
+        return self._connectors_cache.get(connector_name)
+
+    def get_chain_info(self, chain: str) -> Optional[Dict[str, Any]]:
+        """
+        Get cached chain information.
+
+        :param chain: Chain name
+        :return: Chain info or None
+        """
+        for chain_info in self._chains_cache:
+            if chain_info.get("chain") == chain:
+                return chain_info
+        return None
 
     async def get_price(
             self,
