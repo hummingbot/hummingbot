@@ -1,0 +1,735 @@
+import asyncio
+import importlib
+import inspect
+import logging
+import sys
+import time
+from enum import Enum
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_data_types import BaseClientModel
+from hummingbot.client.config.config_helpers import ClientConfigAdapter, get_strategy_starter_file
+from hummingbot.client.config.strategy_config_data_types import BaseStrategyConfigMap
+from hummingbot.client.settings import SCRIPT_STRATEGIES_MODULE, STRATEGIES
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.markets_recorder import MarketsRecorder
+from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.core.connector_manager import ConnectorManager
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
+from hummingbot.core.utils.kill_switch import KillSwitch
+from hummingbot.exceptions import InvalidScriptModule
+from hummingbot.model.sql_connection_manager import SQLConnectionManager
+from hummingbot.notifier.notifier_base import NotifierBase
+from hummingbot.remote_iface.mqtt import MQTTGateway
+from hummingbot.strategy.directional_strategy_base import DirectionalStrategyBase
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy.strategy_base import StrategyBase
+from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
+
+
+class StrategyType(Enum):
+    SCRIPT = "script"
+    REGULAR = "regular"
+    V2 = "v2"
+
+
+class TradingCore:
+    """
+    Core trading functionality with modular architecture.
+
+    This class provides:
+    - Connector management (create, add, remove connectors)
+    - Market data access (order books, balances, etc.)
+    - Strategy management (optional - can run without strategies)
+    - Direct trading capabilities
+    - Clock management for real-time operations
+    """
+
+    KILL_TIMEOUT = 20.0
+
+    def __init__(self,
+                 client_config: Union[ClientConfigMap, ClientConfigAdapter, Dict[str, Any]],
+                 scripts_path: Optional[Path] = None):
+        """
+        Initialize the trading core.
+
+        Args:
+            client_config: Configuration object or dictionary
+            scripts_path: Optional path to script strategies directory
+        """
+        self._logger = logging.getLogger(__name__)
+
+        # Convert config to ClientConfigAdapter if needed
+        if isinstance(client_config, dict):
+            self.client_config_map = self._create_config_adapter_from_dict(client_config)
+        elif isinstance(client_config, ClientConfigMap):
+            self.client_config_map = ClientConfigAdapter(client_config)
+        else:
+            self.client_config_map = client_config
+
+        # Strategy paths
+        self.scripts_path = scripts_path or Path("scripts")
+
+        # Core components
+        self.connector_manager = ConnectorManager(self.client_config_map)
+        self.clock: Optional[Clock] = None
+
+        # Strategy components (optional)
+        self.strategy: Optional[StrategyBase] = None
+        self.strategy_name: Optional[str] = None
+        self.strategy_config_map: Optional[BaseStrategyConfigMap] = None
+        self.strategy_task: Optional[asyncio.Task] = None
+        self._strategy_file_name: Optional[str] = None
+
+        # Supporting components
+        self.notifiers: List[NotifierBase] = []
+        self.kill_switch: Optional[KillSwitch] = None
+        self.markets_recorder: Optional[MarketsRecorder] = None
+        self.trade_fill_db: Optional[SQLConnectionManager] = None
+
+        # MQTT management
+        self._mqtt_gateway: Optional[MQTTGateway] = None
+        self._mqtt_started: bool = False
+
+        # Runtime state
+        self.init_time: float = time.time()
+        self.start_time: Optional[float] = None
+        self._is_running: bool = False
+        self._strategy_running: bool = False
+        self._trading_required: bool = True
+
+        # Config storage for flexible config loading
+        self._config_source: Optional[str] = None
+        self._config_data: Optional[Dict[str, Any]] = None
+
+        # Backward compatibility properties
+        self.market_trading_pairs_map: Dict[str, List[str]] = {}
+        self.market_trading_pair_tuples: List[MarketTradingPairTuple] = []
+
+    def _create_config_adapter_from_dict(self, config_dict: Dict[str, Any]) -> ClientConfigAdapter:
+        """Create a ClientConfigAdapter from a dictionary."""
+        client_config = ClientConfigMap()
+
+        # Set configuration values
+        for key, value in config_dict.items():
+            if hasattr(client_config, key):
+                setattr(client_config, key, value)
+
+        return ClientConfigAdapter(client_config)
+
+    @property
+    def markets(self) -> Dict[str, ExchangeBase]:
+        """Get all markets/connectors (backward compatibility)."""
+        return self.connector_manager.get_all_connectors()
+
+    @property
+    def mqtt_enabled(self) -> bool:
+        """Check if MQTT is enabled in configuration."""
+        return self.client_config_map.mqtt_bridge.mqtt_autostart
+
+    @property
+    def mqtt_started(self) -> bool:
+        """Check if MQTT is started."""
+        return self._mqtt_started
+
+    async def start_clock(self) -> bool:
+        """
+        Start the clock system without requiring a strategy.
+
+        This allows real-time market data updates and order management
+        without needing an active strategy.
+        """
+        if self.clock is not None:
+            self._logger.warning("Clock is already running")
+            return False
+
+        try:
+            tick_size = self.client_config_map.tick_size
+            self._logger.info(f"Creating the clock with tick size: {tick_size}")
+            self.clock = Clock(ClockMode.REALTIME, tick_size=tick_size)
+
+            # Add all connectors to clock
+            for connector in self.connector_manager.connectors.values():
+                if connector is not None:
+                    self.clock.add_iterator(connector)
+                    # Cancel dangling orders
+                    if len(connector.limit_orders) > 0:
+                        self._logger.info(f"Canceling dangling limit orders on {connector.name}...")
+                        await connector.cancel_all(10.0)
+
+            # Start the clock
+            self._clock_task = asyncio.create_task(self._run_clock())
+            self._is_running = True
+            self.start_time = time.time() * 1e3
+
+            self._logger.info("Clock started successfully")
+            return True
+
+        except Exception as e:
+            self._logger.error(f"Failed to start clock: {e}")
+            return False
+
+    async def stop_clock(self) -> bool:
+        """Stop the clock system."""
+        if self.clock is None:
+            return True
+
+        try:
+            # Remove all connectors from clock
+            for connector in self.connector_manager.connectors.values():
+                self.clock.remove_iterator(connector)
+
+            # Cancel clock task
+            if hasattr(self, '_clock_task') and self._clock_task and not self._clock_task.done():
+                self._clock_task.cancel()
+                try:
+                    await self._clock_task
+                except asyncio.CancelledError:
+                    pass
+
+            self.clock = None
+            self._is_running = False
+
+            self._logger.info("Clock stopped successfully")
+            return True
+
+        except Exception as e:
+            self._logger.error(f"Failed to stop clock: {e}")
+            return False
+
+    async def create_connector(self,
+                               connector_name: str,
+                               trading_pairs: List[str],
+                               trading_required: bool = True,
+                               api_keys: Optional[Dict[str, str]] = None) -> ExchangeBase:
+        """
+        Create a connector instance.
+
+        Args:
+            connector_name: Name of the connector
+            trading_pairs: List of trading pairs
+            trading_required: Whether trading is required
+            api_keys: Optional API keys
+
+        Returns:
+            ExchangeBase: Created connector
+        """
+        connector = self.connector_manager.create_connector(
+            connector_name, trading_pairs, trading_required, api_keys
+        )
+
+        # Add to clock if running
+        if self.clock and connector:
+            self.clock.add_iterator(connector)
+
+        # Add to markets recorder if exists
+        if self.markets_recorder and connector:
+            self.markets_recorder.add_market(connector)
+
+        return connector
+
+    async def remove_connector(self, connector_name: str) -> bool:
+        """
+        Remove a connector.
+
+        Args:
+            connector_name: Name of the connector to remove
+
+        Returns:
+            bool: True if successfully removed
+        """
+        connector = self.connector_manager.get_connector(connector_name)
+
+        if connector:
+            # Remove from clock if exists
+            if self.clock:
+                self.clock.remove_iterator(connector)
+
+            # Remove from markets recorder if exists
+            if self.markets_recorder:
+                self.markets_recorder.remove_market(connector)
+
+        return await self.connector_manager.remove_connector(connector_name)
+
+    def detect_strategy_type(self, strategy_name: str) -> StrategyType:
+        """Detect the type of strategy."""
+        if self.is_script_strategy(strategy_name):
+            # Check if it's a V2 strategy by examining the script
+            return StrategyType.V2 if self._is_v2_script_strategy(strategy_name) else StrategyType.SCRIPT
+        elif strategy_name in STRATEGIES:
+            return StrategyType.REGULAR
+        else:
+            raise ValueError(f"Unknown strategy: {strategy_name}")
+
+    def is_script_strategy(self, strategy_name: str) -> bool:
+        """Check if the strategy is a script strategy."""
+        script_file = self.scripts_path / f"{strategy_name}.py"
+        return script_file.exists()
+
+    def _is_v2_script_strategy(self, strategy_name: str) -> bool:
+        """Check if a script strategy is a V2 strategy."""
+        try:
+            script_class, _ = self.load_script_class(strategy_name)
+            return issubclass(script_class, StrategyV2Base)
+        except Exception:
+            return False
+
+    def initialize_markets_recorder(self, db_name: str = None):
+        """
+        Initialize markets recorder for trade persistence.
+
+        Args:
+            db_name: Database name (defaults to strategy file name)
+        """
+        if not db_name:
+            db_name = self._strategy_file_name or "trades"
+
+        if db_name.endswith(".yml") or db_name.endswith(".py"):
+            db_name = db_name.split(".")[0]
+
+        self.trade_fill_db = SQLConnectionManager.get_trade_fills_instance(
+            self.client_config_map, db_name
+        )
+
+        self.markets_recorder = MarketsRecorder(
+            self.trade_fill_db,
+            list(self.connector_manager.connectors.values()),
+            self._strategy_file_name or db_name,
+            self.strategy_name or db_name,
+            self.client_config_map.market_data_collection
+        )
+
+        self.markets_recorder.start()
+        self._logger.info(f"Markets recorder initialized with database: {db_name}")
+
+    def load_script_class(self, script_name: str) -> Tuple[Type, Optional[BaseClientModel]]:
+        """
+        Load script strategy class following Hummingbot's pattern.
+
+        Args:
+            script_name: Name of the script strategy
+
+        Returns:
+            Tuple of (strategy_class, config_object)
+        """
+        config = None
+        module = sys.modules.get(f"{SCRIPT_STRATEGIES_MODULE}.{script_name}")
+
+        if module is not None:
+            script_module = importlib.reload(module)
+        else:
+            script_module = importlib.import_module(f".{script_name}", package=SCRIPT_STRATEGIES_MODULE)
+
+        try:
+            script_class = next((member for member_name, member in inspect.getmembers(script_module)
+                                 if inspect.isclass(member) and
+                                 issubclass(member, ScriptStrategyBase) and
+                                 member not in [ScriptStrategyBase, DirectionalStrategyBase, StrategyV2Base]))
+        except StopIteration:
+            raise InvalidScriptModule(f"The module {script_name} does not contain any subclass of ScriptStrategyBase")
+
+        # Load config if strategy and file names differ
+        if self.strategy_name != self._strategy_file_name and self._strategy_file_name:
+            try:
+                config_class = next((member for member_name, member in inspect.getmembers(script_module)
+                                     if inspect.isclass(member) and
+                                     issubclass(member, BaseClientModel) and
+                                     member not in [BaseClientModel, StrategyV2ConfigBase]))
+                # Load config from provided config dict or file
+                config_data = self._load_strategy_config()
+                config = config_class(**config_data)
+                script_class.init_markets(config)
+            except StopIteration:
+                raise InvalidScriptModule(f"The module {script_name} does not contain any subclass of BaseClientModel")
+
+        return script_class, config
+
+    def _load_strategy_config(self) -> Dict[str, Any]:
+        """
+        Load strategy configuration from various sources.
+
+        This method can be overridden by subclasses to load from different sources
+        (dict, database, remote API, etc.) instead of filesystem.
+        """
+        if self._config_data:
+            return self._config_data
+        elif self._config_source:
+            # Could load from file, URL, database, etc.
+            # Default implementation returns empty dict
+            return {}
+        else:
+            return {}
+
+    async def start_strategy(self,
+                             strategy_name: str,
+                             strategy_config: Optional[Union[BaseStrategyConfigMap, Dict[str, Any], str]] = None,
+                             strategy_file_name: Optional[str] = None) -> bool:
+        """
+        Start a trading strategy.
+
+        Args:
+            strategy_name: Name of the strategy
+            strategy_config: Strategy configuration (object, dict, or file path)
+            strategy_file_name: Optional file name for the strategy
+
+        Returns:
+            bool: True if strategy started successfully
+        """
+        try:
+            if self._strategy_running:
+                self._logger.warning("Strategy is already running")
+                return False
+
+            self.strategy_name = strategy_name
+            self._strategy_file_name = strategy_file_name or strategy_name
+
+            # Store config for later use
+            if isinstance(strategy_config, str):
+                # File path - will be loaded by _load_strategy_config
+                self._config_source = strategy_config
+            elif isinstance(strategy_config, dict):
+                self._config_data = strategy_config
+            else:
+                self.strategy_config_map = strategy_config
+
+            # Initialize strategy based on type
+            strategy_type = self.detect_strategy_type(strategy_name)
+
+            if strategy_type == StrategyType.SCRIPT or strategy_type == StrategyType.V2:
+                await self._initialize_script_strategy()
+            elif strategy_type == StrategyType.REGULAR:
+                await self._initialize_regular_strategy()
+            else:
+                raise ValueError(f"Unknown strategy type: {strategy_type}")
+
+            # Initialize markets for backward compatibility
+            self._initialize_markets_for_strategy()
+
+            # Initialize markets recorder if not already done
+            if not self.markets_recorder:
+                self.initialize_markets_recorder()
+
+            # Start the trading execution loop
+            await self._start_strategy_execution()
+
+            # Start rate oracle (required for PNL calculation)
+            RateOracle.get_instance().start()
+
+            self._strategy_running = True
+
+            # Start clock if not already running
+            if not self._is_running:
+                await self.start_clock()
+
+            self._logger.info(f"Strategy {strategy_name} started successfully")
+            return True
+
+        except Exception as e:
+            self._logger.error(f"Failed to start strategy {strategy_name}: {e}")
+            return False
+
+    async def _initialize_script_strategy(self):
+        """Initialize a script strategy."""
+        script_strategy_class, config = self.load_script_class(self.strategy_name)
+
+        # Get markets from script
+        markets_list = []
+        for conn, pairs in script_strategy_class.markets.items():
+            markets_list.append((conn, list(pairs)))
+
+        # Create connectors for the strategy
+        for connector_name, trading_pairs in markets_list:
+            await self.create_connector(connector_name, trading_pairs)
+
+        # Create strategy instance
+        if config:
+            self.strategy = script_strategy_class(self.markets, config)
+        else:
+            self.strategy = script_strategy_class(self.markets)
+
+    async def _initialize_regular_strategy(self):
+        """Initialize a regular strategy using starter file."""
+        start_strategy_func: Callable = get_strategy_starter_file(self.strategy_name)
+        start_strategy_func(self)
+
+    async def _start_strategy_execution(self):
+        """
+        Start the strategy execution system.
+        """
+        try:
+            # Ensure clock exists
+            if self.clock is None:
+                await self.start_clock()
+
+            # Add strategy to clock
+            if self.strategy and self.clock:
+                self.clock.add_iterator(self.strategy)
+
+                # Restore market states if markets recorder exists
+                if self.markets_recorder:
+                    for market in self.markets.values():
+                        self.markets_recorder.restore_market_states(self._strategy_file_name, market)
+
+            # Initialize kill switch if enabled
+            if self._trading_required and self.client_config_map.kill_switch_enabled:
+                self.kill_switch = self.client_config_map.kill_switch_mode.get_kill_switch(self)
+                await self._wait_till_ready(self.kill_switch.start)
+                if self.clock:
+                    self.clock.add_iterator(self.kill_switch)
+
+            self._logger.info(f"'{self.strategy_name}' strategy execution started.")
+
+        except Exception as e:
+            self._logger.error(f"Error starting strategy execution: {e}", exc_info=True)
+            raise
+
+    async def _run_clock(self):
+        """Run the clock system."""
+        with self.clock as clock:
+            await clock.run()
+
+    async def _wait_till_ready(self, func: Callable, *args, **kwargs):
+        """Wait until all markets are ready before executing function."""
+        while True:
+            all_ready = all([market.ready for market in self.markets.values()])
+            if not all_ready:
+                await asyncio.sleep(0.5)
+            else:
+                return func(*args, **kwargs)
+
+    async def stop_strategy(self, skip_order_cancellation: bool = False) -> bool:
+        """Stop the currently running strategy."""
+        try:
+            if not self._strategy_running:
+                self._logger.warning("No strategy is currently running")
+                return False
+
+            # Cancel outstanding orders
+            if not skip_order_cancellation:
+                await self._cancel_outstanding_orders()
+
+            # Remove strategy from clock
+            if self.clock is not None and self.strategy is not None:
+                self.clock.remove_iterator(self.strategy)
+
+            # Remove kill switch from clock
+            if self.clock is not None and self.kill_switch is not None:
+                self.clock.remove_iterator(self.kill_switch)
+                self.kill_switch.stop()
+
+            # Stop rate oracle
+            RateOracle.get_instance().stop()
+
+            # Clean up strategy components
+            self.strategy = None
+            self.strategy_task = None
+            self.kill_switch = None
+            self._strategy_running = False
+
+            self._logger.info("Strategy stopped successfully")
+            return True
+
+        except Exception as e:
+            self._logger.error(f"Failed to stop strategy: {e}")
+            return False
+
+    async def _cancel_outstanding_orders(self) -> bool:
+        """Cancel all outstanding orders."""
+        try:
+            cancellation_tasks = []
+            for connector in self.connector_manager.connectors.values():
+                if len(connector.limit_orders) > 0:
+                    cancellation_tasks.append(connector.cancel_all(self.KILL_TIMEOUT))
+
+            if cancellation_tasks:
+                await asyncio.gather(*cancellation_tasks, return_exceptions=True)
+
+            return True
+        except Exception as e:
+            self._logger.error(f"Error cancelling orders: {e}")
+            return False
+
+    def _initialize_markets_for_strategy(self):
+        """Initialize market data structures for backward compatibility."""
+        # Update market trading pairs map
+        self.market_trading_pairs_map.clear()
+        for name, connector in self.connector_manager.connectors.items():
+            self.market_trading_pairs_map[name] = connector.trading_pairs
+
+        # Update market trading pair tuples
+        self.market_trading_pair_tuples = [
+            MarketTradingPairTuple(connector, trading_pair, base, quote)
+            for name, connector in self.connector_manager.connectors.items()
+            for trading_pair in connector.trading_pairs
+            for base, quote in [trading_pair.split("-")]
+        ]
+
+    def get_status(self) -> Dict[str, Any]:
+        """Get current status of the trading engine."""
+        return {
+            'clock_running': self._is_running,
+            'strategy_running': self._strategy_running,
+            'strategy_name': self.strategy_name,
+            'strategy_file_name': self._strategy_file_name,
+            'strategy_type': self.detect_strategy_type(self.strategy_name).value if self.strategy_name else None,
+            'start_time': self.start_time,
+            'uptime': (time.time() * 1e3 - self.start_time) if self.start_time else 0,
+            'connectors': self.connector_manager.get_status(),
+            'paper_trade_enabled': self.client_config_map.paper_trade_enabled,
+            'kill_switch_enabled': self.client_config_map.kill_switch_enabled,
+            'markets_recorder_active': self.markets_recorder is not None,
+        }
+
+    def add_notifier(self, notifier: NotifierBase):
+        """Add a notifier to the engine."""
+        self.notifiers.append(notifier)
+
+    def notify(self, msg: str, level: str = "INFO"):
+        """Send a notification."""
+        self._logger.log(getattr(logging, level.upper(), logging.INFO), msg)
+        for notifier in self.notifiers:
+            notifier.add_message_to_queue(msg)
+
+    def initialize_markets(self, market_names: List[Tuple[str, List[str]]]):
+        """
+        Initialize markets for backward compatibility.
+
+        This method creates connectors based on the provided market names.
+
+        Args:
+            market_names: List of (exchange_name, trading_pairs) tuples
+        """
+        asyncio.create_task(self._initialize_markets_async(market_names))
+
+    def initialize_markets_sync(self, market_names: List[Tuple[str, List[str]]]):
+        """
+        Initialize markets synchronously for backward compatibility with strategy start files.
+
+        Args:
+            market_names: List of (exchange_name, trading_pairs) tuples
+        """
+        for connector_name, trading_pairs in market_names:
+            # Use connector_manager's connector creation method
+            connector = self.connector_manager.create_connector(
+                connector_name, trading_pairs, self._trading_required
+            )
+
+            # Add to clock if running
+            if self.clock and connector:
+                self.clock.add_iterator(connector)
+
+            # Add to markets recorder if exists
+            if self.markets_recorder and connector:
+                self.markets_recorder.add_market(connector)
+
+    async def _initialize_markets_async(self, market_names: List[Tuple[str, List[str]]]):
+        """Async version of initialize_markets."""
+        for connector_name, trading_pairs in market_names:
+            self.create_connector(connector_name, trading_pairs)
+
+    async def place_order(self, connector_name: str, trading_pair: str, order_type, trade_type, amount: float,
+                          price: float = None) -> str:
+        """Place an order through a connector."""
+        return await self.connector_manager.place_order(
+            connector_name, trading_pair, order_type, trade_type, amount, price
+        )
+
+    async def cancel_order(self, connector_name: str, trading_pair: str, order_id: str) -> bool:
+        """Cancel an order through a connector."""
+        return await self.connector_manager.cancel_order(connector_name, trading_pair, order_id)
+
+    def get_balance(self, connector_name: str, asset: str) -> float:
+        """Get balance for an asset from a connector."""
+        return self.connector_manager.get_balance(connector_name, asset)
+
+    def get_order_book(self, connector_name: str, trading_pair: str):
+        """Get order book from a connector."""
+        return self.connector_manager.get_order_book(connector_name, trading_pair)
+
+    async def start_mqtt(self) -> bool:
+        """Start MQTT gateway if configured."""
+        try:
+            if self._mqtt_started:
+                self._logger.debug("MQTT already started")
+                return True
+
+            if not self.mqtt_enabled:
+                self._logger.debug("MQTT not enabled in configuration")
+                return True
+
+            # Create MQTT gateway - pass self for backward compatibility
+            # Note: Some MQTT functionality may be limited without full HummingbotApplication
+            self._mqtt_gateway = MQTTGateway(self)
+
+            # Start MQTT
+            self._mqtt_gateway.start()
+
+            # Start market events forwarding if markets are available
+            if self.markets:
+                self._mqtt_gateway.start_market_events_fw()
+
+            mqtt_config = self.client_config_map.mqtt_bridge
+            self._logger.info(f"MQTT started - listening on {mqtt_config.mqtt_host}:{mqtt_config.mqtt_port}")
+
+            self._mqtt_started = True
+            return True
+
+        except Exception as e:
+            self._logger.error(f"Failed to start MQTT: {e}")
+            return False
+
+    def stop_mqtt(self):
+        """Stop MQTT gateway."""
+        try:
+            if self._mqtt_gateway and self._mqtt_started:
+                self._mqtt_gateway.stop()
+                self._logger.info("MQTT stopped")
+
+            self._mqtt_gateway = None
+            self._mqtt_started = False
+
+        except Exception as e:
+            self._logger.error(f"Error stopping MQTT: {e}")
+
+    def start_mqtt_market_events_forwarding(self):
+        """Start forwarding market events to MQTT."""
+        if self._mqtt_gateway and self._mqtt_started:
+            self._mqtt_gateway.start_market_events_fw()
+
+    async def shutdown(self) -> bool:
+        """
+        Shutdown the trading core completely.
+
+        This stops all strategies, connectors, and the clock.
+        """
+        try:
+            # Stop MQTT first
+            self.stop_mqtt()
+
+            # Stop strategy if running
+            if self._strategy_running:
+                await self.stop_strategy()
+
+            # Stop clock if running
+            if self._is_running:
+                await self.stop_clock()
+
+            # Stop markets recorder
+            if self.markets_recorder:
+                self.markets_recorder.stop()
+                self.markets_recorder = None
+
+            # Remove all connectors
+            connector_names = list(self.connector_manager.connectors.keys())
+            for name in connector_names:
+                await self.remove_connector(name)
+
+            self._logger.info("Trading core shutdown complete")
+            return True
+
+        except Exception as e:
+            self._logger.error(f"Error during shutdown: {e}")
+            return False
