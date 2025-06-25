@@ -620,9 +620,9 @@ def get_chain_for_connector(connector: str) -> str:
 def get_gateway_connector_class_by_name(connector_name: str) -> Callable:
     """
     Determine the appropriate gateway connector class based on the connector's trading types.
-    Returns GatewayLP for AMM/CLMM connectors, GatewaySwap for swap-only connectors.
+    Returns GatewayLp for AMM/CLMM connectors, GatewaySwap for swap-only connectors.
     """
-    from hummingbot.connector.gateway.gateway_lp import GatewayLP
+    from hummingbot.connector.gateway.gateway_lp import GatewayLp
     from hummingbot.connector.gateway.gateway_swap import GatewaySwap
 
     # Get connector info from gateway
@@ -630,9 +630,9 @@ def get_gateway_connector_class_by_name(connector_name: str) -> Callable:
     connector_info = connectors_info.get(connector_name, {})
     trading_types = connector_info.get("trading_types", [])
 
-    # If connector has AMM or CLMM trading types, use GatewayLP
+    # If connector has AMM or CLMM trading types, use GatewayLp
     if any(t in ["amm", "clmm"] for t in trading_types):
-        return GatewayLP
+        return GatewayLp
     else:
         # Default to GatewaySwap for swap-only connectors
         return GatewaySwap
