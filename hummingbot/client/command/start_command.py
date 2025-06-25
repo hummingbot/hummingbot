@@ -1,20 +1,15 @@
 import asyncio
-import importlib
-import inspect
 import platform
-import sys
 import threading
 import time
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set
 
 import pandas as pd
-import yaml
 
 import hummingbot.client.settings as settings
 from hummingbot import init_logging
 from hummingbot.client.command.gateway_api_manager import GatewayChainApiManager
 from hummingbot.client.command.gateway_command import GatewayCommand
-from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.client.config.config_helpers import get_strategy_starter_file
 from hummingbot.client.config.config_validators import validate_bool
 from hummingbot.client.config.config_var import ConfigVar
@@ -22,10 +17,7 @@ from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.exceptions import InvalidScriptModule, OracleRateUnavailable
-from hummingbot.strategy.directional_strategy_base import DirectionalStrategyBase
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
-from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
+from hummingbot.exceptions import OracleRateUnavailable
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
@@ -192,7 +184,8 @@ class StartCommand(GatewayChainApiManager):
         markets_list = []
         for conn, pairs in script_strategy.markets.items():
             markets_list.append((conn, list(pairs)))
-        self._initialize_markets(markets_list)
+        # Use trading_core's consolidated initialize_markets method
+        self.trading_core.initialize_markets(markets_list)
         if config:
             self.trading_core.strategy = script_strategy(self.trading_core.markets, config)
         else:
@@ -201,43 +194,17 @@ class StartCommand(GatewayChainApiManager):
     def load_script_class(self):
         """
         Imports the script module based on its name (module file name) and returns the loaded script class
-
-        :param script_name: name of the module where the script class is defined
+        Delegates to trading_core's consolidated logic.
         """
-        script_name = self.trading_core.strategy_name
-        config = None
-        module = sys.modules.get(f"{settings.SCRIPT_STRATEGIES_MODULE}.{script_name}")
-        if module is not None:
-            script_module = importlib.reload(module)
-        else:
-            script_module = importlib.import_module(f".{script_name}", package=settings.SCRIPT_STRATEGIES_MODULE)
-        try:
-            script_class = next((member for member_name, member in inspect.getmembers(script_module)
-                                 if inspect.isclass(member) and
-                                 issubclass(member, ScriptStrategyBase) and
-                                 member not in [ScriptStrategyBase, DirectionalStrategyBase, StrategyV2Base]))
-        except StopIteration:
-            raise InvalidScriptModule(f"The module {script_name} does not contain any subclass of ScriptStrategyBase")
+        # Set up trading_core with proper strategy file name for config loading
+        self.trading_core._strategy_file_name = self.strategy_file_name
+
+        # If we have a config file path, set it up for loading
         if self.trading_core.strategy_name != self.strategy_file_name:
-            try:
-                config_class = next((member for member_name, member in inspect.getmembers(script_module)
-                                    if inspect.isclass(member) and
-                                    issubclass(member, BaseClientModel) and member not in [BaseClientModel, StrategyV2ConfigBase]))
-                config = config_class(**self.load_script_yaml_config(config_file_path=self.strategy_file_name))
-                script_class.init_markets(config)
-            except StopIteration:
-                raise InvalidScriptModule(f"The module {script_name} does not contain any subclass of BaseModel")
+            self.trading_core._config_source = self.strategy_file_name
 
-        return script_class, config
-
-    @staticmethod
-    def load_script_yaml_config(config_file_path: str) -> dict:
-        with open(settings.SCRIPT_STRATEGY_CONF_DIR_PATH / config_file_path, 'r') as file:
-            return yaml.safe_load(file)
-
-    def is_current_strategy_script_strategy(self) -> bool:
-        script_file_name = settings.SCRIPT_STRATEGIES_PATH / f"{self.trading_core.strategy_name}.py"
-        return script_file_name.exists()
+        # Use trading_core's consolidated load_script_class method
+        return self.trading_core.load_script_class(self.trading_core.strategy_name)
 
     async def start_market_making(self,  # type: HummingbotApplication
                                   ):
@@ -267,7 +234,7 @@ class StartCommand(GatewayChainApiManager):
             self.logger().error(str(e), exc_info=True)
 
     def _initialize_strategy(self, strategy_name: str):
-        if self.is_current_strategy_script_strategy():
+        if self.trading_core.is_script_strategy(self.trading_core.strategy_name):
             self.start_script_strategy()
         else:
             start_strategy: Callable = get_strategy_starter_file(strategy_name)
