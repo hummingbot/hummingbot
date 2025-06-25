@@ -10,7 +10,6 @@ from hummingbot.client.config.security import Security
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.exchange.paper_trade import create_paper_trade_market
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 
 
@@ -186,55 +185,6 @@ class ConnectorManager:
     def get_all_connectors(self) -> Dict[str, ExchangeBase]:
         """Get all active connectors."""
         return self.connectors.copy()
-
-    async def place_order(self,
-                          connector_name: str,
-                          trading_pair: str,
-                          order_type: OrderType,
-                          trade_type: TradeType,
-                          amount: float,
-                          price: Optional[float] = None) -> str:
-        """
-        Place an order directly through a connector.
-
-        Args:
-            connector_name: Name of the connector
-            trading_pair: Trading pair
-            order_type: LIMIT or MARKET
-            trade_type: BUY or SELL
-            amount: Order amount
-            price: Order price (required for LIMIT orders)
-
-        Returns:
-            str: Order ID
-        """
-        connector = self.get_connector(connector_name)
-        if not connector:
-            raise ValueError(f"Connector {connector_name} not found")
-
-        if order_type == OrderType.LIMIT:
-            if price is None:
-                raise ValueError("Price required for LIMIT orders")
-            if trade_type == TradeType.BUY:
-                order_id = connector.buy(trading_pair, amount, order_type, price)
-            else:
-                order_id = connector.sell(trading_pair, amount, order_type, price)
-        else:  # MARKET order
-            if trade_type == TradeType.BUY:
-                order_id = connector.buy(trading_pair, amount, order_type)
-            else:
-                order_id = connector.sell(trading_pair, amount, order_type)
-
-        self._logger.info(f"Placed {trade_type.name} {order_type.name} order {order_id} on {connector_name}")
-        return order_id
-
-    async def cancel_order(self, connector_name: str, trading_pair: str, order_id: str) -> bool:
-        """Cancel an order."""
-        connector = self.get_connector(connector_name)
-        if not connector:
-            return False
-
-        return await connector.cancel(trading_pair, order_id)
 
     def get_order_book(self, connector_name: str, trading_pair: str) -> Any:
         """Get order book for a trading pair."""
