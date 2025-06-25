@@ -76,7 +76,7 @@ class GatewayBase(ConnectorBase):
         :param trading_required: Whether actual trading is needed. Useful for some functionalities or commands like the balance command
         """
         self._connector_name = connector_name
-        self._name = f"{connector_name}_{chain}_{network}"
+        self._name = f"{connector_name}_{network}"
         super().__init__(client_config_map)
         self._chain = chain
         self._network = network
@@ -170,7 +170,9 @@ class GatewayBase(ConnectorBase):
         try:
             wallets = await self._get_gateway_instance().get_wallets(self._chain)
             if not wallets or not wallets[0].get("walletAddresses"):
-                raise ValueError(f"No wallet found for chain {self._chain}")
+                error_msg = f"No wallet found for chain {self._chain}. Please add one with 'gateway wallet add {self._chain}'"
+                self.logger().error(error_msg)
+                raise ValueError(error_msg)
 
             # Use first wallet (in future, could use preferences)
             wallet_address = wallets[0]["walletAddresses"][0]
@@ -374,12 +376,20 @@ class GatewayBase(ConnectorBase):
 
             # Remove duplicates
             token_list = list(set(token_list))
-            resp_json: Dict[str, Any] = await self._get_gateway_instance().get_balances(
-                chain=self.chain,
-                network=self.network,
-                address=self.address,
-                token_symbols=token_list
-            )
+
+            try:
+                resp_json: Dict[str, Any] = await self._get_gateway_instance().get_balances(
+                    chain=self.chain,
+                    network=self.network,
+                    address=self.address,
+                    token_symbols=token_list
+                )
+            except Exception as e:
+                self.logger().warning(f"Failed to update balances: {str(e)}")
+                # If it's a wallet not found error, provide helpful message
+                if "Internal Server Error" in str(e) or "wallet" in str(e).lower():
+                    self.logger().warning(f"Please ensure you have a wallet configured for {self.chain}. Use 'gateway wallet add {self.chain}' to add one.")
+                return
             for token, bal in resp_json["balances"].items():
                 self._account_available_balances[token] = Decimal(str(bal))
                 self._account_balances[token] = Decimal(str(bal))

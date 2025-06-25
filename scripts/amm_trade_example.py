@@ -18,6 +18,8 @@ class DEXTradeConfig(BaseClientModel):
         "prompt": "Connector name (e.g. jupiter, uniswap, raydium/clmm)", "prompt_on_new": True})
     network: str = Field("mainnet-beta", json_schema_extra={
         "prompt": "Network (e.g. mainnet-beta, devnet, mainnet, base)", "prompt_on_new": True})
+    wallet_address: str = Field("", json_schema_extra={
+        "prompt": "Wallet address (leave empty to use the default wallet for the chain)", "prompt_on_new": False})
     trading_pair: str = Field("SOL-USDC", json_schema_extra={
         "prompt": "Trading pair (e.g. SOL-USDC)", "prompt_on_new": True})
     target_price: Decimal = Field(Decimal("142"), json_schema_extra={
