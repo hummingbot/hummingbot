@@ -31,11 +31,11 @@ def start(self):
     ]
 
     self._initialize_markets(market_names)
-    maker_data = [self.markets[maker_market], maker_trading_pair] + list(maker_assets)
-    taker_data = [self.markets[taker_market], taker_trading_pair] + list(taker_assets)
+    maker_data = [self.trading_core.markets[maker_market], maker_trading_pair] + list(maker_assets)
+    taker_data = [self.trading_core.markets[taker_market], taker_trading_pair] + list(taker_assets)
     maker_market_trading_pair_tuple = MarketTradingPairTuple(*maker_data)
     taker_market_trading_pair_tuple = MarketTradingPairTuple(*taker_data)
-    self.market_trading_pair_tuples = [maker_market_trading_pair_tuple, taker_market_trading_pair_tuple]
+    self.trading_core.market_trading_pair_tuples = [maker_market_trading_pair_tuple, taker_market_trading_pair_tuple]
     self.market_pair = MakerTakerMarketPair(maker=maker_market_trading_pair_tuple, taker=taker_market_trading_pair_tuple)
 
     strategy_logging_options = (
@@ -46,8 +46,8 @@ def start(self):
         LogOption.STATUS_REPORT,
         LogOption.MAKER_ORDER_HEDGED
     )
-    self.strategy = CrossExchangeMarketMakingStrategy()
-    self.strategy.init_params(
+    self.trading_core.strategy = CrossExchangeMarketMakingStrategy()
+    self.trading_core.strategy.init_params(
         config_map=c_map,
         market_pairs=[self.market_pair],
         status_report_interval=status_report_interval,
