@@ -365,6 +365,52 @@ Wallet added successfully: 0x1234...5678
 
 For production environments or when additional security is required, you can enable SSL encryption between Hummingbot and Gateway.
 
+### Docker Compose Configuration
+
+By default, Gateway runs in development mode (HTTP) when using Docker Compose. To switch between secure and non-secure modes:
+
+#### Non-SSL Mode (Development)
+In `docker-compose.yml`, add the `DEV=true` environment variable:
+```yaml
+  gateway:
+    restart: always
+    container_name: gateway
+    environment:
+      - GATEWAY_PASSPHRASE=a
+      - DEV=true  # Run in dev mode without SSL certificates
+```
+
+This allows Gateway to run without certificates, perfect for development and testing.
+
+Ensure Hummingbot's configuration matches in `conf/conf_client.yml`:
+```yaml
+gateway:
+  gateway_api_host: localhost
+  gateway_api_port: '15888'
+  gateway_use_ssl: false  # Must be false for dev mode
+```
+
+#### SSL Mode (Production)
+For production use, remove or set `DEV=false`:
+```yaml
+  gateway:
+    restart: always
+    container_name: gateway
+    environment:
+      - GATEWAY_PASSPHRASE=a
+      - DEV=false  # Or remove this line entirely
+```
+
+When running in SSL mode, you must:
+1. Generate certificates first (see below)
+2. Update Hummingbot's configuration in `conf/conf_client.yml`:
+   ```yaml
+   gateway:
+     gateway_api_host: localhost
+     gateway_api_port: '15888'
+     gateway_use_ssl: true  # Must be true for SSL mode
+   ```
+
 ### Enable SSL Mode
 
 1. **Generate Certificates in Hummingbot**:

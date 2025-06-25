@@ -45,3 +45,4 @@ services:
       - "./certs:/home/gateway/certs"
     environment:
       - GATEWAY_PASSPHRASE=a  # Set your passphrase here
+      - DEV=true  # Run in dev mode without SSL certificates
