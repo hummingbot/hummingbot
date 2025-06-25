@@ -98,83 +98,89 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
     AllConnectorSettings.initialize_paper_trade_settings(client_config_map.paper_trade.paper_trade_exchanges)
 
     # Create unified application that handles both headless and UI modes
-    if args.headless:
-        hb = HummingbotApplication(client_config_map=client_config_map, headless_mode=True)
-    else:
-        hb = HummingbotApplication.main_application(client_config_map=client_config_map)
+    hb = HummingbotApplication.main_application(client_config_map=client_config_map, headless_mode=args.headless)
 
-    # Handle strategy configuration if provided
-    strategy_config = None
-    is_script = False
-    script_config = None
-
+    # Load and start strategy if provided
     if config_file_name is not None:
-        # Set strategy file name
-        hb.strategy_file_name = config_file_name
-
-        if config_file_name.split(".")[-1] == "py":
-            # Script strategy
-            strategy_name = config_file_name.split(".")[0]
-            strategy_file_name = args.script_conf if args.script_conf else config_file_name
-            is_script = True
-            script_config = args.script_conf if args.script_conf else None
-
-            # For headless mode, start strategy directly
-            if args.headless:
-                logging.getLogger().info(f"Starting script strategy: {strategy_name}")
-                success = await hb.trading_core.start_strategy(
-                    strategy_name,
-                    None,  # No config for simple script strategies
-                    strategy_file_name
-                )
-                if not success:
-                    logging.getLogger().error("Failed to start strategy")
-                    return
-            else:
-                # For UI mode, set properties for UIStartListener
-                hb.trading_core.strategy_name = strategy_name
-        else:
-            # Regular strategy with config file
-            strategy_config = await load_strategy_config_map_from_file(
-                STRATEGIES_CONF_DIR_PATH / config_file_name
-            )
-            strategy_name = (
-                strategy_config.strategy
-                if isinstance(strategy_config, ClientConfigAdapter)
-                else strategy_config.get("strategy").value
-            )
-
-            # For headless mode, start strategy directly
-            if args.headless:
-                logging.getLogger().info(f"Starting strategy: {strategy_name}")
-                success = await hb.trading_core.start_strategy(
-                    strategy_name,
-                    strategy_config,
-                    config_file_name
-                )
-                if not success:
-                    logging.getLogger().error("Failed to start strategy")
-                    return
-            else:
-                # For UI mode, set properties for UIStartListener
-                hb.trading_core.strategy_name = strategy_name
-                hb.strategy_config_map = strategy_config
-
-                # Check if config is complete for UI mode
-                if not all_configs_complete(strategy_config, hb.client_config_map):
-                    hb.status()
+        await load_and_start_strategy(hb, args, config_file_name)
 
     # Run the application
+    await run_application(hb, args, client_config_map)
+
+
+async def load_and_start_strategy(hb: HummingbotApplication, args: argparse.Namespace, config_file_name: str):
+    """Load and start strategy based on file type and mode."""
+    hb.strategy_file_name = config_file_name
+
+    if config_file_name.endswith(".py"):
+        # Script strategy
+        strategy_name = config_file_name.replace(".py", "")
+        strategy_config_file = args.script_conf  # Optional config file for script
+
+        if args.headless:
+            logging.getLogger().info(f"Starting script strategy: {strategy_name}")
+            success = await hb.trading_core.start_strategy(
+                strategy_name,
+                strategy_config_file,  # Pass config file path if provided
+                config_file_name
+            )
+            if not success:
+                logging.getLogger().error("Failed to start strategy")
+                return False
+        else:
+            # UI mode - set properties for UIStartListener
+            hb.trading_core.strategy_name = strategy_name
+            if strategy_config_file:
+                hb.script_config = strategy_config_file
+    else:
+        # Regular strategy with YAML config
+        strategy_config = await load_strategy_config_map_from_file(
+            STRATEGIES_CONF_DIR_PATH / config_file_name
+        )
+        strategy_name = (
+            strategy_config.strategy
+            if isinstance(strategy_config, ClientConfigAdapter)
+            else strategy_config.get("strategy").value
+        )
+
+        if args.headless:
+            logging.getLogger().info(f"Starting strategy: {strategy_name}")
+            success = await hb.trading_core.start_strategy(
+                strategy_name,
+                strategy_config,
+                config_file_name
+            )
+            if not success:
+                logging.getLogger().error("Failed to start strategy")
+                return False
+        else:
+            # UI mode - set properties for UIStartListener
+            hb.trading_core.strategy_name = strategy_name
+            hb.strategy_config_map = strategy_config
+
+            # Check if config is complete for UI mode
+            if not all_configs_complete(strategy_config, hb.client_config_map):
+                hb.status()
+
+    return True
+
+
+async def run_application(hb: HummingbotApplication, args: argparse.Namespace, client_config_map):
+    """Run the application in headless or UI mode."""
     if args.headless:
         # Automatically enable MQTT autostart for headless mode
         if not hb.client_config_map.mqtt_bridge.mqtt_autostart:
             logging.getLogger().info("Headless mode detected - automatically enabling MQTT autostart")
             hb.client_config_map.mqtt_bridge.mqtt_autostart = True
+            hb.mqtt_start()
 
         # Simple headless execution
         await hb.run()
     else:
-        # Set up UI start listener for strategy auto-start
+        # Set up UI mode with start listener
+        is_script = hb.strategy_file_name and hb.strategy_file_name.endswith(".py") if hb.strategy_file_name else False
+        script_config = getattr(hb, 'script_config', None)
+
         start_listener: UIStartListener = UIStartListener(
             hb,
             is_script=is_script,
