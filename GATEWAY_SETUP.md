@@ -507,3 +507,34 @@ For detailed logging:
 # In Gateway
 DEBUG=* yarn start --dev
 ```
+
+### Preventing Duplicate Configuration Directories
+
+When running Gateway from both source and Docker, you may end up with two configuration directories:
+- `gateway/conf/` - Used when running from source
+- `gateway_files/conf/` - Used when running with Docker
+
+#### Solution: Use Symlinks (Recommended)
+
+The easiest solution is to create a symlink so both setups share the same configuration.
+
+**Option 1: Use the provided script**
+```bash
+# Run from hummingbot root directory
+./scripts/gateway_config_symlink.sh
+```
+
+**Option 2: Create manually**
+```bash
+# Remove Docker's config directory
+rm -rf gateway_files/conf
+
+# Create symlink from gateway_files to gateway's conf
+ln -s ../gateway/conf gateway_files/conf
+```
+
+This way:
+- Running from source uses `gateway/conf/`
+- Running from Docker also uses `gateway/conf/` (via the symlink)
+- You maintain a single configuration directory
+- Wallets and settings are shared between both setups
