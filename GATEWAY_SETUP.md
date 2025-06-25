@@ -87,7 +87,10 @@ cd hummingbot
 
 # Install Gateway dependencies
 cd gateway
-yarn install
+pnpm install
+
+# Build Gateway (compile TypeScript to JavaScript)
+pnpm build
 
 # Run Gateway setup script
 ./gateway-setup.sh
@@ -105,7 +108,7 @@ cd ..
 
 # Start Gateway (in a separate terminal)
 cd gateway
-yarn start --dev
+pnpm start --dev
 
 # Start Hummingbot
 ./start
@@ -215,7 +218,10 @@ git clone https://github.com/hummingbot/gateway.git
 cd gateway
 
 # Install dependencies
-yarn install
+pnpm install
+
+# Build Gateway (compile TypeScript to JavaScript)
+pnpm build
 
 # Run the setup script
 ./gateway-setup.sh
@@ -230,7 +236,9 @@ yarn install
 ```bash
 # Start Gateway (in Gateway directory)
 cd gateway
-yarn start --dev
+# Build if not already built
+pnpm build
+pnpm start --dev
 
 # In separate terminal, start Hummingbot
 cd hummingbot
@@ -250,7 +258,7 @@ gateway:
   gateway_use_ssl: false      # Default: false for easier setup
 ```
 
-This configuration works out of the box with the `yarn start --dev` command. No certificates are required for basic operation.
+This configuration works out of the box with the `pnpm start --dev` command. No certificates are required for basic operation.
 
 ## Wallet Management
 
@@ -458,7 +466,7 @@ certs_path: /path/to/hummingbot/certs
 4. **Start Gateway with SSL**:
 ```bash
 # Start Gateway in production mode (with SSL)
-yarn start
+pnpm start
 
 # Note: Do NOT use --dev flag when SSL is enabled
 ```
@@ -490,7 +498,7 @@ If you've enabled SSL mode and encounter certificate errors:
 1. Verify Gateway is running:
    ```bash
    # In Gateway directory
-   yarn start --dev
+   pnpm start --dev
    ```
 2. Check port 15888 is not blocked
 3. Verify `gateway_api_host` and `gateway_api_port` in configuration
@@ -505,7 +513,7 @@ Gateway v2.7 includes automatic retry logic for rate limits. If issues persist:
 For detailed logging:
 ```bash
 # In Gateway
-DEBUG=* yarn start --dev
+DEBUG=* pnpm start --dev
 ```
 
 ### Preventing Duplicate Configuration Directories
