@@ -3,6 +3,7 @@
 This guide covers the installation, configuration, and usage of Hummingbot Gateway v2.7.
 
 ## Table of Contents
+- [Changes from v2.6](#changes-from-v26)
 - [Installation](#installation)
 - [Configuration](#configuration)
 - [Wallet Management](#wallet-management)
@@ -10,6 +11,62 @@ This guide covers the installation, configuration, and usage of Hummingbot Gatew
 - [Connecting to DEXs](#connecting-to-dexs)
 - [Secure Gateway behind SSL](#secure-gateway-behind-ssl)
 - [Troubleshooting](#troubleshooting)
+
+## Changes from v2.6
+
+Gateway v2.7 introduces significant architectural improvements for better performance, reliability, and ease of use:
+
+### Major Architectural Changes
+
+1. **Centralized Wallet Management**
+   - Wallets are now connected to **chains**, not individual connectors
+   - One wallet per chain is used across all DEX connectors on that chain
+   - Example: A single Ethereum wallet works for Uniswap, SushiSwap, and all other Ethereum DEXs
+   - Wallet addresses are no longer stored in `gateway_connections.json`
+
+2. **Improved Gateway HTTP Client**
+   - Single consolidated `GatewayHttpClient` for all Gateway interactions
+   - Automatic gateway state initialization on startup
+   - Built-in caching for wallets, connectors, and chains
+   - Better error handling and rate limit management
+
+3. **Enhanced Transaction Handling**
+   - Transactions now use a "send and poll for hash" approach instead of black box execution
+   - Dynamic fee control with automatic 2x multiplier on retries
+   - Non-blocking transaction execution with background retry logic
+   - Fee estimate caching for improved performance
+   - More transparent transaction status tracking
+
+4. **New Wallet Commands**
+   - `gateway wallet add <chain>` - Add a wallet for a specific chain
+   - `gateway wallet list [chain]` - List all wallets or filter by chain
+   - `gateway wallet remove <chain> <address>` - Remove a wallet from a chain
+
+5. **Removed Commands & Features**
+   - `gateway connect <connector>` - No longer needed; connectors auto-detect wallets
+   - `gateway connector-tokens` - Token management is now automatic
+   - Per-DEX wallet configuration - Replaced by chain-based wallets
+   - Legacy transaction tracking systems
+
+### Technical Improvements
+
+- Gateway modules moved from `core/gateway` to `connector/gateway`
+- Simplified connector detection and initialization
+- 5-minute TTL cache for dynamic wallet resolution
+- Support for both HTTP and HTTPS modes with `gateway_use_ssl` configuration
+- Improved error messages and debugging capabilities
+
+### Migration from v2.6
+
+If upgrading from v2.6:
+1. Add wallets for each chain you plan to use:
+   ```bash
+   >>> gateway wallet add ethereum
+   >>> gateway wallet add solana
+   ```
+2. Remove any connector-specific configurations from `gateway_connections.json`
+3. Connectors will automatically use the first available wallet for their chain
+4. Review and update any custom scripts that relied on the old transaction handling
 
 ## Installation
 
@@ -298,20 +355,6 @@ Wallet added successfully: 0x1234...5678
 ```
 
 ## Connecting to DEXs
-
-### Connect to a DEX
-```bash
->>> gateway connect <connector>
-
-# Example:
->>> gateway connect uniswap
-```
-
-The connection process:
-1. Automatically detects the required chain
-2. Uses the default wallet for that chain
-3. No manual wallet selection needed
-4. Saves connection in `gateway_connections.json`
 
 ### List DEX Connectors
 ```bash
