@@ -70,14 +70,25 @@ git submodule update --remote --merge
 ```
 
 ### Option 2: Install with Docker
-Use Docker Compose to run both Hummingbot and Gateway together:
 
-1. **Edit docker-compose.yml** to uncomment the Gateway service:
+#### Using Pre-built Images
+To use the official Docker images from Docker Hub:
+
+1. **Edit docker-compose.yml** to uncomment the Gateway service (keep the default image configuration)
+
+#### Building from Local Source
+To build and use Docker images from your local source code:
+
+1. **Edit docker-compose.yml** to build from local source:
 ```yaml
 services:
   hummingbot:
     container_name: hummingbot
-    image: hummingbot/hummingbot:latest
+    # Comment out the image line and uncomment build section
+    # image: hummingbot/hummingbot:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     volumes:
       - ./conf:/home/hummingbot/conf
       - ./logs:/home/hummingbot/logs
@@ -91,7 +102,11 @@ services:
   gateway:
     restart: always
     container_name: gateway
-    image: hummingbot/gateway:latest
+    # Comment out the image line and add build section
+    # image: hummingbot/gateway:latest
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
     ports:
       - "15888:15888"
       - "8080:8080"
@@ -104,12 +119,22 @@ services:
       - GATEWAY_PASSPHRASE=a  # Set your passphrase here
 ```
 
-2. **Create required directories**:
+2. **Build the Docker images**:
+```bash
+# Build both images
+docker-compose build
+
+# Or build individually
+docker-compose build hummingbot
+docker-compose build gateway
+```
+
+3. **Create required directories**:
 ```bash
 mkdir -p gateway_files/{conf,logs,db}
 ```
 
-3. **Start both services**:
+4. **Start both services**:
 ```bash
 # Start both Hummingbot and Gateway
 docker-compose up -d
@@ -120,6 +145,8 @@ docker-compose logs -f
 # Connect to Hummingbot
 docker attach hummingbot
 ```
+
+> **Note**: When building from source, Docker will use your local code changes. This is useful for testing modifications or using the latest development version.
 
 ### Option 3: Separate Hummingbot and Gateway Installs
 For advanced users who want to run Hummingbot and Gateway independently:
