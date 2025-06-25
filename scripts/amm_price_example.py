@@ -14,11 +14,11 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 class DEXPriceConfig(BaseClientModel):
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
     connector: str = Field("jupiter", json_schema_extra={
-        "prompt": "DEX to swap on", "prompt_on_new": True})
-    chain: str = Field("solana", json_schema_extra={
-        "prompt": "Chain", "prompt_on_new": True})
+        "prompt": "Connector name (e.g. jupiter, uniswap, raydium/clmm)", "prompt_on_new": True})
     network: str = Field("mainnet-beta", json_schema_extra={
-        "prompt": "Network", "prompt_on_new": True})
+        "prompt": "Network (e.g. mainnet-beta, devnet, mainnet, base)", "prompt_on_new": True})
+    wallet_address: str = Field("", json_schema_extra={
+        "prompt": "Wallet address (leave empty to use the default wallet for the chain)", "prompt_on_new": False})
     trading_pair: str = Field("SOL-USDC", json_schema_extra={
         "prompt": "Trading pair in which the bot will place orders", "prompt_on_new": True})
     is_buy: bool = Field(True, json_schema_extra={
@@ -34,13 +34,14 @@ class DEXPrice(ScriptStrategyBase):
 
     @classmethod
     def init_markets(cls, config: DEXPriceConfig):
-        connector_chain_network = f"{config.connector}_{config.chain}_{config.network}"
-        cls.markets = {connector_chain_network: {config.trading_pair}}
+        # For gateway connectors, use connector_network format (chain is determined by connector)
+        market_name = f"{config.connector}_{config.network}"
+        cls.markets = {market_name: {config.trading_pair}}
 
     def __init__(self, connectors: Dict[str, ConnectorBase], config: DEXPriceConfig):
         super().__init__(connectors)
         self.config = config
-        self.exchange = f"{config.connector}_{config.chain}_{config.network}"
+        self.exchange = f"{config.connector}_{config.network}"
         self.base, self.quote = self.config.trading_pair.split("-")
 
     def on_tick(self):
@@ -51,7 +52,8 @@ class DEXPrice(ScriptStrategyBase):
     async def async_task(self):
         # fetch price using GatewaySwap instead of direct HTTP call
         side = "buy" if self.config.is_buy else "sell"
-        msg = (f"Getting quote on {self.exchange} "
+        msg = (f"Getting quote on {self.config.connector} "
+               f"({self.config.network}) "
                f"to {side} {self.config.amount} {self.base} "
                f"for {self.quote}")
         try:
