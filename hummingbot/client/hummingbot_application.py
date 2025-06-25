@@ -11,7 +11,10 @@ from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import (
     ClientConfigAdapter,
     ReadOnlyClientConfigAdapter,
+    get_available_gateway_connectors,
+    get_chain_for_connector,
     get_connector_class,
+    get_gateway_connector_class_by_name,
     get_strategy_config_map,
     load_client_config_map_from_file,
     load_ssl_config_map_from_file,
@@ -299,6 +302,39 @@ class HummingbotApplication(*commands):
                 self.market_trading_pairs_map[market_name].append(hb_trading_pair)
 
         for connector_name, trading_pairs in self.market_trading_pairs_map.items():
+            # Check if this is a gateway connector
+            parts = connector_name.split("_")
+            if len(parts) >= 2:
+                # Extract the connector part which might include a type suffix (e.g., raydium/clmm)
+                connector_with_type = parts[0]
+
+                # Check if this connector is available in gateway
+                available_connectors = get_available_gateway_connectors()
+                if connector_with_type in available_connectors:
+                    # Gateway connector: connector/type_network format
+                    network = "_".join(parts[1:])  # Handle network names with underscores
+
+                    # Get the appropriate gateway connector class based on the connector type
+                    connector_class = get_gateway_connector_class_by_name(connector_with_type)
+
+                    # Determine the chain based on the connector
+                    chain = get_chain_for_connector(connector_with_type)
+
+                    # Initialize gateway connector
+                    read_only_config = ReadOnlyClientConfigAdapter.lock_config(self.client_config_map)
+                    connector = connector_class(
+                        connector_name=connector_with_type,
+                        chain=chain,
+                        network=network,
+                        address="",  # Will be fetched from gateway
+                        trading_pairs=trading_pairs,
+                        trading_required=self._trading_required,
+                        client_config=read_only_config
+                    )
+                    self.markets[connector_name] = connector
+                    continue
+
+            # Regular connector
             conn_setting = AllConnectorSettings.get_connector_settings()[connector_name]
 
             if connector_name.endswith("paper_trade") and conn_setting.type == ConnectorType.Exchange:

@@ -31,7 +31,7 @@ class AmmGatewayDataFeed(NetworkBase):
 
     def __init__(
         self,
-        connector_chain_network: str,
+        connector_chain_network: str,  # Now in format "connector_network" (e.g., "jupiter_mainnet-beta")
         trading_pairs: Set[str],
         order_amount_in_base: Decimal,
         update_interval: float = 1.0,
@@ -46,6 +46,15 @@ class AmmGatewayDataFeed(NetworkBase):
         self.trading_pairs = trading_pairs
         self.order_amount_in_base = order_amount_in_base
 
+        # Parse connector and network from the new format
+        parts = connector_chain_network.split("_")
+        self._connector = parts[0]
+        self._network = "_".join(parts[1:])  # Handle networks with underscores
+
+        # Get chain from gateway connector info
+        from hummingbot.client.config.config_helpers import get_chain_for_connector
+        self._chain = get_chain_for_connector(self._connector)
+
     @classmethod
     def logger(cls) -> HummingbotLogger:
         if cls.dex_logger is None:
@@ -58,15 +67,15 @@ class AmmGatewayDataFeed(NetworkBase):
 
     @property
     def connector(self) -> str:
-        return self.connector_chain_network.split("_")[0]
+        return self._connector
 
     @property
     def chain(self) -> str:
-        return self.connector_chain_network.split("_")[1]
+        return self._chain
 
     @property
     def network(self) -> str:
-        return self.connector_chain_network.split("_")[2]
+        return self._network
 
     @property
     def price_dict(self) -> Dict[str, TokenBuySellPrice]:

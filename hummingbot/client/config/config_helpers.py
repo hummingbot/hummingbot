@@ -543,10 +543,113 @@ def _merge_dicts(*args: Dict[str, ConfigVar]) -> OrderedDict:
 
 
 def get_connector_class(connector_name: str) -> Callable:
+    # Check if this is a gateway connector (format: connector/type_network or connector_network)
+    parts = connector_name.split("_")
+    if len(parts) >= 2:
+        # Extract the connector part which might include a type suffix (e.g., raydium/clmm)
+        connector_with_type = parts[0]
+
+        # Check if it's a known gateway connector (with or without type suffix)
+        base_connector = connector_with_type.split("/")[0]
+        if base_connector in get_available_gateway_connectors():
+            # This is a gateway connector, determine the class based on trading types
+            return get_gateway_connector_class_by_name(connector_with_type)
+
+    # Regular connector
     conn_setting = AllConnectorSettings.get_connector_settings()[connector_name]
     mod = __import__(conn_setting.module_path(),
                      fromlist=[conn_setting.class_name()])
     return getattr(mod, conn_setting.class_name())
+
+
+_gateway_connectors_cache = None
+_gateway_connectors_cache_time = 0
+
+
+def get_gateway_connectors_info() -> Dict[str, Dict[str, Any]]:
+    """
+    Get connector information from gateway, with caching.
+    Returns a dict mapping connector names to their info (chain, trading_types, networks).
+    """
+    import time
+
+    from hummingbot.connector.gateway.gateway_http_client import GatewayHttpClient
+
+    global _gateway_connectors_cache, _gateway_connectors_cache_time
+
+    # Cache for 60 seconds
+    if _gateway_connectors_cache and (time.time() - _gateway_connectors_cache_time) < 60:
+        return _gateway_connectors_cache
+
+    try:
+        gateway_client = GatewayHttpClient.get_instance()
+        import asyncio
+        loop = asyncio.get_event_loop()
+
+        # If we're in an async context, we need to handle it differently
+        if loop.is_running():
+            # Can't use run_until_complete in a running loop
+            # Return cached data or empty dict
+            return _gateway_connectors_cache or {}
+
+        # Fetch connectors from gateway
+        connectors_response = loop.run_until_complete(
+            gateway_client.get_connectors()
+        )
+
+        # Build a mapping of connector name to info
+        connectors_map = {}
+        for connector in connectors_response.get("connectors", []):
+            name = connector["name"]
+            connectors_map[name] = {
+                "chain": connector.get("chain", ""),
+                "trading_types": connector.get("trading_types", []),
+                "networks": connector.get("networks", [])
+            }
+
+        _gateway_connectors_cache = connectors_map
+        _gateway_connectors_cache_time = time.time()
+        return connectors_map
+
+    except Exception:
+        # If gateway is not available, return empty dict
+        return _gateway_connectors_cache or {}
+
+
+def get_available_gateway_connectors() -> List[str]:
+    """Get list of available gateway connectors from the gateway."""
+    connectors_info = get_gateway_connectors_info()
+    return list(connectors_info.keys())
+
+
+def get_chain_for_connector(connector: str) -> str:
+    """
+    Get the chain for a given connector from gateway info.
+    """
+    connectors_info = get_gateway_connectors_info()
+    connector_info = connectors_info.get(connector, {})
+    return connector_info.get("chain", "ethereum")  # Default to ethereum if not found
+
+
+def get_gateway_connector_class_by_name(connector_name: str) -> Callable:
+    """
+    Determine the appropriate gateway connector class based on the connector's trading types.
+    Returns GatewayLP for AMM/CLMM connectors, GatewaySwap for swap-only connectors.
+    """
+    from hummingbot.connector.gateway.gateway_lp import GatewayLP
+    from hummingbot.connector.gateway.gateway_swap import GatewaySwap
+
+    # Get connector info from gateway
+    connectors_info = get_gateway_connectors_info()
+    connector_info = connectors_info.get(connector_name, {})
+    trading_types = connector_info.get("trading_types", [])
+
+    # If connector has AMM or CLMM trading types, use GatewayLP
+    if any(t in ["amm", "clmm"] for t in trading_types):
+        return GatewayLP
+    else:
+        # Default to GatewaySwap for swap-only connectors
+        return GatewaySwap
 
 
 def get_strategy_config_map(

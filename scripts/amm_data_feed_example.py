@@ -16,11 +16,9 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 class AMMDataFeedConfig(BaseClientModel):
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
     connector: str = Field("jupiter", json_schema_extra={
-        "prompt": "DEX connector name", "prompt_on_new": True})
-    chain: str = Field("solana", json_schema_extra={
-        "prompt": "Chain", "prompt_on_new": True})
+        "prompt": "DEX connector name (e.g. jupiter, raydium/clmm)", "prompt_on_new": True})
     network: str = Field("mainnet-beta", json_schema_extra={
-        "prompt": "Network", "prompt_on_new": True})
+        "prompt": "Network (e.g. mainnet-beta, devnet, mainnet, base)", "prompt_on_new": True})
     order_amount_in_base: Decimal = Field(Decimal("1.0"), json_schema_extra={
         "prompt": "Order amount in base currency", "prompt_on_new": True})
     trading_pair_1: str = Field("SOL-USDC", json_schema_extra={
@@ -58,12 +56,12 @@ class AMMDataFeedExample(ScriptStrategyBase):
         if config.trading_pair_3:
             trading_pairs.add(config.trading_pair_3)
 
-        # Create connector chain network string
-        connector_chain_network = f"{config.connector}_{config.chain}_{config.network}"
+        # Create connector network string (no chain needed)
+        connector_network = f"{config.connector}_{config.network}"
 
         # Initialize the AMM data feed
         self.amm_data_feed = AmmGatewayDataFeed(
-            connector_chain_network=connector_chain_network,
+            connector_chain_network=connector_network,
             trading_pairs=trading_pairs,
             order_amount_in_base=config.order_amount_in_base,
         )
@@ -79,7 +77,7 @@ class AMMDataFeedExample(ScriptStrategyBase):
             self.file_name = f"{config.file_name}.csv"
         else:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            self.file_name = f"{connector_chain_network}_{timestamp}.csv"
+            self.file_name = f"{connector_network}_{timestamp}.csv"
 
         self.file_path = os.path.join(self.data_dir, self.file_name)
         self.logger().info(f"Data will be saved to: {self.file_path}")
