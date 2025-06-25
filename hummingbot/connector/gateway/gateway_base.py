@@ -362,6 +362,19 @@ class GatewayBase(ConnectorBase):
         if self._native_currency is None:
             await self.get_chain_info()
 
+        # Ensure we have a wallet address
+        try:
+            if not self._wallet_address and not self._wallet_cache:
+                await self.get_wallet_for_chain()
+        except Exception as e:
+            self.logger().warning(f"No wallet available for {self.chain}: {str(e)}")
+            # Set empty balances to allow connector to be ready
+            if not self._account_balances and self._trading_required:
+                for token in self._tokens:
+                    self._account_balances[token] = Decimal("0")
+                    self._account_available_balances[token] = Decimal("0")
+            return
+
         last_tick = self._last_balance_poll_timestamp
         current_tick = self.current_timestamp
         if not on_interval or (current_tick - last_tick) > self.UPDATE_BALANCE_INTERVAL:
@@ -378,10 +391,18 @@ class GatewayBase(ConnectorBase):
             token_list = list(set(token_list))
 
             try:
+                # Get the wallet address (use cached or instance variable)
+                wallet_address = self._wallet_address or self._wallet_cache
+                if not wallet_address:
+                    raise ValueError(f"No wallet address available for {self.chain}")
+
+                # Log the request details for debugging
+                self.logger().debug(f"Fetching balances - chain: {self.chain}, network: {self.network}, address: {wallet_address}, tokens: {token_list}")
+
                 resp_json: Dict[str, Any] = await self._get_gateway_instance().get_balances(
                     chain=self.chain,
                     network=self.network,
-                    address=self.address,
+                    address=wallet_address,
                     token_symbols=token_list
                 )
             except Exception as e:
@@ -389,6 +410,12 @@ class GatewayBase(ConnectorBase):
                 # If it's a wallet not found error, provide helpful message
                 if "Internal Server Error" in str(e) or "wallet" in str(e).lower():
                     self.logger().warning(f"Please ensure you have a wallet configured for {self.chain}. Use 'gateway wallet add {self.chain}' to add one.")
+                    # Don't mark connector as not ready if balance fetch fails initially
+                    # Set minimal balances to allow connector to be ready
+                    if not self._account_balances:
+                        for token in token_list:
+                            self._account_balances[token] = Decimal("0")
+                            self._account_available_balances[token] = Decimal("0")
                 return
             for token, bal in resp_json["balances"].items():
                 self._account_available_balances[token] = Decimal(str(bal))
