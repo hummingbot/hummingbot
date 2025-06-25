@@ -129,18 +129,10 @@ docker-compose build hummingbot
 docker-compose build gateway
 ```
 
-3. **Create required directories**:
-```bash
-mkdir -p gateway_files/{conf,logs,db}
-```
-
-4. **Start both services**:
+3. **Start both services**:
 ```bash
 # Start both Hummingbot and Gateway
 docker-compose up -d
-
-# View logs
-docker-compose logs -f
 
 # Connect to Hummingbot
 docker attach hummingbot
