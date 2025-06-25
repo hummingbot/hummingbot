@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import asyncio
 import logging
 import time
@@ -10,40 +8,28 @@ from hummingbot.client.command import __all__ as commands
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import (
     ClientConfigAdapter,
-    ReadOnlyClientConfigAdapter,
-    get_connector_class,
     get_strategy_config_map,
     load_client_config_map_from_file,
     load_ssl_config_map_from_file,
     save_to_yml,
 )
 from hummingbot.client.config.gateway_ssl_config_map import SSLConfigMap
-from hummingbot.client.config.security import Security
 from hummingbot.client.config.strategy_config_data_types import BaseStrategyConfigMap
-from hummingbot.client.settings import CLIENT_CONFIG_PATH, AllConnectorSettings, ConnectorType
+from hummingbot.client.settings import CLIENT_CONFIG_PATH
 from hummingbot.client.tab import __all__ as tab_classes
 from hummingbot.client.tab.data_types import CommandTab
 from hummingbot.client.ui.completer import load_completer
 from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
 from hummingbot.client.ui.keybindings import load_key_bindings
 from hummingbot.client.ui.parser import ThrowingArgumentParser, load_parser
-from hummingbot.connector.exchange.paper_trade import create_paper_trade_market
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.markets_recorder import MarketsRecorder
-from hummingbot.core.clock import Clock
 from hummingbot.core.gateway.gateway_status_monitor import GatewayStatusMonitor
-from hummingbot.core.utils.kill_switch import KillSwitch
+from hummingbot.core.trading_core import TradingCore
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
-from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.exceptions import ArgumentParserError
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
-from hummingbot.model.sql_connection_manager import SQLConnectionManager
-from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.remote_iface.mqtt import MQTTGateway
-from hummingbot.strategy.maker_taker_market_pair import MakerTakerMarketPair
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.strategy_base import StrategyBase
 
 s_logger = None
 
@@ -68,50 +54,49 @@ class HummingbotApplication(*commands):
             cls._main_app = HummingbotApplication(client_config_map)
         return cls._main_app
 
-    def __init__(self, client_config_map: Optional[ClientConfigAdapter] = None):
+    def __init__(self, client_config_map: Optional[ClientConfigAdapter] = None, headless_mode: bool = False):
         self.client_config_map: Union[ClientConfigMap, ClientConfigAdapter] = (  # type-hint enables IDE auto-complete
             client_config_map or load_client_config_map_from_file()
         )
+        self.headless_mode = headless_mode
         self.ssl_config_map: SSLConfigMap = (  # type-hint enables IDE auto-complete
             load_ssl_config_map_from_file()
         )
-        # This is to start fetching trading pairs for auto-complete
-        TradingPairFetcher.get_instance(self.client_config_map)
         self.ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-        self.markets: Dict[str, ExchangeBase] = {}
-        # strategy file name and name get assigned value after import or create command
-        self._strategy_file_name: Optional[str] = None
-        self.strategy_name: Optional[str] = None
-        self._strategy_config_map: Optional[BaseStrategyConfigMap] = None
-        self.strategy_task: Optional[asyncio.Task] = None
-        self.strategy: Optional[StrategyBase] = None
-        self.market_pair: Optional[MakerTakerMarketPair] = None
-        self.market_trading_pair_tuples: List[MarketTradingPairTuple] = []
-        self.clock: Optional[Clock] = None
-        self.market_trading_pairs_map = {}
-        self.token_list = {}
+        # Initialize core trading functionality
+        self.trading_core = TradingCore(self.client_config_map)
 
+        # Application-specific properties
         self.init_time: float = time.time()
         self.start_time: Optional[int] = None
         self.placeholder_mode = False
         self.log_queue_listener: Optional[logging.handlers.QueueListener] = None
-        self.data_feed: Optional[DataFeedBase] = None
-        self.notifiers: List[NotifierBase] = []
-        self.kill_switch: Optional[KillSwitch] = None
         self._app_warnings: Deque[ApplicationWarning] = deque()
         self._trading_required: bool = True
         self._last_started_strategy_file: Optional[str] = None
+        self.token_list = {}
 
-        self.trade_fill_db: Optional[SQLConnectionManager] = None
-        self.markets_recorder: Optional[MarketsRecorder] = None
-        self._pmm_script_iterator = None
-        self._binance_connector = None
-        self._shared_client = None
-        self._mqtt: MQTTGateway = None
+        # MQTT management (delegate to trading_core)
+        self._mqtt: Optional[MQTTGateway] = None
 
-        # gateway variables and monitor
+        # Gateway variables and monitor
         self._gateway_monitor = GatewayStatusMonitor(self)
 
+        # Initialize UI components only if not in headless mode
+        if not headless_mode:
+            self._init_ui_components()
+
+        # This is to start fetching trading pairs for auto-complete (only for UI mode)
+        if not headless_mode:
+            TradingPairFetcher.get_instance(self.client_config_map)
+
+        self._init_gateway_monitor()
+        # MQTT Bridge (always available in both modes)
+        if self.client_config_map.mqtt_bridge.mqtt_autostart:
+            self.mqtt_start()
+
+    def _init_ui_components(self):
+        """Initialize UI components (CLI, parser, etc.) for non-headless mode."""
         command_tabs = self.init_command_tabs()
         self.parser: ThrowingArgumentParser = load_parser(self, command_tabs)
         self.app = HummingbotCLI(
@@ -121,11 +106,6 @@ class HummingbotApplication(*commands):
             completer=load_completer(self),
             command_tabs=command_tabs
         )
-
-        self._init_gateway_monitor()
-        # MQTT Bridge
-        if self.client_config_map.mqtt_bridge.mqtt_autostart:
-            self.mqtt_start()
 
     @property
     def instance_id(self) -> str:
@@ -141,30 +121,31 @@ class HummingbotApplication(*commands):
 
     @property
     def strategy_file_name(self) -> str:
-        return self._strategy_file_name
+        return self.trading_core._strategy_file_name
 
     @strategy_file_name.setter
     def strategy_file_name(self, value: Optional[str]):
-        self._strategy_file_name = value
-        if value is not None:
-            db_name = value.split(".")[0]
-            self.trade_fill_db = SQLConnectionManager.get_trade_fills_instance(
-                self.client_config_map, db_name
-            )
-        else:
-            self.trade_fill_db = None
+        self.trading_core._strategy_file_name = value
+
+    @property
+    def strategy_name(self) -> str:
+        return self.trading_core.strategy_name
+
+    @property
+    def markets(self) -> Dict[str, ExchangeBase]:
+        return self.trading_core.markets
 
     @property
     def strategy_config_map(self):
-        if self._strategy_config_map is not None:
-            return self._strategy_config_map
-        if self.strategy_name is not None:
-            return get_strategy_config_map(self.strategy_name)
+        if self.trading_core.strategy_config_map is not None:
+            return self.trading_core.strategy_config_map
+        if self.trading_core.strategy_name is not None:
+            return get_strategy_config_map(self.trading_core.strategy_name)
         return None
 
     @strategy_config_map.setter
     def strategy_config_map(self, config_map: BaseStrategyConfigMap):
-        self._strategy_config_map = config_map
+        self.trading_core.strategy_config_map = config_map
 
     def _init_gateway_monitor(self):
         try:
@@ -176,43 +157,17 @@ class HummingbotApplication(*commands):
             pass
 
     def notify(self, msg: str):
-        self.app.log(msg)
-        for notifier in self.notifiers:
+        # In headless mode, just log to console and notifiers
+        if self.headless_mode:
+            self.logger().info(msg)
+        else:
+            self.app.log(msg)
+        for notifier in self.trading_core.notifiers:
             notifier.add_message_to_queue(msg)
 
-    def _handle_shortcut(self, command_split):
-        shortcuts = self.client_config_map.command_shortcuts
-        shortcut = None
-        # see if we match against shortcut command
-        if shortcuts is not None:
-            for each_shortcut in shortcuts:
-                if command_split[0] == each_shortcut.command:
-                    shortcut = each_shortcut
-                    break
-
-        # perform shortcut expansion
-        if shortcut is not None:
-            # check number of arguments
-            num_shortcut_args = len(shortcut.arguments)
-            if len(command_split) == num_shortcut_args + 1:
-                # notify each expansion if there's more than 1
-                verbose = True if len(shortcut.output) > 1 else False
-                # do argument replace and re-enter this function with the expanded command
-                for output_cmd in shortcut.output:
-                    final_cmd = output_cmd
-                    for i in range(1, num_shortcut_args + 1):
-                        final_cmd = final_cmd.replace(f'${i}', command_split[i])
-                    if verbose is True:
-                        self.notify(f'  >>> {final_cmd}')
-                    self._handle_command(final_cmd)
-            else:
-                self.notify('Invalid number of arguments for shortcut')
-            return True
-        return False
-
     def _handle_command(self, raw_command: str):
-        # unset to_stop_config flag it triggered before loading any command
-        if self.app.to_stop_config:
+        # unset to_stop_config flag it triggered before loading any command (UI mode only)
+        if not self.headless_mode and hasattr(self, 'app') and self.app.to_stop_config:
             self.app.to_stop_config = False
 
         raw_command = raw_command.strip()
@@ -232,16 +187,22 @@ class HummingbotApplication(*commands):
                     self.help(raw_command)
                     return
 
-                if not self._handle_shortcut(command_split):
-                    # regular command
-                    args = self.parser.parse_args(args=command_split)
-                    kwargs = vars(args)
-                    if not hasattr(args, "func"):
+                # regular command
+                if self.headless_mode and not hasattr(self, 'parser'):
+                    self.notify("Command parsing not available in headless mode")
+                    return
+
+                args = self.parser.parse_args(args=command_split)
+                kwargs = vars(args)
+                if not hasattr(args, "func"):
+                    if not self.headless_mode:
                         self.app.handle_tab_command(self, command_split[0], kwargs)
                     else:
-                        f = args.func
-                        del kwargs["func"]
-                        f(**kwargs)
+                        self.notify(f"Tab command '{command_split[0]}' not available in headless mode")
+                else:
+                    f = args.func
+                    del kwargs["func"]
+                    f(**kwargs)
         except ArgumentParserError as e:
             if not self.be_silly(raw_command):
                 self.notify(str(e))
@@ -256,7 +217,7 @@ class HummingbotApplication(*commands):
             kill_timeout: float = self.KILL_TIMEOUT
             self.notify("Canceling outstanding orders...")
 
-            for market_name, market in self.markets.items():
+            for market_name, market in self.trading_core.markets.items():
                 cancellation_results = await market.cancel_all(kill_timeout)
                 uncancelled = list(filter(lambda cr: cr.success is False, cancellation_results))
                 if len(uncancelled) > 0:
@@ -275,7 +236,42 @@ class HummingbotApplication(*commands):
         return success
 
     async def run(self):
-        await self.app.run()
+        """Run the application - either UI mode or headless mode."""
+        if self.headless_mode:
+            await self.run_headless()
+        else:
+            await self.app.run()
+
+    async def run_headless(self):
+        """Run in headless mode - just keep alive for MQTT/strategy execution."""
+        try:
+            self.logger().info("Starting Hummingbot in headless mode...")
+
+            # Validate MQTT is enabled for headless mode
+            if not self.trading_core.mqtt_enabled:
+                error_msg = (
+                    "ERROR: MQTT must be enabled for headless mode!\n"
+                    "Without MQTT, there would be no way to control the bot.\n"
+                    "Please enable MQTT by setting 'mqtt_autostart: true' in your config file.\n"
+                    "You can also start it manually with 'mqtt start' before switching to headless mode."
+                )
+                self.logger().error(error_msg)
+                raise RuntimeError("MQTT is required for headless mode")
+
+            self.logger().info("MQTT enabled - waiting for MQTT commands...")
+            self.logger().info("Bot is ready to receive commands via MQTT")
+
+            # Keep running until shutdown
+            while True:
+                await asyncio.sleep(1)
+
+        except KeyboardInterrupt:
+            self.logger().info("Shutdown requested...")
+        except Exception as e:
+            self.logger().error(f"Error in headless mode: {e}")
+            raise
+        finally:
+            await self.trading_core.shutdown()
 
     def add_application_warning(self, app_warning: ApplicationWarning):
         self._expire_old_application_warnings()
@@ -284,55 +280,30 @@ class HummingbotApplication(*commands):
     def clear_application_warning(self):
         self._app_warnings.clear()
 
-    @staticmethod
-    def _initialize_market_assets(market_name: str, trading_pairs: List[str]) -> List[Tuple[str, str]]:
-        market_trading_pairs: List[Tuple[str, str]] = [(trading_pair.split('-')) for trading_pair in trading_pairs]
-        return market_trading_pairs
-
     def _initialize_markets(self, market_names: List[Tuple[str, List[str]]]):
-        # aggregate trading_pairs if there are duplicate markets
-
+        """Initialize markets by delegating to TradingCore synchronously."""
+        # Update market trading pairs map first
         for market_name, trading_pairs in market_names:
-            if market_name not in self.market_trading_pairs_map:
-                self.market_trading_pairs_map[market_name] = []
-            for hb_trading_pair in trading_pairs:
-                self.market_trading_pairs_map[market_name].append(hb_trading_pair)
+            if market_name not in self.trading_core.market_trading_pairs_map:
+                self.trading_core.market_trading_pairs_map[market_name] = []
+            for trading_pair in trading_pairs:
+                self.trading_core.market_trading_pairs_map[market_name].append(trading_pair)
 
-        for connector_name, trading_pairs in self.market_trading_pairs_map.items():
-            conn_setting = AllConnectorSettings.get_connector_settings()[connector_name]
+        # Use the synchronous version of initialize_markets from trading_core
+        self.trading_core.initialize_markets_sync(market_names)
 
-            if connector_name.endswith("paper_trade") and conn_setting.type == ConnectorType.Exchange:
-                connector = create_paper_trade_market(conn_setting.parent_name, self.client_config_map, trading_pairs)
-                paper_trade_account_balance = self.client_config_map.paper_trade.paper_trade_account_balance
-                if paper_trade_account_balance is not None:
-                    for asset, balance in paper_trade_account_balance.items():
-                        connector.set_balance(asset, balance)
-            else:
-                keys = Security.api_keys(connector_name)
-                read_only_config = ReadOnlyClientConfigAdapter.lock_config(self.client_config_map)
-                init_params = conn_setting.conn_init_parameters(
-                    trading_pairs=trading_pairs,
-                    trading_required=self._trading_required,
-                    api_keys=keys,
-                    client_config_map=read_only_config,
-                )
-                connector_class = get_connector_class(connector_name)
-                connector = connector_class(**init_params)
-            self.markets[connector_name] = connector
+        # Initialize markets recorder if not already done
+        if not self.trading_core.markets_recorder:
+            db_name = self.strategy_file_name.split(".")[0] if self.strategy_file_name else "trades"
+            self.trading_core.initialize_markets_recorder(db_name)
 
-        self.markets_recorder = MarketsRecorder(
-            self.trade_fill_db,
-            list(self.markets.values()),
-            self.strategy_file_name,
-            self.strategy_name,
-            self.client_config_map.market_data_collection,
-        )
-        self.markets_recorder.start()
+        # Start MQTT market events forwarding if MQTT is available
         if self._mqtt is not None:
             self._mqtt.start_market_events_fw()
 
     def _initialize_notifiers(self):
-        for notifier in self.notifiers:
+        """Initialize notifiers by delegating to TradingCore."""
+        for notifier in self.trading_core.notifiers:
             notifier.start()
 
     def init_command_tabs(self) -> Dict[str, CommandTab]:
