@@ -95,6 +95,10 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
     init_logging("hummingbot_logs.yml", client_config_map)
     await read_system_configs_from_yml()
 
+    # Automatically enable MQTT autostart for headless mode
+    if args.headless:
+        client_config_map.mqtt_bridge.mqtt_autostart = True
+
     AllConnectorSettings.initialize_paper_trade_settings(client_config_map.paper_trade.paper_trade_exchanges)
 
     # Create unified application that handles both headless and UI modes
@@ -168,12 +172,6 @@ async def load_and_start_strategy(hb: HummingbotApplication, args: argparse.Name
 async def run_application(hb: HummingbotApplication, args: argparse.Namespace, client_config_map):
     """Run the application in headless or UI mode."""
     if args.headless:
-        # Automatically enable MQTT autostart for headless mode
-        if not hb.client_config_map.mqtt_bridge.mqtt_autostart:
-            logging.getLogger().info("Headless mode detected - automatically enabling MQTT autostart")
-            hb.client_config_map.mqtt_bridge.mqtt_autostart = True
-            hb.mqtt_start()
-
         # Simple headless execution
         await hb.run()
     else:
