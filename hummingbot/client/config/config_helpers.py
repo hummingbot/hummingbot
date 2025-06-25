@@ -563,39 +563,19 @@ def get_connector_class(connector_name: str) -> Callable:
 
 
 _gateway_connectors_cache = None
-_gateway_connectors_cache_time = 0
 
 
-def get_gateway_connectors_info() -> Dict[str, Dict[str, Any]]:
+async def load_gateway_connectors():
     """
-    Get connector information from gateway, with caching.
-    Returns a dict mapping connector names to their info (chain, trading_types, networks).
+    Load gateway connectors info. This should be called once during startup.
     """
-    import time
-
     from hummingbot.connector.gateway.gateway_http_client import GatewayHttpClient
 
-    global _gateway_connectors_cache, _gateway_connectors_cache_time
-
-    # Cache for 60 seconds
-    if _gateway_connectors_cache and (time.time() - _gateway_connectors_cache_time) < 60:
-        return _gateway_connectors_cache
+    global _gateway_connectors_cache
 
     try:
         gateway_client = GatewayHttpClient.get_instance()
-        import asyncio
-        loop = asyncio.get_event_loop()
-
-        # If we're in an async context, we need to handle it differently
-        if loop.is_running():
-            # Can't use run_until_complete in a running loop
-            # Return cached data or empty dict
-            return _gateway_connectors_cache or {}
-
-        # Fetch connectors from gateway
-        connectors_response = loop.run_until_complete(
-            gateway_client.get_connectors()
-        )
+        connectors_response = await gateway_client.get_connectors()
 
         # Build a mapping of connector name to info
         connectors_map = {}
@@ -608,12 +588,18 @@ def get_gateway_connectors_info() -> Dict[str, Dict[str, Any]]:
             }
 
         _gateway_connectors_cache = connectors_map
-        _gateway_connectors_cache_time = time.time()
-        return connectors_map
+        logging.getLogger().info(f"Loaded {len(connectors_map)} gateway connectors: {list(connectors_map.keys())}")
+    except Exception as e:
+        logging.getLogger().warning(f"Failed to load gateway connectors: {str(e)}")
+        _gateway_connectors_cache = {}
 
-    except Exception:
-        # If gateway is not available, return empty dict
-        return _gateway_connectors_cache or {}
+
+def get_gateway_connectors_info() -> Dict[str, Dict[str, Any]]:
+    """
+    Get cached connector information from gateway.
+    Returns a dict mapping connector names to their info (chain, trading_types, networks).
+    """
+    return _gateway_connectors_cache or {}
 
 
 def get_available_gateway_connectors() -> List[str]:

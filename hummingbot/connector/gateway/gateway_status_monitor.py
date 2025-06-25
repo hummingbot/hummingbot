@@ -91,6 +91,10 @@ class GatewayStatusMonitor:
                         GATEWAY_CONNECTORS.clear()
                         GATEWAY_CONNECTORS.extend([connector["name"] for connector in gateway_connectors.get("connectors", [])])
 
+                        # Load gateway connectors info for use in config_helpers
+                        from hummingbot.client.config.config_helpers import load_gateway_connectors
+                        await load_gateway_connectors()
+
                         # Fetch chains from the /chains endpoint
                         try:
                             chains_response = await gateway.api_request("get", "chains", fail_silently=True)
