@@ -76,6 +76,25 @@ Gateway is now included as a Git submodule in Hummingbot. There are several ways
 
 ### Option 1: Install from Source
 
+#### Prerequisites
+
+**Install pnpm** (required for Gateway):
+```bash
+# Using npm
+npm install -g pnpm
+
+# Or using Homebrew (macOS)
+brew install pnpm
+
+# Or using curl (Unix/Linux)
+curl -fsSL https://get.pnpm.io/install.sh | sh -
+
+# Or using PowerShell (Windows)
+iwr https://get.pnpm.io/install.ps1 -useb | iex
+```
+
+For more installation options, visit: https://pnpm.io/installation
+
 #### New Installation
 ```bash
 # Clone Hummingbot with Gateway included
@@ -202,6 +221,8 @@ docker attach hummingbot
 
 ### Option 3: Separate Hummingbot and Gateway Installs
 For advanced users who want to run Hummingbot and Gateway independently:
+
+**Note**: Make sure you have pnpm installed first. See [Prerequisites](#prerequisites) above.
 
 #### Install Hummingbot
 ```bash
