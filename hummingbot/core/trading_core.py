@@ -357,10 +357,29 @@ class TradingCore:
         if self._config_data:
             return self._config_data
         elif self._config_source:
-            # Could load from file, URL, database, etc.
-            # Default implementation returns empty dict
-            return {}
+            # Load from YAML config file
+            return self._load_script_yaml_config(self._config_source)
         else:
+            return {}
+
+    def _load_script_yaml_config(self, config_file_path: str) -> Dict[str, Any]:
+        """Load YAML configuration file for script strategies."""
+        import yaml
+
+        from hummingbot.client.settings import SCRIPT_STRATEGY_CONF_DIR_PATH
+
+        try:
+            # Try direct path first
+            if "/" in config_file_path or "\\" in config_file_path:
+                config_path = Path(config_file_path)
+            else:
+                # Assume it's in the script config directory
+                config_path = SCRIPT_STRATEGY_CONF_DIR_PATH / config_file_path
+
+            with open(config_path, 'r') as file:
+                return yaml.safe_load(file)
+        except Exception as e:
+            self._logger.warning(f"Failed to load config file {config_file_path}: {e}")
             return {}
 
     async def start_strategy(self,
@@ -428,22 +447,16 @@ class TradingCore:
             return False
 
     async def _initialize_script_strategy(self):
-        """Initialize a script strategy."""
+        """Initialize a script strategy using consolidated approach."""
         script_strategy_class, config = self.load_script_class(self.strategy_name)
 
-        # Get markets from script
+        # Get markets from script class
         markets_list = []
         for conn, pairs in script_strategy_class.markets.items():
             markets_list.append((conn, list(pairs)))
 
-        # Create connectors for the strategy
-        for connector_name, trading_pairs in markets_list:
-            await self.create_connector(connector_name, trading_pairs)
-
-        # Initialize markets recorder now that connectors exist
-        # This ensures it's available for V2 strategies that need it
-        if not self.markets_recorder:
-            self.initialize_markets_recorder()
+        # Initialize markets using single method
+        self.initialize_markets(markets_list)
 
         # Create strategy instance
         if config:
@@ -456,15 +469,15 @@ class TradingCore:
         start_strategy_func: Callable = get_strategy_starter_file(self.strategy_name)
         start_strategy_func(self)
 
-        # Initialize markets recorder for regular strategies too
-        if not self.markets_recorder:
-            self.initialize_markets_recorder()
-
     async def _start_strategy_execution(self):
         """
         Start the strategy execution system.
         """
         try:
+            # Ensure markets recorder exists (should have been created during market initialization)
+            if not self.markets_recorder:
+                self.initialize_markets_recorder()
+
             # Ensure clock exists
             if self.clock is None:
                 await self.start_clock()
@@ -479,7 +492,8 @@ class TradingCore:
                         self.markets_recorder.restore_market_states(self._strategy_file_name, market)
 
             # Initialize kill switch if enabled
-            if self._trading_required and self.client_config_map.kill_switch_enabled:
+            if (self._trading_required and
+                    self.client_config_map.kill_switch_mode.model_config.get("title") == "kill_switch_enabled"):
                 self.kill_switch = self.client_config_map.kill_switch_mode.get_kill_switch(self)
                 await self._wait_till_ready(self.kill_switch.start)
                 if self.clock:
@@ -583,8 +597,7 @@ class TradingCore:
             'start_time': self.start_time,
             'uptime': (time.time() * 1e3 - self.start_time) if self.start_time else 0,
             'connectors': self.connector_manager.get_status(),
-            'paper_trade_enabled': self.client_config_map.paper_trade_enabled,
-            'kill_switch_enabled': self.client_config_map.kill_switch_enabled,
+            'kill_switch_enabled': self.client_config_map.kill_switch_mode.model_config.get("title") == "kill_switch_enabled",
             'markets_recorder_active': self.markets_recorder is not None,
         }
 
@@ -600,24 +613,15 @@ class TradingCore:
 
     def initialize_markets(self, market_names: List[Tuple[str, List[str]]]):
         """
-        Initialize markets for backward compatibility.
+        Initialize markets - single method that works for all strategy types.
 
-        This method creates connectors based on the provided market names.
-
-        Args:
-            market_names: List of (exchange_name, trading_pairs) tuples
-        """
-        asyncio.create_task(self._initialize_markets_async(market_names))
-
-    def initialize_markets_sync(self, market_names: List[Tuple[str, List[str]]]):
-        """
-        Initialize markets synchronously for backward compatibility with strategy start files.
+        This replaces all the redundant initialize_markets* methods with one consistent approach.
 
         Args:
             market_names: List of (exchange_name, trading_pairs) tuples
         """
+        # Create connectors for each market
         for connector_name, trading_pairs in market_names:
-            # Use connector_manager's connector creation method
             connector = self.connector_manager.create_connector(
                 connector_name, trading_pairs, self._trading_required
             )
@@ -626,14 +630,14 @@ class TradingCore:
             if self.clock and connector:
                 self.clock.add_iterator(connector)
 
-            # Add to markets recorder if exists
-            if self.markets_recorder and connector:
-                self.markets_recorder.add_market(connector)
+        # Initialize markets recorder now that connectors exist
+        if not self.markets_recorder:
+            self.initialize_markets_recorder()
 
-    async def _initialize_markets_async(self, market_names: List[Tuple[str, List[str]]]):
-        """Async version of initialize_markets."""
-        for connector_name, trading_pairs in market_names:
-            self.create_connector(connector_name, trading_pairs)
+        # Add connectors to markets recorder
+        if self.markets_recorder:
+            for connector in self.connector_manager.connectors.values():
+                self.markets_recorder.add_market(connector)
 
     async def place_order(self, connector_name: str, trading_pair: str, order_type, trade_type, amount: float,
                           price: float = None) -> str:
