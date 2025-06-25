@@ -224,14 +224,12 @@ class CLMMPositionManager(ScriptStrategyBase):
                 return
 
             # Use the gateway LP connector to open position
-            # Use a dummy trading pair since we're using pool address
-            trading_pair = "BASE-QUOTE"  # This is just a placeholder since pool_address is used
-
             self.logger().info(f"Opening position on pool {self.config.pool_address} around price {self.last_price} with width {self.config.position_width_pct}%")
 
             # Use the open_position method from gateway_lp
+            # Don't pass trading_pair when using pool_address
             order_id = self.gateway_lp.open_position(
-                trading_pair=trading_pair,
+                trading_pair="",  # Empty string since we're using pool_address
                 price=float(self.last_price),
                 spread_pct=float(self.config.position_width_pct),
                 base_token_amount=float(self.config.base_token_amount) if self.config.base_token_amount > 0 else None,
@@ -312,14 +310,12 @@ class CLMMPositionManager(ScriptStrategyBase):
         self.position_closing = True
 
         try:
-            # Use a dummy trading pair since we're using position address
-            trading_pair = "BASE-QUOTE"  # This is just a placeholder since position_address is used
-
             self.logger().info(f"Closing position {self.position_address}...")
 
             # Use the close_position method from gateway_lp
+            # Don't pass trading_pair when using position_address
             order_id = self.gateway_lp.close_position(
-                trading_pair=trading_pair,
+                trading_pair="",  # Empty string since we're using position_address
                 position_address=self.position_address
             )
 
