@@ -15,6 +15,8 @@ This guide covers the installation, configuration, and usage of Hummingbot Gatew
 
 Gateway is now included as a Git submodule in Hummingbot. There are several ways to install it:
 
+> **Note**: The `gateway-setup.sh` script automates configuration setup and certificate linking, making it easier to get Gateway running with Hummingbot.
+
 ### Option 1: Install from Source
 
 #### New Installation
@@ -29,6 +31,19 @@ cd hummingbot
 # Install Gateway dependencies
 cd gateway
 yarn install
+
+# Run Gateway setup script
+./gateway-setup.sh
+
+# The setup script will ask:
+# 1. "Do you want to link to Hummingbot client certificates (Y/N) >>>"
+#    - Answer Y to automatically link certificates from Hummingbot
+#    - This creates a symlink from gateway/certs to hummingbot/certs
+# 2. "Enter path to the Hummingbot certs folder (press Enter for default) >>>"
+#    - Press Enter to use default path: ../certs
+#    - Or specify a custom path if your certs are elsewhere
+# 3. The script will then show what it will do and ask for confirmation
+
 cd ..
 
 # Start Gateway (in a separate terminal)
@@ -123,11 +138,16 @@ cd hummingbot
 git clone https://github.com/hummingbot/gateway.git
 cd gateway
 
-# Run the setup script
-./setup.sh
-
 # Install dependencies
 yarn install
+
+# Run the setup script
+./gateway-setup.sh
+
+# When running in separate mode, the script will:
+# 1. Ask if you want to link certificates
+# 2. Copy configuration templates to conf/
+# 3. Set up the necessary folder structure
 ```
 
 #### Start Services
