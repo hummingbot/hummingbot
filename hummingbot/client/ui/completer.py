@@ -53,7 +53,7 @@ class HummingbotCompleter(Completer):
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)
         self._history_completer = WordCompleter(["--days", "--verbose", "--precision"], ignore_case=True)
-        self._gateway_completer = WordCompleter(["list", "balance", "config", "generate-certs", "test-connection", "allowance", "approve-tokens", "wallet"], ignore_case=True)
+        self._gateway_completer = WordCompleter(["list", "balance", "config", "generate-certs", "ping", "allowance", "approve", "wallet", "wrap"], ignore_case=True)
 
         # Initialize gateway wallet chain completer first
         self._gateway_wallet_chain_completer = WordCompleter([
@@ -62,8 +62,6 @@ class HummingbotCompleter(Completer):
         ], ignore_case=True)
 
         self._gateway_balance_completer = self._gateway_wallet_chain_completer
-        self._gateway_allowance_completer = self._gateway_wallet_chain_completer
-        self._gateway_approve_tokens_completer = self._exchange_ethereum_completer
         self._gateway_config_completer = WordCompleter(hummingbot_application.gateway_config_keys, ignore_case=True)
         self._gateway_wallet_completer = WordCompleter(["list", "add", "remove"], ignore_case=True)
         self._gateway_wallet_action_completer = WordCompleter(["list", "add", "remove"], ignore_case=True)
@@ -245,16 +243,38 @@ class HummingbotCompleter(Completer):
             except Exception:
                 pass
 
-        # Fallback to common networks if no cache
-        if not networks:
-            if chain == "ethereum":
-                networks = ["mainnet", "base", "arbitrum", "optimism", "polygon", "avalanche", "bsc"]
-            elif chain == "solana":
-                networks = ["mainnet-beta", "devnet"]
-            else:
-                networks = ["mainnet", "testnet"]
-
         return WordCompleter(networks, ignore_case=True)
+
+    def _get_ethereum_networks_completer(self):
+        """Get network completer specifically for Ethereum chain"""
+        return self._get_networks_for_chain_completer("ethereum")
+
+    def _get_connectors_for_chain_completer(self, chain: str):
+        """Get connector completer for a specific chain"""
+        connectors = []
+
+        try:
+            if hasattr(self.hummingbot_application, '_gateway_monitor') and self.hummingbot_application._gateway_monitor:
+                gateway_instance = self.hummingbot_application._gateway_monitor._get_gateway_instance()
+                if gateway_instance:
+                    import asyncio
+                    loop = asyncio.get_event_loop()
+                    if not loop.is_running():
+                        try:
+                            connectors_response = loop.run_until_complete(
+                                gateway_instance.api_request("get", "connectors", fail_silently=True)
+                            )
+                            if connectors_response and "connectors" in connectors_response:
+                                # Filter connectors by chain
+                                for connector_info in connectors_response["connectors"]:
+                                    if connector_info.get("chain", "").lower() == chain.lower():
+                                        connectors.append(connector_info.get("name", ""))
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+
+        return WordCompleter(connectors, ignore_case=True)
 
     @property
     def _option_completer(self):
@@ -350,8 +370,8 @@ class HummingbotCompleter(Completer):
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("gateway allowance ")
 
-    def _complete_gateway_allowance_network(self, document: Document) -> bool:
-        """Check if we're completing the network argument for gateway allowance"""
+    def _complete_gateway_allowance_connector(self, document: Document) -> bool:
+        """Check if we're completing the connector argument for gateway allowance"""
         text_before_cursor: str = document.text_before_cursor
         if not text_before_cursor.startswith("gateway allowance "):
             return False
@@ -362,13 +382,33 @@ class HummingbotCompleter(Completer):
             return False
 
         args = cmd_part.split()
-        # If we have exactly 1 argument (chain) and we're starting the 2nd argument (network)
-        # or if we have 2 arguments and we're in the middle of typing the network
+        # If we have exactly 1 argument (network) and we're starting the 2nd argument (connector)
+        # or if we have 2 arguments and we're in the middle of typing the connector
         return len(args) == 1 and text_before_cursor.endswith(" ") or (len(args) == 2 and not text_before_cursor.endswith(" "))
 
-    def _complete_gateway_approve_tokens_arguments(self, document: Document) -> bool:
+    def _complete_gateway_approve_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
-        return text_before_cursor.startswith("gateway approve-tokens ")
+        return text_before_cursor.startswith("gateway approve ")
+
+    def _complete_gateway_wrap_arguments(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return text_before_cursor.startswith("gateway wrap ")
+
+    def _complete_gateway_approve_connector(self, document: Document) -> bool:
+        """Check if we're completing the connector argument for gateway approve"""
+        text_before_cursor: str = document.text_before_cursor
+        if not text_before_cursor.startswith("gateway approve "):
+            return False
+
+        # Count the number of arguments after "gateway approve"
+        cmd_part = text_before_cursor.replace("gateway approve ", "").strip()
+        if not cmd_part:
+            return False
+
+        args = cmd_part.split()
+        # If we have exactly 1 argument (network) and we're starting the 2nd argument (connector)
+        # or if we have 2 arguments and we're in the middle of typing the connector
+        return len(args) == 1 and text_before_cursor.endswith(" ") or (len(args) == 2 and not text_before_cursor.endswith(" "))
 
     def _complete_gateway_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -560,23 +600,34 @@ class HummingbotCompleter(Completer):
             for c in self._gateway_balance_completer.get_completions(document, complete_event):
                 yield c
 
-        elif self._complete_gateway_allowance_network(document):
-            # Extract the chain from the command to get appropriate networks
-            text_before_cursor: str = document.text_before_cursor
-            cmd_part = text_before_cursor.replace("gateway allowance ", "").strip()
-            args = cmd_part.split()
-            if args:
-                chain = args[0]
-                network_completer = self._get_networks_for_chain_completer(chain)
-                for c in network_completer.get_completions(document, complete_event):
-                    yield c
-
-        elif self._complete_gateway_allowance_arguments(document):
-            for c in self._gateway_allowance_completer.get_completions(document, complete_event):
+        elif self._complete_gateway_allowance_connector(document):
+            # Always use ethereum chain for allowances
+            connector_completer = self._get_connectors_for_chain_completer("ethereum")
+            for c in connector_completer.get_completions(document, complete_event):
                 yield c
 
-        elif self._complete_gateway_approve_tokens_arguments(document):
-            for c in self._gateway_approve_tokens_completer.get_completions(document, complete_event):
+        elif self._complete_gateway_allowance_arguments(document):
+            # Use Ethereum networks completer for allowance
+            ethereum_networks_completer = self._get_ethereum_networks_completer()
+            for c in ethereum_networks_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_gateway_approve_connector(document):
+            # Always use ethereum chain for approvals
+            connector_completer = self._get_connectors_for_chain_completer("ethereum")
+            for c in connector_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_gateway_approve_arguments(document):
+            # Use Ethereum networks completer for approve
+            ethereum_networks_completer = self._get_ethereum_networks_completer()
+            for c in ethereum_networks_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_gateway_wrap_arguments(document):
+            # Use Ethereum networks completer for wrap
+            ethereum_networks_completer = self._get_ethereum_networks_completer()
+            for c in ethereum_networks_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_gateway_wallet_chain_arguments(document):

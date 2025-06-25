@@ -51,29 +51,35 @@ class GatewayCommand(GatewayChainApiManager):
         safe_ensure_future(self._get_balances(chain, network, address, tokens), loop=self.ev_loop)
 
     @ensure_gateway_online
-    def gateway_allowance(self, chain: Optional[str] = None, network: Optional[str] = None,
-                          address: Optional[str] = None, tokens: Optional[str] = None):
+    def gateway_allowance(self, network: Optional[str] = None, connector: Optional[str] = None,
+                          tokens: Optional[str] = None):
         """
         Command to check token allowances for Ethereum-based connectors
-        Usage: gateway allowance [chain] [network] [address] [tokens]
+        Usage: gateway allowance [network] [connector] [tokens]
         """
-        safe_ensure_future(self._get_allowances(chain, network, address, tokens), loop=self.ev_loop)
+        safe_ensure_future(self._get_allowances(network, connector, tokens), loop=self.ev_loop)
 
     @ensure_gateway_online
-    def gateway_approve_tokens(self, connector_chain_network: Optional[str], tokens: Optional[str]):
-        if connector_chain_network is not None and tokens is not None:
-            safe_ensure_future(self._update_gateway_approve_tokens(
-                connector_chain_network, tokens), loop=self.ev_loop)
+    def gateway_approve(self, network: Optional[str] = None, connector: Optional[str] = None,
+                        tokens: Optional[str] = None):
+        """
+        Command to approve tokens for spending on a connector
+        Usage: gateway approve [network] [connector] [tokens]
+        """
+        if all([network, connector, tokens]):
+            safe_ensure_future(self._approve_tokens(network, connector, tokens), loop=self.ev_loop)
         else:
             self.notify(
-                "\nPlease specify the connector_chain_network and a token to approve.\n")
+                "\nPlease specify all required parameters: network, connector, and tokens.\n"
+                "Usage: gateway approve <network> <connector> <tokens>\n"
+                "Example: gateway approve mainnet uniswap USDC,USDT\n")
 
     def generate_certs(self):
         safe_ensure_future(self._generate_certs(), loop=self.ev_loop)
 
     @ensure_gateway_online
-    def test_connection(self):
-        safe_ensure_future(self._test_connection(), loop=self.ev_loop)
+    def gateway_ping(self):
+        safe_ensure_future(self._gateway_ping(), loop=self.ev_loop)
 
     @ensure_gateway_online
     def gateway_list(self):
@@ -121,12 +127,100 @@ class GatewayCommand(GatewayChainApiManager):
         else:
             self.notify(f"Error: Unknown action '{action}'. Use 'list', 'add', or 'remove'.")
 
-    async def _test_connection(self):
-        # test that the gateway is running
-        if await self._get_gateway_instance().ping_gateway():
-            self.notify("\nSuccessfully pinged gateway.")
+    @ensure_gateway_online
+    def gateway_wrap(self, network: Optional[str] = None, amount: Optional[str] = None):
+        """
+        Command to wrap native tokens to wrapped tokens
+        Usage: gateway wrap [network] [amount]
+        """
+        if all([network, amount]):
+            safe_ensure_future(self._wrap_tokens(network, amount), loop=self.ev_loop)
         else:
-            self.notify("\nUnable to ping gateway.")
+            self.notify(
+                "\nPlease specify both network and amount.\n"
+                "Usage: gateway wrap <network> <amount>\n"
+                "Example: gateway wrap mainnet 0.1\n"
+            )
+
+    async def _gateway_ping(self):
+        """Test gateway connectivity and check default network latency for each chain (Ethereum and Solana)."""
+        try:
+            # First check if gateway is running
+            gateway_status = await self._get_gateway_instance().ping_gateway()
+            if not gateway_status:
+                self.notify("\nUnable to connect to gateway.")
+                return
+
+            self.notify("\nGateway Status: Online")
+
+            # Get all chains from gateway
+            chains_resp = await self._get_gateway_instance().get_chains()
+            if not chains_resp:
+                self.notify("Unable to fetch chains from gateway.")
+                return
+
+            # For each chain, check the default network connection
+            for chain_info in chains_resp:
+                chain_name = chain_info.get("chain", "")
+                networks = chain_info.get("networks", [])
+
+                if not networks:
+                    continue
+
+                # Use the first network as default
+                default_network = networks[0]
+
+                self.notify(f"\nChain: {chain_name}")
+                self.notify(f"Default Network: {default_network}")
+
+                # Get node URL from config
+                try:
+                    # Get config for this chain/network
+                    config_params = {
+                        "chainOrConnector": chain_name,
+                        "network": default_network
+                    }
+                    config_resp = await self._get_gateway_instance().api_request(
+                        "get", "config", params=config_params, fail_silently=True
+                    )
+
+                    # Extract node URL based on chain type
+                    node_url = None
+                    if chain_name.lower() == "ethereum":
+                        node_url = config_resp.get("rpcUrl")
+                    elif chain_name.lower() == "solana":
+                        node_url = config_resp.get("rpcUrl")
+
+                    if node_url:
+                        self.notify(f"Node URL: {node_url}")
+                except Exception:
+                    # If we can't get node URL, continue without it
+                    pass
+
+                # Ping the network by making a simple request
+                start_time = time.time()
+                try:
+                    # Try to get native currency info as a ping test
+                    native_currency = await self._get_native_currency_symbol(chain_name, default_network)
+
+                    # Calculate latency
+                    latency = (time.time() - start_time) * 1000  # Convert to milliseconds
+
+                    if native_currency:
+                        self.notify("Status: Connected")
+                        self.notify(f"Native Token: {native_currency}")
+                        self.notify(f"Latency: {latency:.1f} ms")
+                    else:
+                        self.notify("Status: Connected (no native token info)")
+                        self.notify(f"Latency: {latency:.1f} ms")
+
+                except asyncio.TimeoutError:
+                    self.notify("Status: Timeout")
+                except Exception as e:
+                    self.notify(f"Status: Error - {str(e)}")
+
+        except Exception as e:
+            self.notify(f"\nError pinging gateway: {str(e)}")
 
     async def _generate_certs(
             self,       # type: HummingbotApplication
@@ -419,14 +513,6 @@ class GatewayCommand(GatewayChainApiManager):
             return str(e)
         return None
 
-    def _get_ethereum_compatible_chains(self) -> List[str]:
-        """Get list of Ethereum-compatible chains that support allowances."""
-        return ["ethereum", "polygon", "avalanche", "bsc", "arbitrum", "optimism", "base"]
-
-    def _get_fallback_erc20_tokens(self) -> List[str]:
-        """Get fallback list of common ERC-20 tokens for allowance checking."""
-        return ["USDC", "USDT", "DAI", "WETH"]
-
     async def _get_native_currency_symbol(self, chain: str, network: str) -> Optional[str]:
         """Get the native currency symbol for a given chain and network."""
         try:
@@ -490,6 +576,169 @@ class GatewayCommand(GatewayChainApiManager):
             connectors_df,
             table_format=self.client_config_map.tables_format).split("\n")]
         self.notify("\n".join(lines))
+
+    async def _approve_tokens(self, network: str, connector: str, tokens: str):
+        """
+        Approve tokens for spending on a connector.
+        """
+        try:
+            self.logger().info(
+                f"Approving tokens {tokens} for {connector} on {network} network")
+
+            # Get wallet for ethereum chain from gateway
+            try:
+                wallets_resp = await self._get_gateway_instance().get_wallets("ethereum")
+                if not wallets_resp or not wallets_resp[0].get("walletAddresses"):
+                    self.notify("No wallet found for ethereum. Please add one with 'gateway wallet add ethereum'")
+                    return
+                wallet_address = wallets_resp[0]["walletAddresses"][0]
+            except Exception as e:
+                self.notify(f"Error fetching wallet: {str(e)}")
+                return
+
+            # Approve each token separately
+            token_list = [t.strip() for t in tokens.split(",")]
+            for token in token_list:
+                self.notify(f"Approving {token} for {connector}...")
+
+                try:
+                    resp = await self._get_gateway_instance().approve_token(network, wallet_address, token, connector)
+                    transaction_hash = resp.get("approval", {}).get("hash")
+
+                    if not transaction_hash:
+                        self.notify(f"Failed to get transaction hash for {token} approval")
+                        continue
+
+                    # Monitor transaction status
+                    displayed_pending = False
+                    while True:
+                        poll_resp = await self._get_gateway_instance().get_transaction_status("ethereum", network, transaction_hash)
+                        transaction_status = poll_resp.get("txStatus")
+
+                        if transaction_status == 1:  # Confirmed
+                            self.notify(f"✓ Token {token} is approved for spending on {connector}")
+                            break
+                        elif transaction_status == 2:  # Pending
+                            if not displayed_pending:
+                                self.notify(f"Token {token} approval transaction pending. Hash: {transaction_hash}")
+                                displayed_pending = True
+                            await asyncio.sleep(2)
+                        else:  # Failed or unknown
+                            self.notify(f"✗ Token {token} approval failed. Please try manual approval.")
+                            break
+
+                except Exception as e:
+                    self.notify(f"Error approving {token}: {str(e)}")
+                    continue
+
+        except Exception as e:
+            self.notify(f"Error in approve tokens: {str(e)}")
+
+    async def _wrap_tokens(self, network: str, amount: str):
+        """
+        Wrap native tokens to wrapped tokens (ETH→WETH, BNB→WBNB, AVAX→WAVAX, etc.)
+        """
+        try:
+            # Validate amount
+            try:
+                amount_decimal = Decimal(amount)
+                if amount_decimal <= 0:
+                    self.notify("Error: Amount must be greater than 0")
+                    return
+            except Exception:
+                self.notify("Error: Invalid amount format")
+                return
+
+            # Get ethereum wallet
+            try:
+                wallets_resp = await self._get_gateway_instance().get_wallets("ethereum")
+                if not wallets_resp or not wallets_resp[0].get("walletAddresses"):
+                    self.notify("No wallet found for ethereum. Please add one with 'gateway wallet add ethereum'")
+                    return
+                wallet_address = wallets_resp[0]["walletAddresses"][0]
+            except Exception as e:
+                self.notify(f"Error fetching wallet: {str(e)}")
+                return
+
+            # Get native token info
+            native_token = await self._get_native_currency_symbol("ethereum", network)
+            if not native_token:
+                self.notify(f"Could not determine native token for {network}")
+                return
+
+            # Map native token to wrapped token
+            wrapped_token_map = {
+                "ETH": "WETH",
+                "BNB": "WBNB",
+                "AVAX": "WAVAX",
+                "MATIC": "WMATIC"
+            }
+
+            wrapped_token = wrapped_token_map.get(native_token.upper())
+            if not wrapped_token:
+                self.notify(f"Wrapping not supported for {native_token}")
+                return
+
+            self.notify(f"\nWrapping {amount} {native_token} to {wrapped_token} on {network}...")
+            self.notify(f"Wallet: {wallet_address}")
+
+            # Call the wrap endpoint
+            try:
+                wrap_resp = await self._get_gateway_instance().api_request(
+                    "post",
+                    "chains/ethereum/wrap",
+                    {
+                        "network": network,
+                        "address": wallet_address,
+                        "amount": amount
+                    }
+                )
+
+                if not wrap_resp:
+                    self.notify("Error: No response from gateway")
+                    return
+
+                # Extract transaction details
+                tx_hash = wrap_resp.get("signature")
+                fee = wrap_resp.get("fee", "0")
+                wrapped_address = wrap_resp.get("wrappedAddress")
+
+                if not tx_hash:
+                    self.notify("Error: No transaction hash received")
+                    return
+
+                self.notify(f"\nTransaction submitted. Hash: {tx_hash}")
+                self.notify(f"Wrapped token contract: {wrapped_address}")
+                self.notify(f"Estimated fee: {fee} {native_token}")
+
+                # Monitor transaction
+                self.notify("\nMonitoring transaction...")
+                displayed_pending = False
+
+                while True:
+                    poll_resp = await self._get_gateway_instance().get_transaction_status("ethereum", network, tx_hash)
+                    tx_status = poll_resp.get("txStatus")
+
+                    if tx_status == 1:  # Confirmed
+                        self.notify(f"\n✓ Successfully wrapped {amount} {native_token} to {wrapped_token}")
+                        self.notify(f"Transaction confirmed in block {poll_resp.get('txBlock', 'unknown')}")
+                        break
+                    elif tx_status == 2:  # Pending
+                        if not displayed_pending:
+                            self.notify("Transaction pending...")
+                            displayed_pending = True
+                        await asyncio.sleep(2)
+                    else:  # Failed or unknown
+                        self.notify("\n✗ Transaction failed")
+                        if poll_resp.get("txReceipt"):
+                            self.notify(f"Receipt: {poll_resp.get('txReceipt')}")
+                        break
+
+            except Exception as e:
+                self.notify(f"\nError executing wrap: {str(e)}")
+
+        except Exception as e:
+            self.notify(f"Error in wrap tokens: {str(e)}")
 
     async def _update_gateway_approve_tokens(
             self,           # type: HummingbotApplication
@@ -584,164 +833,110 @@ class GatewayCommand(GatewayChainApiManager):
             self.client_config_map)
         return gateway_instance
 
-    async def _get_allowances(self, chain_filter: Optional[str] = None, network_filter: Optional[str] = None,
-                              address_filter: Optional[str] = None, tokens_filter: Optional[str] = None):
+    async def _get_allowances(self, network: Optional[str] = None, connector: Optional[str] = None,
+                              tokens: Optional[str] = None):
         """Get token allowances for Ethereum-based connectors"""
         network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
         self.notify("Checking token allowances, please wait...")
         try:
-            # Get all wallets and connectors from gateway
-            all_wallets = await self._get_gateway_instance().get_wallets()
-            connectors_resp = await self._get_gateway_instance().get_connectors()
-
-            if not all_wallets:
-                self.notify("No wallets found in gateway. Please add wallets with 'gateway wallet add <chain>'")
+            # Validate parameters
+            if not all([network, connector]):
+                self.notify("\nPlease specify both network and connector.")
+                self.notify("Usage: gateway allowance <network> <connector> [tokens]")
+                self.notify("Example: gateway allowance mainnet uniswap")
                 return
 
-            # Filter for Ethereum-compatible chains only (chains that support allowances)
-            ethereum_compatible_chains = self._get_ethereum_compatible_chains()
-
-            # Build list of chain/network combinations for Ethereum-compatible chains
-            chain_network_combos = []
-            for wallet_info in all_wallets:
-                chain = wallet_info.get("chain", "")
-                addresses = wallet_info.get("walletAddresses", [])
-
-                if not addresses or chain.lower() not in ethereum_compatible_chains:
-                    continue
-
-                # Apply chain filter
-                if chain_filter and chain.lower() != chain_filter.lower():
-                    continue
-
-                # Get default network for this chain
-                if network_filter:
-                    # If user specified a network, use it
-                    default_network = network_filter
-                else:
-                    # Get the default (first) network for this chain
-                    default_network = await self._get_default_network_for_chain(chain)
-                    if not default_network:
-                        continue
-
-                # Use all addresses or filter by specific address
-                if address_filter:
-                    matching_addresses = [addr for addr in addresses if addr.lower() == address_filter.lower()]
-                    if not matching_addresses:
-                        continue
-                    use_addresses = matching_addresses
-                else:
-                    use_addresses = addresses[:1]  # Just use first (default) address
-
-                for address in use_addresses:
-                    chain_network_combos.append((chain, default_network, address))
-
-            if not chain_network_combos:
-                if chain_filter and chain_filter.lower() not in ethereum_compatible_chains:
-                    self.notify(f"Allowances are only applicable for Ethereum-compatible chains. '{chain_filter}' does not support allowances.")
-                else:
-                    self.notify("No matching Ethereum-compatible wallets found for the specified filters.")
+            # Get ethereum wallet
+            wallets_resp = await self._get_gateway_instance().get_wallets("ethereum")
+            if not wallets_resp or not wallets_resp[0].get("walletAddresses"):
+                self.notify("No wallet found for ethereum. Please add one with 'gateway wallet add ethereum'")
                 return
 
-            # Process each chain/network/address combination
-            for chain, network, address in chain_network_combos:
-                try:
-                    # Determine tokens to check allowances for
-                    if tokens_filter:
-                        if tokens_filter.lower() == "all":
-                            # User wants all tokens - fetch from gateway
-                            self.notify("Fetching all available token allowances (this may take a while)...")
-                            try:
-                                tokens_to_check = await self._get_default_tokens_for_chain_network(chain, network)
-                                # For allowances, we typically only care about ERC-20 style tokens, not native tokens
-                                native_token = await self._get_native_currency_symbol(chain, network)
-                                if native_token:
-                                    tokens_to_check = [token for token in tokens_to_check if token.upper() != native_token.upper()]
-                            except Exception as e:
-                                self.notify(f"Warning: Could not fetch tokens for {chain}:{network}: {str(e)}")
-                                tokens_to_check = []
-                        else:
-                            # User specified tokens (comma-separated)
-                            tokens_to_check = [token.strip() for token in tokens_filter.split(",")]
+            wallet_address = wallets_resp[0]["walletAddresses"][0]
+
+            # Determine tokens to check
+            if tokens:
+                if tokens.lower() == "all":
+                    # User wants all tokens - fetch from gateway
+                    self.notify("Fetching all available token allowances (this may take a while)...")
+                    try:
+                        all_tokens = await self._get_gateway_instance().get_tokens("ethereum", network)
+                        # Filter out native token for allowances
+                        native_token = await self._get_native_currency_symbol("ethereum", network)
+                        tokens_to_check = []
+                        for token_info in all_tokens:
+                            symbol = token_info.get("symbol", "")
+                            if symbol and symbol.upper() != native_token.upper():
+                                tokens_to_check.append(symbol)
+                    except Exception as e:
+                        self.notify(f"Warning: Could not fetch tokens: {str(e)}")
+                        tokens_to_check = []
+                else:
+                    # User specified tokens
+                    tokens_to_check = [token.strip() for token in tokens.split(",")]
+            else:
+                # Default: check common tokens
+                native_token = await self._get_native_currency_symbol("ethereum", network)
+                common_tokens = ["USDC", "USDT", "DAI", "WETH"]
+                tokens_to_check = [token for token in common_tokens if token.upper() != native_token.upper()]
+                self.notify(f"Checking common tokens: {', '.join(tokens_to_check)}")
+                self.notify("(Use 'gateway allowance <network> <connector> all' to check all available tokens)")
+
+            if not tokens_to_check:
+                self.notify("No tokens to check allowances for.")
+                return
+
+            try:
+                # Get allowances from gateway
+                allowances_resp = await asyncio.wait_for(
+                    self._get_gateway_instance().get_allowances(
+                        "ethereum", network, wallet_address, tokens_to_check, connector, fail_silently=True
+                    ),
+                    network_timeout
+                )
+
+                allowances = allowances_resp.get("approvals", {}) if allowances_resp else {}
+
+                # Display results
+                self.notify(f"\nNetwork: {network}")
+                self.notify(f"Wallet: {wallet_address}")
+                self.notify(f"Connector: {connector}")
+
+                if allowances:
+                    rows = []
+                    for token, allowance in allowances.items():
+                        allowance_val = float(allowance) if allowance else 0
+                        allowance_threshold = 999999  # Threshold for displaying large allowances
+                        display_allowance = (
+                            PerformanceMetrics.smart_round(Decimal(str(allowance)), 4)
+                            if allowance_val < allowance_threshold else f"{allowance_threshold}+"
+                        )
+                        rows.append({
+                            "Token": token.upper(),
+                            "Allowance": display_allowance,
+                            "Status": "✓ Approved" if allowance_val > 0 else "✗ Not Approved"
+                        })
+
+                    if rows:
+                        df = pd.DataFrame(data=rows, columns=["Token", "Allowance", "Status"])
+                        df.sort_values(by=["Token"], inplace=True)
+
+                        lines = [
+                            "    " + line for line in df.to_string(index=False).split("\n")
+                        ]
+                        self.notify("\n".join(lines))
                     else:
-                        # For performance, only check common ERC-20 tokens by default
-                        tokens_to_check = self._get_fallback_erc20_tokens()
+                        self.notify("    No token allowances found")
+                else:
+                    self.notify("    No token allowances found")
 
-                        self.notify(f"Checking common tokens: {', '.join(tokens_to_check)}")
-                        self.notify("(Use 'gateway allowance ethereum base all' to check all available tokens)")
-
-                    # Skip if user specified tokens but the list is empty (after filtering out empty strings)
-                    if tokens_filter and tokens_filter.lower() != "all" and not tokens_to_check:
-                        self.notify(f"\nNo valid tokens specified for allowance check on {chain}:{network}")
-                        continue
-
-                    # Find connectors for this chain to check allowances against
-                    chain_connectors = [conn for conn in connectors_resp.get("connectors", [])
-                                        if conn["chain"].lower() == chain.lower()]
-
-                    if not chain_connectors:
-                        self.notify(f"\nNo connectors found for {chain}")
-                        continue
-
-                    # For each connector, check allowances
-                    for connector_info in chain_connectors:
-                        connector = connector_info["name"]
-
-                        try:
-                            # Get allowances from gateway
-                            allowances_resp = await asyncio.wait_for(
-                                self._get_gateway_instance().get_allowances(
-                                    chain, network, address, tokens_to_check, connector, fail_silently=True
-                                ),
-                                network_timeout
-                            )
-
-                            allowances = allowances_resp.get("approvals", {}) if allowances_resp else {}
-
-                            # Display results
-                            self.notify(f"\nChain: {chain.lower()}")
-                            self.notify(f"Network: {network}")
-                            self.notify(f"Address: {address}")
-                            self.notify(f"Connector: {connector}")
-
-                            if allowances:
-                                rows = []
-                                for token, allowance in allowances.items():
-                                    allowance_val = float(allowance) if allowance else 0
-                                    if allowance_val > 0:  # Only show tokens with allowances
-                                        allowance_threshold = 999999  # Threshold for displaying large allowances
-                                        display_allowance = (
-                                            PerformanceMetrics.smart_round(Decimal(str(allowance)), 4)
-                                            if allowance_val < allowance_threshold else f"{allowance_threshold}+"
-                                        )
-                                        rows.append({
-                                            "Token": token.upper(),
-                                            "Allowance": display_allowance,
-                                        })
-
-                                if rows:
-                                    df = pd.DataFrame(data=rows, columns=["Token", "Allowance"])
-                                    df.sort_values(by=["Token"], inplace=True)
-
-                                    lines = [
-                                        "    " + line for line in df.to_string(index=False).split("\n")
-                                    ]
-                                    self.notify("\n".join(lines))
-                                else:
-                                    self.notify("    No token allowances found")
-                            else:
-                                self.notify("    No token allowances found")
-
-                        except asyncio.TimeoutError:
-                            self.notify(f"\nTimeout checking allowances for {connector} on {chain}:{network}")
-                        except Exception as e:
-                            self.notify(f"\nError checking allowances for {connector} on {chain}:{network}: {str(e)}")
-
-                except Exception as e:
-                    self.notify(f"\nError processing {chain}:{network}: {str(e)}")
+            except asyncio.TimeoutError:
+                self.notify(f"\nTimeout checking allowances for {connector} on {network}")
+            except Exception as e:
+                self.notify(f"\nError checking allowances: {str(e)}")
 
         except Exception as e:
-            self.notify(f"Error fetching gateway data: {str(e)}")
+            self.notify(f"Error: {str(e)}")
 
     async def _gateway_wallet_list(self, chain: Optional[str] = None):
         """List wallets from gateway, optionally filtered by chain."""

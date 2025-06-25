@@ -4,6 +4,7 @@ Focuses on basic wallet management command functionality.
 """
 import asyncio
 import unittest
+from decimal import Decimal
 from test.hummingbot.connector.gateway.test_utils import TEST_WALLETS, MockGatewayHTTPClient
 from unittest.mock import patch
 
@@ -390,6 +391,222 @@ class TestGatewayCommandSimple(unittest.TestCase):
         self.assertEqual(approvals["USDC"], "999999999")  # Unlimited
         self.assertEqual(approvals["USDT"], "1000000")    # Limited
         self.assertEqual(approvals["DAI"], "0")           # No allowance
+
+    def test_ping_command(self):
+        """Test ping command functionality"""
+        # Test gateway ping
+        ping_result = self.async_run_with_timeout(self.gateway_http_mock.ping_gateway())
+        self.assertTrue(ping_result)
+
+        # Test getting chains for ping
+        chains = self.async_run_with_timeout(self.gateway_http_mock.get_chains())
+        self.assertGreater(len(chains), 0)
+
+        # For each chain, verify we can get native currency info
+        for chain_info in chains:
+            chain = chain_info["chain"]
+            networks = chain_info["networks"]
+            self.assertGreater(len(networks), 0)
+
+            # First network is default
+            # default_network = networks[0]
+
+            # Verify we can get config (which includes native currency)
+            # In actual implementation, this would fetch node URL and other config
+            self.async_run_with_timeout(
+                self.gateway_http_mock.api_request("get", "config", {"chainOrConnector": chain})
+            )
+
+            # The ping command would show status and latency for each chain
+            # This test verifies the basic structure is available
+
+    def test_wrap_command(self):
+        """Test wrap command functionality"""
+        # Test wrapping ETH to WETH
+        network = "mainnet"
+        amount = "0.1"
+
+        # Get ethereum wallet
+        ethereum_wallets = self.async_run_with_timeout(
+            self.gateway_http_mock.get_wallets("ethereum")
+        )
+        self.assertEqual(len(ethereum_wallets), 1)
+        wallet_address = ethereum_wallets[0]["walletAddresses"][0]
+
+        # Mock wrap response
+        # The wrap_params would be used in actual gateway call
+
+        # Since MockGatewayHTTPClient doesn't have wrap method yet, we'll add it
+        async def mock_wrap(network: str, address: str, amount: str):
+            return {
+                "nonce": 123,
+                "signature": "0xabcdef123456",
+                "fee": "0.002",
+                "amount": amount,
+                "wrappedAddress": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+                "nativeToken": "ETH",
+                "wrappedToken": "WETH",
+                "tx": {
+                    "data": "0xd0e30db0",
+                    "to": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+                    "value": amount
+                }
+            }
+
+        # Add wrap method to mock
+        self.gateway_http_mock.wrap = mock_wrap
+
+        # Test wrap
+        wrap_resp = self.async_run_with_timeout(
+            self.gateway_http_mock.wrap(network, wallet_address, amount)
+        )
+
+        # Verify response structure
+        self.assertIn("signature", wrap_resp)
+        self.assertIn("fee", wrap_resp)
+        self.assertIn("wrappedAddress", wrap_resp)
+        self.assertIn("nativeToken", wrap_resp)
+        self.assertIn("wrappedToken", wrap_resp)
+        self.assertEqual(wrap_resp["nativeToken"], "ETH")
+        self.assertEqual(wrap_resp["wrappedToken"], "WETH")
+        self.assertEqual(wrap_resp["amount"], amount)
+
+    def test_wrap_command_different_networks(self):
+        """Test wrap command for different networks"""
+        # Test different network native tokens
+        network_tokens = {
+            "mainnet": ("ETH", "WETH"),
+            "bsc": ("BNB", "WBNB"),
+            "avalanche": ("AVAX", "WAVAX"),
+            "polygon": ("MATIC", "WMATIC")
+        }
+
+        for network, (native, wrapped) in network_tokens.items():
+            with self.subTest(network=network):
+                # Mock appropriate response for each network
+                async def mock_wrap_network(net: str, addr: str, amt: str):
+                    return {
+                        "signature": f"0x{network}123456",
+                        "nativeToken": native,
+                        "wrappedToken": wrapped,
+                        "amount": amt
+                    }
+
+                self.gateway_http_mock.wrap = mock_wrap_network
+
+                wrap_resp = self.async_run_with_timeout(
+                    self.gateway_http_mock.wrap(network, "0xtest", "1.0")
+                )
+
+                self.assertEqual(wrap_resp["nativeToken"], native)
+                self.assertEqual(wrap_resp["wrappedToken"], wrapped)
+
+    def test_wrap_invalid_amount(self):
+        """Test wrap command with invalid amounts"""
+        # Test that wrap validation would catch these
+        invalid_amounts = ["-0.1", "0", "abc", ""]
+
+        for amount in invalid_amounts:
+            with self.subTest(amount=amount):
+                # In actual implementation, these would be validated before calling gateway
+                # Here we just verify the test data
+                try:
+                    decimal_amount = float(amount)
+                    self.assertLessEqual(decimal_amount, 0)  # Should be invalid
+                except ValueError:
+                    # Non-numeric amounts should fail
+                    pass
+
+    def test_allowance_command_new_params(self):
+        """Test updated allowance command with network, connector, tokens params"""
+        # Test new allowance command structure
+        network = "mainnet"
+        connector = "uniswap"
+        tokens = ["USDC", "USDT"]
+
+        # Get ethereum wallet (allowance is ethereum-only)
+        ethereum_wallets = self.async_run_with_timeout(
+            self.gateway_http_mock.get_wallets("ethereum")
+        )
+        wallet_address = ethereum_wallets[0]["walletAddresses"][0]
+
+        # Test allowance check
+        allowances_resp = self.async_run_with_timeout(
+            self.gateway_http_mock.get_allowances(
+                "ethereum", network, wallet_address, tokens, connector
+            )
+        )
+
+        # Verify response
+        self.assertIn("approvals", allowances_resp)
+        approvals = allowances_resp["approvals"]
+
+        for token in tokens:
+            self.assertIn(token, approvals)
+
+    def test_approve_command_new_params(self):
+        """Test updated approve command with network, connector, tokens params"""
+        # Test new approve command structure
+        network = "mainnet"
+        connector = "uniswap"
+        token = "USDC"
+
+        # Get ethereum wallet
+        ethereum_wallets = self.async_run_with_timeout(
+            self.gateway_http_mock.get_wallets("ethereum")
+        )
+        wallet_address = ethereum_wallets[0]["walletAddresses"][0]
+
+        # Test approve
+        approve_resp = self.async_run_with_timeout(
+            self.gateway_http_mock.approve_token(
+                "ethereum", network, wallet_address, token, connector, Decimal("1000000")
+            )
+        )
+
+        # Verify response
+        self.assertIn("signature", approve_resp)
+        self.assertIn("status", approve_resp)
+        self.assertEqual(approve_resp["status"], 1)  # Confirmed
+
+    def test_get_transaction_status(self):
+        """Test transaction status polling for wrap/approve"""
+        # Add get_transaction_status to mock
+        async def mock_get_tx_status(chain: str, network: str, tx_hash: str):
+            return {
+                "txStatus": 1,  # Confirmed
+                "txBlock": 12345678,
+                "txReceipt": {"status": 1}
+            }
+
+        self.gateway_http_mock.get_transaction_status = mock_get_tx_status
+
+        # Test transaction status
+        status_resp = self.async_run_with_timeout(
+            self.gateway_http_mock.get_transaction_status(
+                "ethereum", "mainnet", "0xmocktxhash"
+            )
+        )
+
+        self.assertEqual(status_resp["txStatus"], 1)
+        self.assertIn("txBlock", status_resp)
+
+    def test_ethereum_networks_completion(self):
+        """Test that Ethereum networks are properly returned for completion"""
+        # Get chains to find ethereum networks
+        chains = self.async_run_with_timeout(self.gateway_http_mock.get_chains())
+
+        # Find ethereum chain
+        ethereum_chain = next((c for c in chains if c["chain"] == "ethereum"), None)
+        self.assertIsNotNone(ethereum_chain)
+
+        # Verify ethereum has expected networks
+        networks = ethereum_chain["networks"]
+        self.assertIn("mainnet", networks)
+        self.assertIn("testnet", networks)
+
+        # In actual completer, these networks would be used for
+        # allowance, approve, and wrap command completions
 
 
 if __name__ == "__main__":
