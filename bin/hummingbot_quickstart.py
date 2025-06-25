@@ -53,6 +53,9 @@ class CmdlineParser(argparse.ArgumentParser):
                           required=False,
                           help="Try to automatically set config / logs / data dir permissions, "
                                "useful for Docker containers.")
+        self.add_argument("--headless",
+                          action="store_true",
+                          help="Run in headless mode without CLI interface.")
 
 
 def autofix_permissions(user_group_spec: str):
@@ -76,6 +79,7 @@ def autofix_permissions(user_group_spec: str):
 
 
 async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsManager):
+    """Start Hummingbot using unified HummingbotApplication in either UI or headless mode."""
     config_file_name = args.config_file_name
     client_config_map = load_client_config_map_from_file()
 
@@ -93,45 +97,98 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
 
     AllConnectorSettings.initialize_paper_trade_settings(client_config_map.paper_trade.paper_trade_exchanges)
 
-    hb = HummingbotApplication.main_application(client_config_map=client_config_map)
-    # Todo: validate strategy and config_file_name before assinging
+    # Create unified application that handles both headless and UI modes
+    if args.headless:
+        hb = HummingbotApplication(client_config_map=client_config_map, headless_mode=True)
+    else:
+        hb = HummingbotApplication.main_application(client_config_map=client_config_map)
 
+    # Handle strategy configuration if provided
     strategy_config = None
     is_script = False
     script_config = None
+
     if config_file_name is not None:
+        # Set strategy file name
         hb.strategy_file_name = config_file_name
+
         if config_file_name.split(".")[-1] == "py":
-            hb.strategy_name = hb.strategy_file_name
+            # Script strategy
+            strategy_name = config_file_name.split(".")[0]
+            strategy_file_name = args.script_conf if args.script_conf else config_file_name
             is_script = True
             script_config = args.script_conf if args.script_conf else None
+
+            # For headless mode, start strategy directly
+            if args.headless:
+                logging.getLogger().info(f"Starting script strategy: {strategy_name}")
+                success = await hb.trading_core.start_strategy(
+                    strategy_name,
+                    None,  # No config for simple script strategies
+                    strategy_file_name
+                )
+                if not success:
+                    logging.getLogger().error("Failed to start strategy")
+                    return
+            else:
+                # For UI mode, set properties for UIStartListener
+                hb.trading_core.strategy_name = strategy_name
         else:
+            # Regular strategy with config file
             strategy_config = await load_strategy_config_map_from_file(
                 STRATEGIES_CONF_DIR_PATH / config_file_name
             )
-            hb.strategy_name = (
+            strategy_name = (
                 strategy_config.strategy
                 if isinstance(strategy_config, ClientConfigAdapter)
                 else strategy_config.get("strategy").value
             )
-            hb.strategy_config_map = strategy_config
 
-    if strategy_config is not None:
-        if not all_configs_complete(strategy_config, hb.client_config_map):
-            hb.status()
+            # For headless mode, start strategy directly
+            if args.headless:
+                logging.getLogger().info(f"Starting strategy: {strategy_name}")
+                success = await hb.trading_core.start_strategy(
+                    strategy_name,
+                    strategy_config,
+                    config_file_name
+                )
+                if not success:
+                    logging.getLogger().error("Failed to start strategy")
+                    return
+            else:
+                # For UI mode, set properties for UIStartListener
+                hb.trading_core.strategy_name = strategy_name
+                hb.strategy_config_map = strategy_config
 
-    # The listener needs to have a named variable for keeping reference, since the event listener system
-    # uses weak references to remove unneeded listeners.
-    start_listener: UIStartListener = UIStartListener(hb, is_script=is_script, script_config=script_config,
-                                                      is_quickstart=True)
-    hb.app.add_listener(HummingbotUIEvent.Start, start_listener)
+                # Check if config is complete for UI mode
+                if not all_configs_complete(strategy_config, hb.client_config_map):
+                    hb.status()
 
-    tasks: List[Coroutine] = [hb.run()]
-    if client_config_map.debug_console:
-        management_port: int = detect_available_port(8211)
-        tasks.append(start_management_console(locals(), host="localhost", port=management_port))
+    # Run the application
+    if args.headless:
+        # Automatically enable MQTT autostart for headless mode
+        if not hb.client_config_map.mqtt_bridge.mqtt_autostart:
+            logging.getLogger().info("Headless mode detected - automatically enabling MQTT autostart")
+            hb.client_config_map.mqtt_bridge.mqtt_autostart = True
 
-    await safe_gather(*tasks)
+        # Simple headless execution
+        await hb.run()
+    else:
+        # Set up UI start listener for strategy auto-start
+        start_listener: UIStartListener = UIStartListener(
+            hb,
+            is_script=is_script,
+            script_config=script_config,
+            is_quickstart=True
+        )
+        hb.app.add_listener(HummingbotUIEvent.Start, start_listener)
+
+        tasks: List[Coroutine] = [hb.run()]
+        if client_config_map.debug_console:
+            management_port: int = detect_available_port(8211)
+            tasks.append(start_management_console(locals(), host="localhost", port=management_port))
+
+        await safe_gather(*tasks)
 
 
 def main():
