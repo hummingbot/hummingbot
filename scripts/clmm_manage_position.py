@@ -119,9 +119,15 @@ class CLMMPositionManager(ScriptStrategyBase):
 
             self.pool_info = pool_info
 
-            # Extract token information
-            self.base_token = pool_info.get("baseTokenAddress")
-            self.quote_token = pool_info.get("quoteTokenAddress")
+            # Extract token information (addresses for later use)
+            self.base_token_address = pool_info.get("baseTokenAddress")
+            self.quote_token_address = pool_info.get("quoteTokenAddress")
+
+            # For now, hardcode the token symbols based on the pool
+            # In a real implementation, you'd get these from the pool info or token list
+            # This is a SOL-USDC pool based on the pool address in the config
+            self.base_token = "SOL"
+            self.quote_token = "USDC"
 
             # Extract current price - it's at the top level of the response
             if "price" in pool_info:
@@ -242,7 +248,8 @@ class CLMMPositionManager(ScriptStrategyBase):
                 spread_pct=float(self.config.position_width_pct),
                 base_token_amount=float(self.config.base_token_amount) if self.config.base_token_amount > 0 else None,
                 quote_token_amount=float(self.config.quote_token_amount) if self.config.quote_token_amount > 0 else None,
-                slippage_pct=0.5
+                slippage_pct=0.5,
+                pool_address=self.config.pool_address  # Pass the pool address
             )
 
             self.logger().info(f"Position opening order submitted: {order_id}")

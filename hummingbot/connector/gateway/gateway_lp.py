@@ -160,6 +160,7 @@ class GatewayLp(GatewaySwap):
         base_token_amount: Optional[float] = None,
         quote_token_amount: Optional[float] = None,
         slippage_pct: Optional[float] = None,
+        pool_address: Optional[str] = None,
     ):
         """
         Opens a concentrated liquidity position around the specified price with a percentage width.
@@ -208,21 +209,33 @@ class GatewayLp(GatewaySwap):
 
         # Open position
         try:
+            # Build request parameters
+            request_params = {
+                "network": self.network,
+                "walletAddress": self.address,
+                "lowerPrice": lower_price,
+                "upperPrice": upper_price,
+                "slippagePct": slippage_pct
+            }
+
+            # Add pool address if available, otherwise add token symbols
+            if pool_address:
+                request_params["poolAddress"] = pool_address
+            else:
+                request_params["baseToken"] = base_token
+                request_params["quoteToken"] = quote_token
+
+            # Add token amounts if provided
+            if base_token_amount is not None:
+                request_params["baseTokenAmount"] = base_token_amount
+            if quote_token_amount is not None:
+                request_params["quoteTokenAmount"] = quote_token_amount
+
             transaction_result = await self._get_gateway_instance().connector_request(
                 "post",
                 self.connector_name,
                 "open-position",
-                {
-                    "network": self.network,
-                    "walletAddress": self.address,
-                    "baseToken": base_token,
-                    "quoteToken": quote_token,
-                    "lowerPrice": lower_price,
-                    "upperPrice": upper_price,
-                    "baseTokenAmount": base_token_amount,
-                    "quoteTokenAmount": quote_token_amount,
-                    "slippagePct": slippage_pct
-                }
+                request_params
             )
             transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
