@@ -1,7 +1,6 @@
 from decimal import Decimal
 from typing import List, Optional, Tuple
 
-from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.connector.exchange.paper_trade import create_paper_trade_market
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.strategy.api_asset_price_delegate import APIAssetPriceDelegate
@@ -77,32 +76,32 @@ def start(self):
                 f'split_level_{i}': order for i, order in enumerate(both_list)
             }
         trading_pair: str = raw_trading_pair
-        maker_assets: Tuple[str, str] = self._initialize_market_assets(exchange, [trading_pair])[0]
+        maker_assets: Tuple[str, str] = trading_pair.split("-")
         market_names: List[Tuple[str, List[str]]] = [(exchange, [trading_pair])]
         self._initialize_markets(market_names)
-        maker_data = [self.markets[exchange], trading_pair] + list(maker_assets)
-        self.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]
+        maker_data = [self.trading_core.markets[exchange], trading_pair] + list(maker_assets)
+        self.trading_core.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]
 
         asset_price_delegate = None
         if price_source == "external_market":
             asset_trading_pair: str = price_source_market
             ext_market = create_paper_trade_market(price_source_exchange, self.client_config_map, [asset_trading_pair])
-            self.markets[price_source_exchange]: ExchangeBase = ext_market
+            self.trading_core.markets[price_source_exchange]: ExchangeBase = ext_market
             asset_price_delegate = OrderBookAssetPriceDelegate(ext_market, asset_trading_pair)
         elif price_source == "custom_api":
-            asset_price_delegate = APIAssetPriceDelegate(self.markets[exchange], price_source_custom_api,
+            asset_price_delegate = APIAssetPriceDelegate(self.trading_core.markets[exchange], price_source_custom_api,
                                                          custom_api_update_interval)
         inventory_cost_price_delegate = None
         if price_type == "inventory_cost":
-            db = HummingbotApplication.main_application().trade_fill_db
+            db = self.trading_core.trade_fill_db
             inventory_cost_price_delegate = InventoryCostPriceDelegate(db, trading_pair)
         take_if_crossed = c_map.get("take_if_crossed").value
 
         should_wait_order_cancel_confirmation = c_map.get("should_wait_order_cancel_confirmation")
 
         strategy_logging_options = PureMarketMakingStrategy.OPTION_LOG_ALL
-        self.strategy = PureMarketMakingStrategy()
-        self.strategy.init_params(
+        self.trading_core.strategy = PureMarketMakingStrategy()
+        self.trading_core.strategy.init_params(
             market_info=MarketTradingPairTuple(*maker_data),
             bid_spread=bid_spread,
             ask_spread=ask_spread,
