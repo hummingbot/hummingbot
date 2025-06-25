@@ -191,7 +191,11 @@ class GatewayHttpClient:
                 if response.status != 200 and \
                    not fail_silently and \
                    not self.is_timeout_error(parsed_response):
-                    if "error" in parsed_response:
+                    error_msg = parsed_response.get('error', str(parsed_response))
+                    # Check for rate limiting
+                    if response.status == 429 or "429" in str(error_msg) or "rate limit" in str(error_msg).lower() or "too many requests" in str(error_msg).lower():
+                        raise ValueError(f"Rate limit exceeded on {method.upper()} {url}. The blockchain node is rejecting requests due to too many requests. Please wait before retrying or configure a different RPC endpoint.")
+                    elif "error" in parsed_response:
                         raise ValueError(f"Error on {method.upper()} {url} Error: {parsed_response['error']}")
                     else:
                         raise ValueError(f"Error on {method.upper()} {url} Error: {parsed_response}")

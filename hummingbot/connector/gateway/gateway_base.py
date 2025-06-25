@@ -406,16 +406,22 @@ class GatewayBase(ConnectorBase):
                     token_symbols=token_list
                 )
             except Exception as e:
-                self.logger().warning(f"Failed to update balances: {str(e)}")
-                # If it's a wallet not found error, provide helpful message
-                if "Internal Server Error" in str(e) or "wallet" in str(e).lower():
+                error_msg = str(e)
+                self.logger().warning(f"Failed to update balances: {error_msg}")
+
+                # Handle rate limiting errors
+                if "429" in error_msg or "rate limit" in error_msg.lower() or "too many requests" in error_msg.lower():
+                    self.logger().warning(f"Rate limit exceeded for {self.chain} node. The blockchain node is rejecting requests due to too many requests. Please wait before retrying or configure a different RPC endpoint.")
+                # Handle wallet not found errors
+                elif "Internal Server Error" in error_msg or "wallet" in error_msg.lower():
                     self.logger().warning(f"Please ensure you have a wallet configured for {self.chain}. Use 'gateway wallet add {self.chain}' to add one.")
-                    # Don't mark connector as not ready if balance fetch fails initially
-                    # Set minimal balances to allow connector to be ready
-                    if not self._account_balances:
-                        for token in token_list:
-                            self._account_balances[token] = Decimal("0")
-                            self._account_available_balances[token] = Decimal("0")
+
+                # Don't mark connector as not ready if balance fetch fails initially
+                # Set minimal balances to allow connector to be ready
+                if not self._account_balances:
+                    for token in token_list:
+                        self._account_balances[token] = Decimal("0")
+                        self._account_available_balances[token] = Decimal("0")
                 return
             for token, bal in resp_json["balances"].items():
                 self._account_available_balances[token] = Decimal(str(bal))
