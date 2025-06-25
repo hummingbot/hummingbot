@@ -122,17 +122,17 @@ services:
 2. **Build the Docker images**:
 ```bash
 # Build both images
-docker-compose build
+docker compose build
 
 # Or build individually
-docker-compose build hummingbot
-docker-compose build gateway
+docker compose build hummingbot
+docker compose build gateway
 ```
 
 3. **Start both services**:
 ```bash
 # Start both Hummingbot and Gateway
-docker-compose up -d
+docker compose up -d
 
 # Connect to Hummingbot
 docker attach hummingbot

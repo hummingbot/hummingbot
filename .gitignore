@@ -99,3 +99,6 @@ coverage.xml
 **/.claude/settings.local.json
 **/CLAUDE.md
 /docs/
+
+# Gateway files (created when users run Docker)
+/gateway_files/
