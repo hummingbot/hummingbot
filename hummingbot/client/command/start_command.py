@@ -38,13 +38,13 @@ class StartCommand(GatewayChainApiManager):
     _in_start_check: bool = False
 
     async def _run_clock(self):
-        with self.clock as clock:
+        with self.trading_core.clock as clock:
             await clock.run()
 
     async def wait_till_ready(self,  # type: HummingbotApplication
                               func: Callable, *args, **kwargs):
         while True:
-            all_ready = all([market.ready for market in self.markets.values()])
+            all_ready = all([market.ready for market in self.trading_core.markets.values()])
             if not all_ready:
                 await asyncio.sleep(0.5)
             else:
@@ -74,7 +74,7 @@ class StartCommand(GatewayChainApiManager):
                           conf: Optional[str] = None,
                           is_quickstart: Optional[bool] = False):
 
-        if self._in_start_check or (self.strategy_task is not None and not self.strategy_task.done()):
+        if self._in_start_check or (self.trading_core.strategy_task is not None and not self.trading_core.strategy_task.done()):
             self.notify('The bot is already running - please run "stop" first')
             return
 
@@ -88,21 +88,21 @@ class StartCommand(GatewayChainApiManager):
                 self._in_start_check = False
                 return
 
-        if self.strategy_file_name and self.strategy_name and is_quickstart:
+        if self.strategy_file_name and self.trading_core.strategy_name and is_quickstart:
             if self._strategy_uses_gateway_connector(settings.required_exchanges):
                 try:
                     await asyncio.wait_for(self._gateway_monitor.ready_event.wait(), timeout=GATEWAY_READY_TIMEOUT)
                 except asyncio.TimeoutError:
                     self.notify(f"TimeoutError waiting for gateway service to go online... Please ensure Gateway is configured correctly."
-                                f"Unable to start strategy {self.strategy_name}. ")
+                                f"Unable to start strategy {self.trading_core.strategy_name}. ")
                     self._in_start_check = False
-                    self.strategy_name = None
+                    self.trading_core.strategy_name = None
                     self.strategy_file_name = None
                     raise
 
         if script:
             file_name = script.split(".")[0]
-            self.strategy_name = file_name
+            self.trading_core.strategy_name = file_name
             self.strategy_file_name = conf if conf else file_name
         elif not await self.status_check_all(notify_success=False):
             self.notify("Status checks failed. Start aborted.")
@@ -122,10 +122,10 @@ class StartCommand(GatewayChainApiManager):
 
         self._initialize_notifiers()
         try:
-            self._initialize_strategy(self.strategy_name)
+            self._initialize_strategy(self.trading_core.strategy_name)
         except NotImplementedError:
             self._in_start_check = False
-            self.strategy_name = None
+            self.trading_core.strategy_name = None
             self.strategy_file_name = None
             self.notify("Invalid strategy. Start aborted.")
             raise
@@ -177,7 +177,7 @@ class StartCommand(GatewayChainApiManager):
                             self._in_start_check = False
                             return
 
-        self.notify(f"\nStatus check complete. Starting '{self.strategy_name}' strategy...")
+        self.notify(f"\nStatus check complete. Starting '{self.trading_core.strategy_name}' strategy...")
         await self.start_market_making()
 
         self._in_start_check = False
@@ -194,9 +194,9 @@ class StartCommand(GatewayChainApiManager):
             markets_list.append((conn, list(pairs)))
         self._initialize_markets(markets_list)
         if config:
-            self.strategy = script_strategy(self.markets, config)
+            self.trading_core.strategy = script_strategy(self.trading_core.markets, config)
         else:
-            self.strategy = script_strategy(self.markets)
+            self.trading_core.strategy = script_strategy(self.trading_core.markets)
 
     def load_script_class(self):
         """
@@ -204,7 +204,7 @@ class StartCommand(GatewayChainApiManager):
 
         :param script_name: name of the module where the script class is defined
         """
-        script_name = self.strategy_name
+        script_name = self.trading_core.strategy_name
         config = None
         module = sys.modules.get(f"{settings.SCRIPT_STRATEGIES_MODULE}.{script_name}")
         if module is not None:
@@ -218,7 +218,7 @@ class StartCommand(GatewayChainApiManager):
                                  member not in [ScriptStrategyBase, DirectionalStrategyBase, StrategyV2Base]))
         except StopIteration:
             raise InvalidScriptModule(f"The module {script_name} does not contain any subclass of ScriptStrategyBase")
-        if self.strategy_name != self.strategy_file_name:
+        if self.trading_core.strategy_name != self.strategy_file_name:
             try:
                 config_class = next((member for member_name, member in inspect.getmembers(script_module)
                                     if inspect.isclass(member) and
@@ -236,7 +236,7 @@ class StartCommand(GatewayChainApiManager):
             return yaml.safe_load(file)
 
     def is_current_strategy_script_strategy(self) -> bool:
-        script_file_name = settings.SCRIPT_STRATEGIES_PATH / f"{self.strategy_name}.py"
+        script_file_name = settings.SCRIPT_STRATEGIES_PATH / f"{self.trading_core.strategy_name}.py"
         return script_file_name.exists()
 
     async def start_market_making(self,  # type: HummingbotApplication
@@ -245,24 +245,24 @@ class StartCommand(GatewayChainApiManager):
             self.start_time = time.time() * 1e3  # Time in milliseconds
             tick_size = self.client_config_map.tick_size
             self.logger().info(f"Creating the clock with tick size: {tick_size}")
-            self.clock = Clock(ClockMode.REALTIME, tick_size=tick_size)
-            for market in self.markets.values():
+            self.trading_core.clock = Clock(ClockMode.REALTIME, tick_size=tick_size)
+            for market in self.trading_core.markets.values():
                 if market is not None:
-                    self.clock.add_iterator(market)
-                    self.markets_recorder.restore_market_states(self.strategy_file_name, market)
+                    self.trading_core.clock.add_iterator(market)
+                    self.trading_core.markets_recorder.restore_market_states(self.strategy_file_name, market)
                     if len(market.limit_orders) > 0:
                         self.notify(f"Canceling dangling limit orders on {market.name}...")
                         await market.cancel_all(10.0)
-            if self.strategy:
-                self.clock.add_iterator(self.strategy)
-            self.strategy_task: asyncio.Task = safe_ensure_future(self._run_clock(), loop=self.ev_loop)
-            self.notify(f"\n'{self.strategy_name}' strategy started.\n"
+            if self.trading_core.strategy:
+                self.trading_core.clock.add_iterator(self.trading_core.strategy)
+            self.trading_core.strategy_task: asyncio.Task = safe_ensure_future(self._run_clock(), loop=self.ev_loop)
+            self.notify(f"\n'{self.trading_core.strategy_name}' strategy started.\n"
                         f"Run `status` command to query the progress.")
             self.logger().info("start command initiated.")
 
             if self._trading_required:
-                self.kill_switch = self.client_config_map.kill_switch_mode.get_kill_switch(self)
-                await self.wait_till_ready(self.kill_switch.start)
+                self.trading_core.kill_switch = self.client_config_map.kill_switch_mode.get_kill_switch(self)
+                await self.wait_till_ready(self.trading_core.kill_switch.start)
         except Exception as e:
             self.logger().error(str(e), exc_info=True)
 

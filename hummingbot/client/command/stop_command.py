@@ -3,7 +3,6 @@ import platform
 import threading
 from typing import TYPE_CHECKING
 
-from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
@@ -29,38 +28,20 @@ class StopCommand:
             import appnope
             appnope.nap()
 
-        if self.clock:
-            self.clock.remove_iterator(self.strategy)
+        # Handle script strategy specific cleanup first
+        if isinstance(self.trading_core.strategy, ScriptStrategyBase):
+            await self.trading_core.strategy.on_stop()
 
-        if isinstance(self.strategy, ScriptStrategyBase):
-            await self.strategy.on_stop()
+        # Sleep two seconds to have time for order fill arrivals
+        await asyncio.sleep(2.0)
 
-        if self._trading_required and not skip_order_cancellation:
-            # Remove the strategy from clock before cancelling orders, to
-            # prevent race condition where the strategy tries to create more
-            # orders during cancellation.
-            success = await self._cancel_outstanding_orders()
-            # Give some time for cancellation events to trigger
-            await asyncio.sleep(3.0)
-            if success:
-                # Only erase markets when cancellation has been successful
-                self.markets = {}
+        # Use trading_core encapsulated stop strategy method
+        await self.trading_core.stop_strategy(skip_order_cancellation)
 
-        if self.strategy_task is not None and not self.strategy_task.cancelled():
-            self.strategy_task.cancel()
+        # Stop the clock to halt trading operations
+        await self.trading_core.stop_clock()
 
-        if RateOracle.get_instance().started:
-            RateOracle.get_instance().stop()
-
-        if self.markets_recorder is not None:
-            self.markets_recorder.stop()
-
-        if self.kill_switch is not None:
-            self.kill_switch.stop()
-
-        self.strategy_task = None
-        self.strategy = None
+        # Clear application-level references
         self.market_pair = None
-        self.clock = None
-        self.markets_recorder = None
-        self.market_trading_pairs_map.clear()
+
+        self.notify("Hummingbot stopped.")
