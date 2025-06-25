@@ -49,9 +49,9 @@ class HummingbotApplication(*commands):
         return s_logger
 
     @classmethod
-    def main_application(cls, client_config_map: Optional[ClientConfigAdapter] = None) -> "HummingbotApplication":
+    def main_application(cls, client_config_map: Optional[ClientConfigAdapter] = None, headless_mode: bool = False) -> "HummingbotApplication":
         if cls._main_app is None:
-            cls._main_app = HummingbotApplication(client_config_map)
+            cls._main_app = HummingbotApplication(client_config_map=client_config_map, headless_mode=headless_mode)
         return cls._main_app
 
     def __init__(self, client_config_map: Optional[ClientConfigAdapter] = None, headless_mode: bool = False):
@@ -134,6 +134,10 @@ class HummingbotApplication(*commands):
     @property
     def markets(self) -> Dict[str, ExchangeBase]:
         return self.trading_core.markets
+
+    @property
+    def notifiers(self):
+        return self.trading_core.notifiers
 
     @property
     def strategy_config_map(self):
