@@ -408,10 +408,6 @@ class TradingCore:
             # Initialize markets for backward compatibility
             self._initialize_markets_for_strategy()
 
-            # Initialize markets recorder if not already done
-            if not self.markets_recorder:
-                self.initialize_markets_recorder()
-
             # Start the trading execution loop
             await self._start_strategy_execution()
 
@@ -444,6 +440,11 @@ class TradingCore:
         for connector_name, trading_pairs in markets_list:
             await self.create_connector(connector_name, trading_pairs)
 
+        # Initialize markets recorder now that connectors exist
+        # This ensures it's available for V2 strategies that need it
+        if not self.markets_recorder:
+            self.initialize_markets_recorder()
+
         # Create strategy instance
         if config:
             self.strategy = script_strategy_class(self.markets, config)
@@ -454,6 +455,10 @@ class TradingCore:
         """Initialize a regular strategy using starter file."""
         start_strategy_func: Callable = get_strategy_starter_file(self.strategy_name)
         start_strategy_func(self)
+
+        # Initialize markets recorder for regular strategies too
+        if not self.markets_recorder:
+            self.initialize_markets_recorder()
 
     async def _start_strategy_execution(self):
         """
