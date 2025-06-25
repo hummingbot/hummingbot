@@ -142,11 +142,15 @@ class CLMMPositionManager(ScriptStrategyBase):
 
         try:
             self.logger().info(f"Fetching position info for {self.position_address}...")
-            position_info = await GatewayHttpClient.get_instance().clmm_position_info(
-                connector=self.config.connector,
-                network=self.config.network,
-                position_address=self.position_address,
-                wallet_address=self.gateway_lp.address  # Use the gateway connector's address
+            position_info = await GatewayHttpClient.get_instance().connector_request(
+                "get",
+                self.config.connector,
+                "position-info",
+                {
+                    "network": self.config.network,
+                    "positionAddress": self.position_address,
+                    "walletAddress": self.gateway_lp.address  # Use the gateway connector's address
+                }
             )
 
             if not position_info:

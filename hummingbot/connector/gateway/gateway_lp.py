@@ -97,11 +97,15 @@ class GatewayLp(GatewaySwap):
 
             base_token, quote_token = tokens
 
-            resp: Dict[str, Any] = await self._get_gateway_instance().pool_info(
-                network=self.network,
-                connector=self.connector_name,
-                base_token=base_token,
-                quote_token=quote_token,
+            resp: Dict[str, Any] = await self._get_gateway_instance().connector_request(
+                "get",
+                self.connector_name,
+                "pool-info",
+                {
+                    "network": self.network,
+                    "baseToken": base_token,
+                    "quoteToken": quote_token,
+                }
             )
 
             # Determine which model to use based on connector type
@@ -204,17 +208,21 @@ class GatewayLp(GatewaySwap):
 
         # Open position
         try:
-            transaction_result = await self._get_gateway_instance().clmm_open_position(
-                connector=self.connector_name,
-                network=self.network,
-                wallet_address=self.address,
-                base_token=base_token,
-                quote_token=quote_token,
-                lower_price=lower_price,
-                upper_price=upper_price,
-                base_token_amount=base_token_amount,
-                quote_token_amount=quote_token_amount,
-                slippage_pct=slippage_pct
+            transaction_result = await self._get_gateway_instance().connector_request(
+                "post",
+                self.connector_name,
+                "open-position",
+                {
+                    "network": self.network,
+                    "walletAddress": self.address,
+                    "baseToken": base_token,
+                    "quoteToken": quote_token,
+                    "lowerPrice": lower_price,
+                    "upperPrice": upper_price,
+                    "baseTokenAmount": base_token_amount,
+                    "quoteTokenAmount": quote_token_amount,
+                    "slippagePct": slippage_pct
+                }
             )
             transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
@@ -276,15 +284,19 @@ class GatewayLp(GatewaySwap):
 
         # Add liquidity to AMM pool
         try:
-            transaction_result = await self._get_gateway_instance().amm_add_liquidity(
-                connector=self.connector_name,
-                network=self.network,
-                wallet_address=self.address,
-                base_token=base_token,
-                quote_token=quote_token,
-                base_token_amount=base_token_amount,
-                quote_token_amount=quote_token_amount,
-                slippage_pct=slippage_pct
+            transaction_result = await self._get_gateway_instance().connector_request(
+                "post",
+                self.connector_name,
+                "add-liquidity",
+                {
+                    "network": self.network,
+                    "walletAddress": self.address,
+                    "baseToken": base_token,
+                    "quoteToken": quote_token,
+                    "baseTokenAmount": base_token_amount,
+                    "quoteTokenAmount": quote_token_amount,
+                    "slippagePct": slippage_pct
+                }
             )
             transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
@@ -356,12 +368,16 @@ class GatewayLp(GatewaySwap):
                                   trading_pair=trading_pair,
                                   trade_type=trade_type)
         try:
-            transaction_result = await self._get_gateway_instance().clmm_close_position(
-                connector=self.connector_name,
-                network=self.network,
-                wallet_address=self.address,
-                position_address=position_address,
-                fail_silently=fail_silently
+            transaction_result = await self._get_gateway_instance().connector_request(
+                "post",
+                self.connector_name,
+                "close-position",
+                {
+                    "network": self.network,
+                    "walletAddress": self.address,
+                    "positionAddress": position_address,
+                    "failSilently": fail_silently
+                }
             )
             transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
@@ -408,14 +424,18 @@ class GatewayLp(GatewaySwap):
                                   trade_type=trade_type)
 
         try:
-            transaction_result = await self._get_gateway_instance().amm_remove_liquidity(
-                connector=self.connector_name,
-                network=self.network,
-                wallet_address=self.address,
-                base_token=base_token,
-                quote_token=quote_token,
-                percentage=percentage,
-                fail_silently=fail_silently
+            transaction_result = await self._get_gateway_instance().connector_request(
+                "post",
+                self.connector_name,
+                "remove-liquidity",
+                {
+                    "network": self.network,
+                    "walletAddress": self.address,
+                    "baseToken": base_token,
+                    "quoteToken": quote_token,
+                    "percentage": percentage,
+                    "failSilently": fail_silently
+                }
             )
             transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
@@ -511,14 +531,18 @@ class GatewayLp(GatewaySwap):
                                   trading_pair=trading_pair,
                                   trade_type=TradeType.RANGE)
         try:
-            transaction_result = await self._get_gateway_instance().amm_remove_liquidity(
-                connector=self.connector_name,
-                network=self.network,
-                wallet_address=self.address,
-                base_token=base_token,
-                quote_token=quote_token,
-                percentage=percentage,
-                fail_silently=fail_silently
+            transaction_result = await self._get_gateway_instance().connector_request(
+                "post",
+                self.connector_name,
+                "remove-liquidity",
+                {
+                    "network": self.network,
+                    "walletAddress": self.address,
+                    "baseToken": base_token,
+                    "quoteToken": quote_token,
+                    "percentage": percentage,
+                    "failSilently": fail_silently
+                }
             )
             transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
@@ -556,23 +580,31 @@ class GatewayLp(GatewaySwap):
                 if position_address is None:
                     raise ValueError("position_address is required for CLMM positions")
 
-                resp: Dict[str, Any] = await self._get_gateway_instance().clmm_position_info(
-                    connector=self.connector_name,
-                    network=self.network,
-                    position_address=position_address,
-                    wallet_address=self.address,
+                resp: Dict[str, Any] = await self._get_gateway_instance().connector_request(
+                    "get",
+                    self.connector_name,
+                    "position-info",
+                    {
+                        "network": self.network,
+                        "positionAddress": position_address,
+                        "walletAddress": self.address,
+                    }
                 )
                 # Validate response against CLMM schema
                 return CLMMPositionInfo(**resp) if resp else None
 
             elif connector_type == ConnectorType.AMM:
-                resp: Dict[str, Any] = await self._get_gateway_instance().amm_position_info(
-                    connector=self.connector_name,
-                    network=self.network,
-                    pool_address=position_address,
-                    base_token=base_token,
-                    quote_token=quote_token,
-                    wallet_address=self.address,
+                resp: Dict[str, Any] = await self._get_gateway_instance().connector_request(
+                    "get",
+                    self.connector_name,
+                    "position-info",
+                    {
+                        "network": self.network,
+                        "poolAddress": position_address,
+                        "baseToken": base_token,
+                        "quoteToken": quote_token,
+                        "walletAddress": self.address,
+                    }
                 )
                 # Validate response against AMM schema
                 return AMMPositionInfo(**resp) if resp else None
