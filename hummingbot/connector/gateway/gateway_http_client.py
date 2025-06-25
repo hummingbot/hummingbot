@@ -15,6 +15,7 @@ import aiohttp
 from aiohttp import ContentTypeError
 
 from hummingbot.client.config.security import Security
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 
@@ -764,3 +765,61 @@ class GatewayHttpClient:
             {"network": network},
             fail_silently=fail_silently
         )
+
+    async def get_price(
+            self,
+            chain: str,
+            network: str,
+            connector: str,
+            base_asset: str,
+            quote_asset: str,
+            amount: Decimal,
+            side: TradeType,
+            fail_silently: bool = False,
+            pool_address: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Get price quote for a swap. This is a wrapper for the quote-swap endpoint.
+
+        :param chain: Chain name
+        :param network: Network name
+        :param connector: Connector name
+        :param base_asset: Base token symbol
+        :param quote_asset: Quote token symbol
+        :param amount: Amount to swap (in base token)
+        :param side: Trade side (BUY or SELL)
+        :param fail_silently: Whether to suppress errors
+        :param pool_address: Optional pool address for CLMM/AMM connectors
+        :return: Price response with "price" field or error
+        """
+        try:
+            # Build request parameters
+            request_payload = {
+                "network": network,
+                "baseToken": base_asset,
+                "quoteToken": quote_asset,
+                "amount": float(amount),
+                "side": side.name
+            }
+
+            # Add pool address if provided (for CLMM/AMM connectors)
+            if pool_address is not None:
+                request_payload["poolAddress"] = pool_address
+
+            # Call quote-swap endpoint
+            response = await self.connector_request(
+                method="get",
+                connector=connector,
+                endpoint="quote-swap",
+                params=request_payload,
+                fail_silently=fail_silently
+            )
+
+            return response
+        except Exception as e:
+            if not fail_silently:
+                raise
+            return {
+                "price": None,
+                "error": str(e)
+            }
