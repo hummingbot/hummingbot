@@ -323,13 +323,13 @@ class HummingbotApplication(*commands):
                     # Initialize gateway connector
                     read_only_config = ReadOnlyClientConfigAdapter.lock_config(self.client_config_map)
                     connector = connector_class(
+                        client_config_map=read_only_config,
                         connector_name=connector_with_type,
                         chain=chain,
                         network=network,
                         address="",  # Will be fetched from gateway
                         trading_pairs=trading_pairs,
-                        trading_required=self._trading_required,
-                        client_config=read_only_config
+                        trading_required=self._trading_required
                     )
                     self.markets[connector_name] = connector
                     continue
