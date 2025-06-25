@@ -67,8 +67,6 @@ class CLMMPositionManager(ScriptStrategyBase):
         self.position_closing = False
         self.position_address = None
         self.pool_info = None
-        self.base_token = None
-        self.quote_token = None
         self.last_price = None
         self.position_lower_price = None
         self.position_upper_price = None
@@ -118,16 +116,6 @@ class CLMMPositionManager(ScriptStrategyBase):
                 return
 
             self.pool_info = pool_info
-
-            # Extract token information (addresses for later use)
-            self.base_token_address = pool_info.get("baseTokenAddress")
-            self.quote_token_address = pool_info.get("quoteTokenAddress")
-
-            # For now, hardcode the token symbols based on the pool
-            # In a real implementation, you'd get these from the pool info or token list
-            # This is a SOL-USDC pool based on the pool address in the config
-            self.base_token = "SOL"
-            self.quote_token = "USDC"
 
             # Extract current price - it's at the top level of the response
             if "price" in pool_info:
@@ -236,10 +224,10 @@ class CLMMPositionManager(ScriptStrategyBase):
                 return
 
             # Use the gateway LP connector to open position
-            # Create a trading pair from pool info
-            trading_pair = f"{self.base_token}-{self.quote_token}"
+            # Use a dummy trading pair since we're using pool address
+            trading_pair = "BASE-QUOTE"  # This is just a placeholder since pool_address is used
 
-            self.logger().info(f"Opening position on {trading_pair} around price {self.last_price} with width {self.config.position_width_pct}%")
+            self.logger().info(f"Opening position on pool {self.config.pool_address} around price {self.last_price} with width {self.config.position_width_pct}%")
 
             # Use the open_position method from gateway_lp
             order_id = self.gateway_lp.open_position(
@@ -324,8 +312,8 @@ class CLMMPositionManager(ScriptStrategyBase):
         self.position_closing = True
 
         try:
-            # Create a trading pair from pool info
-            trading_pair = f"{self.base_token}-{self.quote_token}"
+            # Use a dummy trading pair since we're using position address
+            trading_pair = "BASE-QUOTE"  # This is just a placeholder since position_address is used
 
             self.logger().info(f"Closing position {self.position_address}...")
 
