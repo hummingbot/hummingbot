@@ -411,7 +411,9 @@ class HummingbotCompleter(Completer):
         text_before_cursor: str = document.text_before_cursor
         return (text_before_cursor.startswith("gateway ") and
                 not text_before_cursor.startswith("gateway config ") and
-                not text_before_cursor.startswith("gateway wallet "))
+                not text_before_cursor.startswith("gateway wallet ") and
+                not text_before_cursor.startswith("gateway token ") and
+                text_before_cursor.count(" ") == 1)
 
     def _complete_gateway_config_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
