@@ -114,6 +114,12 @@ class HistoryCommandTest(unittest.TestCase):
         notify_mock.side_effect = lambda s: captures.append(s)
         self.app.strategy_file_name = f"{self.mock_strategy_name}.yml"
 
+        # Initialize the trade_fill_db if it doesn't exist
+        if self.app.trading_core.trade_fill_db is None:
+            self.app.trading_core.trade_fill_db = SQLConnectionManager.get_trade_fills_instance(
+                self.client_config_map, self.mock_strategy_name
+            )
+
         trade_fee = AddedToCostTradeFee(percent=Decimal("5"))
         order_id = PaperTradeExchange.random_order_id(order_side="BUY", trading_pair="BTC-USDT")
         with self.app.trading_core.trade_fill_db.get_new_session() as session:
