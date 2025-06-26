@@ -92,6 +92,7 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
 
     await Security.wait_til_decryption_done()
     await create_yml_files_legacy()
+    # Initialize logging with basic setup first - will be re-initialized later with correct strategy file name if needed
     init_logging("hummingbot_logs.yml", client_config_map)
     await read_system_configs_from_yml()
 
@@ -114,30 +115,33 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
 
 async def load_and_start_strategy(hb: HummingbotApplication, args: argparse.Namespace, config_file_name: str):
     """Load and start strategy based on file type and mode."""
-    hb.strategy_file_name = config_file_name
-
     if config_file_name.endswith(".py"):
         # Script strategy
         strategy_name = config_file_name.replace(".py", "")
         strategy_config_file = args.script_conf  # Optional config file for script
+
+        # Set strategy_file_name to config file if provided, otherwise script file (matching start_command logic)
+        hb.strategy_file_name = strategy_config_file.split(".")[0] if strategy_config_file else strategy_name
+        hb.trading_core.strategy_name = strategy_name
 
         if args.headless:
             logging.getLogger().info(f"Starting script strategy: {strategy_name}")
             success = await hb.trading_core.start_strategy(
                 strategy_name,
                 strategy_config_file,  # Pass config file path if provided
-                config_file_name
+                hb.strategy_file_name + (".yml" if strategy_config_file else ".py")  # Full file name for strategy
             )
             if not success:
                 logging.getLogger().error("Failed to start strategy")
                 return False
         else:
             # UI mode - set properties for UIStartListener
-            hb.trading_core.strategy_name = strategy_name
             if strategy_config_file:
                 hb.script_config = strategy_config_file
     else:
         # Regular strategy with YAML config
+        hb.strategy_file_name = config_file_name.split(".")[0]  # Remove .yml extension
+
         strategy_config = await load_strategy_config_map_from_file(
             STRATEGIES_CONF_DIR_PATH / config_file_name
         )
@@ -146,9 +150,10 @@ async def load_and_start_strategy(hb: HummingbotApplication, args: argparse.Name
             if isinstance(strategy_config, ClientConfigAdapter)
             else strategy_config.get("strategy").value
         )
+        hb.trading_core.strategy_name = strategy_name
 
         if args.headless:
-            logging.getLogger().info(f"Starting strategy: {strategy_name}")
+            logging.getLogger().info(f"Starting regular strategy: {strategy_name}")
             success = await hb.trading_core.start_strategy(
                 strategy_name,
                 strategy_config,
@@ -159,7 +164,6 @@ async def load_and_start_strategy(hb: HummingbotApplication, args: argparse.Name
                 return False
         else:
             # UI mode - set properties for UIStartListener
-            hb.trading_core.strategy_name = strategy_name
             hb.strategy_config_map = strategy_config
 
             # Check if config is complete for UI mode
@@ -172,17 +176,21 @@ async def load_and_start_strategy(hb: HummingbotApplication, args: argparse.Name
 async def run_application(hb: HummingbotApplication, args: argparse.Namespace, client_config_map):
     """Run the application in headless or UI mode."""
     if args.headless:
-        # Simple headless execution
+        # Re-initialize logging with proper strategy file name for headless mode
+        from hummingbot import init_logging
+        log_file_name = hb.strategy_file_name.split(".")[0] if hb.strategy_file_name else "hummingbot"
+        init_logging("hummingbot_logs.yml", hb.client_config_map,
+                     override_log_level=hb.client_config_map.log_level,
+                     strategy_file_path=log_file_name)
         await hb.run()
     else:
         # Set up UI mode with start listener
         is_script = hb.strategy_file_name and hb.strategy_file_name.endswith(".py") if hb.strategy_file_name else False
-        script_config = getattr(hb, 'script_config', None)
 
         start_listener: UIStartListener = UIStartListener(
             hb,
             is_script=is_script,
-            script_config=script_config,
+            script_config=hb.script_config,
             is_quickstart=True
         )
         hb.app.add_listener(HummingbotUIEvent.Start, start_listener)
