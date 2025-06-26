@@ -28,6 +28,12 @@ class ArbitrageExecutor(ExecutorBase):
     def _are_tokens_interchangeable(first_token: str, second_token: str):
         interchangeable_tokens = [
             {"WETH", "ETH"},
+            {"WBERA", "BERA"},
+            # {"WETH", "BERA"},
+            # {"ETH", "BERA"},
+            # {"WETH", "WBERA"},
+            # {"HONEY", "USDT"},
+            # {"USDT", "HONEY"},
             {"WBTC", "BTC"},
             {"WBNB", "BNB"},
             {"WPOL", "POL"},
@@ -154,13 +160,18 @@ class ArbitrageExecutor(ExecutorBase):
 
     async def get_resulting_price_for_amount(self, exchange: str, trading_pair: str, is_buy: bool,
                                              order_amount: Decimal):
-        return await self.connectors[exchange].get_quote_price(trading_pair, is_buy, order_amount)
+        if self.config.slippage is not None:
+            return await self.connectors[exchange].get_quote_price(trading_pair, is_buy, order_amount, slippage_pct=self.config.slippage)
+        else:
+            return await self.connectors[exchange].get_quote_price(trading_pair, is_buy, order_amount)
 
     async def control_task(self):
+        self.logger().info(f"Executing control task for {self.config.id} with status {self.status}")
         if self.status == RunnableStatus.RUNNING:
             try:
                 await self.update_trade_pnl_pct()
                 await self.update_tx_cost()
+
                 self._current_profitability = (self._trade_pnl_pct * self.order_amount - self._last_tx_cost) / self.order_amount
                 if self._current_profitability > self.min_profitability:
                     await self.execute_arbitrage()
@@ -247,11 +258,31 @@ class ArbitrageExecutor(ExecutorBase):
     async def update_trade_pnl_pct(self):
         self._last_buy_price, self._last_sell_price = await self.get_buy_and_sell_prices()
 
+        if not self._last_buy_price:
+            self.logger().warning(f"Could not get buy price for {self.buying_market.trading_pair} on {self.buying_market.connector_name}")
+        if not self._last_sell_price:
+            self.logger().warning(f"Could not get sell price for {self.selling_market.trading_pair} on {self.selling_market.connector_name}")
         if not self._last_buy_price or not self._last_sell_price:
             raise Exception("Could not get buy and sell prices")
 
+        _, buy_quote_asset = split_hb_trading_pair(self.buying_market.trading_pair)
+        _, sell_quote_asset = split_hb_trading_pair(self.selling_market.trading_pair)
+        interchange_map = self.config.interchange_tokens_for_price_fetch
+        if buy_quote_asset in interchange_map:
+            buy_quote_asset = interchange_map[buy_quote_asset]
+        if sell_quote_asset in interchange_map:
+            sell_quote_asset = interchange_map[sell_quote_asset]
+
+        # Define the conversion trading pair (e.g., SOL/USDT or USDT/SOL)
+        self.quote_conversion_pair = f"{sell_quote_asset}-{buy_quote_asset}"
+        self.rate_oracle = RateOracle.get_instance()
+
         # Fetch the conversion rate between quote assets
         conversion_rate = await self.get_quote_asset_conversion_rate()
+
+        if conversion_rate is None:
+            self.logger().warning(f"Could not get conversion rate for {self.quote_conversion_pair}, defaulting to 1.")
+            conversion_rate = Decimal("1")
 
         # Normalize the sell price to the same quote asset as the buy price
         normalized_sell_price = self._last_sell_price * conversion_rate
@@ -266,6 +297,8 @@ class ArbitrageExecutor(ExecutorBase):
         """
         # Fetch the conversion rate from the connector
         try:
+            if self.quote_conversion_pair.split("-")[0] == self.quote_conversion_pair.split("-")[1]:
+                return Decimal("1")
             conversion_rate = self.rate_oracle.get_pair_rate(self.quote_conversion_pair)
             return conversion_rate
         except Exception as e:
