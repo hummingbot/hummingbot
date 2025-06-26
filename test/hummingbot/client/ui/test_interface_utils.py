@@ -163,7 +163,7 @@ class InterfaceUtilsTest(unittest.TestCase):
     def test_start_trade_monitor_loop_continues_on_failure(self, mock_hb_app, mock_sleep):
         mock_result = MagicMock()
         mock_app = mock_hb_app.main_application()
-        mock_app.strategy_task.done.side_effect = [RuntimeError(), asyncio.CancelledError()]
+        mock_app.trading_core.strategy_task.done.side_effect = [RuntimeError(), asyncio.CancelledError()]
         with self.assertRaises(asyncio.CancelledError):
             self.async_run_with_timeout(start_trade_monitor(mock_result))
         self.assertEqual(2, mock_app.strategy_task.done.call_count)  # was called again after exception
