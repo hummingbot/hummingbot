@@ -136,6 +136,16 @@ class TradingCore:
         return self.client_config_map.mqtt_bridge.mqtt_autostart
 
     @property
+    def strategy_file_name(self) -> Optional[str]:
+        """Get the strategy file name."""
+        return self._strategy_file_name
+
+    @strategy_file_name.setter
+    def strategy_file_name(self, value: Optional[str]):
+        """Set the strategy file name."""
+        self._strategy_file_name = value
+
+    @property
     def mqtt_started(self) -> bool:
         """Check if MQTT is started."""
         return self._mqtt_started
