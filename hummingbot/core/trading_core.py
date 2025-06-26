@@ -126,6 +126,11 @@ class TradingCore:
         return self.connector_manager.get_all_connectors()
 
     @property
+    def connectors(self) -> Dict[str, ExchangeBase]:
+        """Get all connectors (backward compatibility)."""
+        return self.connector_manager.connectors
+
+    @property
     def mqtt_enabled(self) -> bool:
         """Check if MQTT is enabled in configuration."""
         return self.client_config_map.mqtt_bridge.mqtt_autostart
