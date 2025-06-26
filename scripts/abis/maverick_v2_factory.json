@@ -1,0 +1,724 @@
+[
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_initialOwner",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [],
+      "name": "FactorAlreadyInitialized",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "FactorNotInitialized",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "FactoryAccessorMustBeNonZero",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "FactoryInvalidFee",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint8",
+          "name": "kinds",
+          "type": "uint8"
+        }
+      ],
+      "name": "FactoryInvalidKinds",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "lookback",
+          "type": "uint256"
+        }
+      ],
+      "name": "FactoryInvalidLookback",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "tickSpacing",
+          "type": "uint256"
+        }
+      ],
+      "name": "FactoryInvalidTickSpacing",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint8",
+          "name": "decimalsA",
+          "type": "uint8"
+        },
+        {
+          "internalType": "uint8",
+          "name": "decimalsB",
+          "type": "uint8"
+        }
+      ],
+      "name": "FactoryInvalidTokenDecimals",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "contract IERC20",
+          "name": "_tokenA",
+          "type": "address"
+        },
+        {
+          "internalType": "contract IERC20",
+          "name": "_tokenB",
+          "type": "address"
+        }
+      ],
+      "name": "FactoryInvalidTokenOrder",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "feeAIn",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "feeBIn",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "tickSpacing",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "lookback",
+          "type": "uint256"
+        },
+        {
+          "internalType": "contract IERC20",
+          "name": "tokenA",
+          "type": "address"
+        },
+        {
+          "internalType": "contract IERC20",
+          "name": "tokenB",
+          "type": "address"
+        },
+        {
+          "internalType": "uint8",
+          "name": "kinds",
+          "type": "uint8"
+        },
+        {
+          "internalType": "address",
+          "name": "accessor",
+          "type": "address"
+        }
+      ],
+      "name": "FactoryPoolAlreadyExists",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NotImplemented",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "owner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnableInvalidOwner",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "OwnableUnauthorizedAccount",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint8",
+          "name": "bits",
+          "type": "uint8"
+        },
+        {
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        }
+      ],
+      "name": "SafeCastOverflowedUintDowncast",
+      "type": "error"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "previousOwner",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnershipTransferred",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "contract IMaverickV2Pool",
+          "name": "poolAddress",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint8",
+          "name": "protocolFeeRatio",
+          "type": "uint8"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "feeAIn",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "feeBIn",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "tickSpacing",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "lookback",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "int32",
+          "name": "activeTick",
+          "type": "int32"
+        },
+        {
+          "indexed": false,
+          "internalType": "contract IERC20",
+          "name": "tokenA",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "contract IERC20",
+          "name": "tokenB",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint8",
+          "name": "kinds",
+          "type": "uint8"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "accessor",
+          "type": "address"
+        }
+      ],
+      "name": "PoolCreated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "receiver",
+          "type": "address"
+        }
+      ],
+      "name": "SetFactoryProtocolFeeReceiver",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "contract IFeeRegistry",
+          "name": "registry",
+          "type": "address"
+        }
+      ],
+      "name": "SetFactoryProtocolFeeRegistry",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint64",
+          "name": "fee",
+          "type": "uint64"
+        },
+        {
+          "internalType": "uint16",
+          "name": "tickSpacing",
+          "type": "uint16"
+        },
+        {
+          "internalType": "uint32",
+          "name": "lookback",
+          "type": "uint32"
+        },
+        {
+          "internalType": "contract IERC20",
+          "name": "tokenA",
+          "type": "address"
+        },
+        {
+          "internalType": "contract IERC20",
+          "name": "tokenB",
+          "type": "address"
+        },
+        {
+          "internalType": "int32",
+          "name": "activeTick",
+          "type": "int32"
+        },
+        {
+          "internalType": "uint8",
+          "name": "kinds",
+          "type": "uint8"
+        }
+      ],
+      "name": "create",
+      "outputs": [
+        {
+          "internalType": "contract IMaverickV2Pool",
+          "name": "pool",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint64",
+          "name": "feeAIn",
+          "type": "uint64"
+        },
+        {
+          "internalType": "uint64",
+          "name": "feeBIn",
+          "type": "uint64"
+        },
+        {
+          "internalType": "uint16",
+          "name": "tickSpacing",
+          "type": "uint16"
+        },
+        {
+          "internalType": "uint32",
+          "name": "lookback",
+          "type": "uint32"
+        },
+        {
+          "internalType": "contract IERC20",
+          "name": "tokenA",
+          "type": "address"
+        },
+        {
+          "internalType": "contract IERC20",
+          "name": "tokenB",
+          "type": "address"
+        },
+        {
+          "internalType": "int32",
+          "name": "activeTick",
+          "type": "int32"
+        },
+        {
+          "internalType": "uint8",
+          "name": "kinds",
+          "type": "uint8"
+        }
+      ],
+      "name": "create",
+      "outputs": [
+        {
+          "internalType": "contract IMaverickV2Pool",
+          "name": "pool",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "deployParameters",
+      "outputs": [
+        {
+          "internalType": "uint64",
+          "name": "feeAIn",
+          "type": "uint64"
+        },
+        {
+          "internalType": "uint64",
+          "name": "feeBIn",
+          "type": "uint64"
+        },
+        {
+          "internalType": "uint32",
+          "name": "lookback",
+          "type": "uint32"
+        },
+        {
+          "internalType": "int32",
+          "name": "activeTick",
+          "type": "int32"
+        },
+        {
+          "internalType": "uint64",
+          "name": "tokenAScale",
+          "type": "uint64"
+        },
+        {
+          "internalType": "uint64",
+          "name": "tokenBScale",
+          "type": "uint64"
+        },
+        {
+          "internalType": "contract IERC20",
+          "name": "tokenA",
+          "type": "address"
+        },
+        {
+          "internalType": "contract IERC20",
+          "name": "tokenB",
+          "type": "address"
+        },
+        {
+          "internalType": "uint16",
+          "name": "tickSpacing",
+          "type": "uint16"
+        },
+        {
+          "internalType": "uint8",
+          "name": "options",
+          "type": "uint8"
+        },
+        {
+          "internalType": "address",
+          "name": "accessor",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "contract IMaverickV2Pool",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "isFactoryPool",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "startIndex",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "endIndex",
+          "type": "uint256"
+        }
+      ],
+      "name": "lookup",
+      "outputs": [
+        {
+          "internalType": "contract IMaverickV2Pool[]",
+          "name": "",
+          "type": "address[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_feeAIn",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_feeBIn",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_tickSpacing",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_lookback",
+          "type": "uint256"
+        },
+        {
+          "internalType": "contract IERC20",
+          "name": "_tokenA",
+          "type": "address"
+        },
+        {
+          "internalType": "contract IERC20",
+          "name": "_tokenB",
+          "type": "address"
+        },
+        {
+          "internalType": "uint8",
+          "name": "_kinds",
+          "type": "uint8"
+        }
+      ],
+      "name": "lookup",
+      "outputs": [
+        {
+          "internalType": "contract IMaverickV2Pool",
+          "name": "pool",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "contract IERC20",
+          "name": "_tokenA",
+          "type": "address"
+        },
+        {
+          "internalType": "contract IERC20",
+          "name": "_tokenB",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "startIndex",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "endIndex",
+          "type": "uint256"
+        }
+      ],
+      "name": "lookup",
+      "outputs": [
+        {
+          "internalType": "contract IMaverickV2Pool[]",
+          "name": "",
+          "type": "address[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "contract IERC20",
+          "name": "_tokenA",
+          "type": "address"
+        },
+        {
+          "internalType": "contract IERC20",
+          "name": "_tokenB",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "accessor",
+          "type": "address"
+        }
+      ],
+      "name": "poolByTokenCount",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "_poolCount",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "poolCount",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "_poolCount",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "protocolFeeReceiver",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "protocolFeeRegistry",
+      "outputs": [
+        {
+          "internalType": "contract IFeeRegistry",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "renounceOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "receiver",
+          "type": "address"
+        }
+      ],
+      "name": "setProtocolFeeReceiver",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "contract IFeeRegistry",
+          "name": "registry",
+          "type": "address"
+        }
+      ],
+      "name": "setProtocolFeeRegistry",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "transferOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ]

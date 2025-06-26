@@ -1,0 +1,1226 @@
+[
+    {
+      "inputs": [],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [],
+      "name": "MathOverflowedMulDiv",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "binIdsLength",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amountsLength",
+          "type": "uint256"
+        }
+      ],
+      "name": "PoolBinIdsAmountsLengthMismatch",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "int32",
+          "name": "startingTick",
+          "type": "int32"
+        }
+      ],
+      "name": "PoolCurrentTickBeyondSwapLimit",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PoolFunctionNotImplemented",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "deltaLpAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "accountBalance",
+          "type": "uint256"
+        }
+      ],
+      "name": "PoolInsufficientBalance",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PoolInvalidFee",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "kinds",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "kind",
+          "type": "uint256"
+        }
+      ],
+      "name": "PoolKindNotSupported",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PoolLocked",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PoolMigrateBinFirst",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PoolMinimumLiquidityNotMet",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PoolNoProtocolFeeReceiverSet",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "PoolReservesExceedMaximum",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "sender_",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "accessor",
+          "type": "address"
+        }
+      ],
+      "name": "PoolSenderNotAccessor",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "sender_",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "accessor",
+          "type": "address"
+        }
+      ],
+      "name": "PoolSenderNotFactory",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "tick",
+          "type": "uint256"
+        }
+      ],
+      "name": "PoolTickMaxExceeded",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "ticksLength",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amountsLength",
+          "type": "uint256"
+        }
+      ],
+      "name": "PoolTicksAmountsLengthMismatch",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "index",
+          "type": "uint256"
+        },
+        {
+          "internalType": "int256",
+          "name": "previousTick",
+          "type": "int256"
+        },
+        {
+          "internalType": "int256",
+          "name": "tick",
+          "type": "int256"
+        }
+      ],
+      "name": "PoolTicksNotSorted",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "internalReserve",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "tokenBalance",
+          "type": "uint256"
+        },
+        {
+          "internalType": "contract IERC20",
+          "name": "token",
+          "type": "address"
+        }
+      ],
+      "name": "PoolTokenNotSolvent",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "bits",
+          "type": "uint256"
+        }
+      ],
+      "name": "PoolValueExceedsBits",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PoolZeroLiquidityAdded",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint8",
+          "name": "bits",
+          "type": "uint8"
+        },
+        {
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        }
+      ],
+      "name": "SafeCastOverflowedUintDowncast",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "int256",
+          "name": "tick",
+          "type": "int256"
+        }
+      ],
+      "name": "TickMaxExceeded",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "contract IERC20",
+          "name": "token",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "to",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "TransferFailed",
+      "type": "error"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "sender",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "subaccount",
+          "type": "uint256"
+        },
+        {
+          "components": [
+            {
+              "internalType": "uint8",
+              "name": "kind",
+              "type": "uint8"
+            },
+            {
+              "internalType": "int32[]",
+              "name": "ticks",
+              "type": "int32[]"
+            },
+            {
+              "internalType": "uint128[]",
+              "name": "amounts",
+              "type": "uint128[]"
+            }
+          ],
+          "indexed": false,
+          "internalType": "struct IMaverickV2Pool.AddLiquidityParams",
+          "name": "params",
+          "type": "tuple"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "tokenAAmount",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "tokenBAmount",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint32[]",
+          "name": "binIds",
+          "type": "uint32[]"
+        }
+      ],
+      "name": "PoolAddLiquidity",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "sender",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amountA",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amountB",
+          "type": "uint256"
+        }
+      ],
+      "name": "PoolFlashLoan",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "sender",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint32",
+          "name": "binId",
+          "type": "uint32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint32",
+          "name": "maxRecursion",
+          "type": "uint32"
+        }
+      ],
+      "name": "PoolMigrateBinsUpStack",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "contract IERC20",
+          "name": "token",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "protocolFee",
+          "type": "uint256"
+        }
+      ],
+      "name": "PoolProtocolFeeCollected",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "sender",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "subaccount",
+          "type": "uint256"
+        },
+        {
+          "components": [
+            {
+              "internalType": "uint32[]",
+              "name": "binIds",
+              "type": "uint32[]"
+            },
+            {
+              "internalType": "uint128[]",
+              "name": "amounts",
+              "type": "uint128[]"
+            }
+          ],
+          "indexed": false,
+          "internalType": "struct IMaverickV2Pool.RemoveLiquidityParams",
+          "name": "params",
+          "type": "tuple"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "tokenAOut",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "tokenBOut",
+          "type": "uint256"
+        }
+      ],
+      "name": "PoolRemoveLiquidity",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "sqrtPrice",
+          "type": "uint256"
+        }
+      ],
+      "name": "PoolSqrtPrice",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "sender",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        },
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bool",
+              "name": "tokenAIn",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "exactOutput",
+              "type": "bool"
+            },
+            {
+              "internalType": "int32",
+              "name": "tickLimit",
+              "type": "int32"
+            }
+          ],
+          "indexed": false,
+          "internalType": "struct IMaverickV2Pool.SwapParams",
+          "name": "params",
+          "type": "tuple"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amountIn",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amountOut",
+          "type": "uint256"
+        }
+      ],
+      "name": "PoolSwap",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "int32",
+          "name": "tick",
+          "type": "int32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint8",
+          "name": "kind",
+          "type": "uint8"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint32",
+          "name": "binId",
+          "type": "uint32"
+        }
+      ],
+      "name": "PoolTickBinUpdate",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "int32",
+          "name": "tick",
+          "type": "int32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "reserveA",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "reserveB",
+          "type": "uint256"
+        }
+      ],
+      "name": "PoolTickState",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "accessor",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "subaccount",
+          "type": "uint256"
+        },
+        {
+          "components": [
+            {
+              "internalType": "uint8",
+              "name": "kind",
+              "type": "uint8"
+            },
+            {
+              "internalType": "int32[]",
+              "name": "ticks",
+              "type": "int32[]"
+            },
+            {
+              "internalType": "uint128[]",
+              "name": "amounts",
+              "type": "uint128[]"
+            }
+          ],
+          "internalType": "struct IMaverickV2Pool.AddLiquidityParams",
+          "name": "params",
+          "type": "tuple"
+        },
+        {
+          "internalType": "bytes",
+          "name": "data",
+          "type": "bytes"
+        }
+      ],
+      "name": "addLiquidity",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "tokenAAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "tokenBAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint32[]",
+          "name": "binIds",
+          "type": "uint32[]"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "subaccount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint32",
+          "name": "binId",
+          "type": "uint32"
+        }
+      ],
+      "name": "balanceOf",
+      "outputs": [
+        {
+          "internalType": "uint128",
+          "name": "lpBalance",
+          "type": "uint128"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "int32",
+          "name": "tick",
+          "type": "int32"
+        },
+        {
+          "internalType": "uint256",
+          "name": "kind",
+          "type": "uint256"
+        }
+      ],
+      "name": "binIdByTickKind",
+      "outputs": [
+        {
+          "internalType": "uint32",
+          "name": "binId",
+          "type": "uint32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bool",
+          "name": "isTokenA",
+          "type": "bool"
+        }
+      ],
+      "name": "distributeFees",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "protocolFee",
+          "type": "uint256"
+        },
+        {
+          "internalType": "contract IERC20",
+          "name": "token",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "factory",
+      "outputs": [
+        {
+          "internalType": "contract IMaverickV2Factory",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bool",
+          "name": "tokenAIn",
+          "type": "bool"
+        }
+      ],
+      "name": "fee",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amountA",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amountB",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes",
+          "name": "data",
+          "type": "bytes"
+        }
+      ],
+      "name": "flashLoan",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint32",
+          "name": "binId",
+          "type": "uint32"
+        }
+      ],
+      "name": "getBin",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint128",
+              "name": "mergeBinBalance",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "tickBalance",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "totalSupply",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint8",
+              "name": "kind",
+              "type": "uint8"
+            },
+            {
+              "internalType": "int32",
+              "name": "tick",
+              "type": "int32"
+            },
+            {
+              "internalType": "uint32",
+              "name": "mergeId",
+              "type": "uint32"
+            }
+          ],
+          "internalType": "struct IMaverickV2Pool.BinState",
+          "name": "bin",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getCurrentTwa",
+      "outputs": [
+        {
+          "internalType": "int256",
+          "name": "",
+          "type": "int256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getState",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint128",
+              "name": "reserveA",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "reserveB",
+              "type": "uint128"
+            },
+            {
+              "internalType": "int64",
+              "name": "lastTwaD8",
+              "type": "int64"
+            },
+            {
+              "internalType": "int64",
+              "name": "lastLogPriceD8",
+              "type": "int64"
+            },
+            {
+              "internalType": "uint40",
+              "name": "lastTimestamp",
+              "type": "uint40"
+            },
+            {
+              "internalType": "int32",
+              "name": "activeTick",
+              "type": "int32"
+            },
+            {
+              "internalType": "bool",
+              "name": "isLocked",
+              "type": "bool"
+            },
+            {
+              "internalType": "uint32",
+              "name": "binCounter",
+              "type": "uint32"
+            },
+            {
+              "internalType": "uint8",
+              "name": "protocolFeeRatioD3",
+              "type": "uint8"
+            }
+          ],
+          "internalType": "struct IMaverickV2Pool.State",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "int32",
+          "name": "tick",
+          "type": "int32"
+        }
+      ],
+      "name": "getTick",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint128",
+              "name": "reserveA",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "reserveB",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "totalSupply",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint32[4]",
+              "name": "binIdsByTick",
+              "type": "uint32[4]"
+            }
+          ],
+          "internalType": "struct IMaverickV2Pool.TickState",
+          "name": "_tick",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "kinds",
+      "outputs": [
+        {
+          "internalType": "uint8",
+          "name": "_kinds",
+          "type": "uint8"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "lendingFeeRateD18",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "lookback",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint32",
+          "name": "binId",
+          "type": "uint32"
+        },
+        {
+          "internalType": "uint32",
+          "name": "maxRecursion",
+          "type": "uint32"
+        }
+      ],
+      "name": "migrateBinUpStack",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "protocolFeeA",
+      "outputs": [
+        {
+          "internalType": "uint128",
+          "name": "",
+          "type": "uint128"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "protocolFeeB",
+      "outputs": [
+        {
+          "internalType": "uint128",
+          "name": "",
+          "type": "uint128"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "subaccount",
+          "type": "uint256"
+        },
+        {
+          "components": [
+            {
+              "internalType": "uint32[]",
+              "name": "binIds",
+              "type": "uint32[]"
+            },
+            {
+              "internalType": "uint128[]",
+              "name": "amounts",
+              "type": "uint128[]"
+            }
+          ],
+          "internalType": "struct IMaverickV2Pool.RemoveLiquidityParams",
+          "name": "params",
+          "type": "tuple"
+        }
+      ],
+      "name": "removeLiquidity",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "tokenAOut",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "tokenBOut",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        },
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bool",
+              "name": "tokenAIn",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "exactOutput",
+              "type": "bool"
+            },
+            {
+              "internalType": "int32",
+              "name": "tickLimit",
+              "type": "int32"
+            }
+          ],
+          "internalType": "struct IMaverickV2Pool.SwapParams",
+          "name": "params",
+          "type": "tuple"
+        },
+        {
+          "internalType": "bytes",
+          "name": "data",
+          "type": "bytes"
+        }
+      ],
+      "name": "swap",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "amountIn",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amountOut",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "tickSpacing",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "tokenA",
+      "outputs": [
+        {
+          "internalType": "contract IERC20",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "tokenAScale",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "tokenB",
+      "outputs": [
+        {
+          "internalType": "contract IERC20",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "tokenBScale",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ]
