@@ -28,15 +28,26 @@ class StopCommand:
             import appnope
             appnope.nap()
 
+        # Use trading_core encapsulated stop strategy method
+        await self.trading_core.stop_strategy()
+
         # Handle script strategy specific cleanup first
         if isinstance(self.trading_core.strategy, ScriptStrategyBase):
             await self.trading_core.strategy.on_stop()
 
+        # Cancel outstanding orders
+        if not skip_order_cancellation:
+            await self.trading_core.cancel_outstanding_orders()
+
         # Sleep two seconds to have time for order fill arrivals
         await asyncio.sleep(2.0)
 
-        # Use trading_core encapsulated stop strategy method
-        await self.trading_core.stop_strategy(skip_order_cancellation)
+        # Stop all connectors
+        for connector_name in list(self.trading_core.connectors.keys()):
+            try:
+                await self.trading_core.remove_connector(connector_name)
+            except Exception as e:
+                self.logger().error(f"Error stopping connector {connector_name}: {e}")
 
         # Stop the clock to halt trading operations
         await self.trading_core.stop_clock()
