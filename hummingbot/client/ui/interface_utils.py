@@ -64,7 +64,7 @@ async def start_trade_monitor(trade_monitor):
 
     while True:
         try:
-            if hb.trading_core.strategy_task is not None and not hb.trading_core.strategy_task.done():
+            if hb.trading_core._strategy_running and hb.trading_core.strategy is not None:
                 if all(market.ready for market in hb.trading_core.markets.values()):
                     with hb.trading_core.trade_fill_db.get_new_session() as session:
                         trades: List[TradeFill] = hb._get_trades_from_session(
