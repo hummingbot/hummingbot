@@ -19,7 +19,7 @@ class ExitCommand:
         if self.trading_core.strategy_task is not None and not self.trading_core.strategy_task.cancelled():
             self.trading_core.strategy_task.cancel()
         if force is False and self._trading_required:
-            success = await self._cancel_outstanding_orders()
+            success = await self.trading_core.cancel_outstanding_orders()
             if not success:
                 self.notify('Wind down process terminated: Failed to cancel all outstanding orders. '
                             '\nYou may need to manually cancel remaining orders by logging into your chosen exchanges'

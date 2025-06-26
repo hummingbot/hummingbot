@@ -1,7 +1,6 @@
 import asyncio
 import platform
 import threading
-import time
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set
 
 import pandas as pd
@@ -10,18 +9,14 @@ import hummingbot.client.settings as settings
 from hummingbot import init_logging
 from hummingbot.client.command.gateway_api_manager import GatewayChainApiManager
 from hummingbot.client.command.gateway_command import GatewayCommand
-from hummingbot.client.config.config_helpers import get_strategy_starter_file
 from hummingbot.client.config.config_validators import validate_bool
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.performance import PerformanceMetrics
-from hummingbot.core.clock import Clock, ClockMode
-from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.exceptions import OracleRateUnavailable
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
-
 
 GATEWAY_READY_TIMEOUT = 300  # seconds
 
@@ -66,7 +61,8 @@ class StartCommand(GatewayChainApiManager):
                           conf: Optional[str] = None,
                           is_quickstart: Optional[bool] = False):
 
-        if self._in_start_check or (self.trading_core.strategy_task is not None and not self.trading_core.strategy_task.done()):
+        if self._in_start_check or (
+                self.trading_core.strategy_task is not None and not self.trading_core.strategy_task.done()):
             self.notify('The bot is already running - please run "stop" first')
             return
 
@@ -85,8 +81,9 @@ class StartCommand(GatewayChainApiManager):
                 try:
                     await asyncio.wait_for(self._gateway_monitor.ready_event.wait(), timeout=GATEWAY_READY_TIMEOUT)
                 except asyncio.TimeoutError:
-                    self.notify(f"TimeoutError waiting for gateway service to go online... Please ensure Gateway is configured correctly."
-                                f"Unable to start strategy {self.trading_core.strategy_name}. ")
+                    self.notify(
+                        f"TimeoutError waiting for gateway service to go online... Please ensure Gateway is configured correctly."
+                        f"Unable to start strategy {self.trading_core.strategy_name}. ")
                     self._in_start_check = False
                     self.trading_core.strategy_name = None
                     self.strategy_file_name = None
@@ -113,13 +110,32 @@ class StartCommand(GatewayChainApiManager):
             appnope.nope()
 
         self._initialize_notifiers()
+
+        # Delegate strategy initialization to trading_core
         try:
-            self._initialize_strategy(self.trading_core.strategy_name)
-        except NotImplementedError:
+            # For script strategies, pass config file path if different from strategy name
+            # For v1 strategies, pass None as they handle their own config
+            strategy_config = None
+            if self.trading_core.is_script_strategy(self.trading_core.strategy_name):
+                if self.strategy_file_name and self.strategy_file_name != self.trading_core.strategy_name:
+                    strategy_config = self.strategy_file_name
+
+            success = await self.trading_core.start_strategy(
+                self.trading_core.strategy_name,
+                strategy_config,
+                self.strategy_file_name
+            )
+            if not success:
+                self._in_start_check = False
+                self.trading_core.strategy_name = None
+                self.strategy_file_name = None
+                self.notify("Invalid strategy. Start aborted.")
+                return
+        except Exception as e:
             self._in_start_check = False
             self.trading_core.strategy_name = None
             self.strategy_file_name = None
-            self.notify("Invalid strategy. Start aborted.")
+            self.notify(f"Invalid strategy. Start aborted {e}.")
             raise
 
         if any([str(exchange).endswith("paper_trade") for exchange in settings.required_exchanges]):
@@ -140,7 +156,8 @@ class StartCommand(GatewayChainApiManager):
                     ]
 
                     # check for node URL
-                    await self._test_node_url_from_gateway_config(connector_details['chain'], connector_details['network'])
+                    await self._test_node_url_from_gateway_config(connector_details['chain'],
+                                                                  connector_details['network'])
 
                     await GatewayCommand.update_exchange_balances(self, connector, self.client_config_map)
                     balances: List[str] = [
@@ -169,79 +186,12 @@ class StartCommand(GatewayChainApiManager):
                             self._in_start_check = False
                             return
 
-        self.notify(f"\nStatus check complete. Starting '{self.trading_core.strategy_name}' strategy...")
-        await self.start_market_making()
-
+        self.notify(f"\nStatus check complete. Strategy '{self.trading_core.strategy_name}' started successfully.")
         self._in_start_check = False
 
-        # We always start the RateOracle. It is required for PNL calculation.
-        RateOracle.get_instance().start()
+        # Patch MQTT loggers if MQTT is available
         if self._mqtt:
             self._mqtt.patch_loggers()
-
-    def start_script_strategy(self):
-        script_strategy, config = self.load_script_class()
-        markets_list = []
-        for conn, pairs in script_strategy.markets.items():
-            markets_list.append((conn, list(pairs)))
-        # Use trading_core's consolidated initialize_markets method
-        self.trading_core.initialize_markets(markets_list)
-        if config:
-            self.trading_core.strategy = script_strategy(self.trading_core.markets, config)
-        else:
-            self.trading_core.strategy = script_strategy(self.trading_core.markets)
-
-    def load_script_class(self):
-        """
-        Imports the script module based on its name (module file name) and returns the loaded script class
-        Delegates to trading_core's consolidated logic.
-        """
-        # Set up trading_core with proper strategy file name for config loading
-        self.trading_core._strategy_file_name = self.strategy_file_name
-
-        # If we have a config file path, set it up for loading
-        if self.trading_core.strategy_name != self.strategy_file_name:
-            self.trading_core._config_source = self.strategy_file_name
-
-        # Use trading_core's consolidated load_script_class method
-        return self.trading_core.load_script_class(self.trading_core.strategy_name)
-
-    async def start_market_making(self,  # type: HummingbotApplication
-                                  ):
-        try:
-            self.start_time = time.time() * 1e3  # Time in milliseconds
-            tick_size = self.client_config_map.tick_size
-            self.logger().info(f"Creating the clock with tick size: {tick_size}")
-            self.trading_core.clock = Clock(ClockMode.REALTIME, tick_size=tick_size)
-            for market in self.trading_core.markets.values():
-                if market is not None:
-                    self.trading_core.clock.add_iterator(market)
-                    self.trading_core.markets_recorder.restore_market_states(self.strategy_file_name, market)
-                    if len(market.limit_orders) > 0:
-                        self.notify(f"Canceling dangling limit orders on {market.name}...")
-                        await market.cancel_all(10.0)
-            if self.trading_core.strategy:
-                self.trading_core.clock.add_iterator(self.trading_core.strategy)
-            self.trading_core.strategy_task: asyncio.Task = safe_ensure_future(self._run_clock(), loop=self.ev_loop)
-            self.notify(f"\n'{self.trading_core.strategy_name}' strategy started.\n"
-                        f"Run `status` command to query the progress.")
-            self.logger().info("start command initiated.")
-
-            if self._trading_required:
-                self.trading_core.kill_switch = self.client_config_map.kill_switch_mode.get_kill_switch(self)
-                await self.wait_till_ready(self.trading_core.kill_switch.start)
-        except Exception as e:
-            self.logger().error(str(e), exc_info=True)
-
-    def _initialize_strategy(self, strategy_name: str):
-        if self.trading_core.is_script_strategy(self.trading_core.strategy_name):
-            self.start_script_strategy()
-        else:
-            start_strategy: Callable = get_strategy_starter_file(strategy_name)
-            if strategy_name in settings.STRATEGIES:
-                start_strategy(self)
-            else:
-                raise NotImplementedError
 
     async def confirm_oracle_conversion_rate(self,  # type: HummingbotApplication
                                              ) -> bool:

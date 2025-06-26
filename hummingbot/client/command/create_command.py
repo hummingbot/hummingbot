@@ -187,7 +187,7 @@ class CreateCommand:
             return
 
         self.strategy_file_name = file_name
-        self.strategy_name = strategy
+        self.trading_core.strategy_name = strategy
         self.strategy_config_map = config_map
         # Reload completer here otherwise the new file will not appear
         self.app.input_field.completer = load_completer(self)
@@ -359,7 +359,7 @@ class CreateCommand:
         except asyncio.TimeoutError:
             self.notify("\nA network error prevented the connection check to complete. See logs for more details.")
             self.strategy_file_name = None
-            self.strategy_name = None
+            self.trading_core.strategy_name = None
             self.strategy_config = None
             raise
         if all_status_go:

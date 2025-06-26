@@ -50,7 +50,7 @@ class ImportCommand:
             self.app.change_prompt(prompt=">>> ")
             raise
         self.strategy_file_name = file_name
-        self.strategy_name = (
+        self.trading_core.strategy_name = (
             config_map.strategy
             if not isinstance(config_map, dict)
             else config_map.get("strategy").value  # legacy
@@ -64,7 +64,7 @@ class ImportCommand:
             all_status_go = await self.status_check_all()
         except asyncio.TimeoutError:
             self.strategy_file_name = None
-            self.strategy_name = None
+            self.trading_core.strategy_name = None
             self.strategy_config_map = None
             raise
         if all_status_go:
