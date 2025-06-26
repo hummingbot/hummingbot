@@ -172,15 +172,16 @@ class ExecutorOrchestrator:
         Initialize cached performance by querying the database for stored executors and positions.
         If initial positions are provided for a controller, skip loading database positions for that controller.
         """
+        for controller_id in self.strategy.controllers.keys():
+            if controller_id not in self.cached_performance:
+                self.cached_performance[controller_id] = PerformanceReport()
+                self.active_executors[controller_id] = []
+                self.positions_held[controller_id] = []
         db_executors = MarketsRecorder.get_instance().get_all_executors()
         for executor in db_executors:
             controller_id = executor.controller_id
             if controller_id not in self.strategy.controllers:
                 continue
-            if controller_id not in self.cached_performance:
-                self.cached_performance[controller_id] = PerformanceReport()
-                self.active_executors[controller_id] = []
-                self.positions_held[controller_id] = []
             self._update_cached_performance(controller_id, executor)
 
         # Create initial positions from config overrides first
@@ -193,11 +194,6 @@ class ExecutorOrchestrator:
             # Skip if this controller has initial position overrides
             if controller_id in self.initial_positions_by_controller or controller_id not in self.strategy.controllers:
                 continue
-
-            if controller_id not in self.cached_performance:
-                self.cached_performance[controller_id] = PerformanceReport()
-                self.active_executors[controller_id] = []
-                self.positions_held[controller_id] = []
             self._load_position_from_db(controller_id, position)
 
     def _update_cached_performance(self, controller_id: str, executor_info: ExecutorInfo):
