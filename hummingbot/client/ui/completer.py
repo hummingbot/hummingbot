@@ -53,7 +53,7 @@ class HummingbotCompleter(Completer):
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)
         self._history_completer = WordCompleter(["--days", "--verbose", "--precision"], ignore_case=True)
-        self._gateway_completer = WordCompleter(["list", "balance", "config", "generate-certs", "ping", "allowance", "approve", "wallet", "wrap"], ignore_case=True)
+        self._gateway_completer = WordCompleter(["ping", "list", "config", "token", "wallet", "balance", "allowance", "approve", "wrap", "generate-certs"], ignore_case=True)
 
         # Initialize gateway wallet chain completer first
         self._gateway_wallet_chain_completer = WordCompleter([
@@ -65,6 +65,14 @@ class HummingbotCompleter(Completer):
         self._gateway_config_completer = WordCompleter(hummingbot_application.gateway_config_keys, ignore_case=True)
         self._gateway_wallet_completer = WordCompleter(["list", "add", "remove"], ignore_case=True)
         self._gateway_wallet_action_completer = WordCompleter(["list", "add", "remove"], ignore_case=True)
+        self._gateway_token_action_completer = WordCompleter(["show", "add", "remove"], ignore_case=True)
+        self._gateway_config_action_completer = WordCompleter(["show", "update"], ignore_case=True)
+        # Initialize with default namespaces, will be updated dynamically
+        self._gateway_config_namespaces = ["server", "ethereum", "solana", "uniswap", "jupiter", "meteora", "raydium"]
+        self._gateway_config_namespace_completer = WordCompleter(self._gateway_config_namespaces, ignore_case=True)
+        # Cache for gateway chain networks
+        self._cached_gateway_networks = {}
+        self._cached_gateway_chains = []
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
         self._script_strategy_completer = WordCompleter(file_name_list(str(SCRIPT_STRATEGIES_PATH), "py"))
         self._script_conf_completer = WordCompleter(["--conf"], ignore_case=True)
@@ -127,6 +135,12 @@ class HummingbotCompleter(Completer):
     def update_gateway_chains(self, chains: List[str]):
         """Update the cached gateway chains list"""
         self._cached_gateway_chains = sorted(chains) if chains else []
+
+    def update_gateway_config_namespaces(self, namespaces: List[str]):
+        """Update the gateway config namespaces list"""
+        if namespaces:
+            self._gateway_config_namespaces = sorted(namespaces)
+            self._gateway_config_namespace_completer = WordCompleter(self._gateway_config_namespaces, ignore_case=True)
 
     @property
     def prompt_text(self) -> str:
@@ -215,33 +229,16 @@ class HummingbotCompleter(Completer):
         """Get network completer for a specific chain"""
         networks = []
 
-        # Check cache first
+        # Use cached networks if available
         if chain in self._cached_gateway_networks:
             networks = self._cached_gateway_networks[chain]
         else:
-            # Try to fetch from gateway if not cached
-            try:
-                if hasattr(self.hummingbot_application, '_gateway_monitor') and self.hummingbot_application._gateway_monitor:
-                    gateway_instance = self.hummingbot_application._gateway_monitor._get_gateway_instance()
-                    if gateway_instance:
-                        import asyncio
-                        loop = asyncio.get_event_loop()
-                        if not loop.is_running():
-                            try:
-                                chains_response = loop.run_until_complete(
-                                    gateway_instance.api_request("get", "chains", fail_silently=True)
-                                )
-                                if chains_response and "chains" in chains_response:
-                                    for chain_info in chains_response["chains"]:
-                                        if chain_info.get("chain") == chain and "networks" in chain_info:
-                                            networks = chain_info["networks"]
-                                            # Cache for future use
-                                            self._cached_gateway_networks[chain] = networks
-                                            break
-                            except Exception:
-                                pass
-            except Exception:
-                pass
+            # Use hardcoded networks based on current gateway configuration
+            if chain.lower() == "ethereum":
+                networks = ["arbitrum", "avalanche", "base", "blast", "bsc", "celo",
+                            "mainnet", "optimism", "polygon", "sepolia", "worldchain", "zora"]
+            elif chain.lower() == "solana":
+                networks = ["devnet", "mainnet-beta"]
 
         return WordCompleter(networks, ignore_case=True)
 
@@ -418,7 +415,19 @@ class HummingbotCompleter(Completer):
 
     def _complete_gateway_config_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
-        return text_before_cursor.startswith("gateway config ")
+        return text_before_cursor.startswith("gateway config ") and text_before_cursor.count(" ") == 2
+
+    def _complete_gateway_config_namespace(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        # Complete namespace for: gateway config show <namespace> or gateway config update <namespace>
+        return ((text_before_cursor.startswith("gateway config show ") and text_before_cursor.count(" ") == 3) or
+                (text_before_cursor.startswith("gateway config update ") and text_before_cursor.count(" ") == 3))
+
+    def _complete_gateway_config_network(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        # Complete network after namespace
+        return ((text_before_cursor.startswith("gateway config show ") and text_before_cursor.count(" ") == 4) or
+                (text_before_cursor.startswith("gateway config update ") and text_before_cursor.count(" ") == 4))
 
     def _complete_gateway_wallet_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -429,6 +438,24 @@ class HummingbotCompleter(Completer):
         return (text_before_cursor.startswith("gateway wallet add ") or
                 text_before_cursor.startswith("gateway wallet remove ") or
                 (text_before_cursor.startswith("gateway wallet list ") and text_before_cursor.count(" ") == 3))
+
+    def _complete_gateway_token_arguments(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return text_before_cursor.startswith("gateway token ") and text_before_cursor.count(" ") == 2
+
+    def _complete_gateway_token_chain_arguments(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        # Complete chain as the first argument after action
+        return ((text_before_cursor.startswith("gateway token add ") and text_before_cursor.count(" ") == 3) or
+                (text_before_cursor.startswith("gateway token remove ") and text_before_cursor.count(" ") == 3) or
+                (text_before_cursor.startswith("gateway token show ") and text_before_cursor.count(" ") == 3))
+
+    def _complete_gateway_token_network_arguments(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        # Complete network as the second argument after action
+        return ((text_before_cursor.startswith("gateway token add ") and text_before_cursor.count(" ") == 4) or
+                (text_before_cursor.startswith("gateway token remove ") and text_before_cursor.count(" ") == 4) or
+                (text_before_cursor.startswith("gateway token show ") and text_before_cursor.count(" ") == 4))
 
     def _complete_script_strategy_files(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -638,13 +665,51 @@ class HummingbotCompleter(Completer):
             for c in self._gateway_wallet_action_completer.get_completions(document, complete_event):
                 yield c
 
+        elif self._complete_gateway_token_arguments(document):
+            for c in self._gateway_token_action_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_gateway_token_chain_arguments(document):
+            for c in self._gateway_available_chains_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_gateway_token_network_arguments(document):
+            # Get networks for the specified chain
+            text = document.text_before_cursor
+            parts = text.split()
+            if len(parts) >= 4:
+                chain = parts[3]
+                network_completer = self._get_networks_for_chain_completer(chain)
+                for c in network_completer.get_completions(document, complete_event):
+                    yield c
+
         elif self._complete_gateway_arguments(document):
             for c in self._gateway_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_gateway_config_arguments(document):
-            for c in self._gateway_config_completer.get_completions(document, complete_event):
+            for c in self._gateway_config_action_completer.get_completions(document, complete_event):
                 yield c
+
+        elif self._complete_gateway_config_namespace(document):
+            for c in self._gateway_config_namespace_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_gateway_config_network(document):
+            # Get networks for the specified namespace
+            text = document.text_before_cursor
+            parts = text.split()
+            if len(parts) >= 4:
+                namespace = parts[3]
+                # Create network completer based on namespace
+                if namespace in ["ethereum", "uniswap"]:
+                    network_completer = self._get_ethereum_networks_completer()
+                elif namespace in ["solana", "jupiter", "meteora", "raydium"]:
+                    network_completer = WordCompleter(["mainnet-beta", "devnet"], ignore_case=True)
+                else:
+                    network_completer = WordCompleter([], ignore_case=True)
+                for c in network_completer.get_completions(document, complete_event):
+                    yield c
 
         elif self._complete_derivatives(document):
             if self._complete_exchanges(document):

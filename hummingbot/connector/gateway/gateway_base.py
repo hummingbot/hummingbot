@@ -212,13 +212,11 @@ class GatewayBase(ConnectorBase):
 
     async def all_trading_pairs(self) -> List[str]:
         """
-        Calls the tokens endpoint on Gateway.
+        Calls the tokens endpoint on Gateway using the new API.
         """
         try:
-            tokens = await self._get_gateway_instance().chain_request(
-                "get", self._chain, "tokens", {"network": self._network}
-            )
-            token_symbols = [t["symbol"] for t in tokens["tokens"]]
+            tokens = await self._get_gateway_instance().get_tokens(chain=self._chain, network=self._network)
+            token_symbols = [t["symbol"] for t in tokens]
             trading_pairs = []
             for base, quote in it.permutations(token_symbols, 2):
                 trading_pairs.append(f"{base}-{quote}")
@@ -307,11 +305,73 @@ class GatewayBase(ConnectorBase):
                 self.logger().error(str(e), exc_info=True)
 
     async def load_token_data(self):
-        tokens = await self._get_gateway_instance().chain_request(
-            "get", self.chain, "tokens", {"network": self.network}
-        )
-        for t in tokens.get("tokens", []):
-            self._amount_quantum_dict[t["symbol"]] = Decimal(str(10 ** -t["decimals"]))
+        """Load token data from gateway using the new token API."""
+        try:
+            tokens = await self._get_gateway_instance().get_tokens(chain=self.chain, network=self.network)
+            for t in tokens:
+                self._amount_quantum_dict[t["symbol"]] = Decimal(str(10 ** -t["decimals"]))
+        except Exception as e:
+            self.logger().error(f"Error loading token data: {str(e)}")
+
+    async def get_token_info(self, symbol_or_address: str) -> Optional[Dict[str, Any]]:
+        """
+        Get token information from gateway using symbol or address.
+
+        :param symbol_or_address: Token symbol or address
+        :return: Token info or None if not found
+        """
+        try:
+            response = await self._get_gateway_instance().get_token(symbol_or_address, self.chain, self.network)
+            if "token" in response:
+                return response["token"]
+            return None
+        except Exception as e:
+            self.logger().debug(f"Token {symbol_or_address} not found: {str(e)}")
+            return None
+
+    async def resolve_token_address(self, symbol: str) -> Optional[str]:
+        """
+        Resolve token symbol to address using gateway token list.
+
+        :param symbol: Token symbol
+        :return: Token address or None if not found
+        """
+        token_info = await self.get_token_info(symbol)
+        if token_info:
+            return token_info.get("address")
+        return None
+
+    async def validate_token_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Validate that both tokens in pair exist in gateway.
+
+        :param trading_pair: Trading pair (e.g., "ETH-USDC")
+        :return: True if both tokens exist
+        """
+        try:
+            base, quote = trading_pair.split("-")
+            base_info = await self.get_token_info(base)
+            quote_info = await self.get_token_info(quote)
+            return base_info is not None and quote_info is not None
+        except Exception:
+            return False
+
+    async def search_tokens(self, search_term: str) -> List[Dict[str, Any]]:
+        """
+        Search for tokens by symbol or name.
+
+        :param search_term: Search term
+        :return: List of matching tokens
+        """
+        try:
+            return await self._get_gateway_instance().get_tokens(
+                chain=self.chain,
+                network=self.network,
+                search=search_term
+            )
+        except Exception as e:
+            self.logger().error(f"Error searching tokens: {str(e)}")
+            return []
 
     def get_taker_order_type(self):
         return OrderType.LIMIT

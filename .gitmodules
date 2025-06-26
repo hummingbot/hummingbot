@@ -1,4 +1,4 @@
 [submodule "gateway"]
 	path = gateway
 	url = https://github.com/hummingbot/gateway
-	branch = core-2.7
+	branch = core-2.8

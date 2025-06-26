@@ -570,25 +570,62 @@ class GatewayHttpClient:
 
     async def get_configuration(
             self,
-            config_key: str = None,
+            namespace: Optional[str] = None,
+            network: Optional[str] = None,
             fail_silently: bool = True
     ) -> Dict[str, Any]:
         """
         Retrieve configuration from the Gateway.
-        """
-        if config_key:
-            return await self.api_request("get", f"config/{config_key}", fail_silently=fail_silently)
-        else:
-            return await self.api_request("get", "config", fail_silently=fail_silently)
 
-    async def update_config(self, config_key: str, config_value: Any) -> Dict[str, Any]:
+        :param namespace: Optional namespace filter (e.g., "server", "ethereum", "solana")
+        :param network: Optional network filter (only for chain namespaces)
+        :param fail_silently: Whether to suppress errors
+        :return: Configuration object
+        """
+        params = {}
+        if namespace is not None:
+            params["namespace"] = namespace
+        if network is not None:
+            params["network"] = network
+
+        return await self.api_request(
+            "get",
+            "config",
+            params=params,
+            fail_silently=fail_silently
+        )
+
+    async def get_config(self, namespace: Optional[str] = None, network: Optional[str] = None, fail_silently: bool = True) -> Dict[str, Any]:
+        """
+        Alias for get_configuration for consistency with new API.
+        """
+        return await self.get_configuration(namespace, network, fail_silently)
+
+    async def update_config(self, namespace: str, path: str, value: Any, network: Optional[str] = None, fail_silently: bool = False) -> Dict[str, Any]:
         """
         Update a configuration value on the Gateway.
+
+        :param namespace: Configuration namespace (e.g., "server", "ethereum", "solana")
+        :param path: Configuration path within namespace (supports dot notation)
+        :param value: New value for the configuration
+        :param network: Optional network for chain-specific configs
+        :param fail_silently: Whether to suppress errors
+        :return: Response with status message
         """
+        body = {
+            "namespace": namespace,
+            "path": path,
+            "value": value
+        }
+        if network is not None:
+            body["network"] = network
+
         return await self.api_request(
-            "put",
+            "post",
             "config/update",
-            {"configKey": config_key, "configValue": config_value}
+            params=body,
+            use_body=True,
+            fail_silently=fail_silently
         )
 
     async def connector_request(
@@ -764,9 +801,45 @@ class GatewayHttpClient:
             fail_silently=fail_silently
         )
 
-    async def get_tokens(self, chain: str, network: str, fail_silently: bool = True) -> List[Dict[str, Any]]:
+    async def get_tokens(self, chain: Optional[str] = None, network: Optional[str] = None, search: Optional[str] = None, fail_silently: bool = True) -> List[Dict[str, Any]]:
         """
-        Get list of available tokens for a chain/network.
+        Get list of available tokens with optional filtering.
+
+        :param chain: Optional chain filter
+        :param network: Optional network filter
+        :param search: Optional search term for filtering tokens
+        :param fail_silently: Whether to suppress errors
+        :return: List of token information
+        """
+        params = {}
+        if chain is not None:
+            params["chain"] = chain
+        if network is not None:
+            params["network"] = network
+        if search is not None:
+            params["search"] = search
+
+        try:
+            response = await self.api_request(
+                method="get",
+                path_url="tokens",
+                params=params,
+                fail_silently=fail_silently
+            )
+            # The API returns {"tokens": [...]}
+            if isinstance(response, dict) and "tokens" in response:
+                return response["tokens"]
+            return response if response else []
+        except Exception as e:
+            self.logger().error(f"Error fetching tokens: {str(e)}")
+            if not fail_silently:
+                raise
+            return []
+
+    async def get_tokens_legacy(self, chain: str, network: str, fail_silently: bool = True) -> List[Dict[str, Any]]:
+        """
+        Legacy method to get tokens using chain-specific endpoint.
+        Kept for backward compatibility.
 
         :param chain: Chain name
         :param network: Network name
@@ -781,6 +854,80 @@ class GatewayHttpClient:
             fail_silently=fail_silently
         )
 
+    async def get_token(self, symbol_or_address: str, chain: str, network: str, fail_silently: bool = False) -> Dict[str, Any]:
+        """
+        Get specific token by symbol or address.
+
+        :param symbol_or_address: Token symbol or address
+        :param chain: Chain name
+        :param network: Network name
+        :param fail_silently: Whether to suppress errors
+        :return: Token information with chain and network
+        """
+        try:
+            response = await self.api_request(
+                method="get",
+                path_url=f"tokens/{symbol_or_address}",
+                params={"chain": chain, "network": network},
+                fail_silently=fail_silently
+            )
+            return response
+        except Exception as e:
+            if not fail_silently:
+                raise
+            return {"error": str(e)}
+
+    async def add_token(self, chain: str, network: str, token: Dict[str, Any], fail_silently: bool = False) -> Dict[str, Any]:
+        """
+        Add a new token to the token list.
+
+        :param chain: Chain name
+        :param network: Network name
+        :param token: Token data (name, symbol, address, decimals)
+        :param fail_silently: Whether to suppress errors
+        :return: Response with message and requiresRestart flag
+        """
+        try:
+            response = await self.api_request(
+                method="post",
+                path_url="tokens",
+                params={
+                    "chain": chain,
+                    "network": network,
+                    "token": token
+                },
+                use_body=True,
+                fail_silently=fail_silently
+            )
+            return response
+        except Exception as e:
+            if not fail_silently:
+                raise
+            return {"error": str(e)}
+
+    async def remove_token(self, address: str, chain: str, network: str, fail_silently: bool = False) -> Dict[str, Any]:
+        """
+        Remove a token by address.
+
+        :param address: Token address to remove
+        :param chain: Chain name
+        :param network: Network name
+        :param fail_silently: Whether to suppress errors
+        :return: Response with message and requiresRestart flag
+        """
+        try:
+            response = await self.api_request(
+                method="delete",
+                path_url=f"tokens/{address}",
+                params={"chain": chain, "network": network},
+                fail_silently=fail_silently
+            )
+            return response
+        except Exception as e:
+            if not fail_silently:
+                raise
+            return {"error": str(e)}
+
     async def initialize_gateway(self) -> None:
         """
         Initialize the gateway by loading all necessary information.
@@ -792,6 +939,16 @@ class GatewayHttpClient:
         try:
             # Load chains
             self._chains_cache = await self.get_chains()
+
+            # Cache networks for each chain for tab completion
+            chain_networks = {}
+            chain_names = []
+            for chain_info in self._chains_cache:
+                chain = chain_info.get("chain", "")
+                networks = chain_info.get("networks", [])
+                if chain:
+                    chain_names.append(chain)
+                    chain_networks[chain] = networks
 
             # Load connectors
             connectors_response = await self.get_connectors()
@@ -810,6 +967,13 @@ class GatewayHttpClient:
                     if chain not in self._default_wallets and wallet_info.get("walletAddresses"):
                         self._default_wallets[chain] = wallet_info["walletAddresses"][0]
 
+            # Load all config namespaces
+            try:
+                config_response = await self.get_config()
+                config_namespaces = list(config_response.keys()) if config_response else []
+            except Exception:
+                config_namespaces = []
+
             # Load initial gas prices for common networks
             for chain_info in self._chains_cache:
                 chain = chain_info.get("chain")
@@ -820,6 +984,23 @@ class GatewayHttpClient:
                         await self.estimate_gas(chain, networks[0])
                     except Exception:
                         pass  # Ignore errors for gas price estimation
+
+            # Update tab completers with cached data
+            try:
+                from hummingbot.client.hummingbot_application import HummingbotApplication
+                app = HummingbotApplication.main_application()
+                if app and hasattr(app, 'app') and hasattr(app.app, 'input'):
+                    completer = app.app.input.completer
+                    if hasattr(completer, 'update_gateway_chains'):
+                        completer.update_gateway_chains(chain_names)
+                    if hasattr(completer, 'update_gateway_config_namespaces'):
+                        completer.update_gateway_config_namespaces(config_namespaces)
+                    # Cache networks for each chain
+                    if hasattr(completer, '_cached_gateway_networks'):
+                        completer._cached_gateway_networks = chain_networks
+                        self.logger().debug(f"Cached networks for tab completion: {chain_networks}")
+            except Exception as e:
+                self.logger().debug(f"Error updating completer: {str(e)}")
 
             self._cache_initialized = True
             self._cache_timestamp = self.current_timestamp

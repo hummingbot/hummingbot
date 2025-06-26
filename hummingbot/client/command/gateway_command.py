@@ -16,7 +16,7 @@ from hummingbot.connector.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.connector.gateway.gateway_paths import get_gateway_paths
 from hummingbot.connector.gateway.gateway_status_monitor import GatewayStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.core.utils.gateway_config_utils import build_config_dict_display, search_configs
+from hummingbot.core.utils.gateway_config_utils import build_config_dict_display
 from hummingbot.core.utils.ssl_cert import create_self_sign_certs
 
 if TYPE_CHECKING:
@@ -86,15 +86,51 @@ class GatewayCommand(GatewayChainApiManager):
         safe_ensure_future(self._gateway_list(), loop=self.ev_loop)
 
     @ensure_gateway_online
-    def gateway_config(self,
-                       key: Optional[str] = None,
-                       value: str = None):
-        if value:
-            safe_ensure_future(self._update_gateway_configuration(
-                key, value), loop=self.ev_loop)
+    def gateway_config(self, action: str = None, namespace: str = None, network: str = None, args: List[str] = None):
+        """
+        Gateway configuration management.
+        Usage:
+            gateway config show [namespace] [network]
+            gateway config update <namespace> <path> <value>
+            gateway config update <namespace> <network> <path> <value>
+        """
+        if args is None:
+            args = []
+
+        if action == "show":
+            # Format: gateway config show [namespace] [network]
+            safe_ensure_future(self._show_gateway_configuration(namespace=namespace, network=network), loop=self.ev_loop)
+        elif action is None:
+            # Show help when no action is provided
+            self.notify("\nUsage:")
+            self.notify("  gateway config show [namespace] [network]")
+            self.notify("  gateway config update <namespace> <path> <value>")
+            self.notify("  gateway config update <namespace> <network> <path> <value>")
+        elif action == "update":
+            if namespace is None:
+                self.notify("Error: namespace is required for config update")
+                return
+
+            # Determine if network is provided based on number of args
+            if network is not None and len(args) >= 2:
+                # Format: gateway config update <namespace> <network> <path> <value>
+                path = args[0]
+                value = args[1]
+            elif network is None and len(args) >= 2:
+                # Format: gateway config update <namespace> <path> <value>
+                path = args[0]
+                value = args[1]
+            else:
+                self.notify("Error: path and value are required for config update")
+                return
+
+            safe_ensure_future(self._update_gateway_configuration(namespace, path, value, network), loop=self.ev_loop)
         else:
-            safe_ensure_future(
-                self._show_gateway_configuration(key), loop=self.ev_loop)
+            # Show help if unrecognized action
+            self.notify("\nUsage:")
+            self.notify("  gateway config show [namespace] [network]")
+            self.notify("  gateway config update <namespace> <path> <value>")
+            self.notify("  gateway config update <namespace> <network> <path> <value>")
 
     @ensure_gateway_online
     def gateway_wallet(self, action: str = None, chain: str = None, address: str = None):
@@ -126,6 +162,51 @@ class GatewayCommand(GatewayChainApiManager):
             safe_ensure_future(self._gateway_wallet_remove(chain, address), loop=self.ev_loop)
         else:
             self.notify(f"Error: Unknown action '{action}'. Use 'list', 'add', or 'remove'.")
+
+    @ensure_gateway_online
+    def gateway_token(self, action: str = None, args: List[str] = None):
+        """
+        Manage tokens in gateway.
+        Usage:
+            gateway token show <chain> <network> <symbol_or_address> - Show token details
+            gateway token add <chain> <network>                      - Add a new token (interactive)
+            gateway token remove <chain> <network> <address>         - Remove token by address
+        """
+        if action is None:
+            self.notify("\nUsage:")
+            self.notify("  gateway token show <chain> <network> <symbol_or_address>  - Show token details")
+            self.notify("  gateway token add <chain> <network>  - Add a new token (interactive)")
+            self.notify("  gateway token remove <chain> <network> <address>  - Remove token by address")
+            return
+
+        if action == "add":
+            if args is None or len(args) < 2:
+                self.notify("Error: chain and network parameters are required for 'add' action")
+                return
+            chain = args[0]
+            network = args[1]
+            safe_ensure_future(self._gateway_token_add(chain, network), loop=self.ev_loop)
+
+        elif action == "remove":
+            if args is None or len(args) < 3:
+                self.notify("Error: chain, network and address parameters are required for 'remove' action")
+                return
+            chain = args[0]
+            network = args[1]
+            address = args[2]
+            safe_ensure_future(self._gateway_token_remove(chain, network, address), loop=self.ev_loop)
+
+        elif action == "show":
+            if args is None or len(args) < 3:
+                self.notify("Error: chain, network and symbol_or_address parameters are required for 'show' action")
+                return
+            chain = args[0]
+            network = args[1]
+            symbol_or_address = args[2]
+            safe_ensure_future(self._gateway_token_show(chain, network, symbol_or_address), loop=self.ev_loop)
+
+        else:
+            self.notify(f"Error: Unknown action '{action}'. Use 'show', 'add', or 'remove'.")
 
     @ensure_gateway_online
     def gateway_wrap(self, network: Optional[str] = None, amount: Optional[str] = None):
@@ -278,34 +359,62 @@ class GatewayCommand(GatewayChainApiManager):
             self.notify(
                 "\nNo connection to Gateway server exists. Ensure Gateway server is running.")
 
-    async def _update_gateway_configuration(self, key: str, value: Any):
+    async def _update_gateway_configuration(self, namespace: str, path: str, value: Any, network: Optional[str] = None):
         try:
-            response = await self._get_gateway_instance().update_config(key, value)
-            self.notify(response["message"])
-        except Exception:
-            self.notify(
-                "\nError: Gateway configuration update failed. See log file for more details.")
+            # Try to parse value as appropriate type
+            try:
+                # Try to parse as number first
+                if "." in value:
+                    parsed_value = float(value)
+                else:
+                    parsed_value = int(value)
+            except ValueError:
+                # Try to parse as boolean
+                if value.lower() in ["true", "false"]:
+                    parsed_value = value.lower() == "true"
+                else:
+                    # Keep as string
+                    parsed_value = value
+
+            response = await self._get_gateway_instance().update_config(
+                namespace=namespace,
+                path=path,
+                value=parsed_value,
+                network=network
+            )
+            self.notify(f"\n✓ {response.get('message', 'Configuration updated successfully')}")
+        except Exception as e:
+            self.notify(f"\nError: Gateway configuration update failed: {str(e)}")
 
     async def _show_gateway_configuration(
         self,  # type: HummingbotApplication
-        key: Optional[str] = None,
+        namespace: Optional[str] = None,
+        network: Optional[str] = None,
     ):
         host = self.client_config_map.gateway.gateway_api_host
         port = self.client_config_map.gateway.gateway_api_port
         try:
-            config_dict: Dict[str, Any] = await self._gateway_monitor._fetch_gateway_configs()
-            if key is not None:
-                config_dict = search_configs(config_dict, key)
-            self.notify(f"\nGateway Configurations ({host}:{port}):")
+            # Use new get_config method
+            config_dict = await self._get_gateway_instance().get_config(namespace=namespace, network=network)
+
+            # Format the title
+            title_parts = ["Gateway Configuration"]
+            if namespace:
+                title_parts.append(f"namespace: {namespace}")
+            if network:
+                title_parts.append(f"network: {network}")
+            title = f"\n{' - '.join(title_parts)} ({host}:{port}):"
+
+            self.notify(title)
             lines = []
             build_config_dict_display(lines, config_dict)
             self.notify("\n".join(lines))
 
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except Exception as e:
             remote_host = ':'.join([host, port])
-            self.notify(f"\nError: Connection to Gateway {remote_host} failed")
+            self.notify(f"\nError: Connection to Gateway {remote_host} failed: {str(e)}")
 
     async def _get_balances(self, chain_filter: Optional[str] = None, network_filter: Optional[str] = None,
                             address_filter: Optional[str] = None, tokens_filter: Optional[str] = None):
@@ -1079,3 +1188,148 @@ class GatewayCommand(GatewayChainApiManager):
         except Exception:
             pass
         return None
+
+    async def _gateway_token_add(self, chain: str, network: str):
+        """Add a new token to the gateway."""
+        try:
+            self.placeholder_mode = True
+            self.app.hide_input = True
+
+            self.notify(f"\nAdding a new token to {chain}/{network}")
+            self.notify("Please provide the following token information:\n")
+
+            # Prompt for token symbol
+            symbol = await self.app.prompt(prompt="Enter token symbol (e.g., USDC) >>> ")
+            if self.app.to_stop_config or not symbol:
+                self.notify("Token addition cancelled")
+                return
+
+            # Prompt for token name
+            name = await self.app.prompt(prompt="Enter token name (e.g., USD Coin) >>> ")
+            if self.app.to_stop_config or not name:
+                self.notify("Token addition cancelled")
+                return
+
+            # Prompt for token address
+            address = await self.app.prompt(prompt="Enter token contract address >>> ")
+            if self.app.to_stop_config or not address:
+                self.notify("Token addition cancelled")
+                return
+
+            # Prompt for decimals
+            decimals_str = await self.app.prompt(prompt="Enter token decimals (e.g., 6 for USDC, 18 for most tokens) >>> ")
+            if self.app.to_stop_config or not decimals_str:
+                self.notify("Token addition cancelled")
+                return
+
+            try:
+                decimals = int(decimals_str)
+                if decimals < 0 or decimals > 255:
+                    self.notify("Error: decimals must be between 0 and 255")
+                    return
+            except ValueError:
+                self.notify(f"Error: decimals must be an integer, got '{decimals_str}'")
+                return
+
+            # Confirm addition
+            self.notify("\nToken to be added:")
+            self.notify(f"  Chain: {chain}")
+            self.notify(f"  Network: {network}")
+            self.notify(f"  Name: {name}")
+            self.notify(f"  Symbol: {symbol}")
+            self.notify(f"  Address: {address}")
+            self.notify(f"  Decimals: {decimals}")
+
+            confirm = await self.app.prompt(prompt="\nDo you want to add this token? (Yes/No) >>> ")
+            if confirm.lower() not in ["y", "yes"]:
+                self.notify("Token addition cancelled")
+                return
+
+            # Add token
+            token_data = {
+                "name": name,
+                "symbol": symbol,
+                "address": address,
+                "decimals": decimals
+            }
+            response = await self._get_gateway_instance().add_token(chain, network, token_data)
+
+            if "error" in response:
+                self.notify(f"Error adding token: {response['error']}")
+            else:
+                self.notify(f"\n✓ {response.get('message', 'Token added successfully')}")
+                if response.get("requiresRestart", False):
+                    self.notify("⚠ Gateway restart required for changes to take effect")
+                    self.notify("  Please restart the gateway service")
+
+        except Exception as e:
+            self.notify(f"Error adding token: {str(e)}")
+        finally:
+            self.placeholder_mode = False
+            self.app.hide_input = False
+            self.app.change_prompt(prompt=">>> ")
+
+    async def _gateway_token_remove(self, chain: str, network: str, address: str):
+        """Remove a token from the gateway."""
+        try:
+            # Try to get token details first
+            token_info = await self._get_gateway_instance().get_token(address, chain, network)
+
+            if "error" not in token_info and "token" in token_info:
+                token = token_info["token"]
+                self.notify(f"\nRemoving token from {chain}/{network}:")
+                self.notify(f"  Name: {token.get('name', 'Unknown')}")
+                self.notify(f"  Symbol: {token.get('symbol', 'Unknown')}")
+                self.notify(f"  Address: {address}")
+            else:
+                self.notify(f"\nRemoving token {address} from {chain}/{network}")
+
+            confirm = await self.app.prompt(prompt="\nDo you want to remove this token? (Yes/No) >>> ")
+            if confirm.lower() in ["y", "yes"]:
+                # Remove token
+                response = await self._get_gateway_instance().remove_token(address, chain, network)
+
+                if "error" in response:
+                    self.notify(f"Error removing token: {response['error']}")
+                else:
+                    self.notify(f"\n✓ {response.get('message', 'Token removed successfully')}")
+                    if response.get("requiresRestart", False):
+                        self.notify("⚠ Gateway restart required for changes to take effect")
+                        self.notify("  Please restart the gateway service")
+            else:
+                self.notify("Token removal cancelled")
+
+        except Exception as e:
+            self.notify(f"Error removing token: {str(e)}")
+
+    async def _gateway_token_show(self, chain: str, network: str, symbol_or_address: str):
+        """Show details for a specific token."""
+        try:
+            # Get token details
+            response = await self._get_gateway_instance().get_token(symbol_or_address, chain, network)
+
+            if "error" in response:
+                self.notify(f"Error: {response['error']}")
+                return
+
+            if "token" not in response:
+                self.notify(f"Token '{symbol_or_address}' not found on {chain}/{network}")
+                return
+
+            # Display token details
+            token = response["token"]
+            self.notify("\nToken Details:")
+            self.notify(f"  Chain: {response.get('chain', chain)}")
+            self.notify(f"  Network: {response.get('network', network)}")
+            self.notify(f"  Name: {token.get('name', 'N/A')}")
+            self.notify(f"  Symbol: {token.get('symbol', 'N/A')}")
+            self.notify(f"  Address: {token.get('address', 'N/A')}")
+            self.notify(f"  Decimals: {token.get('decimals', 'N/A')}")
+
+        except Exception as e:
+            error_msg = str(e)
+            if "NotFoundError" in error_msg or "404" in error_msg:
+                self.notify(f"Token '{symbol_or_address}' not found on {chain}/{network}")
+                self.notify("Please check the token symbol/address or try adding it with 'gateway token add'")
+            else:
+                self.notify(f"Error retrieving token information: {error_msg}")
