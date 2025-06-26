@@ -116,7 +116,7 @@ class HistoryCommandTest(unittest.TestCase):
 
         trade_fee = AddedToCostTradeFee(percent=Decimal("5"))
         order_id = PaperTradeExchange.random_order_id(order_side="BUY", trading_pair="BTC-USDT")
-        with self.app.trade_fill_db.get_new_session() as session:
+        with self.app.trading_core.trade_fill_db.get_new_session() as session:
             o = Order(
                 id=order_id,
                 config_file_path=f"{self.mock_strategy_name}.yml",

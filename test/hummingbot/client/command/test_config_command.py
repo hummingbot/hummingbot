@@ -45,7 +45,7 @@ class ConfigCommandTest(unittest.TestCase):
         self.app.client_config_map.instance_id = "TEST_ID"
         notify_mock.side_effect = lambda s: captures.append(s)
         strategy_name = "some-strategy"
-        self.app.strategy_name = strategy_name
+        self.app.trading_core.strategy_name = strategy_name
 
         strategy_config_map_mock = {
             "five": ConfigVar(key="five", prompt=""),
@@ -134,7 +134,7 @@ class ConfigCommandTest(unittest.TestCase):
         captures = []
         notify_mock.side_effect = lambda s: captures.append(s)
         strategy_name = "some-strategy"
-        self.app.strategy_name = strategy_name
+        self.app.trading_core.strategy_name = strategy_name
 
         class DoubleNestedModel(BaseClientModel):
             double_nested_attr: float = Field(default=3.0)
@@ -198,7 +198,7 @@ class ConfigCommandTest(unittest.TestCase):
                 title = "dummy_model"
 
         strategy_name = "some-strategy"
-        self.app.strategy_name = strategy_name
+        self.app.trading_core.strategy_name = strategy_name
         get_strategy_config_map_mock.return_value = ClientConfigAdapter(DummyModel.model_construct())
         self.app.config(key="some_attr")
 
@@ -232,7 +232,7 @@ class ConfigCommandTest(unittest.TestCase):
                 title = "dummy_model"
 
         strategy_name = "some-strategy"
-        self.app.strategy_name = strategy_name
+        self.app.trading_core.strategy_name = strategy_name
         self.app.strategy_file_name = f"{strategy_name}.yml"
         config_map = ClientConfigAdapter(DummyModel.model_construct())
         get_strategy_config_map_mock.return_value = config_map
