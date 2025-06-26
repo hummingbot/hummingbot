@@ -8,7 +8,7 @@ class LayoutTest(unittest.TestCase):
 
     def test_get_active_strategy(self):
         hb = HummingbotApplication.main_application()
-        hb.strategy_name = "SomeStrategy"
+        hb.trading_core.strategy_name = "SomeStrategy"
         res = get_active_strategy()
         style, text = res[0]
 
