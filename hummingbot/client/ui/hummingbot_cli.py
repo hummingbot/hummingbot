@@ -11,7 +11,6 @@ from prompt_toolkit.document import Document
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout.processors import BeforeInput, PasswordProcessor
 
-from hummingbot import init_logging
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.tab.data_types import CommandTab
@@ -100,10 +99,6 @@ class HummingbotCLI(PubSub):
 
     def did_start_ui(self):
         self._stdout_redirect_context.enter_context(patch_stdout(log_field=self.log_field))
-
-        log_level = self.client_config_map.log_level
-        init_logging("hummingbot_logs.yml", self.client_config_map, override_log_level=log_level)
-
         self.trigger_event(HummingbotUIEvent.Start, self)
 
     async def run(self):
