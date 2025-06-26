@@ -58,7 +58,7 @@ class MQTTCommand:
                             raise Exception(
                                 f'Connection timed out after {timeout} seconds')
                         if self._mqtt.health:
-                            self.info('MQTT Bridge connected with success.')
+                            self.logger().info('MQTT Bridge connected with success.')
                             break
                         await asyncio.sleep(self._mqtt_sleep_rate_connection_check)
                     break

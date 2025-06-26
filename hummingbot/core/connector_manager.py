@@ -10,7 +10,6 @@ from hummingbot.client.config.security import Security
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.exchange.paper_trade import create_paper_trade_market
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.model.sql_connection_manager import SQLConnectionManager
 
 
 class ConnectorManager:
@@ -37,9 +36,6 @@ class ConnectorManager:
 
         # Active connectors
         self.connectors: Dict[str, ExchangeBase] = {}
-
-        # Trade fill database for potential future use
-        self._trade_fill_db: Optional[SQLConnectionManager] = None
 
     def create_connector(self,
                          connector_name: str,

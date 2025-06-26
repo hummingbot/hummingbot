@@ -121,11 +121,11 @@ class HummingbotApplication(*commands):
 
     @property
     def strategy_file_name(self) -> str:
-        return self.trading_core._strategy_file_name
+        return self.trading_core.strategy_file_name
 
     @strategy_file_name.setter
     def strategy_file_name(self, value: Optional[str]):
-        self.trading_core._strategy_file_name = value
+        self.trading_core.strategy_file_name = value
 
     @property
     def strategy_name(self) -> str:
@@ -270,7 +270,7 @@ class HummingbotApplication(*commands):
                 self.trading_core.market_trading_pairs_map[market_name].append(trading_pair)
 
         # Use the synchronous version of initialize_markets from trading_core
-        self.trading_core.initialize_markets_sync(market_names)
+        self.trading_core.initialize_markets(market_names)
 
         # Initialize markets recorder if not already done
         if not self.trading_core.markets_recorder:
