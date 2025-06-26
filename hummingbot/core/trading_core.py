@@ -519,18 +519,14 @@ class TradingCore:
             else:
                 return func(*args, **kwargs)
 
-    async def stop_strategy(self, skip_order_cancellation: bool = False) -> bool:
+    async def stop_strategy(self) -> bool:
         """Stop the currently running strategy."""
         try:
             if not self._strategy_running:
                 self._logger.warning("No strategy is currently running")
                 return False
 
-            # Cancel outstanding orders
-            if not skip_order_cancellation:
-                await self._cancel_outstanding_orders()
-
-            # Remove strategy from clock
+            # Remove strategy from clock FIRST to prevent further ticks
             if self.clock is not None and self.strategy is not None:
                 self.clock.remove_iterator(self.strategy)
 
@@ -555,7 +551,7 @@ class TradingCore:
             self._logger.error(f"Failed to stop strategy: {e}")
             return False
 
-    async def _cancel_outstanding_orders(self) -> bool:
+    async def cancel_outstanding_orders(self) -> bool:
         """Cancel all outstanding orders."""
         try:
             cancellation_tasks = []
