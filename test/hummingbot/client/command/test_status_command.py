@@ -60,7 +60,7 @@ class StatusCommandTest(unittest.TestCase):
         self.client_config_map.commands_timeout.other_commands_timeout = 0.01
         is_decryption_done_mock.return_value = True
         strategy_name = "avellaneda_market_making"
-        self.app.strategy_name = strategy_name
+        self.app.trading_core.strategy_name = strategy_name
         self.app.strategy_file_name = f"{strategy_name}.yml"
 
         with self.assertRaises(asyncio.TimeoutError):
