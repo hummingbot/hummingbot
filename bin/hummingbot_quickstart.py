@@ -122,7 +122,7 @@ async def load_and_start_strategy(hb: HummingbotApplication, args: argparse.Name
 
         # Set strategy_file_name to config file if provided, otherwise script file (matching start_command logic)
         hb.strategy_file_name = strategy_config_file.split(".")[0] if strategy_config_file else strategy_name
-        hb.trading_core.strategy_name = strategy_name
+        hb.strategy_name = strategy_name
 
         if args.headless:
             logging.getLogger().info(f"Starting script strategy: {strategy_name}")
@@ -185,11 +185,10 @@ async def run_application(hb: HummingbotApplication, args: argparse.Namespace, c
         await hb.run()
     else:
         # Set up UI mode with start listener
-        is_script = hb.strategy_file_name and hb.strategy_file_name.endswith(".py") if hb.strategy_file_name else False
 
         start_listener: UIStartListener = UIStartListener(
             hb,
-            is_script=is_script,
+            is_script=hb.trading_core.is_script_strategy(hb.strategy_name),
             script_config=hb.script_config,
             is_quickstart=True
         )

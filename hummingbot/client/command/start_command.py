@@ -113,8 +113,6 @@ class StartCommand(GatewayChainApiManager):
 
         # Delegate strategy initialization to trading_core
         try:
-            # For script strategies, pass config file path if different from strategy name
-            # For v1 strategies, pass None as they handle their own config
             strategy_config = None
             if self.trading_core.is_script_strategy(self.trading_core.strategy_name):
                 if self.strategy_file_name and self.strategy_file_name != self.trading_core.strategy_name:
