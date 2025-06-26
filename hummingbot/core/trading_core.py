@@ -300,7 +300,12 @@ class TradingCore:
             db_name: Database name (defaults to strategy file name)
         """
         if not db_name:
-            db_name = self._strategy_file_name or "trades"
+            # For script strategies with config files, use the config source as db name
+            # Otherwise use strategy file name
+            if self._config_source and self.is_script_strategy(self.strategy_name or ""):
+                db_name = self._config_source
+            else:
+                db_name = self._strategy_file_name or "trades"
 
         if db_name.endswith(".yml") or db_name.endswith(".py"):
             db_name = db_name.split(".")[0]

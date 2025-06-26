@@ -79,6 +79,9 @@ class HummingbotApplication(*commands):
         # MQTT management (delegate to trading_core)
         self._mqtt: Optional[MQTTGateway] = None
 
+        # Script configuration support
+        self.script_config: Optional[str] = None
+
         # Gateway variables and monitor
         self._gateway_monitor = GatewayStatusMonitor(self)
 
