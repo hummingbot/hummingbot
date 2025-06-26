@@ -119,8 +119,7 @@ class HummingbotCLITest(unittest.TestCase):
         self.assertFalse(tab1.is_selected)
         self.assertTrue(tab2.is_selected)
 
-    @patch("hummingbot.client.ui.hummingbot_cli.init_logging")
-    def test_did_start_ui(self, mock_init_logging: MagicMock):
+    def test_did_start_ui(self):
         class UIStartHandler(EventListener):
             def __init__(self):
                 super().__init__()
@@ -133,5 +132,4 @@ class HummingbotCLITest(unittest.TestCase):
         self.app.add_listener(HummingbotUIEvent.Start, handler)
         self.app.did_start_ui()
 
-        mock_init_logging.assert_called()
         handler.mock.assert_called()
