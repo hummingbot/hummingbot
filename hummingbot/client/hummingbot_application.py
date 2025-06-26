@@ -134,6 +134,10 @@ class HummingbotApplication(*commands):
     def strategy_name(self) -> str:
         return self.trading_core.strategy_name
 
+    @strategy_name.setter
+    def strategy_name(self, value: Optional[str]):
+        self.trading_core.strategy_name = value
+
     @property
     def markets(self) -> Dict[str, ExchangeBase]:
         return self.trading_core.markets
