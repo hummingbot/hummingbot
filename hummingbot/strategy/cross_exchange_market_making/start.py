@@ -30,7 +30,7 @@ def start(self):
         (taker_market, [taker_trading_pair]),
     ]
 
-    self._initialize_markets(market_names)
+    self.initialize_markets(market_names)
     maker_data = [self.trading_core.markets[maker_market], maker_trading_pair] + list(maker_assets)
     taker_data = [self.trading_core.markets[taker_market], taker_trading_pair] + list(taker_assets)
     maker_market_trading_pair_tuple = MarketTradingPairTuple(*maker_data)
