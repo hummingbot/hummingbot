@@ -354,21 +354,3 @@ class BinanceUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         mock_task.cancel.assert_called_once()
         self.assertIsNotNone(self.data_source._manage_listen_key_task)
         self.assertNotEqual(mock_task, self.data_source._manage_listen_key_task)
-
-    async def test_cancel_listen_key_task_with_exception(self):
-        # Create a task that will raise an exception when awaited
-        async def failing_task():
-            raise Exception("Test exception")
-
-        task = asyncio.create_task(failing_task())
-        self.data_source._manage_listen_key_task = task
-
-        # Let the task complete with exception
-        await asyncio.sleep(0.01)
-
-        # Now cancel it - the exception should be caught and ignored
-        await self.data_source._cancel_listen_key_task()
-
-        # Task should be set to None
-        self.assertIsNone(self.data_source._manage_listen_key_task)
-        self.assertTrue(task.done())

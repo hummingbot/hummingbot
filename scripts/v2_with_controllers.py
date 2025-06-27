@@ -107,7 +107,7 @@ class V2WithControllers(StrategyV2Base):
                 HummingbotApplication.main_application().stop()
 
     def send_performance_report(self):
-        if self.current_timestamp - self._last_performance_report_timestamp >= self.performance_report_interval and self.mqtt_enabled:
+        if self.current_timestamp - self._last_performance_report_timestamp >= self.performance_report_interval and self._pub:
             performance_reports = {controller_id: self.get_performance_report(controller_id).dict() for controller_id in self.controllers.keys()}
             self._pub(performance_reports)
             self._last_performance_report_timestamp = self.current_timestamp

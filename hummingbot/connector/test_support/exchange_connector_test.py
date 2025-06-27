@@ -778,10 +778,8 @@ class AbstractExchangeConnectorTests:
 
             self.assertTrue(
                 self.is_logged(
-                    "INFO",
-                    f"Order {order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
-                    f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                    f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)"
+                    "NETWORK",
+                    f"Error submitting buy LIMIT order to {self.exchange.name_cap} for 100.000000 {self.trading_pair} 10000.0000."
                 )
             )
 
@@ -815,20 +813,28 @@ class AbstractExchangeConnectorTests:
 
             self.assertTrue(
                 self.is_logged(
-                    "WARNING",
-                    "Buy order amount 0.0001 is lower than the minimum order "
-                    "size 0.01. The order will not be created, increase the "
-                    "amount to be higher than the minimum order size."
+                    "NETWORK",
+                    f"Error submitting buy LIMIT order to {self.exchange.name_cap} for 100.000000 {self.trading_pair} 10000.0000."
                 )
             )
-            self.assertTrue(
-                self.is_logged(
-                    "INFO",
-                    f"Order {order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
-                    f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                    f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)"
-                )
+            error_message = (
+                f"Order amount 0.0001 is lower than minimum order size 0.01 for the pair {self.trading_pair}. "
+                "The order will not be created."
             )
+            misc_updates = {
+                "error_message": error_message,
+                "error_type": "ValueError"
+            }
+
+            expected_log = (
+                f"Order {order_id_for_invalid_order} has failed. Order Update: "
+                f"OrderUpdate(trading_pair='{self.trading_pair}', "
+                f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
+                f"client_order_id='{order_id_for_invalid_order}', exchange_order_id=None, "
+                f"misc_updates={repr(misc_updates)})"
+            )
+
+            self.assertTrue(self.is_logged("INFO", expected_log))
 
         @aioresponses()
         async def test_cancel_order_successfully(self, mock_api):

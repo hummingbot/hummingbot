@@ -1,15 +1,14 @@
 import asyncio
 import unittest
-from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Awaitable, List, Optional
+from typing import Awaitable, Optional
 from unittest.mock import MagicMock, patch
 
 from pydantic import Field, SecretStr
 
 from hummingbot.client.config import config_helpers
-from hummingbot.client.config.client_config_map import ClientConfigMap, CommandShortcutModel
+from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
 from hummingbot.client.config.config_data_types import BaseClientModel, BaseConnectorConfigMap
 from hummingbot.client.config.config_helpers import (
@@ -68,53 +67,6 @@ class ConfigHelpersTest(unittest.TestCase):
 
 strategy: pure_market_making
 """
-        with TemporaryDirectory() as d:
-            d = Path(d)
-            temp_file_name = d / "cm.yml"
-            save_to_yml(temp_file_name, cm)
-            with open(temp_file_name) as f:
-                actual_str = f.read()
-        self.assertEqual(expected_str, actual_str)
-
-    def test_save_command_shortcuts_to_yml(self):
-        class DummyStrategy(BaseClientModel):
-            command_shortcuts: List[CommandShortcutModel] = Field(
-                default=[
-                    CommandShortcutModel(
-                        command="spreads",
-                        help="Set bid and ask spread",
-                        arguments=["Bid Spread", "Ask Spread"],
-                        output=["config bid_spread $1", "config ask_spread $2"]
-                    )
-                ]
-            )
-            another_attr: Decimal = Field(
-                default=Decimal("1.0"),
-                description="Some other\nmultiline description",
-            )
-
-            class Config:
-                title = "dummy_global_config"
-
-        cm = ClientConfigAdapter(DummyStrategy())
-        expected_str = (
-            "######################################\n"
-            "###   dummy_global_config config   ###\n"
-            "######################################\n\n"
-            "command_shortcuts:\n"
-            "- command: spreads\n"
-            "  help: Set bid and ask spread\n"
-            "  arguments:\n"
-            "  - Bid Spread\n"
-            "  - Ask Spread\n"
-            "  output:\n"
-            "  - config bid_spread $1\n"
-            "  - config ask_spread $2\n\n"
-            "# Some other\n"
-            "# multiline description\n"
-            "another_attr: 1.0\n"
-        )
-
         with TemporaryDirectory() as d:
             d = Path(d)
             temp_file_name = d / "cm.yml"

@@ -8,7 +8,7 @@ from hummingbot.core.data_type.common import PriceType
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 if TYPE_CHECKING:
-    from hummingbot.client.hummingbot_application import HummingbotApplication
+    from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
 
 
 class TickerCommand:
@@ -25,16 +25,16 @@ class TickerCommand:
                           live: bool = False,
                           exchange: str = None,
                           market: str = None):
-        if len(self.markets.keys()) == 0:
+        if len(self.trading_core.markets.keys()) == 0:
             self.notify("\n This command can only be used while a strategy is running")
             return
         if exchange is not None:
-            if exchange not in self.markets:
+            if exchange not in self.trading_core.markets:
                 self.notify("\n Please select a valid exchange from the running strategy")
                 return
-            market_connector = self.markets[exchange]
+            market_connector = self.trading_core.markets[exchange]
         else:
-            market_connector = list(self.markets.values())[0]
+            market_connector = list(self.trading_core.markets.values())[0]
         if market is not None:
             market = market.upper()
             if market not in market_connector.order_books:

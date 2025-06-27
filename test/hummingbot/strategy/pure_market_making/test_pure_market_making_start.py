@@ -19,6 +19,11 @@ class PureMarketMakingStartTest(unittest.TestCase):
         self.markets = {"binance": ExchangeBase(client_config_map=self.client_config_map)}
         self.notifications = []
         self.log_errors = []
+        # Add missing attributes needed by PMM start.py
+        self.connector_manager = unittest.mock.MagicMock()
+        self.connector_manager.connectors = self.markets
+        self.trade_fill_db = None
+        self.market_trading_pair_tuples = []
         assign_config_default(c_map)
         c_map.get("exchange").value = "binance"
         c_map.get("market").value = "ETH-USDT"
@@ -61,7 +66,7 @@ class PureMarketMakingStartTest(unittest.TestCase):
     def _initialize_market_assets(self, market, trading_pairs):
         return [("ETH", "USDT")]
 
-    def _initialize_markets(self, market_names):
+    def initialize_markets(self, market_names):
         pass
 
     def notify(self, message):

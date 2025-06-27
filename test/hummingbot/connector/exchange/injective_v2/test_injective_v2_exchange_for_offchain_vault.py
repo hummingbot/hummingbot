@@ -53,7 +53,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
         cls.base_asset_denom = "inj"
         cls.quote_asset_denom = "peggy0x87aB3B4C8661e07D6372361211B96ed4Dc36B1B5"  # noqa: mock
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
-        cls.market_id = "0x0611780ba69656949525013d947713300f56c37b6175e02f26bffa495c3208fe" # noqa: mock
+        cls.market_id = "0x0611780ba69656949525013d947713300f56c37b6175e02f26bffa495c3208fe"  # noqa: mock
 
         _, grantee_private_key = PrivateKey.generate()
         cls.trading_account_private_key = grantee_private_key.to_hex()
@@ -1135,17 +1135,8 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
 
         self.assertTrue(
             self.is_logged(
-                "WARNING",
-                "Buy order amount 0.0001 is lower than the minimum order size 0.01. The order will not be created, "
-                "increase the amount to be higher than the minimum order size."
-            )
-        )
-        self.assertTrue(
-            self.is_logged(
-                "INFO",
-                f"Order {order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
-                f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)"
+                "NETWORK",
+                f"Error submitting buy LIMIT order to {self.exchange.name_cap} for 100.000000 {self.trading_pair} 10000.0000."
             )
         )
 

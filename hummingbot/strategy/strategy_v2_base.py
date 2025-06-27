@@ -294,15 +294,15 @@ class StrategyV2Base(ScriptStrategyBase):
 
     async def on_stop(self):
         self._is_stop_triggered = True
-        self.executor_orchestrator.stop()
-        self.market_data_provider.stop()
         self.listen_to_executor_actions_task.cancel()
+        self.executor_orchestrator.stop()
         for controller in self.controllers.values():
             controller.stop()
         for i in range(self.max_executors_close_attempts):
             if all([executor.is_done for executor in self.get_all_executors()]):
                 continue
-            await asyncio.sleep(5.0)
+            await asyncio.sleep(2.0)
+        self.market_data_provider.stop()
         self.executor_orchestrator.store_all_executors()
 
     def on_tick(self):

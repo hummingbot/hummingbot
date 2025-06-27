@@ -41,7 +41,7 @@ class HistoryCommand:
             self.notify("\n  Please first import a strategy config file of which to show historical performance.")
             return
         start_time = get_timestamp(days) if days > 0 else self.init_time
-        with self.trade_fill_db.get_new_session() as session:
+        with self.trading_core.trade_fill_db.get_new_session() as session:
             trades: List[TradeFill] = self._get_trades_from_session(
                 int(start_time * 1e3),
                 session=session,
@@ -58,7 +58,7 @@ class HistoryCommand:
         if self.strategy_file_name is None:
             return
         start_time = get_timestamp(days) if days > 0 else self.init_time
-        with self.trade_fill_db.get_new_session() as session:
+        with self.trading_core.trade_fill_db.get_new_session() as session:
             trades: List[TradeFill] = self._get_trades_from_session(
                 int(start_time * 1e3),
                 session=session,
@@ -95,8 +95,8 @@ class HistoryCommand:
 
     async def get_current_balances(self,  # type: HummingbotApplication
                                    market: str):
-        if market in self.markets and self.markets[market].ready:
-            return self.markets[market].get_all_balances()
+        if market in self.trading_core.markets and self.trading_core.markets[market].ready:
+            return self.trading_core.markets[market].get_all_balances()
         elif "Paper" in market:
             paper_balances = self.client_config_map.paper_trade.paper_trade_account_balance
             if paper_balances is None:
@@ -201,14 +201,14 @@ class HistoryCommand:
         This function is used by the KillSwitch class.
         Must be updated if the method of performance report gets updated.
         """
-        if not self.markets_recorder:
+        if not self.trading_core.markets_recorder:
             return s_decimal_0
-        if any(not market.ready for market in self.markets.values()):
+        if any(not market.ready for market in self.trading_core.markets.values()):
             return s_decimal_0
 
         start_time = self.init_time
 
-        with self.trade_fill_db.get_new_session() as session:
+        with self.trading_core.trade_fill_db.get_new_session() as session:
             trades: List[TradeFill] = self._get_trades_from_session(
                 int(start_time * 1e3),
                 session=session,
@@ -224,7 +224,7 @@ class HistoryCommand:
 
         lines = []
 
-        with self.trade_fill_db.get_new_session() as session:
+        with self.trading_core.trade_fill_db.get_new_session() as session:
             queried_trades: List[TradeFill] = self._get_trades_from_session(
                 int(start_time * 1e3),
                 session=session,

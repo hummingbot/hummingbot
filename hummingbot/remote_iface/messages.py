@@ -75,16 +75,6 @@ class ConfigCommandMessage(RPCMessage):
         msg: Optional[str] = ''
 
 
-class CommandShortcutMessage(RPCMessage):
-    class Request(RPCMessage.Request):
-        params: Optional[List[List[Any]]] = []
-
-    class Response(RPCMessage.Response):
-        success: Optional[List[bool]] = []
-        status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
-        msg: Optional[str] = ''
-
-
 class ImportCommandMessage(RPCMessage):
     class Request(RPCMessage.Request):
         strategy: str

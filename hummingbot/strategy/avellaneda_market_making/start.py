@@ -16,9 +16,10 @@ def start(self):
         raw_trading_pair = c_map.market
 
         trading_pair: str = raw_trading_pair
-        maker_assets: Tuple[str, str] = self._initialize_market_assets(exchange, [trading_pair])[0]
+        base, quote = trading_pair.split("-")
+        maker_assets: Tuple[str, str] = (base, quote)
         market_names: List[Tuple[str, List[str]]] = [(exchange, [trading_pair])]
-        self._initialize_markets(market_names)
+        self.initialize_markets(market_names)
         maker_data = [self.markets[exchange], trading_pair] + list(maker_assets)
         self.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]
 

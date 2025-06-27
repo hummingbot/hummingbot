@@ -1,12 +1,12 @@
 import asyncio
 import datetime
 import time
-import unittest
 from decimal import Decimal
 from pathlib import Path
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from test.mock.mock_cli import CLIMockingAssistant
-from typing import Awaitable, List
-from unittest.mock import AsyncMock, MagicMock, patch
+from typing import List
+from unittest.mock import AsyncMock, patch
 
 from hummingbot.client.config.client_config_map import ClientConfigMap, DBSqliteMode
 from hummingbot.client.config.config_helpers import ClientConfigAdapter, read_system_configs_from_yml
@@ -18,17 +18,14 @@ from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.model.trade_fill import TradeFill
 
 
-class HistoryCommandTest(unittest.TestCase):
+class HistoryCommandTest(IsolatedAsyncioWrapperTestCase):
     @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher")
-    def setUp(self, _: MagicMock) -> None:
-        super().setUp()
-        self.ev_loop = asyncio.get_event_loop()
-
-        self.async_run_with_timeout(read_system_configs_from_yml())
+    @patch("hummingbot.core.gateway.gateway_status_monitor.GatewayStatusMonitor.start")
+    @patch("hummingbot.client.hummingbot_application.HummingbotApplication.mqtt_start")
+    async def asyncSetUp(self, mock_mqtt_start, mock_gateway_start, mock_trading_pair_fetcher):
+        await read_system_configs_from_yml()
         self.client_config_map = ClientConfigAdapter(ClientConfigMap())
-
         self.app = HummingbotApplication(client_config_map=self.client_config_map)
-
         self.cli_mock_assistant = CLIMockingAssistant(self.app.app)
         self.cli_mock_assistant.start()
         self.mock_strategy_name = "test-strategy"
@@ -45,27 +42,6 @@ class HistoryCommandTest(unittest.TestCase):
             await asyncio.sleep(delay)
 
         return async_sleep
-
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
-
-    def async_run_with_timeout_coroutine_must_raise_timeout(self, coroutine: Awaitable, timeout: float = 1):
-        class DesiredError(Exception):
-            pass
-
-        async def run_coro_that_raises(coro: Awaitable):
-            try:
-                await coro
-            except asyncio.TimeoutError:
-                raise DesiredError
-
-        try:
-            self.async_run_with_timeout(run_coro_that_raises(coroutine), timeout)
-        except DesiredError:  # the coroutine raised an asyncio.TimeoutError as expected
-            raise asyncio.TimeoutError
-        except asyncio.TimeoutError:  # the coroutine did not finish on time
-            raise RuntimeError
 
     def get_trades(self) -> List[TradeFill]:
         trade_fee = AddedToCostTradeFee(percent=Decimal("5"))
@@ -91,15 +67,13 @@ class HistoryCommandTest(unittest.TestCase):
         return trades
 
     @patch("hummingbot.client.command.history_command.HistoryCommand.get_current_balances")
-    def test_history_report_raises_on_get_current_balances_network_timeout(self, get_current_balances_mock: AsyncMock):
+    async def test_history_report_raises_on_get_current_balances_network_timeout(self, get_current_balances_mock: AsyncMock):
         get_current_balances_mock.side_effect = self.get_async_sleep_fn(delay=0.02)
         self.client_config_map.commands_timeout.other_commands_timeout = 0.01
         trades = self.get_trades()
 
         with self.assertRaises(asyncio.TimeoutError):
-            self.async_run_with_timeout_coroutine_must_raise_timeout(
-                self.app.history_report(start_time=time.time(), trades=trades)
-            )
+            await self.app.history_report(start_time=time.time(), trades=trades)
         self.assertTrue(
             self.cli_mock_assistant.check_log_called_with(
                 msg="\nA network error prevented the balances retrieval to complete. See logs for more details."
@@ -114,9 +88,15 @@ class HistoryCommandTest(unittest.TestCase):
         notify_mock.side_effect = lambda s: captures.append(s)
         self.app.strategy_file_name = f"{self.mock_strategy_name}.yml"
 
+        # Initialize the trade_fill_db if it doesn't exist
+        if self.app.trading_core.trade_fill_db is None:
+            self.app.trading_core.trade_fill_db = SQLConnectionManager.get_trade_fills_instance(
+                self.client_config_map, self.mock_strategy_name
+            )
+
         trade_fee = AddedToCostTradeFee(percent=Decimal("5"))
         order_id = PaperTradeExchange.random_order_id(order_side="BUY", trading_pair="BTC-USDT")
-        with self.app.trade_fill_db.get_new_session() as session:
+        with self.app.trading_core.trade_fill_db.get_new_session() as session:
             o = Order(
                 id=order_id,
                 config_file_path=f"{self.mock_strategy_name}.yml",

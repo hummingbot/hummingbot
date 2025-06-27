@@ -63,7 +63,7 @@ class ExportCommand:
 
     async def export_trades(self,  # type: HummingbotApplication
                             ):
-        with self.trade_fill_db.get_new_session() as session:
+        with self.trading_core.trade_fill_db.get_new_session() as session:
             trades: List[TradeFill] = self._get_trades_from_session(
                 int(self.init_time * 1e3),
                 session=session)

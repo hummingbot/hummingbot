@@ -1405,19 +1405,18 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         self.assertTrue(
             self.is_logged(
-                "WARNING",
-                "Buy order amount 0.0001 is lower than the minimum order size 0.01. The order will not be created, "
-                "increase the amount to be higher than the minimum order size."
+                "NETWORK",
+                "Error submitting buy LIMIT order to Injective_v2_perpetual for 100.000000 INJ-USDT 10000.0000."
             )
         )
         self.assertTrue(
             self.is_logged(
                 "INFO",
-                f"Order {order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
-                f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)"
-            )
-        )
+                f"Order {order_id_for_invalid_order} has failed. Order Update: "
+                "OrderUpdate(trading_pair='INJ-USDT', update_timestamp=1640780000.0, new_state=<OrderState.FAILED: 6>, "
+                f"client_order_id='{order_id_for_invalid_order}', exchange_order_id=None, "
+                "misc_updates={'error_message': 'Order amount 0.0001 is lower than minimum order size 0.01 for the pair "
+                "INJ-USDT. The order will not be created.', 'error_type': 'ValueError'})"))
 
     @aioresponses()
     async def test_create_order_to_close_short_position(self, mock_api):

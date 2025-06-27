@@ -1,9 +1,10 @@
-from decimal import Decimal
 import unittest.mock
-import hummingbot.strategy.amm_arb.start as amm_arb_start
-from hummingbot.strategy.amm_arb.amm_arb_config_map import amm_arb_config_map
-from hummingbot.strategy.amm_arb.amm_arb import AmmArbStrategy
+from decimal import Decimal
 from test.hummingbot.strategy import assign_config_default
+
+import hummingbot.strategy.amm_arb.start as amm_arb_start
+from hummingbot.strategy.amm_arb.amm_arb import AmmArbStrategy
+from hummingbot.strategy.amm_arb.amm_arb_config_map import amm_arb_config_map
 
 
 class AMMArbStartTest(unittest.TestCase):
@@ -28,7 +29,7 @@ class AMMArbStartTest(unittest.TestCase):
     def _initialize_market_assets(self, market, trading_pairs):
         pass
 
-    def _initialize_markets(self, market_names):
+    def initialize_markets(self, market_names):
         pass
 
     def _notify(self, message):

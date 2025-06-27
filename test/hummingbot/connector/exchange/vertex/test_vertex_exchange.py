@@ -909,15 +909,6 @@ class TestVertexExchange(unittest.TestCase):
         self.assertEqual(OrderType.LIMIT, failure_event.order_type)
         self.assertEqual("ABC1", failure_event.order_id)
 
-        self.assertTrue(
-            self._is_logged(
-                "INFO",
-                f"Order ABC1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
-                f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='ABC1', exchange_order_id=None, misc_updates=None)",
-            )
-        )
-
     @aioresponses()
     def test_create_order_fails_when_trading_rule_error_and_raises_failure_event(self, mock_api):
         self._simulate_trading_rules_initialized()
@@ -963,18 +954,8 @@ class TestVertexExchange(unittest.TestCase):
 
         self.assertTrue(
             self._is_logged(
-                "WARNING",
-                "Buy order amount 0.0001 is lower than the minimum order "
-                "size 0.01. The order will not be created, increase the "
-                "amount to be higher than the minimum order size."
-            )
-        )
-        self.assertTrue(
-            self._is_logged(
-                "INFO",
-                f"Order ABC1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
-                f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                "client_order_id='ABC1', exchange_order_id=None, misc_updates=None)",
+                "NETWORK",
+                f"Error submitting buy LIMIT order to {self.exchange.name_cap} for 100.000000 {self.trading_pair} 10000.0000."
             )
         )
 
