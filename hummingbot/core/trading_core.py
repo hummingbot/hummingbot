@@ -655,17 +655,6 @@ class TradingCore:
             for connector in self.connector_manager.connectors.values():
                 self.markets_recorder.add_market(connector)
 
-    async def place_order(self, connector_name: str, trading_pair: str, order_type, trade_type, amount: float,
-                          price: float = None) -> str:
-        """Place an order through a connector."""
-        return await self.connector_manager.place_order(
-            connector_name, trading_pair, order_type, trade_type, amount, price
-        )
-
-    async def cancel_order(self, connector_name: str, trading_pair: str, order_id: str) -> bool:
-        """Cancel an order through a connector."""
-        return await self.connector_manager.cancel_order(connector_name, trading_pair, order_id)
-
     def get_balance(self, connector_name: str, asset: str) -> float:
         """Get balance for an asset from a connector."""
         return self.connector_manager.get_balance(connector_name, asset)
