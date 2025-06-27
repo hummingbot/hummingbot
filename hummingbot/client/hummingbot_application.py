@@ -85,9 +85,6 @@ class HummingbotApplication(*commands):
         # Initialize UI components only if not in headless mode
         if not headless_mode:
             self._init_ui_components()
-
-        # This is to start fetching trading pairs for auto-complete (only for UI mode)
-        if not headless_mode:
             TradingPairFetcher.get_instance(self.client_config_map)
 
         self._init_gateway_monitor()
