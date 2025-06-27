@@ -216,7 +216,7 @@ async def run_application(hb: HummingbotApplication, args: argparse.Namespace, c
 
         start_listener: UIStartListener = UIStartListener(
             hb,
-            is_script=args.config_file_name.endswith(".py"),
+            is_script=args.config_file_name.endswith(".py") if args.config_file_name else False,
             script_config=hb.script_config,
             is_quickstart=True
         )
