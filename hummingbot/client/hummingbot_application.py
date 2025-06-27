@@ -82,9 +82,6 @@ class HummingbotApplication(*commands):
         # Script configuration support
         self.script_config: Optional[str] = None
 
-        # Gateway variables and monitor
-        self._gateway_monitor = GatewayStatusMonitor(self)
-
         # Initialize UI components only if not in headless mode
         if not headless_mode:
             self._init_ui_components()
