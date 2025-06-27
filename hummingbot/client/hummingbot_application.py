@@ -76,7 +76,7 @@ class HummingbotApplication(*commands):
         self._last_started_strategy_file: Optional[str] = None
         self.token_list = {}
 
-        # MQTT management (delegate to trading_core)
+        # MQTT management
         self._mqtt: Optional[MQTTGateway] = None
 
         # Script configuration support
@@ -235,7 +235,7 @@ class HummingbotApplication(*commands):
             self.logger().info("Starting Hummingbot in headless mode...")
 
             # Validate MQTT is enabled for headless mode
-            if not self.trading_core.mqtt_enabled:
+            if not self.client_config_map.mqtt_bridge.mqtt_autostart:
                 error_msg = (
                     "ERROR: MQTT must be enabled for headless mode!\n"
                     "Without MQTT, there would be no way to control the bot.\n"
