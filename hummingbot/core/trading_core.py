@@ -23,7 +23,6 @@ from hummingbot.exceptions import InvalidScriptModule
 from hummingbot.logger import HummingbotLogger
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.notifier.notifier_base import NotifierBase
-from hummingbot.remote_iface.mqtt import MQTTGateway
 from hummingbot.strategy.directional_strategy_base import DirectionalStrategyBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
@@ -99,10 +98,6 @@ class TradingCore:
         self.markets_recorder: Optional[MarketsRecorder] = None
         self.trade_fill_db: Optional[SQLConnectionManager] = None
 
-        # MQTT management
-        self._mqtt_gateway: Optional[MQTTGateway] = None
-        self._mqtt_started: bool = False
-
         # Runtime state
         self.init_time: float = time.time()
         self.start_time: Optional[float] = None
@@ -140,11 +135,6 @@ class TradingCore:
         return self.connector_manager.connectors
 
     @property
-    def mqtt_enabled(self) -> bool:
-        """Check if MQTT is enabled in configuration."""
-        return self.client_config_map.mqtt_bridge.mqtt_autostart
-
-    @property
     def strategy_file_name(self) -> Optional[str]:
         """Get the strategy file name."""
         return self._strategy_file_name
@@ -153,11 +143,6 @@ class TradingCore:
     def strategy_file_name(self, value: Optional[str]):
         """Set the strategy file name."""
         self._strategy_file_name = value
-
-    @property
-    def mqtt_started(self) -> bool:
-        """Check if MQTT is started."""
-        return self._mqtt_started
 
     async def start_clock(self) -> bool:
         """
@@ -672,56 +657,6 @@ class TradingCore:
         """Get order book from a connector."""
         return self.connector_manager.get_order_book(connector_name, trading_pair)
 
-    async def start_mqtt(self) -> bool:
-        """Start MQTT gateway if configured."""
-        try:
-            if self._mqtt_started:
-                self.logger().debug("MQTT already started")
-                return True
-
-            if not self.mqtt_enabled:
-                self.logger().debug("MQTT not enabled in configuration")
-                return True
-
-            # Create MQTT gateway - pass self for backward compatibility
-            # Note: Some MQTT functionality may be limited without full HummingbotApplication
-            self._mqtt_gateway = MQTTGateway(self)
-
-            # Start MQTT
-            self._mqtt_gateway.start()
-
-            # Start market events forwarding if markets are available
-            if self.markets:
-                self._mqtt_gateway.start_market_events_fw()
-
-            mqtt_config = self.client_config_map.mqtt_bridge
-            self.logger().info(f"MQTT started - listening on {mqtt_config.mqtt_host}:{mqtt_config.mqtt_port}")
-
-            self._mqtt_started = True
-            return True
-
-        except Exception as e:
-            self.logger().error(f"Failed to start MQTT: {e}")
-            return False
-
-    def stop_mqtt(self):
-        """Stop MQTT gateway."""
-        try:
-            if self._mqtt_gateway and self._mqtt_started:
-                self._mqtt_gateway.stop()
-                self.logger().info("MQTT stopped")
-
-            self._mqtt_gateway = None
-            self._mqtt_started = False
-
-        except Exception as e:
-            self.logger().error(f"Error stopping MQTT: {e}")
-
-    def start_mqtt_market_events_forwarding(self):
-        """Start forwarding market events to MQTT."""
-        if self._mqtt_gateway and self._mqtt_started:
-            self._mqtt_gateway.start_market_events_fw()
-
     async def shutdown(self) -> bool:
         """
         Shutdown the trading core completely.
@@ -729,9 +664,6 @@ class TradingCore:
         This stops all strategies, connectors, and the clock.
         """
         try:
-            # Stop MQTT first
-            self.stop_mqtt()
-
             # Stop strategy if running
             if self._strategy_running:
                 await self.stop_strategy()
