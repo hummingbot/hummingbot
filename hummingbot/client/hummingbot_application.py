@@ -68,26 +68,22 @@ class HummingbotApplication(*commands):
 
         # Application-specific properties
         self.init_time: float = time.time()
-        self.start_time: Optional[int] = None
         self.placeholder_mode = False
-        self.log_queue_listener: Optional[logging.handlers.QueueListener] = None
         self._app_warnings: Deque[ApplicationWarning] = deque()
-        self._trading_required: bool = True
-        self._last_started_strategy_file: Optional[str] = None
-        self.token_list = {}
 
         # MQTT management
         self._mqtt: Optional[MQTTGateway] = None
 
         # Script configuration support
         self.script_config: Optional[str] = None
+        self._gateway_monitor = GatewayStatusMonitor(self)
+        self._gateway_monitor.start()
 
         # Initialize UI components only if not in headless mode
         if not headless_mode:
             self._init_ui_components()
             TradingPairFetcher.get_instance(self.client_config_map)
 
-        self._init_gateway_monitor()
         # MQTT Bridge (always available in both modes)
         if self.client_config_map.mqtt_bridge.mqtt_autostart:
             self.mqtt_start()
@@ -151,15 +147,6 @@ class HummingbotApplication(*commands):
     @strategy_config_map.setter
     def strategy_config_map(self, config_map: BaseStrategyConfigMap):
         self.trading_core.strategy_config_map = config_map
-
-    def _init_gateway_monitor(self):
-        try:
-            # Do not start the gateway monitor during unit tests.
-            if asyncio.get_running_loop() is not None:
-                self._gateway_monitor = GatewayStatusMonitor(self)
-                self._gateway_monitor.start()
-        except RuntimeError:
-            pass
 
     def notify(self, msg: str):
         # In headless mode, just log to console and notifiers
