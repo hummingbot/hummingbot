@@ -159,8 +159,22 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         Ensures the listen key management task is running.
         """
-        if self._manage_listen_key_task is None or self._manage_listen_key_task.done():
-            self._manage_listen_key_task = safe_ensure_future(self._manage_listen_key_task_loop())
+        # If task is already running, do nothing
+        if self._manage_listen_key_task is not None and not self._manage_listen_key_task.done():
+            return
+
+        # Cancel old task if it exists and is done (failed)
+        if self._manage_listen_key_task is not None:
+            self._manage_listen_key_task.cancel()
+            try:
+                await self._manage_listen_key_task
+            except asyncio.CancelledError:
+                pass
+            except Exception:
+                pass  # Ignore any exception from the failed task
+
+        # Create new task
+        self._manage_listen_key_task = safe_ensure_future(self._manage_listen_key_task_loop())
 
     async def _cancel_listen_key_task(self):
         """
@@ -215,6 +229,17 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
         :param websocket_assistant: The websocket assistant that was disconnected
         """
         self.logger().info("User stream interrupted. Cleaning up...")
+
+        # Cancel listen key management task first
+        if self._manage_listen_key_task and not self._manage_listen_key_task.done():
+            self._manage_listen_key_task.cancel()
+            try:
+                await self._manage_listen_key_task
+            except asyncio.CancelledError:
+                pass
+            except Exception:
+                pass  # Ignore any exception from the task
+            self._manage_listen_key_task = None
 
         # Disconnect the websocket if it exists
         websocket_assistant and await websocket_assistant.disconnect()
