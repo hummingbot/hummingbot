@@ -82,10 +82,6 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
         connectors = self.trading_core.connectors
         self.assertEqual(connectors, {"binance": self.mock_connector})
 
-        # Test MQTT properties
-        self.assertFalse(self.trading_core.mqtt_enabled)
-        self.assertFalse(self.trading_core.mqtt_started)
-
     @patch("hummingbot.core.trading_core.Clock")
     async def test_start_clock(self, mock_clock_class):
         """Test starting the clock"""
@@ -402,46 +398,10 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
             self.assertEqual(mock_create.call_count, 2)
             mock_init_recorder.assert_called_once()
 
-    @patch("hummingbot.core.trading_core.MQTTGateway")
-    async def test_start_mqtt(self, mock_mqtt_class):
-        """Test starting MQTT"""
-        # Enable MQTT in config
-        self.trading_core.client_config_map.mqtt_bridge.mqtt_autostart = True
-
-        # Set up mock
-        mock_mqtt = Mock()
-        mock_mqtt_class.return_value = mock_mqtt
-
-        # Start MQTT
-        result = await self.trading_core.start_mqtt()
-
-        self.assertTrue(result)
-        self.assertTrue(self.trading_core._mqtt_started)
-        mock_mqtt.start.assert_called_once()
-
-        # Test starting when already started
-        result = await self.trading_core.start_mqtt()
-        self.assertTrue(result)
-
-    def test_stop_mqtt(self):
-        """Test stopping MQTT"""
-        # Set up running MQTT
-        mock_mqtt = Mock()
-        self.trading_core._mqtt_gateway = mock_mqtt
-        self.trading_core._mqtt_started = True
-
-        # Stop MQTT
-        self.trading_core.stop_mqtt()
-
-        self.assertIsNone(self.trading_core._mqtt_gateway)
-        self.assertFalse(self.trading_core._mqtt_started)
-        mock_mqtt.stop.assert_called_once()
-
-    @patch.object(TradingCore, "stop_mqtt")
     @patch.object(TradingCore, "stop_strategy")
     @patch.object(TradingCore, "stop_clock")
     @patch.object(TradingCore, "remove_connector")
-    async def test_shutdown(self, mock_remove, mock_stop_clock, mock_stop_strategy, mock_stop_mqtt):
+    async def test_shutdown(self, mock_remove, mock_stop_clock, mock_stop_strategy):
         """Test complete shutdown"""
         # Set up mocks
         mock_stop_strategy.return_value = True
@@ -458,7 +418,6 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
         result = await self.trading_core.shutdown()
 
         self.assertTrue(result)
-        mock_stop_mqtt.assert_called_once()
         mock_stop_strategy.assert_called_once()
         mock_stop_clock.assert_called_once()
         mock_remove.assert_called_once_with("binance")
