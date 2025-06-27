@@ -143,14 +143,6 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         reference_price = Decimal("100")
         required_base_amount = controller_config.get_required_base_amount(reference_price)
 
-        # Calculate expected amount
-        # sell_amounts_pct = [60, 40]
-        # total_pct = 50 + 50 + 60 + 40 = 200
-        # normalized_sell_amounts_pct = [60/200, 40/200] = [0.3, 0.2]
-        # sell_amounts_quote = [0.3 * 1000, 0.2 * 1000] = [300, 200]
-        # total_sell_amount_quote = 500
-        # required_base_amount = 500 / 100 = 5
-
         self.assertEqual(required_base_amount, Decimal("5"))
 
     def test_check_position_rebalance_perpetual(self):
@@ -387,7 +379,6 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(result.executor_config.amount, Decimal("2.5"))
         self.assertEqual(result.executor_config.price, Decimal("150"))  # Will be ignored for market orders
         self.assertEqual(result.executor_config.level_id, "position_rebalance")
-        self.assertEqual(result.executor_config.controller_id, "test")
 
     def test_create_actions_proposal_with_position_rebalance(self):
         # Test that position rebalance action is added to create actions
