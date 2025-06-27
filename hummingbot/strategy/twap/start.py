@@ -20,7 +20,8 @@ def start(self):
         cancel_order_wait_time = twap_config_map.get("cancel_order_wait_time").value
 
         try:
-            assets: Tuple[str, str] = self._initialize_market_assets(exchange, [raw_market_trading_pair])[0]
+            base, quote = raw_market_trading_pair.split("-")
+            assets: Tuple[str, str] = (base, quote)
         except ValueError as e:
             self.notify(str(e))
             return
