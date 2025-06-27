@@ -1,16 +1,17 @@
 import asyncio
-import unittest
 from datetime import date, datetime, time
 from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from test.mock.mock_cli import CLIMockingAssistant
-from typing import Awaitable, Type
+from typing import Type
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from pydantic import Field
 
 from hummingbot.client.command import import_command
+from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum
 from hummingbot.client.config.config_helpers import ClientConfigAdapter, read_system_configs_from_yml, save_to_yml
 from hummingbot.client.config.config_var import ConfigVar
@@ -18,15 +19,14 @@ from hummingbot.client.config.strategy_config_data_types import BaseTradingStrat
 from hummingbot.client.hummingbot_application import HummingbotApplication
 
 
-class ImportCommandTest(unittest.TestCase):
+class ImportCommandTest(IsolatedAsyncioWrapperTestCase):
     @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher")
-    def setUp(self, _: MagicMock) -> None:
-        super().setUp()
-        self.ev_loop = asyncio.get_event_loop()
-
-        self.async_run_with_timeout(read_system_configs_from_yml())
-
-        self.app = HummingbotApplication()
+    @patch("hummingbot.core.gateway.gateway_status_monitor.GatewayStatusMonitor.start")
+    @patch("hummingbot.client.hummingbot_application.HummingbotApplication.mqtt_start")
+    async def asyncSetUp(self, mock_mqtt_start, mock_gateway_start, mock_trading_pair_fetcher):
+        await read_system_configs_from_yml()
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
+        self.app = HummingbotApplication.main_application(client_config_map=self.client_config_map)
         self.cli_mock_assistant = CLIMockingAssistant(self.app.app)
         self.cli_mock_assistant.start()
 
@@ -37,27 +37,6 @@ class ImportCommandTest(unittest.TestCase):
     @staticmethod
     async def raise_timeout(*args, **kwargs):
         raise asyncio.TimeoutError
-
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
-
-    def async_run_with_timeout_coroutine_must_raise_timeout(self, coroutine: Awaitable, timeout: float = 1):
-        class DesiredError(Exception):
-            pass
-
-        async def run_coro_that_raises(coro: Awaitable):
-            try:
-                await coro
-            except asyncio.TimeoutError:
-                raise DesiredError
-
-        try:
-            self.async_run_with_timeout(run_coro_that_raises(coroutine), timeout)
-        except DesiredError:  # the coroutine raised an asyncio.TimeoutError as expected
-            raise asyncio.TimeoutError
-        except asyncio.TimeoutError:  # the coroutine did not finish on time
-            raise RuntimeError
 
     @staticmethod
     def build_dummy_strategy_config_cls(strategy_name: str) -> Type[BaseClientModel]:
