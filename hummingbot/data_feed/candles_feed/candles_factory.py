@@ -6,6 +6,7 @@ from hummingbot.data_feed.candles_feed.binance_spot_candles import BinanceSpotCa
 from hummingbot.data_feed.candles_feed.bitmart_perpetual_candles.bitmart_perpetual_candles import (
     BitmartPerpetualCandles,
 )
+from hummingbot.data_feed.candles_feed.btc_markets_spot_candles.btc_markets_spot_candles import BtcMarketsSpotCandles
 from hummingbot.data_feed.candles_feed.bybit_perpetual_candles.bybit_perpetual_candles import BybitPerpetualCandles
 from hummingbot.data_feed.candles_feed.bybit_spot_candles.bybit_spot_candles import BybitSpotCandles
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
@@ -41,6 +42,7 @@ class CandlesFactory:
     The CandlesFactory class creates and returns a Candle object based on the specified configuration.
     It uses a mapping of connector names to their respective candle classes.
     """
+
     _candles_map: Dict[str, Type[CandlesBase]] = {
         "binance_perpetual": BinancePerpetualCandles,
         "binance": BinanceSpotCandles,
@@ -60,6 +62,7 @@ class CandlesFactory:
         "hyperliquid_perpetual": HyperliquidPerpetualCandles,
         "dexalot": DexalotSpotCandles,
         "bitmart_perpetual": BitmartPerpetualCandles,
+        "btc_markets": BtcMarketsSpotCandles,
     }
 
     @classmethod
@@ -73,10 +76,6 @@ class CandlesFactory:
         """
         connector_class = cls._candles_map.get(candles_config.connector)
         if connector_class:
-            return connector_class(
-                candles_config.trading_pair,
-                candles_config.interval,
-                candles_config.max_records
-            )
+            return connector_class(candles_config.trading_pair, candles_config.interval, candles_config.max_records)
         else:
             raise UnsupportedConnectorException(candles_config.connector)
