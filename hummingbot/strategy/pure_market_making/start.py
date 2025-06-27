@@ -86,14 +86,14 @@ def start(self):
         if price_source == "external_market":
             asset_trading_pair: str = price_source_market
             ext_market = create_paper_trade_market(price_source_exchange, self.client_config_map, [asset_trading_pair])
-            self.connector_manager.conectors[price_source_exchange]: ExchangeBase = ext_market
+            self.connector_manager.connectors[price_source_exchange]: ExchangeBase = ext_market
             asset_price_delegate = OrderBookAssetPriceDelegate(ext_market, asset_trading_pair)
         elif price_source == "custom_api":
-            asset_price_delegate = APIAssetPriceDelegate(self.trading_core.markets[exchange], price_source_custom_api,
+            asset_price_delegate = APIAssetPriceDelegate(self.markets[exchange], price_source_custom_api,
                                                          custom_api_update_interval)
         inventory_cost_price_delegate = None
         if price_type == "inventory_cost":
-            db = self.trading_core.trade_fill_db
+            db = self.trade_fill_db
             inventory_cost_price_delegate = InventoryCostPriceDelegate(db, trading_pair)
         take_if_crossed = c_map.get("take_if_crossed").value
 
