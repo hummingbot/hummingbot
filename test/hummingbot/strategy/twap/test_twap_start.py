@@ -35,7 +35,7 @@ class TwapStartTest(unittest.TestCase):
             raise ValueError("ValueError for testing")
         return [trading_pair.split('-') for trading_pair in trading_pairs]
 
-    def _initialize_markets(self, market_names):
+    def initialize_markets(self, market_names):
         if self.raise_exception_for_market_initialization:
             raise Exception("Exception for testing")
 

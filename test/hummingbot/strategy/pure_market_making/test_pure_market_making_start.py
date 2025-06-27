@@ -61,7 +61,7 @@ class PureMarketMakingStartTest(unittest.TestCase):
     def _initialize_market_assets(self, market, trading_pairs):
         return [("ETH", "USDT")]
 
-    def _initialize_markets(self, market_names):
+    def initialize_markets(self, market_names):
         pass
 
     def notify(self, message):
