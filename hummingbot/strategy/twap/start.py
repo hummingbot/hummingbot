@@ -1,16 +1,9 @@
 from datetime import datetime
-from typing import (
-    List,
-    Tuple,
-)
+from typing import List, Tuple
 
-from hummingbot.strategy.conditional_execution_state import (
-    RunAlwaysExecutionState,
-    RunInTimeConditionalExecutionState)
+from hummingbot.strategy.conditional_execution_state import RunAlwaysExecutionState, RunInTimeConditionalExecutionState
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.twap import (
-    TwapTradeStrategy
-)
+from hummingbot.strategy.twap import TwapTradeStrategy
 from hummingbot.strategy.twap.twap_config_map import twap_config_map
 
 
@@ -34,7 +27,7 @@ def start(self):
 
         market_names: List[Tuple[str, List[str]]] = [(exchange, [raw_market_trading_pair])]
 
-        self._initialize_markets(market_names)
+        self.initialize_markets(market_names)
         maker_data = [self.markets[exchange], raw_market_trading_pair] + list(assets)
         self.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]
 

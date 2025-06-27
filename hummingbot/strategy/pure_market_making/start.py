@@ -78,15 +78,15 @@ def start(self):
         trading_pair: str = raw_trading_pair
         maker_assets: Tuple[str, str] = trading_pair.split("-")
         market_names: List[Tuple[str, List[str]]] = [(exchange, [trading_pair])]
-        self._initialize_markets(market_names)
-        maker_data = [self.trading_core.markets[exchange], trading_pair] + list(maker_assets)
-        self.trading_core.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]
+        self.initialize_markets(market_names)
+        maker_data = [self.connector_manager.connectors[exchange], trading_pair] + list(maker_assets)
+        self.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]
 
         asset_price_delegate = None
         if price_source == "external_market":
             asset_trading_pair: str = price_source_market
             ext_market = create_paper_trade_market(price_source_exchange, self.client_config_map, [asset_trading_pair])
-            self.trading_core.markets[price_source_exchange]: ExchangeBase = ext_market
+            self.connector_manager.conectors[price_source_exchange]: ExchangeBase = ext_market
             asset_price_delegate = OrderBookAssetPriceDelegate(ext_market, asset_trading_pair)
         elif price_source == "custom_api":
             asset_price_delegate = APIAssetPriceDelegate(self.trading_core.markets[exchange], price_source_custom_api,
@@ -100,8 +100,8 @@ def start(self):
         should_wait_order_cancel_confirmation = c_map.get("should_wait_order_cancel_confirmation")
 
         strategy_logging_options = PureMarketMakingStrategy.OPTION_LOG_ALL
-        self.trading_core.strategy = PureMarketMakingStrategy()
-        self.trading_core.strategy.init_params(
+        self.strategy = PureMarketMakingStrategy()
+        self.strategy.init_params(
             market_info=MarketTradingPairTuple(*maker_data),
             bid_spread=bid_spread,
             ask_spread=ask_spread,
