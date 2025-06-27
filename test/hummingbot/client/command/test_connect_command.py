@@ -18,7 +18,7 @@ class ConnectCommandTest(IsolatedAsyncioWrapperTestCase):
     async def asyncSetUp(self, mock_mqtt_start, mock_gateway_start, mock_trading_pair_fetcher):
         await read_system_configs_from_yml()
         self.client_config_map = ClientConfigAdapter(ClientConfigMap())
-        self.app = HummingbotApplication.main_application(client_config_map=self.client_config_map)
+        self.app = HummingbotApplication(client_config_map=self.client_config_map)
         self.cli_mock_assistant = CLIMockingAssistant(self.app.app)
         self.cli_mock_assistant.start()
 

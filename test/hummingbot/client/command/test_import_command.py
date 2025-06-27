@@ -26,7 +26,7 @@ class ImportCommandTest(IsolatedAsyncioWrapperTestCase):
     async def asyncSetUp(self, mock_mqtt_start, mock_gateway_start, mock_trading_pair_fetcher):
         await read_system_configs_from_yml()
         self.client_config_map = ClientConfigAdapter(ClientConfigMap())
-        self.app = HummingbotApplication.main_application(client_config_map=self.client_config_map)
+        self.app = HummingbotApplication(client_config_map=self.client_config_map)
         self.cli_mock_assistant = CLIMockingAssistant(self.app.app)
         self.cli_mock_assistant.start()
 
@@ -85,7 +85,7 @@ class ImportCommandTest(IsolatedAsyncioWrapperTestCase):
 
     @patch("hummingbot.client.command.import_command.load_strategy_config_map_from_file")
     @patch("hummingbot.client.command.status_command.StatusCommand.status_check_all")
-    def test_import_config_file_success_legacy(
+    async def test_import_config_file_success_legacy(
         self, status_check_all_mock: AsyncMock, load_strategy_config_map_from_file: AsyncMock
     ):
         strategy_name = "some_strategy"
@@ -95,7 +95,7 @@ class ImportCommandTest(IsolatedAsyncioWrapperTestCase):
         strategy_conf_var.value = strategy_name
         load_strategy_config_map_from_file.return_value = {"strategy": strategy_conf_var}
 
-        self.async_run_with_timeout(self.app.import_config_file(strategy_file_name))
+        await self.app.import_config_file(strategy_file_name)
         self.assertEqual(strategy_file_name, self.app.strategy_file_name)
         self.assertEqual(strategy_name, self.app.strategy_name)
         self.assertTrue(
@@ -104,7 +104,7 @@ class ImportCommandTest(IsolatedAsyncioWrapperTestCase):
 
     @patch("hummingbot.client.command.import_command.load_strategy_config_map_from_file")
     @patch("hummingbot.client.command.status_command.StatusCommand.status_check_all")
-    def test_import_config_file_handles_network_timeouts_legacy(
+    async def test_import_config_file_handles_network_timeouts_legacy(
         self, status_check_all_mock: AsyncMock, load_strategy_config_map_from_file: AsyncMock
     ):
         strategy_name = "some_strategy"
@@ -115,15 +115,13 @@ class ImportCommandTest(IsolatedAsyncioWrapperTestCase):
         load_strategy_config_map_from_file.return_value = {"strategy": strategy_conf_var}
 
         with self.assertRaises(asyncio.TimeoutError):
-            self.async_run_with_timeout_coroutine_must_raise_timeout(
-                self.app.import_config_file(strategy_file_name)
-            )
+            await self.app.import_config_file(strategy_file_name)
         self.assertEqual(None, self.app.strategy_file_name)
         self.assertEqual(None, self.app.strategy_name)
 
     @patch("hummingbot.client.config.config_helpers.get_strategy_pydantic_config_cls")
     @patch("hummingbot.client.command.status_command.StatusCommand.status_check_all")
-    def test_import_config_file_success(
+    async def test_import_config_file_success(
         self, status_check_all_mock: AsyncMock, get_strategy_pydantic_config_cls: MagicMock
     ):
         strategy_name = "perpetual_market_making"
@@ -138,7 +136,7 @@ class ImportCommandTest(IsolatedAsyncioWrapperTestCase):
             import_command.STRATEGIES_CONF_DIR_PATH = d
             temp_file_name = d / strategy_file_name
             save_to_yml(temp_file_name, cm)
-            self.async_run_with_timeout(self.app.import_config_file(strategy_file_name))
+            await self.app.import_config_file(strategy_file_name)
 
         self.assertEqual(strategy_file_name, self.app.strategy_file_name)
         self.assertEqual(strategy_name, self.app.strategy_name)
@@ -149,7 +147,7 @@ class ImportCommandTest(IsolatedAsyncioWrapperTestCase):
 
     @patch("hummingbot.client.config.config_helpers.get_strategy_pydantic_config_cls")
     @patch("hummingbot.client.command.status_command.StatusCommand.status_check_all")
-    def test_import_config_file_wrong_name(
+    async def test_import_config_file_wrong_name(
         self, status_check_all_mock: AsyncMock, get_strategy_pydantic_config_cls: MagicMock
     ):
         strategy_name = "perpetual_market_making"
@@ -166,8 +164,7 @@ class ImportCommandTest(IsolatedAsyncioWrapperTestCase):
             temp_file_name = d / strategy_file_name
             save_to_yml(temp_file_name, cm)
             try:
-                self.async_run_with_timeout(
-                    self.app.import_config_file(wrong_strategy_file_name))
+                await self.app.import_config_file(wrong_strategy_file_name)
             except FileNotFoundError:
                 self.assertNotEqual(strategy_file_name, self.app.strategy_file_name)
                 self.assertNotEqual(strategy_name, self.app.strategy_name)
