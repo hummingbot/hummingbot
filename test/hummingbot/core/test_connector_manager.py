@@ -50,7 +50,6 @@ class ConnectorManagerTest(IsolatedAsyncioWrapperTestCase):
 
         self.assertEqual(manager.client_config_map, self.client_config_adapter)
         self.assertEqual(manager.connectors, {})
-        self.assertIsNone(manager._trade_fill_db)
 
     @patch("hummingbot.core.connector_manager.create_paper_trade_market")
     def test_create_paper_trade_connector(self, mock_create_paper_trade):
