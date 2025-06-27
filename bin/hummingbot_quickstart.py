@@ -25,7 +25,12 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.client.config.security import Security
 from hummingbot.client.hummingbot_application import HummingbotApplication
-from hummingbot.client.settings import STRATEGIES_CONF_DIR_PATH, AllConnectorSettings
+from hummingbot.client.settings import (
+    SCRIPT_STRATEGIES_PATH,
+    SCRIPT_STRATEGY_CONF_DIR_PATH,
+    STRATEGIES_CONF_DIR_PATH,
+    AllConnectorSettings,
+)
 from hummingbot.client.ui import login_prompt
 from hummingbot.client.ui.style import load_style
 from hummingbot.core.event.events import HummingbotUIEvent
@@ -80,7 +85,6 @@ def autofix_permissions(user_group_spec: str):
 
 async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsManager):
     """Start Hummingbot using unified HummingbotApplication in either UI or headless mode."""
-    config_file_name = args.config_file_name
     client_config_map = load_client_config_map_from_file()
 
     if args.auto_set_permissions is not None:
@@ -106,19 +110,35 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
     hb = HummingbotApplication.main_application(client_config_map=client_config_map, headless_mode=args.headless)
 
     # Load and start strategy if provided
-    if config_file_name is not None:
-        await load_and_start_strategy(hb, args, config_file_name)
+    if args.config_file_name is not None:
+        success = await load_and_start_strategy(hb, args)
+        if not success:
+            logging.getLogger().error("Failed to load strategy. Exiting.")
+            return
 
     # Run the application
     await run_application(hb, args, client_config_map)
 
 
-async def load_and_start_strategy(hb: HummingbotApplication, args: argparse.Namespace, config_file_name: str):
+async def load_and_start_strategy(hb: HummingbotApplication, args: argparse.Namespace,):
     """Load and start strategy based on file type and mode."""
-    if config_file_name.endswith(".py"):
+    if args.config_file_name.endswith(".py"):
         # Script strategy
-        strategy_name = config_file_name.replace(".py", "")
+        strategy_name = args.config_file_name.replace(".py", "")
         strategy_config_file = args.script_conf  # Optional config file for script
+
+        # Validate that the script file exists
+        script_file_path = SCRIPT_STRATEGIES_PATH / args.config_file_name
+        if not script_file_path.exists():
+            logging.getLogger().error(f"Script file not found: {script_file_path}")
+            return False
+
+        # Validate that the script config file exists if provided
+        if strategy_config_file:
+            script_config_path = SCRIPT_STRATEGY_CONF_DIR_PATH / strategy_config_file
+            if not script_config_path.exists():
+                logging.getLogger().error(f"Script config file not found: {script_config_path}")
+                return False
 
         # Set strategy_file_name to config file if provided, otherwise script file (matching start_command logic)
         hb.strategy_file_name = strategy_config_file.split(".")[0] if strategy_config_file else strategy_name
@@ -140,11 +160,19 @@ async def load_and_start_strategy(hb: HummingbotApplication, args: argparse.Name
                 hb.script_config = strategy_config_file
     else:
         # Regular strategy with YAML config
-        hb.strategy_file_name = config_file_name.split(".")[0]  # Remove .yml extension
+        hb.strategy_file_name = args.config_file_name.split(".")[0]  # Remove .yml extension
 
-        strategy_config = await load_strategy_config_map_from_file(
-            STRATEGIES_CONF_DIR_PATH / config_file_name
-        )
+        try:
+            strategy_config = await load_strategy_config_map_from_file(
+                STRATEGIES_CONF_DIR_PATH / args.config_file_name
+            )
+        except FileNotFoundError:
+            logging.getLogger().error(f"Strategy config file not found: {STRATEGIES_CONF_DIR_PATH / args.config_file_name}")
+            return False
+        except Exception as e:
+            logging.getLogger().error(f"Error loading strategy config file: {e}")
+            return False
+
         strategy_name = (
             strategy_config.strategy
             if isinstance(strategy_config, ClientConfigAdapter)
@@ -157,7 +185,7 @@ async def load_and_start_strategy(hb: HummingbotApplication, args: argparse.Name
             success = await hb.trading_core.start_strategy(
                 strategy_name,
                 strategy_config,
-                config_file_name
+                args.config_file_name
             )
             if not success:
                 logging.getLogger().error("Failed to start strategy")
@@ -188,7 +216,7 @@ async def run_application(hb: HummingbotApplication, args: argparse.Namespace, c
 
         start_listener: UIStartListener = UIStartListener(
             hb,
-            is_script=hb.trading_core.is_script_strategy(hb.strategy_name),
+            is_script=args.config_file_name.endswith(".py"),
             script_config=hb.script_config,
             is_quickstart=True
         )
