@@ -20,6 +20,7 @@ from hummingbot.core.connector_manager import ConnectorManager
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.kill_switch import KillSwitch
 from hummingbot.exceptions import InvalidScriptModule
+from hummingbot.logger import HummingbotLogger
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.remote_iface.mqtt import MQTTGateway
@@ -36,6 +37,9 @@ class StrategyType(Enum):
     V2 = "v2"
 
 
+s_logger = None
+
+
 class TradingCore:
     """
     Core trading functionality with modular architecture.
@@ -50,6 +54,13 @@ class TradingCore:
 
     KILL_TIMEOUT = 20.0
 
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        global s_logger
+        if s_logger is None:
+            s_logger = logging.getLogger(__name__)
+        return s_logger
+
     def __init__(self,
                  client_config: Union[ClientConfigMap, ClientConfigAdapter, Dict[str, Any]],
                  scripts_path: Optional[Path] = None):
@@ -60,8 +71,6 @@ class TradingCore:
             client_config: Configuration object or dictionary
             scripts_path: Optional path to script strategies directory
         """
-        self._logger = logging.getLogger(__name__)
-
         # Convert config to ClientConfigAdapter if needed
         if isinstance(client_config, dict):
             self.client_config_map = self._create_config_adapter_from_dict(client_config)
@@ -158,12 +167,12 @@ class TradingCore:
         without needing an active strategy.
         """
         if self.clock is not None:
-            self._logger.warning("Clock is already running")
+            self.logger().warning("Clock is already running")
             return False
 
         try:
             tick_size = self.client_config_map.tick_size
-            self._logger.info(f"Creating the clock with tick size: {tick_size}")
+            self.logger().info(f"Creating the clock with tick size: {tick_size}")
             self.clock = Clock(ClockMode.REALTIME, tick_size=tick_size)
 
             # Add all connectors to clock
@@ -172,7 +181,7 @@ class TradingCore:
                     self.clock.add_iterator(connector)
                     # Cancel dangling orders
                     if len(connector.limit_orders) > 0:
-                        self._logger.info(f"Canceling dangling limit orders on {connector.name}...")
+                        self.logger().info(f"Canceling dangling limit orders on {connector.name}...")
                         await connector.cancel_all(10.0)
 
             # Start the clock
@@ -180,11 +189,11 @@ class TradingCore:
             self._is_running = True
             self.start_time = time.time() * 1e3
 
-            self._logger.info("Clock started successfully")
+            self.logger().info("Clock started successfully")
             return True
 
         except Exception as e:
-            self._logger.error(f"Failed to start clock: {e}")
+            self.logger().error(f"Failed to start clock: {e}")
             return False
 
     async def stop_clock(self) -> bool:
@@ -208,11 +217,11 @@ class TradingCore:
             self.clock = None
             self._is_running = False
 
-            self._logger.info("Clock stopped successfully")
+            self.logger().info("Clock stopped successfully")
             return True
 
         except Exception as e:
-            self._logger.error(f"Failed to stop clock: {e}")
+            self.logger().error(f"Failed to stop clock: {e}")
             return False
 
     async def create_connector(self,
@@ -323,7 +332,7 @@ class TradingCore:
         )
 
         self.markets_recorder.start()
-        self._logger.info(f"Markets recorder initialized with database: {db_name}")
+        self.logger().info(f"Markets recorder initialized with database: {db_name}")
 
     def load_script_class(self, script_name: str) -> Tuple[Type, Optional[BaseClientModel]]:
         """
@@ -399,7 +408,7 @@ class TradingCore:
             with open(config_path, 'r') as file:
                 return yaml.safe_load(file)
         except Exception as e:
-            self._logger.warning(f"Failed to load config file {config_file_path}: {e}")
+            self.logger().warning(f"Failed to load config file {config_file_path}: {e}")
             return {}
 
     async def start_strategy(self,
@@ -419,7 +428,7 @@ class TradingCore:
         """
         try:
             if self._strategy_running:
-                self._logger.warning("Strategy is already running")
+                self.logger().warning("Strategy is already running")
                 return False
 
             self.strategy_name = strategy_name
@@ -459,11 +468,11 @@ class TradingCore:
             if not self._is_running:
                 await self.start_clock()
 
-            self._logger.info(f"Strategy {strategy_name} started successfully")
+            self.logger().info(f"Strategy {strategy_name} started successfully")
             return True
 
         except Exception as e:
-            self._logger.error(f"Failed to start strategy {strategy_name}: {e}")
+            self.logger().error(f"Failed to start strategy {strategy_name}: {e}")
             return False
 
     async def _initialize_script_strategy(self):
@@ -519,10 +528,10 @@ class TradingCore:
                 if self.clock:
                     self.clock.add_iterator(self.kill_switch)
 
-            self._logger.info(f"'{self.strategy_name}' strategy execution started.")
+            self.logger().info(f"'{self.strategy_name}' strategy execution started.")
 
         except Exception as e:
-            self._logger.error(f"Error starting strategy execution: {e}", exc_info=True)
+            self.logger().error(f"Error starting strategy execution: {e}", exc_info=True)
             raise
 
     async def _run_clock(self):
@@ -543,7 +552,7 @@ class TradingCore:
         """Stop the currently running strategy."""
         try:
             if not self._strategy_running:
-                self._logger.warning("No strategy is currently running")
+                self.logger().warning("No strategy is currently running")
                 return False
 
             # Remove strategy from clock FIRST to prevent further ticks
@@ -564,11 +573,11 @@ class TradingCore:
             self.kill_switch = None
             self._strategy_running = False
 
-            self._logger.info("Strategy stopped successfully")
+            self.logger().info("Strategy stopped successfully")
             return True
 
         except Exception as e:
-            self._logger.error(f"Failed to stop strategy: {e}")
+            self.logger().error(f"Failed to stop strategy: {e}")
             return False
 
     async def cancel_outstanding_orders(self) -> bool:
@@ -584,7 +593,7 @@ class TradingCore:
 
             return True
         except Exception as e:
-            self._logger.error(f"Error cancelling orders: {e}")
+            self.logger().error(f"Error cancelling orders: {e}")
             return False
 
     def _initialize_markets_for_strategy(self):
@@ -623,7 +632,7 @@ class TradingCore:
 
     def notify(self, msg: str, level: str = "INFO"):
         """Send a notification."""
-        self._logger.log(getattr(logging, level.upper(), logging.INFO), msg)
+        self.logger().log(getattr(logging, level.upper(), logging.INFO), msg)
         for notifier in self.notifiers:
             notifier.add_message_to_queue(msg)
 
@@ -667,11 +676,11 @@ class TradingCore:
         """Start MQTT gateway if configured."""
         try:
             if self._mqtt_started:
-                self._logger.debug("MQTT already started")
+                self.logger().debug("MQTT already started")
                 return True
 
             if not self.mqtt_enabled:
-                self._logger.debug("MQTT not enabled in configuration")
+                self.logger().debug("MQTT not enabled in configuration")
                 return True
 
             # Create MQTT gateway - pass self for backward compatibility
@@ -686,13 +695,13 @@ class TradingCore:
                 self._mqtt_gateway.start_market_events_fw()
 
             mqtt_config = self.client_config_map.mqtt_bridge
-            self._logger.info(f"MQTT started - listening on {mqtt_config.mqtt_host}:{mqtt_config.mqtt_port}")
+            self.logger().info(f"MQTT started - listening on {mqtt_config.mqtt_host}:{mqtt_config.mqtt_port}")
 
             self._mqtt_started = True
             return True
 
         except Exception as e:
-            self._logger.error(f"Failed to start MQTT: {e}")
+            self.logger().error(f"Failed to start MQTT: {e}")
             return False
 
     def stop_mqtt(self):
@@ -700,13 +709,13 @@ class TradingCore:
         try:
             if self._mqtt_gateway and self._mqtt_started:
                 self._mqtt_gateway.stop()
-                self._logger.info("MQTT stopped")
+                self.logger().info("MQTT stopped")
 
             self._mqtt_gateway = None
             self._mqtt_started = False
 
         except Exception as e:
-            self._logger.error(f"Error stopping MQTT: {e}")
+            self.logger().error(f"Error stopping MQTT: {e}")
 
     def start_mqtt_market_events_forwarding(self):
         """Start forwarding market events to MQTT."""
@@ -741,9 +750,9 @@ class TradingCore:
             for name in connector_names:
                 await self.remove_connector(name)
 
-            self._logger.info("Trading core shutdown complete")
+            self.logger().info("Trading core shutdown complete")
             return True
 
         except Exception as e:
-            self._logger.error(f"Error during shutdown: {e}")
+            self.logger().error(f"Error during shutdown: {e}")
             return False
