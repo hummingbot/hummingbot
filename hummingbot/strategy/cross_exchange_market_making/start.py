@@ -31,11 +31,11 @@ def start(self):
     ]
 
     self.initialize_markets(market_names)
-    maker_data = [self.trading_core.markets[maker_market], maker_trading_pair] + list(maker_assets)
-    taker_data = [self.trading_core.markets[taker_market], taker_trading_pair] + list(taker_assets)
+    maker_data = [self.connector_manager.c[maker_market], maker_trading_pair] + list(maker_assets)
+    taker_data = [self.connector_manager.c[taker_market], taker_trading_pair] + list(taker_assets)
     maker_market_trading_pair_tuple = MarketTradingPairTuple(*maker_data)
     taker_market_trading_pair_tuple = MarketTradingPairTuple(*taker_data)
-    self.trading_core.market_trading_pair_tuples = [maker_market_trading_pair_tuple, taker_market_trading_pair_tuple]
+    self.market_trading_pair_tuples = [maker_market_trading_pair_tuple, taker_market_trading_pair_tuple]
     self.market_pair = MakerTakerMarketPair(maker=maker_market_trading_pair_tuple, taker=taker_market_trading_pair_tuple)
 
     strategy_logging_options = (
