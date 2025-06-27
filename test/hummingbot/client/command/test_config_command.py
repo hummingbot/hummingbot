@@ -19,7 +19,7 @@ class ConfigCommandTest(IsolatedAsyncioWrapperTestCase):
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication.mqtt_start")
     async def asyncSetUp(self, mock_mqtt_start, mock_gateway_start, mock_trading_pair_fetcher):
         await read_system_configs_from_yml()
-        self.app = HummingbotApplication.main_application()
+        self.app = HummingbotApplication()
         self.cli_mock_assistant = CLIMockingAssistant(self.app.app)
         self.cli_mock_assistant.start()
 
@@ -35,6 +35,7 @@ class ConfigCommandTest(IsolatedAsyncioWrapperTestCase):
         notify_mock.side_effect = lambda s: captures.append(s)
         strategy_name = "some-strategy"
         self.app.trading_core.strategy_name = strategy_name
+        self.app.client_config_map.commands_timeout.other_commands_timeout = Decimal("30.0")
 
         strategy_config_map_mock = {
             "five": ConfigVar(key="five", prompt=""),
