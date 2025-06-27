@@ -187,10 +187,6 @@ class TradingCore:
             return True
 
         try:
-            # Remove all connectors from clock
-            for connector in self.connector_manager.connectors.values():
-                self.clock.remove_iterator(connector)
-
             # Cancel clock task
             if hasattr(self, '_clock_task') and self._clock_task and not self._clock_task.done():
                 self._clock_task.cancel()
