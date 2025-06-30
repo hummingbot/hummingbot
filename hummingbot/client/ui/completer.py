@@ -407,21 +407,9 @@ class HummingbotCompleter(Completer):
         # or if we have 2 arguments and we're in the middle of typing the network
         return len(args) == 1 and text_before_cursor.endswith(" ") or (len(args) == 2 and not text_before_cursor.endswith(" "))
 
-    def _complete_gateway_allowance_network(self, document: Document) -> bool:
-        """Check if we're completing the network argument for gateway allowance"""
+    def _complete_gateway_allowance_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
-        if not text_before_cursor.startswith("gateway allowance "):
-            return False
-
-        # Count the number of arguments after "gateway allowance"
-        cmd_part = text_before_cursor.replace("gateway allowance ", "").strip()
-        if not cmd_part:
-            return False
-
-        args = cmd_part.split()
-        # We're completing the network if we have 1 complete arg (connector) and starting the 2nd
-        # or if we have 2 args and we're typing the second one
-        return len(args) == 1 and text_before_cursor.endswith(" ") or (len(args) == 2 and not text_before_cursor.endswith(" "))
+        return text_before_cursor.startswith("gateway allowance ")
 
     def _complete_gateway_allowance_connector(self, document: Document) -> bool:
         """Check if we're completing the connector argument for gateway allowance"""
@@ -431,30 +419,17 @@ class HummingbotCompleter(Completer):
 
         # Count the number of arguments after "gateway allowance"
         cmd_part = text_before_cursor.replace("gateway allowance ", "").strip()
-
-        # If no arguments yet, we're typing the first argument (connector)
-        if not cmd_part:
-            return True
-
-        args = cmd_part.split()
-        # We're completing the connector if we have 0 complete args or if we're typing the first arg
-        return len(args) == 0 or (len(args) == 1 and not text_before_cursor.endswith(" "))
-
-    def _complete_gateway_approve_network(self, document: Document) -> bool:
-        """Check if we're completing the network argument for gateway approve"""
-        text_before_cursor: str = document.text_before_cursor
-        if not text_before_cursor.startswith("gateway approve "):
-            return False
-
-        # Count the number of arguments after "gateway approve"
-        cmd_part = text_before_cursor.replace("gateway approve ", "").strip()
         if not cmd_part:
             return False
 
         args = cmd_part.split()
-        # We're completing the network if we have 1 complete arg (connector) and starting the 2nd
-        # or if we have 2 args and we're typing the second one
+        # If we have exactly 1 argument (network) and we're starting the 2nd argument (connector)
+        # or if we have 2 arguments and we're in the middle of typing the connector
         return len(args) == 1 and text_before_cursor.endswith(" ") or (len(args) == 2 and not text_before_cursor.endswith(" "))
+
+    def _complete_gateway_approve_arguments(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return text_before_cursor.startswith("gateway approve ")
 
     def _complete_gateway_wrap_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -468,14 +443,13 @@ class HummingbotCompleter(Completer):
 
         # Count the number of arguments after "gateway approve"
         cmd_part = text_before_cursor.replace("gateway approve ", "").strip()
-
-        # If no arguments yet, we're typing the first argument (connector)
         if not cmd_part:
-            return True
+            return False
 
         args = cmd_part.split()
-        # We're completing the connector if we have 0 complete args or if we're typing the first arg
-        return len(args) == 0 or (len(args) == 1 and not text_before_cursor.endswith(" "))
+        # If we have exactly 1 argument (network) and we're starting the 2nd argument (connector)
+        # or if we have 2 arguments and we're in the middle of typing the connector
+        return len(args) == 1 and text_before_cursor.endswith(" ") or (len(args) == 2 and not text_before_cursor.endswith(" "))
 
     def _complete_gateway_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -720,7 +694,7 @@ class HummingbotCompleter(Completer):
             for c in connector_completer.get_completions(document, complete_event):
                 yield c
 
-        elif self._complete_gateway_allowance_network(document):
+        elif self._complete_gateway_allowance_arguments(document):
             # Use Ethereum networks completer for allowance
             ethereum_networks_completer = self._get_ethereum_networks_completer()
             for c in ethereum_networks_completer.get_completions(document, complete_event):
@@ -732,7 +706,7 @@ class HummingbotCompleter(Completer):
             for c in connector_completer.get_completions(document, complete_event):
                 yield c
 
-        elif self._complete_gateway_approve_network(document):
+        elif self._complete_gateway_approve_arguments(document):
             # Use Ethereum networks completer for approve
             ethereum_networks_completer = self._get_ethereum_networks_completer()
             for c in ethereum_networks_completer.get_completions(document, complete_event):

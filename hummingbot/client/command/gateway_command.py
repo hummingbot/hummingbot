@@ -51,28 +51,28 @@ class GatewayCommand(GatewayChainApiManager):
         safe_ensure_future(self._get_balances(chain, network, address, tokens), loop=self.ev_loop)
 
     @ensure_gateway_online
-    def gateway_allowance(self, connector: Optional[str] = None, network: Optional[str] = None,
+    def gateway_allowance(self, network: Optional[str] = None, connector: Optional[str] = None,
                           tokens: Optional[str] = None):
         """
         Command to check token allowances for Ethereum-based connectors
-        Usage: gateway allowance [connector] [network] [tokens]
+        Usage: gateway allowance [network] [connector] [tokens]
         """
         safe_ensure_future(self._get_allowances(network, connector, tokens), loop=self.ev_loop)
 
     @ensure_gateway_online
-    def gateway_approve(self, connector: Optional[str] = None, network: Optional[str] = None,
+    def gateway_approve(self, network: Optional[str] = None, connector: Optional[str] = None,
                         tokens: Optional[str] = None):
         """
         Command to approve tokens for spending on a connector
-        Usage: gateway approve [connector] [network] [tokens]
+        Usage: gateway approve [network] [connector] [tokens]
         """
         if all([network, connector, tokens]):
             safe_ensure_future(self._approve_tokens(network, connector, tokens), loop=self.ev_loop)
         else:
             self.notify(
-                "\nPlease specify all required parameters: connector, network, and tokens.\n"
-                "Usage: gateway approve <connector> <network> <tokens>\n"
-                "Example: gateway approve uniswap mainnet USDC,USDT\n")
+                "\nPlease specify all required parameters: network, connector, and tokens.\n"
+                "Usage: gateway approve <network> <connector> <tokens>\n"
+                "Example: gateway approve mainnet uniswap USDC,USDT\n")
 
     def generate_certs(self):
         safe_ensure_future(self._generate_certs(), loop=self.ev_loop)
