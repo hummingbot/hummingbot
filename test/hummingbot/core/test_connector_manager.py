@@ -157,7 +157,7 @@ class ConnectorManagerTest(IsolatedAsyncioWrapperTestCase):
         self.connector_manager.connectors["binance"] = self.mock_connector
 
         # Remove connector
-        result = await self.connector_manager.remove_connector("binance")
+        result = self.connector_manager.remove_connector("binance")
 
         # Verify removal
         self.assertTrue(result)
@@ -171,7 +171,7 @@ class ConnectorManagerTest(IsolatedAsyncioWrapperTestCase):
         self.connector_manager.connectors["binance"] = self.mock_connector
 
         # Remove connector
-        result = await self.connector_manager.remove_connector("binance")
+        result = self.connector_manager.remove_connector("binance")
 
         # Verify orders were cancelled
         self.assertTrue(result)
@@ -180,7 +180,7 @@ class ConnectorManagerTest(IsolatedAsyncioWrapperTestCase):
 
     async def test_remove_nonexistent_connector(self):
         """Test removing a connector that doesn't exist"""
-        result = await self.connector_manager.remove_connector("nonexistent")
+        result = self.connector_manager.remove_connector("nonexistent")
 
         self.assertFalse(result)
 
@@ -191,7 +191,7 @@ class ConnectorManagerTest(IsolatedAsyncioWrapperTestCase):
         self.connector_manager.connectors["binance"] = self.mock_connector
 
         # Remove should handle exception and return False
-        result = await self.connector_manager.remove_connector("binance")
+        result = self.connector_manager.remove_connector("binance")
 
         self.assertFalse(result)
         # Connector should still be in the dict since removal failed

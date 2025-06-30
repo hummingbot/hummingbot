@@ -236,7 +236,7 @@ class TradingCore:
 
         return connector
 
-    async def remove_connector(self, connector_name: str) -> bool:
+    def remove_connector(self, connector_name: str) -> bool:
         """
         Remove a connector.
 
@@ -250,6 +250,7 @@ class TradingCore:
 
         if connector:
             # Remove from clock if exists
+            connector.stop(self.clock)
             if self.clock:
                 self.clock.remove_iterator(connector)
 
@@ -257,7 +258,7 @@ class TradingCore:
             if self.markets_recorder:
                 self.markets_recorder.remove_market(connector)
 
-        return await self.connector_manager.remove_connector(connector_name)
+        return self.connector_manager.remove_connector(connector_name)
 
     def detect_strategy_type(self, strategy_name: str) -> StrategyType:
         """Detect the type of strategy."""
@@ -676,7 +677,7 @@ class TradingCore:
             # Remove all connectors
             connector_names = list(self.connector_manager.connectors.keys())
             for name in connector_names:
-                await self.remove_connector(name)
+                self.remove_connector(name)
 
             self.logger().info("Trading core shutdown complete")
             return True

@@ -458,7 +458,7 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
                 mock_remove.return_value = True
 
                 # Remove connector
-                result = await self.trading_core.remove_connector("binance")
+                result = self.trading_core.remove_connector("binance")
 
                 self.assertTrue(result)
                 self.trading_core.clock.remove_iterator.assert_called_with(self.mock_connector)
