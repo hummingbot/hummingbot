@@ -14,6 +14,7 @@ import path_util  # noqa: F401
 
 from bin.hummingbot import UIStartListener, detect_available_port
 from hummingbot import init_logging
+from hummingbot.client.command.start_command import GATEWAY_READY_TIMEOUT
 from hummingbot.client.config.config_crypt import BaseSecretsManager, ETHKeyFileSecretManger
 from hummingbot.client.config.config_helpers import (
     ClientConfigAdapter,
@@ -116,8 +117,29 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
             logging.getLogger().error("Failed to load strategy. Exiting.")
             raise SystemExit(1)
 
+    await wait_for_gateway_ready(hb)
+
     # Run the application
     await run_application(hb, args, client_config_map)
+
+
+async def wait_for_gateway_ready(hb):
+    """Wait until the gateway is ready before starting the strategy."""
+    exchange_settings = [
+        AllConnectorSettings.get_connector_settings().get(e, None)
+        for e in hb.trading_core.connector_manager.connectors.keys()
+    ]
+    uses_gateway = any([s.uses_gateway_generic_connector() for s in exchange_settings])
+    if not uses_gateway:
+        logging.getLogger().info("No gateway connectors found, skipping gateway readiness check.")
+        return
+    try:
+        await asyncio.wait_for(hb._gateway_monitor.ready_event.wait(), timeout=GATEWAY_READY_TIMEOUT)
+    except asyncio.TimeoutError:
+        logging.getLogger().error(
+            f"TimeoutError waiting for gateway service to go online... Please ensure Gateway is configured correctly."
+            f"Unable to start strategy {hb.trading_core.strategy_name}. ")
+        raise
 
 
 async def load_and_start_strategy(hb: HummingbotApplication, args: argparse.Namespace,):
@@ -213,7 +235,6 @@ async def run_application(hb: HummingbotApplication, args: argparse.Namespace, c
         await hb.run()
     else:
         # Set up UI mode with start listener
-
         start_listener: UIStartListener = UIStartListener(
             hb,
             is_script=args.config_file_name.endswith(".py") if args.config_file_name else False,
