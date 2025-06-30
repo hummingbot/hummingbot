@@ -647,7 +647,7 @@ class GatewayHttpClient:
                 completer = app.app.input.completer
                 if hasattr(completer, 'update_gateway_config_namespaces'):
                     completer.update_gateway_config_namespaces(namespaces)
-                    self.logger().info("Successfully updated gateway config namespaces in completer")
+                    pass  # Successfully updated
                 else:
                     self.logger().warning("Completer does not have update_gateway_config_namespaces method")
             else:
@@ -1047,7 +1047,6 @@ class GatewayHttpClient:
             # Load all config namespaces using the new endpoint
             try:
                 config_namespaces = await self.get_namespaces()
-                self.logger().info(f"Loaded {len(config_namespaces)} config namespaces: {', '.join(config_namespaces)}")
             except Exception as e:
                 self.logger().warning(f"Failed to load config namespaces: {str(e)}")
                 config_namespaces = []
@@ -1075,7 +1074,6 @@ class GatewayHttpClient:
                         completer.update_gateway_chains(chain_names)
                     if hasattr(completer, 'update_gateway_config_namespaces'):
                         completer.update_gateway_config_namespaces(config_namespaces)
-                        self.logger().info(f"Updated gateway config namespaces in completer: {len(config_namespaces)} namespaces")
                     # Cache networks for each chain
                     if hasattr(completer, '_cached_gateway_networks'):
                         completer._cached_gateway_networks = chain_networks
