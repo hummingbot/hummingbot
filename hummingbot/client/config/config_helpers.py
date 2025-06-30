@@ -585,7 +585,6 @@ async def load_gateway_connectors():
             }
 
         _gateway_connectors_cache = connectors_map
-        logging.getLogger().info(f"Loaded {len(connectors_map)} gateway connectors: {list(connectors_map.keys())}")
     except Exception as e:
         logging.getLogger().warning(f"Failed to load gateway connectors: {str(e)}")
         _gateway_connectors_cache = {}
