@@ -112,7 +112,7 @@ class ConnectorManager:
             self._logger.error(f"Failed to create connector {connector_name}: {e}")
             raise
 
-    async def remove_connector(self, connector_name: str) -> bool:
+    def remove_connector(self, connector_name: str) -> bool:
         """
         Remove a connector and clean up resources.
 
@@ -127,17 +127,6 @@ class ConnectorManager:
                 self._logger.warning(f"Connector {connector_name} not found")
                 return False
 
-            connector = self.connectors[connector_name]
-
-            # Cancel all orders before removing
-            if len(connector.limit_orders) > 0:
-                self._logger.info(f"Canceling orders on {connector_name}...")
-                await connector.cancel_all(10.0)
-
-            # Stop the connector
-            connector.stop()
-
-            # Remove from active connectors
             del self.connectors[connector_name]
 
             self._logger.info(f"Removed connector: {connector_name}")
@@ -169,7 +158,7 @@ class ConnectorManager:
         all_pairs = list(set(existing_pairs + trading_pairs))
 
         # Remove and recreate
-        await self.remove_connector(connector_name)
+        self.remove_connector(connector_name)
         self.create_connector(connector_name, all_pairs)
 
         return True
