@@ -90,62 +90,75 @@ class GatewayCommand(GatewayChainApiManager):
         """
         Gateway configuration management.
         Usage:
-            gateway config show [namespace] [network]
+            gateway config show [namespace]
             gateway config update <namespace> <path> <value>
-            gateway config update <namespace> <network> <path> <value>
         """
         if args is None:
             args = []
 
         if action == "show":
-            # Format: gateway config show [namespace] [network]
-            safe_ensure_future(self._show_gateway_configuration(namespace=namespace, network=network), loop=self.ev_loop)
+            # Format: gateway config show [namespace]
+            # namespace can be: server, uniswap, ethereum-mainnet, solana-devnet, etc.
+            safe_ensure_future(self._show_gateway_configuration(namespace=namespace), loop=self.ev_loop)
         elif action is None:
             # Show help when no action is provided
             self.notify("\nUsage:")
-            self.notify("  gateway config show [namespace] [network]")
+            self.notify("  gateway config show [namespace]")
             self.notify("  gateway config update <namespace> <path> <value>")
-            self.notify("  gateway config update <namespace> <network> <path> <value>")
+            self.notify("\nExamples:")
+            self.notify("  gateway config show ethereum-mainnet")
+            self.notify("  gateway config show uniswap")
+            self.notify("  gateway config update ethereum-mainnet gasLimitTransaction 3000000")
         elif action == "update":
             if namespace is None:
                 self.notify("Error: namespace is required for config update")
                 return
 
-            # Determine if network is provided based on number of args
-            if network is not None and len(args) >= 2:
-                # Format: gateway config update <namespace> <network> <path> <value>
-                path = args[0]
-                value = args[1]
-            elif network is None and len(args) >= 2:
-                # Format: gateway config update <namespace> <path> <value>
+            # Handle the new format: gateway config update <namespace> <path> <value>
+            # where namespace includes network (e.g., ethereum-mainnet)
+            if network is not None and len(args) >= 1:
+                # User provided: gateway config update ethereum mainnet gasLimitTransaction 3000000
+                # We need to combine namespace and network
+                namespace = f"{namespace}-{network}"
+                path = args[0] if args else None
+                value = args[1] if len(args) > 1 else None
+            elif len(args) >= 2:
+                # User provided: gateway config update ethereum-mainnet gasLimitTransaction 3000000
                 path = args[0]
                 value = args[1]
             else:
                 self.notify("Error: path and value are required for config update")
                 return
 
-            safe_ensure_future(self._update_gateway_configuration(namespace, path, value, network), loop=self.ev_loop)
+            if not path or value is None:
+                self.notify("Error: path and value are required for config update")
+                return
+
+            safe_ensure_future(self._update_gateway_configuration(namespace, path, value), loop=self.ev_loop)
         else:
             # Show help if unrecognized action
             self.notify("\nUsage:")
-            self.notify("  gateway config show [namespace] [network]")
+            self.notify("  gateway config show [namespace]")
             self.notify("  gateway config update <namespace> <path> <value>")
-            self.notify("  gateway config update <namespace> <network> <path> <value>")
 
     @ensure_gateway_online
     def gateway_wallet(self, action: str = None, chain: str = None, address: str = None):
         """
         Manage wallets in gateway.
         Usage:
-            gateway wallet list [chain]     - List all wallets or filter by chain
-            gateway wallet add <chain>      - Add a new wallet for a chain
-            gateway wallet remove <chain> <address> - Remove a wallet
+            gateway wallet list [chain]              - List all wallets or filter by chain
+            gateway wallet add <chain>               - Add a new wallet for a chain
+            gateway wallet add-readonly <chain>      - Add a read-only wallet for monitoring
+            gateway wallet remove <chain> <address>  - Remove a wallet
+            gateway wallet remove-readonly <chain> <address> - Remove a read-only wallet
         """
         if action is None:
             self.notify("\nUsage:")
-            self.notify("  gateway wallet list [chain]     - List all wallets or filter by chain")
-            self.notify("  gateway wallet add <chain>      - Add a new wallet for a chain")
-            self.notify("  gateway wallet remove <chain> <address> - Remove a wallet")
+            self.notify("  gateway wallet list [chain]              - List all wallets or filter by chain")
+            self.notify("  gateway wallet add <chain>               - Add a new wallet for a chain")
+            self.notify("  gateway wallet add-readonly <chain>      - Add a read-only wallet for monitoring")
+            self.notify("  gateway wallet remove <chain> <address>  - Remove a wallet")
+            self.notify("  gateway wallet remove-readonly <chain> <address> - Remove a read-only wallet")
             return
 
         if action == "list":
@@ -155,13 +168,23 @@ class GatewayCommand(GatewayChainApiManager):
                 self.notify("Error: chain parameter is required for 'add' action")
                 return
             safe_ensure_future(self._gateway_wallet_add(chain), loop=self.ev_loop)
+        elif action == "add-readonly":
+            if chain is None:
+                self.notify("Error: chain parameter is required for 'add-readonly' action")
+                return
+            safe_ensure_future(self._gateway_wallet_add_readonly(chain), loop=self.ev_loop)
         elif action == "remove":
             if chain is None or address is None:
                 self.notify("Error: both chain and address parameters are required for 'remove' action")
                 return
             safe_ensure_future(self._gateway_wallet_remove(chain, address), loop=self.ev_loop)
+        elif action == "remove-readonly":
+            if chain is None or address is None:
+                self.notify("Error: both chain and address parameters are required for 'remove-readonly' action")
+                return
+            safe_ensure_future(self._gateway_wallet_remove_readonly(chain, address), loop=self.ev_loop)
         else:
-            self.notify(f"Error: Unknown action '{action}'. Use 'list', 'add', or 'remove'.")
+            self.notify(f"Error: Unknown action '{action}'. Use 'list', 'add', 'add-readonly', 'remove', or 'remove-readonly'.")
 
     @ensure_gateway_online
     def gateway_token(self, action: str = None, args: List[str] = None):
@@ -207,6 +230,84 @@ class GatewayCommand(GatewayChainApiManager):
 
         else:
             self.notify(f"Error: Unknown action '{action}'. Use 'show', 'add', or 'remove'.")
+
+    @ensure_gateway_online
+    def gateway_pools(self, action: str = None, args: List[str] = None):
+        """
+        Manage pools in gateway.
+        Usage:
+            gateway pools list [connector] [--network] [--type]     - List pools
+            gateway pools show <pool_id>                             - Show pool details
+            gateway pools add <connector> <type> <network> <base> <quote> <address> - Add a new pool
+            gateway pools remove <connector> <pool_id>               - Remove a pool
+        """
+        if action is None:
+            self.notify("\nUsage:")
+            self.notify("  gateway pools list [connector] [--network] [--type]     - List pools")
+            self.notify("  gateway pools show <pool_id>                            - Show pool details")
+            self.notify("  gateway pools add <connector> <type> <network> <base> <quote> <address> - Add a new pool")
+            self.notify("  gateway pools remove <connector> <pool_id>              - Remove a pool")
+            self.notify("\nExamples:")
+            self.notify("  gateway pools list raydium --network mainnet-beta --type clmm")
+            self.notify("  gateway pools add raydium clmm mainnet-beta SOL USDC 8sLbNZoA1cfnvMJLPfp98Z...")
+            return
+
+        if action == "list":
+            # Parse optional arguments
+            connector = None
+            network = None
+            pool_type = None
+
+            if args:
+                # First argument is connector if it doesn't start with --
+                if args[0] and not args[0].startswith("--"):
+                    connector = args[0]
+                    args = args[1:]
+
+                # Parse flags
+                i = 0
+                while i < len(args):
+                    if args[i] == "--network" and i + 1 < len(args):
+                        network = args[i + 1]
+                        i += 2
+                    elif args[i] == "--type" and i + 1 < len(args):
+                        pool_type = args[i + 1]
+                        i += 2
+                    else:
+                        i += 1
+
+            safe_ensure_future(self._gateway_pools_list(connector, network, pool_type), loop=self.ev_loop)
+
+        elif action == "show":
+            if args is None or len(args) < 1:
+                self.notify("Error: pool_id parameter is required for 'show' action")
+                return
+            pool_id = args[0]
+            safe_ensure_future(self._gateway_pools_show(pool_id), loop=self.ev_loop)
+
+        elif action == "add":
+            if args is None or len(args) < 6:
+                self.notify("Error: connector, type, network, base, quote, and address parameters are required for 'add' action")
+                self.notify("Usage: gateway pools add <connector> <type> <network> <base> <quote> <address>")
+                return
+            connector = args[0]
+            pool_type = args[1]
+            network = args[2]
+            base_symbol = args[3]
+            quote_symbol = args[4]
+            address = args[5]
+            safe_ensure_future(self._gateway_pools_add(connector, pool_type, network, base_symbol, quote_symbol, address), loop=self.ev_loop)
+
+        elif action == "remove":
+            if args is None or len(args) < 2:
+                self.notify("Error: connector and pool_id parameters are required for 'remove' action")
+                return
+            connector = args[0]
+            pool_id = args[1]
+            safe_ensure_future(self._gateway_pools_remove(connector, pool_id), loop=self.ev_loop)
+
+        else:
+            self.notify(f"Error: Unknown action '{action}'. Use 'list', 'show', 'add', or 'remove'.")
 
     @ensure_gateway_online
     def gateway_wrap(self, network: Optional[str] = None, amount: Optional[str] = None):
@@ -359,7 +460,7 @@ class GatewayCommand(GatewayChainApiManager):
             self.notify(
                 "\nNo connection to Gateway server exists. Ensure Gateway server is running.")
 
-    async def _update_gateway_configuration(self, namespace: str, path: str, value: Any, network: Optional[str] = None):
+    async def _update_gateway_configuration(self, namespace: str, path: str, value: Any):
         try:
             # Try to parse value as appropriate type
             try:
@@ -379,8 +480,7 @@ class GatewayCommand(GatewayChainApiManager):
             response = await self._get_gateway_instance().update_config(
                 namespace=namespace,
                 path=path,
-                value=parsed_value,
-                network=network
+                value=parsed_value
             )
             self.notify(f"\n✓ {response.get('message', 'Configuration updated successfully')}")
         except Exception as e:
@@ -389,20 +489,17 @@ class GatewayCommand(GatewayChainApiManager):
     async def _show_gateway_configuration(
         self,  # type: HummingbotApplication
         namespace: Optional[str] = None,
-        network: Optional[str] = None,
     ):
         host = self.client_config_map.gateway.gateway_api_host
         port = self.client_config_map.gateway.gateway_api_port
         try:
-            # Use new get_config method
-            config_dict = await self._get_gateway_instance().get_config(namespace=namespace, network=network)
+            # Use new get_config method with only namespace
+            config_dict = await self._get_gateway_instance().get_config(namespace=namespace)
 
             # Format the title
             title_parts = ["Gateway Configuration"]
             if namespace:
                 title_parts.append(f"namespace: {namespace}")
-            if network:
-                title_parts.append(f"network: {network}")
             title = f"\n{' - '.join(title_parts)} ({host}:{port}):"
 
             self.notify(title)
@@ -1068,9 +1165,12 @@ class GatewayCommand(GatewayChainApiManager):
                 addresses = wallet_info.get("walletAddresses", [])
 
                 self.notify(f"\nChain: {chain_name.lower()}")
-                if not addresses:
-                    self.notify("  No wallets")
-                else:
+
+                # Check for read-only addresses (new in Gateway 2.8)
+                readonly_addresses = wallet_info.get("readOnlyWalletAddresses", [])
+
+                # Display regular wallets
+                if addresses:
                     # Get native token for balance display
                     try:
                         # Get default network for this chain (first available network)
@@ -1101,6 +1201,32 @@ class GatewayCommand(GatewayChainApiManager):
                         for i, address in enumerate(addresses):
                             default_indicator = " (default)" if i == 0 else ""
                             self.notify(f"  {address}{default_indicator}")
+
+                # Display read-only wallets if any
+                if readonly_addresses:
+                    self.notify("  Read-Only Wallets (monitoring only):")
+                    try:
+                        default_network = await self._get_default_network_for_chain(chain_name)
+                        if default_network:
+                            native_token = await self._get_native_currency_symbol(chain_name, default_network)
+                            for address in readonly_addresses:
+                                try:
+                                    balance_resp = await self._get_gateway_instance().get_balances(
+                                        chain_name, default_network, address, [native_token]
+                                    )
+                                    balance = balance_resp.get("balances", {}).get(native_token, "0")
+                                    self.notify(f"  {address} - Balance: {balance} {native_token}")
+                                except Exception:
+                                    self.notify(f"  {address}")
+                        else:
+                            for address in readonly_addresses:
+                                self.notify(f"  {address}")
+                    except Exception:
+                        for address in readonly_addresses:
+                            self.notify(f"  {address}")
+
+                if not addresses and not readonly_addresses:
+                    self.notify("  No wallets")
 
         except Exception as e:
             self.notify(f"Error fetching wallets: {str(e)}")
@@ -1171,6 +1297,66 @@ class GatewayCommand(GatewayChainApiManager):
 
         except Exception as e:
             self.notify(f"Error removing wallet: {str(e)}")
+
+    async def _gateway_wallet_add_readonly(self, chain: str):
+        """Add a read-only wallet for monitoring."""
+        try:
+            self.app.clear_input()
+            self.placeholder_mode = True
+            address = await self.app.prompt(prompt=f"Enter the {chain} address to monitor >>> ")
+            self.placeholder_mode = False
+            self.app.change_prompt(prompt=">>> ")
+
+            if not address:
+                self.notify("Error: Address is required")
+                return
+
+            # Add read-only wallet to gateway
+            self.notify(f"Adding read-only wallet for {chain}...")
+            await self._get_gateway_instance().api_request(
+                "post", "wallet/addReadOnly",
+                data={"chain": chain, "address": address}
+            )
+            self.notify(f"Successfully added read-only wallet: {address}")
+            self.notify("Note: This wallet can only be used for monitoring balances and transactions.")
+
+        except Exception as e:
+            error_msg = str(e)
+            if "already exists" in error_msg.lower():
+                self.notify(f"Wallet already exists: {address}")
+            else:
+                self.notify(f"Error adding read-only wallet: {error_msg}")
+
+    async def _gateway_wallet_remove_readonly(self, chain: str, address: str):
+        """Remove a read-only wallet."""
+        try:
+            # Confirm removal
+            self.app.clear_input()
+            self.placeholder_mode = True
+            confirmation = await self.app.prompt(
+                prompt=f"Are you sure you want to remove read-only wallet {address} from {chain}? (Yes/No) >>> "
+            )
+            self.placeholder_mode = False
+            self.app.change_prompt(prompt=">>> ")
+
+            if confirmation not in ["Y", "y", "Yes", "yes"]:
+                self.notify("Wallet removal cancelled.")
+                return
+
+            # Remove read-only wallet from gateway
+            self.notify(f"Removing read-only wallet {address} from {chain}...")
+            await self._get_gateway_instance().api_request(
+                "delete", "wallet/removeReadOnly",
+                params={"chain": chain, "address": address}
+            )
+            self.notify(f"Successfully removed read-only wallet: {address}")
+
+        except Exception as e:
+            error_msg = str(e)
+            if "not found" in error_msg.lower():
+                self.notify(f"Read-only wallet not found: {address}")
+            else:
+                self.notify(f"Error removing read-only wallet: {error_msg}")
 
     async def _get_default_network_for_chain(self, chain: str) -> Optional[str]:
         """Get the default (first) network for a given chain."""
@@ -1333,3 +1519,148 @@ class GatewayCommand(GatewayChainApiManager):
                 self.notify("Please check the token symbol/address or try adding it with 'gateway token add'")
             else:
                 self.notify(f"Error retrieving token information: {error_msg}")
+
+    async def _gateway_pools_list(self, connector: Optional[str] = None, network: Optional[str] = None, pool_type: Optional[str] = None):
+        """List pools from gateway with optional filters."""
+        try:
+            # Build query parameters
+            params = {}
+            if connector:
+                params["connector"] = connector
+            if network:
+                params["network"] = network
+            if pool_type:
+                params["type"] = pool_type
+
+            # Make request to gateway
+            response = await self._get_gateway_instance().api_request(
+                "get", "pools", params=params
+            )
+
+            if not response:
+                self.notify("No pools found")
+                return
+
+            # Group pools by connector for display
+            pools_by_connector = {}
+            for pool in response:
+                conn = pool.get("connector", "unknown")
+                if conn not in pools_by_connector:
+                    pools_by_connector[conn] = []
+                pools_by_connector[conn].append(pool)
+
+            # Display pools
+            self.notify("\nPools:")
+            for conn, pools in pools_by_connector.items():
+                self.notify(f"\n{conn.upper()}:")
+                for pool in pools:
+                    pool_type_str = pool.get("type", "").upper()
+                    network_str = pool.get("network", "")
+                    base = pool.get("baseSymbol", "")
+                    quote = pool.get("quoteSymbol", "")
+                    address = pool.get("address", "")
+
+                    self.notify(f"  [{pool_type_str}] {base}/{quote} - {network_str}")
+                    self.notify(f"    Address: {address[:16]}...{address[-16:] if len(address) > 32 else address}")
+
+        except Exception as e:
+            self.notify(f"Error listing pools: {str(e)}")
+
+    async def _gateway_pools_show(self, pool_id: str):
+        """Show details of a specific pool."""
+        try:
+            # Get pool by ID from gateway
+            response = await self._get_gateway_instance().api_request(
+                "get", f"pools/{pool_id}"
+            )
+
+            if not response:
+                self.notify(f"Pool '{pool_id}' not found")
+                return
+
+            # Display pool details
+            self.notify("\nPool Details:")
+            self.notify(f"  ID: {pool_id}")
+            self.notify(f"  Connector: {response.get('connector', 'N/A')}")
+            self.notify(f"  Type: {response.get('type', 'N/A').upper()}")
+            self.notify(f"  Network: {response.get('network', 'N/A')}")
+            self.notify(f"  Base Token: {response.get('baseSymbol', 'N/A')}")
+            self.notify(f"  Quote Token: {response.get('quoteSymbol', 'N/A')}")
+            self.notify(f"  Address: {response.get('address', 'N/A')}")
+
+            # Show additional fields if present
+            if 'fee' in response:
+                self.notify(f"  Fee: {response['fee']}%")
+
+        except Exception as e:
+            error_msg = str(e)
+            if "NotFoundError" in error_msg or "404" in error_msg:
+                self.notify(f"Pool '{pool_id}' not found")
+            else:
+                self.notify(f"Error fetching pool details: {error_msg}")
+
+    async def _gateway_pools_add(self, connector: str, pool_type: str, network: str, base_symbol: str, quote_symbol: str, address: str):
+        """Add a new pool to gateway."""
+        try:
+            # Validate pool type
+            if pool_type.lower() not in ["amm", "clmm"]:
+                self.notify("Error: Pool type must be 'amm' or 'clmm'")
+                return
+
+            # Prepare pool data
+            pool_data = {
+                "connector": connector,
+                "type": pool_type.lower(),
+                "network": network,
+                "baseSymbol": base_symbol,
+                "quoteSymbol": quote_symbol,
+                "address": address
+            }
+
+            # Make request to gateway
+            await self._get_gateway_instance().api_request(
+                "post", "pools", data=pool_data
+            )
+
+            self.notify(f"\nSuccessfully added pool: {base_symbol}/{quote_symbol}")
+            self.notify(f"  Connector: {connector}")
+            self.notify(f"  Type: {pool_type.upper()}")
+            self.notify(f"  Network: {network}")
+            self.notify(f"  Address: {address}")
+
+        except Exception as e:
+            error_msg = str(e)
+            if "already exists" in error_msg.lower():
+                self.notify(f"Pool already exists: {base_symbol}/{quote_symbol} on {connector}/{network}")
+            else:
+                self.notify(f"Error adding pool: {error_msg}")
+
+    async def _gateway_pools_remove(self, connector: str, pool_id: str):
+        """Remove a pool from gateway."""
+        try:
+            # Confirm removal
+            self.app.clear_input()
+            self.placeholder_mode = True
+            confirmation = await self.app.prompt(
+                prompt=f"Are you sure you want to remove pool '{pool_id}' from {connector}? (Yes/No) >>> "
+            )
+            self.placeholder_mode = False
+            self.app.change_prompt(prompt=">>> ")
+
+            if confirmation not in ["Y", "y", "Yes", "yes"]:
+                self.notify("Pool removal cancelled.")
+                return
+
+            # Make request to gateway
+            await self._get_gateway_instance().api_request(
+                "delete", f"pools/{pool_id}", params={"connector": connector}
+            )
+
+            self.notify(f"\nSuccessfully removed pool: {pool_id}")
+
+        except Exception as e:
+            error_msg = str(e)
+            if "NotFoundError" in error_msg or "404" in error_msg:
+                self.notify(f"Pool '{pool_id}' not found in {connector}")
+            else:
+                self.notify(f"Error removing pool: {error_msg}")

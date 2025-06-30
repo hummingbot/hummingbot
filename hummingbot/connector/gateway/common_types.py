@@ -11,10 +11,30 @@ class ConnectorType(Enum):
 
 
 def get_connector_type(connector_name: str) -> ConnectorType:
+    """Determine connector type based on connector name and Gateway's trading type structure.
+
+    Gateway 2.8 has explicit trading types:
+    - Jupiter: swap only
+    - Meteora: clmm only
+    - Raydium: amm and clmm only (no swap)
+    - Uniswap: swap, amm, and clmm
+    """
+    # Extract base connector name without trading type suffix
+    base_name = connector_name.split("/")[0].lower()
+
+    # Check for explicit trading type in connector name
     if "/clmm" in connector_name:
         return ConnectorType.CLMM
     elif "/amm" in connector_name:
         return ConnectorType.AMM
+
+    # Handle connectors with only one trading type
+    if base_name == "jupiter":
+        return ConnectorType.SWAP
+    elif base_name == "meteora":
+        return ConnectorType.CLMM
+
+    # Default to SWAP for backward compatibility
     return ConnectorType.SWAP
 
 

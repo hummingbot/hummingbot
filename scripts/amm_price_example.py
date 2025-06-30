@@ -14,7 +14,9 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 class DEXPriceConfig(BaseClientModel):
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
     connector: str = Field("jupiter", json_schema_extra={
-        "prompt": "Connector name (e.g. jupiter, uniswap, raydium/clmm)", "prompt_on_new": True})
+        "prompt": "Connector name (e.g. jupiter, uniswap, raydium)", "prompt_on_new": True})
+    trading_type: str = Field("", json_schema_extra={
+        "prompt": "Trading type (e.g. swap, amm, clmm) - leave empty to use connector's default", "prompt_on_new": False})
     network: str = Field("mainnet-beta", json_schema_extra={
         "prompt": "Network (e.g. mainnet-beta, devnet, mainnet, base)", "prompt_on_new": True})
     wallet_address: str = Field("", json_schema_extra={
@@ -34,14 +36,22 @@ class DEXPrice(ScriptStrategyBase):
 
     @classmethod
     def init_markets(cls, config: DEXPriceConfig):
-        # For gateway connectors, use connector_network format (chain is determined by connector)
-        market_name = f"{config.connector}_{config.network}"
+        # For gateway connectors, build market name with optional trading type
+        connector_part = config.connector
+        if config.trading_type:
+            # Include trading type in connector name if specified
+            connector_part = f"{config.connector}/{config.trading_type}"
+        market_name = f"{connector_part}_{config.network}"
         cls.markets = {market_name: {config.trading_pair}}
 
     def __init__(self, connectors: Dict[str, ConnectorBase], config: DEXPriceConfig):
         super().__init__(connectors)
         self.config = config
-        self.exchange = f"{config.connector}_{config.network}"
+        # Build exchange name same way as in init_markets
+        connector_part = config.connector
+        if config.trading_type:
+            connector_part = f"{config.connector}/{config.trading_type}"
+        self.exchange = f"{connector_part}_{config.network}"
         self.base, self.quote = self.config.trading_pair.split("-")
 
     def on_tick(self):

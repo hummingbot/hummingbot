@@ -98,6 +98,14 @@ class MockGatewayHTTPClient:
             ]
         return {"success": True}
 
+    def get_default_wallet(self, chain: str) -> Optional[str]:
+        """Mock get default wallet - returns first wallet for the chain"""
+        if chain in self._wallets and self._wallets[chain]:
+            wallets = self._wallets[chain][0].get("walletAddresses", [])
+            if wallets:
+                return wallets[0]
+        return None
+
     async def get_balances(self, chain: str, network: str, wallet_address: str,
                            token_symbols: List[str]) -> Dict[str, Any]:
         """Mock get balances"""
@@ -165,14 +173,34 @@ class MockGatewayHTTPClient:
         ]
 
     async def get_connectors(self) -> Dict[str, Any]:
-        """Mock get connectors"""
+        """Mock get connectors with realistic trading types based on Gateway 2.8 architecture"""
         return {
             "connectors": [
-                {"name": "uniswap", "chain": "ethereum", "networks": ["mainnet", "testnet"], "trading_types": ["swap"]},
-                {"name": "pancakeswap", "chain": "bsc", "networks": ["mainnet"], "trading_types": ["swap"]},
-                {"name": "raydium", "chain": "solana", "networks": ["mainnet-beta"], "trading_types": ["swap"]}
+                # Jupiter: swap only
+                {"name": "jupiter", "trading_types": ["swap"], "available_chains": ["solana"]},
+                # Meteora: clmm only
+                {"name": "meteora", "trading_types": ["clmm"], "available_chains": ["solana"]},
+                # Raydium: amm and clmm only (no swap)
+                {"name": "raydium", "trading_types": ["amm", "clmm"], "available_chains": ["solana"]},
+                # Uniswap: swap, amm, and clmm
+                {"name": "uniswap", "trading_types": ["swap", "amm", "clmm"], "available_chains": ["ethereum", "polygon"]},
+                # Generic test connectors
+                {"name": "test-swap", "trading_types": ["swap"], "available_chains": ["ethereum"]},
+                {"name": "test-amm", "trading_types": ["amm"], "available_chains": ["solana"]},
+                {"name": "test-multi", "trading_types": ["swap", "amm", "clmm"], "available_chains": ["ethereum", "solana"]}
             ]
         }
+
+    async def get_connector_trading_types(self, connector_name: str) -> Optional[List[str]]:
+        """Mock get trading types for a specific connector"""
+        connectors_response = await self.get_connectors()
+        connectors = connectors_response.get("connectors", [])
+
+        for conn in connectors:
+            if conn.get("name", "").lower() == connector_name.lower():
+                return conn.get("trading_types", [])
+
+        return None
 
     async def get_tokens(self, chain: str, network: str, fail_silently: bool = True) -> Dict[str, Any]:
         """Mock get tokens"""

@@ -16,7 +16,9 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 class AMMDataFeedConfig(BaseClientModel):
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
     connector: str = Field("jupiter", json_schema_extra={
-        "prompt": "DEX connector name (e.g. jupiter, raydium/clmm)", "prompt_on_new": True})
+        "prompt": "DEX connector name (e.g. jupiter, raydium)", "prompt_on_new": True})
+    trading_type: str = Field("", json_schema_extra={
+        "prompt": "Trading type (e.g. swap, amm, clmm) - leave empty to use connector's default", "prompt_on_new": False})
     network: str = Field("mainnet-beta", json_schema_extra={
         "prompt": "Network (e.g. mainnet-beta, devnet, mainnet, base)", "prompt_on_new": True})
     order_amount_in_base: Decimal = Field(Decimal("1.0"), json_schema_extra={
@@ -56,8 +58,11 @@ class AMMDataFeedExample(ScriptStrategyBase):
         if config.trading_pair_3:
             trading_pairs.add(config.trading_pair_3)
 
-        # Create connector network string (no chain needed)
-        connector_network = f"{config.connector}_{config.network}"
+        # Create connector network string with optional trading type
+        connector_part = config.connector
+        if config.trading_type:
+            connector_part = f"{config.connector}/{config.trading_type}"
+        connector_network = f"{connector_part}_{config.network}"
 
         # Initialize the AMM data feed
         self.amm_data_feed = AmmGatewayDataFeed(

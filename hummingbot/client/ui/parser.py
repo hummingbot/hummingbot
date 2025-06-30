@@ -103,8 +103,8 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
 
     gateway_config_parser = gateway_subparsers.add_parser("config", help="View or update gateway configuration")
     gateway_config_parser.add_argument("action", nargs="?", default=None, help="Action to perform (show, update)")
-    gateway_config_parser.add_argument("namespace", nargs="?", default=None, help="Configuration namespace (e.g., ethereum, solana)")
-    gateway_config_parser.add_argument("network", nargs="?", default=None, help="Network name (e.g., mainnet, mainnet-beta)")
+    gateway_config_parser.add_argument("namespace", nargs="?", default=None, help="Configuration namespace (e.g., ethereum-mainnet, solana-devnet, uniswap)")
+    gateway_config_parser.add_argument("network", nargs="?", default=None, help="[DEPRECATED] Network name - now part of namespace")
     gateway_config_parser.add_argument("args", nargs="*", help="Additional arguments (path, value for update)")
     gateway_config_parser.set_defaults(func=hummingbot.gateway_config)
 
@@ -112,6 +112,11 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
     gateway_token_parser.add_argument("action", nargs="?", default=None, help="Action to perform (show, add, remove)")
     gateway_token_parser.add_argument("args", nargs="*", help="Arguments: <chain> <network> <symbol_or_address>")
     gateway_token_parser.set_defaults(func=hummingbot.gateway_token)
+
+    gateway_pools_parser = gateway_subparsers.add_parser("pools", help="Manage pools in gateway")
+    gateway_pools_parser.add_argument("action", nargs="?", default=None, help="Action to perform (list, show, add, remove)")
+    gateway_pools_parser.add_argument("args", nargs="*", help="Arguments for the action")
+    gateway_pools_parser.set_defaults(func=hummingbot.gateway_pools)
 
     gateway_wallet_parser = gateway_subparsers.add_parser("wallet", help="Manage wallets in gateway")
     gateway_wallet_parser.add_argument("action", nargs="?", default=None, help="Action to perform (list, add, remove)")

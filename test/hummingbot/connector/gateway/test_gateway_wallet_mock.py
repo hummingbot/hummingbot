@@ -187,9 +187,11 @@ class TestGatewayWalletMock(unittest.TestCase):
             self.client.get_balances("solana", "mainnet-beta", wallet, ["SOL", "USDC"])
         )
 
-        # Verify mock balances
-        self.assertEqual(balances["SOL"], Decimal("10.5"))
-        self.assertEqual(balances["USDC"], Decimal("1000.0"))
+        # Verify mock balances - gateway returns wrapped response
+        self.assertIn("balances", balances)
+        balance_dict = balances["balances"]
+        self.assertEqual(Decimal(balance_dict["SOL"]), Decimal("10.5"))
+        self.assertEqual(Decimal(balance_dict["USDC"]), Decimal("1000.0"))
 
     def test_allowance_operations(self):
         """Test allowance-related operations"""
@@ -201,9 +203,11 @@ class TestGatewayWalletMock(unittest.TestCase):
             )
         )
 
-        # Verify mock allowances
-        self.assertEqual(allowances["USDC"], Decimal("999999999"))
-        self.assertEqual(allowances["DAI"], Decimal("999999999"))
+        # Verify mock allowances - gateway returns wrapped response
+        self.assertIn("approvals", allowances)
+        approval_dict = allowances["approvals"]
+        self.assertEqual(Decimal(approval_dict["USDC"]), Decimal("999999999"))
+        self.assertEqual(Decimal(approval_dict["DAI"]), Decimal("0"))  # DAI has no allowance per mock
 
     def test_approve_token(self):
         """Test token approval"""

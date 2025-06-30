@@ -71,6 +71,10 @@ class TestGatewayBase(unittest.TestCase):
             trading_required=True
         )
 
+        # Mock get_default_wallet to return None by default (forcing async fallback)
+        # Individual tests can override this if needed
+        self.gateway_instance_mock.get_default_wallet = Mock(return_value=None)
+
     def tearDown(self) -> None:
         self.gateway_instance_patcher.stop()
         super().tearDown()

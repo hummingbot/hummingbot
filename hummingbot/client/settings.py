@@ -418,28 +418,89 @@ class AllConnectorSettings:
                         use_eth_gas_lookup=parent.use_eth_gas_lookup,
                     )
 
-        # add gateway connectors
+        # Add gateway connectors dynamically
+        # First try to load from gateway_connections.json for backward compatibility
         gateway_connections_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
         trade_fee_settings: List[float] = [0.0, 0.0]  # we assume no swap fees for now
         trade_fee_schema: TradeFeeSchema = cls._validate_trade_fee_schema("gateway", trade_fee_settings)
 
-        for connection_spec in gateway_connections_conf:
-            market_name: str = GatewayConnectionSetting.get_market_name_from_connector_spec(connection_spec)
-            cls.all_connector_settings[market_name] = ConnectorSetting(
-                name=market_name,
-                type=ConnectorType.GATEWAY_DEX,
-                centralised=False,
-                example_pair="WETH-USDC",
-                use_ethereum_wallet=False,
-                trade_fee_schema=trade_fee_schema,
-                config_keys=None,
-                is_sub_domain=False,
-                parent_name=None,
-                domain_parameter=None,
-                use_eth_gas_lookup=False,
-            )
+        if gateway_connections_conf:
+            # Use existing configuration if available
+            for connection_spec in gateway_connections_conf:
+                market_name: str = GatewayConnectionSetting.get_market_name_from_connector_spec(connection_spec)
+                cls.all_connector_settings[market_name] = ConnectorSetting(
+                    name=market_name,
+                    type=ConnectorType.GATEWAY_DEX,
+                    centralised=False,
+                    example_pair="WETH-USDC",
+                    use_ethereum_wallet=False,
+                    trade_fee_schema=trade_fee_schema,
+                    config_keys=None,
+                    is_sub_domain=False,
+                    parent_name=None,
+                    domain_parameter=None,
+                    use_eth_gas_lookup=False,
+                )
+        else:
+            # Try dynamic discovery from Gateway (future implementation)
+            # This allows connectors to be discovered without pre-configuration
+            pass
 
         return cls.all_connector_settings
+
+    @classmethod
+    async def discover_gateway_connectors(cls) -> List[Dict[str, Any]]:
+        """
+        Dynamically discover available gateway connectors from the Gateway API.
+        Returns a list of connector specifications that can be used to create ConnectorSettings.
+        """
+        try:
+            from hummingbot.connector.gateway.gateway_http_client import GatewayHttpClient
+
+            gateway_client = GatewayHttpClient.get_instance()
+
+            # Get available connectors from Gateway
+            connectors_response = await gateway_client.get_connectors()
+            connectors = connectors_response.get("connectors", [])
+
+            # Get available chains
+            chains_response = await gateway_client.get_chains()
+            chains_info = chains_response.get("chains", [])
+
+            # Build connector specifications
+            discovered_connectors = []
+
+            for connector in connectors:
+                connector_name = connector.get("name", "")
+                trading_types = connector.get("trading_types", [])
+                available_chains = connector.get("available_chains", [])
+
+                # For each chain the connector supports
+                for chain_info in chains_info:
+                    chain = chain_info.get("chain", "")
+                    if chain in available_chains:
+                        networks = chain_info.get("networks", [])
+
+                        # For each network on the chain
+                        for network in networks:
+                            # Create a spec for each trading type combination
+                            for trading_type in trading_types:
+                                spec = {
+                                    "connector": connector_name,
+                                    "trading_type": trading_type,
+                                    "chain": chain,
+                                    "network": network,
+                                    "trading_types": trading_types,  # Include all supported types
+                                }
+                                discovered_connectors.append(spec)
+
+            return discovered_connectors
+
+        except Exception as e:
+            # Log error and return empty list if discovery fails
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to discover gateway connectors: {str(e)}")
+            return []
 
     @classmethod
     def initialize_paper_trade_settings(cls, paper_trade_exchanges: List[str]):

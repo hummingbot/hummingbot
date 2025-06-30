@@ -81,8 +81,10 @@ class TestGatewayIntegrationSimple(unittest.TestCase):
                 new_chain, "mainnet", new_address, ["MATIC", "USDC"]
             )
         )
-        self.assertEqual(balances["MATIC"], Decimal("10.5"))  # Native token
-        self.assertEqual(balances["USDC"], Decimal("1000.0"))  # Other token
+        self.assertIn("balances", balances)
+        balance_dict = balances["balances"]
+        self.assertEqual(Decimal(balance_dict["MATIC"]), Decimal("10.5"))  # Native token
+        self.assertEqual(Decimal(balance_dict["USDC"]), Decimal("1000.0"))  # Other token
 
         # Step 6: Remove the wallet
         remove_result = self.async_run_with_timeout(
@@ -164,9 +166,11 @@ class TestGatewayIntegrationSimple(unittest.TestCase):
         )
 
         # Verify balances
-        self.assertEqual(balances["ETH"], Decimal("10.5"))  # Native token
-        self.assertEqual(balances["USDC"], Decimal("1000.0"))
-        self.assertEqual(balances["DAI"], Decimal("1000.0"))
+        self.assertIn("balances", balances)
+        balance_dict = balances["balances"]
+        self.assertEqual(Decimal(balance_dict["ETH"]), Decimal("10.5"))  # Native token
+        self.assertEqual(Decimal(balance_dict["USDC"]), Decimal("1000.0"))
+        self.assertEqual(Decimal(balance_dict["DAI"]), Decimal("1000.0"))
 
         # Get allowances
         spender = "0x1111111111111111111111111111111111111111"
@@ -177,8 +181,10 @@ class TestGatewayIntegrationSimple(unittest.TestCase):
         )
 
         # Verify allowances
-        self.assertEqual(allowances["USDC"], Decimal("999999999"))
-        self.assertEqual(allowances["DAI"], Decimal("999999999"))
+        self.assertIn("approvals", allowances)
+        approval_dict = allowances["approvals"]
+        self.assertEqual(Decimal(approval_dict["USDC"]), Decimal("999999999"))
+        self.assertEqual(Decimal(approval_dict["DAI"]), Decimal("0"))  # DAI has no allowance per mock
 
         # Test approve
         approve_result = self.async_run_with_timeout(

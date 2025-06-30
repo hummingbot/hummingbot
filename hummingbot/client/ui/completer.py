@@ -64,11 +64,30 @@ class HummingbotCompleter(Completer):
         self._gateway_balance_completer = self._gateway_wallet_chain_completer
         self._gateway_config_completer = WordCompleter(hummingbot_application.gateway_config_keys, ignore_case=True)
         self._gateway_wallet_completer = WordCompleter(["list", "add", "remove"], ignore_case=True)
-        self._gateway_wallet_action_completer = WordCompleter(["list", "add", "remove"], ignore_case=True)
+        self._gateway_wallet_action_completer = WordCompleter(["list", "add", "add-readonly", "remove", "remove-readonly"], ignore_case=True)
         self._gateway_token_action_completer = WordCompleter(["show", "add", "remove"], ignore_case=True)
+        self._gateway_pools_action_completer = WordCompleter(["list", "show", "add", "remove"], ignore_case=True)
+        self._gateway_pools_type_completer = WordCompleter(["amm", "clmm"], ignore_case=True)
         self._gateway_config_action_completer = WordCompleter(["show", "update"], ignore_case=True)
-        # Initialize with default namespaces, will be updated dynamically
-        self._gateway_config_namespaces = ["server", "ethereum", "solana", "uniswap", "jupiter", "meteora", "raydium"]
+        # Initialize with hardcoded namespaces (will be updated dynamically from gateway later)
+        self._gateway_config_namespaces = [
+            "server",
+            "ethereum-arbitrum",
+            "ethereum-avalanche",
+            "ethereum-base",
+            "ethereum-bsc",
+            "ethereum-celo",
+            "ethereum-mainnet",
+            "ethereum-optimism",
+            "ethereum-polygon",
+            "ethereum-sepolia",
+            "solana-devnet",
+            "solana-mainnet-beta",
+            "jupiter",
+            "meteora",
+            "raydium",
+            "uniswap"
+        ]
         self._gateway_config_namespace_completer = WordCompleter(self._gateway_config_namespaces, ignore_case=True)
         # Cache for gateway chain networks
         self._cached_gateway_networks = {}
@@ -224,6 +243,31 @@ class HummingbotCompleter(Completer):
         else:
             # Return the static completer as fallback
             return self._gateway_wallet_chain_completer
+
+    @property
+    def _gateway_available_connectors_completer(self):
+        """Get available connectors from gateway configuration"""
+        connectors = []
+        try:
+            # If we have access to the gateway instance, fetch connectors
+            if hasattr(self.hummingbot_application, '_gateway_monitor') and self.hummingbot_application._gateway_monitor:
+                gateway_instance = self.hummingbot_application._gateway_monitor._get_gateway_instance()
+                if gateway_instance:
+                    # Use cached connectors if available
+                    if hasattr(self, '_cached_gateway_connectors') and self._cached_gateway_connectors:
+                        connectors = self._cached_gateway_connectors
+                    else:
+                        # Default list of known connectors
+                        connectors = ["uniswap", "jupiter", "meteora", "raydium"]
+        except Exception:
+            pass
+
+        # If we got connectors dynamically, use them; otherwise fall back to static list
+        if connectors:
+            return WordCompleter(connectors, ignore_case=True)
+        else:
+            # Return a default list of connectors
+            return WordCompleter(["uniswap", "jupiter", "meteora", "raydium"], ignore_case=True)
 
     def _get_networks_for_chain_completer(self, chain: str):
         """Get network completer for a specific chain"""
@@ -413,6 +457,7 @@ class HummingbotCompleter(Completer):
                 not text_before_cursor.startswith("gateway config ") and
                 not text_before_cursor.startswith("gateway wallet ") and
                 not text_before_cursor.startswith("gateway token ") and
+                not text_before_cursor.startswith("gateway pools ") and
                 text_before_cursor.count(" ") == 1)
 
     def _complete_gateway_config_arguments(self, document: Document) -> bool:
@@ -458,6 +503,20 @@ class HummingbotCompleter(Completer):
         return ((text_before_cursor.startswith("gateway token add ") and text_before_cursor.count(" ") == 4) or
                 (text_before_cursor.startswith("gateway token remove ") and text_before_cursor.count(" ") == 4) or
                 (text_before_cursor.startswith("gateway token show ") and text_before_cursor.count(" ") == 4))
+
+    def _complete_gateway_pools_arguments(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return text_before_cursor.startswith("gateway pools ") and text_before_cursor.count(" ") == 2
+
+    def _complete_gateway_pools_connector(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return ((text_before_cursor.startswith("gateway pools list ") and text_before_cursor.count(" ") == 3) or
+                (text_before_cursor.startswith("gateway pools add ") and text_before_cursor.count(" ") == 3) or
+                (text_before_cursor.startswith("gateway pools remove ") and text_before_cursor.count(" ") == 3))
+
+    def _complete_gateway_pools_type(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return text_before_cursor.startswith("gateway pools add ") and text_before_cursor.count(" ") == 4
 
     def _complete_script_strategy_files(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -684,6 +743,18 @@ class HummingbotCompleter(Completer):
                 network_completer = self._get_networks_for_chain_completer(chain)
                 for c in network_completer.get_completions(document, complete_event):
                     yield c
+
+        elif self._complete_gateway_pools_arguments(document):
+            for c in self._gateway_pools_action_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_gateway_pools_connector(document):
+            for c in self._gateway_available_connectors_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_gateway_pools_type(document):
+            for c in self._gateway_pools_type_completer.get_completions(document, complete_event):
+                yield c
 
         elif self._complete_gateway_arguments(document):
             for c in self._gateway_completer.get_completions(document, complete_event):

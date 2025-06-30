@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 import aiohttp
 from aiohttp import ContentTypeError
 
-from hummingbot.client.config.security import Security
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
@@ -118,6 +117,7 @@ class GatewayHttpClient:
         if cls._shared_client is None or re_init:
             use_ssl = getattr(client_config_map.gateway, "gateway_use_ssl", False)
             if use_ssl:
+                from hummingbot.client.config.security import Security
                 cert_path = client_config_map.certs_path
                 ssl_ctx = ssl.create_default_context(cafile=f"{cert_path}/ca_cert.pem")
                 ssl_ctx.load_cert_chain(certfile=f"{cert_path}/client_cert.pem",
@@ -153,6 +153,7 @@ class GatewayHttpClient:
             method: str,
             path_url: str,
             params: Dict[str, Any] = {},
+            data: Dict[str, Any] = None,
             fail_silently: bool = False,
             use_body: bool = False,
     ) -> Optional[Union[Dict[str, Any], List[Dict[str, Any]]]]:
@@ -160,9 +161,10 @@ class GatewayHttpClient:
         Sends an aiohttp request and waits for a response.
         :param method: The HTTP method, e.g. get or post
         :param path_url: The path url or the API end point
-        :param params: A dictionary of required params for the end point
+        :param params: A dictionary of required params for the end point (query params for GET, body for POST/PUT if data not provided)
+        :param data: A dictionary to be sent as JSON body for POST/PUT requests (overrides params for body)
         :param fail_silently: used to determine if errors will be raise or silently ignored
-        :param use_body: used to determine if the request should sent the parameters in the body or as query string
+        :param use_body: used to determine if the request should sent the parameters in the body or as query string (GET only)
         :returns A response in json format.
         """
         if path_url:
@@ -184,11 +186,19 @@ class GatewayHttpClient:
                 else:
                     response = await client.get(url)
             elif method_lower == "post":
-                response = await client.post(url, json=params)
+                # Use data if provided, otherwise use params for backward compatibility
+                json_data = data if data is not None else params
+                response = await client.post(url, json=json_data)
             elif method_lower == 'put':
-                response = await client.put(url, json=params)
+                # Use data if provided, otherwise use params for backward compatibility
+                json_data = data if data is not None else params
+                response = await client.put(url, json=json_data)
             elif method_lower == 'delete':
-                response = await client.delete(url, json=params)
+                # DELETE requests typically use params, not body
+                if params:
+                    response = await client.delete(url, params=params)
+                else:
+                    response = await client.delete(url)
             else:
                 raise ValueError(f"Unsupported request method {method}")
 
@@ -203,8 +213,17 @@ class GatewayHttpClient:
                    not fail_silently and \
                    not self.is_timeout_error(parsed_response):
                     error_msg = parsed_response.get('error', str(parsed_response))
-                    # Check for rate limiting
-                    if response.status == 429 or "429" in str(error_msg) or "rate limit" in str(error_msg).lower() or "too many requests" in str(error_msg).lower():
+                    # Check for specific error types
+                    if response.status == 404:
+                        # Extract connector and method from URL for better error message
+                        url_parts = path_url.split('/')
+                        if len(url_parts) >= 3 and url_parts[0] == "connectors":
+                            connector = url_parts[1]
+                            operation = url_parts[2]
+                            raise ValueError(f"Operation '{operation}' is not supported by connector '{connector}'. Please check the connector's supported trading types.")
+                        else:
+                            raise ValueError(f"Error 404: Endpoint not found - {method.upper()} {url}")
+                    elif response.status == 429 or "429" in str(error_msg) or "rate limit" in str(error_msg).lower() or "too many requests" in str(error_msg).lower():
                         raise ValueError(f"Rate limit exceeded on {method.upper()} {url}. The blockchain node is rejecting requests due to too many requests. Please wait before retrying or configure a different RPC endpoint.")
                     elif "error" in parsed_response:
                         raise ValueError(f"Error on {method.upper()} {url} Error: {parsed_response['error']}")
@@ -601,6 +620,41 @@ class GatewayHttpClient:
         """
         return await self.get_configuration(namespace, network, fail_silently)
 
+    async def get_namespaces(self) -> List[str]:
+        """
+        Get available configuration namespaces from gateway.
+
+        :return: List of namespace strings
+        """
+        response = await self.api_request("get", "namespaces", fail_silently=False)
+        return response.get("namespaces", [])
+
+    async def update_completer_namespaces(self) -> None:
+        """
+        Update the completer with the latest namespaces from gateway.
+        This can be called manually when needed.
+        """
+        try:
+            # Get namespaces
+            namespaces = await self.get_namespaces()
+            self.logger().info(f"Fetched {len(namespaces)} namespaces for completer update")
+
+            # Update completer
+            from hummingbot.client.hummingbot_application import HummingbotApplication
+            app = HummingbotApplication.main_application()
+
+            if app and hasattr(app, 'app') and hasattr(app.app, 'input'):
+                completer = app.app.input.completer
+                if hasattr(completer, 'update_gateway_config_namespaces'):
+                    completer.update_gateway_config_namespaces(namespaces)
+                    self.logger().info("Successfully updated gateway config namespaces in completer")
+                else:
+                    self.logger().warning("Completer does not have update_gateway_config_namespaces method")
+            else:
+                self.logger().warning("Could not access completer - app or input not ready")
+        except Exception as e:
+            self.logger().warning(f"Error updating completer namespaces: {str(e)}")
+
     async def update_config(self, namespace: str, path: str, value: Any, network: Optional[str] = None, fail_silently: bool = False) -> Dict[str, Any]:
         """
         Update a configuration value on the Gateway.
@@ -686,6 +740,26 @@ class GatewayHttpClient:
         :return: Dictionary containing connector information
         """
         return await self.api_request("get", "connectors", fail_silently=False)
+
+    async def get_connector_trading_types(self, connector_name: str) -> Optional[List[str]]:
+        """
+        Get supported trading types for a specific connector.
+
+        :param connector_name: Name of the connector
+        :return: List of supported trading types, or None if connector not found
+        """
+        try:
+            connectors_response = await self.get_connectors()
+            connectors = connectors_response.get("connectors", [])
+
+            for conn in connectors:
+                if conn.get("name", "").lower() == connector_name.lower():
+                    return conn.get("trading_types", [])
+
+            return None
+        except Exception as e:
+            self.logger().error(f"Failed to get trading types for {connector_name}: {str(e)}")
+            return None
 
     async def get_wallets(self, chain: Optional[str] = None) -> List[Dict[str, Any]]:
         """
@@ -933,7 +1007,10 @@ class GatewayHttpClient:
         Initialize the gateway by loading all necessary information.
         This should be called once when the gateway comes online.
         """
+        self.logger().info("Starting gateway initialization...")
+
         if self._cache_initialized and (self.current_timestamp - self._cache_timestamp) < self._cache_ttl:
+            self.logger().debug("Gateway cache is still valid, skipping initialization")
             return  # Cache is still valid
 
         try:
@@ -967,11 +1044,12 @@ class GatewayHttpClient:
                     if chain not in self._default_wallets and wallet_info.get("walletAddresses"):
                         self._default_wallets[chain] = wallet_info["walletAddresses"][0]
 
-            # Load all config namespaces
+            # Load all config namespaces using the new endpoint
             try:
-                config_response = await self.get_config()
-                config_namespaces = list(config_response.keys()) if config_response else []
-            except Exception:
+                config_namespaces = await self.get_namespaces()
+                self.logger().info(f"Loaded {len(config_namespaces)} config namespaces: {', '.join(config_namespaces)}")
+            except Exception as e:
+                self.logger().warning(f"Failed to load config namespaces: {str(e)}")
                 config_namespaces = []
 
             # Load initial gas prices for common networks
@@ -989,18 +1067,26 @@ class GatewayHttpClient:
             try:
                 from hummingbot.client.hummingbot_application import HummingbotApplication
                 app = HummingbotApplication.main_application()
+                self.logger().debug(f"Main application instance: {app}")
+
                 if app and hasattr(app, 'app') and hasattr(app.app, 'input'):
                     completer = app.app.input.completer
+                    self.logger().debug(f"Found completer instance: {completer}")
+
                     if hasattr(completer, 'update_gateway_chains'):
                         completer.update_gateway_chains(chain_names)
+                        self.logger().debug(f"Updated gateway chains in completer: {chain_names}")
                     if hasattr(completer, 'update_gateway_config_namespaces'):
                         completer.update_gateway_config_namespaces(config_namespaces)
+                        self.logger().info(f"Updated gateway config namespaces in completer: {len(config_namespaces)} namespaces")
                     # Cache networks for each chain
                     if hasattr(completer, '_cached_gateway_networks'):
                         completer._cached_gateway_networks = chain_networks
                         self.logger().debug(f"Cached networks for tab completion: {chain_networks}")
+                else:
+                    self.logger().warning("Could not access completer - app or input not ready")
             except Exception as e:
-                self.logger().debug(f"Error updating completer: {str(e)}")
+                self.logger().warning(f"Error updating completer: {str(e)}", exc_info=True)
 
             self._cache_initialized = True
             self._cache_timestamp = self.current_timestamp
