@@ -138,9 +138,6 @@ class GatewayStatusMonitor:
                         # Initialize gateway with all necessary data
                         gateway_instance = self._get_gateway_instance()
                         await gateway_instance.initialize_gateway()
-                        # Load gateway connectors info for use in config_helpers
-                        from hummingbot.client.config.config_helpers import load_gateway_connectors
-                        await load_gateway_connectors()
                         # Update gateway config keys and reload completer
                         await self.update_gateway_config_key_list()
                     self._gateway_ready_event.set()
