@@ -15,11 +15,13 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 class DEXTradeConfig(BaseClientModel):
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
     connector: str = Field("jupiter", json_schema_extra={
-        "prompt": "Connector name (e.g. jupiter, uniswap)", "prompt_on_new": True})
-    chain: str = Field("solana", json_schema_extra={
-        "prompt": "Chain (e.g. solana, ethereum)", "prompt_on_new": True})
+        "prompt": "Connector name (e.g. jupiter, uniswap, raydium)", "prompt_on_new": True})
+    trading_type: str = Field("", json_schema_extra={
+        "prompt": "Trading type (e.g. swap, amm, clmm) - leave empty to use connector's default", "prompt_on_new": False})
     network: str = Field("mainnet-beta", json_schema_extra={
-        "prompt": "Network (e.g. mainnet-beta (solana), base (ethereum))", "prompt_on_new": True})
+        "prompt": "Network (e.g. mainnet-beta, devnet, mainnet, base)", "prompt_on_new": True})
+    wallet_address: str = Field("", json_schema_extra={
+        "prompt": "Wallet address (leave empty to use the default wallet for the chain)", "prompt_on_new": False})
     trading_pair: str = Field("SOL-USDC", json_schema_extra={
         "prompt": "Trading pair (e.g. SOL-USDC)", "prompt_on_new": True})
     target_price: Decimal = Field(Decimal("142"), json_schema_extra={
@@ -41,13 +43,22 @@ class DEXTrade(ScriptStrategyBase):
 
     @classmethod
     def init_markets(cls, config: DEXTradeConfig):
-        connector_chain_network = f"{config.connector}_{config.chain}_{config.network}"
-        cls.markets = {connector_chain_network: {config.trading_pair}}
+        # For gateway connectors, build market name with optional trading type
+        connector_part = config.connector
+        if config.trading_type:
+            # Include trading type in connector name if specified
+            connector_part = f"{config.connector}/{config.trading_type}"
+        market_name = f"{connector_part}_{config.network}"
+        cls.markets = {market_name: {config.trading_pair}}
 
     def __init__(self, connectors: Dict[str, ConnectorBase], config: DEXTradeConfig):
         super().__init__(connectors)
         self.config = config
-        self.exchange = f"{config.connector}_{config.chain}_{config.network}"
+        # Build exchange name same way as in init_markets
+        connector_part = config.connector
+        if config.trading_type:
+            connector_part = f"{config.connector}/{config.trading_type}"
+        self.exchange = f"{connector_part}_{config.network}"
         self.base, self.quote = self.config.trading_pair.split("-")
 
         # State tracking
@@ -56,6 +67,7 @@ class DEXTrade(ScriptStrategyBase):
         self.last_price = None
         self.last_price_update = None
         self.last_check_time = None
+        self.active_order_id = None
 
         # Log trade information
         condition = "rises above" if self.config.trigger_above else "falls below"
@@ -76,7 +88,7 @@ class DEXTrade(ScriptStrategyBase):
 
     async def check_price_and_trade(self):
         """Check current price and trigger trade if condition is met"""
-        if self.trade_in_progress or self.trade_executed:
+        if self.trade_in_progress or self.trade_executed or self.active_order_id:
             return
 
         self.trade_in_progress = True
@@ -84,7 +96,7 @@ class DEXTrade(ScriptStrategyBase):
 
         side = "buy" if self.config.is_buy else "sell"
         msg = (f"Getting quote on {self.config.connector} "
-               f"({self.config.chain}/{self.config.network}) "
+               f"({self.config.network}) "
                f"to {side} {self.config.amount} {self.base} "
                f"for {self.quote}")
 
@@ -141,8 +153,9 @@ class DEXTrade(ScriptStrategyBase):
                         amount=self.config.amount,
                         price=current_price,
                     )
-                    self.log_with_clock(logging.INFO, f"Trade executed with order ID: {order_id}")
-                    self.trade_executed = True
+                    self.log_with_clock(logging.INFO, f"Trade submitted with order ID: {order_id}")
+                    self.active_order_id = order_id
+                    # Don't mark as executed yet - wait for the fill event
                 except Exception as e:
                     self.log_with_clock(logging.ERROR, f"Error executing trade: {str(e)}")
                 finally:
@@ -152,6 +165,44 @@ class DEXTrade(ScriptStrategyBase):
                 # Price condition not met, reset flag to allow next check
                 self.trade_in_progress = False
 
+    def did_fill_order(self, event):
+        """
+        Called when an order is filled.
+        """
+        if event.order_id == self.active_order_id:
+            self.log_with_clock(
+                logging.INFO,
+                f"Order {event.order_id} filled! "
+                f"Amount: {event.amount} {self.base} "
+                f"Price: {event.price} {self.quote}"
+            )
+            self.trade_executed = True
+            self.active_order_id = None
+
+    def did_fail_order(self, event):
+        """
+        Called when an order fails.
+        """
+        if event.order_id == self.active_order_id:
+            self.log_with_clock(
+                logging.ERROR,
+                f"Order {event.order_id} failed!"
+            )
+            self.trade_in_progress = False
+            self.active_order_id = None
+
+    def did_cancel_order(self, event):
+        """
+        Called when an order is cancelled.
+        """
+        if event.order_id == self.active_order_id:
+            self.log_with_clock(
+                logging.WARNING,
+                f"Order {event.order_id} was cancelled!"
+            )
+            self.trade_in_progress = False
+            self.active_order_id = None
+
     def format_status(self) -> str:
         """Format status message for display in Hummingbot"""
         if self.trade_executed:
@@ -159,16 +210,17 @@ class DEXTrade(ScriptStrategyBase):
 
         lines = []
         side = "buy" if self.config.is_buy else "sell"
-        connector_chain_network = f"{self.config.connector}_{self.config.chain}_{self.config.network}"
         condition = "rises above" if self.config.trigger_above else "falls below"
 
         lines.append("=== DEX Trade Monitor ===")
-        lines.append(f"Exchange: {connector_chain_network}")
+        lines.append(f"Exchange: {self.exchange}")
         lines.append(f"Pair: {self.base}-{self.quote}")
         lines.append(f"Strategy: {side.upper()} {self.config.amount} {self.base} when price {condition} {self.config.target_price}")
         lines.append(f"Check interval: Every {self.config.check_interval} seconds")
 
-        if self.trade_in_progress:
+        if self.active_order_id:
+            lines.append(f"\nStatus: ⏳ Order {self.active_order_id} is pending...")
+        elif self.trade_in_progress:
             lines.append("\nStatus: 🔄 Currently checking price...")
         elif self.last_price is not None:
             # Calculate price difference

@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Dict, Generator, Optional
 
-from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
+from hummingbot.connector.gateway.gateway_http_client import GatewayHttpClient
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication

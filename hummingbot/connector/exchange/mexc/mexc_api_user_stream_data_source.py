@@ -70,25 +70,6 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
         # Create new task
         self._manage_listen_key_task = safe_ensure_future(self._manage_listen_key_task_loop())
 
-    async def _cancel_listen_key_task(self):
-        """
-        Safely cancels the listen key management task.
-
-        Attempts graceful cancellation with a timeout to prevent hanging.
-        Shields the task to allow cleanup operations to complete.
-        """
-        if self._manage_listen_key_task and not self._manage_listen_key_task.done():
-            self.logger().info("Cancelling listen key management task")
-            self._manage_listen_key_task.cancel()
-            try:
-                # Shield allows the task to complete cleanup operations
-                await asyncio.wait_for(asyncio.shield(self._manage_listen_key_task), timeout=2.0)
-            except (asyncio.TimeoutError, asyncio.CancelledError):
-                # Task didn't complete within timeout or was cancelled - acceptable
-                pass
-
-        self._manage_listen_key_task = None
-
     async def _connected_websocket_assistant(self) -> WSAssistant:
         """
         Creates an instance of WSAssistant connected to the exchange.

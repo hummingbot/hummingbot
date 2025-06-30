@@ -20,7 +20,7 @@ from pydantic_core import PydanticUndefinedType
 from yaml import SafeDumper
 
 from hummingbot import get_strategy_list, root_path
-from hummingbot.client.config.client_config_map import ClientConfigMap, CommandShortcutModel
+from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map, init_fee_overrides_config
@@ -375,10 +375,6 @@ def path_representer(dumper: SafeDumper, data: Path):
     return dumper.represent_str(str(data))
 
 
-def command_shortcut_representer(dumper: SafeDumper, data: CommandShortcutModel):
-    return dumper.represent_dict(data.__dict__)
-
-
 def client_config_adapter_representer(dumper: SafeDumper, data: ClientConfigAdapter):
     return dumper.represent_dict(data._dict_in_conf_order())
 
@@ -408,9 +404,6 @@ yaml.add_representer(
 )
 yaml.add_representer(
     data_type=PosixPath, representer=path_representer, Dumper=SafeDumper
-)
-yaml.add_representer(
-    data_type=CommandShortcutModel, representer=command_shortcut_representer, Dumper=SafeDumper
 )
 yaml.add_representer(
     data_type=ClientConfigAdapter, representer=client_config_adapter_representer, Dumper=SafeDumper
@@ -543,10 +536,103 @@ def _merge_dicts(*args: Dict[str, ConfigVar]) -> OrderedDict:
 
 
 def get_connector_class(connector_name: str) -> Callable:
+    # Check if this is a gateway connector (format: connector/type_network or connector_network)
+    parts = connector_name.split("_")
+    if len(parts) >= 2:
+        # Extract the connector part which might include a type suffix (e.g., raydium/clmm)
+        connector_with_type = parts[0]
+
+        # Check if it's a known gateway connector (with or without type suffix)
+        base_connector = connector_with_type.split("/")[0]
+        if base_connector in get_available_gateway_connectors():
+            # This is a gateway connector, determine the class based on trading types
+            return get_gateway_connector_class_by_name(connector_with_type)
+
+    # Regular connector
     conn_setting = AllConnectorSettings.get_connector_settings()[connector_name]
     mod = __import__(conn_setting.module_path(),
                      fromlist=[conn_setting.class_name()])
     return getattr(mod, conn_setting.class_name())
+
+
+_gateway_connectors_cache = None
+
+
+async def load_gateway_connectors():
+    """
+    Load gateway connectors info. This should be called once during startup.
+    """
+    from hummingbot.connector.gateway.gateway_http_client import GatewayHttpClient
+
+    global _gateway_connectors_cache
+
+    # Skip if already loaded
+    if _gateway_connectors_cache is not None:
+        return
+
+    try:
+        gateway_client = GatewayHttpClient.get_instance()
+        connectors_response = await gateway_client.get_connectors()
+
+        # Build a mapping of connector name to info
+        connectors_map = {}
+        for connector in connectors_response.get("connectors", []):
+            name = connector["name"]
+            connectors_map[name] = {
+                "chain": connector.get("chain", ""),
+                "trading_types": connector.get("trading_types", []),
+                "networks": connector.get("networks", [])
+            }
+
+        _gateway_connectors_cache = connectors_map
+        logging.getLogger().info(f"Loaded {len(connectors_map)} gateway connectors: {list(connectors_map.keys())}")
+    except Exception as e:
+        logging.getLogger().warning(f"Failed to load gateway connectors: {str(e)}")
+        _gateway_connectors_cache = {}
+
+
+def get_gateway_connectors_info() -> Dict[str, Dict[str, Any]]:
+    """
+    Get cached connector information from gateway.
+    Returns a dict mapping connector names to their info (chain, trading_types, networks).
+    """
+    return _gateway_connectors_cache or {}
+
+
+def get_available_gateway_connectors() -> List[str]:
+    """Get list of available gateway connectors from the gateway."""
+    connectors_info = get_gateway_connectors_info()
+    return list(connectors_info.keys())
+
+
+def get_chain_for_connector(connector: str) -> str:
+    """
+    Get the chain for a given connector from gateway info.
+    """
+    connectors_info = get_gateway_connectors_info()
+    connector_info = connectors_info.get(connector, {})
+    return connector_info.get("chain", "ethereum")  # Default to ethereum if not found
+
+
+def get_gateway_connector_class_by_name(connector_name: str) -> Callable:
+    """
+    Determine the appropriate gateway connector class based on the connector's trading types.
+    Returns GatewayLp for AMM/CLMM connectors, GatewaySwap for swap-only connectors.
+    """
+    from hummingbot.connector.gateway.gateway_lp import GatewayLp
+    from hummingbot.connector.gateway.gateway_swap import GatewaySwap
+
+    # Get connector info from gateway
+    connectors_info = get_gateway_connectors_info()
+    connector_info = connectors_info.get(connector_name, {})
+    trading_types = connector_info.get("trading_types", [])
+
+    # If connector has AMM or CLMM trading types, use GatewayLp
+    if any(t in ["amm", "clmm"] for t in trading_types):
+        return GatewayLp
+    else:
+        # Default to GatewaySwap for swap-only connectors
+        return GatewaySwap
 
 
 def get_strategy_config_map(
@@ -951,8 +1037,3 @@ def parse_config_default_to_text(config: ConfigVar) -> str:
 
 def retrieve_validation_error_msg(e: ValidationError) -> str:
     return e.errors().pop()["msg"]
-
-
-def save_previous_strategy_value(file_name: str, client_config_map: ClientConfigAdapter):
-    client_config_map.previous_strategy = file_name
-    save_to_yml(CLIENT_CONFIG_PATH, client_config_map)

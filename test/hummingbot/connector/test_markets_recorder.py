@@ -686,3 +686,287 @@ class MarketsRecorderTests(IsolatedAsyncioWrapperTestCase):
             query = session.query(Executors)
             executors = query.all()
         self.assertEqual(1, len(executors))
+
+    def test_add_market(self):
+        """Test adding a new market dynamically to the recorder."""
+        recorder = MarketsRecorder(
+            sql=self.manager,
+            markets=[self],
+            config_file_path=self.config_file_path,
+            strategy_name=self.strategy_name,
+            market_data_collection=MarketDataCollectionConfigMap(
+                market_data_collection_enabled=False,
+                market_data_collection_interval=60,
+                market_data_collection_depth=20,
+            ),
+        )
+
+        # Create a new mock market
+        new_market = MagicMock()
+        new_market.name = "new_test_market"
+        new_market.display_name = "new_test_market"
+        new_market.trading_pairs = ["BTC-USDT"]
+        new_market.tracking_states = {}  # Empty dict is JSON serializable
+        new_market.add_trade_fills_from_market_recorder = MagicMock()
+        new_market.add_exchange_order_ids_from_market_recorder = MagicMock()
+        new_market.add_listener = MagicMock()
+
+        # Initial state: recorder should have only one market
+        self.assertEqual(1, len(recorder._markets))
+        self.assertEqual(self, recorder._markets[0])
+
+        # Add the new market
+        recorder.add_market(new_market)
+
+        # Verify the new market was added
+        self.assertEqual(2, len(recorder._markets))
+        self.assertIn(new_market, recorder._markets)
+
+        # Verify trade fills were loaded for the new market
+        new_market.add_trade_fills_from_market_recorder.assert_called_once()
+
+        # Verify exchange order IDs were loaded for the new market
+        new_market.add_exchange_order_ids_from_market_recorder.assert_called_once()
+
+        # Verify event listeners were added (should be called for each event pair)
+        expected_calls = len(recorder._event_pairs)
+        self.assertEqual(expected_calls, new_market.add_listener.call_count)
+
+        # Test adding the same market again (should not duplicate)
+        recorder.add_market(new_market)
+        self.assertEqual(2, len(recorder._markets))  # Should still be 2, not 3
+
+    def test_add_market_with_existing_trade_data(self):
+        """Test adding a market when there's existing trade data for that market."""
+        recorder = MarketsRecorder(
+            sql=self.manager,
+            markets=[self],
+            config_file_path=self.config_file_path,
+            strategy_name=self.strategy_name,
+            market_data_collection=MarketDataCollectionConfigMap(
+                market_data_collection_enabled=False,
+                market_data_collection_interval=60,
+                market_data_collection_depth=20,
+            ),
+        )
+
+        # Create some test trade data in the database
+        with self.manager.get_new_session() as session:
+            with session.begin():
+                trade_fill_record = TradeFill(
+                    config_file_path=self.config_file_path,
+                    strategy=self.strategy_name,
+                    market="specific_market",  # This matches our new market's name
+                    symbol="BTC-USDT",
+                    base_asset="BTC",
+                    quote_asset="USDT",
+                    timestamp=int(time.time()),
+                    order_id="OID2",
+                    trade_type=TradeType.BUY.name,
+                    order_type=OrderType.LIMIT.name,
+                    price=Decimal(50000),
+                    amount=Decimal(0.1),
+                    leverage=1,
+                    trade_fee=AddedToCostTradeFee().to_json(),
+                    exchange_trade_id="EOID2",
+                    position=PositionAction.NIL.value
+                )
+                session.add(trade_fill_record)
+
+                order_record = Order(
+                    id="OID2",
+                    config_file_path=self.config_file_path,
+                    strategy=self.strategy_name,
+                    market="specific_market",
+                    symbol="BTC-USDT",
+                    base_asset="BTC",
+                    quote_asset="USDT",
+                    creation_timestamp=int(time.time()),
+                    order_type=OrderType.LIMIT.name,
+                    amount=Decimal(0.1),
+                    leverage=1,
+                    price=Decimal(50000),
+                    position=PositionAction.NIL.value,
+                    last_status="CREATED",
+                    last_update_timestamp=int(time.time()),
+                    exchange_order_id="EOID2"
+                )
+                session.add(order_record)
+
+        # Create a new mock market
+        new_market = MagicMock()
+        new_market.name = "specific_market"
+        new_market.display_name = "specific_market"
+        new_market.trading_pairs = ["BTC-USDT"]
+        new_market.tracking_states = {}  # Empty dict is JSON serializable
+        new_market.add_trade_fills_from_market_recorder = MagicMock()
+        new_market.add_exchange_order_ids_from_market_recorder = MagicMock()
+        new_market.add_listener = MagicMock()
+
+        # Add the new market
+        recorder.add_market(new_market)
+
+        # Verify the market was added and data loading methods were called
+        self.assertIn(new_market, recorder._markets)
+        new_market.add_trade_fills_from_market_recorder.assert_called_once()
+        new_market.add_exchange_order_ids_from_market_recorder.assert_called_once()
+
+        # Verify the trade fills call included only data for this specific market
+        call_args = new_market.add_trade_fills_from_market_recorder.call_args[0][0]
+        # The call should have been made with a set of TradeFillOrderDetails
+        self.assertIsInstance(call_args, set)
+
+    def test_remove_market(self):
+        """Test removing a market dynamically from the recorder."""
+        # Create a second mock market
+        second_market = MagicMock()
+        second_market.name = "second_market"
+        second_market.display_name = "second_market"
+        second_market.trading_pairs = ["BTC-USDT"]
+        second_market.tracking_states = {}  # Empty dict is JSON serializable
+        second_market.add_trade_fills_from_market_recorder = MagicMock()
+        second_market.add_exchange_order_ids_from_market_recorder = MagicMock()
+        second_market.add_listener = MagicMock()
+        second_market.remove_listener = MagicMock()
+
+        recorder = MarketsRecorder(
+            sql=self.manager,
+            markets=[self, second_market],
+            config_file_path=self.config_file_path,
+            strategy_name=self.strategy_name,
+            market_data_collection=MarketDataCollectionConfigMap(
+                market_data_collection_enabled=False,
+                market_data_collection_interval=60,
+                market_data_collection_depth=20,
+            ),
+        )
+
+        # Initial state: recorder should have two markets
+        self.assertEqual(2, len(recorder._markets))
+        self.assertIn(self, recorder._markets)
+        self.assertIn(second_market, recorder._markets)
+
+        # Remove the second market
+        recorder.remove_market(second_market)
+
+        # Verify the market was removed
+        self.assertEqual(1, len(recorder._markets))
+        self.assertIn(self, recorder._markets)
+        self.assertNotIn(second_market, recorder._markets)
+
+        # Verify event listeners were removed (should be called for each event pair)
+        expected_calls = len(recorder._event_pairs)
+        self.assertEqual(expected_calls, second_market.remove_listener.call_count)
+
+        # Test removing a market that doesn't exist (should not cause error)
+        non_existent_market = MagicMock()
+        recorder.remove_market(non_existent_market)
+        self.assertEqual(1, len(recorder._markets))  # Should still be 1
+
+    def test_add_remove_market_event_listeners(self):
+        """Test that event listeners are properly managed when adding/removing markets."""
+        recorder = MarketsRecorder(
+            sql=self.manager,
+            markets=[self],
+            config_file_path=self.config_file_path,
+            strategy_name=self.strategy_name,
+            market_data_collection=MarketDataCollectionConfigMap(
+                market_data_collection_enabled=False,
+                market_data_collection_interval=60,
+                market_data_collection_depth=20,
+            ),
+        )
+
+        # Create a new mock market with proper listener methods
+        new_market = MagicMock()
+        new_market.name = "event_test_market"
+        new_market.display_name = "event_test_market"
+        new_market.trading_pairs = ["BTC-USDT"]
+        new_market.tracking_states = {}  # Empty dict is JSON serializable
+        new_market.add_trade_fills_from_market_recorder = MagicMock()
+        new_market.add_exchange_order_ids_from_market_recorder = MagicMock()
+        new_market.add_listener = MagicMock()
+        new_market.remove_listener = MagicMock()
+
+        # Add the market
+        recorder.add_market(new_market)
+
+        # Verify all event pairs were registered
+        expected_event_types = [pair[0] for pair in recorder._event_pairs]
+        expected_forwarders = [pair[1] for pair in recorder._event_pairs]
+
+        # Check that add_listener was called for each event pair
+        self.assertEqual(len(recorder._event_pairs), new_market.add_listener.call_count)
+
+        # Verify the correct event types and forwarders were registered
+        add_listener_calls = new_market.add_listener.call_args_list
+        for i, call in enumerate(add_listener_calls):
+            event_type, forwarder = call[0]
+            self.assertIn(event_type, expected_event_types)
+            self.assertIn(forwarder, expected_forwarders)
+
+        # Now remove the market
+        recorder.remove_market(new_market)
+
+        # Verify all event pairs were unregistered
+        self.assertEqual(len(recorder._event_pairs), new_market.remove_listener.call_count)
+
+        # Verify the correct event types and forwarders were unregistered
+        remove_listener_calls = new_market.remove_listener.call_args_list
+        for i, call in enumerate(remove_listener_calls):
+            event_type, forwarder = call[0]
+            self.assertIn(event_type, expected_event_types)
+            self.assertIn(forwarder, expected_forwarders)
+
+    def test_add_market_integration_with_event_processing(self):
+        """Test that dynamically added markets can process events correctly."""
+        recorder = MarketsRecorder(
+            sql=self.manager,
+            markets=[self],
+            config_file_path=self.config_file_path,
+            strategy_name=self.strategy_name,
+            market_data_collection=MarketDataCollectionConfigMap(
+                market_data_collection_enabled=False,
+                market_data_collection_interval=60,
+                market_data_collection_depth=20,
+            ),
+        )
+
+        # Create a new mock market
+        new_market = MagicMock()
+        new_market.name = "integration_test_market"
+        new_market.display_name = "integration_test_market"
+        new_market.trading_pairs = ["BTC-USDT"]
+        new_market.tracking_states = {}  # Empty dict is JSON serializable
+        new_market.add_trade_fills_from_market_recorder = MagicMock()
+        new_market.add_exchange_order_ids_from_market_recorder = MagicMock()
+        new_market.add_listener = MagicMock()
+        new_market.remove_listener = MagicMock()
+
+        # Add the market
+        recorder.add_market(new_market)
+
+        # Simulate an order creation event on the new market
+        create_event = BuyOrderCreatedEvent(
+            timestamp=int(time.time()),
+            type=OrderType.LIMIT,
+            trading_pair="BTC-USDT",
+            amount=Decimal(0.1),
+            price=Decimal(50000),
+            order_id="NEW_MARKET_OID1",
+            creation_timestamp=time.time(),
+            exchange_order_id="NEW_MARKET_EOID1",
+        )
+
+        # Process the event through the recorder
+        recorder._did_create_order(MarketEvent.BuyOrderCreated.value, new_market, create_event)
+
+        # Verify the order was recorded in the database
+        with self.manager.get_new_session() as session:
+            query = session.query(Order).filter(Order.id == "NEW_MARKET_OID1")
+            orders = query.all()
+
+        self.assertEqual(1, len(orders))
+        self.assertEqual("integration_test_market", orders[0].market)
+        self.assertEqual("BTC-USDT", orders[0].symbol)
+        self.assertEqual("NEW_MARKET_OID1", orders[0].id)

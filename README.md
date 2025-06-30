@@ -1,4 +1,10 @@
-![Hummingbot](https://github.com/user-attachments/assets/3213d7f8-414b-4df8-8c1b-a0cd142a82d8)
+```
+██   ██ ██    ██ ███    ███ ███    ███ ██ ███    ██  ██████  ██████   ██████  ████████
+██   ██ ██    ██ ████  ████ ████  ████ ██ ████   ██ ██       ██   ██ ██    ██    ██
+███████ ██    ██ ██ ████ ██ ██ ████ ██ ██ ██ ██  ██ ██   ███ ██████  ██    ██    ██
+██   ██ ██    ██ ██  ██  ██ ██  ██  ██ ██ ██  ██ ██ ██    ██ ██   ██ ██    ██    ██
+██   ██  ██████  ██      ██ ██      ██ ██ ██   ████  ██████  ██████   ██████     ██
+```
 
 ----
 [![License](https://img.shields.io/badge/License-Apache%202.0-informational.svg)](https://github.com/hummingbot/hummingbot/blob/master/LICENSE)
@@ -98,6 +104,21 @@ Currently, the master branch of Hummingbot also includes the following exchange 
 * [Quants Lab](https://github.com/hummingbot/quants-lab): Juypter notebooks that enable you to fetch data and perform research using Hummingbot
 * [Gateway](https://github.com/hummingbot/gateway): Typescript based API client for DEX connectors
 * [Hummingbot Site](https://github.com/hummingbot/hummingbot-site): Official documentation for Hummingbot - we welcome contributions here too!
+
+## Gateway Setup
+
+Gateway is required for DEX connectors. When cloning this repository, initialize the Gateway submodule:
+
+```bash
+# Clone with submodules
+git clone --recurse-submodules https://github.com/hummingbot/hummingbot.git
+
+# Or if you already cloned without submodules
+git submodule update --init --recursive
+
+# To update Gateway to latest version
+git submodule update --remote --merge
+```
 
 ## Contributions
 

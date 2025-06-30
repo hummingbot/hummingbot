@@ -97,11 +97,15 @@ class GatewayLp(GatewaySwap):
 
             base_token, quote_token = tokens
 
-            resp: Dict[str, Any] = await self._get_gateway_instance().pool_info(
-                network=self.network,
-                connector=self.connector_name,
-                base_token=base_token,
-                quote_token=quote_token,
+            resp: Dict[str, Any] = await self._get_gateway_instance().connector_request(
+                "get",
+                self.connector_name,
+                "pool-info",
+                {
+                    "network": self.network,
+                    "baseToken": base_token,
+                    "quoteToken": quote_token,
+                }
             )
 
             # Determine which model to use based on connector type
@@ -127,13 +131,16 @@ class GatewayLp(GatewaySwap):
     def open_position(self, trading_pair: str, price: float, **request_args) -> str:
         """
         Opens a liquidity position - either concentrated (CLMM) or regular (AMM) based on the connector type.
-        :param trading_pair: The market trading pair
+        :param trading_pair: The market trading pair (can be empty string if pool_address is provided)
         :param price: The center price for the position.
         :param request_args: Additional arguments for position opening
         :return: A newly created order id (internal).
         """
         trade_type: TradeType = TradeType.RANGE
-        order_id: str = self.create_market_order_id(trade_type, trading_pair)
+        # Use pool address for order ID if trading pair is empty
+        pool_address = request_args.get("pool_address")
+        pair_for_id = trading_pair if trading_pair else f"pool-{pool_address[:8]}" if pool_address else "unknown"
+        order_id: str = self.create_market_order_id(trade_type, pair_for_id)
 
         # Check connector type and call appropriate function
         connector_type = get_connector_type(self.connector_name)
@@ -151,11 +158,12 @@ class GatewayLp(GatewaySwap):
         trade_type: TradeType,
         order_id: str,
         trading_pair: str,
-        price: float,
+        price: Optional[float],
         spread_pct: float,
         base_token_amount: Optional[float] = None,
         quote_token_amount: Optional[float] = None,
         slippage_pct: Optional[float] = None,
+        pool_address: Optional[str] = None,
     ):
         """
         Opens a concentrated liquidity position around the specified price with a percentage width.
@@ -174,21 +182,29 @@ class GatewayLp(GatewaySwap):
         if get_connector_type(self.connector_name) != ConnectorType.CLMM:
             raise ValueError(f"Connector {self.connector_name} is not of type CLMM.")
 
-        # Split trading_pair to get base and quote tokens
-        tokens = trading_pair.split("-")
-        if len(tokens) != 2:
-            raise ValueError(f"Invalid trading pair format: {trading_pair}")
-
-        base_token, quote_token = tokens
+        # Only parse trading pair if pool_address is not provided
+        if not pool_address:
+            tokens = trading_pair.split("-")
+            if len(tokens) != 2:
+                raise ValueError(f"Invalid trading pair format: {trading_pair}")
+            base_token, quote_token = tokens
+        else:
+            base_token = quote_token = None  # Not needed when pool_address is provided
 
         # Calculate the total amount in base token units
         base_amount = base_token_amount or 0.0
-        quote_amount_in_base = (quote_token_amount or 0.0) / price if price > 0 else 0.0
+        quote_amount_in_base = (quote_token_amount or 0.0) / price if price and price > 0 else 0.0
         total_amount_in_base = base_amount + quote_amount_in_base
 
+        # Validate price is not None before converting to Decimal
+        if price is None:
+            raise ValueError("Price cannot be None for CLMM position opening")
+
         # Start tracking order with calculated amount
+        # Use pool address for tracking if trading pair is empty
+        pair_for_tracking = trading_pair if trading_pair else f"pool-{pool_address[:8]}" if pool_address else "unknown"
         self.start_tracking_order(order_id=order_id,
-                                  trading_pair=trading_pair,
+                                  trading_pair=pair_for_tracking,
                                   trade_type=trade_type,
                                   price=Decimal(str(price)),
                                   amount=Decimal(str(total_amount_in_base)))
@@ -200,35 +216,51 @@ class GatewayLp(GatewaySwap):
 
         # Open position
         try:
-            transaction_result = await self._get_gateway_instance().clmm_open_position(
-                connector=self.connector_name,
-                network=self.network,
-                wallet_address=self.address,
-                base_token=base_token,
-                quote_token=quote_token,
-                lower_price=lower_price,
-                upper_price=upper_price,
-                base_token_amount=base_token_amount,
-                quote_token_amount=quote_token_amount,
-                slippage_pct=slippage_pct
+            # Build request parameters
+            request_params = {
+                "network": self.network,
+                "walletAddress": self.address,
+                "lowerPrice": lower_price,
+                "upperPrice": upper_price,
+                "slippagePct": slippage_pct
+            }
+
+            # Add pool address if available, otherwise add token symbols
+            if pool_address:
+                request_params["poolAddress"] = pool_address
+            else:
+                request_params["baseToken"] = base_token
+                request_params["quoteToken"] = quote_token
+
+            # Add token amounts if provided
+            if base_token_amount is not None:
+                request_params["baseTokenAmount"] = base_token_amount
+            if quote_token_amount is not None:
+                request_params["quoteTokenAmount"] = quote_token_amount
+
+            transaction_result = await self._get_gateway_instance().connector_request(
+                "post",
+                self.connector_name,
+                "open-position",
+                request_params
             )
             transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
-                self.update_order_from_hash(order_id, trading_pair, transaction_hash, transaction_result)
+                self.update_order_from_hash(order_id, pair_for_tracking, transaction_hash, transaction_result)
                 return transaction_hash
             else:
                 raise ValueError("No transaction hash returned from gateway")
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            self._handle_operation_failure(order_id, trading_pair, "opening CLMM position", e)
+            self._handle_operation_failure(order_id, pair_for_tracking, "opening CLMM position", e)
 
     async def _amm_open_position(
         self,
         trade_type: TradeType,
         order_id: str,
         trading_pair: str,
-        price: float,
+        price: Optional[float],
         base_token_amount: float,
         quote_token_amount: float,
         slippage_pct: Optional[float] = None,
@@ -256,8 +288,12 @@ class GatewayLp(GatewaySwap):
         base_token, quote_token = tokens
 
         # Calculate the total amount in base token units
-        quote_amount_in_base = quote_token_amount / price if price > 0 else 0.0
+        quote_amount_in_base = quote_token_amount / price if price and price > 0 else 0.0
         total_amount_in_base = base_token_amount + quote_amount_in_base
+
+        # Validate price is not None before converting to Decimal
+        if price is None:
+            raise ValueError("Price cannot be None for AMM position opening")
 
         # Start tracking order with calculated amount
         self.start_tracking_order(order_id=order_id,
@@ -268,15 +304,19 @@ class GatewayLp(GatewaySwap):
 
         # Add liquidity to AMM pool
         try:
-            transaction_result = await self._get_gateway_instance().amm_add_liquidity(
-                connector=self.connector_name,
-                network=self.network,
-                wallet_address=self.address,
-                base_token=base_token,
-                quote_token=quote_token,
-                base_token_amount=base_token_amount,
-                quote_token_amount=quote_token_amount,
-                slippage_pct=slippage_pct
+            transaction_result = await self._get_gateway_instance().connector_request(
+                "post",
+                self.connector_name,
+                "add-liquidity",
+                {
+                    "network": self.network,
+                    "walletAddress": self.address,
+                    "baseToken": base_token,
+                    "quoteToken": quote_token,
+                    "baseTokenAmount": base_token_amount,
+                    "quoteTokenAmount": quote_token_amount,
+                    "slippagePct": slippage_pct
+                }
             )
             transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
@@ -298,7 +338,7 @@ class GatewayLp(GatewaySwap):
     ) -> str:
         """
         Closes a liquidity position - either concentrated (CLMM) or regular (AMM) based on the connector type.
-        :param trading_pair: The market trading pair
+        :param trading_pair: The market trading pair (can be empty string if position_address is provided)
         :param position_address: The address of the position to close (required for CLMM, optional for AMM)
         :param percentage: Percentage of liquidity to remove (for AMM, defaults to 100%)
         :return: A newly created order id (internal).
@@ -310,7 +350,9 @@ class GatewayLp(GatewaySwap):
             raise ValueError("position_address is required to close a CLMM position")
 
         trade_type: TradeType = TradeType.RANGE
-        order_id: str = self.create_market_order_id(trade_type, trading_pair)
+        # Use position address for order ID if trading pair is empty
+        pair_for_id = trading_pair if trading_pair else f"position-{position_address[:8]}" if position_address else "unknown"
+        order_id: str = self.create_market_order_id(trade_type, pair_for_id)
 
         # Call appropriate function based on connector type
         if connector_type == ConnectorType.CLMM:
@@ -344,27 +386,33 @@ class GatewayLp(GatewaySwap):
             raise ValueError(f"Connector {self.connector_name} is not of type CLMM.")
 
         # Start tracking order
+        # Use position address for tracking if trading pair is empty
+        pair_for_tracking = trading_pair if trading_pair else f"position-{position_address[:8]}" if position_address else "unknown"
         self.start_tracking_order(order_id=order_id,
-                                  trading_pair=trading_pair,
+                                  trading_pair=pair_for_tracking,
                                   trade_type=trade_type)
         try:
-            transaction_result = await self._get_gateway_instance().clmm_close_position(
-                connector=self.connector_name,
-                network=self.network,
-                wallet_address=self.address,
-                position_address=position_address,
-                fail_silently=fail_silently
+            transaction_result = await self._get_gateway_instance().connector_request(
+                "post",
+                self.connector_name,
+                "close-position",
+                {
+                    "network": self.network,
+                    "walletAddress": self.address,
+                    "positionAddress": position_address,
+                    "failSilently": fail_silently
+                }
             )
             transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
-                self.update_order_from_hash(order_id, trading_pair, transaction_hash, transaction_result)
+                self.update_order_from_hash(order_id, pair_for_tracking, transaction_hash, transaction_result)
                 return transaction_hash
             else:
                 raise ValueError("No transaction hash returned from gateway")
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            self._handle_operation_failure(order_id, trading_pair, "closing CLMM position", e)
+            self._handle_operation_failure(order_id, pair_for_tracking, "closing CLMM position", e)
 
     async def _amm_close_position(
         self,
@@ -400,14 +448,18 @@ class GatewayLp(GatewaySwap):
                                   trade_type=trade_type)
 
         try:
-            transaction_result = await self._get_gateway_instance().amm_remove_liquidity(
-                connector=self.connector_name,
-                network=self.network,
-                wallet_address=self.address,
-                base_token=base_token,
-                quote_token=quote_token,
-                percentage=percentage,
-                fail_silently=fail_silently
+            transaction_result = await self._get_gateway_instance().connector_request(
+                "post",
+                self.connector_name,
+                "remove-liquidity",
+                {
+                    "network": self.network,
+                    "walletAddress": self.address,
+                    "baseToken": base_token,
+                    "quoteToken": quote_token,
+                    "percentage": percentage,
+                    "failSilently": fail_silently
+                }
             )
             transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
@@ -503,14 +555,18 @@ class GatewayLp(GatewaySwap):
                                   trading_pair=trading_pair,
                                   trade_type=TradeType.RANGE)
         try:
-            transaction_result = await self._get_gateway_instance().amm_remove_liquidity(
-                connector=self.connector_name,
-                network=self.network,
-                wallet_address=self.address,
-                base_token=base_token,
-                quote_token=quote_token,
-                percentage=percentage,
-                fail_silently=fail_silently
+            transaction_result = await self._get_gateway_instance().connector_request(
+                "post",
+                self.connector_name,
+                "remove-liquidity",
+                {
+                    "network": self.network,
+                    "walletAddress": self.address,
+                    "baseToken": base_token,
+                    "quoteToken": quote_token,
+                    "percentage": percentage,
+                    "failSilently": fail_silently
+                }
             )
             transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
@@ -548,23 +604,31 @@ class GatewayLp(GatewaySwap):
                 if position_address is None:
                     raise ValueError("position_address is required for CLMM positions")
 
-                resp: Dict[str, Any] = await self._get_gateway_instance().clmm_position_info(
-                    connector=self.connector_name,
-                    network=self.network,
-                    position_address=position_address,
-                    wallet_address=self.address,
+                resp: Dict[str, Any] = await self._get_gateway_instance().connector_request(
+                    "get",
+                    self.connector_name,
+                    "position-info",
+                    {
+                        "network": self.network,
+                        "positionAddress": position_address,
+                        "walletAddress": self.address,
+                    }
                 )
                 # Validate response against CLMM schema
                 return CLMMPositionInfo(**resp) if resp else None
 
             elif connector_type == ConnectorType.AMM:
-                resp: Dict[str, Any] = await self._get_gateway_instance().amm_position_info(
-                    connector=self.connector_name,
-                    network=self.network,
-                    pool_address=position_address,
-                    base_token=base_token,
-                    quote_token=quote_token,
-                    wallet_address=self.address,
+                resp: Dict[str, Any] = await self._get_gateway_instance().connector_request(
+                    "get",
+                    self.connector_name,
+                    "position-info",
+                    {
+                        "network": self.network,
+                        "poolAddress": position_address,
+                        "baseToken": base_token,
+                        "quoteToken": quote_token,
+                        "walletAddress": self.address,
+                    }
                 )
                 # Validate response against AMM schema
                 return AMMPositionInfo(**resp) if resp else None

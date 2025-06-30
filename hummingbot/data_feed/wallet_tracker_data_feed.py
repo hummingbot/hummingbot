@@ -5,7 +5,7 @@ from typing import Dict, Optional, Set
 
 import pandas as pd
 
-from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
+from hummingbot.connector.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.network_base import NetworkBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future

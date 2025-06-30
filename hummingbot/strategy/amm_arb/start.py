@@ -23,7 +23,7 @@ def start(self):
     gas_token = amm_arb_config_map.get("gas_token").value
     gas_price = amm_arb_config_map.get("gas_price").value
 
-    self._initialize_markets([(connector_1, [market_1]), (connector_2, [market_2])])
+    self.initialize_markets([(connector_1, [market_1]), (connector_2, [market_2])])
     base_1, quote_1 = market_1.split("-")
     base_2, quote_2 = market_2.split("-")
 

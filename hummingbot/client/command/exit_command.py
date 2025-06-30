@@ -16,10 +16,10 @@ class ExitCommand:
 
     async def exit_loop(self,  # type: HummingbotApplication
                         force: bool = False):
-        if self.strategy_task is not None and not self.strategy_task.cancelled():
-            self.strategy_task.cancel()
-        if force is False and self._trading_required:
-            success = await self._cancel_outstanding_orders()
+        if self.trading_core.strategy_task is not None and not self.trading_core.strategy_task.cancelled():
+            self.trading_core.strategy_task.cancel()
+        if force is False:
+            success = await self.trading_core.cancel_outstanding_orders()
             if not success:
                 self.notify('Wind down process terminated: Failed to cancel all outstanding orders. '
                             '\nYou may need to manually cancel remaining orders by logging into your chosen exchanges'
@@ -32,7 +32,7 @@ class ExitCommand:
             self._gateway_monitor.stop()
 
         self.notify("Winding down notifiers...")
-        for notifier in self.notifiers:
+        for notifier in self.trading_core.notifiers:
             notifier.stop()
 
         self.app.exit()

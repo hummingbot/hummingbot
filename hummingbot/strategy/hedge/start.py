@@ -19,7 +19,7 @@ def start(self):
         markets = connector_config.markets
         offsets_dict[connector] = connector_config.offsets
         initialize_markets.append((connector, markets))
-    self._initialize_markets(initialize_markets)
+    self.initialize_markets(initialize_markets)
     self.market_trading_pair_tuples = []
     offsets_market_dict = {}
     for connector, markets in initialize_markets:

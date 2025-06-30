@@ -1,10 +1,9 @@
 import asyncio
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from hummingbot.connector.gateway.gateway_base import GatewayBase
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.gateway import check_transaction_exceptions
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
@@ -14,6 +13,17 @@ class GatewaySwap(GatewayBase):
     Handles swap-specific functionality including price quotes and trade execution.
     Maintains order tracking and wallet interactions in the base class.
     """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Initialize transaction handler
+        self._tx_handler = None
+
+    @property
+    def tx_handler(self):
+        if self._tx_handler is None:
+            self._tx_handler = self._get_gateway_instance()
+        return self._tx_handler
 
     @async_ttl_cache(ttl=5, maxsize=10)
     async def get_quote_price(
@@ -37,15 +47,27 @@ class GatewaySwap(GatewayBase):
 
         # Pull the price from gateway.
         try:
-            resp: Dict[str, Any] = await self._get_gateway_instance().quote_swap(
-                network=self.network,
-                connector=self.connector_name,
-                base_asset=base,
-                quote_asset=quote,
-                amount=amount,
-                side=side,
-                slippage_pct=slippage_pct,
-                pool_address=pool_address
+            # Build request parameters
+            from hummingbot.connector.gateway.common_types import ConnectorType, get_connector_type
+
+            connector_type = get_connector_type(self.connector_name)
+            request_payload = {
+                "network": self.network,
+                "baseToken": base,
+                "quoteToken": quote,
+                "amount": float(amount),
+                "side": side.name
+            }
+            if slippage_pct is not None:
+                request_payload["slippagePct"] = float(slippage_pct)
+            if connector_type in (ConnectorType.CLMM, ConnectorType.AMM) and pool_address is not None:
+                request_payload["poolAddress"] = pool_address
+
+            resp: Dict[str, Any] = await self._get_gateway_instance().connector_request(
+                "get",
+                self.connector_name,
+                "quote-swap",
+                request_payload
             )
             return self.parse_price_response(base, quote, amount, side, price_response=resp)
         except asyncio.CancelledError:
@@ -86,42 +108,16 @@ class GatewaySwap(GatewayBase):
         :param price_response: Price response from Gateway.
         :param process_exception: Flag to trigger error on exception
         """
-        required_items = ["price", "gasLimit", "gasPrice", "gasCost"]
-        if any(item not in price_response.keys() for item in required_items):
+        # Check if we have a valid price in the response
+        if "price" not in price_response:
             if "info" in price_response.keys():
                 self.logger().info(f"Unable to get price. {price_response['info']}")
             else:
-                self.logger().info(f"Missing data from price result. Incomplete return result for ({price_response.keys()})")
-        else:
-            gas_price_token: str = self._native_currency
-            gas_cost: Decimal = Decimal(str(price_response["gasCost"]))
-            price: Decimal = Decimal(str(price_response["price"]))
-            gas_limit: int = int(price_response["gasLimit"])
-            # self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
-            if process_exception is True:
-                kwargs = {
-                    "balances": self._account_balances,
-                    "base_asset": base,
-                    "quote_asset": quote,
-                    "amount": amount,
-                    "side": side,
-                    "gas_limit": gas_limit,
-                    "gas_cost": gas_cost,
-                    "gas_asset": gas_price_token
-                }
-                # Add allowances for Ethereum
-                if self.chain == "ethereum":
-                    kwargs["allowances"] = self._allowances
+                self.logger().info(f"Missing price in response. Response keys: {price_response.keys()}")
+            return None
 
-                exceptions: List[str] = check_transaction_exceptions(**kwargs)
-                for index in range(len(exceptions)):
-                    self.logger().warning(
-                        f"Warning! [{index + 1}/{len(exceptions)}] {side} order - {exceptions[index]}"
-                    )
-                if len(exceptions) > 0:
-                    return None
-            return price
-        return None
+        price: Decimal = Decimal(str(price_response["price"]))
+        return price
 
     def buy(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal, **kwargs) -> str:
         """
@@ -185,19 +181,27 @@ class GatewaySwap(GatewayBase):
                                   trade_type=trade_type,
                                   price=price,
                                   amount=amount)
+
         try:
-            order_result: Dict[str, Any] = await self._get_gateway_instance().execute_swap(
-                self.network,
-                self.connector_name,
-                self.address,
-                base,
-                quote,
-                trade_type,
-                amount
+            # Execute transaction with retry logic (non-blocking)
+            await self.tx_handler.execute_transaction(
+                chain=self.chain,
+                network=self.network,
+                connector=self.connector_name,
+                method="execute-swap",
+                params={
+                    "walletAddress": self.address,
+                    "baseToken": base,
+                    "quoteToken": quote,
+                    "amount": float(amount),
+                    "side": trade_type.name,
+                },
+                order_id=order_id,
+                gateway_connector=self
             )
-            transaction_hash: Optional[str] = order_result.get("signature")
-            if transaction_hash is not None and transaction_hash != "":
-                self.update_order_from_hash(order_id, trading_pair, transaction_hash, order_result)
+
+            # Transaction executes in background
+            self.logger().info(f"Swap order {order_id} submitted")
 
         except asyncio.CancelledError:
             raise

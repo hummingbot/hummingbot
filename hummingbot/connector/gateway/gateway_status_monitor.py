@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from hummingbot.client.settings import GATEWAY_CONNECTORS
 from hummingbot.client.ui.completer import load_completer
-from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
+from hummingbot.connector.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import build_config_namespace_keys
 
@@ -38,6 +38,8 @@ class GatewayStatusMonitor:
         self._monitor_task = None
         self._gateway_config_keys: List[str] = []
         self._gateway_ready_event: asyncio.Event = asyncio.Event()
+        self._initialization_in_progress: bool = False
+        self._initialization_complete: bool = False
 
     @property
     def ready(self) -> bool:
@@ -84,15 +86,11 @@ class GatewayStatusMonitor:
     async def _monitor_loop(self):
         while True:
             try:
-                gateway_http_client = self._get_gateway_instance()
-                if await asyncio.wait_for(gateway_http_client.ping_gateway(), timeout=POLL_TIMEOUT):
+                gateway = self._get_gateway_instance()
+                if await asyncio.wait_for(gateway.ping_gateway(), timeout=POLL_TIMEOUT):
                     if self.gateway_status is GatewayStatus.OFFLINE:
-                        gateway_connectors = await gateway_http_client.get_connectors(fail_silently=True)
-                        GATEWAY_CONNECTORS.clear()
-                        GATEWAY_CONNECTORS.extend([connector["name"] for connector in gateway_connectors.get("connectors", [])])
-                        await self.update_gateway_config_key_list()
-
-                    self._gateway_status = GatewayStatus.ONLINE
+                        # Only update status here, initialization happens in finally block
+                        self._gateway_status = GatewayStatus.ONLINE
                 else:
                     if self._gateway_status is GatewayStatus.ONLINE:
                         self.logger().info("Connection to Gateway container lost...")
@@ -100,19 +98,45 @@ class GatewayStatusMonitor:
 
             except asyncio.CancelledError:
                 raise
-            except Exception:
+            except Exception as e:
                 """
                 We wouldn't be changing any status here because whatever error happens here would have been a result of manipulation data from
                 the try block. They wouldn't be as a result of http related error because they're expected to fail silently.
                 """
-                pass
+                self.logger().debug(f"Error in gateway monitor loop: {e}", exc_info=True)
+                if self._gateway_status is GatewayStatus.ONLINE:
+                    self.logger().info("Connection to Gateway container lost...")
+                    self._gateway_status = GatewayStatus.OFFLINE
             finally:
                 if self.gateway_status is GatewayStatus.ONLINE:
-                    if not self._gateway_ready_event.is_set():
-                        self.logger().info("Gateway Service is ONLINE.")
-                    self._gateway_ready_event.set()
+                    if not self._initialization_complete and not self._initialization_in_progress:
+                        self._initialization_in_progress = True
+                        try:
+                            self.logger().info("Gateway Service is ONLINE.")
+
+                            # Fetch and update gateway connectors
+                            gateway = self._get_gateway_instance()
+                            gateway_connectors = await gateway.api_request("get", "connectors", fail_silently=True)
+                            GATEWAY_CONNECTORS.clear()
+                            GATEWAY_CONNECTORS.extend([connector["name"] for connector in gateway_connectors.get("connectors", [])])
+
+                            # Load gateway connectors info for use in config_helpers
+                            from hummingbot.client.config.config_helpers import load_gateway_connectors
+                            await load_gateway_connectors()
+
+                            # Initialize gateway with all necessary data
+                            await gateway.initialize_gateway()
+
+                            # Update gateway config keys and reload completer
+                            await self.update_gateway_config_key_list()
+
+                            self._gateway_ready_event.set()
+                            self._initialization_complete = True
+                        finally:
+                            self._initialization_in_progress = False
                 else:
                     self._gateway_ready_event.clear()
+                    self._initialization_complete = False
                 await asyncio.sleep(POLL_INTERVAL)
 
     async def _fetch_gateway_configs(self) -> Dict[str, Any]:

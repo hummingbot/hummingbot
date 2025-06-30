@@ -26,7 +26,7 @@ def start(self):
     max_spread = c_map.get("max_spread").value / Decimal("100")
     max_order_age = c_map.get("max_order_age").value
 
-    self._initialize_markets([(exchange, markets)])
+    self.initialize_markets([(exchange, markets)])
     exchange = self.markets[exchange]
     market_infos = {}
     for market in markets:

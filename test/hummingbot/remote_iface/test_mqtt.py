@@ -41,7 +41,6 @@ class RemoteIfaceMQTTTests(TestCase):
             'history',
             'balance/limit',
             'balance/paper',
-            'command_shortcuts',
         ]
         cls.START_URI = 'hbot/$instance_id/start'
         cls.STOP_URI = 'hbot/$instance_id/stop'
@@ -51,7 +50,6 @@ class RemoteIfaceMQTTTests(TestCase):
         cls.HISTORY_URI = 'hbot/$instance_id/history'
         cls.BALANCE_LIMIT_URI = 'hbot/$instance_id/balance/limit'
         cls.BALANCE_PAPER_URI = 'hbot/$instance_id/balance/paper'
-        cls.COMMAND_SHORTCUT_URI = 'hbot/$instance_id/command_shortcuts'
         cls.fake_mqtt_broker = FakeMQTTBroker()
 
     def setUp(self) -> None:
@@ -124,7 +122,8 @@ class RemoteIfaceMQTTTests(TestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and str(record.getMessage()) == str(message) for record in self.log_records)
+        return any(
+            record.levelname == log_level and str(record.getMessage()) == str(message) for record in self.log_records)
 
     async def wait_for_logged(self, log_level: str, message: str):
         try:
@@ -155,7 +154,7 @@ class RemoteIfaceMQTTTests(TestCase):
     def is_msg_received(self, *args, **kwargs):
         return self.fake_mqtt_broker.is_msg_received(*args, **kwargs)
 
-    async def wait_for_rcv(self, topic, content=None, msg_key = 'msg'):
+    async def wait_for_rcv(self, topic, content=None, msg_key='msg'):
         try:
             async with timeout(3):
                 while not self.is_msg_received(topic=topic, content=content, msg_key=msg_key):
@@ -170,17 +169,17 @@ class RemoteIfaceMQTTTests(TestCase):
         self.gateway.start_market_events_fw()
 
     def get_topic_for(
-        self,
-        topic
+            self,
+            topic
     ):
         return topic.replace('$instance_id', self.hbapp.instance_id)
 
     def build_fake_strategy(
-        self,
-        status_check_all_mock: MagicMock,
-        load_strategy_config_map_from_file: MagicMock,
-        invalid_strategy: bool = True,
-        empty_name: bool = False
+            self,
+            status_check_all_mock: MagicMock,
+            load_strategy_config_map_from_file: MagicMock,
+            invalid_strategy: bool = True,
+            empty_name: bool = False
     ):
         if empty_name:
             strategy_name = ''
@@ -195,11 +194,11 @@ class RemoteIfaceMQTTTests(TestCase):
         return strategy_name
 
     def send_fake_import_cmd(
-        self,
-        status_check_all_mock: MagicMock,
-        load_strategy_config_map_from_file: MagicMock,
-        invalid_strategy: bool = True,
-        empty_name: bool = False
+            self,
+            status_check_all_mock: MagicMock,
+            load_strategy_config_map_from_file: MagicMock,
+            invalid_strategy: bool = True,
+            empty_name: bool = False
     ):
         import_topic = self.get_topic_for(self.IMPORT_URI)
 
@@ -214,8 +213,8 @@ class RemoteIfaceMQTTTests(TestCase):
 
     @staticmethod
     def emit_order_created_event(
-        market: MockPaperExchange,
-        order: LimitOrder
+            market: MockPaperExchange,
+            order: LimitOrder
     ):
         event_cls = BuyOrderCreatedEvent if order.is_buy else SellOrderCreatedEvent
         event_tag = MarketEvent.BuyOrderCreated if order.is_buy else MarketEvent.SellOrderCreated
@@ -310,8 +309,8 @@ class RemoteIfaceMQTTTests(TestCase):
 
     @patch("hummingbot.client.command.balance_command.BalanceCommand.balance")
     def test_mqtt_command_balance_limit_failure(
-        self,
-        balance_mock: MagicMock
+            self,
+            balance_mock: MagicMock
     ):
         balance_mock.side_effect = self._create_exception_and_unlock_test_with_event
         self.start_mqtt()
@@ -333,8 +332,8 @@ class RemoteIfaceMQTTTests(TestCase):
 
     @patch("hummingbot.client.command.balance_command.BalanceCommand.balance")
     def test_mqtt_command_balance_paper_failure(
-        self,
-        balance_mock: MagicMock
+            self,
+            balance_mock: MagicMock
     ):
         balance_mock.side_effect = self._create_exception_and_unlock_test_with_event
         self.start_mqtt()
@@ -354,30 +353,10 @@ class RemoteIfaceMQTTTests(TestCase):
         self.async_run_with_timeout(self.wait_for_rcv(topic, msg, msg_key='data'), timeout=10)
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
-    @patch("hummingbot.client.hummingbot_application.HummingbotApplication._handle_shortcut")
-    def test_mqtt_command_command_shortcuts_failure(
-        self,
-        command_shortcuts_mock: MagicMock
-    ):
-        command_shortcuts_mock.side_effect = self._create_exception_and_unlock_test_with_event
-        self.start_mqtt()
-
-        topic = self.get_topic_for(self.COMMAND_SHORTCUT_URI)
-        shortcut_data = {"params": [["spreads", "4", "4"]]}
-
-        self.fake_mqtt_broker.publish_to_subscription(topic, shortcut_data)
-
-        self.async_run_with_timeout(self.resume_test_event.wait())
-
-        topic = f"test_reply/hbot/{self.instance_id}/command_shortcuts"
-        msg = {'success': [], 'status': 400, 'msg': self.fake_err_msg}
-        self.async_run_with_timeout(self.wait_for_rcv(topic, msg, msg_key='data'), timeout=10)
-        self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
-
     @patch("hummingbot.client.command.config_command.ConfigCommand.config")
     def test_mqtt_command_config_updates_configurable_keys(
-        self,
-        config_mock: MagicMock
+            self,
+            config_mock: MagicMock
     ):
         config_mock.side_effect = self._create_exception_and_unlock_test_with_event
         self.start_mqtt()
@@ -399,8 +378,8 @@ class RemoteIfaceMQTTTests(TestCase):
 
     @patch("hummingbot.client.command.config_command.ConfigCommand.config")
     def test_mqtt_command_config_failure(
-        self,
-        config_mock: MagicMock
+            self,
+            config_mock: MagicMock
     ):
         config_mock.side_effect = self._create_exception_and_unlock_test_with_event
         self.start_mqtt()
@@ -416,8 +395,8 @@ class RemoteIfaceMQTTTests(TestCase):
 
     @patch("hummingbot.client.command.history_command.HistoryCommand.history")
     def test_mqtt_command_history_failure(
-        self,
-        history_mock: MagicMock
+            self,
+            history_mock: MagicMock
     ):
         history_mock.side_effect = self._create_exception_and_unlock_test_with_event
         self.start_mqtt()
@@ -435,10 +414,10 @@ class RemoteIfaceMQTTTests(TestCase):
     @patch("hummingbot.client.command.status_command.StatusCommand.status_check_all")
     @patch("hummingbot.client.command.import_command.ImportCommand.import_config_file", new_callable=AsyncMock)
     def test_mqtt_command_import_failure(
-        self,
-        import_mock: AsyncMock,
-        status_check_all_mock: MagicMock,
-        load_strategy_config_map_from_file: MagicMock
+            self,
+            import_mock: AsyncMock,
+            status_check_all_mock: MagicMock,
+            load_strategy_config_map_from_file: MagicMock
     ):
         import_mock.side_effect = self._create_exception_and_unlock_test_with_event_async
         self.start_mqtt()
@@ -455,10 +434,10 @@ class RemoteIfaceMQTTTests(TestCase):
     @patch("hummingbot.client.command.status_command.StatusCommand.status_check_all")
     @patch("hummingbot.client.command.import_command.ImportCommand.import_config_file", new_callable=AsyncMock)
     def test_mqtt_command_import_empty_strategy(
-        self,
-        import_mock: AsyncMock,
-        status_check_all_mock: MagicMock,
-        load_strategy_config_map_from_file: MagicMock
+            self,
+            import_mock: AsyncMock,
+            status_check_all_mock: MagicMock,
+            load_strategy_config_map_from_file: MagicMock
     ):
         import_mock.side_effect = self._create_exception_and_unlock_test_with_event_async
         topic = f"test_reply/hbot/{self.instance_id}/import"
@@ -473,8 +452,8 @@ class RemoteIfaceMQTTTests(TestCase):
 
     @patch("hummingbot.client.command.status_command.StatusCommand.strategy_status", new_callable=AsyncMock)
     def test_mqtt_command_status_no_strategy_running(
-        self,
-        strategy_status_mock: AsyncMock
+            self,
+            strategy_status_mock: AsyncMock
     ):
         strategy_status_mock.side_effect = self._create_exception_and_unlock_test_with_event_async
         self.start_mqtt()
@@ -489,8 +468,8 @@ class RemoteIfaceMQTTTests(TestCase):
 
     @patch("hummingbot.client.command.status_command.StatusCommand.strategy_status", new_callable=AsyncMock)
     def test_mqtt_command_status_async(
-        self,
-        strategy_status_mock: AsyncMock
+            self,
+            strategy_status_mock: AsyncMock
     ):
         strategy_status_mock.side_effect = self._create_exception_and_unlock_test_with_event_async
         self.hbapp.strategy = {}
@@ -507,8 +486,8 @@ class RemoteIfaceMQTTTests(TestCase):
 
     @patch("hummingbot.client.command.status_command.StatusCommand.strategy_status", new_callable=AsyncMock)
     def test_mqtt_command_status_sync(
-        self,
-        strategy_status_mock: AsyncMock
+            self,
+            strategy_status_mock: AsyncMock
     ):
         strategy_status_mock.side_effect = self._create_exception_and_unlock_test_with_event_async
         self.hbapp.strategy = {}
@@ -525,8 +504,8 @@ class RemoteIfaceMQTTTests(TestCase):
 
     @patch("hummingbot.client.command.status_command.StatusCommand.strategy_status", new_callable=AsyncMock)
     def test_mqtt_command_status_failure(
-        self,
-        strategy_status_mock: AsyncMock
+            self,
+            strategy_status_mock: AsyncMock
     ):
         strategy_status_mock.side_effect = self._create_exception_and_unlock_test_with_event_async
         self.start_mqtt()
@@ -538,8 +517,8 @@ class RemoteIfaceMQTTTests(TestCase):
 
     @patch("hummingbot.client.command.stop_command.StopCommand.stop")
     def test_mqtt_command_stop_failure(
-        self,
-        stop_mock: MagicMock
+            self,
+            stop_mock: MagicMock
     ):
         stop_mock.side_effect = self._create_exception_and_unlock_test_with_event
         self.start_mqtt()
@@ -570,8 +549,8 @@ class RemoteIfaceMQTTTests(TestCase):
         events_topic = f"hbot/{self.instance_id}/events"
 
         evt_type = "BuyOrderCreated"
-        self.async_run_with_timeout(self.wait_for_rcv(events_topic, evt_type, msg_key = 'type'), timeout=10)
-        self.assertTrue(self.is_msg_received(events_topic, evt_type, msg_key = 'type'))
+        self.async_run_with_timeout(self.wait_for_rcv(events_topic, evt_type, msg_key='type'), timeout=10)
+        self.assertTrue(self.is_msg_received(events_topic, evt_type, msg_key='type'))
 
     def test_mqtt_event_sell_order_created(self):
         self.start_mqtt()
@@ -590,8 +569,8 @@ class RemoteIfaceMQTTTests(TestCase):
         events_topic = f"hbot/{self.instance_id}/events"
 
         evt_type = "SellOrderCreated"
-        self.async_run_with_timeout(self.wait_for_rcv(events_topic, evt_type, msg_key = 'type'), timeout=10)
-        self.assertTrue(self.is_msg_received(events_topic, evt_type, msg_key = 'type'))
+        self.async_run_with_timeout(self.wait_for_rcv(events_topic, evt_type, msg_key='type'), timeout=10)
+        self.assertTrue(self.is_msg_received(events_topic, evt_type, msg_key='type'))
 
     def test_mqtt_event_order_expired(self):
         self.start_mqtt()
@@ -601,8 +580,8 @@ class RemoteIfaceMQTTTests(TestCase):
         events_topic = f"hbot/{self.instance_id}/events"
 
         evt_type = "OrderExpired"
-        self.async_run_with_timeout(self.wait_for_rcv(events_topic, evt_type, msg_key = 'type'), timeout=10)
-        self.assertTrue(self.is_msg_received(events_topic, evt_type, msg_key = 'type'))
+        self.async_run_with_timeout(self.wait_for_rcv(events_topic, evt_type, msg_key='type'), timeout=10)
+        self.assertTrue(self.is_msg_received(events_topic, evt_type, msg_key='type'))
 
     def test_mqtt_subscribed_topics(self):
         self.start_mqtt()
@@ -626,9 +605,9 @@ class RemoteIfaceMQTTTests(TestCase):
         events_topic = f"hbot/{self.instance_id}/events"
 
         evt_type = "Unknown"
-        self.async_run_with_timeout(self.wait_for_rcv(events_topic, evt_type, msg_key = 'type'), timeout=10)
-        self.assertTrue(self.is_msg_received(events_topic, evt_type, msg_key = 'type'))
-        self.assertTrue(self.is_msg_received(events_topic, test_evt, msg_key = 'data'))
+        self.async_run_with_timeout(self.wait_for_rcv(events_topic, evt_type, msg_key='type'), timeout=10)
+        self.assertTrue(self.is_msg_received(events_topic, evt_type, msg_key='type'))
+        self.assertTrue(self.is_msg_received(events_topic, test_evt, msg_key='data'))
 
     def test_mqtt_eventforwarder_invalid_events(self):
         self.start_mqtt()
@@ -640,9 +619,9 @@ class RemoteIfaceMQTTTests(TestCase):
 
         evt_type = "Unknown"
         self.async_run_with_timeout(
-            self.wait_for_rcv(events_topic, evt_type, msg_key = 'type'), timeout=10)
-        self.assertTrue(self.is_msg_received(events_topic, evt_type, msg_key = 'type'))
-        self.assertTrue(self.is_msg_received(events_topic, {}, msg_key = 'data'))
+            self.wait_for_rcv(events_topic, evt_type, msg_key='type'), timeout=10)
+        self.assertTrue(self.is_msg_received(events_topic, evt_type, msg_key='type'))
+        self.assertTrue(self.is_msg_received(events_topic, {}, msg_key='data'))
 
     def test_mqtt_notifier_fakes(self):
         self.start_mqtt()
@@ -674,21 +653,26 @@ class RemoteIfaceMQTTTests(TestCase):
 
     @patch("hummingbot.remote_iface.mqtt.MQTTGateway.health", new_callable=PropertyMock)
     def test_mqtt_gateway_check_health_restarts(
-        self,
-        health_mock: PropertyMock
+            self,
+            health_mock: PropertyMock
     ):
         health_mock.return_value = True
         status_topic = f"hbot/{self.instance_id}/status_updates"
         self.start_mqtt()
-        self.async_run_with_timeout(self.wait_for_logged("DEBUG", f"Started Heartbeat Publisher <hbot/{self.instance_id}/hb>"), timeout=10)
+        self.async_run_with_timeout(
+            self.wait_for_logged("DEBUG", f"Started Heartbeat Publisher <hbot/{self.instance_id}/hb>"), timeout=10)
         self.async_run_with_timeout(self.wait_for_rcv(status_topic, 'online'), timeout=10)
-        self.async_run_with_timeout(self.wait_for_logged("DEBUG", "Monitoring MQTT Gateway health for disconnections."), timeout=10)
+        self.async_run_with_timeout(self.wait_for_logged("DEBUG", "Monitoring MQTT Gateway health for disconnections."),
+                                    timeout=10)
         self.log_records.clear()
         health_mock.return_value = False
         self.restart_interval_mock.return_value = None
-        self.async_run_with_timeout(self.wait_for_logged("WARNING", "MQTT Gateway is disconnected, attempting to reconnect."), timeout=10)
+        self.async_run_with_timeout(
+            self.wait_for_logged("WARNING", "MQTT Gateway is disconnected, attempting to reconnect."), timeout=10)
         fake_err = "'<=' not supported between instances of 'NoneType' and 'int'"
-        self.async_run_with_timeout(self.wait_for_logged("ERROR", f"MQTT Gateway failed to reconnect: {fake_err}. Sleeping 10 seconds before retry."), timeout=10)
+        self.async_run_with_timeout(self.wait_for_logged("ERROR",
+                                                         f"MQTT Gateway failed to reconnect: {fake_err}. Sleeping 10 seconds before retry."),
+                                    timeout=10)
         self.assertFalse(
             self._is_logged(
                 "WARNING",
@@ -699,9 +683,11 @@ class RemoteIfaceMQTTTests(TestCase):
         self.log_records.clear()
         self.restart_interval_mock.return_value = 0.0
         self.hbapp.strategy = True
-        self.async_run_with_timeout(self.wait_for_logged("WARNING", "MQTT Gateway is disconnected, attempting to reconnect."), timeout=10)
+        self.async_run_with_timeout(
+            self.wait_for_logged("WARNING", "MQTT Gateway is disconnected, attempting to reconnect."), timeout=10)
         health_mock.return_value = True
-        self.async_run_with_timeout(self.wait_for_logged("WARNING", "MQTT Gateway successfully reconnected."), timeout=10)
+        self.async_run_with_timeout(self.wait_for_logged("WARNING", "MQTT Gateway successfully reconnected."),
+                                    timeout=10)
         self.assertTrue(
             self._is_logged(
                 "WARNING",

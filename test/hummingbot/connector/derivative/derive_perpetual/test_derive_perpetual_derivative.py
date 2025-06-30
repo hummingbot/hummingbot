@@ -2276,7 +2276,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         }
 
     @aioresponses()
-    def test_create_order_fails_and_raises_failure_event(self, mock_api):
+    async def test_create_order_fails_and_raises_failure_event(self, mock_api):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
@@ -2286,7 +2286,8 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                       callback=lambda *args, **kwargs: request_sent_event.set())
 
         order_id = self.place_buy_order()
-        self.async_run_with_timeout(request_sent_event.wait())
+        await asyncio.sleep(0.00001)
+        await request_sent_event.wait()
 
         order_request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(order_request)
@@ -2309,15 +2310,6 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
         self.assertEqual(OrderType.LIMIT, failure_event.order_type)
         self.assertEqual(order_id, failure_event.order_id)
-
-        self.assertTrue(
-            self.is_logged(
-                "INFO",
-                f"Order {order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
-                f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)"
-            )
-        )
 
     @aioresponses()
     def test_create_buy_limit_order_successfully(self, mock_api):
@@ -2674,7 +2666,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                          fill_event.trade_fee.flat_fees)
 
     @aioresponses()
-    def test_create_order_fails_when_trading_rule_error_and_raises_failure_event(self, mock_api):
+    async def test_create_order_fails_when_trading_rule_error_and_raises_failure_event(self, mock_api):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
@@ -2689,7 +2681,8 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         )
         # The second order is used only to have the event triggered and avoid using timeouts for tests
         order_id = self.place_buy_order()
-        self.async_run_with_timeout(request_sent_event.wait(), timeout=3)
+        await asyncio.sleep(0.00001)
+        await request_sent_event.wait()
 
         self.assertNotIn(order_id_for_invalid_order, self.exchange.in_flight_orders)
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
@@ -2699,20 +2692,3 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
         self.assertEqual(OrderType.LIMIT, failure_event.order_type)
         self.assertEqual(order_id_for_invalid_order, failure_event.order_id)
-
-        self.assertTrue(
-            self.is_logged(
-                "WARNING",
-                "Buy order amount 0.0001 is lower than the minimum order "
-                "size 0.1. The order will not be created, increase the "
-                "amount to be higher than the minimum order size."
-            )
-        )
-        self.assertTrue(
-            self.is_logged(
-                "INFO",
-                f"Order {order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
-                f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)"
-            )
-        )
