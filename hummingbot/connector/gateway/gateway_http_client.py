@@ -651,7 +651,8 @@ class GatewayHttpClient:
                 else:
                     self.logger().warning("Completer does not have update_gateway_config_namespaces method")
             else:
-                self.logger().warning("Could not access completer - app or input not ready")
+                # Silently skip if completer is not ready - this is expected
+                pass
         except Exception as e:
             self.logger().warning(f"Error updating completer namespaces: {str(e)}")
 
@@ -1084,7 +1085,8 @@ class GatewayHttpClient:
                         completer._cached_gateway_networks = chain_networks
                         self.logger().debug(f"Cached networks for tab completion: {chain_networks}")
                 else:
-                    self.logger().warning("Could not access completer - app or input not ready")
+                    # Silently skip if completer is not ready - this is expected during startup
+                    pass
             except Exception as e:
                 self.logger().warning(f"Error updating completer: {str(e)}", exc_info=True)
 
