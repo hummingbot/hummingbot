@@ -86,7 +86,7 @@ class ConnectorManager:
             else:
                 # Create live connector
                 keys = api_keys or Security.api_keys(connector_name)
-                if not keys:
+                if not keys and not conn_setting.uses_gateway_generic_connector():
                     raise ValueError(f"API keys required for live trading connector '{connector_name}'. "
                                      f"Either provide API keys or use a paper trade connector.")
                 read_only_config = ReadOnlyClientConfigAdapter.lock_config(self.client_config_map)
@@ -104,7 +104,7 @@ class ConnectorManager:
             # Add to active connectors
             self.connectors[connector_name] = connector
 
-            self._logger.info(f"Created connector: {connector_name} with pairs: {trading_pairs}")
+            self._logger.info(f"Created connector: {connector_name}")
 
             return connector
 
