@@ -1008,11 +1008,11 @@ class GatewayHttpClient:
         Initialize the gateway by loading all necessary information.
         This should be called once when the gateway comes online.
         """
-        self.logger().info("Starting gateway initialization...")
-
         if self._cache_initialized and (self.current_timestamp - self._cache_timestamp) < self._cache_ttl:
             self.logger().debug("Gateway cache is still valid, skipping initialization")
             return  # Cache is still valid
+
+        self.logger().info("Starting gateway initialization...")
 
         try:
             # Load chains

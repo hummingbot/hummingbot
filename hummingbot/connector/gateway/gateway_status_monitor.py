@@ -39,6 +39,7 @@ class GatewayStatusMonitor:
         self._gateway_config_keys: List[str] = []
         self._gateway_ready_event: asyncio.Event = asyncio.Event()
         self._initialization_in_progress: bool = False
+        self._initialization_complete: bool = False
 
     @property
     def ready(self) -> bool:
@@ -126,7 +127,7 @@ class GatewayStatusMonitor:
                     self._gateway_status = GatewayStatus.OFFLINE
             finally:
                 if self.gateway_status is GatewayStatus.ONLINE:
-                    if not self._gateway_ready_event.is_set() and not self._initialization_in_progress:
+                    if not self._initialization_complete and not self._initialization_in_progress:
                         self._initialization_in_progress = True
                         try:
                             self.logger().info("Gateway Service is ONLINE.")
@@ -148,10 +149,12 @@ class GatewayStatusMonitor:
                             await self.update_gateway_config_key_list()
 
                             self._gateway_ready_event.set()
+                            self._initialization_complete = True
                         finally:
                             self._initialization_in_progress = False
                 else:
                     self._gateway_ready_event.clear()
+                    self._initialization_complete = False
                 await asyncio.sleep(POLL_INTERVAL)
 
     async def _fetch_gateway_configs(self) -> Dict[str, Any]:

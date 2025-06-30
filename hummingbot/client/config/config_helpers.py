@@ -566,6 +566,10 @@ async def load_gateway_connectors():
 
     global _gateway_connectors_cache
 
+    # Skip if already loaded
+    if _gateway_connectors_cache is not None:
+        return
+
     try:
         gateway_client = GatewayHttpClient.get_instance()
         connectors_response = await gateway_client.get_connectors()

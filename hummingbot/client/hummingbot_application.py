@@ -77,7 +77,7 @@ class HummingbotApplication(*commands):
         # Script configuration support
         self.script_config: Optional[str] = None
         self._gateway_monitor = GatewayStatusMonitor(self)
-        self._gateway_monitor.start()
+        # Delay starting gateway monitor to avoid duplicate initialization
 
         # Initialize UI components only if not in headless mode
         if not headless_mode:
@@ -205,6 +205,9 @@ class HummingbotApplication(*commands):
 
     async def run(self):
         """Run the application - either UI mode or headless mode."""
+        # Start gateway monitor after app is initialized
+        self._gateway_monitor.start()
+
         if self.headless_mode:
             await self.run_headless()
         else:
