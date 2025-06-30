@@ -125,7 +125,9 @@ class GatewayStatusMonitor:
             build_config_namespace_keys(config_list, config_dict)
 
             self.gateway_config_keys = config_list
-            self._app.app.input_field.completer = load_completer(self._app)
+            if self._app.app is not None:
+                # Update the completer with the new config keys
+                self._app.app.input_field.completer = load_completer(self._app)
         except Exception:
             self.logger().error("Error fetching gateway configs. Please check that Gateway service is online. ",
                                 exc_info=True)
