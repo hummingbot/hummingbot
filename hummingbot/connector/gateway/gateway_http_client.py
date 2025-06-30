@@ -1009,7 +1009,6 @@ class GatewayHttpClient:
         This should be called once when the gateway comes online.
         """
         if self._cache_initialized and (self.current_timestamp - self._cache_timestamp) < self._cache_ttl:
-            self.logger().debug("Gateway cache is still valid, skipping initialization")
             return  # Cache is still valid
 
         self.logger().info("Starting gateway initialization...")
@@ -1068,22 +1067,18 @@ class GatewayHttpClient:
             try:
                 from hummingbot.client.hummingbot_application import HummingbotApplication
                 app = HummingbotApplication.main_application()
-                self.logger().debug(f"Main application instance: {app}")
 
                 if app and hasattr(app, 'app') and hasattr(app.app, 'input'):
                     completer = app.app.input.completer
-                    self.logger().debug(f"Found completer instance: {completer}")
 
                     if hasattr(completer, 'update_gateway_chains'):
                         completer.update_gateway_chains(chain_names)
-                        self.logger().debug(f"Updated gateway chains in completer: {chain_names}")
                     if hasattr(completer, 'update_gateway_config_namespaces'):
                         completer.update_gateway_config_namespaces(config_namespaces)
                         self.logger().info(f"Updated gateway config namespaces in completer: {len(config_namespaces)} namespaces")
                     # Cache networks for each chain
                     if hasattr(completer, '_cached_gateway_networks'):
                         completer._cached_gateway_networks = chain_networks
-                        self.logger().debug(f"Cached networks for tab completion: {chain_networks}")
                 else:
                     # Silently skip if completer is not ready - this is expected during startup
                     pass
