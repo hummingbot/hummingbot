@@ -38,6 +38,7 @@ class GatewayStatusMonitor:
         self._monitor_task = None
         self._gateway_config_keys: List[str] = []
         self._gateway_ready_event: asyncio.Event = asyncio.Event()
+        self._initialization_in_progress: bool = False
 
     @property
     def ready(self) -> bool:
@@ -125,25 +126,30 @@ class GatewayStatusMonitor:
                     self._gateway_status = GatewayStatus.OFFLINE
             finally:
                 if self.gateway_status is GatewayStatus.ONLINE:
-                    if not self._gateway_ready_event.is_set():
-                        self.logger().info("Gateway Service is ONLINE.")
+                    if not self._gateway_ready_event.is_set() and not self._initialization_in_progress:
+                        self._initialization_in_progress = True
+                        try:
+                            self.logger().info("Gateway Service is ONLINE.")
 
-                        # Fetch and update gateway connectors
-                        gateway = self._get_gateway_instance()
-                        gateway_connectors = await gateway.api_request("get", "connectors", fail_silently=True)
-                        GATEWAY_CONNECTORS.clear()
-                        GATEWAY_CONNECTORS.extend([connector["name"] for connector in gateway_connectors.get("connectors", [])])
+                            # Fetch and update gateway connectors
+                            gateway = self._get_gateway_instance()
+                            gateway_connectors = await gateway.api_request("get", "connectors", fail_silently=True)
+                            GATEWAY_CONNECTORS.clear()
+                            GATEWAY_CONNECTORS.extend([connector["name"] for connector in gateway_connectors.get("connectors", [])])
 
-                        # Load gateway connectors info for use in config_helpers
-                        from hummingbot.client.config.config_helpers import load_gateway_connectors
-                        await load_gateway_connectors()
+                            # Load gateway connectors info for use in config_helpers
+                            from hummingbot.client.config.config_helpers import load_gateway_connectors
+                            await load_gateway_connectors()
 
-                        # Initialize gateway with all necessary data
-                        await gateway.initialize_gateway()
+                            # Initialize gateway with all necessary data
+                            await gateway.initialize_gateway()
 
-                        # Update gateway config keys and reload completer
-                        await self.update_gateway_config_key_list()
-                    self._gateway_ready_event.set()
+                            # Update gateway config keys and reload completer
+                            await self.update_gateway_config_key_list()
+
+                            self._gateway_ready_event.set()
+                        finally:
+                            self._initialization_in_progress = False
                 else:
                     self._gateway_ready_event.clear()
                 await asyncio.sleep(POLL_INTERVAL)
