@@ -45,7 +45,7 @@ class StopCommand:
         # Stop all connectors
         for connector_name in list(self.trading_core.connectors.keys()):
             try:
-                await self.trading_core.remove_connector(connector_name)
+                self.trading_core.remove_connector(connector_name)
             except Exception as e:
                 self.logger().error(f"Error stopping connector {connector_name}: {e}")
 
