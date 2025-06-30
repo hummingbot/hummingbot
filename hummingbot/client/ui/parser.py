@@ -1,5 +1,5 @@
 import argparse
-from typing import TYPE_CHECKING, Any, List
+from typing import TYPE_CHECKING, List
 
 from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
 from hummingbot.exceptions import ArgumentParserError
@@ -37,7 +37,7 @@ class ThrowingArgumentParser(argparse.ArgumentParser):
         return filtered
 
 
-def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingArgumentParser, Any]:
+def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingArgumentParser:
     parser = ThrowingArgumentParser(prog="", add_help=False)
     subparsers = parser.add_subparsers()
 

@@ -23,6 +23,8 @@ if TYPE_CHECKING:
 
 class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
     _logger: Optional[HummingbotLogger] = None
+    last_parsed_trade_timestamp: Dict[str, int] = {}
+    last_parsed_order_book_timestamp: Dict[str, int] = {}
 
     def __init__(self, trading_pairs: List[str], connector: "XrplExchange", api_factory: WebAssistantsFactory):
         super().__init__(trading_pairs)
@@ -31,7 +33,6 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._trade_messages_queue_key = CONSTANTS.TRADE_EVENT_TYPE
         self._diff_messages_queue_key = CONSTANTS.DIFF_EVENT_TYPE
         self._snapshot_messages_queue_key = CONSTANTS.SNAPSHOT_EVENT_TYPE
-        self._xrpl_client = self._connector.order_book_data_client
         self._open_client_lock = asyncio.Lock()
 
     async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
@@ -46,39 +47,71 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :return: the response from the exchange (JSON dictionary)
         """
         base_currency, quote_currency = self._connector.get_currencies_from_trading_pair(trading_pair)
-
         async with self._open_client_lock:
-            try:
-                if not self._xrpl_client.is_open():
-                    await self._xrpl_client.open()
+            max_retries = len(self._connector._node_pool._nodes)
+            retry_count = 0
+            last_error = None
 
-                self._xrpl_client._websocket.max_size = 2**23
+            while retry_count < max_retries:
+                client: AsyncWebsocketClient | None = None
+                node_url: str | None = None
+                try:
+                    client = await self._get_client()
+                    node_url = client.url
+                    if not client.is_open():
+                        await client.open()
+                    if client._websocket is not None:
+                        client._websocket.max_size = CONSTANTS.WEBSOCKET_MAX_SIZE_BYTES
+                        client._websocket.ping_timeout = CONSTANTS.WEBSOCKET_CONNECTION_TIMEOUT
+                    orderbook_asks_task = self.fetch_order_book_side(
+                        client, "current", base_currency, quote_currency, CONSTANTS.ORDER_BOOK_DEPTH
+                    )
+                    orderbook_bids_task = self.fetch_order_book_side(
+                        client, "current", quote_currency, base_currency, CONSTANTS.ORDER_BOOK_DEPTH
+                    )
+                    orderbook_asks_info, orderbook_bids_info = await safe_gather(
+                        orderbook_asks_task, orderbook_bids_task
+                    )
+                    asks = orderbook_asks_info.result.get("offers", None)
+                    bids = orderbook_bids_info.result.get("offers", None)
+                    if asks is None or bids is None:
+                        raise ValueError(f"Error fetching order book snapshot for {trading_pair}")
+                    order_book = {
+                        "asks": asks,
+                        "bids": bids,
+                    }
+                    await client.close()
+                    return order_book
 
-                orderbook_asks_task = self.fetch_order_book_side(
-                    self._xrpl_client, "current", base_currency, quote_currency, CONSTANTS.ORDER_BOOK_DEPTH
+                except (TimeoutError, asyncio.exceptions.TimeoutError, ConnectionError) as e:
+                    last_error = e
+                    if node_url is not None:
+                        self._connector._node_pool.mark_bad_node(node_url)
+                    self.logger().warning(
+                        f"Node {node_url} failed with {type(e).__name__} when fetching order book snapshot for {trading_pair}. "
+                        f"Retrying with different node... (Attempt {retry_count + 1}/{max_retries})"
+                    )
+                except Exception as e:
+                    if node_url is not None:
+                        self._connector._node_pool.mark_bad_node(node_url)
+                    self.logger().error(
+                        f"{type(e).__name__} Exception fetching order book snapshot for {trading_pair}: {e}",
+                        exc_info=True,
+                    )
+                    raise e
+                finally:
+                    if client is not None:
+                        await client.close()
+                    retry_count += 1
+
+            # If we've exhausted all nodes, raise the last error
+            if last_error is not None:
+                self.logger().error(
+                    f"All nodes failed when fetching order book snapshot for {trading_pair}. "
+                    f"Last error: {type(last_error).__name__}: {str(last_error)}"
                 )
-                orderbook_bids_task = self.fetch_order_book_side(
-                    self._xrpl_client, "current", quote_currency, base_currency, CONSTANTS.ORDER_BOOK_DEPTH
-                )
-
-                orderbook_asks_info, orderbook_bids_info = await safe_gather(orderbook_asks_task, orderbook_bids_task)
-
-                asks = orderbook_asks_info.result.get("offers", None)
-                bids = orderbook_bids_info.result.get("offers", None)
-
-                if asks is None or bids is None:
-                    raise ValueError(f"Error fetching order book snapshot for {trading_pair}")
-
-                order_book = {
-                    "asks": asks,
-                    "bids": bids,
-                }
-
-                await self._xrpl_client.close()
-            except Exception as e:
-                raise Exception(f"Error fetching order book snapshot for {trading_pair}: {e}")
-
-        return order_book
+                raise last_error
+            raise Exception("Failed to fetch order book snapshot: All nodes failed")
 
     async def fetch_order_book_side(
         self, client: AsyncWebsocketClient, ledger_index, taker_gets, taker_pays, limit, try_count: int = 0
@@ -142,6 +175,8 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
             metadata={"trading_pair": trading_pair},
         )
 
+        self.last_parsed_order_book_timestamp[trading_pair] = int(snapshot_timestamp)
+
         return snapshot_msg
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
@@ -164,8 +199,8 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         pass
 
-    def _get_client(self) -> AsyncWebsocketClient:
-        return AsyncWebsocketClient(self._connector.node_url)
+    async def _get_client(self) -> AsyncWebsocketClient:
+        return await self._connector._get_async_client()
 
     async def _process_websocket_messages_for_pair(self, trading_pair: str):
         base_currency, quote_currency = self._connector.get_currencies_from_trading_pair(trading_pair)
@@ -177,42 +212,75 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
             snapshot=False,
             both=True,
         )
-
         subscribe = Subscribe(books=[subscribe_book_request])
+        retry_count = 0
+        max_retries = 10
 
-        async with self._get_client() as client:
-            client._websocket.max_size = 2**23
-            await client.send(subscribe)
+        while True:
+            node_url = None
+            client = None
+            listener = None
+            try:
+                client = await self._get_client()
+                async with client as ws_client:
+                    if ws_client._websocket is not None:
+                        ws_client._websocket.max_size = CONSTANTS.WEBSOCKET_MAX_SIZE_BYTES
+                        ws_client._websocket.ping_timeout = CONSTANTS.WEBSOCKET_CONNECTION_TIMEOUT
+                    # Set up a listener task
+                    listener = asyncio.create_task(self.on_message(ws_client, trading_pair, base_currency))
+                    # Subscribe to the order book
+                    await ws_client.send(subscribe)
 
-            async for message in client:
-                transaction = message.get("transaction")
+                    # Wait for listener to complete naturally when connection closes
+                    # The on_message async iterator will exit when WebSocket closes
+                    # WebSocket ping/pong mechanism handles keep-alive automatically
+                    retry_count = 0
+                    await listener
+            except asyncio.CancelledError:
+                self.logger().info(f"Order book listener task for {trading_pair} has been cancelled. Exiting...")
+                raise
+            except (ConnectionError, TimeoutError) as e:
+                if node_url is not None:
+                    self._connector._node_pool.mark_bad_node(node_url)
+                self.logger().warning(f"Websocket connection error for {trading_pair}: {e}")
+                retry_count += 1
+            except Exception as e:
+                self.logger().exception(f"Unexpected error occurred when listening to order book streams: {e}")
+                retry_count += 1
+            finally:
+                if listener is not None:
+                    listener.cancel()
+                    await listener
+                if client is not None:
+                    await client.close()
+
+                if retry_count >= max_retries:
+                    break
+
+    async def on_message(self, client: AsyncWebsocketClient, trading_pair: str, base_currency):
+        async for message in client:
+            try:
+                transaction = message.get("transaction") or message.get("tx_json")
                 meta = message.get("meta")
-
                 if transaction is None or meta is None:
                     self.logger().debug(f"Received message without transaction or meta: {message}")
                     continue
-
                 order_book_changes = get_order_book_changes(meta)
                 for account_offer_changes in order_book_changes:
                     for offer_change in account_offer_changes["offer_changes"]:
                         if offer_change["status"] in ["partially-filled", "filled"]:
                             taker_gets = offer_change["taker_gets"]
                             taker_gets_currency = taker_gets["currency"]
-
                             price = float(offer_change["maker_exchange_rate"])
                             filled_quantity = abs(Decimal(offer_change["taker_gets"]["value"]))
                             transact_time = ripple_time_to_posix(transaction["date"])
                             trade_id = transaction["date"] + transaction["Sequence"]
                             timestamp = time.time()
-
                             if taker_gets_currency == base_currency.currency:
-                                # This is BUY trade (consume ASK)
                                 trade_type = float(TradeType.BUY.value)
                             else:
-                                # This is SELL trade (consume BID)
                                 price = 1 / price
                                 trade_type = float(TradeType.SELL.value)
-
                             trade_data = {
                                 "trade_type": trade_type,
                                 "trade_id": trade_id,
@@ -225,8 +293,11 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             self._message_queue[CONSTANTS.TRADE_EVENT_TYPE].put_nowait(
                                 {"trading_pair": trading_pair, "trade": trade_data}
                             )
+                            self.last_parsed_trade_timestamp[trading_pair] = int(timestamp)
+            except Exception as e:
+                self.logger().exception(f"Error processing order book message: {e}")
 
-    async def listen_for_subscriptions(self):
+    async def listen_for_subscriptions(self):  # type: ignore
         """
         Connects to the trade events and order diffs websocket endpoints and listens to the messages sent by the
         exchange. Each message is stored in its own queue.

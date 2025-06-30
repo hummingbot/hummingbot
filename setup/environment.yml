@@ -4,6 +4,7 @@ channels:
   - defaults
 dependencies:
   ### Packages needed for the build/install process
+  - autopep8
   - conda-build>=3.26.0
   - coverage>=7.2.7
   - cython
@@ -14,7 +15,7 @@ dependencies:
   - python>=3.10.12
   - pytest>=7.4.0
   - pytest-asyncio>=0.16.0
-  - setuptools>=68.0.0
+  - setuptools==80.8.0
   ### Packages used within HB and helping reduce the footprint of pip-installed packages
   - aiohttp>=3.8.5
   - asyncssh>=2.13.2
@@ -28,7 +29,7 @@ dependencies:
   - commlib-py>=0.11
   - cryptography>=41.0.2
   - injective-py==1.10.*
-  - eth-account >=0.13.0
+  - eth-account>=0.13.0
   - msgpack-python
   - numpy>=1.25.0,<2
   - objgraph
@@ -37,8 +38,7 @@ dependencies:
   - prompt_toolkit>=3.0.39
   - protobuf>=4.23.3
   - psutil>=5.9.5
-  # No linux-aarch64/ppc64le conda package available ... yet
-  # - ptpython>=3.0.25
+  - ptpython>3.0.25
   - pydantic>=2
   - pyjwt>=2.3.0
   - pyperclip>=1.8.2
@@ -55,6 +55,6 @@ dependencies:
   # This needs to be restricted to <2.0 - tests fail otherwise
   - urllib3>=1.26.15,<2.0
   - web3
-  - xrpl-py>=4.1.0
+  - xrpl-py==4.1.0
   - yaml>=0.2.5
   - zlib>=1.2.13

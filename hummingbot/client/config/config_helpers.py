@@ -96,7 +96,7 @@ class ClientConfigAdapter:
         return self._hb_config.is_required(attr)
 
     def keys(self) -> Generator[str, None, None]:
-        return self._hb_config.model_fields.keys()
+        return self._hb_config.__class__.model_fields.keys()
 
     def config_paths(self) -> Generator[str, None, None]:
         return (traversal_item.config_path for traversal_item in self.traverse())
@@ -108,7 +108,7 @@ class ClientConfigAdapter:
         'MISSING_AND_REQUIRED'.
         """
         depth = 0
-        for attr, field_info in self._hb_config.model_fields.items():
+        for attr, field_info in self._hb_config.__class__.model_fields.items():
             type_ = field_info.annotation
             if hasattr(self, attr):
                 value = getattr(self, attr)
@@ -154,7 +154,7 @@ class ClientConfigAdapter:
         return secure
 
     def get_client_data(self, attr_name: str) -> Optional[ClientFieldData]:
-        json_schema_extra = self._hb_config.model_fields[attr_name].json_schema_extra or {}
+        json_schema_extra = self._hb_config.__class__.model_fields[attr_name].json_schema_extra or {}
         client_data = ClientFieldData(
             prompt=json_schema_extra.get("prompt"),
             prompt_on_new=json_schema_extra.get("prompt_on_new", False),
@@ -165,10 +165,10 @@ class ClientConfigAdapter:
         return client_data
 
     def get_description(self, attr_name: str) -> str:
-        return self._hb_config.model_fields[attr_name].description
+        return self._hb_config.__class__.model_fields[attr_name].description
 
     def get_default(self, attr_name: str) -> Any:
-        default = self._hb_config.model_fields[attr_name].default
+        default = self._hb_config.__class__.model_fields[attr_name].default
         if isinstance(default, type(Ellipsis)) or isinstance(default, PydanticUndefinedType):
             default = None
         return default
@@ -187,7 +187,7 @@ class ClientConfigAdapter:
         return default_str
 
     def get_type(self, attr_name: str) -> Type:
-        return self._hb_config.model_fields[attr_name].annotation
+        return self._hb_config.__class__.model_fields[attr_name].annotation
 
     def generate_yml_output_str_with_comments(self) -> str:
         fragments_with_comments = [self._generate_title()]
@@ -200,7 +200,7 @@ class ClientConfigAdapter:
             setattr(self, attr, value)
 
     def full_copy(self):
-        return self.__class__(hb_config=self._hb_config.copy(deep=True))
+        return self.__class__(hb_config=self._hb_config.model_copy(deep=True))
 
     def decrypt_all_secure_data(self):
         from hummingbot.client.config.security import Security  # avoids circular import
@@ -250,7 +250,7 @@ class ClientConfigAdapter:
 
     def _dict_in_conf_order(self) -> Dict[str, Any]:
         conf_dict = {}
-        for attr in self._hb_config.model_fields.keys():
+        for attr in self._hb_config.__class__.model_fields.keys():
             value = getattr(self, attr)
             if isinstance(value, ClientConfigAdapter):
                 value = value._dict_in_conf_order()
@@ -263,6 +263,8 @@ class ClientConfigAdapter:
         for attr, value in conf_dict.items():
             if isinstance(value, SecretStr):
                 clear_text_value = value.get_secret_value() if isinstance(value, SecretStr) else value
+                if not Security.secrets_manager:
+                    logging.getLogger().warning(f"Ignore the following error if your config file {attr} contains secret(s)")
                 conf_dict[attr] = Security.secrets_manager.encrypt_secret_value(attr, clear_text_value)
 
     def _decrypt_secrets(self, conf_dict: Dict[str, Any]):

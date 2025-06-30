@@ -1,3 +1,4 @@
+import collections
 import time
 from decimal import Decimal
 from typing import Dict, List, Tuple
@@ -35,14 +36,15 @@ class AsyncRequestContext(AsyncRequestContextBase):
 
         :return: True if it is within capacity to add a new task
         """
-        if self._rate_limit is None:
-            return True
-
-        list_of_limits: List[Tuple[RateLimit, int]] = [(self._rate_limit, self._rate_limit.weight)] + self._related_limits
-        now: float = self._time()
-
-        for rate_limit, weight in list_of_limits:
-            if rate_limit.limit_type == RateLimitType.DECAY:
+        if self._rate_limit is not None:
+            list_of_limits: List[Tuple[RateLimit, int]] = [(self._rate_limit,
+                                                            self._rate_limit.weight)] + self._related_limits
+            limit_id_to_task_log_map = collections.defaultdict(list)
+            for task in self._task_logs:
+                limit_id_to_task_log_map[task.rate_limit.limit_id].append(task)
+            now: float = self._time()
+            for rate_limit, weight in list_of_limits:
+              if rate_limit.limit_type == RateLimitType.DECAY:
                 # For decay-based limits, calculate current usage with decay applied
                 current_usage = self._calculate_decay_usage(rate_limit, now)
 
@@ -55,14 +57,11 @@ class AsyncRequestContext(AsyncRequestContextBase):
                         self.logger().notify(msg)
                         AsyncRequestContextBase._last_max_cap_warning_ts = now
                     return False
-            else:
-                capacity_used: int = sum([
-                    task.weight
-                    for task in self._task_logs
-                    if rate_limit.limit_id == task.rate_limit.limit_id and
-                    Decimal(str(now)) - Decimal(str(task.timestamp)) - Decimal(str(rate_limit.time_interval * self._safety_margin_pct)) <= task.rate_limit.time_interval
-                ])
-
+              else:
+                capacity_used: int = sum([task.weight
+                                          for task in limit_id_to_task_log_map[rate_limit.limit_id]
+                                          if
+                                          Decimal(str(now)) - Decimal(str(task.timestamp)) - Decimal(str(task.rate_limit.time_interval * self._safety_margin_pct)) <= task.rate_limit.time_interval])
                 if capacity_used + weight > rate_limit.limit:
                     if self._last_max_cap_warning_ts < now - MAX_CAPACITY_REACHED_WARNING_INTERVAL:
                         msg = f"API rate limit on {rate_limit.limit_id} ({rate_limit.limit} calls per " \

@@ -14,7 +14,7 @@ from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.markets_recorder import MarketsRecorder
-from hummingbot.core.data_type.common import PositionMode
+from hummingbot.core.data_type.common import MarketDict, PositionMode
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
 from hummingbot.exceptions import InvalidController
@@ -24,6 +24,7 @@ from hummingbot.strategy_v2.controllers.directional_trading_controller_base impo
     DirectionalTradingControllerConfigBase,
 )
 from hummingbot.strategy_v2.controllers.market_making_controller_base import MarketMakingControllerConfigBase
+from hummingbot.strategy_v2.executors.data_types import PositionSummary
 from hummingbot.strategy_v2.executors.executor_orchestrator import ExecutorOrchestrator
 from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executor_actions import (
@@ -39,7 +40,7 @@ class StrategyV2ConfigBase(BaseClientModel):
     """
     Base class for version 2 strategy configurations.
     """
-    markets: Dict[str, Set[str]] = Field(
+    markets: MarketDict = Field(
         default=...,
         json_schema_extra={
             "prompt": "Enter markets in format 'exchange1.tp1,tp2:exchange2.tp1,tp2':",
@@ -174,7 +175,7 @@ class StrategyV2Base(ScriptStrategyBase):
         Initialize the markets that the strategy is going to use. This method is called when the strategy is created in
         the start command. Can be overridden to implement custom behavior.
         """
-        markets = config.markets
+        markets = MarketDict(config.markets)
         controllers_configs = config.load_controller_configs()
         for controller_config in controllers_configs:
             markets = controller_config.update_markets(markets)
@@ -182,23 +183,46 @@ class StrategyV2Base(ScriptStrategyBase):
 
     def __init__(self, connectors: Dict[str, ConnectorBase], config: Optional[StrategyV2ConfigBase] = None):
         super().__init__(connectors, config)
-        # Initialize the executor orchestrator
         self.config = config
-        self.executor_orchestrator = ExecutorOrchestrator(strategy=self)
 
-        self.executors_info: Dict[str, List[ExecutorInfo]] = {}
-        self.positions_held: Dict[str, List] = {}
+        # Initialize empty dictionaries to hold controllers and unified controller reports
+        self.controllers: Dict[str, ControllerBase] = {}
+        self.controller_reports: Dict[str, Dict] = {}
 
-        # Create a queue to listen to actions from the controllers
-        self.actions_queue = asyncio.Queue()
-        self.listen_to_executor_actions_task: asyncio.Task = asyncio.create_task(self.listen_to_executor_actions())
-
-        # Initialize the market data provider
+        # Initialize the market data provider and executor orchestrator
         self.market_data_provider = MarketDataProvider(connectors)
         self.market_data_provider.initialize_candles_feed_list(config.candles_config)
-        self.controllers: Dict[str, ControllerBase] = {}
+
+        # Initialize the controllers
+        self.actions_queue = asyncio.Queue()
+        self.listen_to_executor_actions_task: asyncio.Task = asyncio.create_task(self.listen_to_executor_actions())
         self.initialize_controllers()
         self._is_stop_triggered = False
+
+        # Collect initial positions from all controller configs
+        self.executor_orchestrator = ExecutorOrchestrator(
+            strategy=self,
+            initial_positions_by_controller=self._collect_initial_positions()
+        )
+
+    def _collect_initial_positions(self) -> Dict[str, List]:
+        """
+        Collect initial positions from all controller configurations.
+        Returns a dictionary mapping controller_id -> list of InitialPositionConfig.
+        """
+        if not self.config:
+            return {}
+
+        initial_positions_by_controller = {}
+        try:
+            controllers_configs = self.config.load_controller_configs()
+            for controller_config in controllers_configs:
+                if hasattr(controller_config, 'initial_positions') and controller_config.initial_positions:
+                    initial_positions_by_controller[controller_config.id] = controller_config.initial_positions
+        except Exception as e:
+            self.logger().error(f"Error collecting initial positions: {e}", exc_info=True)
+
+        return initial_positions_by_controller
 
     def initialize_controllers(self):
         """
@@ -241,7 +265,7 @@ class StrategyV2Base(ScriptStrategyBase):
                 self.update_executors_info()
                 controller_id = actions[0].controller_id
                 controller = self.controllers.get(controller_id)
-                controller.executors_info = self.executors_info.get(controller_id, [])
+                controller.executors_info = self.get_executors_by_controller(controller_id)
                 controller.executors_update_event.set()
             except asyncio.CancelledError:
                 raise
@@ -250,18 +274,19 @@ class StrategyV2Base(ScriptStrategyBase):
 
     def update_executors_info(self):
         """
-        Update the local state of the executors and publish the updates to the active controllers.
-        In this case we are going to update the controllers directly with the executors info so the event is not
-        set and is managed with the async queue.
+        Update the unified controller reports and publish the updates to the active controllers.
         """
         try:
-            self.executors_info = self.executor_orchestrator.get_executors_report()
-            self.positions_held = self.executor_orchestrator.get_positions_report()
-            for controllers in self.controllers.values():
-                controllers.executors_info = self.executors_info.get(controllers.config.id, [])
-                controllers.positions_held = self.positions_held.get(controllers.config.id, [])
+            # Get all reports in a single call and store them
+            self.controller_reports = self.executor_orchestrator.get_all_reports()
+
+            # Update each controller with its specific data
+            for controller_id, controller in self.controllers.items():
+                controller_report = self.controller_reports.get(controller_id, {})
+                controller.executors_info = controller_report.get("executors", [])
+                controller.positions_held = controller_report.get("positions", [])
         except Exception as e:
-            self.logger().error(f"Error updating executors info: {e}", exc_info=True)
+            self.logger().error(f"Error updating controller reports: {e}", exc_info=True)
 
     @staticmethod
     def is_perpetual(connector: str) -> bool:
@@ -324,10 +349,21 @@ class StrategyV2Base(ScriptStrategyBase):
         return []
 
     def get_executors_by_controller(self, controller_id: str) -> List[ExecutorInfo]:
-        return self.executors_info.get(controller_id, [])
+        """Get executors for a specific controller from the unified reports."""
+        return self.controller_reports.get(controller_id, {}).get("executors", [])
 
     def get_all_executors(self) -> List[ExecutorInfo]:
-        return [executor for executors in self.executors_info.values() for executor in executors]
+        """Get all executors from all controllers."""
+        return [executor for report in self.controller_reports.values()
+                for executor in report.get("executors", [])]
+
+    def get_positions_by_controller(self, controller_id: str) -> List[PositionSummary]:
+        """Get positions for a specific controller from the unified reports."""
+        return self.controller_reports.get(controller_id, {}).get("positions", [])
+
+    def get_performance_report(self, controller_id: str):
+        """Get performance report for a specific controller."""
+        return self.controller_reports.get(controller_id, {}).get("performance")
 
     def set_leverage(self, connector: str, trading_pair: str, leverage: int):
         self.connectors[connector].set_leverage(trading_pair, leverage)
@@ -358,10 +394,12 @@ class StrategyV2Base(ScriptStrategyBase):
     def format_status(self) -> str:
         if not self.ready_to_trade:
             return "Market connectors are not ready."
+
         lines = []
         warning_lines = []
         warning_lines.extend(self.network_warning(self.get_market_trading_pair_tuples()))
 
+        # Basic account info
         balance_df = self.get_balance_df()
         lines.extend(["", "  Balances:"] + ["    " + line for line in balance_df.to_string(index=False).split("\n")])
 
@@ -370,117 +408,93 @@ class StrategyV2Base(ScriptStrategyBase):
             lines.extend(["", "  Orders:"] + ["    " + line for line in df.to_string(index=False).split("\n")])
         except ValueError:
             lines.extend(["", "  No active maker orders."])
-        columns_to_show = ["type", "side", "status", "net_pnl_pct", "net_pnl_quote", "cum_fees_quote",
-                           "filled_amount_quote", "is_trading", "close_type", "age"]
 
-        # Initialize global performance metrics
-        global_realized_pnl_quote = Decimal(0)
-        global_unrealized_pnl_quote = Decimal(0)
-        global_volume_traded = Decimal(0)
-        global_close_type_counts = {}
+        # Controller sections
+        performance_data = []
 
-        # Process each controller
         for controller_id, controller in self.controllers.items():
-            lines.append(f"\n\nController: {controller_id}")
-            # Append controller market data metrics
+            lines.append(f"\n{'=' * 60}")
+            lines.append(f"Controller: {controller_id}")
+            lines.append(f"{'=' * 60}")
+
+            # Controller status
             lines.extend(controller.to_format_status())
-            # executors_list = self.get_executors_by_controller(controller_id)
-            # if len(executors_list) == 0:
-            #     lines.append("No executors found.")
-            # else:
-            #     # In memory executors info
-            #     executors_df = self.executors_info_to_df(executors_list)
-            #     executors_df["age"] = self.current_timestamp - executors_df["timestamp"]
-            #     lines.extend([format_df_for_printout(executors_df[columns_to_show], table_format="psql")])
 
-            # Generate performance report for each controller
-            performance_report = self.executor_orchestrator.generate_performance_report(controller_id)
+            # Last 6 executors table
+            executors_list = self.get_executors_by_controller(controller_id)
+            if executors_list:
+                lines.append("\n  Recent Executors (Last 6):")
+                # Sort by timestamp and take last 6
+                recent_executors = sorted(executors_list, key=lambda x: x.timestamp, reverse=True)[:6]
+                executors_df = self.executors_info_to_df(recent_executors)
+                if not executors_df.empty:
+                    executors_df["age"] = self.current_timestamp - executors_df["timestamp"]
+                    executor_columns = ["type", "side", "status", "net_pnl_pct", "net_pnl_quote",
+                                        "filled_amount_quote", "is_trading", "close_type", "age"]
+                    available_columns = [col for col in executor_columns if col in executors_df.columns]
+                    lines.append(format_df_for_printout(executors_df[available_columns],
+                                                        table_format="psql", index=False))
+            else:
+                lines.append("  No executors found.")
 
-            # Append performance metrics
-            controller_performance_info = [
-                f"Realized PNL (Quote): {performance_report.realized_pnl_quote:.2f} | Unrealized PNL (Quote): {performance_report.unrealized_pnl_quote:.2f}"
-                f"--> Global PNL (Quote): {performance_report.global_pnl_quote:.2f} | Global PNL (%): {performance_report.global_pnl_pct:.2f}%",
-                f"Total Volume Traded: {performance_report.volume_traded:.2f}"
-            ]
+            # Positions table
+            positions = self.get_positions_by_controller(controller_id)
+            if positions:
+                lines.append("\n  Positions Held:")
+                positions_data = []
+                for pos in positions:
+                    positions_data.append({
+                        "Connector": pos.connector_name,
+                        "Trading Pair": pos.trading_pair,
+                        "Side": pos.side.name,
+                        "Amount": f"{pos.amount:.4f}",
+                        "Value (USD)": f"${pos.amount * pos.breakeven_price:.2f}",
+                        "Breakeven Price": f"{pos.breakeven_price:.6f}",
+                        "Unrealized PnL": f"${pos.unrealized_pnl_quote:+.2f}",
+                        "Realized PnL": f"${pos.realized_pnl_quote:+.2f}",
+                        "Fees": f"${pos.cum_fees_quote:.2f}"
+                    })
+                positions_df = pd.DataFrame(positions_data)
+                lines.append(format_df_for_printout(positions_df, table_format="psql", index=False))
+            else:
+                lines.append("  No positions held.")
 
-            # Add position summary if available
-            if hasattr(performance_report, "positions_summary") and performance_report.positions_summary:
-                controller_performance_info.append("\nPositions Held Summary:")
-                controller_performance_info.append("-" * 170)
-                controller_performance_info.append(
-                    f"{'Connector':<20} | "
-                    f"{'Trading Pair':<12} | "
-                    f"{'Side':<4} | "
-                    f"{'Volume':<12} | "
-                    f"{'Units':<10} | "
-                    f"{'Value (USD)':<12} | "
-                    f"{'BEP':<16} | "
-                    f"{'Realized PNL':<12} | "
-                    f"{'Unreal. PNL':<12} | "
-                    f"{'Fees':<10} | "
-                    f"{'Global PNL':<12}"
-                )
-                controller_performance_info.append("-" * 170)
-                for pos in performance_report.positions_summary:
-                    controller_performance_info.append(
-                        f"{pos.connector_name:<20} | "
-                        f"{pos.trading_pair:<12} | "
-                        f"{pos.side.name:<4} | "
-                        f"${pos.volume_traded_quote:>11.2f} | "
-                        f"{pos.amount:>10.4f} | "
-                        f"${pos.amount * pos.breakeven_price:<11.2f} | "
-                        f"{pos.breakeven_price:>16.6f} | "
-                        f"${pos.realized_pnl_quote:>+11.2f} | "
-                        f"${pos.unrealized_pnl_quote:>+11.2f} | "
-                        f"${pos.cum_fees_quote:>9.2f} | "
-                        f"${pos.global_pnl_quote:>10.2f}"
-                    )
-                controller_performance_info.append("-" * 170)
+            # Collect performance data for summary table
+            performance_report = self.get_performance_report(controller_id)
+            if performance_report:
+                performance_data.append({
+                    "Controller": controller_id,
+                    "Realized PnL": f"${performance_report.realized_pnl_quote:.2f}",
+                    "Unrealized PnL": f"${performance_report.unrealized_pnl_quote:.2f}",
+                    "Global PnL": f"${performance_report.global_pnl_quote:.2f}",
+                    "Global PnL %": f"{performance_report.global_pnl_pct:.2f}%",
+                    "Volume Traded": f"${performance_report.volume_traded:.2f}"
+                })
 
-            # Append close type counts
-            if performance_report.close_type_counts:
-                controller_performance_info.append("Close Types Count:")
-                for close_type, count in performance_report.close_type_counts.items():
-                    controller_performance_info.append(f"  {close_type}: {count}")
-            lines.extend(controller_performance_info)
+        # Performance summary table
+        if performance_data:
+            lines.append(f"\n{'=' * 80}")
+            lines.append("PERFORMANCE SUMMARY")
+            lines.append(f"{'=' * 80}")
 
-            # Aggregate global metrics and close type counts
-            global_realized_pnl_quote += performance_report.realized_pnl_quote
-            global_unrealized_pnl_quote += performance_report.unrealized_pnl_quote
-            global_volume_traded += performance_report.volume_traded
-            for close_type, value in performance_report.close_type_counts.items():
-                global_close_type_counts[close_type] = global_close_type_counts.get(close_type, 0) + value
+            # Calculate global totals
+            global_realized = sum(Decimal(p["Realized PnL"].replace("$", "")) for p in performance_data)
+            global_unrealized = sum(Decimal(p["Unrealized PnL"].replace("$", "")) for p in performance_data)
+            global_total = global_realized + global_unrealized
+            global_volume = sum(Decimal(p["Volume Traded"].replace("$", "")) for p in performance_data)
+            global_pnl_pct = (global_total / global_volume) * 100 if global_volume > 0 else Decimal(0)
 
-        main_executors_list = self.get_executors_by_controller("main")
-        if len(main_executors_list) > 0:
-            lines.append("\n\nMain Controller Executors:")
-            main_executors_df = self.executors_info_to_df(main_executors_list)
-            main_executors_df["age"] = self.current_timestamp - main_executors_df["timestamp"]
-            lines.extend([format_df_for_printout(main_executors_df[columns_to_show], table_format="psql")])
-            main_performance_report = self.executor_orchestrator.generate_performance_report("main")
-            # Aggregate global metrics and close type counts
-            global_realized_pnl_quote += main_performance_report.realized_pnl_quote
-            global_unrealized_pnl_quote += main_performance_report.unrealized_pnl_quote
-            global_volume_traded += main_performance_report.volume_traded
-            for close_type, value in main_performance_report.close_type_counts.items():
-                global_close_type_counts[close_type] = global_close_type_counts.get(close_type, 0) + value
+            # Add global row
+            performance_data.append({
+                "Controller": "GLOBAL TOTAL",
+                "Realized PnL": f"${global_realized:.2f}",
+                "Unrealized PnL": f"${global_unrealized:.2f}",
+                "Global PnL": f"${global_total:.2f}",
+                "Global PnL %": f"{global_pnl_pct:.2f}%",
+                "Volume Traded": f"${global_volume:.2f}"
+            })
 
-        # Calculate and append global performance metrics
-        global_pnl_quote = global_realized_pnl_quote + global_unrealized_pnl_quote
-        global_pnl_pct = (global_pnl_quote / global_volume_traded) * 100 if global_volume_traded != 0 else Decimal(0)
+            performance_df = pd.DataFrame(performance_data)
+            lines.append(format_df_for_printout(performance_df, table_format="psql", index=False))
 
-        global_performance_summary = [
-            "\n\nGlobal Performance Summary:",
-            f"Global PNL (Quote): {global_pnl_quote:.2f} | Global PNL (%): {global_pnl_pct:.2f}% | Total Volume Traded (Global): {global_volume_traded:.2f}"
-        ]
-
-        # Append global close type counts
-        if global_close_type_counts:
-            global_performance_summary.append("Global Close Types Count:")
-            for close_type, count in global_close_type_counts.items():
-                global_performance_summary.append(f"  {close_type}: {count}")
-
-        lines.extend(global_performance_summary)
-
-        # Combine original and extra information
         return "\n".join(lines)

@@ -7,10 +7,14 @@ from typing import Dict, List, Optional, Tuple
 import pandas as pd
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter, get_connector_class
+from hummingbot.client.config.config_helpers import (
+    ClientConfigAdapter,
+    api_keys_from_connector_config_map,
+    get_connector_class,
+)
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.core.data_type.common import PriceType, TradeType
+from hummingbot.core.data_type.common import GroupedSetDict, LazyDict, PriceType, TradeType
 from hummingbot.core.data_type.order_book_query_result import OrderBookQueryResult
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
@@ -38,8 +42,8 @@ class MarketDataProvider:
         self._rates_update_task = None
         self._rates_update_interval = rates_update_interval
         self._rates = {}
-        self._rate_sources = {}
-        self._rates_required = {}
+        self._rate_sources = LazyDict[str, ConnectorBase](self.get_non_trading_connector)
+        self._rates_required = GroupedSetDict[str, ConnectorPair]()
         self.conn_settings = AllConnectorSettings.get_connector_settings()
 
     def stop(self):
@@ -49,10 +53,10 @@ class MarketDataProvider:
             self._rates_update_task.cancel()
             self._rates_update_task = None
         self.candles_feeds.clear()
+        self._rates_required.clear()
 
     @property
     def ready(self) -> bool:
-        # TODO: unify the ready property for connectors and feeds
         all_connectors_running = all(connector.ready for connector in self.connectors.values())
         all_candles_feeds_running = all(feed.ready for feed in self.candles_feeds.values())
         return all_connectors_running and all_candles_feeds_running
@@ -63,54 +67,75 @@ class MarketDataProvider:
     def initialize_rate_sources(self, connector_pairs: List[ConnectorPair]):
         """
         Initializes a rate source based on the given connector pair.
-        :param connector_pair: ConnectorPair
+        :param connector_pairs: List[ConnectorPair]
         """
         for connector_pair in connector_pairs:
+            connector_name, _ = connector_pair
             if connector_pair.is_amm_connector():
-                if "gateway" not in self._rates_required:
-                    self._rates_required["gateway"] = []
-                self._rates_required["gateway"].append(connector_pair)
+                self._rates_required.add_or_update("gateway", connector_pair)
                 continue
-            if connector_pair.connector_name not in self._rates_required:
-                self._rates_required[connector_pair.connector_name] = []
-            self._rates_required[connector_pair.connector_name].append(connector_pair)
-            if connector_pair.connector_name not in self._rate_sources:
-                self._rate_sources[connector_pair.connector_name] = self.get_non_trading_connector(
-                    connector_pair.connector_name)
+            self._rates_required.add_or_update(connector_name, connector_pair)
         if not self._rates_update_task:
             self._rates_update_task = safe_ensure_future(self.update_rates_task())
+
+    def remove_rate_sources(self, connector_pairs: List[ConnectorPair]):
+        """
+        Removes rate sources for the given connector pairs.
+        :param connector_pairs: List[ConnectorPair]
+        """
+        for connector_pair in connector_pairs:
+            connector_name, _ = connector_pair
+            if connector_pair.is_amm_connector():
+                self._rates_required.remove("gateway", connector_pair)
+                continue
+            self._rates_required.remove(connector_name, connector_pair)
+
+        # Stop the rates update task if no more rates are required
+        if len(self._rates_required) == 0 and self._rates_update_task:
+            self._rates_update_task.cancel()
+            self._rates_update_task = None
 
     async def update_rates_task(self):
         """
         Updates the rates for all rate sources.
         """
-        while True:
-            rate_oracle = RateOracle.get_instance()
-            for connector, connector_pairs in self._rates_required.items():
-                if connector == "gateway":
-                    tasks = []
-                    gateway_client = GatewayHttpClient.get_instance()
-                    for connector_pair in connector_pairs:
-                        connector, chain, network = connector_pair.connector_name.split("_")
-                        base, quote = connector_pair.trading_pair.split("-")
-                        tasks.append(
-                            gateway_client.get_price(
-                                chain=chain, network=network, connector=connector,
-                                base_asset=base, quote_asset=quote, amount=Decimal("1"),
-                                side=TradeType.BUY))
-                    try:
-                        results = await asyncio.gather(*tasks)
-                        for connector_pair, rate in zip(connector_pairs, results):
-                            rate_oracle.set_price(connector_pair.trading_pair, Decimal(rate["price"]))
-                    except Exception as e:
-                        self.logger().error(f"Error fetching prices from {connector_pairs}: {e}", exc_info=True)
-                else:
-                    connector = self._rate_sources[connector]
-                    prices = await self._safe_get_last_traded_prices(connector,
-                                                                     [pair.trading_pair for pair in connector_pairs])
-                    for pair, rate in prices.items():
-                        rate_oracle.set_price(pair, rate)
-            await asyncio.sleep(self._rates_update_interval)
+        try:
+            while True:
+                # Exit if no more rates to update
+                if len(self._rates_required) == 0:
+                    break
+
+                rate_oracle = RateOracle.get_instance()
+                for connector, connector_pairs in self._rates_required.items():
+                    if connector == "gateway":
+                        tasks = []
+                        gateway_client = GatewayHttpClient.get_instance()
+                        for connector_pair in connector_pairs:
+                            connector, chain, network = connector_pair.connector_name.split("_")
+                            base, quote = connector_pair.trading_pair.split("-")
+                            tasks.append(
+                                gateway_client.get_price(
+                                    chain=chain, network=network, connector=connector,
+                                    base_asset=base, quote_asset=quote, amount=Decimal("1"),
+                                    side=TradeType.BUY))
+                        try:
+                            results = await asyncio.gather(*tasks)
+                            for connector_pair, rate in zip(connector_pairs, results):
+                                rate_oracle.set_price(connector_pair.trading_pair, Decimal(rate["price"]))
+                        except Exception as e:
+                            self.logger().error(f"Error fetching prices from {connector_pairs}: {e}", exc_info=True)
+                    else:
+                        connector_instance = self._rate_sources[connector]
+                        prices = await self._safe_get_last_traded_prices(connector_instance,
+                                                                         [pair.trading_pair for pair in connector_pairs])
+                        for pair, rate in prices.items():
+                            rate_oracle.set_price(pair, rate)
+
+                await asyncio.sleep(self._rates_update_interval)
+        except asyncio.CancelledError:
+            raise
+        finally:
+            self._rates_update_task = None
 
     def initialize_candles_feed(self, config: CandlesConfig):
         """
@@ -141,7 +166,11 @@ class MarketDataProvider:
             # Existing feed is sufficient, return it
             return existing_feed
         else:
-            # Create a new feed or restart the existing one with updated max_records
+            # Stop the existing feed if it exists before creating a new one
+            if existing_feed and hasattr(existing_feed, 'stop'):
+                existing_feed.stop()
+
+            # Create a new feed with updated max_records
             candle_feed = CandlesFactory.get_candle(config)
             self.candles_feeds[key] = candle_feed
             if hasattr(candle_feed, 'start'):
@@ -186,17 +215,24 @@ class MarketDataProvider:
             raise ValueError(f"Connector {connector_name} not found")
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
-        connector_config = AllConnectorSettings.get_connector_config_keys(connector_name)
-        api_keys = {key: "" for key in connector_config.__fields__.keys() if key != "connector"}
         init_params = conn_setting.conn_init_parameters(
             trading_pairs=[],
             trading_required=False,
-            api_keys=api_keys,
+            api_keys=self.get_connector_config_map(connector_name),
             client_config_map=client_config_map,
         )
         connector_class = get_connector_class(connector_name)
         connector = connector_class(**init_params)
         return connector
+
+    @staticmethod
+    def get_connector_config_map(connector_name: str):
+        connector_config = AllConnectorSettings.get_connector_config_keys(connector_name)
+        if getattr(connector_config, "use_auth_for_public_endpoints", False):
+            api_keys = api_keys_from_connector_config_map(ClientConfigAdapter(connector_config))
+        else:
+            api_keys = {key: "" for key in connector_config.__class__.model_fields.keys() if key != "connector"}
+        return api_keys
 
     def get_balance(self, connector_name: str, asset: str):
         connector = self.get_connector(connector_name)
@@ -222,6 +258,16 @@ class MarketDataProvider:
         """
         connector = self.get_connector(connector_name)
         return connector.get_price_by_type(trading_pair, price_type)
+
+    def get_funding_info(self, connector_name: str, trading_pair: str):
+        """
+        Retrieves the funding rate for a trading pair from the specified connector.
+        :param connector_name: str
+        :param trading_pair: str
+        :return: Funding rate.
+        """
+        connector = self.get_connector(connector_name)
+        return connector.get_funding_info(trading_pair)
 
     def get_candles_df(self, connector_name: str, trading_pair: str, interval: str, max_records: int = 500):
         """

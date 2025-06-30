@@ -8,12 +8,10 @@ from hummingbot.core.data_type.order_book_row import OrderBookRow
 
 
 class XRPLOrderBook(OrderBook):
-
     @classmethod
-    def snapshot_message_from_exchange(cls,
-                                       msg: Dict[str, any],
-                                       timestamp: float,
-                                       metadata: Optional[Dict] = None) -> OrderBookMessage:
+    def snapshot_message_from_exchange(
+        cls, msg: Dict[str, any], timestamp: float, metadata: Optional[Dict] = None
+    ) -> OrderBookMessage:
         """
         Creates a snapshot message with the order book snapshot message
         :param msg: the response from the exchange when requesting the order book snapshot
@@ -71,7 +69,7 @@ class XRPLOrderBook(OrderBook):
             "trading_pair": msg["trading_pair"],
             "update_id": timestamp,
             "bids": processed_bids,
-            "asks": processed_asks
+            "asks": processed_asks,
         }
 
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, content, timestamp=timestamp)
@@ -105,10 +103,9 @@ class XRPLOrderBook(OrderBook):
         return float(offer["taker_pays_funded"]["value"])
 
     @classmethod
-    def diff_message_from_exchange(cls,
-                                   msg: Dict[str, any],
-                                   timestamp: Optional[float] = None,
-                                   metadata: Optional[Dict] = None) -> OrderBookMessage:
+    def diff_message_from_exchange(
+        cls, msg: Dict[str, any], timestamp: Optional[float] = None, metadata: Optional[Dict] = None
+    ) -> OrderBookMessage:
         """
         Creates a diff message with the changes in the order book received from the exchange
         :param msg: the changes in the order book
@@ -129,11 +126,15 @@ class XRPLOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
 
-        return OrderBookMessage(OrderBookMessageType.TRADE, {
-            "trading_pair": msg["trading_pair"],
-            "trade_type": msg["trade_type"],
-            "trade_id": msg["trade_id"],
-            "update_id": msg["transact_time"],
-            "price": msg["price"],
-            "amount": msg["amount"]
-        }, timestamp=msg["timestamp"])
+        return OrderBookMessage(
+            OrderBookMessageType.TRADE,
+            {
+                "trading_pair": msg["trading_pair"],
+                "trade_type": msg["trade_type"],
+                "trade_id": msg["trade_id"],
+                "update_id": msg["transact_time"],
+                "price": msg["price"],
+                "amount": msg["amount"],
+            },
+            timestamp=msg["timestamp"],
+        )

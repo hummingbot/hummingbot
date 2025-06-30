@@ -11,7 +11,7 @@ DOMAIN = "xrpl"  # This just a placeholder since we don't use domain in xrpl con
 
 HBOT_SOURCE_TAG_ID = 19089388
 HBOT_ORDER_ID_PREFIX = "hbot"
-MAX_ORDER_ID_LEN = 64
+MAX_ORDER_ID_LEN = 40
 
 # Base URL
 DEFAULT_JSON_RPC_URL = "https://xrplcluster.com/"
@@ -24,6 +24,10 @@ SNAPSHOT_EVENT_TYPE = "order_book_snapshots"
 
 # Drop definitions
 ONE_DROP = Decimal("0.000001")
+
+# Ledger Reserve Fee
+WALLET_RESERVE = Decimal("1")
+LEDGER_OBJECT_RESERVE = Decimal("0.2")
 
 # Order States
 ORDER_STATE = {
@@ -44,16 +48,16 @@ XRPL_ORDER_TYPE = {
 XRPL_SELL_FLAG = 524288
 
 # Market Order Max Slippage
-MARKET_ORDER_MAX_SLIPPAGE = Decimal("0.02")
+MARKET_ORDER_MAX_SLIPPAGE = Decimal("0.01")
 
 # Order Side
 SIDE_BUY = 0
 SIDE_SELL = 1
 
 # Orderbook settings
-ORDER_BOOK_DEPTH = 150
+ORDER_BOOK_DEPTH = 100
 FETCH_ORDER_BOOK_MAX_RETRY = 3
-FETCH_ORDER_BOOK_RETRY_INTERVAL = 1
+FETCH_ORDER_BOOK_RETRY_INTERVAL = 5
 
 # Ledger offset for getting order status:
 LEDGER_OFFSET = _LEDGER_OFFSET * 2
@@ -62,7 +66,7 @@ LEDGER_OFFSET = _LEDGER_OFFSET * 2
 PENDING_ORDER_STATUS_CHECK_TIMEOUT = 120
 
 # Request Timeout
-REQUEST_TIMEOUT = 30
+REQUEST_TIMEOUT = 60
 
 # Rate Limits
 # NOTE: We don't have rate limits for xrpl at the moment
@@ -74,36 +78,67 @@ RATE_LIMITS = [
 
 # Place order retry parameters
 PLACE_ORDER_MAX_RETRY = 3
-PLACE_ORDER_RETRY_INTERVAL = 3
+PLACE_ORDER_RETRY_INTERVAL = 5
 
 # Transaction fee multiplier
-FEE_MULTIPLIER = 2
+FEE_MULTIPLIER = 5
 
 # Cancel All Timeout
-CANCEL_ALL_TIMEOUT = 60.0
+CANCEL_ALL_TIMEOUT = 600
 
 # Cancel retry parameters
 CANCEL_MAX_RETRY = 3
-CANCEL_RETRY_INTERVAL = 3
+CANCEL_RETRY_INTERVAL = 5
 
 # Verify transaction retry parameters
 VERIFY_TRANSACTION_MAX_RETRY = 3
-VERIFY_TRANSACTION_RETRY_INTERVAL = 2
+VERIFY_TRANSACTION_RETRY_INTERVAL = 5
 
 # Autofill transaction retry parameters
-AUTOFILL_TRANSACTION_MAX_RETRY = 5
+AUTOFILL_TRANSACTION_MAX_RETRY = 3
 
 # Request retry interval
-REQUEST_RETRY_INTERVAL = 2
+REQUEST_RETRY_INTERVAL = 5
 
 # Request Orderbook Interval
-REQUEST_ORDERBOOK_INTERVAL = 3
+REQUEST_ORDERBOOK_INTERVAL = 10
 
 # Client refresh interval
-CLIENT_REFRESH_INTERVAL = 60
+CLIENT_REFRESH_INTERVAL = 30
+
+# Websocket configuration
+WEBSOCKET_MAX_SIZE_BYTES = 2**22  # 4MB
+WEBSOCKET_CONNECTION_TIMEOUT = 30
+
+# XRPL maximum digit for issued currency
+XRPL_MAX_DIGIT = 16
 
 # Markets list
 MARKETS = {
+    "XRP-RLUSD": {
+        "base": "XRP",
+        "quote": "RLUSD",
+        "base_issuer": "",
+        "quote_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+    },
+    "XRP-IBTC": {
+        "base": "XRP",
+        "quote": "iBTC",
+        "base_issuer": "",
+        "quote_issuer": "rGcyRGrZPaJAZbZDi4NqRFLA5GQH63iFpD",
+    },
+    "XRP-USDC": {
+        "base": "XRP",
+        "quote": "USDC",
+        "base_issuer": "",
+        "quote_issuer": "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE",
+    },
+    "IBTC-RLUSD": {
+        "base": "iBTC",
+        "quote": "RLUSD",
+        "base_issuer": "rGcyRGrZPaJAZbZDi4NqRFLA5GQH63iFpD",
+        "quote_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+    },
     "XRP-USD": {
         "base": "XRP",
         "quote": "USD",
@@ -182,12 +217,6 @@ MARKETS = {
         "base_issuer": "",
         "quote_issuer": "rcvxE9PS9YBwxtGg1qNeewV6ZB3wGubZq",
     },
-    "XRP-USDC": {
-        "base": "XRP",
-        "quote": "USDC",
-        "base_issuer": "",
-        "quote_issuer": "rcEGREd8NmkKRE8GE424sksyt1tJVFZwu",
-    },
     "XRP-WXRP": {
         "base": "XRP",
         "quote": "WXRP",
@@ -264,7 +293,7 @@ MARKETS = {
         "base": "USD",
         "quote": "USDC",
         "base_issuer": "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq",
-        "quote_issuer": "rcEGREd8NmkKRE8GE424sksyt1tJVFZwu",
+        "quote_issuer": "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE",
     },
     "USD-WXRP": {
         "base": "USD",
@@ -336,7 +365,7 @@ MARKETS = {
         "base": "EUR",
         "quote": "USDC",
         "base_issuer": "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq",
-        "quote_issuer": "rcEGREd8NmkKRE8GE424sksyt1tJVFZwu",
+        "quote_issuer": "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE",
     },
     "EUR-WXRP": {
         "base": "EUR",
@@ -377,7 +406,7 @@ MARKETS = {
     "USDC-XRP": {
         "base": "USDC",
         "quote": "XRP",
-        "base_issuer": "rcEGREd8NmkKRE8GE424sksyt1tJVFZwu",
+        "base_issuer": "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE",
         "quote_issuer": "",
     },
     "SOLO-XRP": {
@@ -469,5 +498,191 @@ MARKETS = {
         "quote": "XRP",
         "base_issuer": "rpakCr61Q92abPXJnVboKENmpKssWyHpwu",
         "quote_issuer": "",
+    },
+    "RLUSD-XRP": {
+        "base": "RLUSD",
+        "quote": "XRP",
+        "base_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+        "quote_issuer": "",
+    },
+    "RLUSD-USD": {
+        "base": "RLUSD",
+        "quote": "USD",
+        "base_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+        "quote_issuer": "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq",
+    },
+    "USD-RLUSD": {
+        "base": "USD",
+        "quote": "RLUSD",
+        "base_issuer": "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq",
+        "quote_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+    },
+    "RLUSD-EUR": {
+        "base": "RLUSD",
+        "quote": "EUR",
+        "base_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+        "quote_issuer": "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq",
+    },
+    "EUR-RLUSD": {
+        "base": "EUR",
+        "quote": "RLUSD",
+        "base_issuer": "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq",
+        "quote_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+    },
+    "RLUSD-USDT": {
+        "base": "RLUSD",
+        "quote": "USDT",
+        "base_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+        "quote_issuer": "rcvxE9PS9YBwxtGg1qNeewV6ZB3wGubZq",
+    },
+    "USDT-RLUSD": {
+        "base": "USDT",
+        "quote": "RLUSD",
+        "base_issuer": "rcvxE9PS9YBwxtGg1qNeewV6ZB3wGubZq",
+        "quote_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+    },
+    "RLUSD-USDC": {
+        "base": "RLUSD",
+        "quote": "USDC",
+        "base_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+        "quote_issuer": "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE",
+    },
+    "USDC-RLUSD": {
+        "base": "USDC",
+        "quote": "RLUSD",
+        "base_issuer": "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE",
+        "quote_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+    },
+    "RLUSD-BTC": {
+        "base": "RLUSD",
+        "quote": "BTC",
+        "base_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+        "quote_issuer": "rchGBxcD1A1C2tdxF6papQYZ8kjRKMYcL",
+    },
+    "BTC-RLUSD": {
+        "base": "BTC",
+        "quote": "RLUSD",
+        "base_issuer": "rchGBxcD1A1C2tdxF6papQYZ8kjRKMYcL",
+        "quote_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+    },
+    "RLUSD-ETH": {
+        "base": "RLUSD",
+        "quote": "ETH",
+        "base_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+        "quote_issuer": "rcA8X3TVMST1n3CJeAdGk1RdRCHii7N2h",
+    },
+    "ETH-RLUSD": {
+        "base": "ETH",
+        "quote": "RLUSD",
+        "base_issuer": "rcA8X3TVMST1n3CJeAdGk1RdRCHii7N2h",
+        "quote_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+    },
+    "RLUSD-LTC": {
+        "base": "RLUSD",
+        "quote": "LTC",
+        "base_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+        "quote_issuer": "rcRzGWq6Ng3jeYhqnmM4zcWcUh69hrQ8V",
+    },
+    "LTC-RLUSD": {
+        "base": "LTC",
+        "quote": "RLUSD",
+        "base_issuer": "rcRzGWq6Ng3jeYhqnmM4zcWcUh69hrQ8V",
+        "quote_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+    },
+    "RLUSD-BCH": {
+        "base": "RLUSD",
+        "quote": "BCH",
+        "base_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+        "quote_issuer": "rcyS4CeCZVYvTiKcxj6Sx32ibKwcDHLds",
+    },
+    "BCH-RLUSD": {
+        "base": "BCH",
+        "quote": "RLUSD",
+        "base_issuer": "rcyS4CeCZVYvTiKcxj6Sx32ibKwcDHLds",
+        "quote_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+    },
+    "RLUSD-GBP": {
+        "base": "RLUSD",
+        "quote": "GBP",
+        "base_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+        "quote_issuer": "r4GN9eEoz9K4BhMQXe4H1eYNtvtkwGdt8g",
+    },
+    "GBP-RLUSD": {
+        "base": "GBP",
+        "quote": "RLUSD",
+        "base_issuer": "r4GN9eEoz9K4BhMQXe4H1eYNtvtkwGdt8g",
+        "quote_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+    },
+    "RLUSD-WXRP": {
+        "base": "RLUSD",
+        "quote": "WXRP",
+        "base_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+        "quote_issuer": "rEa5QY8tdbjgitLyfKF1E5Qx3VGgvbUhB3",
+    },
+    "WXRP-RLUSD": {
+        "base": "WXRP",
+        "quote": "RLUSD",
+        "base_issuer": "rEa5QY8tdbjgitLyfKF1E5Qx3VGgvbUhB3",
+        "quote_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+    },
+    "RLUSD-SOLO": {
+        "base": "RLUSD",
+        "quote": "SOLO",
+        "base_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+        "quote_issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
+    },
+    "SOLO-RLUSD": {
+        "base": "SOLO",
+        "quote": "RLUSD",
+        "base_issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
+        "quote_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+    },
+    "RLUSD-GALA": {
+        "base": "RLUSD",
+        "quote": "GALA",
+        "base_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+        "quote_issuer": "rf5YPb9y9P3fTjhxNaZqmrwaj5ar8PG1gM",
+    },
+    "GALA-RLUSD": {
+        "base": "GALA",
+        "quote": "RLUSD",
+        "base_issuer": "rf5YPb9y9P3fTjhxNaZqmrwaj5ar8PG1gM",
+        "quote_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+    },
+    "RLUSD-FLR": {
+        "base": "RLUSD",
+        "quote": "FLR",
+        "base_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+        "quote_issuer": "rcxJwVnftZzXqyH9YheB8TgeiZUhNo1Eu",
+    },
+    "FLR-RLUSD": {
+        "base": "FLR",
+        "quote": "RLUSD",
+        "base_issuer": "rcxJwVnftZzXqyH9YheB8TgeiZUhNo1Eu",
+        "quote_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+    },
+    "RLUSD-XAU": {
+        "base": "RLUSD",
+        "quote": "XAU",
+        "base_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+        "quote_issuer": "rcoef87SYMJ58NAFx7fNM5frVknmvHsvJ",
+    },
+    "XAU-RLUSD": {
+        "base": "XAU",
+        "quote": "RLUSD",
+        "base_issuer": "rcoef87SYMJ58NAFx7fNM5frVknmvHsvJ",
+        "quote_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+    },
+    "IBTC-XRP": {
+        "base": "iBTC",
+        "quote": "XRP",
+        "base_issuer": "rGcyRGrZPaJAZbZDi4NqRFLA5GQH63iFpD",
+        "quote_issuer": "",
+    },
+    "IBTC-USDC": {
+        "base": "iBTC",
+        "quote": "USDC",
+        "base_issuer": "rGcyRGrZPaJAZbZDi4NqRFLA5GQH63iFpD",
+        "quote_issuer": "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE",
     },
 }

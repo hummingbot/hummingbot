@@ -35,6 +35,14 @@ class CoinbaseAdvancedTradeRESTRequest(EndpointRESTRequest):
 
 class CoinbaseAdvancedTradeConfigMap(BaseConnectorConfigMap):
     connector: str = "coinbase_advanced_trade"
+    use_auth_for_public_endpoints: bool = Field(
+        default=False,
+        json_schema_extra={
+            "prompt": "Would you like to use authentication for public endpoints? (Yes/No) (only affects rate limiting)",
+            "prompt_on_new": True,
+            "is_connect_key": True
+        }
+    )
     coinbase_advanced_trade_api_key: SecretStr = Field(
         default=...,
         json_schema_extra={
