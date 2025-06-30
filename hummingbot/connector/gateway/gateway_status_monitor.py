@@ -87,13 +87,8 @@ class GatewayStatusMonitor:
                 gateway = self._get_gateway_instance()
                 if await asyncio.wait_for(gateway.ping_gateway(), timeout=POLL_TIMEOUT):
                     if self.gateway_status is GatewayStatus.OFFLINE:
-                        gateway_connectors = await gateway.api_request("get", "connectors", fail_silently=True)
-                        GATEWAY_CONNECTORS.clear()
-                        GATEWAY_CONNECTORS.extend([connector["name"] for connector in gateway_connectors.get("connectors", [])])
-
-                        # Load gateway connectors info for use in config_helpers
-                        from hummingbot.client.config.config_helpers import load_gateway_connectors
-                        await load_gateway_connectors()
+                        # Only update status here, initialization happens in finally block
+                        self._gateway_status = GatewayStatus.ONLINE
 
                         # Fetch chains from the /chains endpoint
                         try:
@@ -112,9 +107,6 @@ class GatewayStatusMonitor:
                         except Exception:
                             pass
 
-                        await self.update_gateway_config_key_list()
-
-                    self._gateway_status = GatewayStatus.ONLINE
                 else:
                     if self._gateway_status is GatewayStatus.ONLINE:
                         self.logger().info("Connection to Gateway container lost...")
@@ -135,9 +127,20 @@ class GatewayStatusMonitor:
                 if self.gateway_status is GatewayStatus.ONLINE:
                     if not self._gateway_ready_event.is_set():
                         self.logger().info("Gateway Service is ONLINE.")
+
+                        # Fetch and update gateway connectors
+                        gateway = self._get_gateway_instance()
+                        gateway_connectors = await gateway.api_request("get", "connectors", fail_silently=True)
+                        GATEWAY_CONNECTORS.clear()
+                        GATEWAY_CONNECTORS.extend([connector["name"] for connector in gateway_connectors.get("connectors", [])])
+
+                        # Load gateway connectors info for use in config_helpers
+                        from hummingbot.client.config.config_helpers import load_gateway_connectors
+                        await load_gateway_connectors()
+
                         # Initialize gateway with all necessary data
-                        gateway_instance = self._get_gateway_instance()
-                        await gateway_instance.initialize_gateway()
+                        await gateway.initialize_gateway()
+
                         # Update gateway config keys and reload completer
                         await self.update_gateway_config_key_list()
                     self._gateway_ready_event.set()
