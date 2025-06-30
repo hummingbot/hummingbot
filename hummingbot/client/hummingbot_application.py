@@ -2,7 +2,7 @@ import asyncio
 import logging
 import time
 from collections import deque
-from typing import Deque, Dict, List, Optional, Tuple, Union
+from typing import Deque, Dict, List, Optional, Union
 
 from hummingbot.client.command import __all__ as commands
 from hummingbot.client.config.client_config_map import ClientConfigMap
@@ -83,6 +83,10 @@ class HummingbotApplication(*commands):
         if not headless_mode:
             self._init_ui_components()
             TradingPairFetcher.get_instance(self.client_config_map)
+        else:
+            # In headless mode, we don't initialize UI components
+            self.app = None
+            self.parser = None
 
         # MQTT Bridge (always available in both modes)
         if self.client_config_map.mqtt_bridge.mqtt_autostart:
@@ -206,6 +210,9 @@ class HummingbotApplication(*commands):
     async def run(self):
         """Run the application - either UI mode or headless mode."""
         if self.headless_mode:
+            # Start MQTT market events forwarding if MQTT is available
+            if self._mqtt is not None:
+                self._mqtt.start_market_events_fw()
             await self.run_headless()
         else:
             await self.app.run()
@@ -247,27 +254,6 @@ class HummingbotApplication(*commands):
 
     def clear_application_warning(self):
         self._app_warnings.clear()
-
-    def _initialize_markets(self, market_names: List[Tuple[str, List[str]]]):
-        """Initialize markets by delegating to TradingCore synchronously."""
-        # Update market trading pairs map first
-        for market_name, trading_pairs in market_names:
-            if market_name not in self.trading_core.market_trading_pairs_map:
-                self.trading_core.market_trading_pairs_map[market_name] = []
-            for trading_pair in trading_pairs:
-                self.trading_core.market_trading_pairs_map[market_name].append(trading_pair)
-
-        # Use the synchronous version of initialize_markets from trading_core
-        self.trading_core.initialize_markets(market_names)
-
-        # Initialize markets recorder if not already done
-        if not self.trading_core.markets_recorder:
-            db_name = self.strategy_file_name.split(".")[0] if self.strategy_file_name else "trades"
-            self.trading_core.initialize_markets_recorder(db_name)
-
-        # Start MQTT market events forwarding if MQTT is available
-        if self._mqtt is not None:
-            self._mqtt.start_market_events_fw()
 
     def _initialize_notifiers(self):
         """Initialize notifiers by delegating to TradingCore."""
