@@ -114,7 +114,7 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
         success = await load_and_start_strategy(hb, args)
         if not success:
             logging.getLogger().error("Failed to load strategy. Exiting.")
-            return
+            raise SystemExit(1)
 
     # Run the application
     await run_application(hb, args, client_config_map)
