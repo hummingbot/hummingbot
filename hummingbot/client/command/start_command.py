@@ -188,6 +188,7 @@ class StartCommand(GatewayChainApiManager):
         # Patch MQTT loggers if MQTT is available
         if self._mqtt:
             self._mqtt.patch_loggers()
+            self._mqtt.start_market_events_fw()
 
     async def confirm_oracle_conversion_rate(self,  # type: HummingbotApplication
                                              ) -> bool:
