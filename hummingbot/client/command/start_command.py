@@ -97,12 +97,10 @@ class StartCommand(GatewayChainApiManager):
             self.notify("Status checks failed. Start aborted.")
             self._in_start_check = False
             return
-        if self._last_started_strategy_file != self.strategy_file_name:
-            init_logging("hummingbot_logs.yml",
-                         self.client_config_map,
-                         override_log_level=log_level.upper() if log_level else None,
-                         strategy_file_path=self.strategy_file_name)
-            self._last_started_strategy_file = self.strategy_file_name
+        init_logging("hummingbot_logs.yml",
+                     self.client_config_map,
+                     override_log_level=log_level.upper() if log_level else None,
+                     strategy_file_path=self.strategy_file_name)
 
         # If macOS, disable App Nap.
         if platform.system() == "Darwin":
