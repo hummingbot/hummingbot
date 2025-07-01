@@ -12,7 +12,7 @@ The Hummingbot codebase is free and publicly available under the Apache 2.0 open
 
 ## Quick Links
 
-* [Website and Docs](https://hummingbot.org): Official Hummingbot website and documentation
+* [Website and Docs](https://hummingbot.org): Official Hummingbot website and documeniuntation
 * [Installation](https://hummingbot.org/installation/docker/): Install Hummingbot on various platforms
 * [Discord](https://discord.gg/hummingbot): The main gathering spot for the global Hummingbot community
 * [YouTube](https://www.youtube.com/c/hummingbot): Videos that teach you how to get the most of of Hummingbot
@@ -86,7 +86,7 @@ Currently, the master branch of Hummingbot also includes the following exchange 
 | `sushiswap` | SushiSwap | DEX | AMM | [Docs](https://hummingbot.org/exchanges/sushiswap/) | - |
 | `tinyman` | Tinyman | DEX | AMM | [Docs](https://hummingbot.org/exchanges/tinyman/) | - |
 | `traderjoe` | Trader Joe | DEX | AMM | [Docs](https://hummingbot.org/exchanges/traderjoe/) | - |
-| `uniswap` | Uniswap | DEX | AMM | [Docs](https://hummingbot.org/exchanges/uniswap/) | - |
+| `uniswap` | Uniswap | DEX | AMM | [Docs](https://hummingbot.org/exchanges/gateway/uniswap/) | - |
 | `vertex` | Vertex | DEX | CLOB Spot | [Docs](https://hummingbot.org/exchanges/vertex/) | - |
 | `vvs` | VVS | DEX | AMM | [Docs](https://hummingbot.org/exchanges/vvs/) | - |
 | `xsswap` | XSSwap | DEX | AMM | [Docs](https://hummingbot.org/exchanges/xswap/) | - |
