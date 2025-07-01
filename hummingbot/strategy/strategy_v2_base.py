@@ -331,6 +331,9 @@ class StrategyV2Base(ScriptStrategyBase):
             await asyncio.sleep(2.0)
         self.market_data_provider.stop()
         self.executor_orchestrator.store_all_executors()
+        if self.mqtt_enabled:
+            self._pub({controller_id: {} for controller_id in self.controllers.keys()})
+            self._pub = None
 
     def on_tick(self):
         self.update_executors_info()

@@ -40,12 +40,6 @@ class V2WithControllers(StrategyV2Base):
         self.closed_executors_buffer: int = 30
         self._last_performance_report_timestamp = 0
 
-    async def on_stop(self):
-        await super().on_stop()
-        if self.mqtt_enabled:
-            self._pub({controller_id: {} for controller_id in self.controllers.keys()})
-            self._pub = None
-
     def on_tick(self):
         super().on_tick()
         self.check_manual_kill_switch()
