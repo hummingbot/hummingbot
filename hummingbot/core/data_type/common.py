@@ -9,6 +9,7 @@ class OrderType(Enum):
     MARKET = 1
     LIMIT = 2
     LIMIT_MAKER = 3
+    AMM_SWAP = 4
 
     def is_limit_type(self):
         return self in (OrderType.LIMIT, OrderType.LIMIT_MAKER)
@@ -69,15 +70,22 @@ class LPType(Enum):
 
 
 _KT = TypeVar('_KT')
-_VT = TypeVar('_TV')
+_VT = TypeVar('_VT')
 
 
 class GroupedSetDict(dict[_KT, Set[_VT]]):
-    def add_or_update(self, key: _KT, *args: _VT) -> None:
+    def add_or_update(self, key: _KT, *args: _VT) -> "GroupedSetDict":
         if key in self:
             self[key].update(args)
         else:
             self[key] = set(args)
+        return self
+
+    def remove(self, key: _KT, value: _VT) -> "GroupedSetDict":
+        if key in self:
+            self[key].discard(value)
+            if not self[key]:  # If set becomes empty, remove the key
+                del self[key]
         return self
 
     @classmethod

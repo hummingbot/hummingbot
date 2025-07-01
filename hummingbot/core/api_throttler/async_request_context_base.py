@@ -56,11 +56,10 @@ class AsyncRequestContextBase(ABC):
         :return:
         """
         now: Decimal = Decimal(str(time.time()))
-        for task in self._task_logs:
-            task_limit: RateLimit = task.rate_limit
-            elapsed: Decimal = now - Decimal(str(task.timestamp))
-            if elapsed > Decimal(str(task_limit.time_interval * (1 + self._safety_margin_pct))):
-                self._task_logs.remove(task)
+        self._task_logs[:] = [
+            task for task in self._task_logs
+            if now - Decimal(str(task.timestamp)) <= Decimal(str(task.rate_limit.time_interval * (1 + self._safety_margin_pct)))
+        ]
 
     @abstractmethod
     def within_capacity(self) -> bool:
@@ -79,13 +78,14 @@ class AsyncRequestContextBase(ABC):
             # Each related limit is represented as it own individual TaskLog
 
             # Log the acquired rate limit into the tasks log
-            self._task_logs.append(TaskLog(timestamp=now,
-                                           rate_limit=self._rate_limit,
-                                           weight=self._rate_limit.weight))
-
-            # Log its related limits into the tasks log as individual tasks
-            for limit, weight in self._related_limits:
-                self._task_logs.append(TaskLog(timestamp=now, rate_limit=limit, weight=weight))
+            new_logs = [
+                TaskLog(timestamp=now, rate_limit=self._rate_limit, weight=self._rate_limit.weight)
+            ] + [
+                # Log its related limits into the tasks log as individual tasks
+                TaskLog(timestamp=now, rate_limit=limit, weight=weight)
+                for limit, weight in self._related_limits
+            ]
+            self._task_logs.extend(new_logs)
 
     async def __aenter__(self):
         await self.acquire()

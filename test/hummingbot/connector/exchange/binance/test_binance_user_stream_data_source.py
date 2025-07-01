@@ -121,7 +121,8 @@ class BinanceUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         return resp
 
     @aioresponses()
-    async def test_get_listen_key_log_exception(self, mock_api):
+    @patch("hummingbot.connector.exchange.binance.binance_api_user_stream_data_source.BinanceAPIUserStreamDataSource._sleep")
+    async def test_get_listen_key_log_exception(self, mock_api, _):
         url = web_utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -184,7 +185,7 @@ class BinanceUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         await self.resume_test_event.wait()
 
-        self.assertTrue(self._is_logged("ERROR", "Error occurred renewing listen key ..."))
+        self.assertTrue(self._is_logged("ERROR", "Error occurred renewing listen key ... No active exception to reraise"))
         self.assertIsNone(self.data_source._current_listen_key)
         self.assertFalse(self.data_source._listen_key_initialized_event.is_set())
 
@@ -204,7 +205,7 @@ class BinanceUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         await self.resume_test_event.wait()
 
-        self.assertTrue(self._is_logged("INFO", f"Refreshed listen key {self.listen_key}."))
+        self.assertTrue(self._is_logged("INFO", f"Successfully refreshed listen key {self.listen_key}"))
         self.assertGreater(self.data_source._last_listen_key_ping_ts, 0)
 
     @aioresponses()
@@ -306,3 +307,68 @@ class BinanceUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             self._is_logged(
                 "ERROR",
                 "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
+
+    async def test_ensure_listen_key_task_running_with_no_task(self):
+        # Test when there's no existing task
+        self.assertIsNone(self.data_source._manage_listen_key_task)
+        await self.data_source._ensure_listen_key_task_running()
+        self.assertIsNotNone(self.data_source._manage_listen_key_task)
+
+    @patch("hummingbot.connector.exchange.binance.binance_api_user_stream_data_source.safe_ensure_future")
+    async def test_ensure_listen_key_task_running_with_running_task(self, mock_safe_ensure_future):
+        # Test when task is already running - should return early (line 164)
+        from unittest.mock import MagicMock
+        mock_task = MagicMock()
+        mock_task.done.return_value = False
+        self.data_source._manage_listen_key_task = mock_task
+
+        # Call the method
+        await self.data_source._ensure_listen_key_task_running()
+
+        # Should return early without creating a new task
+        mock_safe_ensure_future.assert_not_called()
+        self.assertEqual(mock_task, self.data_source._manage_listen_key_task)
+
+    async def test_ensure_listen_key_task_running_with_done_task_cancelled_error(self):
+        mock_task = MagicMock()
+        mock_task.done.return_value = True
+        mock_task.side_effect = asyncio.CancelledError()
+        self.data_source._manage_listen_key_task = mock_task
+
+        await self.data_source._ensure_listen_key_task_running()
+
+        # Task should be cancelled and replaced
+        mock_task.cancel.assert_called_once()
+        self.assertIsNotNone(self.data_source._manage_listen_key_task)
+        self.assertNotEqual(mock_task, self.data_source._manage_listen_key_task)
+
+    async def test_ensure_listen_key_task_running_with_done_task_exception(self):
+        mock_task = MagicMock()
+        mock_task.done.return_value = True
+        mock_task.side_effect = Exception("Test exception")
+        self.data_source._manage_listen_key_task = mock_task
+
+        await self.data_source._ensure_listen_key_task_running()
+
+        # Task should be cancelled and replaced, exception should be ignored
+        mock_task.cancel.assert_called_once()
+        self.assertIsNotNone(self.data_source._manage_listen_key_task)
+        self.assertNotEqual(mock_task, self.data_source._manage_listen_key_task)
+
+    async def test_cancel_listen_key_task_with_exception(self):
+        # Create a task that will raise an exception when awaited
+        async def failing_task():
+            raise Exception("Test exception")
+
+        task = asyncio.create_task(failing_task())
+        self.data_source._manage_listen_key_task = task
+
+        # Let the task complete with exception
+        await asyncio.sleep(0.01)
+
+        # Now cancel it - the exception should be caught and ignored
+        await self.data_source._cancel_listen_key_task()
+
+        # Task should be set to None
+        self.assertIsNone(self.data_source._manage_listen_key_task)
+        self.assertTrue(task.done())
