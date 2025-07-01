@@ -40,19 +40,24 @@ class StopCommand:
             await self.trading_core.cancel_outstanding_orders()
 
         # Sleep five seconds to have time for order fill arrivals
-        await asyncio.sleep(10.0)
+        await asyncio.sleep(2.0)
 
-        # Stop all connectors
+        asyncio.create_task(self.stop_connectors_and_clock_task_with_delay())
+
+        # Clear application-level references
+        self.market_pair = None
+
+        self.notify("Hummingbot stopped.")
+
+    async def stop_connectors_and_clock_task_with_delay(self,  # type: HummingbotApplication
+                                                        delay: float = 10.0):
+        """Stops all connectors with a specified delay."""
+        self.logger().info(f"Stopping connectors with a delay of {delay} seconds.")
+        await asyncio.sleep(delay)
         for connector_name in list(self.trading_core.connectors.keys()):
             try:
                 self.trading_core.remove_connector(connector_name)
             except Exception as e:
                 self.logger().error(f"Error stopping connector {connector_name}: {e}")
 
-        # Stop the clock to halt trading operations
         await self.trading_core.stop_clock()
-
-        # Clear application-level references
-        self.market_pair = None
-
-        self.notify("Hummingbot stopped.")
