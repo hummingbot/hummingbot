@@ -322,13 +322,9 @@ class StrategyV2Base(ScriptStrategyBase):
     async def on_stop(self):
         self._is_stop_triggered = True
         self.listen_to_executor_actions_task.cancel()
-        self.executor_orchestrator.stop()
+        await self.executor_orchestrator.stop(self.max_executors_close_attempts)
         for controller in self.controllers.values():
             controller.stop()
-        for i in range(self.max_executors_close_attempts):
-            if all([executor.is_done for executor in self.get_all_executors()]):
-                continue
-            await asyncio.sleep(2.0)
         self.market_data_provider.stop()
         self.executor_orchestrator.store_all_executors()
         if self.mqtt_enabled:
@@ -384,8 +380,7 @@ class StrategyV2Base(ScriptStrategyBase):
 
     def get_all_executors(self) -> List[ExecutorInfo]:
         """Get all executors from all controllers."""
-        return [executor for report in self.controller_reports.values()
-                for executor in report.get("executors", [])]
+        return [executor.executor_info for executors_list in self.executor_orchestrator.active_executors.values() for executor in executors_list]
 
     def get_positions_by_controller(self, controller_id: str) -> List[PositionSummary]:
         """Get positions for a specific controller from the unified reports."""
