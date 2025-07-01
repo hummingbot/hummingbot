@@ -188,7 +188,7 @@ class TradingCore:
 
         try:
             # Cancel clock task
-            if hasattr(self, '_clock_task') and self._clock_task and not self._clock_task.done():
+            if self._clock_task and not self._clock_task.done():
                 self._clock_task.cancel()
                 try:
                     await self._clock_task
