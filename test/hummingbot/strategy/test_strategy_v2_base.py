@@ -172,6 +172,9 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
         mock_execute_action.assert_not_called()
 
     async def test_on_stop(self):
+        # Make the executor orchestrator stop method async
+        self.strategy.executor_orchestrator.stop = AsyncMock()
+
         await self.strategy.on_stop()
 
         # Check if stop methods are called on each component
