@@ -37,7 +37,6 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
         self.log_records = []
 
     async def asyncSetUp(self):
-        await super().asyncSetUp()
         self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()
 
@@ -332,3 +331,91 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
         raise exception
+
+    async def test_get_historical_candles_with_minimal_data(self):
+        """Test get_historical_candles when len(candles) <= 1 or missing_records == 0"""
+        from hummingbot.data_feed.candles_feed.data_types import HistoricalCandlesConfig
+
+        # Mock the specific class's methods instead of base class
+        with patch.object(self.data_feed, '_round_timestamp_to_interval_multiple', side_effect=lambda x: x), \
+             patch.object(self.data_feed, 'initialize_exchange_data', new_callable=AsyncMock), \
+             patch.object(self.data_feed, 'fetch_candles', new_callable=AsyncMock) as mock_fetch_candles:
+
+            # Mock fetch_candles to return minimal data (covers lines 176-177)
+            mock_candles = np.array([[1622505600, 50000, 50100, 49900, 50050, 1000, 0, 0, 0, 0]])
+            mock_fetch_candles.return_value = mock_candles
+
+            config = HistoricalCandlesConfig(
+                connector_name="test",
+                trading_pair="BTC-USDT",
+                interval="1m",
+                start_time=1622505600,
+                end_time=1622505660
+            )
+
+            result = await self.data_feed.get_historical_candles(config)
+
+            # Verify the result DataFrame
+            self.assertIsInstance(result, pd.DataFrame)
+            self.assertEqual(len(result), 1)
+            mock_fetch_candles.assert_called_once()
+
+    async def test_get_historical_candles_with_time_filtering(self):
+        """Test get_historical_candles time filtering (line 186)"""
+        from hummingbot.data_feed.candles_feed.data_types import HistoricalCandlesConfig
+
+        # Mock the specific class's methods instead of base class
+        with patch.object(self.data_feed, '_round_timestamp_to_interval_multiple', side_effect=lambda x: x), \
+             patch.object(self.data_feed, 'initialize_exchange_data', new_callable=AsyncMock), \
+             patch.object(self.data_feed, 'fetch_candles', new_callable=AsyncMock) as mock_fetch_candles:
+
+            # Mock fetch_candles to return data with timestamps outside the requested range
+            mock_candles = np.array([
+                [1622505500, 50000, 50100, 49900, 50050, 1000, 0, 0, 0, 0],  # Before start_time
+                [1622505600, 50100, 50200, 49950, 50150, 1000, 0, 0, 0, 0],  # Within range
+                [1622505660, 50150, 50250, 50000, 50200, 1000, 0, 0, 0, 0],  # Within range
+                [1622505720, 50200, 50300, 50050, 50250, 1000, 0, 0, 0, 0],  # After end_time
+            ])
+            mock_fetch_candles.return_value = mock_candles
+
+            config = HistoricalCandlesConfig(
+                connector_name="test",
+                trading_pair="BTC-USDT",
+                interval="1m",
+                start_time=1622505600,
+                end_time=1622505660
+            )
+
+            result = await self.data_feed.get_historical_candles(config)
+
+            # Verify time filtering (line 186): only candles within start_time and end_time should be included
+            self.assertIsInstance(result, pd.DataFrame)
+            self.assertEqual(len(result), 2)  # Only 2 candles within the time range
+            self.assertTrue(all(result["timestamp"] >= config.start_time))
+            self.assertTrue(all(result["timestamp"] <= config.end_time))
+
+    async def test_get_historical_candles_with_zero_missing_records(self):
+        """Test get_historical_candles when missing_records == 0"""
+        from hummingbot.data_feed.candles_feed.data_types import HistoricalCandlesConfig
+
+        # Mock the specific class's methods instead of base class
+        with patch.object(self.data_feed, '_round_timestamp_to_interval_multiple', side_effect=lambda x: x), \
+             patch.object(self.data_feed, 'initialize_exchange_data', new_callable=AsyncMock), \
+             patch.object(self.data_feed, 'fetch_candles', new_callable=AsyncMock) as mock_fetch_candles:
+
+            mock_candles = np.array([[1622505600, 50000, 50100, 49900, 50050, 1000, 0, 0, 0, 0]])
+            mock_fetch_candles.return_value = mock_candles
+
+            # Configure with same start and end time to get missing_records = 0
+            config = HistoricalCandlesConfig(
+                connector_name="test",
+                trading_pair="BTC-USDT",
+                interval="1m",
+                start_time=1622505600,
+                end_time=1622505600  # Same as start_time
+            )
+
+            result = await self.data_feed.get_historical_candles(config)
+
+            self.assertIsInstance(result, pd.DataFrame)
+            mock_fetch_candles.assert_called_once()

@@ -126,7 +126,7 @@ class CLMMPositionManager(ScriptStrategyBase):
         """Fetch pool information to get tokens and current price"""
         try:
             self.logger().info(f"Fetching information for pool {self.config.pool_address}...")
-            pool_info = await GatewayHttpClient.get_instance().clmm_pool_info(
+            pool_info = await GatewayHttpClient.get_instance().pool_info(
                 self.config.connector,
                 self.config.network,
                 self.config.pool_address
@@ -153,6 +153,35 @@ class CLMMPositionManager(ScriptStrategyBase):
 
         except Exception as e:
             self.logger().error(f"Error fetching pool info: {str(e)}")
+
+    async def fetch_position_info(self):
+        """Fetch actual position information including price bounds"""
+        if not self.position_address or not self.wallet_address:
+            return
+
+        try:
+            self.logger().info(f"Fetching position info for {self.position_address}...")
+            position_info = await GatewayHttpClient.get_instance().clmm_position_info(
+                connector=self.config.connector,
+                network=self.config.network,
+                position_address=self.position_address,
+                wallet_address=self.wallet_address
+            )
+
+            if not position_info:
+                self.logger().error(f"Failed to get position information for {self.position_address}")
+                return
+
+            # Extract actual position price bounds
+            if "lowerPrice" in position_info and "upperPrice" in position_info:
+                self.position_lower_price = float(position_info["lowerPrice"])
+                self.position_upper_price = float(position_info["upperPrice"])
+                self.logger().info(f"Position actual bounds: {self.position_lower_price} to {self.position_upper_price}")
+            else:
+                self.logger().error("Position info missing price bounds")
+
+        except Exception as e:
+            self.logger().error(f"Error fetching position info: {str(e)}")
 
     def on_tick(self):
         # Don't proceed if Gateway is not ready
@@ -219,17 +248,14 @@ class CLMMPositionManager(ScriptStrategyBase):
                 self.position_opening = False
                 return
 
-            # Calculate position price range based on CURRENT pool price instead of target
+            # Calculate position price range based on CURRENT pool price
             current_price = float(self.last_price)
             width_pct = float(self.config.position_width_pct) / 100.0
 
             lower_price = current_price * (1 - width_pct)
             upper_price = current_price * (1 + width_pct)
 
-            self.position_lower_price = lower_price
-            self.position_upper_price = upper_price
-
-            self.logger().info(f"Opening position around current price {current_price} with range: {lower_price} to {upper_price}")
+            self.logger().info(f"Opening position around current price {current_price} with requested range: {lower_price} to {upper_price}")
 
             # Open position - only send one transaction
             response = await GatewayHttpClient.get_instance().clmm_open_position(
@@ -246,10 +272,10 @@ class CLMMPositionManager(ScriptStrategyBase):
 
             self.logger().info(f"Position opening response received: {response}")
 
-            # Check for txHash
+            # Check for signature
             if "signature" in response:
-                tx_hash = response["signature"]
-                self.logger().info(f"Position opening transaction submitted: {tx_hash}")
+                signature = response["signature"]
+                self.logger().info(f"Position opening transaction submitted: {signature}")
 
                 # Store position address from response
                 if "positionAddress" in response:
@@ -259,12 +285,15 @@ class CLMMPositionManager(ScriptStrategyBase):
                     self.position_address = potential_position_address
 
                 # Poll for transaction result - this is async and will wait
-                tx_success = await self.poll_transaction(tx_hash)
+                tx_success = await self.poll_transaction(signature)
 
                 if tx_success:
                     # Transaction confirmed successfully
                     self.position_opened = True
                     self.logger().info(f"Position opened successfully! Position address: {self.position_address}")
+
+                    # Fetch actual position info to get the exact price bounds
+                    await self.fetch_position_info()
                 else:
                     # Transaction failed or still pending after max attempts
                     self.logger().warning("Transaction did not confirm successfully within polling period.")
@@ -295,22 +324,21 @@ class CLMMPositionManager(ScriptStrategyBase):
 
             # Check if price is outside position range by more than out_of_range_pct
             out_of_range = False
-            out_of_range_amount = 0
+            current_time = time.time()
 
             lower_bound_with_buffer = self.position_lower_price * (1 - float(self.config.out_of_range_pct) / 100.0)
             upper_bound_with_buffer = self.position_upper_price * (1 + float(self.config.out_of_range_pct) / 100.0)
 
             if float(self.last_price) < lower_bound_with_buffer:
                 out_of_range = True
-                out_of_range_amount = (lower_bound_with_buffer - float(self.last_price)) / self.position_lower_price * 100
-                self.logger().info(f"Price {self.last_price} is below position lower bound with buffer {lower_bound_with_buffer} by {out_of_range_amount:.2f}%")
+                elapsed = int(current_time - self.out_of_range_start_time) if self.out_of_range_start_time else 0
+                self.logger().info(f"Price {self.last_price} is below position lower bound {self.position_lower_price:.6f} by more than {self.config.out_of_range_pct}% buffer (threshold: {lower_bound_with_buffer:.6f}) - Out of range for {elapsed}/{self.config.out_of_range_secs}s")
             elif float(self.last_price) > upper_bound_with_buffer:
                 out_of_range = True
-                out_of_range_amount = (float(self.last_price) - upper_bound_with_buffer) / self.position_upper_price * 100
-                self.logger().info(f"Price {self.last_price} is above position upper bound with buffer {upper_bound_with_buffer} by {out_of_range_amount:.2f}%")
+                elapsed = int(current_time - self.out_of_range_start_time) if self.out_of_range_start_time else 0
+                self.logger().info(f"Price {self.last_price} is above position upper bound {self.position_upper_price:.6f} by more than {self.config.out_of_range_pct}% buffer (threshold: {upper_bound_with_buffer:.6f}) - Out of range for {elapsed}/{self.config.out_of_range_secs}s")
 
             # Track out-of-range time
-            current_time = time.time()
             if out_of_range:
                 if self.out_of_range_start_time is None:
                     self.out_of_range_start_time = current_time
@@ -331,7 +359,8 @@ class CLMMPositionManager(ScriptStrategyBase):
                     self.out_of_range_start_time = None
 
                 # Add log statement when price is in range
-                self.logger().info(f"Price {self.last_price} is within range: {lower_bound_with_buffer:.6f} to {upper_bound_with_buffer:.6f}")
+                buffer_info = f" with {self.config.out_of_range_pct}% buffer" if self.config.out_of_range_pct > 0 else ""
+                self.logger().info(f"Price {self.last_price} is within position range [{self.position_lower_price:.6f}, {self.position_upper_price:.6f}]{buffer_info}")
 
         except Exception as e:
             self.logger().error(f"Error monitoring position: {str(e)}")
@@ -363,11 +392,11 @@ class CLMMPositionManager(ScriptStrategyBase):
 
                 # Check response
                 if "signature" in response:
-                    tx_hash = response["signature"]
-                    self.logger().info(f"Position closing transaction submitted: {tx_hash}")
+                    signature = response["signature"]
+                    self.logger().info(f"Position closing transaction submitted: {signature}")
 
                     # Poll for transaction result
-                    tx_success = await self.poll_transaction(tx_hash)
+                    tx_success = await self.poll_transaction(signature)
 
                     if tx_success:
                         self.logger().info("Position closed successfully!")
@@ -402,12 +431,12 @@ class CLMMPositionManager(ScriptStrategyBase):
             else:
                 self.position_closing = False
 
-    async def poll_transaction(self, tx_hash):
+    async def poll_transaction(self, signature):
         """Continuously polls for transaction status until completion or max attempts reached"""
-        if not tx_hash:
+        if not signature:
             return False
 
-        self.logger().info(f"Polling for transaction status: {tx_hash}")
+        self.logger().info(f"Polling for transaction status: {signature}")
 
         # Transaction status codes
         # -1 = FAILED
@@ -424,20 +453,20 @@ class CLMMPositionManager(ScriptStrategyBase):
                 poll_data = await GatewayHttpClient.get_instance().get_transaction_status(
                     chain=self.config.chain,
                     network=self.config.network,
-                    transaction_hash=tx_hash,
+                    transaction_hash=signature,
                 )
 
                 transaction_status = poll_data.get("txStatus")
 
                 if transaction_status == 1:  # CONFIRMED
-                    self.logger().info(f"Transaction {tx_hash} confirmed successfully!")
+                    self.logger().info(f"Transaction {signature} confirmed successfully!")
                     return True
                 elif transaction_status == -1:  # FAILED
-                    self.logger().error(f"Transaction {tx_hash} failed!")
+                    self.logger().error(f"Transaction {signature} failed!")
                     self.logger().error(f"Details: {poll_data}")
                     return False
                 elif transaction_status == 0:  # UNCONFIRMED
-                    self.logger().info(f"Transaction {tx_hash} still pending... (attempt {poll_attempts}/{max_poll_attempts})")
+                    self.logger().info(f"Transaction {signature} still pending... (attempt {poll_attempts}/{max_poll_attempts})")
                     # Continue polling for unconfirmed transactions
                     await asyncio.sleep(5)  # Wait before polling again
                 else:
@@ -451,7 +480,7 @@ class CLMMPositionManager(ScriptStrategyBase):
                 await asyncio.sleep(5)  # Add delay to avoid rapid retries on error
 
         # If we reach here, we've exceeded maximum polling attempts
-        self.logger().warning(f"Transaction {tx_hash} still unconfirmed after {max_poll_attempts} polling attempts")
+        self.logger().warning(f"Transaction {signature} still unconfirmed after {max_poll_attempts} polling attempts")
         # Return false but don't mark as definitely failed
         return False
 
@@ -472,9 +501,25 @@ class CLMMPositionManager(ScriptStrategyBase):
             lines.append(f"Position price range: {self.position_lower_price:.6f} to {self.position_upper_price:.6f}")
             lines.append(f"Current price: {self.last_price}")
 
+            # Show buffer info
+            if self.config.out_of_range_pct > 0:
+                lower_bound_with_buffer = self.position_lower_price * (1 - float(self.config.out_of_range_pct) / 100.0)
+                upper_bound_with_buffer = self.position_upper_price * (1 + float(self.config.out_of_range_pct) / 100.0)
+                lines.append(f"Buffer zone: {lower_bound_with_buffer:.6f} to {upper_bound_with_buffer:.6f} ({self.config.out_of_range_pct}%)")
+
+            # Show position status
             if self.out_of_range_start_time:
                 elapsed = time.time() - self.out_of_range_start_time
-                lines.append(f"Price out of range for {elapsed:.0f}/{self.config.out_of_range_secs} seconds")
+                lines.append(f"⚠️  Price out of range for {elapsed:.0f}/{self.config.out_of_range_secs} seconds")
+                if elapsed >= self.config.out_of_range_secs * 0.8:  # Warning when close to closing
+                    lines.append("⏰ Position will close soon!")
+            else:
+                # Check if price is in position range vs buffer range
+                if self.position_lower_price and self.position_upper_price:
+                    if self.last_price and self.position_lower_price <= float(self.last_price) <= self.position_upper_price:
+                        lines.append("✅ Price is within position range")
+                    else:
+                        lines.append("⚠️  Price is outside position range but within buffer")
         elif self.position_opening:
             lines.append(f"Opening position on {connector_chain_network}...")
         elif self.position_closing:

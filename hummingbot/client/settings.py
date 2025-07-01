@@ -185,12 +185,33 @@ class ConnectorSetting(NamedTuple):
     def module_name(self) -> str:
         # returns connector module name, e.g. binance_exchange
         if self.uses_gateway_generic_connector():
-            # Gateway DEX connectors may be on different types of chains (ethereum, solana, etc)
             connector_spec: Dict[str, str] = GatewayConnectionSetting.get_connector_spec_from_market_name(self.name)
             if connector_spec is None:
-                # Handle the case where connector_spec is None
                 raise ValueError(f"Cannot find connector specification for {self.name}. Please check your gateway connection settings.")
-            return "gateway.gateway_swap"
+
+            # Simple module selection based on trading_types
+            if "trading_types" not in connector_spec or not connector_spec["trading_types"]:
+                raise ValueError(f"No trading_types specified for {self.name}")
+
+            # Convert to lowercase for consistency
+            trading_types = [t.lower() for t in connector_spec["trading_types"]]
+
+            # If amm or clmm exists, use gateway_lp
+            if "amm" in trading_types or "clmm" in trading_types:
+                return "gateway.gateway_lp"
+
+            # Find module for non-swap types
+            for t_type in trading_types:
+                if t_type != "swap":
+                    return f"gateway.gateway_{t_type}"
+
+            # If only swap exists, use gateway_swap
+            if "swap" in trading_types:
+                return "gateway.gateway_swap"
+
+            # Rule 4: No recognized trading types
+            raise ValueError(f"No recognized trading_types for {self.name}. Found: {trading_types}")
+
         return f"{self.base_name()}_{self._get_module_package()}"
 
     def module_path(self) -> str:
@@ -269,7 +290,7 @@ class ConnectorSetting(NamedTuple):
         params["client_config_map"] = client_config_map
         if (self.config_keys is not None
                 and type(self.config_keys) is not dict
-                and "receive_connector_configuration" in self.config_keys.__fields__
+                and "receive_connector_configuration" in self.config_keys.__class__.model_fields
                 and self.config_keys.receive_connector_configuration):
             params["connector_configuration"] = self.config_keys
 

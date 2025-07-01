@@ -634,6 +634,18 @@ class DexalotRateSourceMode(ExchangeRateSourceModeBase):
 class CoinbaseAdvancedTradeRateSourceMode(ExchangeRateSourceModeBase):
     name: str = Field(default="coinbase_advanced_trade")
     model_config = ConfigDict(title="coinbase_advanced_trade")
+    use_auth_for_public_endpoints: bool = Field(
+        default=False,
+        description="Use authentication for public endpoints",
+        json_schema_extra = {
+            "prompt": lambda cm: "Would you like to use authentication for public endpoints? (Yes/No) (only affects rate limiting)",
+            "prompt_on_new": True,
+            "is_connect_key": True,
+        },
+    )
+
+    def build_rate_source(self) -> RateSourceBase:
+        return RATE_ORACLE_SOURCES[self.model_config["title"]](use_auth_for_public_endpoints=self.use_auth_for_public_endpoints)
 
 
 class HyperliquidRateSourceMode(ExchangeRateSourceModeBase):
@@ -644,11 +656,6 @@ class HyperliquidRateSourceMode(ExchangeRateSourceModeBase):
 class DeriveRateSourceMode(ExchangeRateSourceModeBase):
     name: str = Field(default="derive")
     model_config = ConfigDict(title="derive")
-
-
-class TegroRateSourceMode(ExchangeRateSourceModeBase):
-    name: str = Field(default="tegro")
-    model_config = ConfigDict(title="tegro")
 
 
 RATE_SOURCE_MODES = {
@@ -664,7 +671,6 @@ RATE_SOURCE_MODES = {
     CubeRateSourceMode.model_config["title"]: CubeRateSourceMode,
     HyperliquidRateSourceMode.model_config["title"]: HyperliquidRateSourceMode,
     DeriveRateSourceMode.model_config["title"]: DeriveRateSourceMode,
-    TegroRateSourceMode.model_config["title"]: TegroRateSourceMode,
     MexcRateSourceMode.model_config["title"]: MexcRateSourceMode,
 }
 
