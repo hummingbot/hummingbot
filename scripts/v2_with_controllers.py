@@ -4,9 +4,7 @@ from typing import Dict, List, Optional, Set
 
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.core.clock import Clock
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
-from hummingbot.remote_iface.mqtt import ETopicPublisher
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
 from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, StopExecutorAction
@@ -41,19 +39,6 @@ class V2WithControllers(StrategyV2Base):
         self.drawdown_exited_controllers = []
         self.closed_executors_buffer: int = 30
         self._last_performance_report_timestamp = 0
-        self.mqtt_enabled = HummingbotApplication.main_application()._mqtt is not None
-        self._pub: Optional[ETopicPublisher] = None
-
-    def start(self, clock: Clock, timestamp: float) -> None:
-        """
-        Start the strategy.
-        :param clock: Clock to use.
-        :param timestamp: Current time.
-        """
-        self._last_timestamp = timestamp
-        self.apply_initial_setting()
-        if self.mqtt_enabled:
-            self._pub = ETopicPublisher("performance", use_bot_prefix=True)
 
     async def on_stop(self):
         await super().on_stop()

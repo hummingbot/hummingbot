@@ -162,40 +162,12 @@ class ConnectorManagerTest(IsolatedAsyncioWrapperTestCase):
         # Verify removal
         self.assertTrue(result)
         self.assertNotIn("binance", self.connector_manager.connectors)
-        self.mock_connector.stop.assert_called_once()
-
-    async def test_remove_connector_with_orders(self):
-        """Test removing a connector with open orders"""
-        # Set up connector with orders
-        self.mock_connector.limit_orders = [Mock(), Mock()]
-        self.connector_manager.connectors["binance"] = self.mock_connector
-
-        # Remove connector
-        result = self.connector_manager.remove_connector("binance")
-
-        # Verify orders were cancelled
-        self.assertTrue(result)
-        self.mock_connector.cancel_all.assert_called_once_with(10.0)
-        self.mock_connector.stop.assert_called_once()
 
     async def test_remove_nonexistent_connector(self):
         """Test removing a connector that doesn't exist"""
         result = self.connector_manager.remove_connector("nonexistent")
 
         self.assertFalse(result)
-
-    async def test_remove_connector_exception(self):
-        """Test removing a connector when exception occurs"""
-        # Add connector that throws exception on stop
-        self.mock_connector.stop.side_effect = Exception("Stop failed")
-        self.connector_manager.connectors["binance"] = self.mock_connector
-
-        # Remove should handle exception and return False
-        result = self.connector_manager.remove_connector("binance")
-
-        self.assertFalse(result)
-        # Connector should still be in the dict since removal failed
-        self.assertIn("binance", self.connector_manager.connectors)
 
     @patch.object(ConnectorManager, "remove_connector")
     @patch.object(ConnectorManager, "create_connector")

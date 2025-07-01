@@ -122,19 +122,13 @@ class ConnectorManager:
         Returns:
             bool: True if successfully removed
         """
-        try:
-            if connector_name not in self.connectors:
-                self._logger.warning(f"Connector {connector_name} not found")
-                return False
-
-            del self.connectors[connector_name]
-
-            self._logger.info(f"Removed connector: {connector_name}")
-            return True
-
-        except Exception as e:
-            self._logger.error(f"Failed to remove connector {connector_name}: {e}")
+        if connector_name not in self.connectors:
+            self._logger.warning(f"Connector {connector_name} not found")
             return False
+
+        del self.connectors[connector_name]
+        self._logger.info(f"Removed connector: {connector_name}")
+        return True
 
     async def add_trading_pairs(self, connector_name: str, trading_pairs: List[str]) -> bool:
         """
