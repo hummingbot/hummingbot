@@ -1,14 +1,12 @@
 import logging
 from datetime import datetime, timezone
-from typing import List, Optional, Union
+from typing import List, Optional
 
-import pandas as pd
 from dateutil.parser import parse as dateparse
 
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.data_feed.candles_feed.btc_markets_spot_candles import constants as CONSTANTS
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
-from hummingbot.data_feed.candles_feed.data_types import HistoricalCandlesConfig
 from hummingbot.logger import HummingbotLogger
 
 
@@ -118,53 +116,6 @@ class BtcMarketsSpotCandles(CandlesBase):
             params["to"] = end_iso
 
         return params
-
-    async def get_historical_candles(
-        self, start_time: Union[int, datetime], end_time: Optional[Union[int, datetime]] = None
-    ) -> pd.DataFrame:
-        """
-        Fetch historical candles from start_time to end_time.
-
-        Parameters:
-        -----------
-        start_time : Union[int, datetime]
-            The start time for fetching candles. Can be:
-            - Unix timestamp (int)
-            - datetime object (timezone-aware or naive)
-
-        end_time : Optional[Union[int, datetime]]
-            The end time for fetching candles. If None, current time is used.
-            Same format options as start_time.
-
-        Returns:
-        --------
-        pd.DataFrame
-            DataFrame containing historical candle data
-        """
-        # Convert datetime to timestamp if needed
-        if isinstance(start_time, datetime):
-            # No need to handle timezone conversion - timestamp() does it automatically
-            start_timestamp = int(start_time.timestamp())
-        else:
-            start_timestamp = start_time
-
-        # Handle end_time similarly
-        if end_time is None:
-            end_timestamp = int(datetime.now().timestamp())  # Current time as timestamp
-        elif isinstance(end_time, datetime):
-            end_timestamp = int(end_time.timestamp())
-        else:
-            end_timestamp = end_time
-
-        config = HistoricalCandlesConfig(
-            connector_name="btc_markets",
-            trading_pair=self._trading_pair,
-            interval=self.interval,
-            start_time=start_timestamp,
-            end_time=end_timestamp,
-        )
-
-        return await super().get_historical_candles(config)
 
     def _parse_rest_candles(self, data: List[List[str]], end_time: Optional[int] = None) -> List[List[float]]:
         """
