@@ -40,7 +40,7 @@ class StopCommand:
             await self.trading_core.cancel_outstanding_orders()
 
         # Sleep five seconds to have time for order fill arrivals
-        await asyncio.sleep(5.0)
+        await asyncio.sleep(10.0)
 
         # Stop all connectors
         for connector_name in list(self.trading_core.connectors.keys()):
