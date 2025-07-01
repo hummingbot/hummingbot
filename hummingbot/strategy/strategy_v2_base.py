@@ -380,7 +380,7 @@ class StrategyV2Base(ScriptStrategyBase):
 
     def get_all_executors(self) -> List[ExecutorInfo]:
         """Get all executors from all controllers."""
-        return [executor.executor_info for executors_list in self.executor_orchestrator.active_executors.values() for executor in executors_list]
+        return [executor for executors_list in [report.get("executors", []) for report in self.controller_reports.values()] for executor in executors_list]
 
     def get_positions_by_controller(self, controller_id: str) -> List[PositionSummary]:
         """Get positions for a specific controller from the unified reports."""
