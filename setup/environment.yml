@@ -28,7 +28,7 @@ dependencies:
   - cachetools>=5.3.1
   - commlib-py>=0.11
   - cryptography>=41.0.2
-  - injective-py==1.10.*
+  # - injective-py==1.11.0rc3
   - eth-account>=0.13.0
   - msgpack-python
   - numpy>=1.25.0,<2
@@ -58,3 +58,5 @@ dependencies:
   - xrpl-py==4.1.0
   - yaml>=0.2.5
   - zlib>=1.2.13
+  - pip:
+    - injective-py==1.11.0rc6
