@@ -78,6 +78,8 @@ class MarketOrderFailureEvent(NamedTuple):
     timestamp: float
     order_id: str
     order_type: OrderType
+    error_message: Optional[str] = None
+    error_type: Optional[str] = None
 
 
 @dataclass

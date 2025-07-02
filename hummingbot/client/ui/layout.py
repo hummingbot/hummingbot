@@ -203,7 +203,7 @@ def get_strategy_file():
     from hummingbot.client.hummingbot_application import HummingbotApplication
     hb = HummingbotApplication.main_application()
     style = "class:log_field"
-    return [(style, f"Strategy File: {hb._strategy_file_name}")]
+    return [(style, f"Strategy File: {hb.strategy_file_name}")]
 
 
 def get_gateway_status():
