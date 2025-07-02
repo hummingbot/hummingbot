@@ -210,6 +210,13 @@ class GatewayBase(ConnectorBase):
             self.logger().error(f"Failed to fetch wallet for chain {self._chain}: {str(e)}")
             raise
 
+    @property
+    def trading_pairs(self):
+        """
+        Returns the list of trading pairs supported by this connector.
+        """
+        return self._trading_pairs
+
     async def all_trading_pairs(self) -> List[str]:
         """
         Calls the tokens endpoint on Gateway using the new API.

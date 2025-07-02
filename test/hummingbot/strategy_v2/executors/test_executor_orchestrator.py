@@ -1,3 +1,4 @@
+import asyncio
 import unittest
 from decimal import Decimal
 from unittest.mock import MagicMock, PropertyMock, patch
@@ -57,6 +58,8 @@ class TestExecutorOrchestrator(unittest.TestCase):
         strategy.market_data_provider.get_price_by_type = MagicMock(return_value=Decimal(230))
         # Add the controllers attribute that ExecutorOrchestrator now checks for
         strategy.controllers = {}
+        # Add the markets attribute that ExecutorOrchestrator now checks for
+        strategy.markets = {"binance": {"ETH-USDT", "BTC-USDT"}}
         return strategy
 
     @patch.object(PositionExecutor, "start")
@@ -342,13 +345,18 @@ class TestExecutorOrchestrator(unittest.TestCase):
 
     @patch.object(ExecutorOrchestrator, "store_all_positions")
     def test_stop(self, store_all_positions):
-        store_all_positions.return_value = None
-        position_executor = MagicMock(spec=PositionExecutor)
-        position_executor.is_closed = False
-        position_executor.early_stop = MagicMock(return_value=None)
-        self.orchestrator.active_executors["test"] = [position_executor]
-        self.orchestrator.stop()
-        position_executor.early_stop.assert_called_once()
+        async def test_async():
+            store_all_positions.return_value = None
+            position_executor = MagicMock(spec=PositionExecutor)
+            position_executor.is_closed = False
+            position_executor.early_stop = MagicMock(return_value=None)
+            position_executor.executor_info = MagicMock()
+            position_executor.executor_info.is_done = True
+            self.orchestrator.active_executors["test"] = [position_executor]
+            await self.orchestrator.stop()
+            position_executor.early_stop.assert_called_once()
+
+        asyncio.run(test_async())
 
     def test_stop_executor(self):
         position_executor = MagicMock(spec=PositionExecutor)

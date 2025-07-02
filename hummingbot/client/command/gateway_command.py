@@ -999,8 +999,11 @@ class GatewayCommand(GatewayChainApiManager):
 
             try:
                 resp: Dict[str, Any] = await self._get_gateway_instance().approve_token(network, wallet_address, tokens, connector)
-                transaction_hash: Optional[str] = resp.get(
-                    "approval", {}).get("hash")
+                transaction_hash: Optional[str] = resp.get("signature")
+                if not transaction_hash:
+                    self.logger().error(f"No transaction hash returned from approval request. Response: {resp}")
+                    self.notify("Error: No transaction hash returned from approval request.")
+                    return
                 displayed_pending: bool = False
                 while True:
                     pollResp: Dict[str, Any] = await self._get_gateway_instance().get_transaction_status(chain, network, transaction_hash)
