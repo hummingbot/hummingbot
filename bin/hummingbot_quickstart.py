@@ -131,7 +131,6 @@ async def wait_for_gateway_ready(hb):
     ]
     uses_gateway = any([s.uses_gateway_generic_connector() for s in exchange_settings])
     if not uses_gateway:
-        logging.getLogger().info("No gateway connectors found, skipping gateway readiness check.")
         return
     try:
         await asyncio.wait_for(hb._gateway_monitor.ready_event.wait(), timeout=GATEWAY_READY_TIMEOUT)
