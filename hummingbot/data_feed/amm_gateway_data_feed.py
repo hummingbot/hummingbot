@@ -5,7 +5,7 @@ from typing import Dict, Optional, Set
 
 from pydantic import BaseModel
 
-from hummingbot.connector.gateway.gateway_http_client import GatewayHttpClient
+from hummingbot.connector.gateway.core import GatewayClient
 from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.network_base import NetworkBase
@@ -27,7 +27,15 @@ class TokenBuySellPrice(BaseModel):
 
 class AmmGatewayDataFeed(NetworkBase):
     dex_logger: Optional[HummingbotLogger] = None
-    gateway_client = GatewayHttpClient.get_instance()
+    gateway_client = None  # Will be initialized on first use
+
+    @classmethod
+    def _get_gateway_client(cls) -> GatewayClient:
+        """Get or create the gateway client instance."""
+        if cls.gateway_client is None:
+            from hummingbot.connector.gateway.utils.gateway_utils import get_default_gateway_url
+            cls.gateway_client = GatewayClient.get_instance(get_default_gateway_url())
+        return cls.gateway_client
 
     def __init__(
         self,
@@ -85,7 +93,7 @@ class AmmGatewayDataFeed(NetworkBase):
         return len(self._price_dict) > 0
 
     async def check_network(self) -> NetworkStatus:
-        is_gateway_online = await self.gateway_client.ping_gateway()
+        is_gateway_online = await self._get_gateway_client().ping_gateway()
         if not is_gateway_online:
             self.logger().warning("Gateway is not online. Please check your gateway connection.")
         return NetworkStatus.CONNECTED if is_gateway_online else NetworkStatus.NOT_CONNECTED
@@ -144,7 +152,7 @@ class AmmGatewayDataFeed(NetworkBase):
     async def _request_token_price(self, trading_pair: str, trade_type: TradeType) -> Optional[Decimal]:
         base, quote = split_hb_trading_pair(trading_pair)
         connector, chain, network = self.connector_chain_network.split("_")
-        token_price = await self.gateway_client.get_price(
+        token_price = await self._get_gateway_client().get_price(
             chain,
             network,
             connector,

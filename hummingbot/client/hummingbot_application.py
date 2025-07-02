@@ -23,7 +23,7 @@ from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
 from hummingbot.client.ui.keybindings import load_key_bindings
 from hummingbot.client.ui.parser import ThrowingArgumentParser, load_parser
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.gateway.gateway_status_monitor import GatewayStatusMonitor
+from hummingbot.connector.gateway.core import GatewayMonitor
 from hummingbot.core.trading_core import TradingCore
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.exceptions import ArgumentParserError
@@ -76,8 +76,10 @@ class HummingbotApplication(*commands):
 
         # Script configuration support
         self.script_config: Optional[str] = None
-        self._gateway_monitor = GatewayStatusMonitor(self)
-        # Delay starting gateway monitor to avoid duplicate initialization
+        self._gateway_monitor = GatewayMonitor(self)
+        # Start the gateway monitor in the background
+        from hummingbot.core.utils.async_utils import safe_ensure_future
+        safe_ensure_future(self._gateway_monitor.start())
 
         # Initialize UI components only if not in headless mode
         if not headless_mode:
@@ -209,8 +211,7 @@ class HummingbotApplication(*commands):
 
     async def run(self):
         """Run the application - either UI mode or headless mode."""
-        # Start gateway monitor after app is initialized
-        self._gateway_monitor.start()
+        # Gateway monitor is already started in __init__
 
         if self.headless_mode:
             # Start MQTT market events forwarding if MQTT is available

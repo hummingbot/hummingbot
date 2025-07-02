@@ -13,7 +13,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 
 from hummingbot import root_path
-from hummingbot.connector.gateway.gateway_paths import get_gateway_paths
+from hummingbot.connector.gateway.utils.gateway_utils import get_gateway_paths
 
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter

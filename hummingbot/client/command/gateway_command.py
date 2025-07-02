@@ -12,9 +12,8 @@ from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.security import Security
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.client.ui.interface_utils import format_df_for_printout
-from hummingbot.connector.gateway.gateway_http_client import GatewayHttpClient
-from hummingbot.connector.gateway.gateway_paths import get_gateway_paths
-from hummingbot.connector.gateway.gateway_status_monitor import GatewayStatus
+from hummingbot.connector.gateway.core import GatewayClient, GatewayStatus
+from hummingbot.connector.gateway.utils.gateway_utils import get_gateway_paths
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import build_config_dict_display
 from hummingbot.core.utils.ssl_cert import create_self_sign_certs
@@ -1037,10 +1036,12 @@ class GatewayCommand(GatewayChainApiManager):
 
     def _get_gateway_instance(
         self  # type: HummingbotApplication
-    ) -> GatewayHttpClient:
-        gateway_instance = GatewayHttpClient.get_instance(
-            self.client_config_map)
-        return gateway_instance
+    ) -> GatewayClient:
+        # Get Gateway URL from client config or use default
+        gateway_url = getattr(self.client_config_map.gateway, 'gateway_api_host', 'localhost')
+        gateway_port = getattr(self.client_config_map.gateway, 'gateway_api_port', 15888)
+        base_url = f"http://{gateway_url}:{gateway_port}"
+        return GatewayClient.get_instance(base_url)
 
     async def _get_allowances(self, network: Optional[str] = None, connector: Optional[str] = None,
                               tokens: Optional[str] = None):

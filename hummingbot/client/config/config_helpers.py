@@ -562,7 +562,8 @@ async def load_gateway_connectors():
     """
     Load gateway connectors info. This should be called once during startup.
     """
-    from hummingbot.connector.gateway.gateway_http_client import GatewayHttpClient
+    from hummingbot.connector.gateway.core import GatewayClient
+    from hummingbot.connector.gateway.utils.gateway_utils import get_default_gateway_url
 
     global _gateway_connectors_cache
 
@@ -571,7 +572,7 @@ async def load_gateway_connectors():
         return
 
     try:
-        gateway_client = GatewayHttpClient.get_instance()
+        gateway_client = GatewayClient.get_instance(get_default_gateway_url())
         connectors_response = await gateway_client.get_connectors()
 
         # Build a mapping of connector name to info
@@ -618,20 +619,11 @@ def get_gateway_connector_class_by_name(connector_name: str) -> Callable:
     Determine the appropriate gateway connector class based on the connector's trading types.
     Returns GatewayLp for AMM/CLMM connectors, GatewaySwap for swap-only connectors.
     """
-    from hummingbot.connector.gateway.gateway_lp import GatewayLp
-    from hummingbot.connector.gateway.gateway_swap import GatewaySwap
+    from hummingbot.connector.gateway.core import GatewayConnector
 
     # Get connector info from gateway
-    connectors_info = get_gateway_connectors_info()
-    connector_info = connectors_info.get(connector_name, {})
-    trading_types = connector_info.get("trading_types", [])
-
-    # If connector has AMM or CLMM trading types, use GatewayLp
-    if any(t in ["amm", "clmm"] for t in trading_types):
-        return GatewayLp
-    else:
-        # Default to GatewaySwap for swap-only connectors
-        return GatewaySwap
+    # Return the unified GatewayConnector for all types
+    return GatewayConnector
 
 
 def get_strategy_config_map(

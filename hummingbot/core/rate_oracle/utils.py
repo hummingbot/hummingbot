@@ -1,8 +1,30 @@
 from decimal import Decimal
 from typing import Dict
 
-from hummingbot.connector.gateway.common_types import unwrap_token_symbol
+# Import removed to avoid circular dependency - unwrap_token_symbol defined below
 from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair
+
+
+def unwrap_token_symbol(symbol: str) -> str:
+    """
+    Unwrap token symbol (e.g., WETH -> ETH, WBNB -> BNB).
+    This function is duplicated here to avoid circular imports.
+    """
+    # Map of wrapped tokens to their native equivalents
+    wrapped_tokens = {
+        "WETH": "ETH",
+        "WBNB": "BNB",
+        "WMATIC": "MATIC",
+        "WAVAX": "AVAX",
+        "WFTM": "FTM",
+        "WONE": "ONE",
+        "WCELO": "CELO",
+        "WCRO": "CRO",
+        "WNEAR": "NEAR",
+        "WBTC": "BTC",
+    }
+
+    return wrapped_tokens.get(symbol.upper(), symbol)
 
 
 def find_rate(prices: Dict[str, Decimal], pair: str) -> Decimal:
