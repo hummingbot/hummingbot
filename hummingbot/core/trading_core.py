@@ -654,30 +654,52 @@ class TradingCore:
         """Get order book from a connector."""
         return self.connector_manager.get_order_book(connector_name, trading_pair)
 
-    async def shutdown(self) -> bool:
+    async def shutdown(self, skip_order_cancellation: bool = False) -> bool:
         """
         Shutdown the trading core completely.
 
         This stops all strategies, connectors, and the clock.
+
+        Args:
+            skip_order_cancellation: Whether to skip cancelling outstanding orders
         """
         try:
+            # Handle script strategy specific cleanup first
+            if self.strategy and isinstance(self.strategy, ScriptStrategyBase):
+                await self.strategy.on_stop()
+
             # Stop strategy if running
             if self._strategy_running:
                 await self.stop_strategy()
 
+            # Cancel outstanding orders
+            if not skip_order_cancellation:
+                await self.cancel_outstanding_orders()
+
             # Stop clock if running
             if self._is_running:
                 await self.stop_clock()
+
+            # Remove all connectors
+            connector_names = list(self.connector_manager.connectors.keys())
+            for name in connector_names:
+                try:
+                    self.remove_connector(name)
+                except Exception as e:
+                    self.logger().error(f"Error stopping connector {name}: {e}")
 
             # Stop markets recorder
             if self.markets_recorder:
                 self.markets_recorder.stop()
                 self.markets_recorder = None
 
-            # Remove all connectors
-            connector_names = list(self.connector_manager.connectors.keys())
-            for name in connector_names:
-                self.remove_connector(name)
+            # Clear strategy references
+            self.strategy = None
+            self.strategy_name = None
+            self.strategy_config_map = None
+            self._strategy_file_name = None
+            self._config_source = None
+            self._config_data = None
 
             self.logger().info("Trading core shutdown complete")
             return True
