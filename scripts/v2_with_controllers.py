@@ -14,8 +14,8 @@ class V2WithControllersConfig(StrategyV2ConfigBase):
     script_file_name: str = os.path.basename(__file__)
     candles_config: List[CandlesConfig] = []
     markets: Dict[str, Set[str]] = {}
-    max_global_drawdown: Optional[float] = None
-    max_controller_drawdown: Optional[float] = None
+    max_global_drawdown_quote: Optional[float] = None
+    max_controller_drawdown_quote: Optional[float] = None
 
 
 class V2WithControllers(StrategyV2Base):
@@ -42,14 +42,15 @@ class V2WithControllers(StrategyV2Base):
 
     def on_tick(self):
         super().on_tick()
-        self.check_manual_kill_switch()
-        self.control_max_drawdown()
-        self.send_performance_report()
+        if not self._is_stop_triggered:
+            self.check_manual_kill_switch()
+            self.control_max_drawdown()
+            self.send_performance_report()
 
     def control_max_drawdown(self):
-        if self.config.max_controller_drawdown:
+        if self.config.max_controller_drawdown_quote:
             self.check_max_controller_drawdown()
-        if self.config.max_global_drawdown:
+        if self.config.max_global_drawdown_quote:
             self.check_max_global_drawdown()
 
     def check_max_controller_drawdown(self):
@@ -61,8 +62,8 @@ class V2WithControllers(StrategyV2Base):
             if controller_pnl > last_max_pnl:
                 self.max_pnl_by_controller[controller_id] = controller_pnl
             else:
-                current_drawdown = (last_max_pnl - controller_pnl) / last_max_pnl
-                if current_drawdown > self.config.max_controller_drawdown:
+                current_drawdown = last_max_pnl - controller_pnl
+                if current_drawdown > self.config.max_controller_drawdown_quote:
                     self.logger().info(f"Controller {controller_id} reached max drawdown. Stopping the controller.")
                     controller.stop()
                     executors_order_placed = self.filter_executors(
@@ -79,10 +80,11 @@ class V2WithControllers(StrategyV2Base):
         if current_global_pnl > self.max_global_pnl:
             self.max_global_pnl = current_global_pnl
         else:
-            current_global_drawdown = (self.max_global_pnl - current_global_pnl) / self.max_global_pnl
-            if current_global_drawdown > self.config.max_global_drawdown:
+            current_global_drawdown = self.max_global_pnl - current_global_pnl
+            if current_global_drawdown > self.config.max_global_drawdown_quote:
                 self.drawdown_exited_controllers.extend(list(self.controllers.keys()))
                 self.logger().info("Global drawdown reached. Stopping the strategy.")
+                self._is_stop_triggered = True
                 HummingbotApplication.main_application().stop()
 
     def send_performance_report(self):
@@ -92,8 +94,6 @@ class V2WithControllers(StrategyV2Base):
             self._last_performance_report_timestamp = self.current_timestamp
 
     def check_manual_kill_switch(self):
-        if self._is_stop_triggered:
-            return
         for controller_id, controller in self.controllers.items():
             if controller.config.manual_kill_switch and controller.status == RunnableStatus.RUNNING:
                 self.logger().info(f"Manual cash out for controller {controller_id}.")
