@@ -61,7 +61,7 @@ class V2WithControllers(StrategyV2Base):
             if controller_pnl > last_max_pnl:
                 self.max_pnl_by_controller[controller_id] = controller_pnl
             else:
-                current_drawdown = last_max_pnl - controller_pnl
+                current_drawdown = (last_max_pnl - controller_pnl) / last_max_pnl
                 if current_drawdown > self.config.max_controller_drawdown:
                     self.logger().info(f"Controller {controller_id} reached max drawdown. Stopping the controller.")
                     controller.stop()
@@ -79,7 +79,7 @@ class V2WithControllers(StrategyV2Base):
         if current_global_pnl > self.max_global_pnl:
             self.max_global_pnl = current_global_pnl
         else:
-            current_global_drawdown = self.max_global_pnl - current_global_pnl
+            current_global_drawdown = (self.max_global_pnl - current_global_pnl) / self.max_global_pnl
             if current_global_drawdown > self.config.max_global_drawdown:
                 self.drawdown_exited_controllers.extend(list(self.controllers.keys()))
                 self.logger().info("Global drawdown reached. Stopping the strategy.")
