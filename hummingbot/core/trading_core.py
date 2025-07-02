@@ -676,10 +676,6 @@ class TradingCore:
             if not skip_order_cancellation:
                 await self.cancel_outstanding_orders()
 
-            # Stop clock if running
-            if self._is_running:
-                await self.stop_clock()
-
             # Remove all connectors
             connector_names = list(self.connector_manager.connectors.keys())
             for name in connector_names:
@@ -687,6 +683,10 @@ class TradingCore:
                     self.remove_connector(name)
                 except Exception as e:
                     self.logger().error(f"Error stopping connector {name}: {e}")
+
+            # Stop clock if running
+            if self._is_running:
+                await self.stop_clock()
 
             # Stop markets recorder
             if self.markets_recorder:
