@@ -3,7 +3,6 @@ import threading
 from typing import TYPE_CHECKING
 
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
@@ -27,26 +26,7 @@ class StopCommand:
             import appnope
             appnope.nap()
 
-        # Handle script strategy specific cleanup first
-        if isinstance(self.trading_core.strategy, ScriptStrategyBase):
-            await self.trading_core.strategy.on_stop()
-
-        # Use trading_core encapsulated stop strategy method
-        await self.trading_core.stop_strategy()
-
-        # Cancel outstanding orders
-        if not skip_order_cancellation:
-            await self.trading_core.cancel_outstanding_orders()
-
-        # Stop all connectors and the clock
-        for connector_name in list(self.trading_core.connectors.keys()):
-            try:
-                self.trading_core.remove_connector(connector_name)
-            except Exception as e:
-                self.logger().error(f"Error stopping connector {connector_name}: {e}")
-        await self.trading_core.stop_clock()
-
-        # Clear application-level references
-        self.market_pair = None
+        # Use trading_core shutdown method for complete cleanup
+        await self.trading_core.shutdown(skip_order_cancellation)
 
         self.notify("Hummingbot stopped.")
