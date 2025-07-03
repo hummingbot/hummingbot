@@ -243,20 +243,6 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         # Cancel the task for cleanup
         self.data_source._manage_listen_key_task.cancel()
-        try:
-            await self.data_source._manage_listen_key_task
-        except asyncio.CancelledError:
-            pass
-
-    async def test_cancel_listen_key_task(self):
-        # Create a mock task
-        self.data_source._manage_listen_key_task = self.local_event_loop.create_task(asyncio.sleep(100))
-
-        # Cancel it
-        await self.data_source._cancel_listen_key_task()
-
-        # Verify it's None
-        self.assertIsNone(self.data_source._manage_listen_key_task)
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -357,3 +343,44 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             self._is_logged(
                 "ERROR",
                 "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
+
+    @patch("hummingbot.connector.exchange.mexc.mexc_api_user_stream_data_source.safe_ensure_future")
+    async def test_ensure_listen_key_task_running_with_running_task(self, mock_safe_ensure_future):
+        # Test when task is already running - should return early (line 58)
+        from unittest.mock import MagicMock
+        mock_task = MagicMock()
+        mock_task.done.return_value = False
+        self.data_source._manage_listen_key_task = mock_task
+
+        # Call the method
+        await self.data_source._ensure_listen_key_task_running()
+
+        # Should return early without creating a new task
+        mock_safe_ensure_future.assert_not_called()
+        self.assertEqual(mock_task, self.data_source._manage_listen_key_task)
+
+    async def test_ensure_listen_key_task_running_with_done_task_cancelled_error(self):
+        mock_task = MagicMock()
+        mock_task.done.return_value = True
+        mock_task.side_effect = asyncio.CancelledError()
+        self.data_source._manage_listen_key_task = mock_task
+
+        await self.data_source._ensure_listen_key_task_running()
+
+        # Task should be cancelled and replaced
+        mock_task.cancel.assert_called_once()
+        self.assertIsNotNone(self.data_source._manage_listen_key_task)
+        self.assertNotEqual(mock_task, self.data_source._manage_listen_key_task)
+
+    async def test_ensure_listen_key_task_running_with_done_task_exception(self):
+        mock_task = MagicMock()
+        mock_task.done.return_value = True
+        mock_task.side_effect = Exception("Test exception")
+        self.data_source._manage_listen_key_task = mock_task
+
+        await self.data_source._ensure_listen_key_task_running()
+
+        # Task should be cancelled and replaced, exception should be ignored
+        mock_task.cancel.assert_called_once()
+        self.assertIsNotNone(self.data_source._manage_listen_key_task)
+        self.assertNotEqual(mock_task, self.data_source._manage_listen_key_task)

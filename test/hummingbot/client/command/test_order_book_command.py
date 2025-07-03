@@ -1,7 +1,6 @@
-import asyncio
-import unittest
-from typing import Awaitable
-from unittest.mock import MagicMock, patch
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+from test.mock.mock_cli import CLIMockingAssistant
+from unittest.mock import patch
 
 from hummingbot.client.config.client_config_map import ClientConfigMap, DBSqliteMode
 from hummingbot.client.config.config_helpers import ClientConfigAdapter, read_system_configs_from_yml
@@ -9,23 +8,19 @@ from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
 
 
-class OrderBookCommandTest(unittest.TestCase):
+class OrderBookCommandTest(IsolatedAsyncioWrapperTestCase):
     @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher")
-    def setUp(self, _: MagicMock) -> None:
-        super().setUp()
-        self.ev_loop = asyncio.get_event_loop()
-
-        self.async_run_with_timeout(read_system_configs_from_yml())
+    @patch("hummingbot.core.gateway.gateway_status_monitor.GatewayStatusMonitor.start")
+    @patch("hummingbot.client.hummingbot_application.HummingbotApplication.mqtt_start")
+    async def asyncSetUp(self, mock_mqtt_start, mock_gateway_start, mock_trading_pair_fetcher):
+        await read_system_configs_from_yml()
         self.client_config_map = ClientConfigAdapter(ClientConfigMap())
-
         self.app = HummingbotApplication(client_config_map=self.client_config_map)
-
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
+        self.cli_mock_assistant = CLIMockingAssistant(self.app.app)
+        self.cli_mock_assistant.start()
 
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication.notify")
-    def test_show_order_book(self, notify_mock):
+    async def test_show_order_book(self, notify_mock):
         self.client_config_map.db_mode = DBSqliteMode()
 
         captures = []
@@ -33,7 +28,8 @@ class OrderBookCommandTest(unittest.TestCase):
 
         exchange_name = "paper"
         exchange = MockPaperExchange(client_config_map=ClientConfigAdapter(ClientConfigMap()))
-        self.app.markets[exchange_name] = exchange
+        # Set the exchange in the new architecture location
+        self.app.trading_core.connector_manager.connectors[exchange_name] = exchange
         trading_pair = "BTC-USDT"
         exchange.set_balanced_order_book(
             trading_pair,
@@ -44,7 +40,7 @@ class OrderBookCommandTest(unittest.TestCase):
             volume_step_size=1,
         )
 
-        self.async_run_with_timeout(self.app.show_order_book(exchange=exchange_name, live=False))
+        await self.app.show_order_book(exchange=exchange_name, live=False)
 
         self.assertEqual(1, len(captures))
 

@@ -1,11 +1,10 @@
 import asyncio
-from typing import (
-    TYPE_CHECKING,
-)
+from typing import TYPE_CHECKING
+
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 if TYPE_CHECKING:
-    from hummingbot.client.hummingbot_application import HummingbotApplication
+    from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
 
 RESOURCES_PATH = "hummingbot/client/command/silly_resources/"
 
@@ -29,9 +28,6 @@ class SillyCommands:
             return True
         elif command in ("jack", "nullably"):
             safe_ensure_future(self.silly_jack())
-            return True
-        elif command == "hodl":
-            safe_ensure_future(self.silly_hodl())
             return True
         elif command == "dennis":
             safe_ensure_future(self.silly_dennis())
@@ -59,22 +55,6 @@ class SillyCommands:
         jack_2 = open(f"{RESOURCES_PATH}jack_2.txt").readlines()
         await self.cls_display_delay(jack_1, 1.5)
         await self.cls_display_delay(jack_2, 1.5)
-        self.placeholder_mode = False
-        self.app.hide_input = False
-
-    async def silly_hodl(self,  # type: HummingbotApplication
-                         ):
-        self.placeholder_mode = True
-        self.app.hide_input = True
-        stay_calm = open(f"{RESOURCES_PATH}hodl_stay_calm.txt").readlines()
-        and_hodl = open(f"{RESOURCES_PATH}hodl_and_hodl.txt").readlines()
-        bitcoin = open(f"{RESOURCES_PATH}hodl_bitcoin.txt").readlines()
-        await self.cls_display_delay(stay_calm, 1.75)
-        await self.cls_display_delay(and_hodl, 1.75)
-        for _ in range(3):
-            await self.cls_display_delay("\n" * 50, 0.25)
-            await self.cls_display_delay(bitcoin, 0.25)
-        await self.cls_display_delay(bitcoin, 1.75)
         self.placeholder_mode = False
         self.app.hide_input = False
 
@@ -198,7 +178,7 @@ class SillyCommands:
             self.app.live_updates = False
             await asyncio.sleep(1)
 
-    def display_alert(self, custom_alert = None):
+    def display_alert(self, custom_alert=None):
         alert = """
                                 ====================================
                                 ║                                  ║
