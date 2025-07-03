@@ -749,10 +749,8 @@ class KucoinExchangeTests(unittest.TestCase):
         self.assertRaises(IOError)
         self.assertTrue(
             self._is_logged(
-                "INFO",
-                f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
-                f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                "client_order_id='OID1', exchange_order_id=None, misc_updates=None)"
+                "NETWORK",
+                f"Error submitting buy LIMIT order to {self.exchange.name_cap} for 100.000000 {self.trading_pair} 10000.0000."
             )
         )
 
@@ -796,18 +794,11 @@ class KucoinExchangeTests(unittest.TestCase):
 
         self.assertTrue(
             self._is_logged(
-                "WARNING",
-                "Buy order amount 0.0001 is lower than the minimum order "
-                "size 0.01. The order will not be created, increase the "
-                "amount to be higher than the minimum order size."
-            )
-        )
-        self.assertTrue(
-            self._is_logged(
                 "INFO",
                 f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                "client_order_id='OID1', exchange_order_id=None, misc_updates=None)"
+                "client_order_id='OID1', exchange_order_id=None, "
+                "misc_updates={'error_message': 'Order amount 0.0001 is lower than minimum order size 0.01 for the pair COINALPHA-HBOT. The order will not be created.', 'error_type': 'ValueError'})"
             )
         )
 
