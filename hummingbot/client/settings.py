@@ -436,6 +436,28 @@ class AllConnectorSettings:
                 domain_parameter=None,
                 use_eth_gas_lookup=False,
             )
+        
+        # 添加自定义连接器 binance_perpetual_2
+        from hummingbot.connector.derivative.binance_perpetual_2.binance_perpetual_2_utils import BinancePerpetual2ConfigMap
+        from decimal import Decimal
+        
+        cls.all_connector_settings["binance_perpetual_2"] = ConnectorSetting(
+            name="binance_perpetual_2",
+            type=ConnectorType.Derivative,
+            centralised=True,
+            example_pair="BTC-USDT",
+            use_ethereum_wallet=False,
+            trade_fee_schema=TradeFeeSchema(
+                maker_percent_fee_decimal=Decimal("0.0002"),
+                taker_percent_fee_decimal=Decimal("0.0004"),
+                buy_percent_fee_deducted_from_returns=True
+            ),
+            config_keys=BinancePerpetual2ConfigMap.model_construct(),
+            is_sub_domain=False,
+            parent_name=None,
+            domain_parameter=None,
+            use_eth_gas_lookup=False,
+        )
 
         return cls.all_connector_settings
 

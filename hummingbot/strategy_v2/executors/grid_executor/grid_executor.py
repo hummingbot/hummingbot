@@ -25,11 +25,14 @@ from hummingbot.strategy_v2.models.executors import CloseType, TrackedOrder
 from hummingbot.strategy_v2.utils.distributions import Distributions
 
 
+
+# 网格执行器，继承自基础执行器
 class GridExecutor(ExecutorBase):
-    _logger = None
+    _logger = None  # 日志记录器
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
+        # 获取日志记录器
         if cls._logger is None:
             cls._logger = logging.getLogger(__name__)
         return cls._logger
@@ -37,14 +40,15 @@ class GridExecutor(ExecutorBase):
     def __init__(self, strategy: ScriptStrategyBase, config: GridExecutorConfig,
                  update_interval: float = 1.0, max_retries: int = 10):
         """
-        Initialize the PositionExecutor instance.
+        初始化网格执行器实例。
 
-        :param strategy: The strategy to be used by the PositionExecutor.
-        :param config: The configuration for the PositionExecutor, subclass of PositionExecutoConfig.
-        :param update_interval: The interval at which the PositionExecutor should be updated, defaults to 1.0.
-        :param max_retries: The maximum number of retries for the PositionExecutor, defaults to 5.
+        :param strategy: 策略对象。
+        :param config: 网格执行器配置。
+        :param update_interval: 执行器更新间隔，默认1.0秒。
+        :param max_retries: 最大重试次数，默认10。
         """
-        self.config: GridExecutorConfig = config
+        self.config: GridExecutorConfig = config  # 网格配置
+        # 检查三重风控配置，止损和限时单仅支持市价单
         if config.triple_barrier_config.time_limit_order_type != OrderType.MARKET or \
                 config.triple_barrier_config.stop_loss_order_type != OrderType.MARKET:
             error = "Only market orders are supported for time_limit and stop_loss"
@@ -52,51 +56,55 @@ class GridExecutor(ExecutorBase):
             raise ValueError(error)
         super().__init__(strategy=strategy, config=config, connectors=[config.connector_name],
                          update_interval=update_interval)
-        self.open_order_price_type = PriceType.BestBid if config.side == TradeType.BUY else PriceType.BestAsk
-        self.close_order_price_type = PriceType.BestAsk if config.side == TradeType.BUY else PriceType.BestBid
-        self.close_order_side = TradeType.BUY if config.side == TradeType.SELL else TradeType.SELL
-        self.trading_rules = self.get_trading_rules(self.config.connector_name, self.config.trading_pair)
-        # Grid levels
+        self.open_order_price_type = PriceType.BestBid if config.side == TradeType.BUY else PriceType.BestAsk  # 开仓挂单类型
+        self.close_order_price_type = PriceType.BestAsk if config.side == TradeType.BUY else PriceType.BestBid  # 平仓挂单类型
+        self.close_order_side = TradeType.BUY if config.side == TradeType.SELL else TradeType.SELL  # 平仓方向
+        self.trading_rules = self.get_trading_rules(self.config.connector_name, self.config.trading_pair)  # 交易规则
+        # 网格层级
         self.grid_levels = self._generate_grid_levels()
-        self.levels_by_state = {state: [] for state in GridLevelStates}
-        self._close_order: Optional[TrackedOrder] = None
-        self._filled_orders = []
-        self._failed_orders = []
-        self._canceled_orders = []
+        self.levels_by_state = {state: [] for state in GridLevelStates}  # 各状态下的网格层级
+        self._close_order: Optional[TrackedOrder] = None  # 当前平仓订单
+        self._filled_orders = []  # 已成交订单
+        self._failed_orders = []  # 失败订单
+        self._canceled_orders = []  # 已取消订单
 
-        self.step = Decimal("0")
-        self.position_break_even_price = Decimal("0")
-        self.position_size_base = Decimal("0")
-        self.position_size_quote = Decimal("0")
-        self.position_fees_quote = Decimal("0")
-        self.position_pnl_quote = Decimal("0")
-        self.position_pnl_pct = Decimal("0")
-        self.open_liquidity_placed = Decimal("0")
-        self.close_liquidity_placed = Decimal("0")
-        self.realized_buy_size_quote = Decimal("0")
-        self.realized_sell_size_quote = Decimal("0")
-        self.realized_imbalance_quote = Decimal("0")
-        self.realized_fees_quote = Decimal("0")
-        self.realized_pnl_quote = Decimal("0")
-        self.realized_pnl_pct = Decimal("0")
-        self.max_open_creation_timestamp = 0
-        self.max_close_creation_timestamp = 0
-        self._open_fee_in_base = False
+        # 相关指标初始化
+        self.step = Decimal("0")  # 网格步长
+        self.position_break_even_price = Decimal("0")  # 持仓盈亏平衡价
+        self.position_size_base = Decimal("0")  # 持仓基础币数量
+        self.position_size_quote = Decimal("0")  # 持仓计价币数量
+        self.position_fees_quote = Decimal("0")  # 持仓手续费
+        self.position_pnl_quote = Decimal("0")  # 持仓未实现盈亏
+        self.position_pnl_pct = Decimal("0")  # 持仓未实现盈亏百分比
+        self.open_liquidity_placed = Decimal("0")  # 已挂开仓单资金
+        self.close_liquidity_placed = Decimal("0")  # 已挂平仓单资金
+        self.realized_buy_size_quote = Decimal("0")  # 已实现买入金额
+        self.realized_sell_size_quote = Decimal("0")  # 已实现卖出金额
+        self.realized_imbalance_quote = Decimal("0")  # 已实现买卖差额
+        self.realized_fees_quote = Decimal("0")  # 已实现手续费
+        self.realized_pnl_quote = Decimal("0")  # 已实现盈亏
+        self.realized_pnl_pct = Decimal("0")  # 已实现盈亏百分比
+        self.max_open_creation_timestamp = 0  # 最近开仓单创建时间戳
+        self.max_close_creation_timestamp = 0  # 最近平仓单创建时间戳
+        self._open_fee_in_base = False  # 是否基础币扣费
 
-        self._trailing_stop_trigger_pct: Optional[Decimal] = None
-        self._current_retries = 0
-        self._max_retries = max_retries
+        self._trailing_stop_trigger_pct: Optional[Decimal] = None  # 跟踪止损触发百分比
+        self._current_retries = 0  # 当前重试次数
+        self._max_retries = max_retries  # 最大重试次数
 
     @property
     def is_perpetual(self) -> bool:
         """
-        Check if the exchange connector is perpetual.
+        判断当前连接器是否为永续合约。
 
-        :return: True if the exchange connector is perpetual, False otherwise.
+        :return: 如果是永续合约返回True，否则返回False。
         """
         return self.is_perpetual_connector(self.config.connector_name)
 
     async def validate_sufficient_balance(self):
+        """
+        校验账户余额是否足够开仓。
+        """
         mid_price = self.get_price(self.config.connector_name, self.config.trading_pair, PriceType.MidPrice)
         total_amount_base = self.config.total_amount_quote / mid_price
         if self.is_perpetual:
@@ -125,33 +133,36 @@ class GridExecutor(ExecutorBase):
             self.stop()
 
     def _generate_grid_levels(self):
+        """
+        生成网格层级列表，根据配置和交易规则自动分配每层价格和下单金额。
+        """
         grid_levels = []
         price = self.get_price(self.config.connector_name, self.config.trading_pair, PriceType.MidPrice)
-        # Get minimum notional and base amount increment from trading rules
+        # 获取最小名义金额和最小基础币下单增量
         min_notional = max(
             self.config.min_order_amount_quote,
             self.trading_rules.min_notional_size
         )
         min_base_increment = self.trading_rules.min_base_amount_increment
-        # Add safety margin to minimum notional to account for price movements and quantization
+        # 给最小名义金额加安全边际，防止价格波动和量化误差
         min_notional_with_margin = min_notional * Decimal("1.05")  # 20% margin for safety
-        # Calculate minimum base amount that satisfies both min_notional and quantization
+        # 计算同时满足最小名义金额和最小下单增量的基础币数量
         min_base_amount = max(
             min_notional_with_margin / price,  # Minimum from notional requirement
             min_base_increment * Decimal(str(math.ceil(float(min_notional) / float(min_base_increment * price))))
         )
-        # Quantize the minimum base amount
+        # 对最小基础币数量进行量化
         min_base_amount = Decimal(
             str(math.ceil(float(min_base_amount) / float(min_base_increment)))) * min_base_increment
-        # Verify the quantized amount meets minimum notional
+        # 校验量化后金额是否满足最小名义金额
         min_quote_amount = min_base_amount * price
-        # Calculate grid range and minimum step size
+        # 计算网格区间和最小步长
         grid_range = (self.config.end_price - self.config.start_price) / self.config.start_price
         min_step_size = max(
             self.config.min_spread_between_orders,
             self.trading_rules.min_price_increment / price
         )
-        # Calculate maximum possible levels based on total amount
+        # 根据总资金计算最大可用网格层数
         max_possible_levels = int(self.config.total_amount_quote / min_quote_amount)
         if max_possible_levels == 0:
             # If we can't even create one level, create a single level with minimum amount
@@ -170,9 +181,9 @@ class GridExecutor(ExecutorBase):
             quote_amount_per_level = base_amount_per_level * price
             # Adjust number of levels if total amount would be exceeded
             n_levels = min(n_levels, int(float(self.config.total_amount_quote) / float(quote_amount_per_level)))
-        # Ensure we have at least one level
+        # 至少保证有一层网格
         n_levels = max(1, n_levels)
-        # Generate price levels with even distribution
+        # 均匀分布生成每层价格
         if n_levels > 1:
             prices = Distributions.linear(n_levels, float(self.config.start_price), float(self.config.end_price))
             self.step = grid_range / (n_levels - 1)
@@ -182,7 +193,7 @@ class GridExecutor(ExecutorBase):
             prices = [mid_price]
             self.step = grid_range
         take_profit = max(self.step, self.config.triple_barrier_config.take_profit) if self.config.coerce_tp_to_step else self.config.triple_barrier_config.take_profit
-        # Create grid levels
+        # 创建每一层网格对象
         for i, price in enumerate(prices):
             grid_levels.append(
                 GridLevel(
@@ -195,7 +206,7 @@ class GridExecutor(ExecutorBase):
                     take_profit_order_type=self.config.triple_barrier_config.take_profit_order_type,
                 )
             )
-        # Log grid creation details
+        # 日志记录网格创建详情
         self.logger().info(
             f"Created {len(grid_levels)} grid levels with "
             f"amount per level: {quote_amount_per_level:.4f} {self.config.trading_pair.split('-')[1]} "
@@ -206,9 +217,9 @@ class GridExecutor(ExecutorBase):
     @property
     def end_time(self) -> Optional[float]:
         """
-        Calculate the end time of the position based on the time limit
+        根据三重风控的限时参数计算本次网格的结束时间。
 
-        :return: The end time of the position.
+        :return: 网格结束时间戳。
         """
         if not self.config.triple_barrier_config.time_limit:
             return None
@@ -217,31 +228,31 @@ class GridExecutor(ExecutorBase):
     @property
     def is_expired(self) -> bool:
         """
-        Check if the position is expired.
+        判断网格是否已到期。
 
-        :return: True if the position is expired, False otherwise.
+        :return: 到期返回True，否则False。
         """
         return self.end_time and self.end_time <= self._strategy.current_timestamp
 
     @property
     def is_trading(self):
         """
-        Check if the position is trading.
+        判断当前是否处于交易状态。
 
-        :return: True if the position is trading, False otherwise.
+        :return: 处于交易状态返回True，否则False。
         """
         return self.status == RunnableStatus.RUNNING and self.position_size_quote > Decimal("0")
 
     @property
     def is_active(self):
         """
-        Returns whether the executor is open or trading.
+        返回执行器是否处于打开或交易状态。
         """
         return self._status in [RunnableStatus.RUNNING, RunnableStatus.NOT_STARTED, RunnableStatus.SHUTTING_DOWN]
 
     async def control_task(self):
         """
-        This method is responsible for controlling the task based on the status of the executor.
+        此方法根据执行器的状态控制任务。
 
         :return: None
         """
@@ -273,7 +284,7 @@ class GridExecutor(ExecutorBase):
 
     def early_stop(self, keep_position: bool = False):
         """
-        This method allows strategy to stop the executor early.
+        此方法允许策略提前停止执行器。
 
         :return: None
         """
@@ -282,6 +293,9 @@ class GridExecutor(ExecutorBase):
         self.close_type = CloseType.POSITION_HOLD if keep_position else CloseType.EARLY_STOP
 
     def update_grid_levels(self):
+        """
+        更新网格层级的状态。
+        """
         self.levels_by_state = {state: [] for state in GridLevelStates}
         for level in self.grid_levels:
             level.update_state()
@@ -300,7 +314,7 @@ class GridExecutor(ExecutorBase):
 
     async def control_shutdown_process(self):
         """
-        Control the shutdown process of the executor, handling held positions separately
+        控制执行器的关闭过程，单独处理持仓。
         """
         self.close_timestamp = self._strategy.current_timestamp
         open_orders_completed = self.open_liquidity_placed == Decimal("0")
@@ -521,8 +535,8 @@ class GridExecutor(ExecutorBase):
 
     def get_close_order_ids_to_cancel(self):
         """
-        This method is responsible for controlling the close orders. It will check if the take profit is greater than the
-        current price and cancel the close order.
+        此方法负责控制平仓订单。它将检查止盈价格是否高于当前价格，
+        并取消平仓订单。
 
         :return: None
         """
@@ -540,6 +554,10 @@ class GridExecutor(ExecutorBase):
         return []
 
     def _filter_levels_by_activation_bounds(self):
+        """
+        根据激活边界筛选未激活的网格层级。
+        :return: 在激活边界内的未激活层级列表。
+        """
         not_active_levels = self.levels_by_state[GridLevelStates.NOT_ACTIVE]
         if self.config.activation_bounds:
             if self.config.side == TradeType.BUY:
@@ -551,14 +569,18 @@ class GridExecutor(ExecutorBase):
         return not_active_levels
 
     def _sort_levels_by_proximity(self, levels: List[GridLevel]):
+        """
+        按与中间价的接近程度对层级进行排序。
+        :param levels: 要排序的层级列表。
+        :return: 按接近程度排序后的层级列表。
+        """
         return sorted(levels, key=lambda level: abs(level.price - self.mid_price))
 
     def control_triple_barrier(self):
         """
-        This method is responsible for controlling the barriers. It controls the stop loss, take profit, time limit and
-        trailing stop.
+        此方法负责控制各种交易屏障，包括止损、止盈、时间限制和跟踪止损。
 
-        :return: None
+        :return: 如果触发了任何屏障，返回True，否则返回False。
         """
         if self.stop_loss_condition():
             self.close_type = CloseType.STOP_LOSS
@@ -579,7 +601,8 @@ class GridExecutor(ExecutorBase):
 
     def take_profit_condition(self):
         """
-        Take profit will be when the mid price is above the end price of the grid and there are no active executors.
+        当中间价高于网格的结束价（买入侧）或低于起始价（卖出侧），
+        且没有活动的执行器时，触发止盈。
         """
         if self.mid_price > self.config.end_price if self.config.side == TradeType.BUY else self.mid_price < self.config.start_price:
             return True
@@ -587,10 +610,10 @@ class GridExecutor(ExecutorBase):
 
     def stop_loss_condition(self):
         """
-        This method is responsible for controlling the stop loss. If the net pnl percentage is less than the stop loss
-        percentage, it places the close order and cancels the open orders.
+        此方法负责控制止损。如果净盈亏百分比小于止损百分比，
+        则下达平仓订单并取消所有开仓订单。
 
-        :return: None
+        :return: 如果达到止损条件，返回True，否则返回False。
         """
         if self.config.triple_barrier_config.stop_loss:
             return self.position_pnl_pct <= -self.config.triple_barrier_config.stop_loss
@@ -598,10 +621,10 @@ class GridExecutor(ExecutorBase):
 
     def limit_price_condition(self):
         """
-        This method is responsible for controlling the limit price. If the current price is greater than the limit price,
-        it places the close order and cancels the open orders.
+        此方法负责控制限价。如果当前价格超过限价，
+        则下达平仓订单并取消所有开仓订单。
 
-        :return: None
+        :return: 如果达到限价条件，返回True，否则返回False。
         """
         if self.config.limit_price:
             if self.config.side == TradeType.BUY:
@@ -611,6 +634,10 @@ class GridExecutor(ExecutorBase):
         return False
 
     def trailing_stop_condition(self):
+        """
+        控制跟踪止损的逻辑。
+        :return: 如果触发跟踪止损，返回True。
+        """
         if self.config.triple_barrier_config.trailing_stop:
             net_pnl_pct = self.position_pnl_pct
             if not self._trailing_stop_trigger_pct:
@@ -625,12 +652,12 @@ class GridExecutor(ExecutorBase):
 
     def place_close_order_and_cancel_open_orders(self, close_type: CloseType, price: Decimal = Decimal("NaN")):
         """
-        This method is responsible for placing the close order and canceling the open orders. If the difference between
-        the open filled amount and the close filled amount is greater than the minimum order size, it places the close
-        order. It also cancels the open orders.
+        此方法负责下达平仓订单并取消所有开仓订单。如果开仓已成交金额
+        与平仓已成交金额之差大于最小订单大小，则下达平仓订单。
+        同时它也会取消所有开仓订单。
 
-        :param close_type: The type of the close order.
-        :param price: The price to be used in the close order.
+        :param close_type: 平仓订单的类型。
+        :param price: 用于平仓订单的价格。
         :return: None
         """
         self.cancel_open_orders()
@@ -651,7 +678,7 @@ class GridExecutor(ExecutorBase):
 
     def cancel_open_orders(self):
         """
-        This method is responsible for canceling the open orders.
+        此方法负责取消所有开仓订单。
 
         :return: None
         """
@@ -671,6 +698,10 @@ class GridExecutor(ExecutorBase):
                 self.logger().debug(f"Executor ID: {self.config.id} - Canceling open order {order.order_id}")
 
     def get_custom_info(self) -> Dict:
+        """
+        获取自定义信息字典，用于UI展示或API输出。
+        :return: 包含执行器状态的字典。
+        """
         held_position_value = sum([
             Decimal(order["executed_amount_quote"])
             for order in self._held_position_orders
@@ -699,8 +730,8 @@ class GridExecutor(ExecutorBase):
 
     async def on_start(self):
         """
-        This method is responsible for starting the executor and validating if the position is expired. The base method
-        validates if there is enough balance to place the open order.
+        此方法负责启动执行器并验证持仓是否已过期。基类方法会
+        验证是否有足够余额来下达开仓订单。
 
         :return: None
         """
@@ -713,8 +744,7 @@ class GridExecutor(ExecutorBase):
 
     def evaluate_max_retries(self):
         """
-        This method is responsible for evaluating the maximum number of retries to place an order and stop the executor
-        if the maximum number of retries is reached.
+        此方法负责评估下单的最大重试次数，并在达到最大次数时停止执行器。
 
         :return: None
         """
@@ -724,10 +754,9 @@ class GridExecutor(ExecutorBase):
 
     def update_tracked_orders_with_order_id(self, order_id: str):
         """
-        This method is responsible for updating the tracked orders with the information from the InFlightOrder, using
-        the order_id as a reference.
+        此方法负责使用 order_id 作为参考，通过 InFlightOrder 的信息更新被跟踪的订单。
 
-        :param order_id: The order_id to be used as a reference.
+        :param order_id: 用作参考的 order_id。
         :return: None
         """
         self.update_grid_levels()
@@ -743,29 +772,28 @@ class GridExecutor(ExecutorBase):
 
     def process_order_created_event(self, _, market, event: Union[BuyOrderCreatedEvent, SellOrderCreatedEvent]):
         """
-        This method is responsible for processing the order created event. Here we will update the TrackedOrder with the
-        order_id.
+        此方法负责处理订单创建事件。在这里，我们将使用 order_id 更新 TrackedOrder。
         """
         self.update_tracked_orders_with_order_id(event.order_id)
 
     def process_order_filled_event(self, _, market, event: OrderFilledEvent):
         """
-        This method is responsible for processing the order filled event. Here we will update the value of
-        _total_executed_amount_backup, that can be used if the InFlightOrder
-        is not available.
+        此方法负责处理订单成交事件。在这里，我们将更新
+        _total_executed_amount_backup 的值，以便在 InFlightOrder
+        不可用时使用。
         """
         self.update_tracked_orders_with_order_id(event.order_id)
 
     def process_order_completed_event(self, _, market, event: Union[BuyOrderCompletedEvent, SellOrderCompletedEvent]):
         """
-        This method is responsible for processing the order completed event. Here we will check if the id is one of the
-        tracked orders and update the state
+        此方法负责处理订单完成事件。在这里，我们将检查 ID 是否为
+        被跟踪的订单之一，并更新其状态。
         """
         self.update_tracked_orders_with_order_id(event.order_id)
 
     def process_order_canceled_event(self, _, market: ConnectorBase, event: OrderCancelledEvent):
         """
-        This method is responsible for processing the order canceled event
+        此方法负责处理订单取消事件。
         """
         self.update_grid_levels()
         levels_open_order_placed = [level for level in self.levels_by_state[GridLevelStates.OPEN_ORDER_PLACED]]
@@ -786,8 +814,7 @@ class GridExecutor(ExecutorBase):
 
     def process_order_failed_event(self, _, market, event: MarketOrderFailureEvent):
         """
-        This method is responsible for processing the order failed event. Here we will add the InFlightOrder to the
-        failed orders list.
+        此方法负责处理订单失败事件。在这里，我们将把 InFlightOrder 添加到失败订单列表中。
         """
         self.update_grid_levels()
         levels_open_order_placed = [level for level in self.levels_by_state[GridLevelStates.OPEN_ORDER_PLACED]]
@@ -808,9 +835,9 @@ class GridExecutor(ExecutorBase):
 
     def update_position_metrics(self):
         """
-        Calculate the unrealized pnl in quote asset
+        计算未实现盈亏（以计价资产为单位）
 
-        :return: The unrealized pnl in quote asset.
+        :return: 未实现盈亏（以计价资产为单位）。
         """
         open_filled_levels = self.levels_by_state[GridLevelStates.OPEN_ORDER_FILLED] + self.levels_by_state[
             GridLevelStates.CLOSE_ORDER_PLACED]
@@ -845,12 +872,12 @@ class GridExecutor(ExecutorBase):
 
     def update_realized_pnl_metrics(self):
         """
-        Calculate the realized pnl in quote asset, excluding held positions
+        计算已实现盈亏（以计价资产为单位，不包括持仓）
         """
         if len(self._filled_orders) == 0:
             self._reset_metrics()
             return
-        # Calculate metrics only for fully closed trades (not held positions)
+        # 仅计算已完全平仓的交易的指标（不包括持仓）
         regular_filled_orders = [order for order in self._filled_orders
                                  if order not in self._held_position_orders]
         if len(regular_filled_orders) == 0:
@@ -886,7 +913,7 @@ class GridExecutor(ExecutorBase):
         )
 
     def _reset_metrics(self):
-        """Helper method to reset all PnL metrics"""
+        """辅助方法，用于重置所有盈亏指标"""
         self.realized_buy_size_quote = Decimal("0")
         self.realized_sell_size_quote = Decimal("0")
         self.realized_imbalance_quote = Decimal("0")
@@ -896,43 +923,43 @@ class GridExecutor(ExecutorBase):
 
     def get_net_pnl_quote(self) -> Decimal:
         """
-        Calculate the net pnl in quote asset
+        计算净盈亏（以计价资产为单位）
 
-        :return: The net pnl in quote asset.
+        :return: 净盈亏（以计价资产为单位）。
         """
         return self.position_pnl_quote + self.realized_pnl_quote if self.close_type != CloseType.POSITION_HOLD else self.realized_pnl_quote
 
     def get_cum_fees_quote(self) -> Decimal:
         """
-        Calculate the cumulative fees in quote asset
+        计算累计手续费（以计价资产为单位）
 
-        :return: The cumulative fees in quote asset.
+        :return: 累计手续费（以计价资产为单位）。
         """
         return self.position_fees_quote + self.realized_fees_quote if self.close_type != CloseType.POSITION_HOLD else self.realized_fees_quote
 
     @property
     def filled_amount_quote(self) -> Decimal:
         """
-        Calculate the total amount in quote asset
+        计算总金额（以计价资产为单位）
 
-        :return: The total amount in quote asset.
+        :return: 总金额（以计价资产为单位）。
         """
         matched_volume = self.realized_buy_size_quote + self.realized_sell_size_quote
         return self.position_size_quote + matched_volume if self.close_type != CloseType.POSITION_HOLD else matched_volume
 
     def get_net_pnl_pct(self) -> Decimal:
         """
-        Calculate the net pnl percentage
+        计算净盈亏百分比
 
-        :return: The net pnl percentage.
+        :return: 净盈亏百分比。
         """
         return self.get_net_pnl_quote() / self.filled_amount_quote if self.filled_amount_quote > 0 else Decimal("0")
 
     async def _sleep(self, delay: float):
         """
-        This method is responsible for sleeping the executor for a specific time.
+        此方法负责让执行器休眠一段时间。
 
-        :param delay: The time to sleep.
+        :param delay: 休眠时间。
         :return: None
         """
         await asyncio.sleep(delay)
