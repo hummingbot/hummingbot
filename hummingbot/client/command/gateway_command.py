@@ -747,10 +747,10 @@ class GatewayCommand(GatewayChainApiManager):
     async def _gateway_list(
         self           # type: HummingbotApplication
     ):
-        connector_list: List[Dict[str, Any]] = await self._get_gateway_instance().get_connectors()
+        connector_dict: Dict[str, Dict[str, Any]] = await self._get_gateway_instance().get_connectors()
         connectors_tiers: List[Dict[str, Any]] = []
 
-        for connector in connector_list["connectors"]:
+        for connector_name, connector in connector_dict.items():
             # Chain and networks are now directly in the connector config
             chain = connector["chain"]
             networks = connector["networks"]

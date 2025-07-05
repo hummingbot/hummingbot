@@ -216,6 +216,28 @@ class GatewayClient:
         response = await self.request("GET", "wallet", params=params)
         return response if isinstance(response, list) else []
 
+    async def add_wallet(self, chain: str, private_key: str) -> Dict[str, Any]:
+        """Add a new wallet to Gateway."""
+        return await self.request(
+            "POST",
+            "wallet/add",
+            data={
+                "chain": chain,
+                "privateKey": private_key
+            }
+        )
+
+    async def remove_wallet(self, chain: str, address: str) -> Dict[str, Any]:
+        """Remove a wallet from Gateway."""
+        return await self.request(
+            "DELETE",
+            "wallet/remove",
+            data={
+                "chain": chain,
+                "address": address
+            }
+        )
+
     async def get_balances(
         self,
         chain: str,
@@ -243,13 +265,13 @@ class GatewayClient:
     ) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
         """Get available tokens for a specific chain and network."""
         try:
-            params = {"network": network}
+            params = {"chain": chain, "network": network}
             if search:
-                params["tokenSymbols"] = [search]
+                params["search"] = search
 
             response = await self.request(
                 "GET",
-                f"chains/{chain}/tokens",
+                "tokens",
                 params=params
             )
             return response
@@ -257,6 +279,25 @@ class GatewayClient:
             if fail_silently:
                 return {"tokens": []}
             raise
+
+    async def get_token(
+        self,
+        symbol_or_address: str,
+        chain: str,
+        network: str
+    ) -> Dict[str, Any]:
+        """Get details for a specific token by symbol or address."""
+        params = {"chain": chain, "network": network}
+        try:
+            response = await self.request(
+                "GET",
+                f"tokens/{symbol_or_address}",
+                params=params
+            )
+            return response
+        except Exception as e:
+            # If not found, return error
+            return {"error": f"Token '{symbol_or_address}' not found on {chain}/{network}: {str(e)}"}
 
     def cache_compute_units(self, tx_type: str, connector: str, network: str, compute_units: int):
         """
