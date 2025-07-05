@@ -40,7 +40,7 @@ class GatewayMonitor:
     def __init__(
         self,
         app_or_client,
-        check_interval: float = 30.0
+        check_interval: float = 2.0
     ):
         """
         Initialize Gateway monitor.
@@ -135,42 +135,32 @@ class GatewayMonitor:
                 # Handle status change
                 if is_online != self._is_available:
                     self._is_available = is_online
-                    # old_status = self._gateway_status
+                    old_status = self._gateway_status
                     self._gateway_status = GatewayStatus.ONLINE if is_online else GatewayStatus.OFFLINE
 
                     if is_online:
-                        self.logger().info("Gateway service is now available")
+                        if old_status == GatewayStatus.OFFLINE:
+                            self.logger().info("Gateway Service is ONLINE.")
                         self._ready_event.set()
-
-                        # Set common gateway config keys that users might want to modify
-                        self.gateway_config_keys = [
-                            "server.port",
-                            "server.logLevel",
-                            "ethereum.networks.mainnet.nodeURL",
-                            "ethereum.networks.mainnet.nativeCurrencySymbol",
-                            "ethereum.networks.mainnet.gasPriceRefreshInterval",
-                            "solana.networks.mainnet-beta.nodeURL",
-                            "solana.networks.mainnet-beta.commitment",
-                            "solana.networks.mainnet-beta.skipPreflight",
-                            "database.path",
-                            "telemetry.enabled",
-                        ]
 
                         if self._on_available_callback:
                             await self._on_available_callback()
                     else:
-                        self.logger().warning("Gateway service is now unavailable")
+                        if old_status == GatewayStatus.ONLINE:
+                            self.logger().info("Connection to Gateway container lost...")
                         self._ready_event.clear()
                         if self._on_unavailable_callback:
                             await self._on_unavailable_callback()
 
-            except Exception as e:
+            except Exception:
                 # Gateway is unavailable
                 if self._is_available:
                     self._is_available = False
-                    # old_status = self._gateway_status
+                    old_status = self._gateway_status
                     self._gateway_status = GatewayStatus.OFFLINE
-                    self.logger().warning(f"Gateway service is now unavailable: {str(e)}")
+                    if old_status == GatewayStatus.ONLINE:
+                        self.logger().info("Connection to Gateway container lost...")
+                    self._ready_event.clear()
 
                     if self._on_unavailable_callback:
                         try:
