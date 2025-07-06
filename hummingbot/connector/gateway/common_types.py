@@ -1,35 +1,10 @@
+"""
+Backward compatibility module for common types.
+These are kept to avoid breaking existing code that imports from this module.
+"""
+import re
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Dict, Optional
-
-
-class Chain(Enum):
-    ETHEREUM = ('ethereum', 'ETH')
-    SOLANA = ('solana', 'SOL')
-
-    def __init__(self, chain: str, native_currency: str):
-        self.chain = chain
-        self.native_currency = native_currency
-
-
-class Connector(Enum):
-    def __int__(self, chain: Chain, connector: str):
-        self.chain = chain
-        self.connector = connector
-
-
-class ConnectorType(Enum):
-    SWAP = "SWAP"
-    CLMM = "CLMM"
-    AMM = "AMM"
-
-
-def get_connector_type(connector_name: str) -> ConnectorType:
-    if "/clmm" in connector_name:
-        return ConnectorType.CLMM
-    elif "/amm" in connector_name:
-        return ConnectorType.AMM
-    return ConnectorType.SWAP
+from typing import Any, Dict, List, Match, Optional, Pattern
 
 
 @dataclass
@@ -49,3 +24,37 @@ class CancelOrderResult:
     misc_updates: Dict[str, Any] = field(default_factory=lambda: {})
     not_found: bool = False
     exception: Optional[Exception] = None
+
+
+# Token symbol unwrapping utilities
+# W{TOKEN} only applies to a few special tokens. It should NOT match all W-prefixed token names like WAVE or WOW.
+CAPITAL_W_SYMBOLS_PATTERN = re.compile(r"^W(BTC|ETH|AVAX|ALBT|XRP|POL)")
+SMALL_W_SYMBOLS_PATTERN = re.compile(r"^w([A-Z0-9]+)")
+DOT_E_SYMBOLS_PATTERN = re.compile(r"^([A-Z0-9]+)\.e$")
+
+
+def unwrap_token_symbol(on_chain_token_symbol: str) -> str:
+    """
+    Unwrap wrapped token symbols (e.g., WETH -> ETH, WBTC -> BTC).
+
+    :param on_chain_token_symbol: Token symbol from chain
+    :return: Unwrapped token symbol
+    """
+    patterns: List[Pattern] = [
+        CAPITAL_W_SYMBOLS_PATTERN,
+        SMALL_W_SYMBOLS_PATTERN,
+        DOT_E_SYMBOLS_PATTERN
+    ]
+    for p in patterns:
+        m: Optional[Match] = p.search(on_chain_token_symbol)
+        if m is not None:
+            return m.group(1)
+    return on_chain_token_symbol
+
+
+# Re-export for backward compatibility
+__all__ = [
+    "PlaceOrderResult",
+    "CancelOrderResult",
+    "unwrap_token_symbol",
+]

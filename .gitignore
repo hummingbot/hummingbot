@@ -95,4 +95,12 @@ coverage.xml
 
 .env
 
+# LLM files
 **/.claude/settings.local.json
+# Allow CLAUDE.md and GEMINI.md symlinks in root directory
+!CLAUDE.md
+!GEMINI.md
+/docs/
+
+# Gateway files (created when users run Docker)
+/gateway_files/

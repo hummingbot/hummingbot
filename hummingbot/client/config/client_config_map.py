@@ -342,6 +342,10 @@ class GatewayConfigMap(BaseClientModel):
         default="15888",
         json_schema_extra={"prompt": lambda cm: "Please enter your Gateway API port"},
     )
+    gateway_use_ssl: bool = Field(
+        default=False,
+        json_schema_extra={"prompt": lambda cm: "Enable SSL endpoints for secure Gateway connection? (True / False)"},
+    )
     model_config = ConfigDict(title="gateway")
 
 

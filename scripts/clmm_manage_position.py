@@ -1,4 +1,3 @@
-import asyncio
 import os
 import time
 from decimal import Decimal
@@ -7,9 +6,8 @@ from typing import Dict
 from pydantic import Field
 
 from hummingbot.client.config.config_data_types import BaseClientModel
-from hummingbot.client.settings import GatewayConnectionSetting
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
+from hummingbot.connector.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
@@ -18,10 +16,10 @@ class CLMMPositionManagerConfig(BaseClientModel):
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
     connector: str = Field("meteora/clmm", json_schema_extra={
         "prompt": "CLMM Connector (e.g. meteora/clmm, raydium/clmm)", "prompt_on_new": True})
-    chain: str = Field("solana", json_schema_extra={
-        "prompt": "Chain (e.g. solana)", "prompt_on_new": False})
     network: str = Field("mainnet-beta", json_schema_extra={
-        "prompt": "Network (e.g. mainnet-beta)", "prompt_on_new": False})
+        "prompt": "Network (e.g. mainnet-beta, devnet)", "prompt_on_new": True})
+    wallet_address: str = Field("", json_schema_extra={
+        "prompt": "Wallet address (leave empty to use the default wallet for the chain)", "prompt_on_new": False})
     pool_address: str = Field("9d9mb8kooFfaD3SctgZtkxQypkshx6ezhbKio89ixyy2", json_schema_extra={
         "prompt": "Pool address (e.g. TRUMP-USDC Meteora pool)", "prompt_on_new": True})
     target_price: Decimal = Field(Decimal("10.0"), json_schema_extra={
@@ -48,23 +46,27 @@ class CLMMPositionManager(ScriptStrategyBase):
 
     @classmethod
     def init_markets(cls, config: CLMMPositionManagerConfig):
-        # Nothing to initialize for CLMM as it uses Gateway API directly
-        cls.markets = {}
+        # For gateway connectors, use connector_network format
+        market_name = f"{config.connector}_{config.network}"
+        cls.markets = {market_name: set()}  # Empty set since we're not trading pairs directly
 
     def __init__(self, connectors: Dict[str, ConnectorBase], config: CLMMPositionManagerConfig):
         super().__init__(connectors)
         self.config = config
+        self.exchange = f"{config.connector}_{config.network}"
+
+        # Get the gateway LP connector from connectors
+        self.gateway_lp = self.connectors.get(self.exchange)
+        if not self.gateway_lp:
+            self.logger().error(f"Gateway LP connector {self.exchange} not found!")
+            return
 
         # State tracking
-        self.gateway_ready = False
         self.position_opened = False
         self.position_opening = False
         self.position_closing = False
         self.position_address = None
-        self.wallet_address = None
         self.pool_info = None
-        self.base_token = None
-        self.quote_token = None
         self.last_price = None
         self.position_lower_price = None
         self.position_upper_price = None
@@ -73,7 +75,6 @@ class CLMMPositionManager(ScriptStrategyBase):
         # Log startup information
         self.logger().info("Starting CLMMPositionManager strategy")
         self.logger().info(f"Connector: {self.config.connector}")
-        self.logger().info(f"Chain: {self.config.chain}")
         self.logger().info(f"Network: {self.config.network}")
         self.logger().info(f"Pool address: {self.config.pool_address}")
         self.logger().info(f"Target price: {self.config.target_price}")
@@ -83,53 +84,31 @@ class CLMMPositionManager(ScriptStrategyBase):
         self.logger().info(f"Will close position if price is outside range by {self.config.out_of_range_pct}% for {self.config.out_of_range_secs} seconds")
 
         # Check Gateway status
-        safe_ensure_future(self.check_gateway_status())
+        safe_ensure_future(self.check_gateway_and_fetch_pool_info())
 
-    async def check_gateway_status(self):
-        """Check if Gateway server is online and verify wallet connection"""
+    async def check_gateway_and_fetch_pool_info(self):
+        """Check if Gateway server is online and fetch pool information"""
         self.logger().info("Checking Gateway server status...")
         try:
-            gateway_http_client = GatewayHttpClient.get_instance()
-            if await gateway_http_client.ping_gateway():
-                self.gateway_ready = True
+            gateway = GatewayHttpClient.get_instance()
+            if await gateway.ping_gateway():
                 self.logger().info("Gateway server is online!")
-
-                # Verify wallet connections
-                connector = self.config.connector
-                chain = self.config.chain
-                network = self.config.network
-                gateway_connections_conf = GatewayConnectionSetting.load()
-
-                if len(gateway_connections_conf) < 1:
-                    self.logger().error("No wallet connections found. Please connect a wallet using 'gateway connect'.")
-                else:
-                    wallet = [w for w in gateway_connections_conf
-                              if w["chain"] == chain and w["connector"] == connector and w["network"] == network]
-
-                    if not wallet:
-                        self.logger().error(f"No wallet found for {chain}/{connector}/{network}. "
-                                            f"Please connect using 'gateway connect'.")
-                    else:
-                        self.wallet_address = wallet[0]["wallet_address"]
-                        self.logger().info(f"Found wallet connection: {self.wallet_address}")
-
-                        # Get pool info to get token information
-                        await self.fetch_pool_info()
+                # Fetch pool info to get token information
+                await self.fetch_pool_info()
             else:
-                self.gateway_ready = False
                 self.logger().error("Gateway server is offline! Make sure Gateway is running before using this strategy.")
         except Exception as e:
-            self.gateway_ready = False
             self.logger().error(f"Error connecting to Gateway server: {str(e)}")
 
     async def fetch_pool_info(self):
         """Fetch pool information to get tokens and current price"""
         try:
             self.logger().info(f"Fetching information for pool {self.config.pool_address}...")
-            pool_info = await GatewayHttpClient.get_instance().pool_info(
+            pool_info = await GatewayHttpClient.get_instance().connector_request(
+                "get",
                 self.config.connector,
-                self.config.network,
-                self.config.pool_address
+                "pool-info",
+                {"network": self.config.network, "poolAddress": self.config.pool_address}
             )
 
             if not pool_info:
@@ -137,10 +116,6 @@ class CLMMPositionManager(ScriptStrategyBase):
                 return
 
             self.pool_info = pool_info
-
-            # Extract token information
-            self.base_token = pool_info.get("baseTokenAddress")
-            self.quote_token = pool_info.get("quoteTokenAddress")
 
             # Extract current price - it's at the top level of the response
             if "price" in pool_info:
@@ -156,16 +131,20 @@ class CLMMPositionManager(ScriptStrategyBase):
 
     async def fetch_position_info(self):
         """Fetch actual position information including price bounds"""
-        if not self.position_address or not self.wallet_address:
+        if not self.position_address:
             return
 
         try:
             self.logger().info(f"Fetching position info for {self.position_address}...")
-            position_info = await GatewayHttpClient.get_instance().clmm_position_info(
-                connector=self.config.connector,
-                network=self.config.network,
-                position_address=self.position_address,
-                wallet_address=self.wallet_address
+            position_info = await GatewayHttpClient.get_instance().connector_request(
+                "get",
+                self.config.connector,
+                "position-info",
+                {
+                    "network": self.config.network,
+                    "positionAddress": self.position_address,
+                    "walletAddress": self.gateway_lp.address  # Use the gateway connector's address
+                }
             )
 
             if not position_info:
@@ -184,10 +163,6 @@ class CLMMPositionManager(ScriptStrategyBase):
             self.logger().error(f"Error fetching position info: {str(e)}")
 
     def on_tick(self):
-        # Don't proceed if Gateway is not ready
-        if not self.gateway_ready or not self.wallet_address:
-            return
-
         # Check price and position status on each tick
         if not self.position_opened and not self.position_opening:
             safe_ensure_future(self.check_price_and_open_position())
@@ -248,67 +223,29 @@ class CLMMPositionManager(ScriptStrategyBase):
                 self.position_opening = False
                 return
 
-            # Calculate position price range based on CURRENT pool price
-            current_price = float(self.last_price)
-            width_pct = float(self.config.position_width_pct) / 100.0
+            # Use the gateway LP connector to open position
+            self.logger().info(f"Opening position on pool {self.config.pool_address} around price {self.last_price} with width {self.config.position_width_pct}%")
 
-            lower_price = current_price * (1 - width_pct)
-            upper_price = current_price * (1 + width_pct)
-
-            self.logger().info(f"Opening position around current price {current_price} with requested range: {lower_price} to {upper_price}")
-
-            # Open position - only send one transaction
-            response = await GatewayHttpClient.get_instance().clmm_open_position(
-                connector=self.config.connector,
-                network=self.config.network,
-                wallet_address=self.wallet_address,
-                pool_address=self.config.pool_address,
-                lower_price=lower_price,
-                upper_price=upper_price,
+            # Use the open_position method from gateway_lp
+            # Don't pass trading_pair when using pool_address
+            order_id = self.gateway_lp.open_position(
+                trading_pair="",  # Empty string since we're using pool_address
+                price=float(self.last_price),
+                spread_pct=float(self.config.position_width_pct),
                 base_token_amount=float(self.config.base_token_amount) if self.config.base_token_amount > 0 else None,
                 quote_token_amount=float(self.config.quote_token_amount) if self.config.quote_token_amount > 0 else None,
-                slippage_pct=0.5  # Default slippage
+                slippage_pct=0.5,
+                pool_address=self.config.pool_address  # Pass the pool address
             )
 
-            self.logger().info(f"Position opening response received: {response}")
+            self.logger().info(f"Position opening order submitted: {order_id}")
 
-            # Check for signature
-            if "signature" in response:
-                signature = response["signature"]
-                self.logger().info(f"Position opening transaction submitted: {signature}")
+            # Store order ID to track when it's filled
+            self.opening_order_id = order_id
 
-                # Store position address from response
-                if "positionAddress" in response:
-                    potential_position_address = response["positionAddress"]
-                    self.logger().info(f"Position address from transaction (pending confirmation): {potential_position_address}")
-                    # Store it temporarily in case we need it
-                    self.position_address = potential_position_address
-
-                # Poll for transaction result - this is async and will wait
-                tx_success = await self.poll_transaction(signature)
-
-                if tx_success:
-                    # Transaction confirmed successfully
-                    self.position_opened = True
-                    self.logger().info(f"Position opened successfully! Position address: {self.position_address}")
-
-                    # Fetch actual position info to get the exact price bounds
-                    await self.fetch_position_info()
-                else:
-                    # Transaction failed or still pending after max attempts
-                    self.logger().warning("Transaction did not confirm successfully within polling period.")
-                    self.logger().warning("Position may still confirm later. Check your wallet for status.")
-                    # Clear the position address since we're not sure of its status
-                    self.position_address = None
-            else:
-                # No transaction hash in response
-                self.logger().error(f"Failed to open position. No signature in response: {response}")
         except Exception as e:
             self.logger().error(f"Error opening position: {str(e)}")
-        finally:
-            # Only clear position_opening flag if position is not opened
-            if not self.position_opened:
-                self.position_opening = False
+            self.position_opening = False
 
     async def monitor_position(self):
         """Monitor the position and price to determine if position should be closed"""
@@ -371,138 +308,74 @@ class CLMMPositionManager(ScriptStrategyBase):
             return
 
         self.position_closing = True
-        max_retries = 3
-        retry_count = 0
-        position_closed = False
 
         try:
-            # Close position with retry logic
-            while retry_count < max_retries and not position_closed:
-                if retry_count > 0:
-                    self.logger().info(f"Retrying position closing (attempt {retry_count + 1}/{max_retries})...")
+            self.logger().info(f"Closing position {self.position_address}...")
 
-                # Close position
-                self.logger().info(f"Closing position {self.position_address}...")
-                response = await GatewayHttpClient.get_instance().clmm_close_position(
-                    connector=self.config.connector,
-                    network=self.config.network,
-                    wallet_address=self.wallet_address,
-                    position_address=self.position_address
-                )
+            # Use the close_position method from gateway_lp
+            # Don't pass trading_pair when using position_address
+            order_id = self.gateway_lp.close_position(
+                trading_pair="",  # Empty string since we're using position_address
+                position_address=self.position_address
+            )
 
-                # Check response
-                if "signature" in response:
-                    signature = response["signature"]
-                    self.logger().info(f"Position closing transaction submitted: {signature}")
+            self.logger().info(f"Position closing order submitted: {order_id}")
 
-                    # Poll for transaction result
-                    tx_success = await self.poll_transaction(signature)
-
-                    if tx_success:
-                        self.logger().info("Position closed successfully!")
-                        position_closed = True
-
-                        # Reset position state
-                        self.position_opened = False
-                        self.position_address = None
-                        self.position_lower_price = None
-                        self.position_upper_price = None
-                        self.out_of_range_start_time = None
-                        break  # Exit retry loop on success
-                    else:
-                        # Transaction failed, increment retry counter
-                        retry_count += 1
-                        self.logger().info(f"Transaction failed, will retry. {max_retries - retry_count} attempts remaining.")
-                        await asyncio.sleep(2)  # Short delay before retry
-                else:
-                    self.logger().error(f"Failed to close position. No signature in response: {response}")
-                    retry_count += 1
-
-            if not position_closed and retry_count >= max_retries:
-                self.logger().error(f"Failed to close position after {max_retries} attempts. Giving up.")
+            # Store order ID to track when it's closed
+            self.closing_order_id = order_id
 
         except Exception as e:
             self.logger().error(f"Error closing position: {str(e)}")
+            self.position_closing = False
 
-        finally:
-            if position_closed:
-                self.position_closing = False
-                self.position_opened = False
-            else:
-                self.position_closing = False
+    def did_fill_order(self, event):
+        """
+        Called when an order is filled.
+        """
+        if hasattr(self, 'opening_order_id') and event.order_id == self.opening_order_id:
+            self.logger().info(f"Position opened successfully! Order {event.order_id} filled.")
+            self.position_opened = True
+            self.position_opening = False
+            # Extract position address from event if available
+            if hasattr(event, 'exchange_order_id'):
+                self.position_address = event.exchange_order_id
+                # Fetch actual position info to get the exact price bounds
+                safe_ensure_future(self.fetch_position_info())
+        elif hasattr(self, 'closing_order_id') and event.order_id == self.closing_order_id:
+            self.logger().info(f"Position closed successfully! Order {event.order_id} filled.")
+            # Reset position state
+            self.position_opened = False
+            self.position_closing = False
+            self.position_address = None
+            self.position_lower_price = None
+            self.position_upper_price = None
+            self.out_of_range_start_time = None
 
-    async def poll_transaction(self, signature):
-        """Continuously polls for transaction status until completion or max attempts reached"""
-        if not signature:
-            return False
-
-        self.logger().info(f"Polling for transaction status: {signature}")
-
-        # Transaction status codes
-        # -1 = FAILED
-        # 0 = UNCONFIRMED
-        # 1 = CONFIRMED
-
-        max_poll_attempts = 60  # Increased from 30 to allow more time for confirmation
-        poll_attempts = 0
-
-        while poll_attempts < max_poll_attempts:
-            poll_attempts += 1
-            try:
-                # Use the get_transaction_status method to check transaction status
-                poll_data = await GatewayHttpClient.get_instance().get_transaction_status(
-                    chain=self.config.chain,
-                    network=self.config.network,
-                    transaction_hash=signature,
-                )
-
-                transaction_status = poll_data.get("txStatus")
-
-                if transaction_status == 1:  # CONFIRMED
-                    self.logger().info(f"Transaction {signature} confirmed successfully!")
-                    return True
-                elif transaction_status == -1:  # FAILED
-                    self.logger().error(f"Transaction {signature} failed!")
-                    self.logger().error(f"Details: {poll_data}")
-                    return False
-                elif transaction_status == 0:  # UNCONFIRMED
-                    self.logger().info(f"Transaction {signature} still pending... (attempt {poll_attempts}/{max_poll_attempts})")
-                    # Continue polling for unconfirmed transactions
-                    await asyncio.sleep(5)  # Wait before polling again
-                else:
-                    self.logger().warning(f"Unknown txStatus: {transaction_status}")
-                    self.logger().info(f"{poll_data}")
-                    # Continue polling for unknown status
-                    await asyncio.sleep(5)
-
-            except Exception as e:
-                self.logger().error(f"Error polling transaction: {str(e)}")
-                await asyncio.sleep(5)  # Add delay to avoid rapid retries on error
-
-        # If we reach here, we've exceeded maximum polling attempts
-        self.logger().warning(f"Transaction {signature} still unconfirmed after {max_poll_attempts} polling attempts")
-        # Return false but don't mark as definitely failed
-        return False
+    def did_fail_order(self, event):
+        """
+        Called when an order fails.
+        """
+        if hasattr(self, 'opening_order_id') and event.order_id == self.opening_order_id:
+            self.logger().error(f"Failed to open position! Order {event.order_id} failed.")
+            self.position_opening = False
+        elif hasattr(self, 'closing_order_id') and event.order_id == self.closing_order_id:
+            self.logger().error(f"Failed to close position! Order {event.order_id} failed.")
+            self.position_closing = False
 
     def format_status(self) -> str:
         """Format status message for display in Hummingbot"""
-        if not self.gateway_ready:
-            return "Gateway server is not available. Please start Gateway and restart the strategy."
-
-        if not self.wallet_address:
-            return "No wallet connected. Please connect a wallet using 'gateway connect'."
-
         lines = []
-        connector_chain_network = f"{self.config.connector}_{self.config.chain}_{self.config.network}"
+        connector_network = f"{self.config.connector}_{self.config.network}"
 
         if self.position_opened:
-            lines.append(f"Position is open on {connector_chain_network}")
+            lines.append(f"Position is open on {connector_network}")
             lines.append(f"Position address: {self.position_address}")
-            lines.append(f"Position price range: {self.position_lower_price:.6f} to {self.position_upper_price:.6f}")
+            if self.position_lower_price and self.position_upper_price:
+                lines.append(f"Position price range: {self.position_lower_price:.6f} to {self.position_upper_price:.6f}")
             lines.append(f"Current price: {self.last_price}")
 
             # Show buffer info
-            if self.config.out_of_range_pct > 0:
+            if self.config.out_of_range_pct > 0 and self.position_lower_price and self.position_upper_price:
                 lower_bound_with_buffer = self.position_lower_price * (1 - float(self.config.out_of_range_pct) / 100.0)
                 upper_bound_with_buffer = self.position_upper_price * (1 + float(self.config.out_of_range_pct) / 100.0)
                 lines.append(f"Buffer zone: {lower_bound_with_buffer:.6f} to {upper_bound_with_buffer:.6f} ({self.config.out_of_range_pct}%)")
@@ -515,17 +388,17 @@ class CLMMPositionManager(ScriptStrategyBase):
                     lines.append("⏰ Position will close soon!")
             else:
                 # Check if price is in position range vs buffer range
-                if self.position_lower_price and self.position_upper_price:
-                    if self.last_price and self.position_lower_price <= float(self.last_price) <= self.position_upper_price:
+                if self.position_lower_price and self.position_upper_price and self.last_price:
+                    if self.position_lower_price <= float(self.last_price) <= self.position_upper_price:
                         lines.append("✅ Price is within position range")
                     else:
                         lines.append("⚠️  Price is outside position range but within buffer")
         elif self.position_opening:
-            lines.append(f"Opening position on {connector_chain_network}...")
+            lines.append(f"Opening position on {connector_network}...")
         elif self.position_closing:
-            lines.append(f"Closing position on {connector_chain_network}...")
+            lines.append(f"Closing position on {connector_network}...")
         else:
-            lines.append(f"Monitoring {self.base_token}-{self.quote_token} pool on {connector_chain_network}")
+            lines.append(f"Monitoring pool on {connector_network}")
             lines.append(f"Pool address: {self.config.pool_address}")
             lines.append(f"Current price: {self.last_price}")
             lines.append(f"Target price: {self.config.target_price}")
