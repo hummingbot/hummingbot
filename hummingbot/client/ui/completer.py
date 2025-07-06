@@ -64,7 +64,7 @@ class HummingbotCompleter(Completer):
         self._gateway_balance_completer = self._gateway_wallet_chain_completer
         self._gateway_config_completer = WordCompleter(hummingbot_application.gateway_config_keys, ignore_case=True)
         self._gateway_wallet_completer = WordCompleter(["list", "add", "remove"], ignore_case=True)
-        self._gateway_wallet_action_completer = WordCompleter(["list", "add", "add-readonly", "remove", "remove-readonly"], ignore_case=True)
+        self._gateway_wallet_action_completer = WordCompleter(["list", "add", "add-read-only", "remove", "remove-read-only"], ignore_case=True)
         self._gateway_token_action_completer = WordCompleter(["show", "add", "remove"], ignore_case=True)
         self._gateway_pools_action_completer = WordCompleter(["list", "show", "add", "remove"], ignore_case=True)
         self._gateway_pools_type_completer = WordCompleter(["amm", "clmm"], ignore_case=True)
@@ -521,6 +521,7 @@ class HummingbotCompleter(Completer):
         text_before_cursor: str = document.text_before_cursor
         return (text_before_cursor.startswith("gateway wallet add ") or
                 text_before_cursor.startswith("gateway wallet remove ") or
+                text_before_cursor.startswith("gateway wallet add-read-only ") or
                 (text_before_cursor.startswith("gateway wallet list ") and text_before_cursor.count(" ") == 3))
 
     def _complete_gateway_token_arguments(self, document: Document) -> bool:

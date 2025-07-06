@@ -147,17 +147,17 @@ class GatewayCommand(GatewayChainApiManager):
         Usage:
             gateway wallet list [chain]              - List all wallets or filter by chain
             gateway wallet add <chain>               - Add a new wallet for a chain
-            gateway wallet add-readonly <chain>      - Add a read-only wallet for monitoring
+            gateway wallet add-read-only <chain>      - Add a read-only wallet for monitoring
             gateway wallet remove <chain> <address>  - Remove a wallet
-            gateway wallet remove-readonly <chain> <address> - Remove a read-only wallet
+            gateway wallet remove-read-only <chain> <address> - Remove a read-only wallet
         """
         if action is None:
             self.notify("\nUsage:")
             self.notify("  gateway wallet list [chain]              - List all wallets or filter by chain")
             self.notify("  gateway wallet add <chain>               - Add a new wallet for a chain")
-            self.notify("  gateway wallet add-readonly <chain>      - Add a read-only wallet for monitoring")
+            self.notify("  gateway wallet add-read-only <chain>      - Add a read-only wallet for monitoring")
             self.notify("  gateway wallet remove <chain> <address>  - Remove a wallet")
-            self.notify("  gateway wallet remove-readonly <chain> <address> - Remove a read-only wallet")
+            self.notify("  gateway wallet remove-read-only <chain> <address> - Remove a read-only wallet")
             return
 
         if action == "list":
@@ -167,9 +167,9 @@ class GatewayCommand(GatewayChainApiManager):
                 self.notify("Error: chain parameter is required for 'add' action")
                 return
             safe_ensure_future(self._gateway_wallet_add(chain), loop=self.ev_loop)
-        elif action == "add-readonly":
+        elif action == "add-read-only":
             if chain is None:
-                self.notify("Error: chain parameter is required for 'add-readonly' action")
+                self.notify("Error: chain parameter is required for 'add-read-only' action")
                 return
             safe_ensure_future(self._gateway_wallet_add_readonly(chain), loop=self.ev_loop)
         elif action == "remove":
@@ -177,13 +177,13 @@ class GatewayCommand(GatewayChainApiManager):
                 self.notify("Error: both chain and address parameters are required for 'remove' action")
                 return
             safe_ensure_future(self._gateway_wallet_remove(chain, address), loop=self.ev_loop)
-        elif action == "remove-readonly":
+        elif action == "remove-read-only":
             if chain is None or address is None:
-                self.notify("Error: both chain and address parameters are required for 'remove-readonly' action")
+                self.notify("Error: both chain and address parameters are required for 'remove-read-only' action")
                 return
             safe_ensure_future(self._gateway_wallet_remove_readonly(chain, address), loop=self.ev_loop)
         else:
-            self.notify(f"Error: Unknown action '{action}'. Use 'list', 'add', 'add-readonly', 'remove', or 'remove-readonly'.")
+            self.notify(f"Error: Unknown action '{action}'. Use 'list', 'add', 'add-read-only', 'remove', or 'remove-read-only'.")
 
     @ensure_gateway_online
     def gateway_token(self, action: str = None, args: List[str] = None):
@@ -527,13 +527,17 @@ class GatewayCommand(GatewayChainApiManager):
                 self.notify("No wallets found in gateway. Please add wallets with 'gateway wallet add <chain>'")
                 return
 
-            # Build list of chain/network combinations with their default addresses
+            # Build list of chain/network combinations with their addresses
             chain_network_combos = []
             for wallet_info in all_wallets:
                 chain = wallet_info.get("chain", "")
                 addresses = wallet_info.get("walletAddresses", [])
+                readonly_addresses = wallet_info.get("readOnlyWalletAddresses", [])
 
-                if not addresses:
+                # Combine all addresses
+                all_addresses = addresses + readonly_addresses
+
+                if not all_addresses:
                     continue
 
                 # Apply chain filter
@@ -553,55 +557,37 @@ class GatewayCommand(GatewayChainApiManager):
                 # Use all addresses or filter by specific address
                 if address_filter:
                     # Check if address_filter matches any wallet address
-                    matching_addresses = [addr for addr in addresses if addr.lower() == address_filter.lower()]
+                    matching_addresses = [addr for addr in all_addresses if addr.lower() == address_filter.lower()]
                     if not matching_addresses:
                         continue
                     use_addresses = matching_addresses
                 else:
-                    use_addresses = addresses[:1]  # Just use first (default) address
+                    # When no filter, show all wallets including read-only
+                    use_addresses = all_addresses
 
                 for address in use_addresses:
-                    chain_network_combos.append((chain, default_network, address))
+                    # Mark if this is a read-only address
+                    is_readonly = address in readonly_addresses
+                    chain_network_combos.append((chain, default_network, address, is_readonly))
 
             if not chain_network_combos:
                 self.notify("No matching wallets found for the specified filters.")
                 return
 
             # Process each chain/network/address combination
-            for chain, network, address in chain_network_combos:
+            for chain, network, address, is_readonly in chain_network_combos:
                 try:
                     # Determine tokens to check
                     if tokens_filter:
-                        if tokens_filter.lower() == "all":
-                            # User wants all tokens - pass empty list to get all balances
-                            self.notify("Fetching all available token balances (this may take a while)...")
-                            tokens_to_check = []
-                        else:
-                            # User specified tokens (comma-separated)
-                            tokens_to_check = [token.strip() for token in tokens_filter.split(",")]
+                        # User specified tokens (comma-separated)
+                        tokens_to_check = [token.strip() for token in tokens_filter.split(",")]
+                        # Skip if user specified tokens but the list is empty (after filtering out empty strings)
+                        if not tokens_to_check:
+                            self.notify(f"\nNo valid tokens specified for {chain}:{network}")
+                            continue
                     else:
-                        # For performance, only check native token and a few common tokens
-                        native_token = await self._get_native_currency_symbol(chain, network)
-                        if native_token:
-                            # Only check native token and top stablecoins by default
-                            common_tokens = ["USDC", "USDT", "DAI", "WETH"]
-                            tokens_to_check = [native_token]
-
-                            # Add common tokens that aren't the native token
-                            for token in common_tokens:
-                                if token.upper() != native_token.upper() and token not in tokens_to_check:
-                                    tokens_to_check.append(token)
-                        else:
-                            # Fallback to just common tokens
-                            tokens_to_check = ["ETH", "USDC", "USDT", "DAI", "WETH"]
-
-                        self.notify(f"Checking common tokens: {', '.join(tokens_to_check)}")
-                        self.notify("(Use 'gateway balance ethereum base all' to check all available tokens)")
-
-                    # Skip if user specified tokens but the list is empty (after filtering out empty strings)
-                    if tokens_filter and tokens_filter.lower() != "all" and not tokens_to_check:
-                        self.notify(f"\nNo valid tokens specified for {chain}:{network}")
-                        continue
+                        # No filter specified - fetch all tokens
+                        tokens_to_check = []
 
                     # Get balances from gateway
                     try:
@@ -617,12 +603,12 @@ class GatewayCommand(GatewayChainApiManager):
                         self.notify("Try again or check your gateway configuration.")
                         continue
 
-                    # Filter out zero balances unless user specified specific tokens or we're showing native token
-                    if tokens_filter and tokens_filter.lower() != "all":
+                    # Filter out zero balances unless user specified specific tokens
+                    if tokens_filter:
                         # Show all requested tokens even if zero
                         display_balances = balances
                     else:
-                        # For default tokens or "all" mode, show non-zero balances and always show native token
+                        # Show non-zero balances and always show native token
                         display_balances = {}
                         native_token = await self._get_native_currency_symbol(chain, network)
 
@@ -632,17 +618,13 @@ class GatewayCommand(GatewayChainApiManager):
                             if (native_token and token.upper() == native_token.upper()) or balance_val > 0:
                                 display_balances[token] = bal
 
-                        # If using "all" mode, show a summary
-                        if tokens_filter and tokens_filter.lower() == "all":
-                            total_tokens = len(balances)
-                            shown_tokens = len(display_balances)
-                            if shown_tokens < total_tokens:
-                                self.notify(f"Showing {shown_tokens} tokens with balances out of {total_tokens} total tokens")
-
                     # Display results
                     self.notify(f"\nChain: {chain.lower()}")
                     self.notify(f"Network: {network}")
-                    self.notify(f"Address: {address}")
+                    if is_readonly:
+                        self.notify(f"Address: {address} (read-only)")
+                    else:
+                        self.notify(f"Address: {address}")
 
                     if display_balances:
                         rows = []
@@ -1066,31 +1048,24 @@ class GatewayCommand(GatewayChainApiManager):
 
             # Determine tokens to check
             if tokens:
-                if tokens.lower() == "all":
-                    # User wants all tokens - fetch from gateway
-                    self.notify("Fetching all available token allowances (this may take a while)...")
-                    try:
-                        all_tokens = await self._get_gateway_instance().get_tokens("ethereum", network)
-                        # Filter out native token for allowances
-                        native_token = await self._get_native_currency_symbol("ethereum", network)
-                        tokens_to_check = []
-                        for token_info in all_tokens:
-                            symbol = token_info.get("symbol", "")
-                            if symbol and symbol.upper() != native_token.upper():
-                                tokens_to_check.append(symbol)
-                    except Exception as e:
-                        self.notify(f"Warning: Could not fetch tokens: {str(e)}")
-                        tokens_to_check = []
-                else:
-                    # User specified tokens
-                    tokens_to_check = [token.strip() for token in tokens.split(",")]
+                # User specified tokens
+                tokens_to_check = [token.strip() for token in tokens.split(",")]
             else:
-                # Default: check common tokens
-                native_token = await self._get_native_currency_symbol("ethereum", network)
-                common_tokens = ["USDC", "USDT", "DAI", "WETH"]
-                tokens_to_check = [token for token in common_tokens if token.upper() != native_token.upper()]
-                self.notify(f"Checking common tokens: {', '.join(tokens_to_check)}")
-                self.notify("(Use 'gateway allowance <network> <connector> all' to check all available tokens)")
+                # No tokens specified - fetch all tokens from gateway
+                self.notify("Fetching all token allowances...")
+                try:
+                    all_tokens_resp = await self._get_gateway_instance().get_tokens("ethereum", network)
+                    all_tokens = all_tokens_resp.get("tokens", [])
+                    # Filter out native token for allowances
+                    native_token = await self._get_native_currency_symbol("ethereum", network)
+                    tokens_to_check = []
+                    for token_info in all_tokens:
+                        symbol = token_info.get("symbol", "")
+                        if symbol and symbol.upper() != native_token.upper():
+                            tokens_to_check.append(symbol)
+                except Exception as e:
+                    self.notify(f"Warning: Could not fetch tokens: {str(e)}")
+                    tokens_to_check = []
 
             if not tokens_to_check:
                 self.notify("No tokens to check allowances for.")
@@ -1318,7 +1293,7 @@ class GatewayCommand(GatewayChainApiManager):
             # Add read-only wallet to gateway
             self.notify(f"Adding read-only wallet for {chain}...")
             await self._get_gateway_instance().api_request(
-                "post", "wallet/addReadOnly",
+                "post", "wallet/add-read-only",
                 data={"chain": chain, "address": address}
             )
             self.notify(f"Successfully added read-only wallet: {address}")
@@ -1350,7 +1325,7 @@ class GatewayCommand(GatewayChainApiManager):
             # Remove read-only wallet from gateway
             self.notify(f"Removing read-only wallet {address} from {chain}...")
             await self._get_gateway_instance().api_request(
-                "delete", "wallet/removeReadOnly",
+                "delete", "wallet/remove-read-only",
                 params={"chain": chain, "address": address}
             )
             self.notify(f"Successfully removed read-only wallet: {address}")
@@ -1363,7 +1338,19 @@ class GatewayCommand(GatewayChainApiManager):
                 self.notify(f"Error removing read-only wallet: {error_msg}")
 
     async def _get_default_network_for_chain(self, chain: str) -> Optional[str]:
-        """Get the default (first) network for a given chain."""
+        """Get the default network for a given chain."""
+        # Define sensible defaults for main chains
+        default_networks = {
+            "ethereum": "mainnet",
+            "solana": "mainnet-beta"
+        }
+
+        # Check if we have a predefined default for this chain
+        chain_lower = chain.lower()
+        if chain_lower in default_networks:
+            return default_networks[chain_lower]
+
+        # Fallback to getting the first network from gateway
         try:
             # Get chains from gateway
             chains_resp = await self._get_gateway_instance().get_chains()
