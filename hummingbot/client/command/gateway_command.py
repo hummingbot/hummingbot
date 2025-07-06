@@ -50,28 +50,28 @@ class GatewayCommand(GatewayChainApiManager):
         safe_ensure_future(self._get_balances(chain, network, address, tokens), loop=self.ev_loop)
 
     @ensure_gateway_online
-    def gateway_allowance(self, connector: Optional[str] = None, network: Optional[str] = None,
+    def gateway_allowance(self, spender: Optional[str] = None, network: Optional[str] = None,
                           tokens: Optional[str] = None):
         """
         Command to check token allowances for Ethereum-based connectors
-        Usage: gateway allowance [connector] [network] [tokens]
+        Usage: gateway allowance [spender] [network] [tokens]
         """
-        safe_ensure_future(self._get_allowances(network, connector, tokens), loop=self.ev_loop)
+        safe_ensure_future(self._get_allowances(spender, network, tokens), loop=self.ev_loop)
 
     @ensure_gateway_online
-    def gateway_approve(self, connector: Optional[str] = None, network: Optional[str] = None,
+    def gateway_approve(self, spender: Optional[str] = None, network: Optional[str] = None,
                         tokens: Optional[str] = None):
         """
         Command to approve tokens for spending on a connector
-        Usage: gateway approve [connector] [network] [tokens]
+        Usage: gateway approve [spender] [network] [tokens]
         """
-        if all([network, connector, tokens]):
-            safe_ensure_future(self._approve_tokens(network, connector, tokens), loop=self.ev_loop)
+        if all([spender, network, tokens]):
+            safe_ensure_future(self._approve_tokens(spender, network, tokens), loop=self.ev_loop)
         else:
             self.notify(
-                "\nPlease specify all required parameters: connector, network, and tokens.\n"
-                "Usage: gateway approve <connector> <network> <tokens>\n"
-                "Example: gateway approve uniswap mainnet USDC,USDT\n")
+                "\nPlease specify all required parameters: spender, network, and tokens.\n"
+                "Usage: gateway approve <spender> <network> <tokens>\n"
+                "Example: gateway approve uniswap/amm mainnet USDC,USDT\n")
 
     def generate_certs(self):
         safe_ensure_future(self._generate_certs(), loop=self.ev_loop)
@@ -782,13 +782,13 @@ class GatewayCommand(GatewayChainApiManager):
             table_format=self.client_config_map.tables_format).split("\n")]
         self.notify("\n".join(lines))
 
-    async def _approve_tokens(self, network: str, connector: str, tokens: str):
+    async def _approve_tokens(self, spender: str, network: str, tokens: str):
         """
         Approve tokens for spending on a connector.
         """
         try:
             self.logger().info(
-                f"Approving tokens {tokens} for {connector} on {network} network")
+                f"Approving tokens {tokens} for {spender} on {network} network")
 
             # Get wallet for ethereum chain from gateway
             try:
@@ -804,10 +804,10 @@ class GatewayCommand(GatewayChainApiManager):
             # Approve each token separately
             token_list = [t.strip() for t in tokens.split(",")]
             for token in token_list:
-                self.notify(f"Approving {token} for {connector}...")
+                self.notify(f"Approving {token} for {spender}...")
 
                 try:
-                    resp = await self._get_gateway_instance().approve_token(network, wallet_address, token, connector)
+                    resp = await self._get_gateway_instance().approve_token(network, wallet_address, token, spender)
                     transaction_hash = resp.get("approval", {}).get("hash")
 
                     if not transaction_hash:
@@ -821,7 +821,7 @@ class GatewayCommand(GatewayChainApiManager):
                         transaction_status = poll_resp.get("txStatus")
 
                         if transaction_status == 1:  # Confirmed
-                            self.notify(f"✓ Token {token} is approved for spending on {connector}")
+                            self.notify(f"✓ Token {token} is approved for spending on {spender}")
                             break
                         elif transaction_status == 2:  # Pending
                             if not displayed_pending:
@@ -1005,7 +1005,7 @@ class GatewayCommand(GatewayChainApiManager):
                     return
                 displayed_pending: bool = False
                 while True:
-                    pollResp: Dict[str, Any] = await self._get_gateway_instance().get_transaction_status(chain, network, transaction_hash)
+                    pollResp: Dict[str, Any] = await self._get_gateway_instance().get_transaction_status("ethereum", network, transaction_hash)
                     transaction_status: Optional[str] = pollResp.get(
                         "txStatus")
                     if transaction_status == 1:
@@ -1043,17 +1043,17 @@ class GatewayCommand(GatewayChainApiManager):
         base_url = f"http://{gateway_url}:{gateway_port}"
         return GatewayClient.get_instance(base_url)
 
-    async def _get_allowances(self, network: Optional[str] = None, connector: Optional[str] = None,
+    async def _get_allowances(self, spender: Optional[str] = None, network: Optional[str] = None,
                               tokens: Optional[str] = None):
         """Get token allowances for Ethereum-based connectors"""
         network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
         self.notify("Checking token allowances, please wait...")
         try:
             # Validate parameters
-            if not all([network, connector]):
-                self.notify("\nPlease specify both network and connector.")
-                self.notify("Usage: gateway allowance <network> <connector> [tokens]")
-                self.notify("Example: gateway allowance mainnet uniswap")
+            if not all([spender, network]):
+                self.notify("\nPlease specify both spender and network.")
+                self.notify("Usage: gateway allowance <spender> <network> [tokens]")
+                self.notify("Example: gateway allowance uniswap/amm mainnet")
                 return
 
             # Get ethereum wallet
@@ -1100,7 +1100,7 @@ class GatewayCommand(GatewayChainApiManager):
                 # Get allowances from gateway
                 allowances_resp = await asyncio.wait_for(
                     self._get_gateway_instance().get_allowances(
-                        "ethereum", network, wallet_address, tokens_to_check, connector, fail_silently=True
+                        network, wallet_address, spender, tokens_to_check
                     ),
                     network_timeout
                 )
@@ -1110,7 +1110,7 @@ class GatewayCommand(GatewayChainApiManager):
                 # Display results
                 self.notify(f"\nNetwork: {network}")
                 self.notify(f"Wallet: {wallet_address}")
-                self.notify(f"Connector: {connector}")
+                self.notify(f"Spender: {spender}")
 
                 if allowances:
                     rows = []
@@ -1141,7 +1141,7 @@ class GatewayCommand(GatewayChainApiManager):
                     self.notify("    No token allowances found")
 
             except asyncio.TimeoutError:
-                self.notify(f"\nTimeout checking allowances for {connector} on {network}")
+                self.notify(f"\nTimeout checking allowances for {spender} on {network}")
             except Exception as e:
                 self.notify(f"\nError checking allowances: {str(e)}")
 

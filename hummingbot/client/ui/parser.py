@@ -132,13 +132,13 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
     gateway_balance_parser.set_defaults(func=hummingbot.gateway_balance)
 
     gateway_allowance_parser = gateway_subparsers.add_parser("allowance", help="Check allowances for an Ethereum connector")
-    gateway_allowance_parser.add_argument("connector", nargs="?", default=None, help="Connector name (e.g., uniswap, pancakeswap)")
+    gateway_allowance_parser.add_argument("spender", nargs="?", default=None, help="Spender in format connector/type (e.g., uniswap/amm, 0x/router)")
     gateway_allowance_parser.add_argument("network", nargs="?", default=None, help="Network name (e.g., mainnet, base, arbitrum)")
     gateway_allowance_parser.add_argument("tokens", nargs="?", default=None, help="Comma-separated token symbols (e.g., USDC,USDT,DAI) or 'all' for all available tokens")
     gateway_allowance_parser.set_defaults(func=hummingbot.gateway_allowance)
 
     gateway_approve_parser = gateway_subparsers.add_parser("approve", help="Approve tokens for use by an Ethereum connector")
-    gateway_approve_parser.add_argument("connector", nargs="?", default=None, help="Connector name (e.g., uniswap, pancakeswap)")
+    gateway_approve_parser.add_argument("spender", nargs="?", default=None, help="Spender in format connector/type (e.g., uniswap/amm, 0x/router)")
     gateway_approve_parser.add_argument("network", nargs="?", default=None, help="Network name (e.g., mainnet, base, arbitrum)")
     gateway_approve_parser.add_argument("tokens", nargs="?", default=None, help="Comma-separated token symbols to approve (e.g., USDC,USDT)")
     gateway_approve_parser.set_defaults(func=hummingbot.gateway_approve)
