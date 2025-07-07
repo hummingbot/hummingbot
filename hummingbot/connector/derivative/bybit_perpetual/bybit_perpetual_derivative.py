@@ -146,7 +146,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         """
         :return a list of OrderType supported by this connector
         """
-        return [OrderType.LIMIT, OrderType.MARKET]
+        return [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
 
     def supported_position_modes(self) -> List[PositionMode]:
         if all(bybit_utils.is_linear_perpetual(tp) for tp in self._trading_pairs):
@@ -237,6 +237,8 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             "positionIdx": position_idx,
             "orderType": CONSTANTS.ORDER_TYPE_MAP[order_type],
         }
+        if order_type == OrderType.LIMIT_MAKER:
+            data["timeInForce"] = CONSTANTS.TIME_IN_FORCE_OPTIONS["PostOnly"]
         if order_type.is_limit_type():
             data["price"] = str(price)
 
@@ -282,7 +284,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
                  price: Decimal = s_decimal_NaN,
                  is_maker: Optional[bool] = None,
                  position_action: PositionAction = None) -> TradeFeeBase:
-        is_maker = is_maker or False
+        is_maker = is_maker or (order_type == OrderType.LIMIT_MAKER)
         fee = build_trade_fee(
             self.name,
             is_maker,

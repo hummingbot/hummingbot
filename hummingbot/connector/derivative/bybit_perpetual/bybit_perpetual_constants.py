@@ -43,6 +43,7 @@ POSITION_IDX_HEDGE_SELL = 2
 ORDER_TYPE_MAP = {
     OrderType.LIMIT: "Limit",
     OrderType.MARKET: "Market",
+    OrderType.LIMIT_MAKER: "Limit",
 }
 
 POSITION_MODE_API_ONEWAY = 0
@@ -165,3 +166,10 @@ RET_CODE_API_KEY_INVALID = 10003
 RET_CODE_INVALID_TIME = 10002
 RET_CODE_API_KEY_EXPIRED = 33004
 RET_CODE_POSITION_ZERO = 130125
+
+TIME_IN_FORCE_OPTIONS = {
+    "GTC": "GTC",     # Good Till Cancelled
+    "IOC": "IOC",     # Immediate or Cancel
+    "FOK": "FOK",     # Fill or Kill
+    "PostOnly": "PostOnly"  # Maker-only orders
+}
