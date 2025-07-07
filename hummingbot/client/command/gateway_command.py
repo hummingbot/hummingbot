@@ -235,11 +235,11 @@ class GatewayCommand(GatewayChainApiManager):
             self.notify("\nUsage:")
             self.notify("  gateway pool list [connector] [--network] [--type]     - List pools")
             self.notify("  gateway pool show <pool_id>                            - Show pool details")
-            self.notify("  gateway pool add <connector> <type> <network> <base> <quote> <address> - Add a new pool")
+            self.notify("  gateway pool add <connector> <type> <network>        - Add a new pool (interactive)")
             self.notify("  gateway pool remove <connector> <pool_id>              - Remove a pool")
             self.notify("\nExamples:")
             self.notify("  gateway pool list raydium --network mainnet-beta --type clmm")
-            self.notify("  gateway pool add raydium clmm mainnet-beta SOL USDC 8sLbNZoA1cfnvMJLPfp98Z...")
+            self.notify("  gateway pool add raydium clmm mainnet-beta")
             return
 
         if action == "list":
@@ -276,17 +276,14 @@ class GatewayCommand(GatewayChainApiManager):
             safe_ensure_future(self._gateway_pool_show(pool_id), loop=self.ev_loop)
 
         elif action == "add":
-            if args is None or len(args) < 6:
-                self.notify("Error: connector, type, network, base, quote, and address parameters are required for 'add' action")
-                self.notify("Usage: gateway pool add <connector> <type> <network> <base> <quote> <address>")
+            if args is None or len(args) < 3:
+                self.notify("Error: connector, type, and network parameters are required")
+                self.notify("Usage: gateway pool add <connector> <type> <network>")
                 return
             connector = args[0]
             pool_type = args[1]
             network = args[2]
-            base_symbol = args[3]
-            quote_symbol = args[4]
-            address = args[5]
-            safe_ensure_future(self._gateway_pool_add(connector, pool_type, network, base_symbol, quote_symbol, address), loop=self.ev_loop)
+            safe_ensure_future(self._gateway_pool_add_interactive(connector, pool_type, network), loop=self.ev_loop)
 
         elif action == "remove":
             if args is None or len(args) < 2:
@@ -1581,6 +1578,41 @@ class GatewayCommand(GatewayChainApiManager):
                 self.notify(f"Pool '{pool_id}' not found")
             else:
                 self.notify(f"Error fetching pool details: {error_msg}")
+
+    async def _gateway_pool_add_interactive(self, connector: str, pool_type: str, network: str):
+        """Add a new pool to gateway with interactive prompts."""
+        try:
+            # Validate pool type
+            if pool_type.lower() not in ["amm", "clmm"]:
+                self.notify("Error: Pool type must be 'amm' or 'clmm'")
+                return
+
+            self.notify(f"\nAdding a new {pool_type.upper()} pool to {connector}/{network}")
+            self.notify("Please provide the following pool information:")
+
+            # Prompt for base token
+            base_symbol = await self.app.prompt(prompt="  Base token symbol: ")
+            if self.app.to_stop_config:
+                self.app.to_stop_config = False
+                return
+
+            # Prompt for quote token
+            quote_symbol = await self.app.prompt(prompt="  Quote token symbol: ")
+            if self.app.to_stop_config:
+                self.app.to_stop_config = False
+                return
+
+            # Prompt for pool address
+            address = await self.app.prompt(prompt="  Pool address: ")
+            if self.app.to_stop_config:
+                self.app.to_stop_config = False
+                return
+
+            # Call the existing method to add the pool
+            await self._gateway_pool_add(connector, pool_type, network, base_symbol, quote_symbol, address)
+
+        except Exception as e:
+            self.notify(f"Error during pool addition: {str(e)}")
 
     async def _gateway_pool_add(self, connector: str, pool_type: str, network: str, base_symbol: str, quote_symbol: str, address: str):
         """Add a new pool to gateway."""
