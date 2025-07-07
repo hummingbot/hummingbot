@@ -32,7 +32,7 @@ class ArbitrageControllerConfig(ControllerConfigBase):
 
 class ArbitrageController(ControllerBase):
     gas_token_by_network = {
-        "ethereum": "BERA",
+        "ethereum": "ETH",
         "solana": "SOL",
         "binance-smart-chain": "BNB",
         "polygon": "POL",
