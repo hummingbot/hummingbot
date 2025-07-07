@@ -57,7 +57,6 @@ async def main_async(client_config_map: ClientConfigAdapter):
     await Security.wait_til_decryption_done()
     await create_yml_files_legacy()
 
-    # This init_logging() call is important, to skip over the missing config warnings.
     init_logging("hummingbot_logs.yml", client_config_map)
 
     AllConnectorSettings.initialize_paper_trade_settings(client_config_map.paper_trade.paper_trade_exchanges)

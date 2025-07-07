@@ -16,8 +16,10 @@ def start(self):
     try:
         maker_trading_pair: str = raw_maker_trading_pair
         taker_trading_pair: str = raw_taker_trading_pair
-        maker_assets: Tuple[str, str] = self._initialize_market_assets(maker_market, [maker_trading_pair])[0]
-        taker_assets: Tuple[str, str] = self._initialize_market_assets(taker_market, [taker_trading_pair])[0]
+        maker_base, maker_quote = maker_trading_pair.split("-")
+        taker_base, taker_quote = taker_trading_pair.split("-")
+        maker_assets: Tuple[str, str] = (maker_base, maker_quote)
+        taker_assets: Tuple[str, str] = (taker_base, taker_quote)
     except ValueError as e:
         self.notify(str(e))
         return
@@ -27,7 +29,7 @@ def start(self):
         (taker_market, [taker_trading_pair]),
     ]
 
-    self._initialize_markets(market_names)
+    self.initialize_markets(market_names)
     maker_data = [self.markets[maker_market], maker_trading_pair] + list(maker_assets)
     taker_data = [self.markets[taker_market], taker_trading_pair] + list(taker_assets)
     maker_market_trading_pair_tuple = MarketTradingPairTuple(*maker_data)

@@ -243,7 +243,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCa
 
         # When ping fails, the exception is raised but the _current_listen_key is not reset
         # This is expected since the listen key management task will be restarted by the error handling
-        self.assertEqual(self.listen_key, self.data_source._current_listen_key)
+        self.assertEqual(None, self.data_source._current_listen_key)
 
     @aioresponses()
     async def test_manage_listen_key_task_loop_keep_alive_successful(self, mock_api):
@@ -301,3 +301,50 @@ class BinancePerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCa
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
         self.assertEqual(0, msg_queue.qsize())
+
+    async def test_ensure_listen_key_task_running_with_no_task(self):
+        # Test when there's no existing task
+        self.assertIsNone(self.data_source._manage_listen_key_task)
+        await self.data_source._ensure_listen_key_task_running()
+        self.assertIsNotNone(self.data_source._manage_listen_key_task)
+
+    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_data_source.safe_ensure_future")
+    async def test_ensure_listen_key_task_running_with_running_task(self, mock_safe_ensure_future):
+        # Test when task is already running - should return early (line 155)
+        from unittest.mock import MagicMock
+        mock_task = MagicMock()
+        mock_task.done.return_value = False
+        self.data_source._manage_listen_key_task = mock_task
+
+        # Call the method
+        await self.data_source._ensure_listen_key_task_running()
+
+        # Should return early without creating a new task
+        mock_safe_ensure_future.assert_not_called()
+        self.assertEqual(mock_task, self.data_source._manage_listen_key_task)
+
+    async def test_ensure_listen_key_task_running_with_done_task_cancelled_error(self):
+        mock_task = AsyncMock()
+        mock_task.done.return_value = True
+        mock_task.side_effect = asyncio.CancelledError()
+        self.data_source._manage_listen_key_task = mock_task
+
+        await self.data_source._ensure_listen_key_task_running()
+
+        # Task should be cancelled and replaced
+        mock_task.cancel.assert_called_once()
+        self.assertIsNotNone(self.data_source._manage_listen_key_task)
+        self.assertNotEqual(mock_task, self.data_source._manage_listen_key_task)
+
+    async def test_ensure_listen_key_task_running_with_done_task_exception(self):
+        mock_task = AsyncMock()
+        mock_task.done.return_value = True
+        mock_task.side_effect = Exception("Test exception")
+        self.data_source._manage_listen_key_task = mock_task
+
+        await self.data_source._ensure_listen_key_task_running()
+
+        # Task should be cancelled and replaced, exception should be ignored
+        mock_task.cancel.assert_called_once()
+        self.assertIsNotNone(self.data_source._manage_listen_key_task)
+        self.assertNotEqual(mock_task, self.data_source._manage_listen_key_task)

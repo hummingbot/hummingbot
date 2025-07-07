@@ -4,7 +4,6 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from hummingbot.client.settings import GATEWAY_CONNECTORS
-from hummingbot.client.ui.completer import load_completer
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import build_config_namespace_keys
@@ -125,7 +124,6 @@ class GatewayStatusMonitor:
             build_config_namespace_keys(config_list, config_dict)
 
             self.gateway_config_keys = config_list
-            self._app.app.input_field.completer = load_completer(self._app)
         except Exception:
             self.logger().error("Error fetching gateway configs. Please check that Gateway service is online. ",
                                 exc_info=True)
