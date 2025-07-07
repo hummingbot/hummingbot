@@ -122,12 +122,3 @@ class TrackedOrder:
             return self.order.is_filled
         else:
             return False
-
-    @property
-    def position_age_seconds(self) -> float:
-        """Age of the position in seconds"""
-        if not self.is_position_active:
-            return 0.0
-        return self._strategy.current_timestamp - min(
-            self._long_order.creation_timestamp, self._short_order.creation_timestamp
-        )

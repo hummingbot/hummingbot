@@ -1186,4 +1186,4 @@ class FundingArbitrageExecutor(ExecutorBase):
         :return: The cumulative fees in quote asset.
         """
         orders = [self._long_order, self._short_order, self._long_close_order, self._short_close_order]
-        return sum([order.cum_fees_quote for order in orders if order])
+        return sum([order.cum_fees_quote for order in orders if order and order.cum_fees_quote])
