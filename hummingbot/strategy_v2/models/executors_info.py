@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.strategy_v2.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig
 from hummingbot.strategy_v2.executors.dca_executor.data_types import DCAExecutorConfig
+from hummingbot.strategy_v2.executors.funding_arbitrage_executor.data_types import FundingArbitrageExecutorConfig
 from hummingbot.strategy_v2.executors.grid_executor.data_types import GridExecutorConfig
 from hummingbot.strategy_v2.executors.order_executor.data_types import OrderExecutorConfig
 from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig
@@ -14,7 +15,7 @@ from hummingbot.strategy_v2.executors.xemm_executor.data_types import XEMMExecut
 from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executors import CloseType
 
-AnyExecutorConfig = Union[PositionExecutorConfig, DCAExecutorConfig, GridExecutorConfig, XEMMExecutorConfig, ArbitrageExecutorConfig, OrderExecutorConfig, TWAPExecutorConfig]
+AnyExecutorConfig = Union[PositionExecutorConfig, DCAExecutorConfig, GridExecutorConfig, XEMMExecutorConfig, ArbitrageExecutorConfig, OrderExecutorConfig, TWAPExecutorConfig, FundingArbitrageExecutorConfig]
 
 
 class ExecutorInfo(BaseModel):
