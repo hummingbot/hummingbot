@@ -112,10 +112,10 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
     gateway_token_parser.add_argument("args", nargs="*", help="Arguments: <chain> <network> <symbol_or_address>")
     gateway_token_parser.set_defaults(func=hummingbot.gateway_token)
 
-    gateway_pools_parser = gateway_subparsers.add_parser("pools", help="Manage pools in gateway")
-    gateway_pools_parser.add_argument("action", nargs="?", default=None, help="Action to perform (list, show, add, remove)")
-    gateway_pools_parser.add_argument("args", nargs="*", help="Arguments for the action")
-    gateway_pools_parser.set_defaults(func=hummingbot.gateway_pools)
+    gateway_pool_parser = gateway_subparsers.add_parser("pool", help="Manage liquidity pools")
+    gateway_pool_parser.add_argument("action", nargs="?", default=None, help="Action to perform (list, show, add, remove)")
+    gateway_pool_parser.add_argument("args", nargs="*", help="Arguments for the action")
+    gateway_pool_parser.set_defaults(func=hummingbot.gateway_pool)
 
     gateway_wallet_parser = gateway_subparsers.add_parser("wallet", help="Manage wallets in gateway")
     gateway_wallet_parser.add_argument("action", nargs="?", default=None, help="Action to perform (list, add, remove)")

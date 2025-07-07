@@ -222,24 +222,24 @@ class GatewayCommand(GatewayChainApiManager):
             self.notify(f"Error: Unknown action '{action}'. Use 'show', 'add', or 'remove'.")
 
     @ensure_gateway_online
-    def gateway_pools(self, action: str = None, args: List[str] = None):
+    def gateway_pool(self, action: str = None, args: List[str] = None):
         """
-        Manage pools in gateway.
+        Manage liquidity pools.
         Usage:
-            gateway pools list [connector] [--network] [--type]     - List pools
-            gateway pools show <pool_id>                             - Show pool details
-            gateway pools add <connector> <type> <network> <base> <quote> <address> - Add a new pool
-            gateway pools remove <connector> <pool_id>               - Remove a pool
+            gateway pool list [connector] [--network] [--type]     - List pools
+            gateway pool show <pool_id>                             - Show pool details
+            gateway pool add <connector> <type> <network> <base> <quote> <address> - Add a new pool
+            gateway pool remove <connector> <pool_id>               - Remove a pool
         """
         if action is None:
             self.notify("\nUsage:")
-            self.notify("  gateway pools list [connector] [--network] [--type]     - List pools")
-            self.notify("  gateway pools show <pool_id>                            - Show pool details")
-            self.notify("  gateway pools add <connector> <type> <network> <base> <quote> <address> - Add a new pool")
-            self.notify("  gateway pools remove <connector> <pool_id>              - Remove a pool")
+            self.notify("  gateway pool list [connector] [--network] [--type]     - List pools")
+            self.notify("  gateway pool show <pool_id>                            - Show pool details")
+            self.notify("  gateway pool add <connector> <type> <network> <base> <quote> <address> - Add a new pool")
+            self.notify("  gateway pool remove <connector> <pool_id>              - Remove a pool")
             self.notify("\nExamples:")
-            self.notify("  gateway pools list raydium --network mainnet-beta --type clmm")
-            self.notify("  gateway pools add raydium clmm mainnet-beta SOL USDC 8sLbNZoA1cfnvMJLPfp98Z...")
+            self.notify("  gateway pool list raydium --network mainnet-beta --type clmm")
+            self.notify("  gateway pool add raydium clmm mainnet-beta SOL USDC 8sLbNZoA1cfnvMJLPfp98Z...")
             return
 
         if action == "list":
@@ -266,19 +266,19 @@ class GatewayCommand(GatewayChainApiManager):
                     else:
                         i += 1
 
-            safe_ensure_future(self._gateway_pools_list(connector, network, pool_type), loop=self.ev_loop)
+            safe_ensure_future(self._gateway_pool_list(connector, network, pool_type), loop=self.ev_loop)
 
         elif action == "show":
             if args is None or len(args) < 1:
                 self.notify("Error: pool_id parameter is required for 'show' action")
                 return
             pool_id = args[0]
-            safe_ensure_future(self._gateway_pools_show(pool_id), loop=self.ev_loop)
+            safe_ensure_future(self._gateway_pool_show(pool_id), loop=self.ev_loop)
 
         elif action == "add":
             if args is None or len(args) < 6:
                 self.notify("Error: connector, type, network, base, quote, and address parameters are required for 'add' action")
-                self.notify("Usage: gateway pools add <connector> <type> <network> <base> <quote> <address>")
+                self.notify("Usage: gateway pool add <connector> <type> <network> <base> <quote> <address>")
                 return
             connector = args[0]
             pool_type = args[1]
@@ -286,7 +286,7 @@ class GatewayCommand(GatewayChainApiManager):
             base_symbol = args[3]
             quote_symbol = args[4]
             address = args[5]
-            safe_ensure_future(self._gateway_pools_add(connector, pool_type, network, base_symbol, quote_symbol, address), loop=self.ev_loop)
+            safe_ensure_future(self._gateway_pool_add(connector, pool_type, network, base_symbol, quote_symbol, address), loop=self.ev_loop)
 
         elif action == "remove":
             if args is None or len(args) < 2:
@@ -294,7 +294,7 @@ class GatewayCommand(GatewayChainApiManager):
                 return
             connector = args[0]
             pool_id = args[1]
-            safe_ensure_future(self._gateway_pools_remove(connector, pool_id), loop=self.ev_loop)
+            safe_ensure_future(self._gateway_pool_remove(connector, pool_id), loop=self.ev_loop)
 
         else:
             self.notify(f"Error: Unknown action '{action}'. Use 'list', 'show', 'add', or 'remove'.")
@@ -1503,7 +1503,7 @@ class GatewayCommand(GatewayChainApiManager):
             else:
                 self.notify(f"Error retrieving token information: {error_msg}")
 
-    async def _gateway_pools_list(self, connector: Optional[str] = None, network: Optional[str] = None, pool_type: Optional[str] = None):
+    async def _gateway_pool_list(self, connector: Optional[str] = None, network: Optional[str] = None, pool_type: Optional[str] = None):
         """List pools from gateway with optional filters."""
         try:
             # Build query parameters
@@ -1549,7 +1549,7 @@ class GatewayCommand(GatewayChainApiManager):
         except Exception as e:
             self.notify(f"Error listing pools: {str(e)}")
 
-    async def _gateway_pools_show(self, pool_id: str):
+    async def _gateway_pool_show(self, pool_id: str):
         """Show details of a specific pool."""
         try:
             # Get pool by ID from gateway
@@ -1582,7 +1582,7 @@ class GatewayCommand(GatewayChainApiManager):
             else:
                 self.notify(f"Error fetching pool details: {error_msg}")
 
-    async def _gateway_pools_add(self, connector: str, pool_type: str, network: str, base_symbol: str, quote_symbol: str, address: str):
+    async def _gateway_pool_add(self, connector: str, pool_type: str, network: str, base_symbol: str, quote_symbol: str, address: str):
         """Add a new pool to gateway."""
         try:
             # Validate pool type
@@ -1618,7 +1618,7 @@ class GatewayCommand(GatewayChainApiManager):
             else:
                 self.notify(f"Error adding pool: {error_msg}")
 
-    async def _gateway_pools_remove(self, connector: str, pool_id: str):
+    async def _gateway_pool_remove(self, connector: str, pool_id: str):
         """Remove a pool from gateway."""
         try:
             # Confirm removal

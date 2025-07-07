@@ -53,7 +53,7 @@ class HummingbotCompleter(Completer):
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)
         self._history_completer = WordCompleter(["--days", "--verbose", "--precision"], ignore_case=True)
-        self._gateway_completer = WordCompleter(["ping", "list", "config", "token", "wallet", "balance", "allowance", "approve", "wrap", "generate-certs"], ignore_case=True)
+        self._gateway_completer = WordCompleter(["ping", "list", "config", "token", "wallet", "balance", "allowance", "approve", "pool", "wrap", "generate-certs"], ignore_case=True)
 
         # Initialize gateway wallet chain completer first
         self._gateway_wallet_chain_completer = WordCompleter([
@@ -66,8 +66,8 @@ class HummingbotCompleter(Completer):
         self._gateway_wallet_completer = WordCompleter(["list", "add", "remove"], ignore_case=True)
         self._gateway_wallet_action_completer = WordCompleter(["list", "add", "add-read-only", "remove", "remove-read-only"], ignore_case=True)
         self._gateway_token_action_completer = WordCompleter(["show", "add", "remove"], ignore_case=True)
-        self._gateway_pools_action_completer = WordCompleter(["list", "show", "add", "remove"], ignore_case=True)
-        self._gateway_pools_type_completer = WordCompleter(["amm", "clmm"], ignore_case=True)
+        self._gateway_pool_action_completer = WordCompleter(["list", "show", "add", "remove"], ignore_case=True)
+        self._gateway_pool_type_completer = WordCompleter(["amm", "clmm"], ignore_case=True)
         self._gateway_config_action_completer = WordCompleter(["show", "update"], ignore_case=True)
         # Initialize with hardcoded namespaces (will be updated dynamically from gateway later)
         self._gateway_config_namespaces = [
@@ -547,7 +547,7 @@ class HummingbotCompleter(Completer):
                 not text_before_cursor.startswith("gateway config ") and
                 not text_before_cursor.startswith("gateway wallet ") and
                 not text_before_cursor.startswith("gateway token ") and
-                not text_before_cursor.startswith("gateway pools ") and
+                not text_before_cursor.startswith("gateway pool ") and
                 text_before_cursor.count(" ") == 1)
 
     def _complete_gateway_config_arguments(self, document: Document) -> bool:
@@ -595,19 +595,19 @@ class HummingbotCompleter(Completer):
                 (text_before_cursor.startswith("gateway token remove ") and text_before_cursor.count(" ") == 4) or
                 (text_before_cursor.startswith("gateway token show ") and text_before_cursor.count(" ") == 4))
 
-    def _complete_gateway_pools_arguments(self, document: Document) -> bool:
+    def _complete_gateway_pool_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
-        return text_before_cursor.startswith("gateway pools ") and text_before_cursor.count(" ") == 2
+        return text_before_cursor.startswith("gateway pool ") and text_before_cursor.count(" ") == 2
 
-    def _complete_gateway_pools_connector(self, document: Document) -> bool:
+    def _complete_gateway_pool_connector(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
-        return ((text_before_cursor.startswith("gateway pools list ") and text_before_cursor.count(" ") == 3) or
-                (text_before_cursor.startswith("gateway pools add ") and text_before_cursor.count(" ") == 3) or
-                (text_before_cursor.startswith("gateway pools remove ") and text_before_cursor.count(" ") == 3))
+        return ((text_before_cursor.startswith("gateway pool list ") and text_before_cursor.count(" ") == 3) or
+                (text_before_cursor.startswith("gateway pool add ") and text_before_cursor.count(" ") == 3) or
+                (text_before_cursor.startswith("gateway pool remove ") and text_before_cursor.count(" ") == 3))
 
-    def _complete_gateway_pools_type(self, document: Document) -> bool:
+    def _complete_gateway_pool_type(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
-        return text_before_cursor.startswith("gateway pools add ") and text_before_cursor.count(" ") == 4
+        return text_before_cursor.startswith("gateway pool add ") and text_before_cursor.count(" ") == 4
 
     def _complete_script_strategy_files(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -850,16 +850,16 @@ class HummingbotCompleter(Completer):
                 for c in network_completer.get_completions(document, complete_event):
                     yield c
 
-        elif self._complete_gateway_pools_arguments(document):
-            for c in self._gateway_pools_action_completer.get_completions(document, complete_event):
+        elif self._complete_gateway_pool_arguments(document):
+            for c in self._gateway_pool_action_completer.get_completions(document, complete_event):
                 yield c
 
-        elif self._complete_gateway_pools_connector(document):
+        elif self._complete_gateway_pool_connector(document):
             for c in self._gateway_available_connectors_completer.get_completions(document, complete_event):
                 yield c
 
-        elif self._complete_gateway_pools_type(document):
-            for c in self._gateway_pools_type_completer.get_completions(document, complete_event):
+        elif self._complete_gateway_pool_type(document):
+            for c in self._gateway_pool_type_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_gateway_arguments(document):
