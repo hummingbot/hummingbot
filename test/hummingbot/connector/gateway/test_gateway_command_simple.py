@@ -26,9 +26,9 @@ class TestGatewayCommandSimple(unittest.TestCase):
         # Use our mock gateway HTTP client
         self.gateway_http_mock = MockGatewayHTTPClient()
 
-        # Patch GatewayHttpClient.get_instance
+        # Patch GatewayClient.get_instance
         self.gateway_instance_patcher = patch(
-            'hummingbot.client.command.gateway_command.GatewayHttpClient.get_instance'
+            'hummingbot.client.command.gateway_command.GatewayClient.get_instance'
         )
         self.mock_get_instance = self.gateway_instance_patcher.start()
         self.mock_get_instance.return_value = self.gateway_http_mock
@@ -277,7 +277,7 @@ class TestGatewayCommandSimple(unittest.TestCase):
 
         ethereum_connectors = [
             conn for conn in connectors_resp["connectors"]
-            if conn["chain"] == "ethereum"
+            if "ethereum" in conn.get("available_chains", [])
         ]
 
         self.assertGreater(len(ethereum_connectors), 0)
@@ -414,7 +414,7 @@ class TestGatewayCommandSimple(unittest.TestCase):
             # Verify we can get config (which includes native currency)
             # In actual implementation, this would fetch node URL and other config
             self.async_run_with_timeout(
-                self.gateway_http_mock.api_request("get", "config", {"chainOrConnector": chain})
+                self.gateway_http_mock.api_request("get", "config", {"namespace": chain})
             )
 
             # The ping command would show status and latency for each chain

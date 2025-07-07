@@ -104,7 +104,6 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
     gateway_config_parser = gateway_subparsers.add_parser("config", help="View or update gateway configuration")
     gateway_config_parser.add_argument("action", nargs="?", default=None, help="Action to perform (show, update)")
     gateway_config_parser.add_argument("namespace", nargs="?", default=None, help="Configuration namespace (e.g., ethereum-mainnet, solana-devnet, uniswap)")
-    gateway_config_parser.add_argument("network", nargs="?", default=None, help="[DEPRECATED] Network name - now part of namespace")
     gateway_config_parser.add_argument("args", nargs="*", help="Additional arguments (path, value for update)")
     gateway_config_parser.set_defaults(func=hummingbot.gateway_config)
 
@@ -133,7 +132,8 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
 
     gateway_allowance_parser = gateway_subparsers.add_parser("allowance", help="Check allowances for an Ethereum connector")
     gateway_allowance_parser.add_argument("spender", nargs="?", default=None, help="Spender in format connector/type (e.g., uniswap/amm, 0x/router)")
-    gateway_allowance_parser.add_argument("network", nargs="?", default=None, help="Network name (e.g., mainnet, base, arbitrum)")
+    gateway_allowance_parser.add_argument("network", nargs="?", default=None, help="Ethereum network name (e.g., mainnet, base, arbitrum)")
+    gateway_allowance_parser.add_argument("address", nargs="?", default=None, help="Wallet address")
     gateway_allowance_parser.add_argument("tokens", nargs="?", default=None, help="Comma-separated token symbols (e.g., USDC,USDT,DAI)")
     gateway_allowance_parser.set_defaults(func=hummingbot.gateway_allowance)
 

@@ -53,10 +53,8 @@ class GatewayMonitor:
         if hasattr(app_or_client, 'client_config_map'):
             # Old style - HummingbotApplication passed
             self._app = app_or_client
-            gateway_url = getattr(self._app.client_config_map.gateway, 'gateway_api_host', 'localhost')
-            gateway_port = getattr(self._app.client_config_map.gateway, 'gateway_api_port', 15888)
-            base_url = f"http://{gateway_url}:{gateway_port}"
-            self.client = GatewayClient.get_instance(base_url)
+            # Pass the client_config_map instead of base_url
+            self.client = GatewayClient.get_instance(self._app.client_config_map)
         else:
             # New style - GatewayClient passed
             self._app = None

@@ -51,12 +51,12 @@ class GatewayCommand(GatewayChainApiManager):
 
     @ensure_gateway_online
     def gateway_allowance(self, spender: Optional[str] = None, network: Optional[str] = None,
-                          tokens: Optional[str] = None):
+                          address: Optional[str] = None, tokens: Optional[str] = None):
         """
         Command to check token allowances for Ethereum-based connectors
-        Usage: gateway allowance [spender] [network] [tokens]
+        Usage: gateway allowance [spender] [network] [address] [tokens]
         """
-        safe_ensure_future(self._get_allowances(spender, network, tokens), loop=self.ev_loop)
+        safe_ensure_future(self._get_allowances(spender, network, address, tokens), loop=self.ev_loop)
 
     @ensure_gateway_online
     def gateway_approve(self, spender: Optional[str] = None, network: Optional[str] = None,
@@ -85,7 +85,7 @@ class GatewayCommand(GatewayChainApiManager):
         safe_ensure_future(self._gateway_list(), loop=self.ev_loop)
 
     @ensure_gateway_online
-    def gateway_config(self, action: str = None, namespace: str = None, network: str = None, args: List[str] = None):
+    def gateway_config(self, action: str = None, namespace: str = None, args: List[str] = None):
         """
         Gateway configuration management.
         Usage:
@@ -113,24 +113,15 @@ class GatewayCommand(GatewayChainApiManager):
                 self.notify("Error: namespace is required for config update")
                 return
 
-            # Handle the new format: gateway config update <namespace> <path> <value>
-            # where namespace includes network (e.g., ethereum-mainnet)
-            if network is not None and len(args) >= 1:
-                # User provided: gateway config update ethereum mainnet gasLimitTransaction 3000000
-                # We need to combine namespace and network
-                namespace = f"{namespace}-{network}"
-                path = args[0] if args else None
-                value = args[1] if len(args) > 1 else None
-            elif len(args) >= 2:
-                # User provided: gateway config update ethereum-mainnet gasLimitTransaction 3000000
+            # Handle the format: gateway config update <namespace> <path> <value>
+            # where namespace includes network (e.g., ethereum-mainnet, solana-mainnet-beta)
+            if len(args) >= 2:
                 path = args[0]
                 value = args[1]
             else:
                 self.notify("Error: path and value are required for config update")
-                return
-
-            if not path or value is None:
-                self.notify("Error: path and value are required for config update")
+                self.notify("Usage: gateway config update <namespace> <path> <value>")
+                self.notify("Example: gateway config update solana-mainnet-beta nodeURL https://api.mainnet-beta.solana.com")
                 return
 
             safe_ensure_future(self._update_gateway_configuration(namespace, path, value), loop=self.ev_loop)
@@ -348,51 +339,48 @@ class GatewayCommand(GatewayChainApiManager):
                 if not networks:
                     continue
 
-                # Use the first network as default
-                default_network = networks[0]
+                # Use the same default network logic as gateway balance
+                default_network = await self._get_default_network_for_chain(chain_name)
+                if not default_network:
+                    # Fallback to first network if no default
+                    default_network = networks[0]
 
                 self.notify(f"\nChain: {chain_name}")
                 self.notify(f"Default Network: {default_network}")
 
-                # Get node URL from config
-                try:
-                    # Get config for this chain/network
-                    config_params = {
-                        "chainOrConnector": chain_name,
-                        "network": default_network
-                    }
-                    config_resp = await self._get_gateway_instance().api_request(
-                        "get", "config", params=config_params, fail_silently=True
-                    )
-
-                    # Extract node URL based on chain type
-                    node_url = None
-                    if chain_name.lower() == "ethereum":
-                        node_url = config_resp.get("rpcUrl")
-                    elif chain_name.lower() == "solana":
-                        node_url = config_resp.get("rpcUrl")
-
-                    if node_url:
-                        self.notify(f"Node URL: {node_url}")
-                except Exception:
-                    # If we can't get node URL, continue without it
-                    pass
-
-                # Ping the network by making a simple request
+                # Get network status including block number
                 start_time = time.time()
                 try:
-                    # Try to get native currency info as a ping test
-                    native_currency = await self._get_native_currency_symbol(chain_name, default_network)
+                    # Get network status from gateway
+                    status_resp = await self._get_gateway_instance().get_network_status(chain_name, default_network)
 
                     # Calculate latency
                     latency = (time.time() - start_time) * 1000  # Convert to milliseconds
 
-                    if native_currency:
+                    if status_resp:
                         self.notify("Status: Connected")
-                        self.notify(f"Native Token: {native_currency}")
+
+                        # Display RPC URL if available
+                        rpc_url = status_resp.get("rpcUrl")
+                        if rpc_url:
+                            self.notify(f"RPC URL: {rpc_url}")
+
+                        # Display current block number
+                        block_number = status_resp.get("currentBlockNumber")
+                        if block_number is not None:
+                            self.notify(f"Current Block: {block_number:,}")
+
+                        # Try to get native currency as well
+                        try:
+                            native_currency = await self._get_native_currency_symbol(chain_name, default_network)
+                            if native_currency:
+                                self.notify(f"Native Token: {native_currency}")
+                        except Exception:
+                            pass
+
                         self.notify(f"Latency: {latency:.1f} ms")
                     else:
-                        self.notify("Status: Connected (no native token info)")
+                        self.notify("Status: Connected (no status info)")
                         self.notify(f"Latency: {latency:.1f} ms")
 
                 except asyncio.TimeoutError:
@@ -591,7 +579,8 @@ class GatewayCommand(GatewayChainApiManager):
 
                     # Get balances from gateway
                     try:
-                        self.notify(f"Fetching balances for {chain}:{network} address {address[:8]}... tokens: {tokens_to_check}")
+                        tokens_display = "all" if not tokens_to_check else ", ".join(tokens_to_check)
+                        self.notify(f"Fetching balances for {chain}:{network} address {address[:8]}... tokens: {tokens_display}")
                         balances_resp = await asyncio.wait_for(
                             self._get_gateway_instance().get_balances(chain, network, address, tokens_to_check),
                             balance_timeout
@@ -1019,14 +1008,11 @@ class GatewayCommand(GatewayChainApiManager):
     def _get_gateway_instance(
         self  # type: HummingbotApplication
     ) -> GatewayClient:
-        # Get Gateway URL from client config or use default
-        gateway_url = getattr(self.client_config_map.gateway, 'gateway_api_host', 'localhost')
-        gateway_port = getattr(self.client_config_map.gateway, 'gateway_api_port', 15888)
-        base_url = f"http://{gateway_url}:{gateway_port}"
-        return GatewayClient.get_instance(base_url)
+        # Pass the client config map to GatewayClient
+        return GatewayClient.get_instance(self.client_config_map)
 
     async def _get_allowances(self, spender: Optional[str] = None, network: Optional[str] = None,
-                              tokens: Optional[str] = None):
+                              address: Optional[str] = None, tokens: Optional[str] = None):
         """Get token allowances for Ethereum-based connectors"""
         network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
         self.notify("Checking token allowances, please wait...")
@@ -1034,7 +1020,7 @@ class GatewayCommand(GatewayChainApiManager):
             # Validate parameters
             if not all([spender, network]):
                 self.notify("\nPlease specify both spender and network.")
-                self.notify("Usage: gateway allowance <spender> <network> [tokens]")
+                self.notify("Usage: gateway allowance <spender> <network> [address] [tokens]")
                 self.notify("Example: gateway allowance uniswap/amm mainnet")
                 return
 
@@ -1044,7 +1030,11 @@ class GatewayCommand(GatewayChainApiManager):
                 self.notify("No wallet found for ethereum. Please add one with 'gateway wallet add ethereum'")
                 return
 
-            wallet_address = wallets_resp[0]["walletAddresses"][0]
+            # Use specified address or default to first wallet
+            if address:
+                wallet_address = address
+            else:
+                wallet_address = wallets_resp[0]["walletAddresses"][0]
 
             # Determine tokens to check
             if tokens:
@@ -1340,6 +1330,8 @@ class GatewayCommand(GatewayChainApiManager):
     async def _get_default_network_for_chain(self, chain: str) -> Optional[str]:
         """Get the default network for a given chain."""
         # Define sensible defaults for main chains
+        # These defaults are used by both gateway ping and gateway balance commands
+        # to ensure consistency across the application
         default_networks = {
             "ethereum": "mainnet",
             "solana": "mainnet-beta"

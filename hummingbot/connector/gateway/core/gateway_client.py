@@ -3,14 +3,18 @@ Unified Gateway HTTP client with built-in retry and fee management.
 """
 import asyncio
 import logging
+import ssl
 import time
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import aiohttp
 from aiohttp import ContentTypeError
 
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 
 class GatewayClient:
@@ -21,7 +25,12 @@ class GatewayClient:
 
     _logger: Optional[HummingbotLogger] = None
     _shared_session: Optional[aiohttp.ClientSession] = None
+    _client_config_map: Optional["ClientConfigAdapter"] = None
     __instance = None
+
+    # ============================================
+    # Initialization and Core Methods
+    # ============================================
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -30,21 +39,38 @@ class GatewayClient:
         return cls._logger
 
     @staticmethod
-    def get_instance(base_url: Optional[str] = None) -> "GatewayClient":
+    def get_instance(client_config_map: Optional["ClientConfigAdapter"] = None) -> "GatewayClient":
         """Get singleton instance of GatewayClient."""
         if GatewayClient.__instance is None:
-            if base_url is None:
-                raise ValueError("base_url required for first initialization")
-            GatewayClient.__instance = GatewayClient(base_url)
+            GatewayClient.__instance = GatewayClient(client_config_map)
+        elif client_config_map is not None and GatewayClient.__instance._client_config_map != client_config_map:
+            # Update the client config map if it's different
+            GatewayClient.__instance._client_config_map = client_config_map
+            # Update base_url based on new config
+            api_host = client_config_map.gateway.gateway_api_host
+            api_port = client_config_map.gateway.gateway_api_port
+            use_ssl = getattr(client_config_map.gateway, "gateway_use_ssl", False)
+            protocol = "https" if use_ssl else "http"
+            GatewayClient.__instance.base_url = f"{protocol}://{api_host}:{api_port}"
         return GatewayClient.__instance
 
-    def __init__(self, base_url: str):
+    def __init__(self, client_config_map: Optional["ClientConfigAdapter"] = None):
         """
         Initialize Gateway client.
 
-        :param base_url: Base URL for Gateway service (e.g., "http://localhost:15888")
+        :param client_config_map: Client configuration
         """
-        self.base_url = base_url.rstrip("/")
+        if client_config_map is None:
+            from hummingbot.client.hummingbot_application import HummingbotApplication
+            client_config_map = HummingbotApplication.main_application().client_config_map
+
+        api_host = client_config_map.gateway.gateway_api_host
+        api_port = client_config_map.gateway.gateway_api_port
+        use_ssl = getattr(client_config_map.gateway, "gateway_use_ssl", False)
+
+        protocol = "https" if use_ssl else "http"
+        self.base_url = f"{protocol}://{api_host}:{api_port}"
+        self._client_config_map = client_config_map
         self._config_cache: Dict[str, Dict[str, Any]] = {}
         self._compute_units_cache: Dict[str, int] = {}  # {"tx_type:connector:network": compute_units}
         self._fee_estimates: Dict[str, Dict[str, Any]] = {}  # {"chain:network": fee_data}
@@ -57,16 +83,38 @@ class GatewayClient:
     def session(self) -> aiohttp.ClientSession:
         """Get or create HTTP session."""
         if self._shared_session is None or self._shared_session.closed:
-            # For now, create a simple session without SSL
-            # In production, SSL configuration would be added here
-            connector = aiohttp.TCPConnector(ssl=False)
-            self._shared_session = aiohttp.ClientSession(connector=connector)
+            use_ssl = getattr(self._client_config_map.gateway, "gateway_use_ssl", False) if self._client_config_map else False
+            if use_ssl:
+                from hummingbot.client.config.security import Security
+                cert_path = self._client_config_map.certs_path
+                ssl_ctx = ssl.create_default_context(cafile=f"{cert_path}/ca_cert.pem")
+                ssl_ctx.load_cert_chain(certfile=f"{cert_path}/client_cert.pem",
+                                        keyfile=f"{cert_path}/client_key.pem",
+                                        password=Security.secrets_manager.password.get_secret_value())
+                conn = aiohttp.TCPConnector(ssl_context=ssl_ctx)
+            else:
+                # Non-SSL connection for development
+                conn = aiohttp.TCPConnector(ssl=False)
+            self._shared_session = aiohttp.ClientSession(connector=conn)
         return self._shared_session
 
     async def close(self):
         """Close HTTP session."""
         if self._shared_session and not self._shared_session.closed:
             await self._shared_session.close()
+
+    async def reload_certs(self, client_config_map) -> None:
+        """Reload SSL certificates."""
+        # Close existing session
+        if self._shared_session and not self._shared_session.closed:
+            await self._shared_session.close()
+        self._shared_session = None
+        self._client_config_map = client_config_map
+        # New session will be created on next access with updated certs
+
+    # ============================================
+    # Base Request Methods
+    # ============================================
 
     async def request(
         self,
@@ -123,26 +171,86 @@ class GatewayClient:
             self.logger().error(f"Gateway request error: {method} {url} - {str(e)}")
             raise
 
-    async def get_network_config(self, chain: str, network: str) -> Dict[str, Any]:
+    async def connector_request(
+        self,
+        method: str,
+        connector: str,
+        endpoint: str,
+        params: Optional[Dict[str, Any]] = None,
+        data: Optional[Dict[str, Any]] = None,
+        fail_silently: bool = False
+    ) -> Dict[str, Any]:
         """
-        Get network-specific configuration.
+        Generic method to make requests to any connector endpoint.
 
+        :param method: HTTP method (get, post, put, delete)
+        :param connector: Connector name (e.g., "raydium/clmm", "uniswap/amm")
+        :param endpoint: API endpoint (e.g., "execute-swap", "open-position")
+        :param params: Request parameters
+        :param data: Request body data
+        :param fail_silently: Whether to suppress errors
+        :return: API response
+        """
+        path = f"connectors/{connector}/{endpoint}"
+        try:
+            return await self.request(method, path, params=params, data=data)
+        except Exception as e:
+            if not fail_silently:
+                raise
+            return {"error": str(e)}
+
+    async def chain_request(
+        self,
+        method: str,
+        chain: str,
+        endpoint: str,
+        params: Optional[Dict[str, Any]] = None,
+        data: Optional[Dict[str, Any]] = None,
+        fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Generic method to make requests to any chain endpoint.
+
+        :param method: HTTP method (get, post, put, delete)
         :param chain: Chain name (e.g., "ethereum", "solana")
-        :param network: Network name (e.g., "mainnet", "mainnet-beta")
-        :return: Network configuration
+        :param endpoint: API endpoint (e.g., "tokens", "balances")
+        :param params: Request parameters
+        :param data: Request body data
+        :param fail_silently: Whether to suppress errors
+        :return: API response
         """
-        cache_key = f"{chain}-{network}"
+        path = f"chains/{chain}/{endpoint}"
+        try:
+            return await self.request(method, path, params=params, data=data)
+        except Exception as e:
+            if not fail_silently:
+                raise
+            return {"error": str(e)}
 
-        if cache_key not in self._config_cache:
-            try:
-                namespace = f"{chain}-{network}"
-                config = await self.request("GET", "config", params={"namespace": namespace})
-                self._config_cache[cache_key] = config or {}
-            except Exception as e:
-                self.logger().warning(f"Failed to get config for {cache_key}: {e}")
-                self._config_cache[cache_key] = {}
+    # Compatibility alias
+    async def api_request(self, method: str, path: str, **kwargs) -> Any:
+        """Generic API request method for compatibility."""
+        return await self.request(method, path, **kwargs)
 
-        return self._config_cache[cache_key]
+    # ============================================
+    # Gateway Status Methods
+    # ============================================
+
+    async def ping_gateway(self) -> bool:
+        """Check if Gateway is online."""
+        try:
+            await self.request("GET", "")
+            return True
+        except Exception:
+            return False
+
+    async def get_gateway_status(self) -> Dict[str, Any]:
+        """Get Gateway status information."""
+        return await self.request("GET", "")
+
+    # ============================================
+    # Chain and Connector Info Methods
+    # ============================================
 
     async def get_chains(self) -> List[Dict[str, Any]]:
         """Get available chains from Gateway."""
@@ -173,6 +281,23 @@ class GatewayClient:
         base_name = connector_name.split("/")[0]
         return connectors.get(base_name)
 
+    async def get_connector_trading_types(self, connector_name: str) -> Optional[List[str]]:
+        """
+        Get supported trading types for a specific connector.
+
+        :param connector_name: Name of the connector
+        :return: List of supported trading types, or None if connector not found
+        """
+        try:
+            connectors = await self.get_connectors()
+            for name, info in connectors.items():
+                if name.lower() == connector_name.lower():
+                    return info.get("trading_types", [])
+            return None
+        except Exception as e:
+            self.logger().error(f"Failed to get trading types for {connector_name}: {str(e)}")
+            return None
+
     async def get_network_status(self, chain: str, network: str) -> Dict[str, Any]:
         """
         Get network status for a specific chain and network.
@@ -183,6 +308,10 @@ class GatewayClient:
         """
         return await self.request("GET", f"chains/{chain}/status", params={"network": network})
 
+    # ============================================
+    # Configuration Methods
+    # ============================================
+
     async def get_configuration(self, chain_or_connector: Optional[str] = None) -> Dict[str, Any]:
         """
         Get configuration settings for a specific chain/connector or all configs.
@@ -190,25 +319,65 @@ class GatewayClient:
         :param chain_or_connector: Chain or connector name (e.g., "solana", "ethereum", "uniswap")
         :return: Configuration settings
         """
-        params = {"chainOrConnector": chain_or_connector} if chain_or_connector else {}
+        params = {"namespace": chain_or_connector} if chain_or_connector else {}
         return await self.request("GET", "config", params=params)
 
-    async def update_config(self, config_path: str, config_value: Any) -> Dict[str, Any]:
-        """
-        Update a specific configuration value by its path.
+    async def get_config(self, namespace: Optional[str] = None) -> Dict[str, Any]:
+        """Get configuration (alias for get_configuration)."""
+        return await self.get_configuration(namespace)
 
-        :param config_path: Configuration path (e.g., "solana.networks.mainnet-beta.nodeURL")
-        :param config_value: New configuration value
+    async def get_network_config(self, chain: str, network: str) -> Dict[str, Any]:
+        """
+        Get network-specific configuration.
+
+        :param chain: Chain name (e.g., "ethereum", "solana")
+        :param network: Network name (e.g., "mainnet", "mainnet-beta")
+        :return: Network configuration
+        """
+        cache_key = f"{chain}-{network}"
+
+        if cache_key not in self._config_cache:
+            try:
+                namespace = f"{chain}-{network}"
+                config = await self.request("GET", "config", params={"namespace": namespace})
+                self._config_cache[cache_key] = config or {}
+            except Exception as e:
+                self.logger().warning(f"Failed to get config for {cache_key}: {e}")
+                self._config_cache[cache_key] = {}
+
+        return self._config_cache[cache_key]
+
+    async def update_config(self, namespace: str, path: str, value: Any) -> Dict[str, Any]:
+        """
+        Update a specific configuration value.
+
+        :param namespace: Configuration namespace (e.g., "ethereum-mainnet", "solana-mainnet-beta")
+        :param path: Configuration path within namespace (e.g., "gasLimitTransaction", "nodeURL")
+        :param value: New configuration value
         :return: Update status
         """
         return await self.request(
             "POST",
             "config/update",
             data={
-                "configPath": config_path,
-                "configValue": config_value
+                "namespace": namespace,
+                "path": path,
+                "value": value
             }
         )
+
+    async def get_namespaces(self) -> List[str]:
+        """
+        Get available configuration namespaces from gateway.
+
+        :return: List of namespace strings
+        """
+        response = await self.request("GET", "namespaces")
+        return response.get("namespaces", [])
+
+    # ============================================
+    # Wallet Methods
+    # ============================================
 
     async def get_wallets(self, chain: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get wallets from Gateway."""
@@ -238,23 +407,9 @@ class GatewayClient:
             }
         )
 
-    async def get_balances(
-        self,
-        chain: str,
-        network: str,
-        address: str,
-        tokens: List[str]
-    ) -> Dict[str, Any]:
-        """Get token balances for a wallet."""
-        return await self.request(
-            "POST",
-            f"chains/{chain}/balances",
-            data={
-                "network": network,
-                "address": address,
-                "tokens": tokens
-            }
-        )
+    # ============================================
+    # Token Methods
+    # ============================================
 
     async def get_tokens(
         self,
@@ -299,37 +454,244 @@ class GatewayClient:
             # If not found, return error
             return {"error": f"Token '{symbol_or_address}' not found on {chain}/{network}: {str(e)}"}
 
-    def cache_compute_units(self, tx_type: str, connector: str, network: str, compute_units: int):
-        """
-        Cache compute units for a specific transaction type.
-
-        :param tx_type: Transaction type - full method name (e.g., "execute-swap", "open-position")
-        :param connector: Connector name (e.g., "raydium/amm", "uniswap/v3")
-        :param network: Network name
-        :param compute_units: Compute units to cache
-        """
-        cache_key = f"{tx_type}:{connector}:{network}"
-        self._compute_units_cache[cache_key] = compute_units
-        self.logger().debug(f"Cached compute units for {cache_key}: {compute_units}")
-
-    def get_cached_compute_units(
+    async def add_token(
         self,
-        tx_type: str,
+        chain: str,
+        network: str,
+        token_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Add a new token to the gateway."""
+        return await self.request(
+            "POST",
+            "tokens/add",
+            data={
+                "chain": chain,
+                "network": network,
+                **token_data
+            }
+        )
+
+    async def remove_token(
+        self,
+        address: str,
+        chain: str,
+        network: str
+    ) -> Dict[str, Any]:
+        """Remove a token from the gateway."""
+        return await self.request(
+            "DELETE",
+            f"tokens/{address}",
+            params={
+                "chain": chain,
+                "network": network
+            }
+        )
+
+    # ============================================
+    # Balance and Allowance Methods
+    # ============================================
+
+    async def get_balances(
+        self,
+        chain: str,
+        network: str,
+        address: str,
+        tokens: List[str]
+    ) -> Dict[str, Any]:
+        """Get token balances for a wallet."""
+        return await self.request(
+            "POST",
+            f"chains/{chain}/balances",
+            data={
+                "network": network,
+                "address": address,
+                "tokens": tokens
+            }
+        )
+
+    async def get_allowances(self, network: str, address: str, spender: str, tokens: List[str]) -> Dict[str, Any]:
+        """Get token allowances on Ethereum."""
+        return await self.request(
+            "POST",
+            "chains/ethereum/allowances",
+            data={
+                "network": network,
+                "address": address,
+                "spender": spender,
+                "tokens": tokens
+            }
+        )
+
+    async def approve_token(self, network: str, address: str, token: str, spender: str) -> Dict[str, Any]:
+        """Approve token spending on Ethereum."""
+        return await self.request(
+            "POST",
+            "chains/ethereum/approve",
+            data={
+                "network": network,
+                "address": address,
+                "token": token,
+                "spender": spender
+            }
+        )
+
+    # ============================================
+    # Trading Methods
+    # ============================================
+
+    async def get_price(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        base_asset: str,
+        quote_asset: str,
+        amount: float,
+        side: str,
+        fail_silently: bool = False,
+        pool_address: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Get price quote for a swap.
+
+        :param chain: Chain name
+        :param network: Network name
+        :param connector: Connector name
+        :param base_asset: Base token symbol
+        :param quote_asset: Quote token symbol
+        :param amount: Amount to swap
+        :param side: Trade side (BUY or SELL)
+        :param fail_silently: Whether to suppress errors
+        :param pool_address: Optional pool address
+        :return: Price response
+        """
+        request_payload = {
+            "network": network,
+            "baseToken": base_asset,
+            "quoteToken": quote_asset,
+            "amount": amount,
+            "side": side
+        }
+        if pool_address:
+            request_payload["poolAddress"] = pool_address
+
+        return await self.connector_request(
+            "GET", connector, "quote-swap", params=request_payload, fail_silently=fail_silently
+        )
+
+    # ============================================
+    # Pool Methods
+    # ============================================
+
+    async def get_pools(
+        self,
         connector: str,
         network: str,
-        default_compute_units: Optional[int] = None
-    ) -> Optional[int]:
+        token0: Optional[str] = None,
+        token1: Optional[str] = None,
+        fail_silently: bool = False
+    ) -> List[Dict[str, Any]]:
         """
-        Get cached compute units for a transaction type.
+        Get pools from a connector.
 
-        :param tx_type: Transaction type - full method name
         :param connector: Connector name
         :param network: Network name
-        :param default_compute_units: Default value if not cached
-        :return: Compute units or default
+        :param token0: Optional first token symbol
+        :param token1: Optional second token symbol
+        :param fail_silently: Whether to suppress errors
+        :return: List of pools
         """
-        cache_key = f"{tx_type}:{connector}:{network}"
-        return self._compute_units_cache.get(cache_key, default_compute_units)
+        params = {"network": network}
+        if token0:
+            params["token0"] = token0
+        if token1:
+            params["token1"] = token1
+
+        response = await self.connector_request(
+            "GET", connector, "pools", params=params, fail_silently=fail_silently
+        )
+        return response.get("pools", []) if isinstance(response, dict) else response
+
+    async def get_pool_info(
+        self,
+        connector: str,
+        network: str,
+        pool_address: str,
+        fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Get detailed information about a specific pool.
+
+        :param connector: Connector name
+        :param network: Network name
+        :param pool_address: Pool address
+        :param fail_silently: Whether to suppress errors
+        :return: Pool information
+        """
+        return await self.connector_request(
+            "GET", connector, "pool-info",
+            params={"network": network, "poolAddress": pool_address},
+            fail_silently=fail_silently
+        )
+
+    async def add_pool(
+        self,
+        connector: str,
+        network: str,
+        pool_data: Dict[str, Any],
+        fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Add a new pool to tracking.
+
+        :param connector: Connector name
+        :param network: Network name
+        :param pool_data: Pool configuration data
+        :param fail_silently: Whether to suppress errors
+        :return: Response with status
+        """
+        return await self.connector_request(
+            "POST", connector, "pools/add",
+            data={"network": network, **pool_data},
+            fail_silently=fail_silently
+        )
+
+    async def remove_pool(
+        self,
+        connector: str,
+        network: str,
+        pool_address: str,
+        fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Remove a pool from tracking.
+
+        :param connector: Connector name
+        :param network: Network name
+        :param pool_address: Pool address to remove
+        :param fail_silently: Whether to suppress errors
+        :return: Response with status
+        """
+        return await self.connector_request(
+            "DELETE", f"{connector}/pools/{pool_address}", "",
+            params={"network": network},
+            fail_silently=fail_silently
+        )
+
+    # ============================================
+    # Transaction Methods
+    # ============================================
+
+    async def get_transaction_status(self, chain: str, network: str, tx_hash: str) -> Dict[str, Any]:
+        """Get transaction status."""
+        return await self.request(
+            "POST",
+            f"chains/{chain}/poll",
+            data={
+                "network": network,
+                "signature": tx_hash
+            }
+        )
 
     async def execute_transaction(
         self,
@@ -398,6 +760,46 @@ class GatewayClient:
         ))
 
         return ""  # Async execution
+
+    # ============================================
+    # Cache Management Methods
+    # ============================================
+
+    def cache_compute_units(self, tx_type: str, connector: str, network: str, compute_units: int):
+        """
+        Cache compute units for a specific transaction type.
+
+        :param tx_type: Transaction type - full method name (e.g., "execute-swap", "open-position")
+        :param connector: Connector name (e.g., "raydium/amm", "uniswap/v3")
+        :param network: Network name
+        :param compute_units: Compute units to cache
+        """
+        cache_key = f"{tx_type}:{connector}:{network}"
+        self._compute_units_cache[cache_key] = compute_units
+        self.logger().debug(f"Cached compute units for {cache_key}: {compute_units}")
+
+    def get_cached_compute_units(
+        self,
+        tx_type: str,
+        connector: str,
+        network: str,
+        default_compute_units: Optional[int] = None
+    ) -> Optional[int]:
+        """
+        Get cached compute units for a transaction type.
+
+        :param tx_type: Transaction type - full method name
+        :param connector: Connector name
+        :param network: Network name
+        :param default_compute_units: Default value if not cached
+        :return: Compute units or default
+        """
+        cache_key = f"{tx_type}:{connector}:{network}"
+        return self._compute_units_cache.get(cache_key, default_compute_units)
+
+    # ============================================
+    # Private Helper Methods
+    # ============================================
 
     async def _estimate_priority_fee(
         self,
@@ -554,65 +956,3 @@ class GatewayClient:
             await asyncio.sleep(2)
 
         return None  # Timeout
-
-    async def ping_gateway(self) -> bool:
-        """Check if Gateway is online."""
-        try:
-            await self.request("GET", "")
-            return True
-        except Exception:
-            return False
-
-    async def get_gateway_status(self) -> Dict[str, Any]:
-        """Get Gateway status information."""
-        return await self.request("GET", "")
-
-    async def reload_certs(self, client_config_map) -> None:
-        """Reload SSL certificates."""
-        # This is a no-op for now as SSL handling is done differently
-        pass
-
-    async def get_config(self, namespace: Optional[str] = None) -> Dict[str, Any]:
-        """Get configuration (alias for get_configuration)."""
-        return await self.get_configuration(namespace)
-
-    async def api_request(self, method: str, path: str, **kwargs) -> Any:
-        """Generic API request method for compatibility."""
-        return await self.request(method, path, **kwargs)
-
-    async def get_transaction_status(self, chain: str, network: str, tx_hash: str) -> Dict[str, Any]:
-        """Get transaction status."""
-        return await self.request(
-            "POST",
-            f"chains/{chain}/poll",
-            data={
-                "network": network,
-                "signature": tx_hash
-            }
-        )
-
-    async def approve_token(self, network: str, address: str, token: str, spender: str) -> Dict[str, Any]:
-        """Approve token spending on Ethereum."""
-        return await self.request(
-            "POST",
-            "chains/ethereum/approve",
-            data={
-                "network": network,
-                "address": address,
-                "token": token,
-                "spender": spender
-            }
-        )
-
-    async def get_allowances(self, network: str, address: str, spender: str, tokens: List[str]) -> Dict[str, Any]:
-        """Get token allowances on Ethereum."""
-        return await self.request(
-            "POST",
-            "chains/ethereum/allowances",
-            data={
-                "network": network,
-                "address": address,
-                "spender": spender,
-                "tokens": tokens
-            }
-        )

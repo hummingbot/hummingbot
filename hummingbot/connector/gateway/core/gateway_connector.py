@@ -96,11 +96,10 @@ class GatewayConnector(ConnectorBase):
             from hummingbot.client.hummingbot_application import HummingbotApplication
             app = HummingbotApplication.main_application()
             if app:
-                base_url = f"http://{app.client_config_map.gateway.gateway_api_host}:{app.client_config_map.gateway.gateway_api_port}"
-                self._client = GatewayClient.get_instance(base_url)
+                self._client = GatewayClient.get_instance(app.client_config_map)
             else:
-                # Default for testing
-                self._client = GatewayClient.get_instance("http://localhost:15888")
+                # Default for testing - create a minimal config
+                self._client = GatewayClient.get_instance(None)
         return self._client
 
     @property

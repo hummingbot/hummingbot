@@ -206,6 +206,27 @@ class HummingbotCompleter(Completer):
         ]
         return WordCompleter(spenders, ignore_case=True)
 
+    def _get_wallet_addresses_for_chain_network(self, chain: str, network: str = None):
+        """Get wallet addresses for a specific chain and optionally network"""
+        addresses = []
+        try:
+            # Use the cached wallet parameters if the chain matches
+            if self._list_gateway_wallets_parameters.get("chain") == chain:
+                wallets = self._list_gateway_wallets_parameters.get("wallets", [])
+                addresses = list_gateway_wallets(wallets, chain)
+            else:
+                # Try to use any cached wallet data
+                # In a production implementation, this would maintain a cache of wallets per chain
+                pass
+        except Exception:
+            pass
+
+        # If no addresses found, provide a helpful placeholder
+        if not addresses:
+            addresses = ["<Enter wallet address>"]
+
+        return WordCompleter(addresses, ignore_case=True)
+
     @property
     def _gateway_available_chains_completer(self):
         """Get available chains from gateway configuration"""
@@ -401,6 +422,22 @@ class HummingbotCompleter(Completer):
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("gateway balance ")
 
+    def _complete_gateway_balance_address(self, document: Document) -> bool:
+        """Check if we're completing the address argument for gateway balance"""
+        text_before_cursor: str = document.text_before_cursor
+        if not text_before_cursor.startswith("gateway balance "):
+            return False
+
+        # Count the number of arguments after "gateway balance"
+        cmd_part = text_before_cursor.replace("gateway balance ", "").strip()
+        if not cmd_part:
+            return False
+
+        args = cmd_part.split()
+        # If we have exactly 2 arguments (chain and network) and we're starting the 3rd argument (address)
+        # or if we have 3 arguments and we're in the middle of typing the address
+        return len(args) == 2 and text_before_cursor.endswith(" ") or (len(args) == 3 and not text_before_cursor.endswith(" "))
+
     def _complete_gateway_balance_network(self, document: Document) -> bool:
         """Check if we're completing the network argument for gateway balance"""
         text_before_cursor: str = document.text_before_cursor
@@ -450,6 +487,22 @@ class HummingbotCompleter(Completer):
         # If we have exactly 1 argument (spender) and we're starting the 2nd argument (network)
         # or if we have 2 arguments and we're in the middle of typing the network
         return len(args) == 1 and text_before_cursor.endswith(" ") or (len(args) == 2 and not text_before_cursor.endswith(" "))
+
+    def _complete_gateway_allowance_address(self, document: Document) -> bool:
+        """Check if we're completing the address argument for gateway allowance"""
+        text_before_cursor: str = document.text_before_cursor
+        if not text_before_cursor.startswith("gateway allowance "):
+            return False
+
+        # Count the number of arguments after "gateway allowance"
+        cmd_part = text_before_cursor.replace("gateway allowance ", "").strip()
+        if not cmd_part:
+            return False
+
+        args = cmd_part.split()
+        # If we have exactly 2 arguments (spender and network) and we're starting the 3rd argument (address)
+        # or if we have 3 arguments and we're in the middle of typing the address
+        return len(args) == 2 and text_before_cursor.endswith(" ") or (len(args) == 3 and not text_before_cursor.endswith(" "))
 
     def _complete_gateway_approve_network(self, document: Document) -> bool:
         """Check if we're completing the network argument for gateway approve"""
@@ -722,6 +775,18 @@ class HummingbotCompleter(Completer):
                 for c in network_completer.get_completions(document, complete_event):
                     yield c
 
+        elif self._complete_gateway_balance_address(document):
+            # Extract the chain and network from the command to get appropriate addresses
+            text_before_cursor: str = document.text_before_cursor
+            cmd_part = text_before_cursor.replace("gateway balance ", "").strip()
+            args = cmd_part.split()
+            if len(args) >= 2:
+                chain = args[0]
+                network = args[1] if len(args) > 1 else None
+                address_completer = self._get_wallet_addresses_for_chain_network(chain, network)
+                for c in address_completer.get_completions(document, complete_event):
+                    yield c
+
         elif self._complete_gateway_balance_arguments(document):
             for c in self._gateway_balance_completer.get_completions(document, complete_event):
                 yield c
@@ -734,6 +799,12 @@ class HummingbotCompleter(Completer):
         elif self._complete_gateway_allowance_network(document):
             network_completer = self._get_networks_for_chain_completer("ethereum")
             for c in network_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_gateway_allowance_address(document):
+            # For allowances, we always use Ethereum chain
+            address_completer = self._get_wallet_addresses_for_chain_network("ethereum")
+            for c in address_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_gateway_approve_spender(document):

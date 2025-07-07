@@ -17,9 +17,17 @@ def flatten(items):
 
 def list_gateway_wallets(wallets: List[Any], chain: str) -> List[str]:
     """
-    Get the public keys for a chain supported by gateway.
+    Get the public keys for a chain supported by gateway, including read-only wallets.
     """
-    return list(flatten([w["walletAddresses"] for w in wallets if w["chain"] == chain]))
+    addresses = []
+    for w in wallets:
+        if w["chain"] == chain:
+            # Include both regular wallets and read-only wallets
+            regular_addresses = w.get("walletAddresses", [])
+            readonly_addresses = w.get("readOnlyWalletAddresses", [])
+            addresses.extend(regular_addresses)
+            addresses.extend(readonly_addresses)
+    return list(flatten(addresses))
 
 
 def build_wallet_display(native_token: str, wallets: List[Dict[str, Any]]) -> pd.DataFrame:
