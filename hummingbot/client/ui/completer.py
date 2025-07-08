@@ -284,12 +284,26 @@ class HummingbotCompleter(Completer):
             if hasattr(self.hummingbot_application, '_gateway_monitor') and self.hummingbot_application._gateway_monitor:
                 gateway_instance = self.hummingbot_application._gateway_monitor._get_gateway_instance()
                 if gateway_instance:
-                    # Use cached connectors if available
-                    if hasattr(self, '_cached_gateway_connectors') and self._cached_gateway_connectors:
+                    # Check gateway's cache first
+                    if hasattr(gateway_instance, '_connector_info_cache') and gateway_instance._connector_info_cache:
+                        connectors = list(gateway_instance._connector_info_cache.keys())
+                    elif hasattr(self, '_cached_gateway_connectors') and self._cached_gateway_connectors:
                         connectors = self._cached_gateway_connectors
                     else:
+                        # Try to fetch synchronously if possible
+                        import asyncio
+                        loop = asyncio.get_event_loop()
+                        if not loop.is_running():
+                            try:
+                                connector_data = loop.run_until_complete(gateway_instance.get_connectors())
+                                connectors = list(connector_data.keys())
+                                self._cached_gateway_connectors = connectors
+                            except Exception:
+                                pass
+
                         # Default list of known connectors
-                        connectors = ["uniswap", "jupiter", "meteora", "raydium"]
+                        if not connectors:
+                            connectors = ["uniswap", "jupiter", "meteora", "raydium"]
         except Exception:
             pass
 
@@ -321,32 +335,54 @@ class HummingbotCompleter(Completer):
         """Get network completer specifically for Ethereum chain"""
         return self._get_networks_for_chain_completer("ethereum")
 
-    def _get_connectors_for_chain_completer(self, chain: str):
-        """Get connector completer for a specific chain"""
-        connectors = []
+    def _get_networks_for_connector_completer(self, connector: str):
+        """Get network completer for a specific connector"""
+        networks = []
 
         try:
+            # Try to get connector info from cache or gateway
             if hasattr(self.hummingbot_application, '_gateway_monitor') and self.hummingbot_application._gateway_monitor:
                 gateway_instance = self.hummingbot_application._gateway_monitor._get_gateway_instance()
                 if gateway_instance:
-                    import asyncio
-                    loop = asyncio.get_event_loop()
-                    if not loop.is_running():
-                        try:
-                            connectors_response = loop.run_until_complete(
-                                gateway_instance.api_request("get", "connectors", fail_silently=True)
-                            )
-                            if connectors_response and "connectors" in connectors_response:
-                                # Filter connectors by chain
-                                for connector_info in connectors_response["connectors"]:
-                                    if connector_info.get("chain", "").lower() == chain.lower():
-                                        connectors.append(connector_info.get("name", ""))
-                        except Exception:
-                            pass
+                    # Get connector info from cache
+                    connector_info = None
+                    if hasattr(gateway_instance, '_connector_info_cache') and gateway_instance._connector_info_cache:
+                        connector_info = gateway_instance._connector_info_cache.get(connector)
+
+                    if connector_info:
+                        networks = connector_info.get("networks", [])
+                    else:
+                        # Try to fetch fresh data
+                        import asyncio
+                        loop = asyncio.get_event_loop()
+                        if loop.is_running():
+                            # Use cached data if available
+                            if hasattr(self, '_cached_connector_networks') and connector in self._cached_connector_networks:
+                                networks = self._cached_connector_networks[connector]
+                        else:
+                            # Fetch connector info synchronously
+                            try:
+                                connectors = loop.run_until_complete(gateway_instance.get_connectors())
+                                if connector in connectors:
+                                    networks = connectors[connector].get("networks", [])
+                                    # Cache for future use
+                                    if not hasattr(self, '_cached_connector_networks'):
+                                        self._cached_connector_networks = {}
+                                    self._cached_connector_networks[connector] = networks
+                            except Exception:
+                                pass
         except Exception:
             pass
 
-        return WordCompleter(connectors, ignore_case=True)
+        # Fallback to hardcoded networks if we couldn't fetch
+        if not networks:
+            connector_lower = connector.lower()
+            if connector_lower in ["raydium", "meteora", "jupiter"]:
+                networks = ["mainnet-beta", "devnet"]
+            elif connector_lower == "uniswap":
+                networks = ["mainnet", "base", "arbitrum", "optimism", "polygon", "celo", "avalanche", "bsc"]
+
+        return WordCompleter(networks, ignore_case=True)
 
     @property
     def _option_completer(self):
@@ -872,13 +908,8 @@ class HummingbotCompleter(Completer):
             text = document.text_before_cursor
             parts = text.split()
             if len(parts) >= 4:
-                connector = parts[3].lower()
-                if connector in ["raydium", "meteora"]:
-                    # Solana-based connectors
-                    network_completer = self._get_networks_for_chain_completer("solana")
-                else:
-                    # Default to Ethereum networks (Uniswap, etc.)
-                    network_completer = self._get_ethereum_networks_completer()
+                connector = parts[3]
+                network_completer = self._get_networks_for_connector_completer(connector)
                 for c in network_completer.get_completions(document, complete_event):
                     yield c
 
