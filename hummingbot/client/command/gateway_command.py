@@ -554,8 +554,28 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
                 "optimism": "ETH",
                 "base": "ETH",
                 "solana": "SOL",
-                "celo": "CELO"
+                "celo": "CELO",
+                "blast": "ETH",
+                "worldchain": "ETH",
+                "zora": "ETH"
             }
+            # For ethereum chain, check network for proper mapping
+            if chain.lower() == "ethereum":
+                network_native_map = {
+                    "mainnet": "ETH",
+                    "arbitrum": "ETH",
+                    "optimism": "ETH",
+                    "base": "ETH",
+                    "polygon": "MATIC",
+                    "avalanche": "AVAX",
+                    "bsc": "BNB",
+                    "celo": "CELO",
+                    "blast": "ETH",
+                    "worldchain": "ETH",
+                    "zora": "ETH",
+                    "sepolia": "ETH"
+                }
+                return network_native_map.get(network.lower(), "ETH")
             return native_token_map.get(chain.lower())
         except Exception:
             return None
@@ -871,15 +891,28 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
 
             # Get ethereum wallet
             wallets_resp = await self._get_gateway_instance().get_wallets("ethereum")
-            if not wallets_resp or not wallets_resp[0].get("walletAddresses"):
+            if not wallets_resp:
                 self.notify("No wallet found for ethereum. Please add one with 'gateway wallet add ethereum'")
                 return
 
-            # Use specified address or default to first wallet
+            # Get all addresses (both regular and read-only)
+            all_addresses = []
+            for wallet in wallets_resp:
+                if wallet.get("chain", "").lower() == "ethereum":
+                    regular_addresses = wallet.get("walletAddresses", [])
+                    readonly_addresses = wallet.get("readOnlyWalletAddresses", [])
+                    all_addresses.extend(regular_addresses)
+                    all_addresses.extend(readonly_addresses)
+
+            if not all_addresses:
+                self.notify("No wallet addresses found for ethereum. Please add one with 'gateway wallet add ethereum'")
+                return
+
+            # Use specified address or all addresses
             if address:
-                wallet_address = address
+                addresses_to_check = [address]
             else:
-                wallet_address = wallets_resp[0]["walletAddresses"][0]
+                addresses_to_check = all_addresses
 
             # Determine tokens to check
             if tokens:
@@ -896,7 +929,10 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
                     tokens_to_check = []
                     for token_info in all_tokens:
                         symbol = token_info.get("symbol", "")
-                        if symbol and symbol.upper() != native_token.upper():
+                        if symbol and native_token and symbol.upper() != native_token.upper():
+                            tokens_to_check.append(symbol)
+                        elif symbol and not native_token:
+                            # If we can't determine native token, include all tokens
                             tokens_to_check.append(symbol)
                 except Exception as e:
                     self.notify(f"Warning: Could not fetch tokens: {str(e)}")
@@ -906,54 +942,56 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
                 self.notify("No tokens to check allowances for.")
                 return
 
-            try:
-                # Get allowances from gateway
-                allowances_resp = await asyncio.wait_for(
-                    self._get_gateway_instance().get_allowances(
-                        network, wallet_address, spender, tokens_to_check
-                    ),
-                    network_timeout
-                )
+            # Check allowances for each address
+            for wallet_address in addresses_to_check:
+                try:
+                    # Get allowances from gateway
+                    allowances_resp = await asyncio.wait_for(
+                        self._get_gateway_instance().get_allowances(
+                            network, wallet_address, spender, tokens_to_check
+                        ),
+                        network_timeout
+                    )
 
-                allowances = allowances_resp.get("approvals", {}) if allowances_resp else {}
+                    allowances = allowances_resp.get("approvals", {}) if allowances_resp else {}
 
-                # Display results
-                self.notify(f"\nNetwork: {network}")
-                self.notify(f"Wallet: {wallet_address}")
-                self.notify(f"Spender: {spender}")
+                    # Display results
+                    self.notify(f"\nNetwork: {network}")
+                    self.notify(f"Wallet: {wallet_address}")
+                    self.notify(f"Spender: {spender}")
 
-                if allowances:
-                    rows = []
-                    for token, allowance in allowances.items():
-                        allowance_val = float(allowance) if allowance else 0
-                        allowance_threshold = 999999  # Threshold for displaying large allowances
-                        display_allowance = (
-                            PerformanceMetrics.smart_round(Decimal(str(allowance)), 4)
-                            if allowance_val < allowance_threshold else f"{allowance_threshold}+"
-                        )
-                        rows.append({
-                            "Token": token.upper(),
-                            "Allowance": display_allowance,
-                            "Status": "✓ Approved" if allowance_val > 0 else "✗ Not Approved"
-                        })
+                    if allowances:
+                        rows = []
+                        for token, allowance in allowances.items():
+                            allowance_val = float(allowance) if allowance else 0
+                            allowance_threshold = 999999  # Threshold for displaying large allowances
+                            display_allowance = (
+                                PerformanceMetrics.smart_round(Decimal(str(allowance)), 4)
+                                if allowance_val < allowance_threshold else f"{allowance_threshold}+"
+                            )
+                            rows.append({
+                                "Token": token.upper(),
+                                "Allowance": display_allowance,
+                                "Status": "✓ Approved" if allowance_val > 0 else "✗ Not Approved"
+                            })
 
-                    if rows:
-                        df = pd.DataFrame(data=rows, columns=["Token", "Allowance", "Status"])
-                        df.sort_values(by=["Token"], inplace=True)
+                        if rows:
+                            df = pd.DataFrame(data=rows, columns=["Token", "Allowance", "Status"])
+                            df.sort_values(by=["Token"], inplace=True)
 
-                        lines = [
-                            "    " + line for line in df.to_string(index=False).split("\n")
-                        ]
-                        self.notify("\n".join(lines))
+                            lines = [
+                                "    " + line for line in df.to_string(index=False).split("\n")
+                            ]
+                            self.notify("\n".join(lines))
+                        else:
+                            self.notify("    No token allowances found")
                     else:
                         self.notify("    No token allowances found")
-                else:
-                    self.notify("    No token allowances found")
 
-            except asyncio.TimeoutError:
-                self.notify(f"\nTimeout checking allowances for {spender} on {network}")
-            except Exception as e:
-                self.notify(f"\nError checking allowances: {str(e)}")
+                except asyncio.TimeoutError:
+                    self.notify(f"\nTimeout checking allowances for {spender} on {network}")
+                except Exception as e:
+                    self.notify(f"\nError checking allowances: {str(e)}")
 
         except Exception as e:
             self.notify(f"Error: {str(e)}")
