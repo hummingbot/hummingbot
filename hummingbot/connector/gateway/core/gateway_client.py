@@ -579,6 +579,60 @@ class GatewayClient:
             "GET", connector, "quote-swap", params=request_payload, fail_silently=fail_silently
         )
 
+    async def execute_swap(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        base_asset: str,
+        quote_asset: str,
+        amount: float,
+        side: str,
+        address: str,
+        minimum_out: Optional[str] = None,
+        pool_address: Optional[str] = None,
+        route: Optional[List[str]] = None,
+        fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Execute a swap transaction.
+
+        :param chain: Chain name
+        :param network: Network name
+        :param connector: Connector name (with type suffix like /amm, /clmm, /router)
+        :param base_asset: Base token symbol
+        :param quote_asset: Quote token symbol
+        :param amount: Amount to swap
+        :param side: Trade side (BUY or SELL)
+        :param address: Wallet address
+        :param minimum_out: Minimum amount to receive (for slippage protection)
+        :param pool_address: Optional pool address
+        :param route: Optional route for complex swaps
+        :param fail_silently: Whether to suppress errors
+        :return: Transaction response with signature/hash
+        """
+        request_payload = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "baseToken": base_asset,
+            "quoteToken": quote_asset,
+            "amount": str(amount),
+            "side": side,
+            "address": address
+        }
+
+        if minimum_out:
+            request_payload["minimumOut"] = minimum_out
+        if pool_address:
+            request_payload["poolAddress"] = pool_address
+        if route:
+            request_payload["route"] = route
+
+        return await self.connector_request(
+            "POST", connector, "execute-swap", data=request_payload, fail_silently=fail_silently
+        )
+
     # ============================================
     # Pool Methods
     # ============================================

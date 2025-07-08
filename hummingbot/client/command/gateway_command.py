@@ -9,6 +9,7 @@ import pandas as pd
 
 from hummingbot.client.command.gateway_api_manager import GatewayChainApiManager, begin_placeholder_mode
 from hummingbot.client.command.gateway_pool_command import GatewayPoolCommand
+from hummingbot.client.command.gateway_swap_command import GatewaySwapCommand
 from hummingbot.client.command.gateway_token_command import GatewayTokenCommand
 from hummingbot.client.command.gateway_wallet_command import GatewayWalletCommand
 from hummingbot.client.config.client_config_map import ClientConfigMap
@@ -34,7 +35,7 @@ def ensure_gateway_online(func):
     return wrapper
 
 
-class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletCommand, GatewayPoolCommand):
+class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletCommand, GatewayPoolCommand, GatewaySwapCommand):
     """Main gateway command handler that inherits from specialized command classes."""
     client_config_map: ClientConfigMap
     _market: Dict[str, Any] = {}

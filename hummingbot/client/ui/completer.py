@@ -53,7 +53,7 @@ class HummingbotCompleter(Completer):
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)
         self._history_completer = WordCompleter(["--days", "--verbose", "--precision"], ignore_case=True)
-        self._gateway_completer = WordCompleter(["ping", "list", "config", "token", "wallet", "balance", "allowance", "approve", "pool", "wrap", "generate-certs"], ignore_case=True)
+        self._gateway_completer = WordCompleter(["ping", "list", "config", "token", "wallet", "balance", "allowance", "approve", "pool", "swap", "wrap", "generate-certs"], ignore_case=True)
 
         # Initialize gateway wallet chain completer first
         self._gateway_wallet_chain_completer = WordCompleter([
@@ -68,6 +68,8 @@ class HummingbotCompleter(Completer):
         self._gateway_token_action_completer = WordCompleter(["list", "show", "add", "remove"], ignore_case=True)
         self._gateway_pool_action_completer = WordCompleter(["list", "show", "add", "remove"], ignore_case=True)
         self._gateway_pool_type_completer = WordCompleter(["amm", "clmm"], ignore_case=True)
+        self._gateway_swap_action_completer = WordCompleter(["quote", "execute"], ignore_case=True)
+        self._gateway_swap_side_completer = WordCompleter(["BUY", "SELL"], ignore_case=True)
         self._gateway_config_action_completer = WordCompleter(["show", "update"], ignore_case=True)
         # Initialize with hardcoded namespaces (will be updated dynamically from gateway later)
         self._gateway_config_namespaces = [
@@ -662,6 +664,25 @@ class HummingbotCompleter(Completer):
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("gateway pool list ") and text_before_cursor.count(" ") == 5
 
+    def _complete_gateway_swap_arguments(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return text_before_cursor.startswith("gateway swap ") and text_before_cursor.count(" ") == 2
+
+    def _complete_gateway_swap_connector(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return ((text_before_cursor.startswith("gateway swap quote ") and text_before_cursor.count(" ") == 3) or
+                (text_before_cursor.startswith("gateway swap execute ") and text_before_cursor.count(" ") == 3))
+
+    def _complete_gateway_swap_network(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return ((text_before_cursor.startswith("gateway swap quote ") and text_before_cursor.count(" ") == 4) or
+                (text_before_cursor.startswith("gateway swap execute ") and text_before_cursor.count(" ") == 4))
+
+    def _complete_gateway_swap_side(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return ((text_before_cursor.startswith("gateway swap quote ") and text_before_cursor.count(" ") == 7) or
+                (text_before_cursor.startswith("gateway swap execute ") and text_before_cursor.count(" ") == 7))
+
     def _complete_script_strategy_files(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("start --script ") and "--conf" not in text_before_cursor and ".py" not in text_before_cursor
@@ -939,7 +960,29 @@ class HummingbotCompleter(Completer):
             for c in self._gateway_pool_type_completer.get_completions(document, complete_event):
                 yield c
 
-        elif self._complete_gateway_arguments(document):
+        elif self._complete_gateway_swap_arguments(document):
+            for c in self._gateway_swap_action_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_gateway_swap_connector(document):
+            for c in self._gateway_available_connectors_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_gateway_swap_network(document):
+            # Get the connector from the command to determine which networks to show
+            text = document.text_before_cursor
+            parts = text.split()
+            if len(parts) >= 4:
+                connector = parts[3]
+                network_completer = self._get_networks_for_connector_completer(connector)
+                for c in network_completer.get_completions(document, complete_event):
+                    yield c
+
+        elif self._complete_gateway_swap_side(document):
+            for c in self._gateway_swap_side_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_gateway_arguments(document) and not text_before_cursor.startswith("gateway swap "):
             for c in self._gateway_completer.get_completions(document, complete_event):
                 yield c
 
