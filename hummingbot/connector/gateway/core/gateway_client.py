@@ -586,26 +586,28 @@ class GatewayClient:
     async def get_pools(
         self,
         connector: str,
-        network: str,
-        token0: Optional[str] = None,
-        token1: Optional[str] = None,
+        network: Optional[str] = None,
+        pool_type: Optional[str] = None,
+        search: Optional[str] = None,
         fail_silently: bool = False
     ) -> List[Dict[str, Any]]:
         """
         Get pools from a connector.
 
         :param connector: Connector name
-        :param network: Network name
-        :param token0: Optional first token symbol
-        :param token1: Optional second token symbol
+        :param network: Optional network name
+        :param pool_type: Optional pool type (amm or clmm)
+        :param search: Optional search term (token symbol or address)
         :param fail_silently: Whether to suppress errors
         :return: List of pools
         """
-        params = {"connector": connector, "network": network}
-        if token0:
-            params["token0"] = token0
-        if token1:
-            params["token1"] = token1
+        params = {"connector": connector}
+        if network:
+            params["network"] = network
+        if pool_type:
+            params["type"] = pool_type
+        if search:
+            params["search"] = search
 
         try:
             response = await self.request("GET", "pools", params=params)
@@ -693,34 +695,6 @@ class GatewayClient:
         except Exception:
             if fail_silently:
                 return {"error": "Failed to remove pool"}
-            raise
-
-    async def get_pool(
-        self,
-        address: str,
-        connector: str,
-        network: str,
-        fail_silently: bool = False
-    ) -> Dict[str, Any]:
-        """
-        Get pool details by address.
-
-        :param address: Pool address
-        :param connector: Connector name
-        :param network: Network name
-        :param fail_silently: Whether to suppress errors
-        :return: Pool details
-        """
-        params = {
-            "connector": connector,
-            "network": network
-        }
-        try:
-            response = await self.request("GET", f"pools/{address}", params=params)
-            return {"pool": response} if response else {"error": "Pool not found"}
-        except Exception as e:
-            if fail_silently:
-                return {"error": f"Failed to get pool: {str(e)}"}
             raise
 
     # ============================================

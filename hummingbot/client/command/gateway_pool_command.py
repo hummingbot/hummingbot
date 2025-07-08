@@ -99,12 +99,11 @@ class GatewayPoolCommand:
                         if network and net != network:
                             continue
                         try:
-                            pools = await self._get_gateway_instance().get_pools(conn_name, net)
+                            pools = await self._get_gateway_instance().get_pools(conn_name, net, pool_type)
                             for pool in pools:
                                 pool["connector"] = conn_name
                                 pool["network"] = net
-                                if not pool_type or pool.get("type", "").lower() == pool_type.lower():
-                                    all_pools.append(pool)
+                                all_pools.append(pool)
                         except Exception:
                             # Skip if can't get pools for this connector/network
                             pass
@@ -143,11 +142,7 @@ class GatewayPoolCommand:
                         return
                     network = available_networks[0]  # Use first available network
 
-                pools = await self._get_gateway_instance().get_pools(connector, network)
-
-                # Filter by type if specified
-                if pool_type:
-                    pools = [p for p in pools if p.get("type", "").lower() == pool_type.lower()]
+                pools = await self._get_gateway_instance().get_pools(connector, network, pool_type)
 
                 if not pools:
                     filters = f"{connector}/{network}"
@@ -307,28 +302,30 @@ class GatewayPoolCommand:
     async def _gateway_pool_show(self, connector: str, network: str, address: str):
         """Show details for a specific pool."""
         try:
-            # Get pool details
-            response = await self._get_gateway_instance().get_pool(address, connector, network)
+            # Search for the pool using the address
+            pools = await self._get_gateway_instance().get_pools(connector, network)
 
-            if "error" in response:
-                self.notify(f"Error: {response['error']}")
-                return
+            # Filter pools by address
+            matching_pool = None
+            for pool in pools:
+                if pool.get("address", "").lower() == address.lower():
+                    matching_pool = pool
+                    break
 
-            if "pool" not in response:
+            if not matching_pool:
                 self.notify(f"Pool '{address}' not found on {connector}/{network}")
                 return
 
             # Display pool details
-            pool = response["pool"]
             self.notify("\nPool Details:")
             self.notify(f"  Connector: {connector}")
             self.notify(f"  Network: {network}")
-            self.notify(f"  Type: {pool.get('type', 'N/A')}")
-            self.notify(f"  Base Token: {pool.get('baseSymbol', 'N/A')}")
-            self.notify(f"  Quote Token: {pool.get('quoteSymbol', 'N/A')}")
-            self.notify(f"  Address: {pool.get('address', 'N/A')}")
-            if pool.get("fee") is not None:
-                self.notify(f"  Fee: {pool['fee'] * 100:.2f}%")
+            self.notify(f"  Type: {matching_pool.get('type', 'N/A')}")
+            self.notify(f"  Base Token: {matching_pool.get('baseSymbol', 'N/A')}")
+            self.notify(f"  Quote Token: {matching_pool.get('quoteSymbol', 'N/A')}")
+            self.notify(f"  Address: {matching_pool.get('address', 'N/A')}")
+            if matching_pool.get("fee") is not None:
+                self.notify(f"  Fee: {matching_pool['fee'] * 100:.2f}%")
 
         except Exception as e:
             error_msg = str(e)
