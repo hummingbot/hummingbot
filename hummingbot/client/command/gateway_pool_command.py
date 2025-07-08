@@ -91,8 +91,7 @@ class GatewayPoolCommand:
                 connectors_resp = await self._get_gateway_instance().get_connectors()
                 all_pools = []
 
-                for conn_info in connectors_resp:
-                    conn_name = conn_info.get("name", "")
+                for conn_name, conn_info in connectors_resp.items():
                     available_networks = conn_info.get("available_networks", [])
 
                     for net in available_networks:
