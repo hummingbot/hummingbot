@@ -230,9 +230,6 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
         self.logger().info("Coinbbase currently not returning trading pairs for USDC in orderbook public messages. setting to USD currently pending fix.")
         await super().start_network()
 
-    def _stop_network(self):
-        super()._stop_network()
-
     async def _update_time_synchronizer(self, pass_on_non_cancelled_error: bool = False):
         # Overriding ExchangePyBase: Synchronizer expects time in ms
         try:
