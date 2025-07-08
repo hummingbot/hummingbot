@@ -181,18 +181,26 @@ class GatewayCommand(GatewayChainApiManager):
         """
         Manage tokens in gateway.
         Usage:
+            gateway token list [chain] [network]                    - List tokens
             gateway token show <chain> <network> <symbol_or_address> - Show token details
             gateway token add <chain> <network>                      - Add a new token (interactive)
             gateway token remove <chain> <network> <address>         - Remove token by address
         """
         if action is None:
             self.notify("\nUsage:")
+            self.notify("  gateway token list [chain] [network]                       - List tokens")
             self.notify("  gateway token show <chain> <network> <symbol_or_address>  - Show token details")
-            self.notify("  gateway token add <chain> <network>  - Add a new token (interactive)")
-            self.notify("  gateway token remove <chain> <network> <address>  - Remove token by address")
+            self.notify("  gateway token add <chain> <network>                       - Add a new token (interactive)")
+            self.notify("  gateway token remove <chain> <network> <address>          - Remove token by address")
             return
 
-        if action == "add":
+        if action == "list":
+            # Parse positional arguments: [chain] [network]
+            chain = args[0] if args and len(args) > 0 else None
+            network = args[1] if args and len(args) > 1 else None
+            safe_ensure_future(self._gateway_token_list(chain, network), loop=self.ev_loop)
+
+        elif action == "add":
             if args is None or len(args) < 2:
                 self.notify("Error: chain and network parameters are required for 'add' action")
                 return
@@ -219,52 +227,34 @@ class GatewayCommand(GatewayChainApiManager):
             safe_ensure_future(self._gateway_token_show(chain, network, symbol_or_address), loop=self.ev_loop)
 
         else:
-            self.notify(f"Error: Unknown action '{action}'. Use 'show', 'add', or 'remove'.")
+            self.notify(f"Error: Unknown action '{action}'. Use 'list', 'show', 'add', or 'remove'.")
 
     @ensure_gateway_online
     def gateway_pool(self, action: str = None, args: List[str] = None):
         """
         Manage liquidity pools.
         Usage:
-            gateway pool list [connector] [--network] [--type]     - List pools
-            gateway pool show <pool_id>                             - Show pool details
-            gateway pool add <connector> <type> <network> <base> <quote> <address> - Add a new pool
-            gateway pool remove <connector> <pool_id>               - Remove a pool
+            gateway pool list [connector] [network] [type]         - List pools
+            gateway pool show <pool_id>                            - Show pool details
+            gateway pool add <connector> <network>                 - Add a new pool (interactive)
+            gateway pool remove <connector> <pool_id>              - Remove a pool
         """
         if action is None:
             self.notify("\nUsage:")
-            self.notify("  gateway pool list [connector] [--network] [--type]     - List pools")
+            self.notify("  gateway pool list [connector] [network] [type]        - List pools")
             self.notify("  gateway pool show <pool_id>                            - Show pool details")
-            self.notify("  gateway pool add <connector> <type> <network>        - Add a new pool (interactive)")
+            self.notify("  gateway pool add <connector> <network>               - Add a new pool (interactive)")
             self.notify("  gateway pool remove <connector> <pool_id>              - Remove a pool")
             self.notify("\nExamples:")
-            self.notify("  gateway pool list raydium --network mainnet-beta --type clmm")
-            self.notify("  gateway pool add raydium clmm mainnet-beta")
+            self.notify("  gateway pool list raydium mainnet-beta clmm")
+            self.notify("  gateway pool add raydium mainnet-beta")
             return
 
         if action == "list":
-            # Parse optional arguments
-            connector = None
-            network = None
-            pool_type = None
-
-            if args:
-                # First argument is connector if it doesn't start with --
-                if args[0] and not args[0].startswith("--"):
-                    connector = args[0]
-                    args = args[1:]
-
-                # Parse flags
-                i = 0
-                while i < len(args):
-                    if args[i] == "--network" and i + 1 < len(args):
-                        network = args[i + 1]
-                        i += 2
-                    elif args[i] == "--type" and i + 1 < len(args):
-                        pool_type = args[i + 1]
-                        i += 2
-                    else:
-                        i += 1
+            # Parse positional arguments: [connector] [network] [type]
+            connector = args[0] if args and len(args) > 0 else None
+            network = args[1] if args and len(args) > 1 else None
+            pool_type = args[2] if args and len(args) > 2 else None
 
             safe_ensure_future(self._gateway_pool_list(connector, network, pool_type), loop=self.ev_loop)
 
@@ -276,14 +266,13 @@ class GatewayCommand(GatewayChainApiManager):
             safe_ensure_future(self._gateway_pool_show(pool_id), loop=self.ev_loop)
 
         elif action == "add":
-            if args is None or len(args) < 3:
-                self.notify("Error: connector, type, and network parameters are required")
-                self.notify("Usage: gateway pool add <connector> <type> <network>")
+            if args is None or len(args) < 2:
+                self.notify("Error: connector and network parameters are required")
+                self.notify("Usage: gateway pool add <connector> <network>")
                 return
             connector = args[0]
-            pool_type = args[1]
-            network = args[2]
-            safe_ensure_future(self._gateway_pool_add_interactive(connector, pool_type, network), loop=self.ev_loop)
+            network = args[1]
+            safe_ensure_future(self._gateway_pool_add_interactive(connector, network), loop=self.ev_loop)
 
         elif action == "remove":
             if args is None or len(args) < 2:
@@ -1355,6 +1344,86 @@ class GatewayCommand(GatewayChainApiManager):
             pass
         return None
 
+    async def _gateway_token_list(self, chain: Optional[str] = None, network: Optional[str] = None):
+        """List tokens from gateway with optional filters."""
+        try:
+            # If no filters, get all tokens for all chains/networks
+            if not chain:
+                # Get all chains first
+                chains_resp = await self._get_gateway_instance().get_chains()
+                all_tokens = []
+
+                for chain_info in chains_resp:
+                    chain_name = chain_info.get("chain", "")
+                    networks = chain_info.get("networks", [])
+
+                    for net in networks:
+                        if network and net != network:
+                            continue
+                        try:
+                            tokens = await self._get_gateway_instance().get_tokens(chain_name, net)
+                            for token in tokens:
+                                token["chain"] = chain_name
+                                token["network"] = net
+                                all_tokens.append(token)
+                        except Exception:
+                            # Skip if can't get tokens for this chain/network
+                            pass
+
+                if not all_tokens:
+                    self.notify("No tokens found")
+                    return
+
+                # Display tokens in a table
+                columns = ["Chain", "Network", "Symbol", "Name", "Address", "Decimals"]
+                data = []
+                for token in all_tokens:
+                    data.append([
+                        token.get("chain", ""),
+                        token.get("network", ""),
+                        token.get("symbol", ""),
+                        token.get("name", ""),
+                        token.get("address", "")[:10] + "..." if token.get("address") else "",
+                        str(token.get("decimals", ""))
+                    ])
+
+                df = pd.DataFrame(data, columns=columns)
+                self.notify(f"\nTokens ({len(all_tokens)} total):")
+                self.notify(df.to_string(index=False))
+
+            else:
+                # Get tokens for specific chain
+                if not network:
+                    # Get default network for chain
+                    network = await self._get_default_network_for_chain(chain)
+                    if not network:
+                        self.notify(f"Error: Could not determine default network for {chain}")
+                        return
+
+                tokens = await self._get_gateway_instance().get_tokens(chain, network)
+
+                if not tokens:
+                    self.notify(f"No tokens found for {chain}/{network}")
+                    return
+
+                # Display tokens in a table
+                columns = ["Symbol", "Name", "Address", "Decimals"]
+                data = []
+                for token in tokens:
+                    data.append([
+                        token.get("symbol", ""),
+                        token.get("name", ""),
+                        token.get("address", "")[:10] + "..." if token.get("address") else "",
+                        str(token.get("decimals", ""))
+                    ])
+
+                df = pd.DataFrame(data, columns=columns)
+                self.notify(f"\nTokens for {chain}/{network} ({len(tokens)} total):")
+                self.notify(df.to_string(index=False))
+
+        except Exception as e:
+            self.notify(f"Error listing tokens: {str(e)}")
+
     async def _gateway_token_add(self, chain: str, network: str):
         """Add a new token to the gateway."""
         try:
@@ -1579,31 +1648,41 @@ class GatewayCommand(GatewayChainApiManager):
             else:
                 self.notify(f"Error fetching pool details: {error_msg}")
 
-    async def _gateway_pool_add_interactive(self, connector: str, pool_type: str, network: str):
+    async def _gateway_pool_add_interactive(self, connector: str, network: str):
         """Add a new pool to gateway with interactive prompts."""
         try:
+            self.notify(f"\nAdding a new pool to {connector}/{network}")
+            self.notify("Please provide the following pool information:")
+
+            # Prompt for pool type
+            self.notify("\nAvailable pool types:")
+            self.notify("  - amm  : Automated Market Maker")
+            self.notify("  - clmm : Concentrated Liquidity Market Maker")
+
+            pool_type = await self.app.prompt(prompt="\nPool type (amm/clmm): ")
+            if self.app.to_stop_config:
+                self.app.to_stop_config = False
+                return
+
             # Validate pool type
             if pool_type.lower() not in ["amm", "clmm"]:
                 self.notify("Error: Pool type must be 'amm' or 'clmm'")
                 return
 
-            self.notify(f"\nAdding a new {pool_type.upper()} pool to {connector}/{network}")
-            self.notify("Please provide the following pool information:")
-
             # Prompt for base token
-            base_symbol = await self.app.prompt(prompt="  Base token symbol: ")
+            base_symbol = await self.app.prompt(prompt="Base token symbol: ")
             if self.app.to_stop_config:
                 self.app.to_stop_config = False
                 return
 
             # Prompt for quote token
-            quote_symbol = await self.app.prompt(prompt="  Quote token symbol: ")
+            quote_symbol = await self.app.prompt(prompt="Quote token symbol: ")
             if self.app.to_stop_config:
                 self.app.to_stop_config = False
                 return
 
             # Prompt for pool address
-            address = await self.app.prompt(prompt="  Pool address: ")
+            address = await self.app.prompt(prompt="Pool address: ")
             if self.app.to_stop_config:
                 self.app.to_stop_config = False
                 return

@@ -65,7 +65,7 @@ class HummingbotCompleter(Completer):
         self._gateway_config_completer = WordCompleter(hummingbot_application.gateway_config_keys, ignore_case=True)
         self._gateway_wallet_completer = WordCompleter(["list", "add", "remove"], ignore_case=True)
         self._gateway_wallet_action_completer = WordCompleter(["list", "add", "add-read-only", "remove", "remove-read-only"], ignore_case=True)
-        self._gateway_token_action_completer = WordCompleter(["show", "add", "remove"], ignore_case=True)
+        self._gateway_token_action_completer = WordCompleter(["list", "show", "add", "remove"], ignore_case=True)
         self._gateway_pool_action_completer = WordCompleter(["list", "show", "add", "remove"], ignore_case=True)
         self._gateway_pool_type_completer = WordCompleter(["amm", "clmm"], ignore_case=True)
         self._gateway_config_action_completer = WordCompleter(["show", "update"], ignore_case=True)
