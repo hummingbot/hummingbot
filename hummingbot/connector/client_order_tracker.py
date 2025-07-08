@@ -379,13 +379,16 @@ class ClientOrderTracker:
             ),
         )
 
-    def _trigger_failure_event(self, order: InFlightOrder):
+    def _trigger_failure_event(self, order: InFlightOrder, order_update: OrderUpdate):
+        misc_updates = order_update.misc_updates or {}
         self._connector.trigger_event(
             MarketEvent.OrderFailure,
             MarketOrderFailureEvent(
                 timestamp=self.current_timestamp,
                 order_id=order.client_order_id,
                 order_type=order.order_type,
+                error_type=misc_updates.get("error_type"),
+                error_message=misc_updates.get("error_message")
             ),
         )
 
@@ -429,12 +432,10 @@ class ClientOrderTracker:
 
         elif tracked_order.is_filled:
             self._trigger_completed_event(tracked_order)
-            self.logger().info(
-                f"{tracked_order.trade_type.name.upper()} order {tracked_order.client_order_id} completely filled."
-            )
+            self.logger().info(f"{tracked_order.trade_type.name.upper()} order {tracked_order.client_order_id} completely filled.")
 
         elif tracked_order.is_failure:
-            self._trigger_failure_event(tracked_order)
+            self._trigger_failure_event(tracked_order, order_update)
             self.logger().info(f"Order {tracked_order.client_order_id} has failed. Order Update: {order_update}")
 
         self.stop_tracking_order(tracked_order.client_order_id)

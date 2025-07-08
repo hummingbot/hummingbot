@@ -1,9 +1,7 @@
-import asyncio
 import platform
 import threading
 from typing import TYPE_CHECKING
 
-from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
@@ -29,37 +27,41 @@ class StopCommand:
             import appnope
             appnope.nap()
 
-        if isinstance(self.strategy, ScriptStrategyBase):
-            await self.strategy.on_stop()
+        # Handle script strategy specific cleanup first
+        if self.trading_core.strategy and isinstance(self.trading_core.strategy, ScriptStrategyBase):
+            await self.trading_core.strategy.on_stop()
 
-        if self._trading_required and not skip_order_cancellation:
-            # Remove the strategy from clock before cancelling orders, to
-            # prevent race condition where the strategy tries to create more
-            # orders during cancellation.
-            if self.clock:
-                self.clock.remove_iterator(self.strategy)
-            success = await self._cancel_outstanding_orders()
-            # Give some time for cancellation events to trigger
-            await asyncio.sleep(2)
-            if success:
-                # Only erase markets when cancellation has been successful
-                self.markets = {}
+        # Stop strategy if running
+        if self.trading_core._strategy_running:
+            await self.trading_core.stop_strategy()
 
-        if self.strategy_task is not None and not self.strategy_task.cancelled():
-            self.strategy_task.cancel()
+        # Cancel outstanding orders
+        if not skip_order_cancellation:
+            await self.trading_core.cancel_outstanding_orders()
 
-        if RateOracle.get_instance().started:
-            RateOracle.get_instance().stop()
+        # Remove all connectors
+        connector_names = list(self.trading_core.connectors.keys())
+        for name in connector_names:
+            try:
+                self.trading_core.remove_connector(name)
+            except Exception as e:
+                self.logger().error(f"Error stopping connector {name}: {e}")
 
-        if self.markets_recorder is not None:
-            self.markets_recorder.stop()
+        # Stop clock if running
+        if self.trading_core._is_running:
+            await self.trading_core.stop_clock()
 
-        if self.kill_switch is not None:
-            self.kill_switch.stop()
+        # Stop markets recorder
+        if self.trading_core.markets_recorder:
+            self.trading_core.markets_recorder.stop()
+            self.trading_core.markets_recorder = None
 
-        self.strategy_task = None
-        self.strategy = None
-        self.market_pair = None
-        self.clock = None
-        self.markets_recorder = None
-        self.market_trading_pairs_map.clear()
+        # Clear strategy references
+        self.trading_core.strategy = None
+        self.trading_core.strategy_name = None
+        self.trading_core.strategy_config_map = None
+        self.trading_core._strategy_file_name = None
+        self.trading_core._config_source = None
+        self.trading_core._config_data = None
+
+        self.notify("Hummingbot stopped.")
