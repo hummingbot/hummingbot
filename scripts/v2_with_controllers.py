@@ -4,9 +4,7 @@ from typing import Dict, List, Optional, Set
 
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.core.clock import Clock
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
-from hummingbot.remote_iface.mqtt import ETopicPublisher
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
 from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, StopExecutorAction
@@ -16,8 +14,8 @@ class V2WithControllersConfig(StrategyV2ConfigBase):
     script_file_name: str = os.path.basename(__file__)
     candles_config: List[CandlesConfig] = []
     markets: Dict[str, Set[str]] = {}
-    max_global_drawdown: Optional[float] = None
-    max_controller_drawdown: Optional[float] = None
+    max_global_drawdown_quote: Optional[float] = None
+    max_controller_drawdown_quote: Optional[float] = None
 
 
 class V2WithControllers(StrategyV2Base):
@@ -41,36 +39,18 @@ class V2WithControllers(StrategyV2Base):
         self.drawdown_exited_controllers = []
         self.closed_executors_buffer: int = 30
         self._last_performance_report_timestamp = 0
-        self.mqtt_enabled = HummingbotApplication.main_application()._mqtt is not None
-        self._pub: Optional[ETopicPublisher] = None
-
-    def start(self, clock: Clock, timestamp: float) -> None:
-        """
-        Start the strategy.
-        :param clock: Clock to use.
-        :param timestamp: Current time.
-        """
-        self._last_timestamp = timestamp
-        self.apply_initial_setting()
-        if self.mqtt_enabled:
-            self._pub = ETopicPublisher("performance", use_bot_prefix=True)
-
-    async def on_stop(self):
-        await super().on_stop()
-        if self.mqtt_enabled:
-            self._pub({controller_id: {} for controller_id in self.controllers.keys()})
-            self._pub = None
 
     def on_tick(self):
         super().on_tick()
-        self.check_manual_kill_switch()
-        self.control_max_drawdown()
-        self.send_performance_report()
+        if not self._is_stop_triggered:
+            self.check_manual_kill_switch()
+            self.control_max_drawdown()
+            self.send_performance_report()
 
     def control_max_drawdown(self):
-        if self.config.max_controller_drawdown:
+        if self.config.max_controller_drawdown_quote:
             self.check_max_controller_drawdown()
-        if self.config.max_global_drawdown:
+        if self.config.max_global_drawdown_quote:
             self.check_max_global_drawdown()
 
     def check_max_controller_drawdown(self):
@@ -83,7 +63,7 @@ class V2WithControllers(StrategyV2Base):
                 self.max_pnl_by_controller[controller_id] = controller_pnl
             else:
                 current_drawdown = last_max_pnl - controller_pnl
-                if current_drawdown > self.config.max_controller_drawdown:
+                if current_drawdown > self.config.max_controller_drawdown_quote:
                     self.logger().info(f"Controller {controller_id} reached max drawdown. Stopping the controller.")
                     controller.stop()
                     executors_order_placed = self.filter_executors(
@@ -101,20 +81,19 @@ class V2WithControllers(StrategyV2Base):
             self.max_global_pnl = current_global_pnl
         else:
             current_global_drawdown = self.max_global_pnl - current_global_pnl
-            if current_global_drawdown > self.config.max_global_drawdown:
+            if current_global_drawdown > self.config.max_global_drawdown_quote:
                 self.drawdown_exited_controllers.extend(list(self.controllers.keys()))
                 self.logger().info("Global drawdown reached. Stopping the strategy.")
+                self._is_stop_triggered = True
                 HummingbotApplication.main_application().stop()
 
     def send_performance_report(self):
-        if self.current_timestamp - self._last_performance_report_timestamp >= self.performance_report_interval and self.mqtt_enabled:
+        if self.current_timestamp - self._last_performance_report_timestamp >= self.performance_report_interval and self._pub:
             performance_reports = {controller_id: self.get_performance_report(controller_id).dict() for controller_id in self.controllers.keys()}
             self._pub(performance_reports)
             self._last_performance_report_timestamp = self.current_timestamp
 
     def check_manual_kill_switch(self):
-        if self._is_stop_triggered:
-            return
         for controller_id, controller in self.controllers.items():
             if controller.config.manual_kill_switch and controller.status == RunnableStatus.RUNNING:
                 self.logger().info(f"Manual cash out for controller {controller_id}.")
