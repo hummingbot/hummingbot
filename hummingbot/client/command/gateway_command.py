@@ -537,47 +537,17 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
     async def _get_native_currency_symbol(self, chain: str, network: str) -> Optional[str]:
         """Get the native currency symbol for a given chain and network."""
         try:
-            # Try to get from gateway configuration first
-            config = await self._get_gateway_instance().get_configuration(chain)
-            if config and "networks" in config and network in config["networks"]:
-                network_config = config["networks"][network]
-                if "nativeCurrency" in network_config:
-                    return network_config["nativeCurrency"].get("symbol")
+            # Get from gateway configuration for the specific chain-network
+            namespace = f"{chain}-{network}"
+            config = await self._get_gateway_instance().get_configuration(namespace)
 
-            # Fallback to common native tokens by chain
-            native_token_map = {
-                "ethereum": "ETH",
-                "polygon": "MATIC",
-                "avalanche": "AVAX",
-                "bsc": "BNB",
-                "arbitrum": "ETH",
-                "optimism": "ETH",
-                "base": "ETH",
-                "solana": "SOL",
-                "celo": "CELO",
-                "blast": "ETH",
-                "worldchain": "ETH",
-                "zora": "ETH"
-            }
-            # For ethereum chain, check network for proper mapping
-            if chain.lower() == "ethereum":
-                network_native_map = {
-                    "mainnet": "ETH",
-                    "arbitrum": "ETH",
-                    "optimism": "ETH",
-                    "base": "ETH",
-                    "polygon": "MATIC",
-                    "avalanche": "AVAX",
-                    "bsc": "BNB",
-                    "celo": "CELO",
-                    "blast": "ETH",
-                    "worldchain": "ETH",
-                    "zora": "ETH",
-                    "sepolia": "ETH"
-                }
-                return network_native_map.get(network.lower(), "ETH")
-            return native_token_map.get(chain.lower())
-        except Exception:
+            # The native currency symbol is directly in the config
+            if config and "nativeCurrencySymbol" in config:
+                return config["nativeCurrencySymbol"]
+
+            return None
+        except Exception as e:
+            self.logger().debug(f"Failed to get native currency for {chain}-{network}: {e}")
             return None
 
     async def _gateway_list(
