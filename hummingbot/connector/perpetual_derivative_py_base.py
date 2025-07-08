@@ -209,7 +209,7 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
             self._funding_info_listener_task.cancel()
             self._funding_info_listener_task = None
         self._last_funding_fee_payment_ts.clear()
-        await super()._stop_network()
+        await super().stop_network()
 
     async def _create_order(
         self,
