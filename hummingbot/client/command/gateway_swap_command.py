@@ -167,6 +167,32 @@ class GatewaySwapCommand:
                 return
             wallet_address = wallets_resp[0]["walletAddresses"][0]
 
+            # Look up pool address if needed (for AMM/CLMM connectors)
+            pool_address = None
+            if connector_type in [f"{connector}/amm", f"{connector}/clmm"]:
+                self.notify(f"\nSearching for {base_token}/{quote_token} pool...")
+                try:
+                    # Search for pools with the trading pair
+                    pools = await self._get_gateway_instance().get_pools(
+                        connector, network, search=f"{base_token}/{quote_token}"
+                    )
+                    if not pools:
+                        # Try reverse search
+                        pools = await self._get_gateway_instance().get_pools(
+                            connector, network, search=f"{quote_token}/{base_token}"
+                        )
+
+                    if pools:
+                        # Use the first matching pool
+                        pool_address = pools[0].get("address")
+                        self.notify(f"Found pool: {pool_address[:10]}...")
+                    else:
+                        self.notify(f"Error: No pool found for {base_token}/{quote_token} on {connector}")
+                        return
+                except Exception as e:
+                    self.notify(f"Error searching for pool: {str(e)}")
+                    return
+
             self.notify(f"\nGetting swap quote from {connector} on {network}...")
             self.notify(f"  Pair: {pair}")
             self.notify(f"  Amount: {amount}")
@@ -183,6 +209,10 @@ class GatewaySwapCommand:
                 "side": side,
                 "address": wallet_address
             }
+
+            # Add pool address if found
+            if pool_address:
+                quote_params["poolAddress"] = pool_address
 
             quote_resp = await self._get_gateway_instance().connector_request(
                 "GET", connector_type, "quote-swap", params=quote_params
@@ -338,6 +368,32 @@ class GatewaySwapCommand:
                 return
             wallet_address = wallets_resp[0]["walletAddresses"][0]
 
+            # Look up pool address if needed (for AMM/CLMM connectors)
+            pool_address = None
+            if connector_type in [f"{connector}/amm", f"{connector}/clmm"]:
+                self.notify(f"\nSearching for {base_token}/{quote_token} pool...")
+                try:
+                    # Search for pools with the trading pair
+                    pools = await self._get_gateway_instance().get_pools(
+                        connector, network, search=f"{base_token}/{quote_token}"
+                    )
+                    if not pools:
+                        # Try reverse search
+                        pools = await self._get_gateway_instance().get_pools(
+                            connector, network, search=f"{quote_token}/{base_token}"
+                        )
+
+                    if pools:
+                        # Use the first matching pool
+                        pool_address = pools[0].get("address")
+                        self.notify(f"Found pool: {pool_address[:10]}...")
+                    else:
+                        self.notify(f"Error: No pool found for {base_token}/{quote_token} on {connector}")
+                        return
+                except Exception as e:
+                    self.notify(f"Error searching for pool: {str(e)}")
+                    return
+
             # First get a quote to show the user
             self.notify(f"\nGetting swap quote from {connector} on {network}...")
 
@@ -351,6 +407,10 @@ class GatewaySwapCommand:
                 "side": side,
                 "address": wallet_address
             }
+
+            # Add pool address if found
+            if pool_address:
+                quote_params["poolAddress"] = pool_address
 
             quote_resp = await self._get_gateway_instance().connector_request(
                 "GET", connector_type, "quote-swap", params=quote_params
@@ -429,9 +489,14 @@ class GatewaySwapCommand:
                 "minimumOut": minimum_out
             }
 
-            # Add any additional params from quote
-            if "poolAddress" in quote_resp:
+            # Add pool address if we found one
+            if pool_address:
+                execute_params["poolAddress"] = pool_address
+            # Or use pool address from quote response
+            elif "poolAddress" in quote_resp:
                 execute_params["poolAddress"] = quote_resp["poolAddress"]
+
+            # Add route if available
             if "route" in quote_resp:
                 execute_params["route"] = quote_resp["route"]
 
