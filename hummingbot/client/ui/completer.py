@@ -602,6 +602,14 @@ class HummingbotCompleter(Completer):
         return ((text_before_cursor.startswith("gateway config show ") and text_before_cursor.count(" ") == 4) or
                 (text_before_cursor.startswith("gateway config update ") and text_before_cursor.count(" ") == 4))
 
+    def _complete_gateway_ping_chain(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return text_before_cursor.startswith("gateway ping ") and text_before_cursor.count(" ") == 2
+
+    def _complete_gateway_ping_network(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return text_before_cursor.startswith("gateway ping ") and text_before_cursor.count(" ") == 3
+
     def _complete_gateway_wallet_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("gateway wallet ") and text_before_cursor.count(" ") == 2
@@ -868,6 +876,20 @@ class HummingbotCompleter(Completer):
             ethereum_networks_completer = self._get_ethereum_networks_completer()
             for c in ethereum_networks_completer.get_completions(document, complete_event):
                 yield c
+
+        elif self._complete_gateway_ping_chain(document):
+            for c in self._gateway_available_chains_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_gateway_ping_network(document):
+            # Get networks for the specified chain
+            text = document.text_before_cursor
+            parts = text.split()
+            if len(parts) >= 3:
+                chain = parts[2]
+                network_completer = self._get_networks_for_chain_completer(chain)
+                for c in network_completer.get_completions(document, complete_event):
+                    yield c
 
         elif self._complete_gateway_wallet_chain_arguments(document):
             for c in self._gateway_available_chains_completer.get_completions(document, complete_event):

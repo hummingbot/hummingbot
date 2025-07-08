@@ -81,8 +81,15 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
         safe_ensure_future(self._generate_certs(), loop=self.ev_loop)
 
     @ensure_gateway_online
-    def gateway_ping(self):
-        safe_ensure_future(self._gateway_ping(), loop=self.ev_loop)
+    def gateway_ping(self, chain: Optional[str] = None, network: Optional[str] = None):
+        """
+        Test gateway connectivity and check network status.
+        Usage:
+            gateway ping              - Check all chains with default networks
+            gateway ping [chain]      - Check specific chain with default network
+            gateway ping [chain] [network] - Check specific chain and network
+        """
+        safe_ensure_future(self._gateway_ping(chain, network), loop=self.ev_loop)
 
     @ensure_gateway_online
     def gateway_list(self):
@@ -159,8 +166,12 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
                 "Example: gateway wrap mainnet 0.1\n"
             )
 
-    async def _gateway_ping(self):
-        """Test gateway connectivity and check default network latency for each chain (Ethereum and Solana)."""
+    async def _gateway_ping(self, chain: Optional[str] = None, network: Optional[str] = None):
+        """
+        Test gateway connectivity and check network status.
+        If chain and network are specified, check only that specific network.
+        Otherwise, check default network for each chain.
+        """
         try:
             # First check if gateway is running
             gateway_status = await self._get_gateway_instance().ping_gateway()
@@ -170,7 +181,35 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
 
             self.notify("\nGateway Status: Online")
 
-            # Get all chains from gateway
+            # If specific chain and network are provided, check only that
+            if chain and network:
+                await self._check_network_status(chain, network)
+                return
+
+            # If only chain is provided, check default network for that chain
+            if chain and not network:
+                # Get available networks for this chain
+                chains_resp = await self._get_gateway_instance().get_chains()
+                chain_found = False
+                for chain_info in chains_resp:
+                    if chain_info.get("chain", "").lower() == chain.lower():
+                        chain_found = True
+                        networks = chain_info.get("networks", [])
+                        if networks:
+                            # Use default network logic
+                            default_network = await self._get_default_network_for_chain(chain)
+                            if not default_network:
+                                default_network = networks[0]
+                            await self._check_network_status(chain, default_network)
+                        break
+
+                if not chain_found:
+                    self.notify(f"\nChain '{chain}' not found. Available chains:")
+                    for chain_info in chains_resp:
+                        self.notify(f"  - {chain_info.get('chain', '')}")
+                return
+
+            # Otherwise, check all chains with their default networks
             chains_resp = await self._get_gateway_instance().get_chains()
             if not chains_resp:
                 self.notify("Unable to fetch chains from gateway.")
@@ -190,51 +229,55 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
                     # Fallback to first network if no default
                     default_network = networks[0]
 
-                self.notify(f"\nChain: {chain_name}")
-                self.notify(f"Default Network: {default_network}")
-
-                # Get network status including block number
-                start_time = time.time()
-                try:
-                    # Get network status from gateway
-                    status_resp = await self._get_gateway_instance().get_network_status(chain_name, default_network)
-
-                    # Calculate latency
-                    latency = (time.time() - start_time) * 1000  # Convert to milliseconds
-
-                    if status_resp:
-                        self.notify("Status: Connected")
-
-                        # Display RPC URL if available
-                        rpc_url = status_resp.get("rpcUrl")
-                        if rpc_url:
-                            self.notify(f"RPC URL: {rpc_url}")
-
-                        # Display current block number
-                        block_number = status_resp.get("currentBlockNumber")
-                        if block_number is not None:
-                            self.notify(f"Current Block: {block_number:,}")
-
-                        # Try to get native currency as well
-                        try:
-                            native_currency = await self._get_native_currency_symbol(chain_name, default_network)
-                            if native_currency:
-                                self.notify(f"Native Token: {native_currency}")
-                        except Exception:
-                            pass
-
-                        self.notify(f"Latency: {latency:.1f} ms")
-                    else:
-                        self.notify("Status: Connected (no status info)")
-                        self.notify(f"Latency: {latency:.1f} ms")
-
-                except asyncio.TimeoutError:
-                    self.notify("Status: Timeout")
-                except Exception as e:
-                    self.notify(f"Status: Error - {str(e)}")
+                await self._check_network_status(chain_name, default_network)
 
         except Exception as e:
             self.notify(f"\nError pinging gateway: {str(e)}")
+
+    async def _check_network_status(self, chain: str, network: str):
+        """Check the status of a specific chain and network."""
+        self.notify(f"\nChain: {chain}")
+        self.notify(f"Network: {network}")
+
+        # Get network status including block number
+        start_time = time.time()
+        try:
+            # Get network status from gateway
+            status_resp = await self._get_gateway_instance().get_network_status(chain, network)
+
+            # Calculate latency
+            latency = (time.time() - start_time) * 1000  # Convert to milliseconds
+
+            if status_resp:
+                self.notify("Status: Connected")
+
+                # Display RPC URL if available
+                rpc_url = status_resp.get("rpcUrl")
+                if rpc_url:
+                    self.notify(f"RPC URL: {rpc_url}")
+
+                # Display current block number
+                block_number = status_resp.get("currentBlockNumber")
+                if block_number is not None:
+                    self.notify(f"Current Block: {block_number:,}")
+
+                # Try to get native currency as well
+                try:
+                    native_currency = await self._get_native_currency_symbol(chain, network)
+                    if native_currency:
+                        self.notify(f"Native Token: {native_currency}")
+                except Exception:
+                    pass
+
+                self.notify(f"Latency: {latency:.1f} ms")
+            else:
+                self.notify("Status: Connected (no status info)")
+                self.notify(f"Latency: {latency:.1f} ms")
+
+        except asyncio.TimeoutError:
+            self.notify("Status: Timeout")
+        except Exception as e:
+            self.notify(f"Status: Error - {str(e)}")
 
     async def _generate_certs(
             self,       # type: HummingbotApplication

@@ -96,6 +96,8 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
     gateway_subparsers = gateway_parser.add_subparsers()
 
     gateway_ping_parser = gateway_subparsers.add_parser("ping", help="Test gateway connection for each chain")
+    gateway_ping_parser.add_argument("chain", nargs="?", default=None, help="Chain to check (e.g., ethereum, solana)")
+    gateway_ping_parser.add_argument("network", nargs="?", default=None, help="Network to check (e.g., mainnet, arbitrum)")
     gateway_ping_parser.set_defaults(func=hummingbot.gateway_ping)
 
     gateway_list_parser = gateway_subparsers.add_parser("list", help="List gateway connectors")
