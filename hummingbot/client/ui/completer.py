@@ -607,9 +607,16 @@ class HummingbotCompleter(Completer):
                 (text_before_cursor.startswith("gateway pool add ") and text_before_cursor.count(" ") == 3) or
                 (text_before_cursor.startswith("gateway pool remove ") and text_before_cursor.count(" ") == 3))
 
+    def _complete_gateway_pool_network(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return ((text_before_cursor.startswith("gateway pool list ") and text_before_cursor.count(" ") == 4) or
+                (text_before_cursor.startswith("gateway pool add ") and text_before_cursor.count(" ") == 4) or
+                (text_before_cursor.startswith("gateway pool show ") and text_before_cursor.count(" ") == 4) or
+                (text_before_cursor.startswith("gateway pool remove ") and text_before_cursor.count(" ") == 4))
+
     def _complete_gateway_pool_type(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
-        return text_before_cursor.startswith("gateway pool add ") and text_before_cursor.count(" ") == 4
+        return text_before_cursor.startswith("gateway pool list ") and text_before_cursor.count(" ") == 5
 
     def _complete_script_strategy_files(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -859,6 +866,21 @@ class HummingbotCompleter(Completer):
         elif self._complete_gateway_pool_connector(document):
             for c in self._gateway_available_connectors_completer.get_completions(document, complete_event):
                 yield c
+
+        elif self._complete_gateway_pool_network(document):
+            # Get the connector from the command to determine which networks to show
+            text = document.text_before_cursor
+            parts = text.split()
+            if len(parts) >= 4:
+                connector = parts[3].lower()
+                if connector in ["raydium", "meteora"]:
+                    # Solana-based connectors
+                    network_completer = self._get_networks_for_chain_completer("solana")
+                else:
+                    # Default to Ethereum networks (Uniswap, etc.)
+                    network_completer = self._get_ethereum_networks_completer()
+                for c in network_completer.get_completions(document, complete_event):
+                    yield c
 
         elif self._complete_gateway_pool_type(document):
             for c in self._gateway_pool_type_completer.get_completions(document, complete_event):
