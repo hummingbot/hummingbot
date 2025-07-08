@@ -463,11 +463,11 @@ class GatewayClient:
         """Add a new token to the gateway."""
         return await self.request(
             "POST",
-            "tokens/add",
+            "tokens",
             data={
                 "chain": chain,
                 "network": network,
-                **token_data
+                "token": token_data
             }
         )
 
@@ -601,16 +601,19 @@ class GatewayClient:
         :param fail_silently: Whether to suppress errors
         :return: List of pools
         """
-        params = {"network": network}
+        params = {"connector": connector, "network": network}
         if token0:
             params["token0"] = token0
         if token1:
             params["token1"] = token1
 
-        response = await self.connector_request(
-            "GET", connector, "pools", params=params, fail_silently=fail_silently
-        )
-        return response.get("pools", []) if isinstance(response, dict) else response
+        try:
+            response = await self.request("GET", "pools", params=params)
+            return response if isinstance(response, list) else response.get("pools", [])
+        except Exception:
+            if fail_silently:
+                return []
+            raise
 
     async def get_pool_info(
         self,
@@ -650,33 +653,75 @@ class GatewayClient:
         :param fail_silently: Whether to suppress errors
         :return: Response with status
         """
-        return await self.connector_request(
-            "POST", connector, "pools/add",
-            data={"network": network, **pool_data},
-            fail_silently=fail_silently
-        )
+        data = {
+            "connector": connector,
+            "network": network,
+            **pool_data
+        }
+        try:
+            return await self.request("POST", "pools", data=data)
+        except Exception:
+            if fail_silently:
+                return {"error": "Failed to add pool"}
+            raise
 
     async def remove_pool(
         self,
+        address: str,
         connector: str,
         network: str,
-        pool_address: str,
+        pool_type: str = "amm",
         fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
         Remove a pool from tracking.
 
+        :param address: Pool address to remove
         :param connector: Connector name
         :param network: Network name
-        :param pool_address: Pool address to remove
+        :param pool_type: Pool type (amm or clmm)
         :param fail_silently: Whether to suppress errors
         :return: Response with status
         """
-        return await self.connector_request(
-            "DELETE", f"{connector}/pools/{pool_address}", "",
-            params={"network": network},
-            fail_silently=fail_silently
-        )
+        params = {
+            "connector": connector,
+            "network": network,
+            "type": pool_type
+        }
+        try:
+            return await self.request("DELETE", f"pools/{address}", params=params)
+        except Exception:
+            if fail_silently:
+                return {"error": "Failed to remove pool"}
+            raise
+
+    async def get_pool(
+        self,
+        address: str,
+        connector: str,
+        network: str,
+        fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Get pool details by address.
+
+        :param address: Pool address
+        :param connector: Connector name
+        :param network: Network name
+        :param fail_silently: Whether to suppress errors
+        :return: Pool details
+        """
+        params = {
+            "connector": connector,
+            "network": network
+        }
+        try:
+            response = await self.request("GET", f"pools/{address}", params=params)
+            return {"pool": response} if response else {"error": "Pool not found"}
+        except Exception as e:
+            if fail_silently:
+                return {"error": f"Failed to get pool: {str(e)}"}
+            raise
 
     # ============================================
     # Transaction Methods

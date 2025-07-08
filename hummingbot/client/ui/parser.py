@@ -119,8 +119,7 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
 
     gateway_wallet_parser = gateway_subparsers.add_parser("wallet", help="Manage wallets in gateway")
     gateway_wallet_parser.add_argument("action", nargs="?", default=None, help="Action to perform (list, add, remove)")
-    gateway_wallet_parser.add_argument("chain", nargs="?", default=None, help="Chain name (e.g., solana, ethereum)")
-    gateway_wallet_parser.add_argument("address", nargs="?", default=None, help="Wallet address (required for remove action)")
+    gateway_wallet_parser.add_argument("args", nargs="*", help="Arguments for the action")
     gateway_wallet_parser.set_defaults(func=hummingbot.gateway_wallet)
 
     gateway_balance_parser = gateway_subparsers.add_parser("balance", help="Display token balances with optional filters")

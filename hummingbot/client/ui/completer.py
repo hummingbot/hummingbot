@@ -584,14 +584,16 @@ class HummingbotCompleter(Completer):
     def _complete_gateway_token_chain_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
         # Complete chain as the first argument after action
-        return ((text_before_cursor.startswith("gateway token add ") and text_before_cursor.count(" ") == 3) or
+        return ((text_before_cursor.startswith("gateway token list ") and text_before_cursor.count(" ") == 3) or
+                (text_before_cursor.startswith("gateway token add ") and text_before_cursor.count(" ") == 3) or
                 (text_before_cursor.startswith("gateway token remove ") and text_before_cursor.count(" ") == 3) or
                 (text_before_cursor.startswith("gateway token show ") and text_before_cursor.count(" ") == 3))
 
     def _complete_gateway_token_network_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
         # Complete network as the second argument after action
-        return ((text_before_cursor.startswith("gateway token add ") and text_before_cursor.count(" ") == 4) or
+        return ((text_before_cursor.startswith("gateway token list ") and text_before_cursor.count(" ") == 4) or
+                (text_before_cursor.startswith("gateway token add ") and text_before_cursor.count(" ") == 4) or
                 (text_before_cursor.startswith("gateway token remove ") and text_before_cursor.count(" ") == 4) or
                 (text_before_cursor.startswith("gateway token show ") and text_before_cursor.count(" ") == 4))
 
