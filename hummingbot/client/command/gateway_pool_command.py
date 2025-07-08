@@ -85,87 +85,37 @@ class GatewayPoolCommand:
     async def _gateway_pool_list(self, connector: Optional[str] = None, network: Optional[str] = None, pool_type: Optional[str] = None):
         """List pools from gateway with optional filters."""
         try:
-            # If no filters, get all pools for all connectors/networks
-            if not connector:
-                # Get all connectors first
-                connectors_resp = await self._get_gateway_instance().get_connectors()
-                all_pools = []
+            # Require both connector and network
+            if not connector or not network:
+                self.notify("Error: Both connector and network are required")
+                self.notify("Usage: gateway pool list <connector> <network> [type]")
+                self.notify("Example: gateway pool list uniswap base")
+                return
 
-                for conn_name, conn_info in connectors_resp.items():
-                    available_networks = conn_info.get("available_networks", [])
+            # Get pools for specific connector and network
+            pools = await self._get_gateway_instance().get_pools(connector, network, pool_type)
 
-                    for net in available_networks:
-                        if network and net != network:
-                            continue
-                        try:
-                            pools = await self._get_gateway_instance().get_pools(conn_name, net, pool_type)
-                            for pool in pools:
-                                pool["connector"] = conn_name
-                                pool["network"] = net
-                                all_pools.append(pool)
-                        except Exception:
-                            # Skip if can't get pools for this connector/network
-                            pass
+            if not pools:
+                filters = f"{connector}/{network}"
+                if pool_type:
+                    filters += f" (type={pool_type})"
+                self.notify(f"No pools found for {filters}")
+                return
 
-                if not all_pools:
-                    self.notify("No pools found")
-                    return
+            # Display pools in a table (without fee column)
+            columns = ["Type", "Base", "Quote", "Address"]
+            data = []
+            for pool in pools:
+                data.append([
+                    pool.get("type", ""),
+                    pool.get("baseSymbol", ""),
+                    pool.get("quoteSymbol", ""),
+                    pool.get("address", "")[:10] + "..." if pool.get("address") else ""
+                ])
 
-                # Display pools in a table
-                columns = ["Connector", "Network", "Type", "Base", "Quote", "Address", "Fee %"]
-                data = []
-                for pool in all_pools:
-                    fee_percent = pool.get("fee", 0) * 100 if pool.get("fee") else 0
-                    data.append([
-                        pool.get("connector", ""),
-                        pool.get("network", ""),
-                        pool.get("type", ""),
-                        pool.get("baseSymbol", ""),
-                        pool.get("quoteSymbol", ""),
-                        pool.get("address", "")[:10] + "..." if pool.get("address") else "",
-                        f"{fee_percent:.2f}"
-                    ])
-
-                df = pd.DataFrame(data, columns=columns)
-                self.notify(f"\nPools ({len(all_pools)} total):")
-                self.notify(df.to_string(index=False))
-
-            else:
-                # Get pools for specific connector
-                if not network:
-                    # Get available networks for connector
-                    conn_info = await self._get_gateway_instance().get_connector_info(connector)
-                    available_networks = conn_info.get("available_networks", [])
-                    if not available_networks:
-                        self.notify(f"No networks available for {connector}")
-                        return
-                    network = available_networks[0]  # Use first available network
-
-                pools = await self._get_gateway_instance().get_pools(connector, network, pool_type)
-
-                if not pools:
-                    filters = f"{connector}/{network}"
-                    if pool_type:
-                        filters += f" (type={pool_type})"
-                    self.notify(f"No pools found for {filters}")
-                    return
-
-                # Display pools in a table
-                columns = ["Type", "Base", "Quote", "Address", "Fee %"]
-                data = []
-                for pool in pools:
-                    fee_percent = pool.get("fee", 0) * 100 if pool.get("fee") else 0
-                    data.append([
-                        pool.get("type", ""),
-                        pool.get("baseSymbol", ""),
-                        pool.get("quoteSymbol", ""),
-                        pool.get("address", "")[:10] + "..." if pool.get("address") else "",
-                        f"{fee_percent:.2f}"
-                    ])
-
-                df = pd.DataFrame(data, columns=columns)
-                self.notify(f"\nPools for {connector}/{network} ({len(pools)} total):")
-                self.notify(df.to_string(index=False))
+            df = pd.DataFrame(data, columns=columns)
+            self.notify(f"\nPools for {connector}/{network} ({len(pools)} total):")
+            self.notify(df.to_string(index=False))
 
         except Exception as e:
             self.notify(f"Error listing pools: {str(e)}")
@@ -323,8 +273,6 @@ class GatewayPoolCommand:
             self.notify(f"  Base Token: {matching_pool.get('baseSymbol', 'N/A')}")
             self.notify(f"  Quote Token: {matching_pool.get('quoteSymbol', 'N/A')}")
             self.notify(f"  Address: {matching_pool.get('address', 'N/A')}")
-            if matching_pool.get("fee") is not None:
-                self.notify(f"  Fee: {matching_pool['fee'] * 100:.2f}%")
 
         except Exception as e:
             error_msg = str(e)
