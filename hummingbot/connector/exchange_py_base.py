@@ -703,7 +703,7 @@ class ExchangePyBase(ExchangeBase, ABC):
             return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
 
-    def _stop_network(self):
+    async def _stop_network(self):
         # Resets timestamps and events for status_polling_loop
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
@@ -722,6 +722,10 @@ class ExchangePyBase(ExchangeBase, ABC):
         if self._user_stream_tracker_task is not None:
             self._user_stream_tracker_task.cancel()
             self._user_stream_tracker_task = None
+
+        # Stop the user stream tracker to properly clean up child tasks
+        if self._user_stream_tracker is not None:
+            await self._user_stream_tracker.stop()
         if self._user_stream_event_listener_task is not None:
             self._user_stream_event_listener_task.cancel()
             self._user_stream_event_listener_task = None
