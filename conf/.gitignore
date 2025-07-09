@@ -1,3 +1,4 @@
 *.yml
 *.json
 .password_verification
+command_history.txt
