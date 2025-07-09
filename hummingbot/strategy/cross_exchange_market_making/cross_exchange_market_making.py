@@ -1234,7 +1234,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             # You are selling on the maker market and buying on the taker market
             maker_price = taker_price * (1 + self.min_profitability)
 
-            # If your ask is lower than the the top ask, increase it to just one tick below top ask
+            # If your ask is lower than the top ask, increase it to just one tick below top ask
             if self.adjust_order_enabled:
                 # If maker ask order book is not empty
                 if not Decimal.is_nan(next_price_below_top_ask):

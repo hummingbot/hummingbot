@@ -48,7 +48,7 @@ def market_to_trading_pair(market: str) -> str:
 def convert_from_x18(data: Any, precision: Optional[Decimal] = None) -> Any:
     """
     Converts numerical data encoded as x18 to a string representation of a
-    floating point number, resursively applies the conversion for other data types.
+    floating point number, recursively applies the conversion for other data types.
     """
     if data is None:
         return None
@@ -73,7 +73,7 @@ def convert_from_x18(data: Any, precision: Optional[Decimal] = None) -> Any:
 
 def convert_to_x18(data: Any, precision: Optional[Decimal] = None) -> Any:
     """
-    Converts numerical data encoded to a string representation of x18, resursively
+    Converts numerical data encoded to a string representation of x18, recursively
     applies the conversion for other data types.
     """
     if data is None:
