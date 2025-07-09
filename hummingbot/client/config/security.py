@@ -64,7 +64,10 @@ class Security:
         cls._decryption_done.clear()
         encrypted_files = list_connector_configs()
         for file in encrypted_files:
-            cls.decrypt_connector_config(file)
+            try:
+                cls.decrypt_connector_config(file)
+            except UnicodeDecodeError as e:
+                logging.getLogger().error(f"Error decrypting config for {file}: {e}", exc_info=True)
         cls._decryption_done.set()
 
     @classmethod

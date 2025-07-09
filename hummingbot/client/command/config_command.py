@@ -113,40 +113,27 @@ class ConfigCommand:
         self.list_client_configs()
         self.list_strategy_configs()
 
-    def list_client_configs(
-            self,  # type: HummingbotApplication
-    ):
-        data = self.build_model_df_data(self.client_config_map, to_print=client_configs_to_display)
+    def list_configurations(self, config_map: Any, title: str, to_print: List[str]):
+        data = self.build_model_df_data(config_map, to_print)
         df = map_df_to_str(pd.DataFrame(data=data, columns=columns))
-        self.notify("\nGlobal Configurations:")
+        self.notify(f"\n{title}:")
         lines = ["    " + line for line in format_df_for_printout(
             df,
-            table_format=self.client_config_map.tables_format,
+            table_format=config_map.tables_format,
             max_col_width=50).split("\n")]
         self.notify("\n".join(lines))
 
-        data = self.build_model_df_data(self.client_config_map, to_print=color_settings_to_display)
-        df = map_df_to_str(pd.DataFrame(data=data, columns=columns))
-        self.notify("\nColor Settings:")
-        lines = ["    " + line for line in format_df_for_printout(
-            df,
-            table_format=self.client_config_map.tables_format,
-            max_col_width=50).split("\n")]
-        self.notify("\n".join(lines))
+    def list_client_configs(
+            self,  # type: HummingbotApplication
+    ):
+        self.list_configurations(self.client_config_map, "Global Configurations", client_configs_to_display)
+        self.list_configurations(self.client_config_map, "Color Settings", color_settings_to_display)
 
     def list_strategy_configs(
             self,  # type: HummingbotApplication
     ):
         if self.strategy_name is not None:
-            config_map = self.strategy_config_map
-            data = self.build_df_data_from_config_map(config_map)
-            df = map_df_to_str(pd.DataFrame(data=data, columns=columns))
-            self.notify("\nStrategy Configurations:")
-            lines = ["    " + line for line in format_df_for_printout(
-                df,
-                table_format=self.client_config_map.tables_format,
-                max_col_width=50).split("\n")]
-            self.notify("\n".join(lines))
+            self.list_configurations(self.strategy_config_map, "Strategy Configurations", None)
 
     def build_df_data_from_config_map(
             self,  # type: HummingbotApplication
