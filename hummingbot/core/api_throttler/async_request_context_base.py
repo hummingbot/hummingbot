@@ -3,7 +3,7 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 from hummingbot.core.api_throttler.data_types import RateLimit, TaskLog
 from hummingbot.logger.logger import HummingbotLogger
@@ -34,6 +34,7 @@ class AsyncRequestContextBase(ABC):
                  lock: asyncio.Lock,
                  safety_margin_pct: float,
                  retry_interval: float = 0.1,
+                 decay_usage: Dict[str, Tuple[float, float]] = {}
                  ):
         """
         Asynchronous context associated with each API request.
@@ -42,13 +43,15 @@ class AsyncRequestContextBase(ABC):
         :param related_limits: List of linked rate limits with its corresponding weight associated with this API Request
         :param lock: A shared asyncio.Lock used between all instances of APIRequestContextBase
         :param retry_interval: Time between each limit check
+        :param decay_usage: Dictionary of limit_id to (last_usage, last_timestamp) for decay-based rate limits
         """
         self._task_logs: List[TaskLog] = task_logs
         self._rate_limit: RateLimit = rate_limit
         self._related_limits: List[Tuple[RateLimit, int]] = related_limits
         self._lock: asyncio.Lock = lock
         self._safety_margin_pct: float = safety_margin_pct
-        self._retry_interval: float = retry_interval
+        self._retry_interval: float = 1
+        self._decay_usage: Dict[str, Tuple[float, float]] = decay_usage
 
     def flush(self):
         """
