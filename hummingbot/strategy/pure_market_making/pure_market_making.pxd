@@ -13,6 +13,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         object _ask_spread
         object _minimum_spread
         object _order_amount
+        object _quote_order_amount
         int _order_levels
         int _buy_levels
         int _sell_levels
@@ -20,7 +21,14 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         object _bid_order_level_spreads
         object _ask_order_level_spreads
         object _order_level_spread
+        object _buy_level_spread
+        object _sell_level_spread
         object _order_level_amount
+        object _buy_level_amount
+        object _sell_level_amount
+        object _quote_order_level_amount
+        object _quote_buy_level_amount
+        object _quote_sell_level_amount
         double _order_refresh_time
         double _max_order_age
         object _order_refresh_tolerance_pct
