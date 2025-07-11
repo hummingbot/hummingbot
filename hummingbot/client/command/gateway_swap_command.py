@@ -28,34 +28,42 @@ class GatewaySwapCommand:
         """
         Perform swap operations through gateway.
         Usage:
-            gateway swap quote <connector> [network]     - Get swap quote
-            gateway swap execute <connector> [network]   - Execute swap
+            gateway swap quote <connector> [network] [base-quote] [side] [amount]   - Get swap quote
+            gateway swap execute <connector> [network] [base-quote] [side] [amount] - Execute swap
         """
         if action is None:
             self.notify("\nUsage:")
-            self.notify("  gateway swap quote <connector> [network]     - Get swap quote")
-            self.notify("  gateway swap execute <connector> [network]   - Execute swap")
+            self.notify("  gateway swap quote <connector> [network] [base-quote] [side] [amount]   - Get swap quote")
+            self.notify("  gateway swap execute <connector> [network] [base-quote] [side] [amount] - Execute swap")
             self.notify("\nExamples:")
             self.notify("  gateway swap quote uniswap")
-            self.notify("  gateway swap quote raydium mainnet-beta")
-            self.notify("  gateway swap execute jupiter")
+            self.notify("  gateway swap quote raydium mainnet-beta SOL-USDC SELL 1.5")
+            self.notify("  gateway swap execute jupiter mainnet-beta ETH-USDC BUY 0.1")
             return
 
         if action == "quote":
-            # Parse arguments: [connector] [network]
+            # Parse arguments: [connector] [network] [base-quote] [side] [amount]
             connector = args[0] if args and len(args) > 0 else None
             network = args[1] if args and len(args) > 1 else None
-            safe_ensure_future(self._gateway_swap_quote(connector, network), loop=self.ev_loop)
+            pair = args[2] if args and len(args) > 2 else None
+            side = args[3] if args and len(args) > 3 else None
+            amount = args[4] if args and len(args) > 4 else None
+            safe_ensure_future(self._gateway_swap_quote(connector, network, pair, side, amount), loop=self.ev_loop)
 
         elif action == "execute":
+            # Parse arguments: [connector] [network] [base-quote] [side] [amount]
             connector = args[0] if args and len(args) > 0 else None
             network = args[1] if args and len(args) > 1 else None
-            safe_ensure_future(self._gateway_swap_execute(connector, network), loop=self.ev_loop)
+            pair = args[2] if args and len(args) > 2 else None
+            side = args[3] if args and len(args) > 3 else None
+            amount = args[4] if args and len(args) > 4 else None
+            safe_ensure_future(self._gateway_swap_execute(connector, network, pair, side, amount), loop=self.ev_loop)
 
         else:
             self.notify(f"Error: Unknown action '{action}'. Use 'quote' or 'execute'.")
 
-    async def _gateway_swap_quote(self, connector: Optional[str] = None, network: Optional[str] = None):
+    async def _gateway_swap_quote(self, connector: Optional[str] = None, network: Optional[str] = None,
+                                  pair: Optional[str] = None, side: Optional[str] = None, amount: Optional[str] = None):
         """Get a swap quote from gateway."""
         try:
             # Validate required parameters
@@ -93,69 +101,91 @@ class GatewaySwapCommand:
                 self.notify(f"\nError: Connector '{connector}' does not support swaps.")
                 return
 
-            # Always enter interactive mode for pair, amount, and side
-            self.placeholder_mode = True
-            self.app.hide_input = True
+            # Parse pair if provided
+            base_token = None
+            quote_token = None
+            if pair:
+                if "-" in pair:
+                    parts = pair.split("-", 1)
+                    if len(parts) == 2:
+                        base_token = parts[0].strip()
+                        quote_token = parts[1].strip()
+                        # Only uppercase if they're symbols (short strings), not addresses
+                        if len(base_token) <= 10:
+                            base_token = base_token.upper()
+                        if len(quote_token) <= 10:
+                            quote_token = quote_token.upper()
 
-            try:
-                # Get available tokens
-                tokens_resp = await self._get_gateway_instance().get_tokens(chain, network)
-                tokens = tokens_resp.get("tokens", [])
-                token_symbols = sorted(list(set([t.get("symbol", "") for t in tokens if t.get("symbol")])))
+            # Only enter interactive mode if parameters are missing
+            if not all([base_token, quote_token, side, amount]):
+                self.placeholder_mode = True
+                self.app.hide_input = True
 
-                # Update completer's token cache
-                if hasattr(self.app.input_field.completer, '_gateway_token_symbols'):
-                    self.app.input_field.completer._gateway_token_symbols = token_symbols
+                try:
+                    # Get available tokens
+                    tokens_resp = await self._get_gateway_instance().get_tokens(chain, network)
+                    tokens = tokens_resp.get("tokens", [])
+                    token_symbols = sorted(list(set([t.get("symbol", "") for t in tokens if t.get("symbol")])))
 
-                # Get base token
-                self.notify(f"\nAvailable tokens on {chain}/{network}: {', '.join(token_symbols[:10])}{'...' if len(token_symbols) > 10 else ''}")
-                base_token = await self.app.prompt(prompt="\nEnter base token (symbol or address): ")
-                if self.app.to_stop_config or not base_token:
-                    self.notify("Quote cancelled")
+                    # Update completer's token cache
+                    if hasattr(self.app.input_field.completer, '_gateway_token_symbols'):
+                        self.app.input_field.completer._gateway_token_symbols = token_symbols
+
+                    # Get base token if not provided
+                    if not base_token:
+                        self.notify(f"\nAvailable tokens on {chain}/{network}: {', '.join(token_symbols[:10])}{'...' if len(token_symbols) > 10 else ''}")
+                        base_token = await self.app.prompt(prompt="\nEnter base token (symbol or address): ")
+                        if self.app.to_stop_config or not base_token:
+                            self.notify("Quote cancelled")
+                            return
+                        # Only uppercase if it's a symbol (short string), not an address
+                        if len(base_token) <= 10:
+                            base_token = base_token.upper()
+
+                    # Get quote token if not provided
+                    if not quote_token:
+                        quote_token = await self.app.prompt(prompt="Enter quote token (symbol or address): ")
+                        if self.app.to_stop_config or not quote_token:
+                            self.notify("Quote cancelled")
+                            return
+                        # Only uppercase if it's a symbol (short string), not an address
+                        if len(quote_token) <= 10:
+                            quote_token = quote_token.upper()
+
+                    # Get amount if not provided
+                    if not amount:
+                        amount = await self.app.prompt(prompt="Enter amount to trade [1]: ")
+                        if self.app.to_stop_config:
+                            self.notify("Quote cancelled")
+                            return
+                        if not amount:
+                            amount = "1"  # Default amount
+
+                    # Get side if not provided
+                    if not side:
+                        side = await self.app.prompt(prompt="Enter side (BUY/SELL) [SELL]: ")
+                        if self.app.to_stop_config:
+                            self.notify("Quote cancelled")
+                            return
+                        if not side:
+                            side = "SELL"  # Default side
+
+                finally:
+                    self.placeholder_mode = False
+                    self.app.hide_input = False
+                    self.app.change_prompt(prompt=">>> ")
+
+            # Validate side
+            if side:
+                side = side.upper()
+                if side not in ["BUY", "SELL"]:
+                    self.notify(f"Error: Invalid side '{side}'. Must be BUY or SELL.")
                     return
-                # Only uppercase if it's a symbol (short string), not an address
-                if len(base_token) <= 10:
-                    base_token = base_token.upper()
 
-                # Get quote token
-                quote_token = await self.app.prompt(prompt="Enter quote token (symbol or address): ")
-                if self.app.to_stop_config or not quote_token:
-                    self.notify("Quote cancelled")
-                    return
-                # Only uppercase if it's a symbol (short string), not an address
-                if len(quote_token) <= 10:
-                    quote_token = quote_token.upper()
-
-                # Construct pair for display (truncate addresses for readability)
-                base_display = base_token if len(base_token) <= 10 else f"{base_token[:8]}...{base_token[-4:]}"
-                quote_display = quote_token if len(quote_token) <= 10 else f"{quote_token[:8]}...{quote_token[-4:]}"
-                pair = f"{base_display}-{quote_display}"
-
-                # Get amount with default
-                amount = await self.app.prompt(prompt="Enter amount to trade [1]: ")
-                if self.app.to_stop_config:
-                    self.notify("Quote cancelled")
-                    return
-                if not amount:
-                    amount = "1"  # Default amount
-
-                # Get side with default
-                side = await self.app.prompt(prompt="Enter side (BUY/SELL) [SELL]: ")
-                if self.app.to_stop_config:
-                    self.notify("Quote cancelled")
-                    return
-                if not side:
-                    side = "SELL"  # Default side
-                else:
-                    side = side.upper()
-                    if side not in ["BUY", "SELL"]:
-                        self.notify(f"Error: Invalid side '{side}'. Must be BUY or SELL.")
-                        return
-
-            finally:
-                self.placeholder_mode = False
-                self.app.hide_input = False
-                self.app.change_prompt(prompt=">>> ")
+            # Construct pair for display (truncate addresses for readability)
+            base_display = base_token if len(base_token) <= 10 else f"{base_token[:8]}...{base_token[-4:]}"
+            quote_display = quote_token if len(quote_token) <= 10 else f"{quote_token[:8]}...{quote_token[-4:]}"
+            pair_display = f"{base_display}-{quote_display}"
 
             # Validate amount
             try:
@@ -209,7 +239,7 @@ class GatewaySwapCommand:
                 pass
 
             self.notify(f"\nGetting swap quote from {connector} on {network}...")
-            self.notify(f"  Pair: {pair}")
+            self.notify(f"  Pair: {pair_display}")
             self.notify(f"  Amount: {amount}")
             self.notify(f"  Side: {side}")
             self.notify(f"  Slippage: {slippage_pct}%")
@@ -249,7 +279,7 @@ class GatewaySwapCommand:
 
             self.notify(f"Connector: {connector}")
             self.notify(f"Network: {network}")
-            self.notify(f"Pair: {pair}")
+            self.notify(f"Pair: {pair_display}")
             self.notify(f"Side: {side}")
 
             # Token addresses
@@ -317,7 +347,8 @@ class GatewaySwapCommand:
         except Exception as e:
             self.notify(f"Error getting swap quote: {str(e)}")
 
-    async def _gateway_swap_execute(self, connector: Optional[str] = None, network: Optional[str] = None):
+    async def _gateway_swap_execute(self, connector: Optional[str] = None, network: Optional[str] = None,
+                                    pair: Optional[str] = None, side: Optional[str] = None, amount: Optional[str] = None):
         """Execute a swap through gateway."""
         try:
             # Validate required parameters
@@ -424,64 +455,87 @@ class GatewaySwapCommand:
                     return  # Exit early if using quote ID
 
                 # Otherwise, continue with interactive swap flow
-                # Get available tokens
-                tokens_resp = await self._get_gateway_instance().get_tokens(chain, network)
-                tokens = tokens_resp.get("tokens", [])
-                token_symbols = sorted(list(set([t.get("symbol", "") for t in tokens if t.get("symbol")])))
+                # Parse pair if provided
+                base_token = None
+                quote_token = None
+                if pair:
+                    if "-" in pair:
+                        parts = pair.split("-", 1)
+                        if len(parts) == 2:
+                            base_token = parts[0].strip()
+                            quote_token = parts[1].strip()
+                            # Only uppercase if they're symbols (short strings), not addresses
+                            if len(base_token) <= 10:
+                                base_token = base_token.upper()
+                            if len(quote_token) <= 10:
+                                quote_token = quote_token.upper()
 
-                # Update completer's token cache
-                if hasattr(self.app.input_field.completer, '_gateway_token_symbols'):
-                    self.app.input_field.completer._gateway_token_symbols = token_symbols
+                # Only enter interactive mode if parameters are missing
+                if not all([base_token, quote_token, side, amount]):
+                    # Get available tokens
+                    tokens_resp = await self._get_gateway_instance().get_tokens(chain, network)
+                    tokens = tokens_resp.get("tokens", [])
+                    token_symbols = sorted(list(set([t.get("symbol", "") for t in tokens if t.get("symbol")])))
 
-                # Get base token
-                self.notify(f"\nAvailable tokens on {chain}/{network}: {', '.join(token_symbols[:10])}{'...' if len(token_symbols) > 10 else ''}")
-                base_token = await self.app.prompt(prompt="\nEnter base token (symbol or address): ")
-                if self.app.to_stop_config or not base_token:
-                    self.notify("Swap cancelled")
-                    return
-                # Only uppercase if it's a symbol (short string), not an address
-                if len(base_token) <= 10:
-                    base_token = base_token.upper()
+                    # Update completer's token cache
+                    if hasattr(self.app.input_field.completer, '_gateway_token_symbols'):
+                        self.app.input_field.completer._gateway_token_symbols = token_symbols
 
-                # Get quote token
-                quote_token = await self.app.prompt(prompt="Enter quote token (symbol or address): ")
-                if self.app.to_stop_config or not quote_token:
-                    self.notify("Swap cancelled")
-                    return
-                # Only uppercase if it's a symbol (short string), not an address
-                if len(quote_token) <= 10:
-                    quote_token = quote_token.upper()
+                    # Get base token if not provided
+                    if not base_token:
+                        self.notify(f"\nAvailable tokens on {chain}/{network}: {', '.join(token_symbols[:10])}{'...' if len(token_symbols) > 10 else ''}")
+                        base_token = await self.app.prompt(prompt="\nEnter base token (symbol or address): ")
+                        if self.app.to_stop_config or not base_token:
+                            self.notify("Swap cancelled")
+                            return
+                        # Only uppercase if it's a symbol (short string), not an address
+                        if len(base_token) <= 10:
+                            base_token = base_token.upper()
 
-                # Construct pair for display (truncate addresses for readability)
-                base_display = base_token if len(base_token) <= 10 else f"{base_token[:8]}...{base_token[-4:]}"
-                quote_display = quote_token if len(quote_token) <= 10 else f"{quote_token[:8]}...{quote_token[-4:]}"
-                pair = f"{base_display}-{quote_display}"
+                    # Get quote token if not provided
+                    if not quote_token:
+                        quote_token = await self.app.prompt(prompt="Enter quote token (symbol or address): ")
+                        if self.app.to_stop_config or not quote_token:
+                            self.notify("Swap cancelled")
+                            return
+                        # Only uppercase if it's a symbol (short string), not an address
+                        if len(quote_token) <= 10:
+                            quote_token = quote_token.upper()
 
-                # Get amount with default
-                amount = await self.app.prompt(prompt="Enter amount to trade [1]: ")
-                if self.app.to_stop_config:
-                    self.notify("Swap cancelled")
-                    return
-                if not amount:
-                    amount = "1"  # Default amount
+                    # Get amount if not provided
+                    if not amount:
+                        amount = await self.app.prompt(prompt="Enter amount to trade [1]: ")
+                        if self.app.to_stop_config:
+                            self.notify("Swap cancelled")
+                            return
+                        if not amount:
+                            amount = "1"  # Default amount
 
-                # Get side with default
-                side = await self.app.prompt(prompt="Enter side (BUY/SELL) [SELL]: ")
-                if self.app.to_stop_config:
-                    self.notify("Swap cancelled")
-                    return
-                if not side:
-                    side = "SELL"  # Default side
-                else:
-                    side = side.upper()
-                    if side not in ["BUY", "SELL"]:
-                        self.notify(f"Error: Invalid side '{side}'. Must be BUY or SELL.")
-                        return
+                    # Get side if not provided
+                    if not side:
+                        side = await self.app.prompt(prompt="Enter side (BUY/SELL) [SELL]: ")
+                        if self.app.to_stop_config:
+                            self.notify("Swap cancelled")
+                            return
+                        if not side:
+                            side = "SELL"  # Default side
 
             finally:
                 self.placeholder_mode = False
                 self.app.hide_input = False
                 self.app.change_prompt(prompt=">>> ")
+
+            # Validate side
+            if side:
+                side = side.upper()
+                if side not in ["BUY", "SELL"]:
+                    self.notify(f"Error: Invalid side '{side}'. Must be BUY or SELL.")
+                    return
+
+            # Construct pair for display (truncate addresses for readability)
+            base_display = base_token if len(base_token) <= 10 else f"{base_token[:8]}...{base_token[-4:]}"
+            quote_display = quote_token if len(quote_token) <= 10 else f"{quote_token[:8]}...{quote_token[-4:]}"
+            pair = f"{base_display}-{quote_display}"
 
             # Validate amount
             try:
