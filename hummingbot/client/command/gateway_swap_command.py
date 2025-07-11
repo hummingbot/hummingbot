@@ -305,14 +305,30 @@ class GatewaySwapCommand:
             amount_out = quote_resp.get('amountOut', quote_resp.get('expectedOut'))
             min_amount_out = quote_resp.get('minAmountOut', quote_resp.get('minimumOut'))
 
+            # Price information first
+            self.notify("\n=== Price Information ===")
+            if "price" in quote_resp:
+                self.notify(f"  Current Price: {quote_resp['price']} {quote_token}/{base_token}")
+
+            # Slippage information
+            slippage_pct = quote_resp.get('slippagePct', 1.0)  # Default 1% if not provided
+            self.notify(f"  Slippage: {slippage_pct}%")
+
+            if "priceWithSlippage" in quote_resp:
+                self.notify(f"  Price with Slippage: {quote_resp['priceWithSlippage']} {quote_token}/{base_token}")
+
             # Display transaction details based on side
             self.notify("\n=== Transaction Details ===")
 
             if side == "BUY":
                 # Buying base with quote
+                max_amount_in = quote_resp.get('maxAmountIn')
+
                 self.notify("\nYou will spend:")
                 self.notify(f"  Amount: {amount_out} {quote_token}")
                 self.notify(f"  Token Address: {token_in}")
+                if max_amount_in:
+                    self.notify(f"  Maximum (with slippage): {max_amount_in} {quote_token}")
 
                 self.notify("\nYou will receive:")
                 self.notify(f"  Amount: {amount} {base_token}")
@@ -326,22 +342,8 @@ class GatewaySwapCommand:
                 self.notify("\nYou will receive:")
                 self.notify(f"  Amount: {amount_out} {quote_token}")
                 self.notify(f"  Token Address: {token_out}")
-
                 if min_amount_out:
-                    self.notify("\nMinimum you will receive (after slippage):")
-                    self.notify(f"  Amount: {min_amount_out} {quote_token}")
-
-            # Price information
-            self.notify("\nPrice Information:")
-            if "price" in quote_resp:
-                self.notify(f"  Current Price: {quote_resp['price']} {quote_token}/{base_token}")
-
-            # Slippage information
-            slippage_pct = quote_resp.get('slippagePct', 1.0)  # Default 1% if not provided
-            self.notify(f"  Slippage: {slippage_pct}%")
-
-            if "priceWithSlippage" in quote_resp:
-                self.notify(f"  Price with Slippage: {quote_resp['priceWithSlippage']} {quote_token}/{base_token}")
+                    self.notify(f"  Minimum (with slippage): {min_amount_out} {quote_token}")
 
             # Price impact
             if "priceImpact" in quote_resp:
