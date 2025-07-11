@@ -466,7 +466,8 @@ class GatewayClient:
 
     async def get_wallets(self, chain: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get wallets from Gateway."""
-        params = {"chain": chain} if chain else {}
+        # Always fetch all wallets with hardware and read-only
+        params = {"showHardware": True, "showReadOnly": True}
         response = await self.request("GET", "wallet", params=params)
         wallets = response if isinstance(response, list) else []
 
@@ -476,22 +477,24 @@ class GatewayClient:
             hardware_addresses = wallet.get("hardwareWalletAddresses", [])
 
             # Create signingAddresses for wallets that can sign transactions
+            # Regular wallets first, then hardware wallets
             signing_addresses = regular_addresses + hardware_addresses
             wallet["signingAddresses"] = signing_addresses
 
-        # Update the cache
-        if wallets and not chain:
+        # Update the cache with all wallets
+        if wallets:
             # Clear and rebuild the entire cache
             self._wallets_cache.clear()
             for wallet_info in wallets:
                 wallet_chain = wallet_info.get("chain")
                 if wallet_chain:
-                    if wallet_chain not in self._wallets_cache:
-                        self._wallets_cache[wallet_chain] = []
-                    self._wallets_cache[wallet_chain].append(wallet_info)
-        elif wallets and chain:
-            # Update cache for specific chain
-            self._wallets_cache[chain] = wallets
+                    self._wallets_cache[wallet_chain] = wallet_info
+
+        # Filter by chain if requested
+        if chain:
+            # Find the wallet object for the specific chain
+            chain_wallet = next((w for w in wallets if w.get("chain") == chain), None)
+            return [chain_wallet] if chain_wallet else []
 
         return wallets
 
