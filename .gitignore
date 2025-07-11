@@ -98,3 +98,4 @@ coverage.xml
 **/.claude/settings.local.json
 .taskmaster
 .cursor
+.claude
