@@ -407,7 +407,13 @@ class GatewaySwapCommand:
                             self.notify("\n✓ Swap confirmed!")
                             if execute_resp.get("data"):
                                 data = execute_resp["data"]
-                                self.notify(f"Amount out: {data.get('amountOut', 'N/A')}")
+                                amount_out = data.get('amountOut', 'N/A')
+                                self.notify(f"Amount out: {amount_out}")
+                                self.logger().info(
+                                    f"Swap confirmed - Quote ID: {quote_id}, "
+                                    f"Tx Hash: {tx_hash}, "
+                                    f"Amount Out: {amount_out}"
+                                )
                         elif tx_status == -1:  # Failed
                             self.notify("\n✗ Swap failed")
                         else:  # Pending or not provided, monitor it
@@ -666,7 +672,15 @@ class GatewaySwapCommand:
                     self.notify("\n✓ Swap confirmed!")
                     if execute_resp.get("data"):
                         data = execute_resp["data"]
-                        self.notify(f"Amount out: {data.get('amountOut', 'N/A')}")
+                        amount_out = data.get('amountOut', 'N/A')
+                        self.notify(f"Amount out: {amount_out}")
+                        self.logger().info(
+                            f"Swap confirmed - Pair: {pair}, "
+                            f"Side: {side}, "
+                            f"Amount: {amount}, "
+                            f"Tx Hash: {tx_hash}, "
+                            f"Amount Out: {amount_out}"
+                        )
                 elif tx_status == -1:  # Failed
                     self.notify("\n✗ Swap failed")
                 else:  # Pending or not provided, monitor it
@@ -699,8 +713,13 @@ class GatewaySwapCommand:
 
                 if tx_status == 1:  # Confirmed
                     self.notify("\n✓ Swap confirmed!")
-                    if poll_resp.get("txBlock"):
-                        self.notify(f"Block: {poll_resp['txBlock']}")
+                    block = poll_resp.get("txBlock", "unknown")
+                    if block != "unknown":
+                        self.notify(f"Block: {block}")
+                    self.logger().info(
+                        f"Swap confirmed - Tx Hash: {tx_hash}, "
+                        f"Block: {block}"
+                    )
                     break
                 elif tx_status == 2:  # Pending
                     if not displayed_pending:
