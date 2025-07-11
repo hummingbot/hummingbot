@@ -1160,6 +1160,16 @@ class HummingbotCompleter(Completer):
                 first_word: str = text_before_cursor[0:text_before_cursor.index(' ')]
             except ValueError:
                 return
+
+            # Don't show subcommand help for gateway commands after the sub-command
+            if text_before_cursor.startswith("gateway "):
+                # Count spaces to determine argument position
+                space_count = text_before_cursor.count(" ")
+                # For gateway commands, only show help after "gateway" (1 space) or "gateway [subcommand]" (2 spaces)
+                # Don't show help for additional arguments
+                if space_count > 2:
+                    return
+
             subcommand_completer: Completer = self.get_subcommand_completer(first_word)
             if complete_event.completion_requested or self._complete_subcommand(document):
                 for c in subcommand_completer.get_completions(document, complete_event):
