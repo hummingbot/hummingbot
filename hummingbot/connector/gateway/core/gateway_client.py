@@ -173,7 +173,9 @@ class GatewayClient:
                 raise Exception(f"Gateway request failed ({response.status}): {error_text}")
 
         except Exception as e:
-            self.logger().error(f"Gateway request error: {method} {url} - {str(e)}")
+            # Only log detailed errors for non-ping requests to reduce noise
+            if endpoint != "/":
+                self.logger().error(f"Gateway request error: {method} {url} - {str(e)}")
             raise
 
     async def connector_request(
