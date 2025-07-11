@@ -76,6 +76,8 @@ class GatewayClient:
         self._fee_estimates: Dict[str, Dict[str, Any]] = {}  # {"chain:network": fee_data}
         self._connector_info_cache: Dict[str, Dict[str, Any]] = {}
         self._chain_info_cache: List[Dict[str, Any]] = []
+        self._wallets_cache: Dict[str, List[Dict[str, Any]]] = {}  # {"chain": [wallet_info]}
+        self._cache_initialized = False
         self._cache_timestamp = 0
         self._cache_ttl = 300  # 5 minutes
 
@@ -151,7 +153,10 @@ class GatewayClient:
                 json_data = data if data is not None else params
                 response = await self.session.put(url, json=json_data)
             elif method_lower == "delete":
-                if params:
+                if data is not None:
+                    # DELETE with JSON body (some APIs support this)
+                    response = await self.session.delete(url, json=data)
+                elif params:
                     response = await self.session.delete(url, params=params)
                 else:
                     response = await self.session.delete(url)
@@ -375,6 +380,84 @@ class GatewayClient:
         response = await self.request("GET", "namespaces")
         return response.get("namespaces", [])
 
+    async def initialize_gateway(self) -> None:
+        """
+        Initialize the gateway by loading all necessary information.
+        This should be called once when the gateway comes online.
+        """
+        if self._cache_initialized and (time.time() - self._cache_timestamp) < self._cache_ttl:
+            return  # Cache is still valid
+
+        self.logger().info("Starting gateway initialization...")
+
+        try:
+            # Load chains
+            chains_response = await self.get_chains()
+            self._chain_info_cache = chains_response if isinstance(chains_response, list) else chains_response.get("chains", [])
+
+            # Cache chain names for tab completion
+            chain_names = []
+            chain_networks = {}
+            for chain_info in self._chain_info_cache:
+                chain = chain_info.get("chain", "")
+                networks = chain_info.get("networks", [])
+                if chain:
+                    chain_names.append(chain)
+                    chain_networks[chain] = networks
+
+            # Load connectors
+            connectors = await self.get_connectors()
+            self._connector_info_cache = connectors
+
+            # Load wallets for all chains
+            all_wallets = await self.get_wallets()
+            # The get_wallets method will automatically cache them
+
+            # Load all config namespaces
+            try:
+                config_namespaces = await self.get_namespaces()
+            except Exception as e:
+                self.logger().warning(f"Failed to load config namespaces: {str(e)}")
+                config_namespaces = []
+
+            # Update tab completers with cached data
+            try:
+                from hummingbot.client.hummingbot_application import HummingbotApplication
+                app = HummingbotApplication.main_application()
+
+                if app and hasattr(app, 'app') and hasattr(app.app, 'input'):
+                    completer = app.app.input.completer
+
+                    if hasattr(completer, 'update_gateway_chains'):
+                        completer.update_gateway_chains(chain_names)
+                    if hasattr(completer, 'update_gateway_config_namespaces'):
+                        completer.update_gateway_config_namespaces(config_namespaces)
+                    # Cache networks for each chain
+                    if hasattr(completer, '_cached_gateway_networks'):
+                        completer._cached_gateway_networks = chain_networks
+
+                    # Set wallet parameters for completer
+                    if all_wallets and hasattr(completer, 'set_list_gateway_wallets_parameters'):
+                        # Set parameters for each chain's wallets
+                        for chain in chain_names:
+                            chain_wallets = [w for w in all_wallets if w.get("chain") == chain]
+                            if chain_wallets:
+                                completer.set_list_gateway_wallets_parameters(all_wallets, chain)
+                else:
+                    # Silently skip if completer is not ready - this is expected during startup
+                    pass
+            except Exception as e:
+                self.logger().warning(f"Error updating completer: {str(e)}", exc_info=True)
+
+            self._cache_initialized = True
+            self._cache_timestamp = time.time()
+            self.logger().info(f"Gateway initialized with {len(self._chain_info_cache)} chains, "
+                               f"{len(self._connector_info_cache)} connectors, "
+                               f"and wallets for {len(self._wallets_cache)} chains")
+
+        except Exception as e:
+            self.logger().error(f"Failed to initialize gateway: {str(e)}", exc_info=True)
+
     # ============================================
     # Wallet Methods
     # ============================================
@@ -383,7 +466,23 @@ class GatewayClient:
         """Get wallets from Gateway."""
         params = {"chain": chain} if chain else {}
         response = await self.request("GET", "wallet", params=params)
-        return response if isinstance(response, list) else []
+        wallets = response if isinstance(response, list) else []
+
+        # Update the cache
+        if wallets and not chain:
+            # Clear and rebuild the entire cache
+            self._wallets_cache.clear()
+            for wallet_info in wallets:
+                wallet_chain = wallet_info.get("chain")
+                if wallet_chain:
+                    if wallet_chain not in self._wallets_cache:
+                        self._wallets_cache[wallet_chain] = []
+                    self._wallets_cache[wallet_chain].append(wallet_info)
+        elif wallets and chain:
+            # Update cache for specific chain
+            self._wallets_cache[chain] = wallets
+
+        return wallets
 
     async def add_wallet(self, chain: str, private_key: str) -> Dict[str, Any]:
         """Add a new wallet to Gateway."""
@@ -401,6 +500,28 @@ class GatewayClient:
         return await self.request(
             "DELETE",
             "wallet/remove",
+            data={
+                "chain": chain,
+                "address": address
+            }
+        )
+
+    async def add_hardware_wallet(self, chain: str, address: str) -> Dict[str, Any]:
+        """Add a hardware wallet to Gateway."""
+        return await self.request(
+            "POST",
+            "wallet/add-hardware",
+            data={
+                "chain": chain,
+                "address": address
+            }
+        )
+
+    async def add_read_only_wallet(self, chain: str, address: str) -> Dict[str, Any]:
+        """Add a read-only wallet to Gateway."""
+        return await self.request(
+            "POST",
+            "wallet/add-read-only",
             data={
                 "chain": chain,
                 "address": address

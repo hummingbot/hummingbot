@@ -64,7 +64,7 @@ class HummingbotCompleter(Completer):
         self._gateway_balance_completer = self._gateway_wallet_chain_completer
         self._gateway_config_completer = WordCompleter(hummingbot_application.gateway_config_keys, ignore_case=True)
         self._gateway_wallet_completer = WordCompleter(["list", "add", "remove"], ignore_case=True)
-        self._gateway_wallet_action_completer = WordCompleter(["list", "add", "add-read-only", "remove", "remove-read-only"], ignore_case=True)
+        self._gateway_wallet_action_completer = WordCompleter(["list", "add", "add-hardware", "add-read-only", "remove"], ignore_case=True)
         self._gateway_token_action_completer = WordCompleter(["list", "show", "add", "remove"], ignore_case=True)
         self._gateway_pool_action_completer = WordCompleter(["list", "show", "add", "remove"], ignore_case=True)
         self._gateway_pool_type_completer = WordCompleter(["amm", "clmm"], ignore_case=True)
@@ -217,11 +217,42 @@ class HummingbotCompleter(Completer):
                 wallets = self._list_gateway_wallets_parameters.get("wallets", [])
                 addresses = list_gateway_wallets(wallets, chain)
             else:
-                # Try to use any cached wallet data
-                # In a production implementation, this would maintain a cache of wallets per chain
-                pass
+                # Try to use cached wallet data from the application
+                from hummingbot.client.hummingbot_application import HummingbotApplication
+                app = HummingbotApplication.main_application()
+                if app and hasattr(app, '_gateway_monitor') and app._gateway_monitor:
+                    try:
+                        # Check if gateway has cached wallet data
+                        gateway_instance = app._get_gateway_instance()
+                        if hasattr(gateway_instance, '_wallets_cache'):
+                            # Check for exact chain match first
+                            if chain.lower() in gateway_instance._wallets_cache:
+                                wallet_list = gateway_instance._wallets_cache[chain.lower()]
+                            elif chain in gateway_instance._wallets_cache:
+                                wallet_list = gateway_instance._wallets_cache[chain]
+                            else:
+                                # Try to find case-insensitive match
+                                wallet_list = []
+                                for cached_chain, cached_wallets in gateway_instance._wallets_cache.items():
+                                    if cached_chain.lower() == chain.lower():
+                                        wallet_list = cached_wallets
+                                        break
+
+                            # Extract addresses from wallet list
+                            if isinstance(wallet_list, list):
+                                for wallet in wallet_list:
+                                    if isinstance(wallet, dict):
+                                        # Add all wallet types
+                                        addresses.extend(wallet.get("walletAddresses", []))
+                                        addresses.extend(wallet.get("readOnlyWalletAddresses", []))
+                                        addresses.extend(wallet.get("hardwareWalletAddresses", []))
+                    except Exception:
+                        pass
         except Exception:
             pass
+
+        # Remove duplicates
+        addresses = list(set(addresses))
 
         # If no addresses found, provide a helpful placeholder
         if not addresses:
@@ -305,7 +336,7 @@ class HummingbotCompleter(Completer):
 
                         # Default list of known connectors
                         if not connectors:
-                            connectors = ["uniswap", "jupiter", "meteora", "raydium"]
+                            connectors = ["0x", "uniswap", "jupiter", "meteora", "raydium"]
         except Exception:
             pass
 
@@ -314,7 +345,7 @@ class HummingbotCompleter(Completer):
             return WordCompleter(connectors, ignore_case=True)
         else:
             # Return a default list of connectors
-            return WordCompleter(["uniswap", "jupiter", "meteora", "raydium"], ignore_case=True)
+            return WordCompleter(["0x", "uniswap", "jupiter", "meteora", "raydium"], ignore_case=True)
 
     def _get_networks_for_chain_completer(self, chain: str):
         """Get network completer for a specific chain"""
@@ -472,8 +503,7 @@ class HummingbotCompleter(Completer):
             return False
 
         args = cmd_part.split()
-        # If we have exactly 2 arguments (chain and network) and we're starting the 3rd argument (address)
-        # or if we have 3 arguments and we're in the middle of typing the address
+        # For gateway balance, we want to complete address as the 3rd argument (after chain and network)
         return len(args) == 2 and text_before_cursor.endswith(" ") or (len(args) == 3 and not text_before_cursor.endswith(" "))
 
     def _complete_gateway_balance_network(self, document: Document) -> bool:
@@ -618,10 +648,25 @@ class HummingbotCompleter(Completer):
 
     def _complete_gateway_wallet_chain_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
-        return (text_before_cursor.startswith("gateway wallet add ") or
-                text_before_cursor.startswith("gateway wallet remove ") or
-                text_before_cursor.startswith("gateway wallet add-read-only ") or
+        return ((text_before_cursor.startswith("gateway wallet add ") and text_before_cursor.count(" ") == 3) or
+                (text_before_cursor.startswith("gateway wallet add-hardware ") and text_before_cursor.count(" ") == 3) or
+                (text_before_cursor.startswith("gateway wallet remove ") and text_before_cursor.count(" ") == 3) or
+                (text_before_cursor.startswith("gateway wallet add-read-only ") and text_before_cursor.count(" ") == 3) or
                 (text_before_cursor.startswith("gateway wallet list ") and text_before_cursor.count(" ") == 3))
+
+    def _complete_gateway_wallet_remove_address(self, document: Document) -> bool:
+        """Check if we're completing the address argument for gateway wallet remove"""
+        text_before_cursor: str = document.text_before_cursor
+        return (text_before_cursor.startswith("gateway wallet remove ") and
+                text_before_cursor.count(" ") >= 4 and
+                not text_before_cursor.endswith("  "))  # Not multiple spaces
+
+    def _complete_gateway_wallet_add_hardware_address(self, document: Document) -> bool:
+        """Check if we're completing the address argument for gateway wallet add-hardware"""
+        text_before_cursor: str = document.text_before_cursor
+        return (text_before_cursor.startswith("gateway wallet add-hardware ") and
+                text_before_cursor.count(" ") >= 4 and
+                not text_before_cursor.endswith("  "))  # Not multiple spaces
 
     def _complete_gateway_token_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -912,6 +957,16 @@ class HummingbotCompleter(Completer):
                 for c in network_completer.get_completions(document, complete_event):
                     yield c
 
+        elif self._complete_gateway_wallet_remove_address(document) or self._complete_gateway_wallet_add_hardware_address(document):
+            # Extract chain from the command
+            text_before_cursor: str = document.text_before_cursor
+            parts = text_before_cursor.split()
+            if len(parts) >= 4:
+                chain = parts[3]  # gateway wallet remove <chain> ...
+                address_completer = self._get_wallet_addresses_for_chain_network(chain)
+                for c in address_completer.get_completions(document, complete_event):
+                    yield c
+
         elif self._complete_gateway_wallet_chain_arguments(document):
             for c in self._gateway_available_chains_completer.get_completions(document, complete_event):
                 yield c
@@ -982,7 +1037,7 @@ class HummingbotCompleter(Completer):
             for c in self._gateway_swap_side_completer.get_completions(document, complete_event):
                 yield c
 
-        elif self._complete_gateway_arguments(document) and not text_before_cursor.startswith("gateway swap "):
+        elif self._complete_gateway_arguments(document) and not document.text_before_cursor.startswith("gateway swap "):
             for c in self._gateway_completer.get_completions(document, complete_event):
                 yield c
 
@@ -1005,6 +1060,8 @@ class HummingbotCompleter(Completer):
                     network_completer = self._get_ethereum_networks_completer()
                 elif namespace in ["solana", "jupiter", "meteora", "raydium"]:
                     network_completer = WordCompleter(["mainnet-beta", "devnet"], ignore_case=True)
+                elif namespace == "0x":
+                    network_completer = self._get_ethereum_networks_completer()
                 else:
                     network_completer = WordCompleter([], ignore_case=True)
                 for c in network_completer.get_completions(document, complete_event):

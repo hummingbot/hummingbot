@@ -410,9 +410,10 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
                 chain = wallet_info.get("chain", "")
                 addresses = wallet_info.get("walletAddresses", [])
                 readonly_addresses = wallet_info.get("readOnlyWalletAddresses", [])
+                hardware_addresses = wallet_info.get("hardwareWalletAddresses", [])
 
                 # Combine all addresses
-                all_addresses = addresses + readonly_addresses
+                all_addresses = addresses + readonly_addresses + hardware_addresses
 
                 if not all_addresses:
                     continue
@@ -443,16 +444,17 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
                     use_addresses = all_addresses
 
                 for address in use_addresses:
-                    # Mark if this is a read-only address
+                    # Mark if this is a read-only or hardware address
                     is_readonly = address in readonly_addresses
-                    chain_network_combos.append((chain, default_network, address, is_readonly))
+                    is_hardware = address in hardware_addresses
+                    chain_network_combos.append((chain, default_network, address, is_readonly, is_hardware))
 
             if not chain_network_combos:
                 self.notify("No matching wallets found for the specified filters.")
                 return
 
             # Process each chain/network/address combination
-            for chain, network, address, is_readonly in chain_network_combos:
+            for chain, network, address, is_readonly, is_hardware in chain_network_combos:
                 try:
                     # Determine tokens to check
                     if tokens_filter:
@@ -499,7 +501,9 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
                     # Display results
                     self.notify(f"\nChain: {chain.lower()}")
                     self.notify(f"Network: {network}")
-                    if is_readonly:
+                    if is_hardware:
+                        self.notify(f"Address: {address} (hardware)")
+                    elif is_readonly:
                         self.notify(f"Address: {address} (read-only)")
                     else:
                         self.notify(f"Address: {address}")
@@ -909,14 +913,25 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
                 self.notify("No wallet found for ethereum. Please add one with 'gateway wallet add ethereum'")
                 return
 
-            # Get all addresses (both regular and read-only)
+            # Get all addresses and track their types
             all_addresses = []
+            address_types = {}  # Track whether addresses are regular, read-only, or hardware
             for wallet in wallets_resp:
                 if wallet.get("chain", "").lower() == "ethereum":
                     regular_addresses = wallet.get("walletAddresses", [])
                     readonly_addresses = wallet.get("readOnlyWalletAddresses", [])
-                    all_addresses.extend(regular_addresses)
-                    all_addresses.extend(readonly_addresses)
+                    hardware_addresses = wallet.get("hardwareWalletAddresses", [])
+
+                    # Add addresses and track their types
+                    for addr in regular_addresses:
+                        all_addresses.append(addr)
+                        address_types[addr] = "regular"
+                    for addr in readonly_addresses:
+                        all_addresses.append(addr)
+                        address_types[addr] = "read-only"
+                    for addr in hardware_addresses:
+                        all_addresses.append(addr)
+                        address_types[addr] = "hardware"
 
             if not all_addresses:
                 self.notify("No wallet addresses found for ethereum. Please add one with 'gateway wallet add ethereum'")
@@ -971,7 +986,14 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
 
                     # Display results
                     self.notify(f"\nNetwork: {network}")
-                    self.notify(f"Wallet: {wallet_address}")
+                    # Display wallet address with type
+                    wallet_type = address_types.get(wallet_address, "regular")
+                    if wallet_type == "hardware":
+                        self.notify(f"Wallet: {wallet_address} (hardware)")
+                    elif wallet_type == "read-only":
+                        self.notify(f"Wallet: {wallet_address} (read-only)")
+                    else:
+                        self.notify(f"Wallet: {wallet_address}")
                     self.notify(f"Spender: {spender}")
 
                     if allowances:

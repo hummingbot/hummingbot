@@ -139,6 +139,11 @@ class GatewayMonitor:
                     if is_online:
                         if old_status == GatewayStatus.OFFLINE:
                             self.logger().info("Gateway Service is ONLINE.")
+                            # Initialize gateway caches when it comes online
+                            try:
+                                await self.client.initialize_gateway()
+                            except Exception as e:
+                                self.logger().warning(f"Failed to initialize gateway: {e}")
                         self._ready_event.set()
 
                         if self._on_available_callback:
