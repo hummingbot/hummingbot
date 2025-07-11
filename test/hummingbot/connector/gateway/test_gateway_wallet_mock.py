@@ -5,7 +5,7 @@ Tests wallet functionality without requiring actual Gateway connection.
 import asyncio
 import unittest
 from decimal import Decimal
-from test.hummingbot.connector.gateway.test_utils import TEST_WALLETS, MockGatewayHTTPClient
+from test.hummingbot.connector.gateway.test_utils import TEST_WALLETS, MockGatewayClient
 
 
 class TestGatewayWalletMock(unittest.TestCase):
@@ -22,8 +22,8 @@ class TestGatewayWalletMock(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
 
-        # Create mock gateway HTTP client
-        self.client = MockGatewayHTTPClient()
+        # Create mock gateway client
+        self.client = MockGatewayClient()
 
     def async_run_with_timeout(self, coroutine, timeout: float = 1):
         return self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))

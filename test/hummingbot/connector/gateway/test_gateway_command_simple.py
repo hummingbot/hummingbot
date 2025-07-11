@@ -5,7 +5,7 @@ Focuses on basic wallet management command functionality.
 import asyncio
 import unittest
 from decimal import Decimal
-from test.hummingbot.connector.gateway.test_utils import TEST_WALLETS, MockGatewayHTTPClient
+from test.hummingbot.connector.gateway.test_utils import TEST_WALLETS, MockGatewayClient
 from unittest.mock import patch
 
 
@@ -23,8 +23,8 @@ class TestGatewayCommandSimple(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
 
-        # Use our mock gateway HTTP client
-        self.gateway_http_mock = MockGatewayHTTPClient()
+        # Use our mock gateway client
+        self.gateway_http_mock = MockGatewayClient()
 
         # Patch GatewayClient.get_instance
         self.gateway_instance_patcher = patch(
@@ -349,7 +349,7 @@ class TestGatewayCommandSimple(unittest.TestCase):
     def test_balance_error_handling(self):
         """Test balance command error handling"""
         # Create a mock that raises exceptions
-        mock_gateway_instance = MockGatewayHTTPClient()
+        mock_gateway_instance = MockGatewayClient()
 
         async def failing_get_wallets(chain=None):
             raise Exception("Gateway connection failed")
@@ -607,6 +607,126 @@ class TestGatewayCommandSimple(unittest.TestCase):
 
         # In actual completer, these networks would be used for
         # allowance, approve, and wrap command completions
+
+    def test_hardware_wallet_support(self):
+        """Test hardware wallet add functionality"""
+        # Add hardware wallet
+        chain = "ethereum"
+        hardware_address = "0x1234567890123456789012345678901234567890"
+
+        result = self.async_run_with_timeout(
+            self.gateway_http_mock.add_hardware_wallet(chain, hardware_address)
+        )
+
+        # Verify result
+        self.assertEqual(result["address"], hardware_address)
+        self.assertEqual(result["chain"], chain)
+        self.assertEqual(result["type"], "hardware")
+
+        # Verify wallet was added
+        wallets = self.async_run_with_timeout(self.gateway_http_mock.get_wallets(chain))
+
+        # Find the hardware wallet
+        hardware_wallet = None
+        for wallet in wallets:
+            if hardware_address in wallet.get("hardwareWalletAddresses", []):
+                hardware_wallet = wallet
+                break
+
+        self.assertIsNotNone(hardware_wallet)
+        self.assertIn(hardware_address, hardware_wallet.get("hardwareWalletAddresses", []))
+
+    def test_read_only_wallet_support(self):
+        """Test read-only wallet add functionality"""
+        # Add read-only wallet
+        chain = "solana"
+        readonly_address = "ReadOnly1111111111111111111111111111111111"
+
+        result = self.async_run_with_timeout(
+            self.gateway_http_mock.add_read_only_wallet(chain, readonly_address)
+        )
+
+        # Verify result
+        self.assertEqual(result["address"], readonly_address)
+        self.assertEqual(result["chain"], chain)
+        self.assertEqual(result["type"], "read-only")
+
+        # Verify wallet was added
+        wallets = self.async_run_with_timeout(self.gateway_http_mock.get_wallets(chain))
+
+        # Find the read-only wallet
+        readonly_wallet = None
+        for wallet in wallets:
+            if readonly_address in wallet.get("readOnlyWalletAddresses", []):
+                readonly_wallet = wallet
+                break
+
+        self.assertIsNotNone(readonly_wallet)
+        self.assertIn(readonly_address, readonly_wallet.get("readOnlyWalletAddresses", []))
+
+    def test_mixed_wallet_types(self):
+        """Test having different wallet types for the same chain"""
+        chain = "ethereum"
+
+        # Add regular wallet
+        self.async_run_with_timeout(
+            self.gateway_http_mock.add_wallet(chain, "regular_private_key")
+        )
+
+        # Add hardware wallet
+        hardware_address = "0xHardware1234567890123456789012345678901234"
+        self.async_run_with_timeout(
+            self.gateway_http_mock.add_hardware_wallet(chain, hardware_address)
+        )
+
+        # Add read-only wallet
+        readonly_address = "0xReadOnly1234567890123456789012345678901234"
+        self.async_run_with_timeout(
+            self.gateway_http_mock.add_read_only_wallet(chain, readonly_address)
+        )
+
+        # Get all wallets for chain
+        wallets = self.async_run_with_timeout(self.gateway_http_mock.get_wallets(chain))
+
+        # Count wallet types
+        regular_count = 0
+        hardware_count = 0
+        readonly_count = 0
+
+        for wallet in wallets:
+            if wallet.get("walletAddresses"):
+                regular_count += len(wallet["walletAddresses"])
+            if wallet.get("hardwareWalletAddresses"):
+                hardware_count += len(wallet["hardwareWalletAddresses"])
+            if wallet.get("readOnlyWalletAddresses"):
+                readonly_count += len(wallet["readOnlyWalletAddresses"])
+
+        # Verify we have all types (1 original + 1 new regular + 1 hardware + 1 readonly)
+        self.assertEqual(regular_count, 2)  # Original ethereum wallet + new one
+        self.assertEqual(hardware_count, 1)
+        self.assertEqual(readonly_count, 1)
+
+    def test_balance_with_hardware_wallets(self):
+        """Test that balances work with hardware wallets"""
+        chain = "ethereum"
+        hardware_address = "0xHardware1234567890123456789012345678901234"
+
+        # Add hardware wallet
+        self.async_run_with_timeout(
+            self.gateway_http_mock.add_hardware_wallet(chain, hardware_address)
+        )
+
+        # Get balances for hardware wallet
+        tokens = ["ETH", "USDC"]
+        balances_resp = self.async_run_with_timeout(
+            self.gateway_http_mock.get_balances(chain, "mainnet", hardware_address, tokens)
+        )
+
+        # Verify balances returned
+        self.assertIn("balances", balances_resp)
+        balances = balances_resp["balances"]
+        for token in tokens:
+            self.assertIn(token, balances)
 
 
 if __name__ == "__main__":

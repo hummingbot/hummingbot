@@ -12,8 +12,8 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 
 
-class MockGatewayHTTPClient:
-    """Mock Gateway HTTP client for testing"""
+class MockGatewayClient:
+    """Mock Gateway client for testing"""
 
     def __init__(self):
         self.api_request = AsyncMock()
@@ -97,6 +97,34 @@ class MockGatewayHTTPClient:
                 if address not in w.get("walletAddresses", [])
             ]
         return {"success": True}
+
+    async def add_hardware_wallet(self, chain: str, address: str) -> Dict[str, Any]:
+        """Mock add hardware wallet"""
+        wallet = {
+            "walletAddresses": [],
+            "hardwareWalletAddresses": [address],
+            "chain": chain
+        }
+
+        if chain not in self._wallets:
+            self._wallets[chain] = []
+        self._wallets[chain].append(wallet)
+
+        return {"address": address, "chain": chain, "type": "hardware"}
+
+    async def add_read_only_wallet(self, chain: str, address: str) -> Dict[str, Any]:
+        """Mock add read-only wallet"""
+        wallet = {
+            "walletAddresses": [],
+            "readOnlyWalletAddresses": [address],
+            "chain": chain
+        }
+
+        if chain not in self._wallets:
+            self._wallets[chain] = []
+        self._wallets[chain].append(wallet)
+
+        return {"address": address, "chain": chain, "type": "read-only"}
 
     def get_default_wallet(self, chain: str) -> Optional[str]:
         """Mock get default wallet - returns first wallet for the chain"""
@@ -259,7 +287,7 @@ class MockGatewayConnector:
         self.chain = chain
         self.network = network
         self._in_flight_orders = {}
-        self._gateway_instance = MockGatewayHTTPClient()
+        self._gateway_instance = MockGatewayClient()
         self._order_id_counter = 0
         self._wallet_cache = None
         self._wallet_cache_timestamp = 0
