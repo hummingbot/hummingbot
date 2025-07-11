@@ -370,10 +370,10 @@ class GatewaySwapCommand:
                 if quote_id:
                     # Get wallet address
                     wallets_resp = await self._get_gateway_instance().get_wallets(chain)
-                    if not wallets_resp or not wallets_resp[0].get("walletAddresses"):
+                    if not wallets_resp or not wallets_resp[0].get("signingAddresses"):
                         self.notify(f"No wallet found for {chain}. Please add one with 'gateway wallet add {chain}'")
                         return
-                    wallet_address = wallets_resp[0]["walletAddresses"][0]
+                    wallet_address = wallets_resp[0]["signingAddresses"][0]
 
                     self.notify(f"\nExecuting swap with quote ID: {quote_id}")
                     self.logger().info(f"Executing swap with quote ID: {quote_id}")
@@ -665,6 +665,8 @@ class GatewaySwapCommand:
         self.notify("\nMonitoring transaction...")
         import asyncio
         displayed_pending = False
+        error_count = 0
+        max_errors = 3
 
         while True:
             try:
@@ -686,5 +688,11 @@ class GatewaySwapCommand:
                     if poll_resp.get("txReceipt"):
                         self.notify(f"Receipt: {poll_resp['txReceipt']}")
                     break
-            except Exception:
+            except Exception as e:
+                error_count += 1
+                self.logger().error(f"Error polling transaction {tx_hash}: {str(e)}")
+                if error_count >= max_errors:
+                    self.notify("\n⚠️  Transaction monitoring stopped due to repeated errors.")
+                    self.notify(f"You can check the transaction manually: {tx_hash}")
+                    break
                 await asyncio.sleep(2)
