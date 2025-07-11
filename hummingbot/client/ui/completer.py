@@ -419,18 +419,27 @@ class HummingbotCompleter(Completer):
                         loop = asyncio.get_event_loop()
                         if loop.is_running():
                             # Use cached data if available
-                            if hasattr(self, '_cached_connector_networks') and connector in self._cached_connector_networks:
-                                networks = self._cached_connector_networks[connector]
+                            if hasattr(self, '_cached_connector_networks'):
+                                # Check both full connector and base connector in cache
+                                if connector in self._cached_connector_networks:
+                                    networks = self._cached_connector_networks[connector]
+                                elif base_connector in self._cached_connector_networks:
+                                    networks = self._cached_connector_networks[base_connector]
                         else:
                             # Fetch connector info synchronously
                             try:
                                 connectors = loop.run_until_complete(gateway_instance.get_connectors())
+                                # Try full connector first, then base connector
                                 if connector in connectors:
                                     networks = connectors[connector].get("networks", [])
-                                    # Cache for future use
+                                elif base_connector in connectors:
+                                    networks = connectors[base_connector].get("networks", [])
+
+                                if networks:
+                                    # Cache for future use using base connector name
                                     if not hasattr(self, '_cached_connector_networks'):
                                         self._cached_connector_networks = {}
-                                    self._cached_connector_networks[connector] = networks
+                                    self._cached_connector_networks[base_connector] = networks
                             except Exception:
                                 pass
         except Exception:
@@ -438,10 +447,12 @@ class HummingbotCompleter(Completer):
 
         # Fallback to hardcoded networks if we couldn't fetch
         if not networks:
-            connector_lower = connector.lower()
+            # Handle type-suffixed connectors
+            base_connector = connector.split("/")[0] if "/" in connector else connector
+            connector_lower = base_connector.lower()
             if connector_lower in ["raydium", "meteora", "jupiter"]:
                 networks = ["mainnet-beta", "devnet"]
-            elif connector_lower == "uniswap":
+            elif connector_lower in ["uniswap", "0x"]:
                 networks = ["mainnet", "base", "arbitrum", "optimism", "polygon", "celo", "avalanche", "bsc"]
 
         return WordCompleter(networks, ignore_case=True)
