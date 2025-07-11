@@ -647,10 +647,10 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
             # Get wallet for ethereum chain from gateway
             try:
                 wallets_resp = await self._get_gateway_instance().get_wallets("ethereum")
-                if not wallets_resp or not wallets_resp[0].get("walletAddresses"):
+                if not wallets_resp or not wallets_resp[0].get("signingAddresses"):
                     self.notify("No wallet found for ethereum. Please add one with 'gateway wallet add ethereum'")
                     return
-                wallet_address = wallets_resp[0]["walletAddresses"][0]
+                wallet_address = wallets_resp[0]["signingAddresses"][0]
             except Exception as e:
                 self.notify(f"Error fetching wallet: {str(e)}")
                 return
@@ -711,10 +711,10 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
             # Get ethereum wallet
             try:
                 wallets_resp = await self._get_gateway_instance().get_wallets("ethereum")
-                if not wallets_resp or not wallets_resp[0].get("walletAddresses"):
+                if not wallets_resp or not wallets_resp[0].get("signingAddresses"):
                     self.notify("No wallet found for ethereum. Please add one with 'gateway wallet add ethereum'")
                     return
-                wallet_address = wallets_resp[0]["walletAddresses"][0]
+                wallet_address = wallets_resp[0]["signingAddresses"][0]
             except Exception as e:
                 self.notify(f"Error fetching wallet: {str(e)}")
                 return

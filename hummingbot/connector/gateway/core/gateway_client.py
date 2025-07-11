@@ -470,17 +470,14 @@ class GatewayClient:
         response = await self.request("GET", "wallet", params=params)
         wallets = response if isinstance(response, list) else []
 
-        # Merge hardware wallets into walletAddresses for each wallet
+        # Add signingAddresses array that contains both regular and hardware wallets
         for wallet in wallets:
             regular_addresses = wallet.get("walletAddresses", [])
             hardware_addresses = wallet.get("hardwareWalletAddresses", [])
 
-            # Combine regular and hardware addresses
-            all_addresses = regular_addresses + hardware_addresses
-            wallet["walletAddresses"] = all_addresses
-
-            # Keep the separate arrays for display purposes
-            # They are already present in the response
+            # Create signingAddresses for wallets that can sign transactions
+            signing_addresses = regular_addresses + hardware_addresses
+            wallet["signingAddresses"] = signing_addresses
 
         # Update the cache
         if wallets and not chain:

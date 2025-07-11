@@ -169,10 +169,10 @@ class GatewaySwapCommand:
 
             # Get wallet address
             wallets_resp = await self._get_gateway_instance().get_wallets(chain)
-            if not wallets_resp or not wallets_resp[0].get("walletAddresses"):
+            if not wallets_resp or not wallets_resp[0].get("signingAddresses"):
                 self.notify(f"No wallet found for {chain}. Please add one with 'gateway wallet add {chain}'")
                 return
-            wallet_address = wallets_resp[0]["walletAddresses"][0]
+            wallet_address = wallets_resp[0]["signingAddresses"][0]
 
             # Look up pool address if needed (for AMM/CLMM connectors)
             pool_address = None
@@ -479,10 +479,10 @@ class GatewaySwapCommand:
 
             # Get wallet address
             wallets_resp = await self._get_gateway_instance().get_wallets(chain)
-            if not wallets_resp or not wallets_resp[0].get("walletAddresses"):
+            if not wallets_resp or not wallets_resp[0].get("signingAddresses"):
                 self.notify(f"No wallet found for {chain}. Please add one with 'gateway wallet add {chain}'")
                 return
-            wallet_address = wallets_resp[0]["walletAddresses"][0]
+            wallet_address = wallets_resp[0]["signingAddresses"][0]
 
             # Look up pool address if needed (for AMM/CLMM connectors)
             pool_address = None
