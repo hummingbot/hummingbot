@@ -674,7 +674,7 @@ class ExchangePyBase(ExchangeBase, ABC):
         - The polling loop to update order status and balance status using REST API (backup for main update process)
         - The background task to process the events received through the user stream tracker (websocket connection)
         """
-        self._stop_network()
+        await self.stop_network()
         self.order_book_tracker.start()
         if self.is_trading_required:
             self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
@@ -683,13 +683,6 @@ class ExchangePyBase(ExchangeBase, ABC):
             self._user_stream_tracker_task = self._create_user_stream_tracker_task()
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
             self._lost_orders_update_task = safe_ensure_future(self._lost_orders_update_polling_loop())
-
-    async def stop_network(self):
-        """
-        This function is executed when the connector is stopped. It perform a general cleanup and stops all background
-        tasks that require the connection with the exchange to work.
-        """
-        self._stop_network()
 
     async def check_network(self) -> NetworkStatus:
         """
@@ -703,7 +696,7 @@ class ExchangePyBase(ExchangeBase, ABC):
             return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
 
-    def _stop_network(self):
+    async def stop_network(self):
         # Resets timestamps and events for status_polling_loop
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
@@ -722,6 +715,10 @@ class ExchangePyBase(ExchangeBase, ABC):
         if self._user_stream_tracker_task is not None:
             self._user_stream_tracker_task.cancel()
             self._user_stream_tracker_task = None
+
+        # Stop the user stream tracker to properly clean up child tasks
+        if self._user_stream_tracker is not None:
+            await self._user_stream_tracker.stop()
         if self._user_stream_event_listener_task is not None:
             self._user_stream_event_listener_task.cancel()
             self._user_stream_event_listener_task = None
