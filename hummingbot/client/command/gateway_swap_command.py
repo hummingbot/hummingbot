@@ -340,9 +340,71 @@ class GatewaySwapCommand:
                 for i, hop in enumerate(quote_resp["route"]):
                     self.notify(f"  {i + 1}. {hop}")
 
-            # Reminder about quote ID
+            # Ask if user wants to execute the swap
             if quote_id:
-                self.notify(f"\nTo execute this swap, use the quote ID: {quote_id}")
+                self.placeholder_mode = True
+                self.app.hide_input = True
+                try:
+                    execute_now = await self.app.prompt(prompt="\nDo you want to execute this swap now? (Yes/No) >>> ")
+                    if execute_now.lower() in ["y", "yes"]:
+                        # Get wallet address
+                        wallets_resp = await self._get_gateway_instance().get_wallets(chain)
+                        if not wallets_resp or not wallets_resp[0].get("signingAddresses"):
+                            self.notify(f"No wallet found for {chain}. Please add one with 'gateway wallet add {chain}'")
+                            return
+                        wallet_address = wallets_resp[0]["signingAddresses"][0]
+
+                        self.notify(f"\nExecuting swap with quote ID: {quote_id}")
+                        self.logger().info(f"Executing swap with quote ID: {quote_id}")
+
+                        # Execute with quote ID
+                        execute_params = {
+                            "walletAddress": wallet_address,
+                            "network": network,
+                            "quoteId": quote_id
+                        }
+
+                        # Execute swap using quote
+                        execute_resp = await self._get_gateway_instance().connector_request(
+                            "POST", connector_type, "execute-quote", data=execute_params
+                        )
+
+                        if "error" in execute_resp:
+                            self.notify(f"\nError executing swap: {execute_resp['error']}")
+                            return
+
+                        # Process response
+                        tx_hash = execute_resp.get("signature") or execute_resp.get("hash")
+                        tx_status = execute_resp.get("status")
+
+                        if tx_hash:
+                            self.notify("\n✓ Swap submitted successfully!")
+                            self.notify(f"Transaction hash: {tx_hash}")
+
+                            # Check initial status
+                            if tx_status == 1:  # Already confirmed
+                                self.notify("\n✓ Swap confirmed!")
+                                if execute_resp.get("data"):
+                                    data = execute_resp["data"]
+                                    amount_out = data.get('amountOut', 'N/A')
+                                    self.notify(f"Amount out: {amount_out}")
+                                    self.logger().info(
+                                        f"Swap confirmed - Quote ID: {quote_id}, "
+                                        f"Tx Hash: {tx_hash}, "
+                                        f"Amount Out: {amount_out}"
+                                    )
+                            elif tx_status == -1:  # Failed
+                                self.notify("\n✗ Swap failed")
+                            else:  # Pending or not provided, monitor it
+                                await self._monitor_swap_transaction(chain, network, tx_hash)
+                        else:
+                            self.notify("\n✓ Swap request submitted (no transaction hash returned)")
+                    else:
+                        self.notify(f"\nTo execute this swap later, use the quote ID: {quote_id}")
+                finally:
+                    self.placeholder_mode = False
+                    self.app.hide_input = False
+                    self.app.change_prompt(prompt=">>> ")
 
         except Exception as e:
             self.notify(f"Error getting swap quote: {str(e)}")
