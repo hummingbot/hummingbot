@@ -192,11 +192,19 @@ class GatewaySwapCommand:
                     self.notify(f"Error searching for pool: {str(e)}")
                     return
 
+            # Get connector config to show actual slippage
+            slippage_pct = "1"  # Default
+            try:
+                connector_config = await self._get_gateway_instance().get_config(namespace=connector)
+                slippage_pct = str(connector_config.get("slippagePct", 1))
+            except Exception:
+                pass
+
             self.notify(f"\nGetting swap quote from {connector} on {network}...")
             self.notify(f"  Pair: {pair}")
             self.notify(f"  Amount: {amount}")
             self.notify(f"  Side: {side}")
-            self.notify("  Slippage: 1%")
+            self.notify(f"  Slippage: {slippage_pct}%")
 
             # Get quote from gateway
             quote_params = {
