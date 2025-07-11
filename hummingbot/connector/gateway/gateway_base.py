@@ -203,7 +203,8 @@ class GatewayBase(ConnectorBase):
     async def start_network(self):
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
-            self._get_gas_estimate_task = safe_ensure_future(self.get_gas_estimate())
+            if (self.chain != "cardano"):
+                self._get_gas_estimate_task = safe_ensure_future(self.get_gas_estimate())
         self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
 
     async def stop_network(self):
