@@ -124,25 +124,31 @@ class GatewayWalletCommand:
                 regular_addresses = wallet.get("walletAddresses", [])
                 readonly_addresses = wallet.get("readOnlyWalletAddresses", [])
                 hardware_addresses = wallet.get("hardwareWalletAddresses", [])
+                signing_addresses = wallet.get("signingAddresses", [])
 
-                # Collect all addresses with their types
+                # Get the primary signing address (first in signingAddresses)
+                primary_signing = signing_addresses[0] if signing_addresses else None
+
+                # Collect all addresses with their types and signing status
                 all_addresses = []
 
                 for addr in regular_addresses:
-                    all_addresses.append(["Regular", addr])
+                    is_signing = "✓" if addr == primary_signing else ""
+                    all_addresses.append(["Regular", addr, is_signing])
 
                 for addr in readonly_addresses:
-                    all_addresses.append(["Read-Only", addr])
+                    all_addresses.append(["Read-Only", addr, ""])  # Read-only can't sign
 
                 for addr in hardware_addresses:
-                    all_addresses.append(["Hardware", addr])
+                    is_signing = "✓" if addr == primary_signing else ""
+                    all_addresses.append(["Hardware", addr, is_signing])
 
                 # Display chain section
                 self.notify(f"Chain: {chain}")
 
                 if all_addresses:
                     # Create DataFrame for this chain
-                    df = pd.DataFrame(all_addresses, columns=["Type", "Address"])
+                    df = pd.DataFrame(all_addresses, columns=["Type", "Address", "Primary"])
                     self.notify(df.to_string(index=False))
                 else:
                     self.notify("  No wallets configured")

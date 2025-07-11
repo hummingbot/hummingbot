@@ -223,7 +223,7 @@ class GatewaySwapCommand:
                 "quoteToken": quote_token,
                 "amount": str(amount_decimal),
                 "side": side,
-                "address": wallet_address
+                "walletAddress": wallet_address
             }
 
             # Add pool address if found
@@ -521,7 +521,7 @@ class GatewaySwapCommand:
                 "quoteToken": quote_token,
                 "amount": str(amount_decimal),
                 "side": side,
-                "address": wallet_address
+                "walletAddress": wallet_address
             }
 
             # Add pool address if found
@@ -619,7 +619,7 @@ class GatewaySwapCommand:
                 "quoteToken": quote_token,
                 "amount": str(amount_decimal),
                 "side": side,
-                "address": wallet_address,
+                "walletAddress": wallet_address,
                 "minimumOut": minimum_out
             }
 
