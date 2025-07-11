@@ -98,31 +98,37 @@ class GatewaySwapCommand:
             self.app.hide_input = True
 
             try:
-                # Get available tokens for completer
+                # Get available tokens
                 tokens_resp = await self._get_gateway_instance().get_tokens(chain, network)
                 tokens = tokens_resp.get("tokens", [])
                 token_symbols = sorted(list(set([t.get("symbol", "") for t in tokens if t.get("symbol")])))
 
-                # Create completer for trading pairs
-                from prompt_toolkit.completion import WordCompleter
+                # Show available tokens
+                if tokens:
+                    self.notify(f"\nAvailable tokens on {chain}/{network}:")
+                    # Display tokens in columns
+                    cols = 5
+                    for i in range(0, len(token_symbols), cols):
+                        row = "  " + "  ".join(f"{sym:10}" for sym in token_symbols[i:i + cols])
+                        self.notify(row)
 
-                # Generate common trading pairs with dash convention
-                trading_pairs = []
-                # Common quote tokens
-                quote_tokens = ["USDC", "USDT", "SOL", "ETH"] if chain == "solana" else ["USDC", "USDT", "ETH", "DAI"]
-
-                for base in token_symbols:
-                    for quote in quote_tokens:
-                        if base != quote and quote in token_symbols:
-                            trading_pairs.append(f"{base}-{quote}")
-
-                pair_completer = WordCompleter(trading_pairs, ignore_case=True)
-
-                # Get pair with completer
-                pair = await self.app.prompt(prompt="\nEnter trading pair (e.g., SOL-USDC): ", completer=pair_completer)
-                if self.app.to_stop_config or not pair:
+                # Get base token
+                self.notify("\n")
+                base_token = await self.app.prompt(prompt="Enter base token (e.g., SOL): ")
+                if self.app.to_stop_config or not base_token:
                     self.notify("Quote cancelled")
                     return
+                base_token = base_token.upper()
+
+                # Get quote token
+                quote_token = await self.app.prompt(prompt="Enter quote token (e.g., USDC): ")
+                if self.app.to_stop_config or not quote_token:
+                    self.notify("Quote cancelled")
+                    return
+                quote_token = quote_token.upper()
+
+                # Construct pair for display
+                pair = f"{base_token}-{quote_token}"
 
                 # Get amount with default
                 amount = await self.app.prompt(prompt="Enter amount to trade [1]: ")
@@ -158,15 +164,6 @@ class GatewaySwapCommand:
                     return
             except Exception:
                 self.notify(f"Error: Invalid amount '{amount}'")
-                return
-
-            # Parse pair (support both - and / separators)
-            if "-" in pair:
-                base_token, quote_token = pair.split("-")
-            elif "/" in pair:
-                base_token, quote_token = pair.split("/")
-            else:
-                self.notify(f"Error: Invalid pair format '{pair}'. Use format like SOL-USDC")
                 return
 
             # Get wallet address
@@ -410,31 +407,37 @@ class GatewaySwapCommand:
                     return  # Exit early if using quote ID
 
                 # Otherwise, continue with interactive swap flow
-                # Get available tokens for completer
+                # Get available tokens
                 tokens_resp = await self._get_gateway_instance().get_tokens(chain, network)
                 tokens = tokens_resp.get("tokens", [])
                 token_symbols = sorted(list(set([t.get("symbol", "") for t in tokens if t.get("symbol")])))
 
-                # Create completer for trading pairs
-                from prompt_toolkit.completion import WordCompleter
+                # Show available tokens
+                if tokens:
+                    self.notify(f"\nAvailable tokens on {chain}/{network}:")
+                    # Display tokens in columns
+                    cols = 5
+                    for i in range(0, len(token_symbols), cols):
+                        row = "  " + "  ".join(f"{sym:10}" for sym in token_symbols[i:i + cols])
+                        self.notify(row)
 
-                # Generate common trading pairs with dash convention
-                trading_pairs = []
-                # Common quote tokens
-                quote_tokens = ["USDC", "USDT", "SOL", "ETH"] if chain == "solana" else ["USDC", "USDT", "ETH", "DAI"]
-
-                for base in token_symbols:
-                    for quote in quote_tokens:
-                        if base != quote and quote in token_symbols:
-                            trading_pairs.append(f"{base}-{quote}")
-
-                pair_completer = WordCompleter(trading_pairs, ignore_case=True)
-
-                # Get pair with completer
-                pair = await self.app.prompt(prompt="\nEnter trading pair (e.g., SOL-USDC): ", completer=pair_completer)
-                if self.app.to_stop_config or not pair:
+                # Get base token
+                self.notify("\n")
+                base_token = await self.app.prompt(prompt="Enter base token (e.g., SOL): ")
+                if self.app.to_stop_config or not base_token:
                     self.notify("Swap cancelled")
                     return
+                base_token = base_token.upper()
+
+                # Get quote token
+                quote_token = await self.app.prompt(prompt="Enter quote token (e.g., USDC): ")
+                if self.app.to_stop_config or not quote_token:
+                    self.notify("Swap cancelled")
+                    return
+                quote_token = quote_token.upper()
+
+                # Construct pair for display
+                pair = f"{base_token}-{quote_token}"
 
                 # Get amount with default
                 amount = await self.app.prompt(prompt="Enter amount to trade [1]: ")
@@ -470,15 +473,6 @@ class GatewaySwapCommand:
                     return
             except Exception:
                 self.notify(f"Error: Invalid amount '{amount}'")
-                return
-
-            # Parse pair (support both - and / separators)
-            if "-" in pair:
-                base_token, quote_token = pair.split("-")
-            elif "/" in pair:
-                base_token, quote_token = pair.split("/")
-            else:
-                self.notify(f"Error: Invalid pair format '{pair}'. Use format like SOL-USDC")
                 return
 
             # Get wallet address
