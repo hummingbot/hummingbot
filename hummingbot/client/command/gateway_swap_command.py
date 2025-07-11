@@ -72,14 +72,47 @@ class GatewaySwapCommand:
                 self.notify("Usage: gateway swap quote <connector> [network]")
                 return
 
-            # Get connector info to determine chain
-            connector_info = await self._get_gateway_instance().get_connector_info(connector)
-            if not connector_info:
-                self.notify(f"\nError: Connector '{connector}' not found.")
-                return
+            # Check if connector includes type suffix
+            if "/" in connector:
+                # User specified the type directly (e.g., "uniswap/router")
+                base_connector, specified_type = connector.split("/", 1)
+                connector_type = connector
+
+                # Get connector info using base name
+                connector_info = await self._get_gateway_instance().get_connector_info(base_connector)
+                if not connector_info:
+                    self.notify(f"\nError: Connector '{base_connector}' not found.")
+                    return
+
+                # Verify the specified type is supported
+                trading_types = connector_info.get("trading_types", [])
+                if specified_type not in trading_types:
+                    self.notify(f"\nError: Connector '{base_connector}' does not support type '{specified_type}'.")
+                    self.notify(f"Supported types: {', '.join(trading_types)}")
+                    return
+            else:
+                # User specified base connector name only
+                connector_info = await self._get_gateway_instance().get_connector_info(connector)
+                if not connector_info:
+                    self.notify(f"\nError: Connector '{connector}' not found.")
+                    return
+
+                trading_types = connector_info.get("trading_types", [])
+
+                # Determine connector type based on trading types
+                connector_type = None
+                if "router" in trading_types:
+                    connector_type = f"{connector}/router"
+                elif "amm" in trading_types:
+                    connector_type = f"{connector}/amm"
+                elif "clmm" in trading_types:
+                    connector_type = f"{connector}/clmm"
+                else:
+                    self.notify(f"\nError: Connector '{connector}' does not support swaps.")
+                    self.notify(f"Available trading types: {', '.join(trading_types)}")
+                    return
 
             chain = connector_info.get("chain", "")
-            trading_types = connector_info.get("trading_types", [])
 
             # Get default network if not provided
             if not network:
@@ -88,18 +121,6 @@ class GatewaySwapCommand:
                     self.notify(f"\nError: Could not determine default network for {chain}.")
                     return
                 self.notify(f"Using default network: {network}")
-
-            # Determine connector type (AMM, CLMM, or router)
-            connector_type = None
-            if "amm" in trading_types:
-                connector_type = f"{connector}/amm"
-            elif "clmm" in trading_types:
-                connector_type = f"{connector}/clmm"
-            elif "router" in trading_types:
-                connector_type = f"{connector}/router"
-            else:
-                self.notify(f"\nError: Connector '{connector}' does not support swaps.")
-                return
 
             # Parse pair if provided
             base_token = None
@@ -419,14 +440,47 @@ class GatewaySwapCommand:
                 self.notify("Usage: gateway swap execute <connector> [network]")
                 return
 
-            # Get connector info to determine chain
-            connector_info = await self._get_gateway_instance().get_connector_info(connector)
-            if not connector_info:
-                self.notify(f"\nError: Connector '{connector}' not found.")
-                return
+            # Check if connector includes type suffix
+            if "/" in connector:
+                # User specified the type directly (e.g., "uniswap/router")
+                base_connector, specified_type = connector.split("/", 1)
+                connector_type = connector
+
+                # Get connector info using base name
+                connector_info = await self._get_gateway_instance().get_connector_info(base_connector)
+                if not connector_info:
+                    self.notify(f"\nError: Connector '{base_connector}' not found.")
+                    return
+
+                # Verify the specified type is supported
+                trading_types = connector_info.get("trading_types", [])
+                if specified_type not in trading_types:
+                    self.notify(f"\nError: Connector '{base_connector}' does not support type '{specified_type}'.")
+                    self.notify(f"Supported types: {', '.join(trading_types)}")
+                    return
+            else:
+                # User specified base connector name only
+                connector_info = await self._get_gateway_instance().get_connector_info(connector)
+                if not connector_info:
+                    self.notify(f"\nError: Connector '{connector}' not found.")
+                    return
+
+                trading_types = connector_info.get("trading_types", [])
+
+                # Determine connector type based on trading types
+                connector_type = None
+                if "router" in trading_types:
+                    connector_type = f"{connector}/router"
+                elif "amm" in trading_types:
+                    connector_type = f"{connector}/amm"
+                elif "clmm" in trading_types:
+                    connector_type = f"{connector}/clmm"
+                else:
+                    self.notify(f"\nError: Connector '{connector}' does not support swaps.")
+                    self.notify(f"Available trading types: {', '.join(trading_types)}")
+                    return
 
             chain = connector_info.get("chain", "")
-            trading_types = connector_info.get("trading_types", [])
 
             # Get default network if not provided
             if not network:
@@ -435,18 +489,6 @@ class GatewaySwapCommand:
                     self.notify(f"\nError: Could not determine default network for {chain}.")
                     return
                 self.notify(f"Using default network: {network}")
-
-            # Determine connector type
-            connector_type = None
-            if "amm" in trading_types:
-                connector_type = f"{connector}/amm"
-            elif "clmm" in trading_types:
-                connector_type = f"{connector}/clmm"
-            elif "router" in trading_types:
-                connector_type = f"{connector}/router"
-            else:
-                self.notify(f"\nError: Connector '{connector}' does not support swaps.")
-                return
 
             # Always enter interactive mode
             self.placeholder_mode = True

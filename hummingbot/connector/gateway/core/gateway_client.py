@@ -75,6 +75,7 @@ class GatewayClient:
         self._compute_units_cache: Dict[str, int] = {}  # {"tx_type:connector:network": compute_units}
         self._fee_estimates: Dict[str, Dict[str, Any]] = {}  # {"chain:network": fee_data}
         self._connector_info_cache: Dict[str, Dict[str, Any]] = {}
+        self._swap_connectors_cache: List[str] = []  # List of swap connectors with type suffixes
         self._chain_info_cache: List[Dict[str, Any]] = []
         self._wallets_cache: Dict[str, List[Dict[str, Any]]] = {}  # {"chain": [wallet_info]}
         self._cache_initialized = False
@@ -288,6 +289,10 @@ class GatewayClient:
         base_name = connector_name.split("/")[0]
         return connectors.get(base_name)
 
+    def get_swap_connectors(self) -> List[str]:
+        """Get list of swap connectors with type suffixes (e.g., uniswap/router, raydium/amm)."""
+        return self._swap_connectors_cache.copy()
+
     async def get_connector_trading_types(self, connector_name: str) -> Optional[List[str]]:
         """
         Get supported trading types for a specific connector.
@@ -410,6 +415,18 @@ class GatewayClient:
             # Load connectors
             connectors = await self.get_connectors()
             self._connector_info_cache = connectors
+
+            # Build swap connectors list with type suffixes
+            swap_connectors = []
+            for name, info in connectors.items():
+                trading_types = info.get("trading_types", [])
+                if "router" in trading_types:
+                    swap_connectors.append(f"{name}/router")
+                if "amm" in trading_types:
+                    swap_connectors.append(f"{name}/amm")
+                if "clmm" in trading_types:
+                    swap_connectors.append(f"{name}/clmm")
+            self._swap_connectors_cache = sorted(swap_connectors)
 
             # Load wallets for all chains
             all_wallets = await self.get_wallets()

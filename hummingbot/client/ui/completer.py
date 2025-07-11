@@ -348,6 +348,31 @@ class HummingbotCompleter(Completer):
             # Return a default list of connectors
             return WordCompleter(["0x", "uniswap", "jupiter", "meteora", "raydium"], ignore_case=True)
 
+    @property
+    def _gateway_swap_connectors_completer(self):
+        """Get swap connectors with type suffixes from gateway configuration"""
+        connectors = []
+        try:
+            # If we have access to the gateway instance, fetch swap connectors
+            if hasattr(self.hummingbot_application, '_gateway_monitor') and self.hummingbot_application._gateway_monitor:
+                from hummingbot.connector.gateway.core import GatewayClient
+                gateway_instance = GatewayClient.get_instance()
+                if gateway_instance:
+                    # Get swap connectors from cache
+                    swap_connectors = gateway_instance.get_swap_connectors()
+                    if swap_connectors:
+                        connectors = swap_connectors
+                    else:
+                        # Default list of known swap connectors with types
+                        connectors = ["0x/router", "uniswap/router", "uniswap/amm", "jupiter/router",
+                                      "meteora/clmm", "raydium/amm", "raydium/clmm"]
+        except Exception:
+            # Default list if we can't access gateway
+            connectors = ["0x/router", "uniswap/router", "uniswap/amm", "jupiter/router",
+                          "meteora/clmm", "raydium/amm", "raydium/clmm"]
+
+        return WordCompleter(connectors, ignore_case=True)
+
     def _get_networks_for_chain_completer(self, chain: str):
         """Get network completer for a specific chain"""
         networks = []
@@ -378,10 +403,13 @@ class HummingbotCompleter(Completer):
             if hasattr(self.hummingbot_application, '_gateway_monitor') and self.hummingbot_application._gateway_monitor:
                 gateway_instance = self.hummingbot_application._gateway_monitor._get_gateway_instance()
                 if gateway_instance:
+                    # Strip type suffix if present (e.g., "uniswap/router" -> "uniswap")
+                    base_connector = connector.split("/")[0]
+
                     # Get connector info from cache
                     connector_info = None
                     if hasattr(gateway_instance, '_connector_info_cache') and gateway_instance._connector_info_cache:
-                        connector_info = gateway_instance._connector_info_cache.get(connector)
+                        connector_info = gateway_instance._connector_info_cache.get(base_connector)
 
                     if connector_info:
                         networks = connector_info.get("networks", [])
@@ -1029,7 +1057,7 @@ class HummingbotCompleter(Completer):
                 yield c
 
         elif self._complete_gateway_swap_connector(document):
-            for c in self._gateway_available_connectors_completer.get_completions(document, complete_event):
+            for c in self._gateway_swap_connectors_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_gateway_swap_network(document):
