@@ -292,18 +292,10 @@ class GatewaySwapCommand:
                 return
 
             # Display quote details
-            self.notify("\n=== Swap Quote ===")
-
-            # Display Quote ID prominently
             quote_id = quote_resp.get('quoteId')
             if quote_id:
-                self.notify(f"Quote ID: {quote_id}")
+                self.notify(f"\nQuote ID: {quote_id}")
                 self.logger().info(f"Swap quote ID: {quote_id}")
-
-            self.notify(f"Connector: {connector}")
-            self.notify(f"Network: {network}")
-            self.notify(f"Pair: {pair_display}")
-            self.notify(f"Side: {side}")
 
             # Token addresses
             token_in = quote_resp.get('tokenIn', 'N/A')
@@ -313,28 +305,31 @@ class GatewaySwapCommand:
             amount_out = quote_resp.get('amountOut', quote_resp.get('expectedOut'))
             min_amount_out = quote_resp.get('minAmountOut', quote_resp.get('minimumOut'))
 
+            # Display transaction details based on side
+            self.notify("\n=== Transaction Details ===")
+
             if side == "BUY":
-                self.notify(f"\nBuying: {amount} {base_token}")
-                if token_out != 'N/A':
-                    short_token_out = f"{token_out[:6]}...{token_out[-4:]}" if len(token_out) > 12 else token_out
-                    self.notify(f"  Token: {short_token_out}")
-                if amount_out:
-                    self.notify(f"Cost: {amount_out} {quote_token}")
-                if token_in != 'N/A':
-                    short_token_in = f"{token_in[:6]}...{token_in[-4:]}" if len(token_in) > 12 else token_in
-                    self.notify(f"  Token: {short_token_in}")
+                # Buying base with quote
+                self.notify("\nYou will spend:")
+                self.notify(f"  Amount: {amount_out} {quote_token}")
+                self.notify(f"  Token Address: {token_in}")
+
+                self.notify("\nYou will receive:")
+                self.notify(f"  Amount: {amount} {base_token}")
+                self.notify(f"  Token Address: {token_out}")
             else:
-                self.notify(f"\nSelling: {amount} {base_token}")
-                if token_in != 'N/A':
-                    short_token_in = f"{token_in[:6]}...{token_in[-4:]}" if len(token_in) > 12 else token_in
-                    self.notify(f"  Token: {short_token_in}")
-                if amount_out:
-                    self.notify(f"Receive: {amount_out} {quote_token}")
-                if token_out != 'N/A':
-                    short_token_out = f"{token_out[:6]}...{token_out[-4:]}" if len(token_out) > 12 else token_out
-                    self.notify(f"  Token: {short_token_out}")
+                # Selling base for quote
+                self.notify("\nYou will spend:")
+                self.notify(f"  Amount: {amount} {base_token}")
+                self.notify(f"  Token Address: {token_in}")
+
+                self.notify("\nYou will receive:")
+                self.notify(f"  Amount: {amount_out} {quote_token}")
+                self.notify(f"  Token Address: {token_out}")
+
                 if min_amount_out:
-                    self.notify(f"Minimum Receive: {min_amount_out} {quote_token}")
+                    self.notify("\nMinimum you will receive (after slippage):")
+                    self.notify(f"  Amount: {min_amount_out} {quote_token}")
 
             # Price information
             self.notify("\nPrice Information:")
