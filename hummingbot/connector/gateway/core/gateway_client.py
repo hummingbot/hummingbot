@@ -467,7 +467,7 @@ class GatewayClient:
     async def get_wallets(self, chain: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get wallets from Gateway."""
         # Always fetch all wallets with hardware and read-only
-        params = {"showHardware": True, "showReadOnly": True}
+        params = {"showHardware": "true", "showReadOnly": "true"}
         response = await self.request("GET", "wallet", params=params)
         wallets = response if isinstance(response, list) else []
 
