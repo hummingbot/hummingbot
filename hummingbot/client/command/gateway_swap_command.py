@@ -378,10 +378,10 @@ class GatewaySwapCommand:
                         # Show wallet info based on chain
                         chain_name = chain.capitalize()
                         execute_now = await self.app.prompt(
-                            prompt=f"\nDo you want to execute this swap now with {chain_name} wallet {wallet_address}? (Yes/No) >>> "
+                            prompt=f"Do you want to execute this swap now with {chain_name} wallet {wallet_address}? (Yes/No) >>> "
                         )
                     else:
-                        execute_now = await self.app.prompt(prompt="\nDo you want to execute this swap now? (Yes/No) >>> ")
+                        execute_now = await self.app.prompt(prompt="Do you want to execute this swap now? (Yes/No) >>> ")
                     if execute_now.lower() in ["y", "yes"]:
                         # Check if we have a wallet
                         if not wallet_address:
