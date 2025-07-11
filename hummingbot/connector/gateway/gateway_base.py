@@ -135,6 +135,13 @@ class GatewayBase(ConnectorBase):
     def address(self):
         return self._wallet_address
 
+    @property
+    def trading_pairs(self):
+        """
+        Returns the list of trading pairs supported by this connector.
+        """
+        return self._trading_pairs
+
     async def all_trading_pairs(self) -> List[str]:
         """
         Calls the tokens endpoint on Gateway.

@@ -53,27 +53,22 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
         Creates a new task if none exists or if the previous task has completed.
         This method is idempotent and safe to call multiple times.
         """
-        if self._manage_listen_key_task is None or self._manage_listen_key_task.done():
-            self._manage_listen_key_task = safe_ensure_future(self._manage_listen_key_task_loop())
+        # If task is already running, do nothing
+        if self._manage_listen_key_task is not None and not self._manage_listen_key_task.done():
+            return
 
-    async def _cancel_listen_key_task(self):
-        """
-        Safely cancels the listen key management task.
-
-        Attempts graceful cancellation with a timeout to prevent hanging.
-        Shields the task to allow cleanup operations to complete.
-        """
-        if self._manage_listen_key_task and not self._manage_listen_key_task.done():
-            self.logger().info("Cancelling listen key management task")
+        # Cancel old task if it exists and is done (failed)
+        if self._manage_listen_key_task is not None:
             self._manage_listen_key_task.cancel()
             try:
-                # Shield allows the task to complete cleanup operations
-                await asyncio.wait_for(asyncio.shield(self._manage_listen_key_task), timeout=2.0)
-            except (asyncio.TimeoutError, asyncio.CancelledError):
-                # Task didn't complete within timeout or was cancelled - acceptable
+                await self._manage_listen_key_task
+            except asyncio.CancelledError:
                 pass
+            except Exception:
+                pass  # Ignore any exception from the failed task
 
-        self._manage_listen_key_task = None
+        # Create new task
+        self._manage_listen_key_task = safe_ensure_future(self._manage_listen_key_task_loop())
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         """
@@ -277,13 +272,25 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
         This method is called when the websocket connection is interrupted.
         It ensures proper cleanup by:
-        1. Disconnecting the websocket assistant if it exists
-        2. Clearing the current listen key to force renewal
-        3. Resetting the initialization event to block new connections
+        1. Cancelling the listen key management task
+        2. Disconnecting the websocket assistant if it exists
+        3. Clearing the current listen key to force renewal
+        4. Resetting the initialization event to block new connections
 
         :param websocket_assistant: The websocket assistant that was disconnected
         """
         self.logger().info("User stream interrupted. Cleaning up...")
+
+        # Cancel listen key management task first
+        if self._manage_listen_key_task and not self._manage_listen_key_task.done():
+            self._manage_listen_key_task.cancel()
+            try:
+                await self._manage_listen_key_task
+            except asyncio.CancelledError:
+                pass
+            except Exception:
+                pass  # Ignore any exception from the task
+            self._manage_listen_key_task = None
 
         # Disconnect the websocket if it exists
         websocket_assistant and await websocket_assistant.disconnect()

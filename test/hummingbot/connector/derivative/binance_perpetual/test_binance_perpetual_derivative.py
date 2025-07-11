@@ -1850,10 +1850,11 @@ class BinancePerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         self.assertTrue("OID1" not in self.exchange._order_tracker._in_flight_orders)
 
         self.assertTrue(self._is_logged(
-            "WARNING",
-            f"{trade_type.name.title()} order amount {amount} is lower than the minimum order "
-            f"size {trading_rules[0].min_order_size}. The order will not be created, increase the "
-            f"amount to be higher than the minimum order size."
+            "INFO",
+            "Order OID1 has failed. Order Update: OrderUpdate(trading_pair='COINALPHA-HBOT', "
+            "update_timestamp=1640780000.0, new_state=<OrderState.FAILED: 6>, client_order_id='OID1', "
+            "exchange_order_id=None, misc_updates={'error_message': 'Order amount 2 is lower than minimum order size 3 "
+            "for the pair COINALPHA-HBOT. The order will not be created.', 'error_type': 'ValueError'})"
         ))
 
     async def test_create_order_min_notional_size_failure(self):

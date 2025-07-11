@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 from xrpl.asyncio.clients import AsyncWebsocketClient
 from xrpl.models import Subscribe
 
+from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS
 from hummingbot.connector.exchange.xrpl.xrpl_auth import XRPLAuth
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
@@ -52,8 +53,9 @@ class XRPLAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     if ws_client._websocket is None:
                         continue
 
-                    ws_client._websocket.max_size = 2**22
+                    ws_client._websocket.max_size = CONSTANTS.WEBSOCKET_MAX_SIZE_BYTES
                     ws_client._websocket.ping_interval = 10
+                    ws_client._websocket.ping_timeout = CONSTANTS.WEBSOCKET_CONNECTION_TIMEOUT
 
                     # set up a listener task
                     listener = asyncio.create_task(self.on_message(ws_client, output_queue=output))
@@ -61,10 +63,10 @@ class XRPLAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     # subscribe to the ledger
                     await ws_client.send(subscribe)
 
-                    # Reopen the connection if it closes
-                    while ws_client.is_open():
-                        await asyncio.sleep(0)
-                    listener.cancel()
+                    # Wait for listener to complete naturally when connection closes
+                    # The on_message async iterator will exit when WebSocket closes
+                    # WebSocket ping/pong mechanism handles keep-alive automatically
+                    await listener
             except asyncio.CancelledError:
                 self.logger().info("User stream listener task has been cancelled. Exiting...")
                 raise
@@ -81,10 +83,7 @@ class XRPLAPIUserStreamDataSource(UserStreamTrackerDataSource):
             finally:
                 if listener is not None:
                     listener.cancel()
-                    try:
-                        await listener
-                    except asyncio.CancelledError:
-                        pass  # Swallow the cancellation error if it happens
+                    await listener
                 if client is not None:
                     await client.close()
 
