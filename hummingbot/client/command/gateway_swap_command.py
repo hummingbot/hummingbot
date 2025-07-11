@@ -109,21 +109,27 @@ class GatewaySwapCommand:
 
                 # Get base token
                 self.notify(f"\nAvailable tokens on {chain}/{network}: {', '.join(token_symbols[:10])}{'...' if len(token_symbols) > 10 else ''}")
-                base_token = await self.app.prompt(prompt="\nEnter base token (e.g., SOL): ")
+                base_token = await self.app.prompt(prompt="\nEnter base token (symbol or address): ")
                 if self.app.to_stop_config or not base_token:
                     self.notify("Quote cancelled")
                     return
-                base_token = base_token.upper()
+                # Only uppercase if it's a symbol (short string), not an address
+                if len(base_token) <= 10:
+                    base_token = base_token.upper()
 
                 # Get quote token
-                quote_token = await self.app.prompt(prompt="Enter quote token (e.g., USDC): ")
+                quote_token = await self.app.prompt(prompt="Enter quote token (symbol or address): ")
                 if self.app.to_stop_config or not quote_token:
                     self.notify("Quote cancelled")
                     return
-                quote_token = quote_token.upper()
+                # Only uppercase if it's a symbol (short string), not an address
+                if len(quote_token) <= 10:
+                    quote_token = quote_token.upper()
 
-                # Construct pair for display
-                pair = f"{base_token}-{quote_token}"
+                # Construct pair for display (truncate addresses for readability)
+                base_display = base_token if len(base_token) <= 10 else f"{base_token[:8]}...{base_token[-4:]}"
+                quote_display = quote_token if len(quote_token) <= 10 else f"{quote_token[:8]}...{quote_token[-4:]}"
+                pair = f"{base_display}-{quote_display}"
 
                 # Get amount with default
                 amount = await self.app.prompt(prompt="Enter amount to trade [1]: ")
@@ -413,21 +419,27 @@ class GatewaySwapCommand:
 
                 # Get base token
                 self.notify(f"\nAvailable tokens on {chain}/{network}: {', '.join(token_symbols[:10])}{'...' if len(token_symbols) > 10 else ''}")
-                base_token = await self.app.prompt(prompt="\nEnter base token (e.g., SOL): ")
+                base_token = await self.app.prompt(prompt="\nEnter base token (symbol or address): ")
                 if self.app.to_stop_config or not base_token:
                     self.notify("Swap cancelled")
                     return
-                base_token = base_token.upper()
+                # Only uppercase if it's a symbol (short string), not an address
+                if len(base_token) <= 10:
+                    base_token = base_token.upper()
 
                 # Get quote token
-                quote_token = await self.app.prompt(prompt="Enter quote token (e.g., USDC): ")
+                quote_token = await self.app.prompt(prompt="Enter quote token (symbol or address): ")
                 if self.app.to_stop_config or not quote_token:
                     self.notify("Swap cancelled")
                     return
-                quote_token = quote_token.upper()
+                # Only uppercase if it's a symbol (short string), not an address
+                if len(quote_token) <= 10:
+                    quote_token = quote_token.upper()
 
-                # Construct pair for display
-                pair = f"{base_token}-{quote_token}"
+                # Construct pair for display (truncate addresses for readability)
+                base_display = base_token if len(base_token) <= 10 else f"{base_token[:8]}...{base_token[-4:]}"
+                quote_display = quote_token if len(quote_token) <= 10 else f"{quote_token[:8]}...{quote_token[-4:]}"
+                pair = f"{base_display}-{quote_display}"
 
                 # Get amount with default
                 amount = await self.app.prompt(prompt="Enter amount to trade [1]: ")
