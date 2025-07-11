@@ -40,8 +40,7 @@ class GatewayMonitor:
     def __init__(
         self,
         app_or_client,
-        check_interval: float = 2.0,
-        max_check_interval: float = 60.0
+        check_interval: float = 2.0
     ):
         """
         Initialize Gateway monitor.
@@ -62,14 +61,10 @@ class GatewayMonitor:
             self.client = app_or_client
 
         self.check_interval = check_interval
-        self._base_check_interval = check_interval
-        self._max_check_interval = max_check_interval
-        self._consecutive_failures = 0
         self._running = False
         self._monitor_task: Optional[asyncio.Task] = None
         self._is_available = False
         self._gateway_status = GatewayStatus.OFFLINE
-        self._was_ever_online = False  # Track if gateway was ever online
         self._on_available_callback: Optional[Callable] = None
         self._on_unavailable_callback: Optional[Callable] = None
 
@@ -111,31 +106,9 @@ class GatewayMonitor:
         if self._running:
             return
 
-        # Check if gateway is available on startup
-        try:
-            is_online = await self.client.ping_gateway()
-            if is_online:
-                self._was_ever_online = True
-                self._is_available = True
-                self._gateway_status = GatewayStatus.ONLINE
-                self.logger().info("Gateway Service is ONLINE.")
-                # Initialize gateway caches
-                try:
-                    await self.client.initialize_gateway()
-                except Exception as e:
-                    self.logger().warning(f"Failed to initialize gateway: {e}")
-                self._ready_event.set()
-
-                # Start monitoring since gateway is available
-                self._running = True
-                self._monitor_task = asyncio.create_task(self._monitor_loop())
-                self.logger().info("Gateway monitor started")
-            else:
-                # Gateway is offline, don't start monitoring
-                self.logger().info("Gateway is offline. Monitoring will not start.")
-        except Exception:
-            # Gateway is not available, don't start monitoring
-            self.logger().info("Gateway is not available. Monitoring will not start.")
+        self._running = True
+        self._monitor_task = asyncio.create_task(self._monitor_loop())
+        self.logger().info("Gateway monitor started")
 
     async def stop(self):
         """Stop monitoring Gateway."""
@@ -151,7 +124,7 @@ class GatewayMonitor:
         self.logger().info("Gateway monitor stopped")
 
     async def _monitor_loop(self):
-        """Main monitoring loop with exponential backoff."""
+        """Main monitoring loop."""
         while self._running:
             try:
                 # Check Gateway status
@@ -164,11 +137,6 @@ class GatewayMonitor:
                     self._gateway_status = GatewayStatus.ONLINE if is_online else GatewayStatus.OFFLINE
 
                     if is_online:
-                        # Reset backoff on successful connection
-                        self._consecutive_failures = 0
-                        self.check_interval = self._base_check_interval
-                        self._was_ever_online = True
-
                         if old_status == GatewayStatus.OFFLINE:
                             self.logger().info("Gateway Service is ONLINE.")
                             # Initialize gateway caches when it comes online
@@ -186,30 +154,9 @@ class GatewayMonitor:
                         self._ready_event.clear()
                         if self._on_unavailable_callback:
                             await self._on_unavailable_callback()
-                else:
-                    # If already online, reset failure counter
-                    if is_online:
-                        self._consecutive_failures = 0
-                        self.check_interval = self._base_check_interval
 
             except Exception:
-                # Gateway is unavailable
-                # Only continue monitoring if gateway was previously online
-                if not self._was_ever_online:
-                    # Gateway was never online, stop monitoring
-                    self.logger().info("Gateway was never available. Stopping monitor.")
-                    self._running = False
-                    break
-
-                self._consecutive_failures += 1
-
-                # Apply exponential backoff
-                self.check_interval = min(
-                    self._base_check_interval * (2 ** min(self._consecutive_failures - 1, 5)),
-                    self._max_check_interval
-                )
-
-                # Only log connection lost once when transitioning from online to offline
+                # Gateway is unavailable - silently handle like original
                 if self._is_available:
                     self._is_available = False
                     old_status = self._gateway_status
@@ -223,9 +170,6 @@ class GatewayMonitor:
                             await self._on_unavailable_callback()
                         except Exception as callback_error:
                             self.logger().error(f"Error in unavailable callback: {callback_error}")
-                elif self._consecutive_failures == 10:
-                    # Log a reminder after 10 consecutive failures
-                    self.logger().info(f"Gateway still offline. Checking every {self.check_interval}s (max {self._max_check_interval}s)")
 
             # Wait before next check
             await asyncio.sleep(self.check_interval)
