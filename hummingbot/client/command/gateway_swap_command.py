@@ -396,12 +396,22 @@ class GatewaySwapCommand:
 
                     # Process response
                     tx_hash = execute_resp.get("signature") or execute_resp.get("hash")
+                    tx_status = execute_resp.get("status")
+
                     if tx_hash:
                         self.notify("\n✓ Swap submitted successfully!")
                         self.notify(f"Transaction hash: {tx_hash}")
 
-                        # Monitor transaction
-                        await self._monitor_swap_transaction(chain, network, tx_hash)
+                        # Check initial status
+                        if tx_status == 1:  # Already confirmed
+                            self.notify("\n✓ Swap confirmed!")
+                            if execute_resp.get("data"):
+                                data = execute_resp["data"]
+                                self.notify(f"Amount out: {data.get('amountOut', 'N/A')}")
+                        elif tx_status == -1:  # Failed
+                            self.notify("\n✗ Swap failed")
+                        else:  # Pending or not provided, monitor it
+                            await self._monitor_swap_transaction(chain, network, tx_hash)
                     else:
                         self.notify("\n✓ Swap request submitted (no transaction hash returned)")
 
@@ -645,12 +655,22 @@ class GatewaySwapCommand:
 
             # Display transaction details
             tx_hash = execute_resp.get("signature") or execute_resp.get("hash")
+            tx_status = execute_resp.get("status")
+
             if tx_hash:
                 self.notify("\n✓ Swap submitted successfully!")
                 self.notify(f"Transaction hash: {tx_hash}")
 
-                # Monitor transaction
-                await self._monitor_swap_transaction(chain, network, tx_hash)
+                # Check initial status
+                if tx_status == 1:  # Already confirmed
+                    self.notify("\n✓ Swap confirmed!")
+                    if execute_resp.get("data"):
+                        data = execute_resp["data"]
+                        self.notify(f"Amount out: {data.get('amountOut', 'N/A')}")
+                elif tx_status == -1:  # Failed
+                    self.notify("\n✗ Swap failed")
+                else:  # Pending or not provided, monitor it
+                    await self._monitor_swap_transaction(chain, network, tx_hash)
             else:
                 self.notify("\n✓ Swap request submitted (no transaction hash returned)")
 
@@ -664,6 +684,10 @@ class GatewaySwapCommand:
 
         self.notify("\nMonitoring transaction...")
         import asyncio
+
+        # Small delay to allow transaction to propagate
+        await asyncio.sleep(2)
+
         displayed_pending = False
         error_count = 0
         max_errors = 3
