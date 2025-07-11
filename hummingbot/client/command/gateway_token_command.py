@@ -230,10 +230,7 @@ class GatewayTokenCommand:
             if "error" in response:
                 self.notify(f"Error adding token: {response['error']}")
             else:
-                self.notify(f"\n✓ {response.get('message', 'Token added successfully')}")
-                if response.get("requiresRestart", False):
-                    self.notify("⚠ Gateway restart required for changes to take effect")
-                    self.notify("  Please restart the gateway service")
+                self.notify(f"\n✓ Token {symbol} added successfully to {chain}/{network}.")
 
         except Exception as e:
             self.notify(f"Error adding token: {str(e)}")
@@ -265,10 +262,7 @@ class GatewayTokenCommand:
                 if "error" in response:
                     self.notify(f"Error removing token: {response['error']}")
                 else:
-                    self.notify(f"\n✓ {response.get('message', 'Token removed successfully')}")
-                    if response.get("requiresRestart", False):
-                        self.notify("⚠ Gateway restart required for changes to take effect")
-                        self.notify("  Please restart the gateway service")
+                    self.notify(f"\n✓ Token removed successfully from {chain}/{network}.")
             else:
                 self.notify("Token removal cancelled")
 
