@@ -134,7 +134,7 @@ class GatewaySwapCommand:
                     # Get base token if not provided
                     if not base_token:
                         self.notify(f"\nAvailable tokens on {chain}/{network}: {', '.join(token_symbols[:10])}{'...' if len(token_symbols) > 10 else ''}")
-                        base_token = await self.app.prompt(prompt="\nEnter base token (symbol or address): ")
+                        base_token = await self.app.prompt(prompt="Enter base token (symbol or address): ")
                         if self.app.to_stop_config or not base_token:
                             self.notify("Quote cancelled")
                             return
@@ -392,7 +392,7 @@ class GatewaySwapCommand:
 
             try:
                 # First, ask for quote ID
-                quote_id = await self.app.prompt(prompt="\nEnter quote ID (leave blank for new swap): ")
+                quote_id = await self.app.prompt(prompt="Enter quote ID (leave blank for new swap): ")
                 if self.app.to_stop_config:
                     self.notify("Swap cancelled")
                     return
@@ -484,7 +484,7 @@ class GatewaySwapCommand:
                     # Get base token if not provided
                     if not base_token:
                         self.notify(f"\nAvailable tokens on {chain}/{network}: {', '.join(token_symbols[:10])}{'...' if len(token_symbols) > 10 else ''}")
-                        base_token = await self.app.prompt(prompt="\nEnter base token (symbol or address): ")
+                        base_token = await self.app.prompt(prompt="Enter base token (symbol or address): ")
                         if self.app.to_stop_config or not base_token:
                             self.notify("Swap cancelled")
                             return
@@ -660,7 +660,7 @@ class GatewaySwapCommand:
             self.placeholder_mode = True
             self.app.hide_input = True
             try:
-                confirm = await self.app.prompt(prompt="\nDo you want to execute this swap? (Yes/No) >>> ")
+                confirm = await self.app.prompt(prompt="Do you want to execute this swap? (Yes/No) >>> ")
                 if confirm.lower() not in ["y", "yes"]:
                     self.notify("Swap cancelled")
                     return
