@@ -254,7 +254,9 @@ class GatewaySwapCommand:
             # Get connector config to show actual slippage
             slippage_pct = "1"  # Default
             try:
-                connector_config = await self._get_gateway_instance().get_config(namespace=connector)
+                # Use base connector name for config (strip type suffix)
+                base_connector = connector.split("/")[0] if "/" in connector else connector
+                connector_config = await self._get_gateway_instance().get_config(namespace=base_connector)
                 slippage_pct = str(connector_config.get("slippagePct", 1))
             except Exception:
                 pass
@@ -363,17 +365,28 @@ class GatewaySwapCommand:
 
             # Ask if user wants to execute the swap
             if quote_id:
+                # Get wallet address to show in prompt
+                wallets_resp = await self._get_gateway_instance().get_wallets(chain)
+                wallet_address = None
+                if wallets_resp and wallets_resp[0].get("signingAddresses"):
+                    wallet_address = wallets_resp[0]["signingAddresses"][0]
+
                 self.placeholder_mode = True
                 self.app.hide_input = True
                 try:
-                    execute_now = await self.app.prompt(prompt="\nDo you want to execute this swap now? (Yes/No) >>> ")
+                    if wallet_address:
+                        # Show wallet info based on chain
+                        chain_name = chain.capitalize()
+                        execute_now = await self.app.prompt(
+                            prompt=f"\nDo you want to execute this swap now with {chain_name} wallet {wallet_address}? (Yes/No) >>> "
+                        )
+                    else:
+                        execute_now = await self.app.prompt(prompt="\nDo you want to execute this swap now? (Yes/No) >>> ")
                     if execute_now.lower() in ["y", "yes"]:
-                        # Get wallet address
-                        wallets_resp = await self._get_gateway_instance().get_wallets(chain)
-                        if not wallets_resp or not wallets_resp[0].get("signingAddresses"):
+                        # Check if we have a wallet
+                        if not wallet_address:
                             self.notify(f"No wallet found for {chain}. Please add one with 'gateway wallet add {chain}'")
                             return
-                        wallet_address = wallets_resp[0]["signingAddresses"][0]
 
                         self.notify(f"\nExecuting swap with quote ID: {quote_id}")
                         self.logger().info(f"Executing swap with quote ID: {quote_id}")
