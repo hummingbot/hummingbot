@@ -103,18 +103,13 @@ class GatewaySwapCommand:
                 tokens = tokens_resp.get("tokens", [])
                 token_symbols = sorted(list(set([t.get("symbol", "") for t in tokens if t.get("symbol")])))
 
-                # Show available tokens
-                if tokens:
-                    self.notify(f"\nAvailable tokens on {chain}/{network}:")
-                    # Display tokens in columns
-                    cols = 5
-                    for i in range(0, len(token_symbols), cols):
-                        row = "  " + "  ".join(f"{sym:10}" for sym in token_symbols[i:i + cols])
-                        self.notify(row)
+                # Update completer's token cache
+                if hasattr(self.app.input_field.completer, '_gateway_token_symbols'):
+                    self.app.input_field.completer._gateway_token_symbols = token_symbols
 
                 # Get base token
-                self.notify("\n")
-                base_token = await self.app.prompt(prompt="Enter base token (e.g., SOL): ")
+                self.notify(f"\nAvailable tokens on {chain}/{network}: {', '.join(token_symbols[:10])}{'...' if len(token_symbols) > 10 else ''}")
+                base_token = await self.app.prompt(prompt="\nEnter base token (e.g., SOL): ")
                 if self.app.to_stop_config or not base_token:
                     self.notify("Quote cancelled")
                     return
@@ -412,18 +407,13 @@ class GatewaySwapCommand:
                 tokens = tokens_resp.get("tokens", [])
                 token_symbols = sorted(list(set([t.get("symbol", "") for t in tokens if t.get("symbol")])))
 
-                # Show available tokens
-                if tokens:
-                    self.notify(f"\nAvailable tokens on {chain}/{network}:")
-                    # Display tokens in columns
-                    cols = 5
-                    for i in range(0, len(token_symbols), cols):
-                        row = "  " + "  ".join(f"{sym:10}" for sym in token_symbols[i:i + cols])
-                        self.notify(row)
+                # Update completer's token cache
+                if hasattr(self.app.input_field.completer, '_gateway_token_symbols'):
+                    self.app.input_field.completer._gateway_token_symbols = token_symbols
 
                 # Get base token
-                self.notify("\n")
-                base_token = await self.app.prompt(prompt="Enter base token (e.g., SOL): ")
+                self.notify(f"\nAvailable tokens on {chain}/{network}: {', '.join(token_symbols[:10])}{'...' if len(token_symbols) > 10 else ''}")
+                base_token = await self.app.prompt(prompt="\nEnter base token (e.g., SOL): ")
                 if self.app.to_stop_config or not base_token:
                     self.notify("Swap cancelled")
                     return

@@ -107,6 +107,7 @@ class HummingbotCompleter(Completer):
         self._list_gateway_wallets_parameters = {"wallets": [], "chain": ""}
         self._cached_gateway_chains = []  # Cache for dynamically fetched chains
         self._cached_gateway_networks = {}  # Cache for dynamically fetched networks by chain
+        self._gateway_token_symbols = []  # Cache for token symbols
 
     def get_strategies_v2_with_config(self):
         file_names = file_name_list(str(SCRIPT_STRATEGIES_PATH), "py")
@@ -765,6 +766,9 @@ class HummingbotCompleter(Completer):
     def _complete_gateway_wallet_addresses(self, document: Document) -> bool:
         return "Select a gateway wallet" in self.prompt_text
 
+    def _complete_gateway_tokens(self, document: Document) -> bool:
+        return "Enter base token" in self.prompt_text or "Enter quote token" in self.prompt_text
+
     def _complete_command(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
         return " " not in text_before_cursor and len(self.prompt_text.replace(">>> ", "")) == 0
@@ -830,6 +834,11 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_gateway_wallet_addresses(document):
             for c in self._gateway_wallet_address_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_gateway_tokens(document):
+            token_completer = WordCompleter(self._gateway_token_symbols, ignore_case=True)
+            for c in token_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_exchange_clob_amm_connectors(document):
