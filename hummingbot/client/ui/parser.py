@@ -143,9 +143,27 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
     gateway_wrap_parser.add_argument("amount", nargs="?", default=None, help="Amount of native token to wrap")
     gateway_wrap_parser.set_defaults(func=hummingbot.gateway_wrap)
 
-    gateway_swap_parser = gateway_subparsers.add_parser("swap", help="Perform token swaps through gateway")
-    gateway_swap_parser.add_argument("action", nargs="?", default=None, help="Action to perform (quote, execute)")
-    gateway_swap_parser.add_argument("args", nargs="*", help="Arguments for the action")
+    gateway_swap_parser = gateway_subparsers.add_parser(
+        "swap",
+        help="Perform token swaps through gateway",
+        description="Get swap quotes and execute token swaps on various DEX connectors.\n\n"
+                    "Actions:\n"
+                    "  quote   - Get a price quote for a swap without executing\n"
+                    "  execute - Execute a swap transaction\n\n"
+                    "Arguments format: <connector> [base-quote] [side] [amount]\n"
+                    "  connector  - DEX connector (e.g., uniswap, jupiter, raydium)\n"
+                    "  base-quote - Token pair (e.g., ETH-USDC, SOL-USDT)\n"
+                    "  side       - Trade side (BUY or SELL)\n"
+                    "  amount     - Amount to trade\n\n"
+                    "If arguments are omitted, interactive mode will guide you.",
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+    gateway_swap_parser.add_argument("action", nargs="?", default=None,
+                                     choices=["quote", "execute"],
+                                     help="Action to perform: 'quote' to get swap prices, 'execute' to perform the swap")
+    gateway_swap_parser.add_argument("args", nargs="*",
+                                     help="Arguments: <connector> [base-quote] [side] [amount]. "
+                                          "Interactive mode if not all provided. "
+                                          "Example: uniswap ETH-USDC BUY 0.1")
     gateway_swap_parser.set_defaults(func=hummingbot.gateway_swap)
 
     gateway_cert_parser = gateway_subparsers.add_parser("generate-certs", help="Create SSL certificates to encrypt endpoints")
