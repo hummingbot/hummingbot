@@ -93,11 +93,11 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
     history_parser.set_defaults(func=hummingbot.history)
 
     gateway_parser = subparsers.add_parser("gateway", help="Helper commands for Gateway server.")
+    gateway_parser.set_defaults(func=hummingbot.gateway)
     gateway_subparsers = gateway_parser.add_subparsers()
 
     gateway_ping_parser = gateway_subparsers.add_parser("ping", help="Test gateway connection for each chain")
     gateway_ping_parser.add_argument("chain", nargs="?", default=None, help="Chain to check (e.g., ethereum, solana)")
-    gateway_ping_parser.add_argument("network", nargs="?", default=None, help="Network to check (e.g., mainnet, arbitrum)")
     gateway_ping_parser.set_defaults(func=hummingbot.gateway_ping)
 
     gateway_list_parser = gateway_subparsers.add_parser("list", help="List gateway connectors")
@@ -126,26 +126,20 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
 
     gateway_balance_parser = gateway_subparsers.add_parser("balance", help="Display token balances with optional filters")
     gateway_balance_parser.add_argument("chain", nargs="?", default=None, help="Chain name filter (e.g., ethereum, solana)")
-    gateway_balance_parser.add_argument("network", nargs="?", default=None, help="Network name filter (e.g., mainnet, testnet)")
-    gateway_balance_parser.add_argument("address", nargs="?", default=None, help="Wallet address filter")
     gateway_balance_parser.add_argument("tokens", nargs="?", default=None, help="Comma-separated token symbols (e.g., ETH,USDC,DAI)")
     gateway_balance_parser.set_defaults(func=hummingbot.gateway_balance)
 
     gateway_allowance_parser = gateway_subparsers.add_parser("allowance", help="Check allowances for an Ethereum connector")
     gateway_allowance_parser.add_argument("spender", nargs="?", default=None, help="Spender in format connector/type (e.g., uniswap/amm, 0x/router)")
-    gateway_allowance_parser.add_argument("network", nargs="?", default=None, help="Ethereum network name (e.g., mainnet, base, arbitrum)")
-    gateway_allowance_parser.add_argument("address", nargs="?", default=None, help="Wallet address")
     gateway_allowance_parser.add_argument("tokens", nargs="?", default=None, help="Comma-separated token symbols (e.g., USDC,USDT,DAI)")
     gateway_allowance_parser.set_defaults(func=hummingbot.gateway_allowance)
 
     gateway_approve_parser = gateway_subparsers.add_parser("approve", help="Approve tokens for use by an Ethereum connector")
     gateway_approve_parser.add_argument("spender", nargs="?", default=None, help="Spender in format connector/type (e.g., uniswap/amm, 0x/router)")
-    gateway_approve_parser.add_argument("network", nargs="?", default=None, help="Network name (e.g., mainnet, base, arbitrum)")
     gateway_approve_parser.add_argument("tokens", nargs="?", default=None, help="Comma-separated token symbols to approve (e.g., USDC,USDT)")
     gateway_approve_parser.set_defaults(func=hummingbot.gateway_approve)
 
     gateway_wrap_parser = gateway_subparsers.add_parser("wrap", help="Wrap native tokens to wrapped tokens")
-    gateway_wrap_parser.add_argument("network", nargs="?", default=None, help="Network name (e.g., mainnet, base, arbitrum)")
     gateway_wrap_parser.add_argument("amount", nargs="?", default=None, help="Amount of native token to wrap")
     gateway_wrap_parser.set_defaults(func=hummingbot.gateway_wrap)
 
@@ -156,6 +150,9 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
 
     gateway_cert_parser = gateway_subparsers.add_parser("generate-certs", help="Create SSL certificates to encrypt endpoints")
     gateway_cert_parser.set_defaults(func=hummingbot.generate_certs)
+
+    gateway_restart_parser = gateway_subparsers.add_parser("restart", help="Restart the gateway service")
+    gateway_restart_parser.set_defaults(func=hummingbot.gateway_restart)
 
     exit_parser = subparsers.add_parser("exit", help="Exit and cancel all outstanding orders")
     exit_parser.add_argument("-f", "--force", action="store_true", help="Force exit without canceling outstanding orders",

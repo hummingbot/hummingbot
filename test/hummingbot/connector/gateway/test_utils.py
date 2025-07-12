@@ -112,20 +112,6 @@ class MockGatewayClient:
 
         return {"address": address, "chain": chain, "type": "hardware"}
 
-    async def add_read_only_wallet(self, chain: str, address: str) -> Dict[str, Any]:
-        """Mock add read-only wallet"""
-        wallet = {
-            "walletAddresses": [],
-            "readOnlyWalletAddresses": [address],
-            "chain": chain
-        }
-
-        if chain not in self._wallets:
-            self._wallets[chain] = []
-        self._wallets[chain].append(wallet)
-
-        return {"address": address, "chain": chain, "type": "read-only"}
-
     def get_default_wallet(self, chain: str) -> Optional[str]:
         """Mock get default wallet - returns first wallet for the chain"""
         if chain in self._wallets and self._wallets[chain]:

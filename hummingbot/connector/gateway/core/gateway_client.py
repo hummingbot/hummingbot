@@ -78,6 +78,7 @@ class GatewayClient:
         self._swap_connectors_cache: List[str] = []  # List of swap connectors with type suffixes
         self._chain_info_cache: List[Dict[str, Any]] = []
         self._wallets_cache: Dict[str, List[Dict[str, Any]]] = {}  # {"chain": [wallet_info]}
+        self._config_namespaces_cache: List[str] = []  # Cache for config namespaces
         self._cache_initialized = False
         self._cache_timestamp = 0
         self._cache_ttl = 300  # 5 minutes
@@ -175,7 +176,7 @@ class GatewayClient:
 
         except Exception as e:
             # Only log detailed errors for non-ping requests to reduce noise
-            if endpoint != "/":
+            if endpoint not in ["/", ""]:
                 self.logger().error(f"Gateway request error: {method} {url} - {str(e)}")
             raise
 
@@ -263,7 +264,7 @@ class GatewayClient:
     async def get_chains(self) -> List[Dict[str, Any]]:
         """Get available chains from Gateway."""
         if not self._chain_info_cache or (time.time() - self._cache_timestamp) > self._cache_ttl:
-            response = await self.request("GET", "chains")
+            response = await self.request("GET", "config/chains")
             self._chain_info_cache = response.get("chains", [])
             self._cache_timestamp = time.time()
         return self._chain_info_cache
@@ -271,7 +272,7 @@ class GatewayClient:
     async def get_connectors(self) -> Dict[str, Dict[str, Any]]:
         """Get available connectors from Gateway."""
         if not self._connector_info_cache or (time.time() - self._cache_timestamp) > self._cache_ttl:
-            response = await self.request("GET", "connectors")
+            response = await self.request("GET", "config/connectors")
             connectors = response.get("connectors", [])
             self._connector_info_cache = {c["name"]: c for c in connectors}
             self._cache_timestamp = time.time()
@@ -332,7 +333,7 @@ class GatewayClient:
         :return: Configuration settings
         """
         params = {"namespace": chain_or_connector} if chain_or_connector else {}
-        return await self.request("GET", "config", params=params)
+        return await self.request("GET", "config/", params=params)
 
     async def get_config(self, namespace: Optional[str] = None) -> Dict[str, Any]:
         """Get configuration (alias for get_configuration)."""
@@ -351,7 +352,7 @@ class GatewayClient:
         if cache_key not in self._config_cache:
             try:
                 namespace = f"{chain}-{network}"
-                config = await self.request("GET", "config", params={"namespace": namespace})
+                config = await self.request("GET", "config/", params={"namespace": namespace})
                 self._config_cache[cache_key] = config or {}
             except Exception as e:
                 self.logger().warning(f"Failed to get config for {cache_key}: {e}")
@@ -384,8 +385,40 @@ class GatewayClient:
 
         :return: List of namespace strings
         """
-        response = await self.request("GET", "namespaces")
-        return response.get("namespaces", [])
+        response = await self.request("GET", "config/namespaces")
+        namespaces = response.get("namespaces", [])
+        # Update cache
+        self._config_namespaces_cache = namespaces
+        return namespaces
+
+    async def get_default_network_for_chain(self, chain: str) -> Optional[str]:
+        """
+        Get the default network for a chain from its configuration.
+
+        :param chain: Chain name (e.g., "ethereum", "solana")
+        :return: Default network name or None if not found
+        """
+        try:
+            config = await self.get_configuration(chain)
+            return config.get("defaultNetwork")
+        except Exception as e:
+            self.logger().warning(f"Failed to get default network for {chain}: {e}")
+            return None
+
+    async def get_default_wallet_for_chain(self, chain: str) -> Optional[str]:
+        """
+        Get the default wallet for a chain from its configuration.
+
+        :param chain: Chain name (e.g., "ethereum", "solana")
+        :return: Default wallet address or None if not found
+        """
+        try:
+            # Get the configuration for the chain namespace (not chain-network)
+            config = await self.get_configuration(chain)
+            return config.get("defaultWallet")
+        except Exception as e:
+            self.logger().warning(f"Failed to get default wallet for {chain}: {e}")
+            return None
 
     async def initialize_gateway(self) -> None:
         """
@@ -435,9 +468,11 @@ class GatewayClient:
             # Load all config namespaces
             try:
                 config_namespaces = await self.get_namespaces()
+                self._config_namespaces_cache = config_namespaces  # Cache the namespaces
             except Exception as e:
                 self.logger().warning(f"Failed to load config namespaces: {str(e)}")
                 config_namespaces = []
+                self._config_namespaces_cache = []
 
             # Update tab completers with cached data
             try:
@@ -455,13 +490,9 @@ class GatewayClient:
                     if hasattr(completer, '_cached_gateway_networks'):
                         completer._cached_gateway_networks = chain_networks
 
-                    # Set wallet parameters for completer
-                    if all_wallets and hasattr(completer, 'set_list_gateway_wallets_parameters'):
-                        # Set parameters for each chain's wallets
-                        for chain in chain_names:
-                            chain_wallets = [w for w in all_wallets if w.get("chain") == chain]
-                            if chain_wallets:
-                                completer.set_list_gateway_wallets_parameters(all_wallets, chain)
+                    # Cache all wallets in completer
+                    if all_wallets and hasattr(completer, '_all_gateway_wallets'):
+                        completer._all_gateway_wallets = all_wallets
                 else:
                     # Silently skip if completer is not ready - this is expected during startup
                     pass
@@ -483,8 +514,8 @@ class GatewayClient:
 
     async def get_wallets(self, chain: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get wallets from Gateway."""
-        # Always fetch all wallets with hardware and read-only
-        params = {"showHardware": "true", "showReadOnly": "true"}
+        # Always fetch all wallets with hardware
+        params = {"showHardware": "true"}
         response = await self.request("GET", "wallet", params=params)
         wallets = response if isinstance(response, list) else []
 
@@ -505,25 +536,41 @@ class GatewayClient:
             for wallet_info in wallets:
                 wallet_chain = wallet_info.get("chain")
                 if wallet_chain:
-                    self._wallets_cache[wallet_chain] = wallet_info
+                    if wallet_chain not in self._wallets_cache:
+                        self._wallets_cache[wallet_chain] = []
+                    self._wallets_cache[wallet_chain].append(wallet_info)
 
         # Filter by chain if requested
         if chain:
-            # Find the wallet object for the specific chain
-            chain_wallet = next((w for w in wallets if w.get("chain") == chain), None)
-            return [chain_wallet] if chain_wallet else []
+            # Return cached wallets for specific chain
+            return self._wallets_cache.get(chain, [])
 
         return wallets
 
     async def add_wallet(self, chain: str, private_key: str) -> Dict[str, Any]:
         """Add a new wallet to Gateway."""
+        # Check if this is the first wallet for the chain
+        existing_wallets = await self.get_wallets(chain)
+        has_no_wallets = (
+            not existing_wallets or
+            len(existing_wallets) == 0 or
+            (len(existing_wallets[0].get("walletAddresses", [])) == 0 and
+             len(existing_wallets[0].get("hardwareWalletAddresses", [])) == 0)
+        )
+
+        data = {
+            "chain": chain,
+            "privateKey": private_key
+        }
+
+        # Set as default if no wallets exist
+        if has_no_wallets:
+            data["setDefault"] = True
+
         return await self.request(
             "POST",
             "wallet/add",
-            data={
-                "chain": chain,
-                "privateKey": private_key
-            }
+            data=data
         )
 
     async def remove_wallet(self, chain: str, address: str) -> Dict[str, Any]:
@@ -537,26 +584,53 @@ class GatewayClient:
             }
         )
 
+    async def set_default_wallet(self, chain: str, address: str) -> Dict[str, Any]:
+        """Set default wallet for a chain."""
+        return await self.request(
+            "POST",
+            "wallet/setDefault",
+            data={"chain": chain, "address": address}
+        )
+
+    async def restart_gateway(self) -> None:
+        """Restart the gateway service."""
+        url = f"{self.base_url}/restart"
+        try:
+            # Send POST with empty JSON body
+            async with self.session.post(url, json={}) as response:
+                # We expect a 200 response before the process exits
+                if response.status == 200:
+                    # Success - the gateway will now restart
+                    pass
+        except Exception:
+            # Connection errors might occur as the gateway shuts down
+            # This is expected behavior
+            pass
+
     async def add_hardware_wallet(self, chain: str, address: str) -> Dict[str, Any]:
         """Add a hardware wallet to Gateway."""
+        # Check if this is the first wallet for the chain
+        existing_wallets = await self.get_wallets(chain)
+        has_no_wallets = (
+            not existing_wallets or
+            len(existing_wallets) == 0 or
+            (len(existing_wallets[0].get("walletAddresses", [])) == 0 and
+             len(existing_wallets[0].get("hardwareWalletAddresses", [])) == 0)
+        )
+
+        data = {
+            "chain": chain,
+            "address": address
+        }
+
+        # Set as default if no wallets exist
+        if has_no_wallets:
+            data["setDefault"] = True
+
         return await self.request(
             "POST",
             "wallet/add-hardware",
-            data={
-                "chain": chain,
-                "address": address
-            }
-        )
-
-    async def add_read_only_wallet(self, chain: str, address: str) -> Dict[str, Any]:
-        """Add a read-only wallet to Gateway."""
-        return await self.request(
-            "POST",
-            "wallet/add-read-only",
-            data={
-                "chain": chain,
-                "address": address
-            }
+            data=data
         )
 
     # ============================================

@@ -28,36 +28,34 @@ class GatewaySwapCommand:
         """
         Perform swap operations through gateway.
         Usage:
-            gateway swap quote <connector> [network] [base-quote] [side] [amount]   - Get swap quote
-            gateway swap execute <connector> [network] [base-quote] [side] [amount] - Execute swap
+            gateway swap quote <connector> [base-quote] [side] [amount]   - Get swap quote
+            gateway swap execute <connector> [base-quote] [side] [amount] - Execute swap
         """
         if action is None:
             self.notify("\nUsage:")
-            self.notify("  gateway swap quote <connector> [network] [base-quote] [side] [amount]   - Get swap quote")
-            self.notify("  gateway swap execute <connector> [network] [base-quote] [side] [amount] - Execute swap")
+            self.notify("  gateway swap quote <connector> [base-quote] [side] [amount]   - Get swap quote")
+            self.notify("  gateway swap execute <connector> [base-quote] [side] [amount] - Execute swap")
             self.notify("\nExamples:")
             self.notify("  gateway swap quote uniswap")
-            self.notify("  gateway swap quote raydium mainnet-beta SOL-USDC SELL 1.5")
-            self.notify("  gateway swap execute jupiter mainnet-beta ETH-USDC BUY 0.1")
+            self.notify("  gateway swap quote raydium SOL-USDC SELL 1.5")
+            self.notify("  gateway swap execute jupiter ETH-USDC BUY 0.1")
             return
 
         if action == "quote":
-            # Parse arguments: [connector] [network] [base-quote] [side] [amount]
+            # Parse arguments: [connector] [base-quote] [side] [amount]
             connector = args[0] if args and len(args) > 0 else None
-            network = args[1] if args and len(args) > 1 else None
-            pair = args[2] if args and len(args) > 2 else None
-            side = args[3] if args and len(args) > 3 else None
-            amount = args[4] if args and len(args) > 4 else None
-            safe_ensure_future(self._gateway_swap_quote(connector, network, pair, side, amount), loop=self.ev_loop)
+            pair = args[1] if args and len(args) > 1 else None
+            side = args[2] if args and len(args) > 2 else None
+            amount = args[3] if args and len(args) > 3 else None
+            safe_ensure_future(self._gateway_swap_quote(connector, None, pair, side, amount), loop=self.ev_loop)
 
         elif action == "execute":
-            # Parse arguments: [connector] [network] [base-quote] [side] [amount]
+            # Parse arguments: [connector] [base-quote] [side] [amount]
             connector = args[0] if args and len(args) > 0 else None
-            network = args[1] if args and len(args) > 1 else None
-            pair = args[2] if args and len(args) > 2 else None
-            side = args[3] if args and len(args) > 3 else None
-            amount = args[4] if args and len(args) > 4 else None
-            safe_ensure_future(self._gateway_swap_execute(connector, network, pair, side, amount), loop=self.ev_loop)
+            pair = args[1] if args and len(args) > 1 else None
+            side = args[2] if args and len(args) > 2 else None
+            amount = args[3] if args and len(args) > 3 else None
+            safe_ensure_future(self._gateway_swap_execute(connector, None, pair, side, amount), loop=self.ev_loop)
 
         else:
             self.notify(f"Error: Unknown action '{action}'. Use 'quote' or 'execute'.")
@@ -218,12 +216,11 @@ class GatewaySwapCommand:
                 self.notify(f"Error: Invalid amount '{amount}'")
                 return
 
-            # Get wallet address
-            wallets_resp = await self._get_gateway_instance().get_wallets(chain)
-            if not wallets_resp or not wallets_resp[0].get("signingAddresses"):
-                self.notify(f"No wallet found for {chain}. Please add one with 'gateway wallet add {chain}'")
+            # Get default wallet for this chain
+            wallet_address = await self._get_gateway_instance().get_default_wallet_for_chain(chain)
+            if not wallet_address:
+                self.notify(f"No default wallet found for {chain}. Please add one with 'gateway wallet add {chain}'")
                 return
-            wallet_address = wallets_resp[0]["signingAddresses"][0]
 
             # Look up pool address if needed (for AMM/CLMM connectors)
             pool_address = None
@@ -362,11 +359,8 @@ class GatewaySwapCommand:
 
             # Ask if user wants to execute the swap
             if quote_id:
-                # Get wallet address to show in prompt
-                wallets_resp = await self._get_gateway_instance().get_wallets(chain)
-                wallet_address = None
-                if wallets_resp and wallets_resp[0].get("signingAddresses"):
-                    wallet_address = wallets_resp[0]["signingAddresses"][0]
+                # Get default wallet address to show in prompt
+                wallet_address = await self._get_gateway_instance().get_default_wallet_for_chain(chain)
 
                 self.placeholder_mode = True
                 self.app.hide_input = True
@@ -513,12 +507,11 @@ class GatewaySwapCommand:
 
                 # If quote ID provided, use execute-quote endpoint
                 if quote_id:
-                    # Get wallet address
-                    wallets_resp = await self._get_gateway_instance().get_wallets(chain)
-                    if not wallets_resp or not wallets_resp[0].get("signingAddresses"):
-                        self.notify(f"No wallet found for {chain}. Please add one with 'gateway wallet add {chain}'")
+                    # Get default wallet address
+                    wallet_address = await self._get_gateway_instance().get_default_wallet_for_chain(chain)
+                    if not wallet_address:
+                        self.notify(f"No default wallet found for {chain}. Please add one with 'gateway wallet add {chain}'")
                         return
-                    wallet_address = wallets_resp[0]["signingAddresses"][0]
 
                     self.notify(f"\nExecuting swap with quote ID: {quote_id}")
                     self.logger().info(f"Executing swap with quote ID: {quote_id}")
@@ -661,12 +654,11 @@ class GatewaySwapCommand:
                 self.notify(f"Error: Invalid amount '{amount}'")
                 return
 
-            # Get wallet address
-            wallets_resp = await self._get_gateway_instance().get_wallets(chain)
-            if not wallets_resp or not wallets_resp[0].get("signingAddresses"):
-                self.notify(f"No wallet found for {chain}. Please add one with 'gateway wallet add {chain}'")
+            # Get default wallet for this chain
+            wallet_address = await self._get_gateway_instance().get_default_wallet_for_chain(chain)
+            if not wallet_address:
+                self.notify(f"No default wallet found for {chain}. Please add one with 'gateway wallet add {chain}'")
                 return
-            wallet_address = wallets_resp[0]["signingAddresses"][0]
 
             # Look up pool address if needed (for AMM/CLMM connectors)
             pool_address = None

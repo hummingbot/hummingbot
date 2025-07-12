@@ -33,22 +33,22 @@ class GatewayWalletCommand:
             gateway wallet list [chain]
             gateway wallet add <chain>
             gateway wallet add-hardware <chain> <address>
-            gateway wallet add-read-only <chain> <address>
             gateway wallet remove <chain> <address>
+            gateway wallet setDefault <chain> <address>
         """
         if action is None:
             self.notify("\nUsage:")
             self.notify("  gateway wallet list [chain]                       - List wallets")
             self.notify("  gateway wallet add <chain>                        - Add a new wallet")
             self.notify("  gateway wallet add-hardware <chain> <address>     - Add a hardware wallet")
-            self.notify("  gateway wallet add-read-only <chain> <address>    - Add a read-only wallet")
             self.notify("  gateway wallet remove <chain> <address>           - Remove wallet")
+            self.notify("  gateway wallet setDefault <chain> <address>       - Set default wallet for a chain")
             self.notify("\nExamples:")
             self.notify("  gateway wallet list")
             self.notify("  gateway wallet list ethereum")
             self.notify("  gateway wallet add ethereum")
             self.notify("  gateway wallet add-hardware solana 9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM")
-            self.notify("  gateway wallet add-read-only ethereum 0x742d35Cc6634C0532925a3b844Bc9e7595f7aFa")
+            self.notify("  gateway wallet setDefault ethereum 0xDA50C69342216b538Daf06FfECDa7363E0B96684")
             return
 
         if action == "list":
@@ -73,14 +73,6 @@ class GatewayWalletCommand:
             address = args[1]
             safe_ensure_future(self._gateway_wallet_add_hardware(chain, address), loop=self.ev_loop)
 
-        elif action == "add-read-only":
-            if args is None or len(args) < 2:
-                self.notify("Error: chain and address parameters are required for 'add-read-only' action")
-                return
-            chain = args[0]
-            address = args[1]
-            safe_ensure_future(self._gateway_wallet_add_read_only(chain, address), loop=self.ev_loop)
-
         elif action == "remove":
             if args is None or len(args) < 2:
                 self.notify("Error: chain and address parameters are required for 'remove' action")
@@ -89,8 +81,16 @@ class GatewayWalletCommand:
             address = args[1]
             safe_ensure_future(self._gateway_wallet_remove(chain, address), loop=self.ev_loop)
 
+        elif action == "setDefault":
+            if args is None or len(args) < 2:
+                self.notify("Error: chain and address parameters are required for 'setDefault' action")
+                return
+            chain = args[0]
+            address = args[1]
+            safe_ensure_future(self._gateway_wallet_set_default(chain, address), loop=self.ev_loop)
+
         else:
-            self.notify(f"Error: Unknown action '{action}'. Use 'list', 'add', 'add-hardware', 'add-read-only', or 'remove'.")
+            self.notify(f"Error: Unknown action '{action}'. Use 'list', 'add', 'add-hardware', 'remove', or 'setDefault'.")
 
     async def _gateway_wallet_list(self, chain: Optional[str] = None):
         """List wallets from gateway with optional chain filter."""
@@ -122,33 +122,37 @@ class GatewayWalletCommand:
                     continue
 
                 regular_addresses = wallet.get("walletAddresses", [])
-                readonly_addresses = wallet.get("readOnlyWalletAddresses", [])
                 hardware_addresses = wallet.get("hardwareWalletAddresses", [])
-                signing_addresses = wallet.get("signingAddresses", [])
 
-                # Get the primary signing address (first in signingAddresses)
-                primary_signing = signing_addresses[0] if signing_addresses else None
+                # Get the default wallet for this chain from gateway config
+                default_wallet = await self._get_gateway_instance().get_default_wallet_for_chain(chain)
 
-                # Collect all addresses with their types and signing status
+                # Check if default wallet is a placeholder
+                is_placeholder = default_wallet in ["<ethereum-wallet-address>", "<solana-wallet-address>"]
+
+                # Collect all addresses with their types and default status
                 all_addresses = []
 
                 for addr in regular_addresses:
-                    is_signing = "✓" if addr == primary_signing else ""
-                    all_addresses.append(["Regular", addr, is_signing])
-
-                for addr in readonly_addresses:
-                    all_addresses.append(["Read-Only", addr, ""])  # Read-only can't sign
+                    is_default = "✓" if addr == default_wallet else ""
+                    all_addresses.append(["Regular", addr, is_default])
 
                 for addr in hardware_addresses:
-                    is_signing = "✓" if addr == primary_signing else ""
-                    all_addresses.append(["Hardware", addr, is_signing])
+                    is_default = "✓" if addr == default_wallet else ""
+                    all_addresses.append(["Hardware", addr, is_default])
 
                 # Display chain section
                 self.notify(f"Chain: {chain}")
 
+                # Show warning if default wallet is placeholder
+                if is_placeholder and default_wallet:
+                    self.notify(f"  ⚠️  Default wallet not set (currently: {default_wallet})")
+                    if all_addresses:
+                        self.notify(f"  Please run: gateway wallet setDefault {chain} <address>")
+
                 if all_addresses:
                     # Create DataFrame for this chain
-                    df = pd.DataFrame(all_addresses, columns=["Type", "Address", "Primary"])
+                    df = pd.DataFrame(all_addresses, columns=["Type", "Address", "Default"])
                     self.notify(df.to_string(index=False))
                 else:
                     self.notify("  No wallets configured")
@@ -157,9 +161,8 @@ class GatewayWalletCommand:
 
             # Show total counts
             total_regular = sum(len(w.get("walletAddresses", [])) for w in wallets)
-            total_readonly = sum(len(w.get("readOnlyWalletAddresses", [])) for w in wallets)
             total_hardware = sum(len(w.get("hardwareWalletAddresses", [])) for w in wallets)
-            self.notify(f"\nTotal: {total_regular} regular, {total_readonly} read-only, {total_hardware} hardware addresses")
+            self.notify(f"\nTotal: {total_regular} regular, {total_hardware} hardware addresses")
 
         except Exception as e:
             self.notify(f"Error listing wallets: {str(e)}")
@@ -206,28 +209,6 @@ class GatewayWalletCommand:
             self.placeholder_mode = False
             self.app.hide_input = False
             self.app.change_prompt(prompt=">>> ")
-
-    async def _gateway_wallet_add_read_only(self, chain: str, address: str):
-        """Add a read-only wallet to the gateway."""
-        try:
-            self.notify(f"\nAdding read-only wallet for {chain}")
-            self.notify(f"Address: {address}")
-
-            # Add read-only wallet
-            response = await self._get_gateway_instance().add_read_only_wallet(chain, address)
-
-            if "error" in response:
-                self.notify(f"Error adding read-only wallet: {response['error']}")
-            else:
-                self.notify("\n✓ Read-only wallet added successfully")
-                if "address" in response:
-                    self.notify(f"  Address: {response['address']}")
-
-                # Show updated wallet list
-                await self._gateway_wallet_list(chain)
-
-        except Exception as e:
-            self.notify(f"Error adding read-only wallet: {str(e)}")
 
     async def _gateway_wallet_remove(self, chain: str, address: str):
         """Remove any type of wallet from the gateway."""
@@ -292,3 +273,31 @@ class GatewayWalletCommand:
 
         except Exception as e:
             self.notify(f"Error adding hardware wallet: {str(e)}")
+
+    async def _gateway_wallet_set_default(self, chain: str, address: str):
+        """Set default wallet for a chain."""
+        try:
+            # First check if the wallet exists
+            wallets = await self._get_gateway_instance().get_wallets(chain)
+            if not wallets:
+                self.notify(f"No wallets found for {chain}")
+                return
+
+            wallet = wallets[0]
+            all_addresses = wallet.get("walletAddresses", []) + wallet.get("hardwareWalletAddresses", [])
+
+            if address not in all_addresses:
+                self.notify(f"Error: Address {address} not found in {chain} wallets")
+                self.notify(f"Available addresses: {', '.join(all_addresses)}")
+                return
+
+            # Call gateway setDefault endpoint
+            response = await self._get_gateway_instance().set_default_wallet(chain, address)
+
+            if "error" in response:
+                self.notify(f"Error setting default wallet: {response.get('error', 'Unknown error')}")
+            else:
+                self.notify(f"✓ Default wallet for {chain} set to: {address}")
+
+        except Exception as e:
+            self.notify(f"Error setting default wallet: {str(e)}")

@@ -17,16 +17,16 @@ def flatten(items):
 
 def list_gateway_wallets(wallets: List[Any], chain: str) -> List[str]:
     """
-    Get the public keys for a chain supported by gateway, including read-only wallets.
+    Get the public keys for a chain supported by gateway.
     """
     addresses = []
     for w in wallets:
         if w["chain"] == chain:
-            # Include both regular wallets and read-only wallets
+            # Include regular and hardware wallets
             regular_addresses = w.get("walletAddresses", [])
-            readonly_addresses = w.get("readOnlyWalletAddresses", [])
+            hardware_addresses = w.get("hardwareWalletAddresses", [])
             addresses.extend(regular_addresses)
-            addresses.extend(readonly_addresses)
+            addresses.extend(hardware_addresses)
     return list(flatten(addresses))
 
 
