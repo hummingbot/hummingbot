@@ -103,10 +103,31 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
     gateway_list_parser = gateway_subparsers.add_parser("list", help="List gateway connectors")
     gateway_list_parser.set_defaults(func=hummingbot.gateway_list)
 
-    gateway_config_parser = gateway_subparsers.add_parser("config", help="View or update gateway configuration")
-    gateway_config_parser.add_argument("action", nargs="?", default=None, help="Action to perform (show, update)")
-    gateway_config_parser.add_argument("namespace", nargs="?", default=None, help="Configuration namespace (e.g., ethereum-mainnet, solana-devnet, uniswap)")
-    gateway_config_parser.add_argument("args", nargs="*", help="Additional arguments (path, value for update)")
+    gateway_config_parser = gateway_subparsers.add_parser(
+        "config",
+        help="View or update gateway configuration",
+        description="View and modify gateway configuration settings for chains, networks, and connectors.\n\n"
+                    "Actions:\n"
+                    "  show   - Display configuration for a namespace\n"
+                    "  update - Modify a configuration value\n\n"
+                    "Usage patterns:\n"
+                    "  gateway config show [namespace]              - Show all or specific config\n"
+                    "  gateway config update <namespace> <path> <value> - Update a value\n"
+                    "  gateway config update <namespace>            - Interactive update mode\n\n"
+                    "Namespace examples:\n"
+                    "  Chain configs: ethereum, solana\n"
+                    "  Network configs: ethereum-mainnet, solana-devnet\n"
+                    "  Connector configs: uniswap, jupiter, raydium\n"
+                    "  Server config: server\n\n"
+                    "Interactive mode guides you through available configuration options.",
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+    gateway_config_parser.add_argument("action", nargs="?", default=None,
+                                       choices=["show", "update"],
+                                       help="Action to perform: 'show' to display config, 'update' to modify")
+    gateway_config_parser.add_argument("namespace", nargs="?", default=None,
+                                       help="Configuration namespace (e.g., ethereum-mainnet, uniswap)")
+    gateway_config_parser.add_argument("args", nargs="*",
+                                       help="For update: <path> <value>. Example: gasLimitTransaction 3000000")
     gateway_config_parser.set_defaults(func=hummingbot.gateway_config)
 
     gateway_token_parser = gateway_subparsers.add_parser("token", help="Manage tokens in gateway")
