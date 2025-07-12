@@ -350,6 +350,7 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
         # Long Entry Conditions:
         # 1. ADX crosses threshold with established bullish trend: ST already positive + Price > DEMA + ADX crosses above threshold
         # 2. ADX already established and ST flips: ADX above threshold + ST turns positive + Price > DEMA
+        # 3. ADX already established, ST already positive and price moves above DEMA (last candle closed above DEMA price and last to last candle closed below DEMA price (flip in price direction))
         # 3. STARTUP: Price above DEMA AND SuperTrend is green (no flip required)
         long_condition_1 = (current_supertrend_direction == 1 and
                             current_price > current_dema and
@@ -360,18 +361,29 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
                             current_supertrend_direction == 1 and
                             prev_supertrend_direction == -1)
 
+        prev_dema = self.prev_dema[trading_pair]
+        prev_candle_close = candles["close"].iloc[-2]
+        prev_prev_candle_close = candles["close"].iloc[-3]
+        long_condition_3 = (prev_candle_close >= prev_dema and
+                            prev_prev_candle_close < prev_dema and
+                            adx_above_threshold and
+                            current_supertrend_direction == 1)
+
         long_condition_startup = (is_startup_check and
                                   self.config.enable_startup_entry and
                                   current_price > current_dema and
                                   adx_above_threshold and
                                   current_supertrend_direction == 1)
+
+        # self.logger().info(f"========== {trading_pair} ==========")
         # self.logger().info(f"Long Condition 1: {long_condition_1}")
         # self.logger().info(f"Long Condition 2: {long_condition_2}")
         # self.logger().info(f"Long Condition Startup: {long_condition_startup}")
         # Short Entry Conditions:
         # 1. ADX crosses threshold with established bearish trend: ST already negative + Price < DEMA + ADX crosses above threshold
         # 2. ADX already established and ST flips: ADX above threshold + ST turns negative + Price < DEMA
-        # 3. STARTUP: Price below DEMA AND SuperTrend is red (no flip required)
+        # 3. ADX already established, ST already negative and price moves below DEMA (last candle closed below DEMA price and last to last candle closed above DEMA price (flip in price direction))
+        # 4. STARTUP: Price below DEMA AND SuperTrend is red (no flip required)
         short_condition_1 = (current_supertrend_direction == -1 and
                              current_price < current_dema and
                              adx_crossed_threshold)
@@ -380,6 +392,14 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
                              current_price < current_dema and
                              current_supertrend_direction == -1 and
                              prev_supertrend_direction == 1)
+
+        prev_dema = self.prev_dema[trading_pair]
+        prev_candle_close = candles["close"].iloc[-2]
+        prev_prev_candle_close = candles["close"].iloc[-3]
+        short_condition_3 = (prev_candle_close <= prev_dema and
+                             prev_prev_candle_close >= prev_dema and
+                             adx_above_threshold and
+                             current_supertrend_direction == -1)
 
         short_condition_startup = (is_startup_check and
                                    self.config.enable_startup_entry and
@@ -390,9 +410,9 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
         # self.logger().info(f"Short Condition 2: {short_condition_2}")
         # self.logger().info(f"Short Condition Startup: {short_condition_startup}")
         # Determine signal
-        if long_condition_1 or long_condition_2 or long_condition_startup:
+        if long_condition_1 or long_condition_2 or long_condition_3 or long_condition_startup:
             signal = 1
-        elif short_condition_1 or short_condition_2 or short_condition_startup:
+        elif short_condition_1 or short_condition_2 or short_condition_3 or short_condition_startup:
             signal = -1
         else:
             signal = 0
@@ -425,16 +445,13 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
             return "Market connectors are not ready."
         lines = []
 
-        balance_df = self.get_balance_df()
-        lines.extend(["", "  Balances:"] + ["    " + line for line in balance_df.to_string(index=False).split("\n")])
-
         # Create compact trading pairs overview
-        lines.extend(["", "  Trading Pairs Overview:"])
+        lines.extend(["", "  Market Overview:"])
 
         # Header for the grid
-        header = f"{'Pair':<12} {'Price':<8} {'DEMA':<8} {'ST Dir':<6} {'ADX':<5} {'Condition':<10} {'Signal':<7} {'Long':<4} {'Short':<5}"
-        lines.append(f"    {header}")
-        lines.append(f"    {'-' * len(header)}")
+        header = f"  {'Symbol':<12} {'Price':<10} {'DEMA':<10} {'Trend':<8} {'ADX':<6} {'Market':<12} {'Signal':<8} {'Longs':<6} {'Shorts':<6}"
+        separator = f"  {'-' * 12} {'-' * 10} {'-' * 10} {'-' * 8} {'-' * 6} {'-' * 12} {'-' * 8} {'-' * 6} {'-' * 6}"
+        lines.extend([header, separator])
 
         # Display each trading pair in compact format
         for i, candles_pair in enumerate(self.config.candles_pairs):
@@ -446,7 +463,6 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
 
             # Format signal and direction display
             signal_text = "LONG" if signal == 1 else "SHORT" if signal == -1 else "NONE"
-            st_text = "UP" if st_dir == 1 else "DOWN" if st_dir == -1 else "NONE"
 
             # Get ADX values
             adx = self.current_adx.get(candles_pair, 0)
@@ -460,9 +476,24 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
                 active_longs, active_shorts = [], []
 
             # Format the row
-            pair_display = candles_pair.replace('-', '/') if len(candles_pair) > 12 else candles_pair
-            row = f"{pair_display:<12} {price:>7.3f} {dema:>7.3f} {st_text:>6} {adx:>4.1f} {condition:<10} {signal_text:>7} {len(active_longs):>4} {len(active_shorts):>5}"
-            lines.append(f"    {row}")
+            symbol = candles_pair.replace('-', '/')
+            price_str = f"{price:.4f}"
+            dema_str = f"{dema:.4f}"
+            trend = "BULLISH" if st_dir == 1 else "BEARISH" if st_dir == -1 else "NEUTRAL"
+            adx_str = f"{adx:.1f}"
+
+            # Shorten market condition labels for better fit
+            market_map = {
+                "CHOPPY": "CHOPPY",
+                "WEAK_TREND": "WEAK",
+                "STRONG_TREND": "STRONG",
+                "EXTREME_TREND": "EXTREME",
+                "UNKNOWN": "N/A"
+            }
+            market = market_map.get(condition, condition)
+
+            row = f"  {symbol:<12} {price_str:<10} {dema_str:<10} {trend:<8} {adx_str:<6} {market:<12} {signal_text:<8} {len(active_longs):<6} {len(active_shorts):<6}"
+            lines.append(row)
 
         # Add configuration info
         lines.extend([
@@ -483,16 +514,27 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
         )
 
         if active_executors:
-            lines.extend(["", "  Active Position Executors:"])
+            lines.extend(["", "  Active Positions:"])
+
+            # Table header
+            header = f"  {'Symbol':<12} {'Side':<5} {'P&L USD':<12} {'P&L %':<8} {'Size USD':<10} {'Fees':<8} {'Status':<10}"
+            separator = f"  {'-' * 12} {'-' * 5} {'-' * 10} {'-' * 10} {'-' * 12} {'-' * 8} {'-' * 10} {'-' * 8} {'-' * 10}"
+            lines.extend([header, separator])
+
+            # Table rows
             for executor_info in active_executors:
-                lines.extend([
-                    f"    ID: {executor_info.id} | Type: {executor_info.type} | Status: {executor_info.status.value}",
-                    f"    Pair: {executor_info.trading_pair} | Exchange: {executor_info.connector_name} | Side: {executor_info.side}",
-                    f"    Net PnL: {executor_info.net_pnl_quote:.6f} ({executor_info.net_pnl_pct * 100:.2f}%)",
-                    f"    Filled Amount: {executor_info.filled_amount_quote:.4f} | Fees: {executor_info.cum_fees_quote:.6f}",
-                    f"    Active: {executor_info.is_active} | Trading: {executor_info.is_trading}",
-                    "    ---"
-                ])
+                # Format values for display
+                symbol = executor_info.trading_pair
+                side = "LONG" if executor_info.side == TradeType.BUY else "SHORT"
+                pnl_usd = f"{executor_info.net_pnl_quote:+.2f}"
+                pnl_pct = f"{executor_info.net_pnl_pct * 100:+.2f}%"
+                size = f"{executor_info.filled_amount_quote:.2f}"
+                fees = f"{executor_info.cum_fees_quote:.2f}"
+                status = "ACTIVE" if executor_info.is_trading else "PENDING"
+
+                # Color coding for P&L (you can add ANSI colors if supported)
+                row = f"  {symbol:<12} {side:<5} {pnl_usd:<12} {pnl_pct:<8} {size:<10} {fees:<8} {status:<10}"
+                lines.append(row)
         else:
             lines.extend(["", "  No active position executors."])
 
