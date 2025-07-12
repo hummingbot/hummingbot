@@ -1,7 +1,6 @@
 """
 Unified Gateway HTTP client with built-in retry and fee management.
 """
-import asyncio
 import logging
 import ssl
 import time
@@ -15,6 +14,8 @@ from hummingbot.logger import HummingbotLogger
 
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
+from .transaction_monitor import TransactionMonitor
 
 
 class GatewayClient:
@@ -1003,7 +1004,7 @@ class GatewayClient:
         callback=None
     ) -> str:
         """
-        Execute a Gateway transaction with automatic fee management and retry logic.
+        Execute a Gateway transaction with automatic fee management.
 
         :param chain: Blockchain name
         :param network: Network name
@@ -1052,11 +1053,32 @@ class GatewayClient:
             "computeUnits": compute_units,
         }
 
-        # Execute with retry in background
-        safe_ensure_future(self._execute_with_retry(
-            chain, network, connector, method, request_params, config,
-            current_fee_per_cu, compute_units, order_id, callback
-        ))
+        # Execute transaction ONCE (no retry)
+        try:
+            response = await self.request(
+                "POST",
+                f"connectors/{connector}/{method}",
+                data=request_params
+            )
+
+            # Use TransactionMonitor to handle the monitoring
+            if callback:
+                monitor = TransactionMonitor(self)
+                safe_ensure_future(
+                    monitor.monitor_transaction(
+                        response=response,
+                        chain=chain,
+                        network=network,
+                        order_id=order_id,
+                        callback=callback
+                    )
+                )
+
+        except Exception as e:
+            # If transaction submission fails, notify callback
+            if callback:
+                callback("failed", order_id, str(e))
+            raise
 
         return ""  # Async execution
 
@@ -1139,119 +1161,3 @@ class GatewayClient:
         except Exception as e:
             self.logger().warning(f"Failed to estimate fee: {e}")
             return 0
-
-    async def _execute_with_retry(
-        self,
-        chain: str,
-        network: str,
-        connector: str,
-        method: str,
-        params: Dict[str, Any],
-        config: Dict[str, Any],
-        initial_fee_per_cu: int,
-        compute_units: int,
-        order_id: str,
-        callback
-    ):
-        """Background retry logic for transaction execution."""
-        max_retries = config.get("retryCount", 3)
-        retry_interval = config.get("retryInterval", 2)
-        fee_multiplier = config.get("retryFeeMultiplier", 2.0)
-        max_fee = config.get("maxFee", 0.01)
-
-        current_fee_per_cu = initial_fee_per_cu
-        attempt = 0
-        last_error = None
-
-        while attempt <= max_retries:
-            try:
-                # Update fee parameters
-                request_params = {
-                    **params,
-                    "priorityFeePerCU": current_fee_per_cu,
-                    "computeUnits": compute_units,
-                }
-
-                # Send transaction
-                response = await self.request(
-                    "POST",
-                    f"connectors/{connector}/{method}",
-                    data=request_params
-                )
-
-                tx_hash = response.get("signature")
-                status = response.get("status", 0)
-
-                # Notify callback if provided
-                if callback and tx_hash:
-                    await callback("tx_hash", order_id, tx_hash)
-
-                if status == 1:  # CONFIRMED
-                    if callback:
-                        await callback("confirmed", order_id, response)
-                    return
-
-                # Monitor pending transaction
-                confirmed = await self._monitor_transaction(chain, network, tx_hash)
-
-                if confirmed:
-                    if callback:
-                        await callback("confirmed", order_id, confirmed)
-                    return
-
-                last_error = "Transaction failed to confirm"
-
-            except Exception as e:
-                last_error = str(e)
-                self.logger().warning(f"Transaction attempt {attempt + 1} failed: {last_error}")
-
-            # Retry with higher fee
-            if attempt < max_retries:
-                attempt += 1
-                # Increase fee
-                if chain == "solana":
-                    max_fee_per_cu = int((max_fee * 1e9 * 1e6) / compute_units)
-                else:
-                    max_fee_per_cu = int(max_fee * 1e9)
-
-                current_fee_per_cu = min(int(current_fee_per_cu * fee_multiplier), max_fee_per_cu)
-                await asyncio.sleep(retry_interval)
-            else:
-                break
-
-        # All retries failed
-        if callback:
-            await callback("failed", order_id, last_error or "Max retries exceeded")
-
-    async def _monitor_transaction(
-        self,
-        chain: str,
-        network: str,
-        tx_hash: str,
-        timeout: float = 60.0
-    ) -> Optional[Dict[str, Any]]:
-        """Monitor transaction until confirmed or timeout."""
-        start_time = time.time()
-
-        while time.time() - start_time < timeout:
-            try:
-                response = await self.request(
-                    "POST",
-                    f"chains/{chain}/poll",
-                    data={
-                        "network": network,
-                        "signature": tx_hash
-                    }
-                )
-
-                if response.get("confirmed"):
-                    return response
-                elif response.get("failed"):
-                    return None
-
-            except Exception as e:
-                self.logger().debug(f"Error polling transaction: {e}")
-
-            await asyncio.sleep(2)
-
-        return None  # Timeout
