@@ -207,8 +207,9 @@ class MACDBBRSIStrategy(StrategyV2Base):
             for connector_name, connector in self.connectors.items():
                 if self.is_perpetual(connector_name):
                     connector.set_position_mode(self.config.position_mode)
-                    for trading_pair in self.market_data_provider.get_trading_pairs(connector_name):
-                        connector.set_leverage(trading_pair, self.config.leverage)
+        if self.is_perpetual(connector_name):
+            connector.set_position_mode(self.config.position_mode)
+            connector.set_leverage(self.config.trading_pair, self.config.leverage)
             self.account_config_set = True
 
     def format_status(self) -> str:

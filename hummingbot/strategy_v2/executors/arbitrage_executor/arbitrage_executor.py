@@ -267,11 +267,12 @@ class ArbitrageExecutor(ExecutorBase):
 
         _, buy_quote_asset = split_hb_trading_pair(self.buying_market.trading_pair)
         _, sell_quote_asset = split_hb_trading_pair(self.selling_market.trading_pair)
-        interchange_map = self.config.interchange_tokens_for_price_fetch
-        if buy_quote_asset in interchange_map:
-            buy_quote_asset = interchange_map[buy_quote_asset]
-        if sell_quote_asset in interchange_map:
-            sell_quote_asset = interchange_map[sell_quote_asset]
+        interchange_map = getattr(self.config, 'interchange_tokens_for_price_fetch', {})
+        if interchange_map:
+            if buy_quote_asset in interchange_map:
+                buy_quote_asset = interchange_map[buy_quote_asset]
+            if sell_quote_asset in interchange_map:
+                sell_quote_asset = interchange_map[sell_quote_asset]
 
         # Define the conversion trading pair (e.g., SOL/USDT or USDT/SOL)
         self.quote_conversion_pair = f"{sell_quote_asset}-{buy_quote_asset}"

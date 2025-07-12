@@ -254,33 +254,15 @@ class MACDBBRSIStrategy(StrategyV2Base):
         header = f"{'Pair':<12} {'RSI':<7} {'MACD':<9} {'MACDH':<9} {'BBP':<7} {'Signal':<7} {'Long':<4} {'Short':<5}"
         lines.append(f"    {header}")
         lines.append(f"    {'-' * len(header)}")
-
         # Display each trading pair in compact format
         for i, trading_pair in enumerate(self.config.candles_pairs):
-            # Get indicator values for this pair - fix the fallback logic
-            rsi_val = self.current_rsi.get(trading_pair)
-            if rsi_val is None:
-                rsi_val = -1
-
-            macd_val = self.current_macd.get(trading_pair)
-            if macd_val is None:
-                macd_val = -1
-
-            macdh_val = self.current_macd_histogram.get(trading_pair)
-            if macdh_val is None:
-                macdh_val = -1
-
-            bbp_val = self.current_bbp.get(trading_pair)
-            if bbp_val is None:
-                bbp_val = -1
-
             signal = self.current_signal.get(trading_pair)
-            if signal is None:
-                signal = -1
-
+            macd_val = self.current_macd.get(trading_pair)
+            macdh_val = self.current_macd_histogram.get(trading_pair)
+            bbp_val = self.current_bbp.get(trading_pair)
             # Format signal display
             signal_text = "LONG" if signal == 1 else "SHORT" if signal == -1 else "NONE"
-
+            rsi_val = self.current_rsi.get(trading_pair)
             # Get active positions for this pair - need to map back to trading pair
             actual_trading_pair = self.config.trading_pairs[i] if i < len(self.config.trading_pairs) else trading_pair
             active_longs, active_shorts = self.get_active_executors_by_side(self.config.exchange, actual_trading_pair)

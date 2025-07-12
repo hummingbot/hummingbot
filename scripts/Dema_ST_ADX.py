@@ -20,9 +20,9 @@ class DEMASTADXTokenConfig(StrategyV2ConfigBase):
     candles_config: List[CandlesConfig] = []
     controllers_config: List[str] = []
     exchange: str = Field(default="hyperliquid_perpetual")
-    trading_pairs: List[str] = Field(default=["ETH-USD"])
+    trading_pairs: List[str] = Field(default=["HYPE-USD"])
     candles_exchange: str = Field(default="binance_perpetual")
-    candles_pairs: List[str] = Field(default=["ETH-USDT"])
+    candles_pairs: List[str] = Field(default=["HYPE-USDT"])
     candles_interval: str = Field(default="5m")
     candles_length: int = Field(default=15, gt=0)
 
@@ -34,17 +34,12 @@ class DEMASTADXTokenConfig(StrategyV2ConfigBase):
     supertrend_multiplier: float = Field(default=3.0, gt=0)
 
     # Order Configuration
-    order_amount_quote: Decimal = Field(default=Decimal("30"), gt=0)
-    leverage: int = Field(default=10, gt=0)
+    order_amount_quote: Decimal = Field(default=Decimal("100"), gt=0)
+    leverage: int = Field(default=5, gt=0)
     position_mode: PositionMode = Field(default=PositionMode.ONEWAY)
 
-    # Triple Barrier Configuration
-    # stop_loss: Decimal = Field(default=Decimal("0.03"), gt=0)
-    # take_profit: Decimal = Field(default=Decimal("0.02"), gt=0)
-    # time_limit: int = Field(default=60 * 45, gt=0)
-
     # Executor Timeout Configuration
-    executor_timeout: int = Field(default=30, gt=0)
+    executor_timeout: int = Field(default=60, gt=0)
 
     # Startup Entry Configuration
     enable_startup_entry: bool = Field(default=False)
@@ -57,7 +52,7 @@ class DEMASTADXTokenConfig(StrategyV2ConfigBase):
     adx_slope_period: int = Field(default=5, gt=0)  # For trend acceleration/deceleration
 
     # Position sizing based on ADX
-    enable_adx_position_sizing: bool = Field(default=True)
+    enable_adx_position_sizing: bool = Field(default=False)
     position_size_weak_trend: Decimal = Field(default=Decimal("0.5"), gt=0)  # 50% size when ADX 20-25
     position_size_strong_trend: Decimal = Field(default=Decimal("1.0"), gt=0)  # 100% size when ADX > 25
     position_size_extreme_trend: Decimal = Field(default=Decimal("0.7"), gt=0)  # 70% size when ADX > 45
@@ -143,8 +138,6 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
 
         # Check signals for each trading pair
         for i, trading_pair in enumerate(self.config.trading_pairs):
-            if i >= len(self.config.candles_pairs):
-                raise ValueError(f"Index {i} out of range for candles_pairs. trading_pairs: {self.config.trading_pairs}, candles_pairs: {self.config.candles_pairs}")
             candles_pair = self.config.candles_pairs[i]
             signal = self.get_signal(self.config.candles_exchange, candles_pair)
             active_longs, active_shorts = self.get_active_executors_by_side(self.config.exchange, trading_pair)
@@ -198,8 +191,6 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
 
         # Check signals for each trading pair
         for i, trading_pair in enumerate(self.config.trading_pairs):
-            if i >= len(self.config.candles_pairs):
-                raise ValueError(f"Index {i} out of range for candles_pairs. trading_pairs: {self.config.trading_pairs}, candles_pairs: {self.config.candles_pairs}")
             candles_pair = self.config.candles_pairs[i]
 
             # Get current SuperTrend direction for stop logic
@@ -372,6 +363,7 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
         long_condition_startup = (is_startup_check and
                                   self.config.enable_startup_entry and
                                   current_price > current_dema and
+                                  adx_above_threshold and
                                   current_supertrend_direction == 1)
         # self.logger().info(f"Long Condition 1: {long_condition_1}")
         # self.logger().info(f"Long Condition 2: {long_condition_2}")
@@ -392,6 +384,7 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
         short_condition_startup = (is_startup_check and
                                    self.config.enable_startup_entry and
                                    current_price < current_dema and
+                                   adx_above_threshold and
                                    current_supertrend_direction == -1)
         # self.logger().info(f"Short Condition 1: {short_condition_1}")
         # self.logger().info(f"Short Condition 2: {short_condition_2}")
@@ -404,6 +397,7 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
         else:
             signal = 0
 
+        # TO-DO (understand this part better)
         # Additional filter: Ensure directional agreement
         if signal == 1 and self.current_plus_di[trading_pair] <= self.current_minus_di[trading_pair]:
             signal = 0  # Cancel long if -DI is stronger
