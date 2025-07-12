@@ -361,13 +361,11 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
                             current_supertrend_direction == 1 and
                             prev_supertrend_direction == -1)
 
-        prev_dema = self.prev_dema[trading_pair]
-        prev_candle_close = candles["close"].iloc[-2]
-        prev_prev_candle_close = candles["close"].iloc[-3]
-        long_condition_3 = (prev_candle_close >= prev_dema and
-                            prev_prev_candle_close < prev_dema and
-                            adx_above_threshold and
-                            current_supertrend_direction == 1)
+        # NOTE: not gonna use this, the price acts as a barrier not a support
+        # long_condition_3 = (prev_candle_close >= prev_dema and
+        #                     prev_prev_candle_close < prev_dema and
+        #                     adx_above_threshold and
+        #                     current_supertrend_direction == 1)
 
         long_condition_startup = (is_startup_check and
                                   self.config.enable_startup_entry and
@@ -393,13 +391,11 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
                              current_supertrend_direction == -1 and
                              prev_supertrend_direction == 1)
 
-        prev_dema = self.prev_dema[trading_pair]
-        prev_candle_close = candles["close"].iloc[-2]
-        prev_prev_candle_close = candles["close"].iloc[-3]
-        short_condition_3 = (prev_candle_close <= prev_dema and
-                             prev_prev_candle_close >= prev_dema and
-                             adx_above_threshold and
-                             current_supertrend_direction == -1)
+        # NOTE: not gonna use this, the price acts as a barrier not a support
+        # short_condition_3 = (prev_candle_close <= prev_dema and
+        #                      prev_prev_candle_close >= prev_dema and
+        #                      adx_above_threshold and
+        #                      current_supertrend_direction == -1)
 
         short_condition_startup = (is_startup_check and
                                    self.config.enable_startup_entry and
@@ -410,9 +406,9 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
         # self.logger().info(f"Short Condition 2: {short_condition_2}")
         # self.logger().info(f"Short Condition Startup: {short_condition_startup}")
         # Determine signal
-        if long_condition_1 or long_condition_2 or long_condition_3 or long_condition_startup:
+        if long_condition_1 or long_condition_2 or long_condition_startup:
             signal = 1
-        elif short_condition_1 or short_condition_2 or short_condition_3 or short_condition_startup:
+        elif short_condition_1 or short_condition_2 or short_condition_startup:
             signal = -1
         else:
             signal = 0
