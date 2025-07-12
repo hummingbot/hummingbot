@@ -105,22 +105,7 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
 
     gateway_config_parser = gateway_subparsers.add_parser(
         "config",
-        help="View or update gateway configuration",
-        description="View and modify gateway configuration settings for chains, networks, and connectors.\n\n"
-                    "Actions:\n"
-                    "  show   - Display configuration for a namespace\n"
-                    "  update - Modify a configuration value\n\n"
-                    "Usage patterns:\n"
-                    "  gateway config show [namespace]              - Show all or specific config\n"
-                    "  gateway config update <namespace> <path> <value> - Update a value\n"
-                    "  gateway config update <namespace>            - Interactive update mode\n\n"
-                    "Namespace examples:\n"
-                    "  Chain configs: ethereum, solana\n"
-                    "  Network configs: ethereum-mainnet, solana-devnet\n"
-                    "  Connector configs: uniswap, jupiter, raydium\n"
-                    "  Server config: server\n\n"
-                    "Interactive mode guides you through available configuration options.",
-        formatter_class=argparse.RawDescriptionHelpFormatter)
+        help="View or update gateway configuration")
     gateway_config_parser.add_argument("action", nargs="?", default=None,
                                        choices=["show", "update"],
                                        help="Action to perform: 'show' to display config, 'update' to modify")
@@ -166,18 +151,7 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
 
     gateway_swap_parser = gateway_subparsers.add_parser(
         "swap",
-        help="Perform token swaps through gateway",
-        description="Get swap quotes and execute token swaps on various DEX connectors.\n\n"
-                    "Actions:\n"
-                    "  quote   - Get a price quote for a swap without executing\n"
-                    "  execute - Execute a swap transaction\n\n"
-                    "Arguments format: <connector> [base-quote] [side] [amount]\n"
-                    "  connector  - DEX connector (e.g., uniswap, jupiter, raydium)\n"
-                    "  base-quote - Token pair (e.g., ETH-USDC, SOL-USDT)\n"
-                    "  side       - Trade side (BUY or SELL)\n"
-                    "  amount     - Amount to trade\n\n"
-                    "If arguments are omitted, interactive mode will guide you.",
-        formatter_class=argparse.RawDescriptionHelpFormatter)
+        help="Perform token swaps through gateway")
     gateway_swap_parser.add_argument("action", nargs="?", default=None,
                                      choices=["quote", "execute"],
                                      help="Action to perform: 'quote' to get swap prices, 'execute' to perform the swap")
