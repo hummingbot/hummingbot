@@ -68,7 +68,6 @@ class HummingbotCompleter(Completer):
         self._gateway_token_action_completer = WordCompleter(["list", "show", "add", "remove"], ignore_case=True)
         self._gateway_pool_action_completer = WordCompleter(["list", "show", "add", "remove"], ignore_case=True)
         self._gateway_pool_type_completer = WordCompleter(["amm", "clmm"], ignore_case=True)
-        self._gateway_swap_action_completer = WordCompleter(["quote", "execute"], ignore_case=True)
         self._gateway_swap_side_completer = WordCompleter(["BUY", "SELL"], ignore_case=True)
         self._gateway_config_action_completer = WordCompleter(["show", "update"], ignore_case=True)
         # Initialize empty - will be updated dynamically from gateway
@@ -231,7 +230,7 @@ class HummingbotCompleter(Completer):
     @property
     def _gateway_swap_connectors_completer(self):
         """Get swap connectors with type suffixes from gateway configuration"""
-        # Simple default list of swap connectors with types
+        # Simple static list of swap connectors with types
         connectors = ["0x/router", "uniswap/router", "uniswap/amm", "jupiter/router",
                       "meteora/clmm", "raydium/amm", "raydium/clmm", "dummy/swap"]
         return WordCompleter(connectors, ignore_case=True)
@@ -443,19 +442,14 @@ class HummingbotCompleter(Completer):
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("gateway pool list ") and text_before_cursor.count(" ") == 5
 
-    def _complete_gateway_swap_arguments(self, document: Document) -> bool:
+    def _complete_gateway_swap_connector(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("gateway swap ") and text_before_cursor.count(" ") == 2
 
-    def _complete_gateway_swap_connector(self, document: Document) -> bool:
-        text_before_cursor: str = document.text_before_cursor
-        return ((text_before_cursor.startswith("gateway swap quote ") and text_before_cursor.count(" ") == 3) or
-                (text_before_cursor.startswith("gateway swap execute ") and text_before_cursor.count(" ") == 3))
-
     def _complete_gateway_swap_side(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
-        return ((text_before_cursor.startswith("gateway swap quote ") and text_before_cursor.count(" ") == 7) or
-                (text_before_cursor.startswith("gateway swap execute ") and text_before_cursor.count(" ") == 7))
+        # After "gateway swap <connector> <base-quote>"
+        return text_before_cursor.startswith("gateway swap ") and text_before_cursor.count(" ") >= 4
 
     def _complete_script_strategy_files(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -711,10 +705,6 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_gateway_pool_type(document):
             for c in self._gateway_pool_type_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_gateway_swap_arguments(document):
-            for c in self._gateway_swap_action_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_gateway_swap_connector(document):

@@ -657,12 +657,12 @@ class TestGatewayCommandSimple(unittest.TestCase):
         # Find the read-only wallet
         readonly_wallet = None
         for wallet in wallets:
-            if readonly_address in wallet.get("readOnlyWalletAddresses", []):
+            if readonly_address in wallet.get("walletAddresses", []):
                 readonly_wallet = wallet
                 break
 
         self.assertIsNotNone(readonly_wallet)
-        self.assertIn(readonly_address, readonly_wallet.get("readOnlyWalletAddresses", []))
+        self.assertIn(readonly_address, readonly_wallet.get("walletAddresses", []))
 
     def test_mixed_wallet_types(self):
         """Test having different wallet types for the same chain"""
@@ -691,20 +691,16 @@ class TestGatewayCommandSimple(unittest.TestCase):
         # Count wallet types
         regular_count = 0
         hardware_count = 0
-        readonly_count = 0
 
         for wallet in wallets:
             if wallet.get("walletAddresses"):
                 regular_count += len(wallet["walletAddresses"])
             if wallet.get("hardwareWalletAddresses"):
                 hardware_count += len(wallet["hardwareWalletAddresses"])
-            if wallet.get("readOnlyWalletAddresses"):
-                readonly_count += len(wallet["readOnlyWalletAddresses"])
 
         # Verify we have all types (1 original + 1 new regular + 1 hardware + 1 readonly)
-        self.assertEqual(regular_count, 2)  # Original ethereum wallet + new one
+        self.assertEqual(regular_count, 3)  # Original ethereum wallet + new one + read-only
         self.assertEqual(hardware_count, 1)
-        self.assertEqual(readonly_count, 1)
 
     def test_balance_with_hardware_wallets(self):
         """Test that balances work with hardware wallets"""

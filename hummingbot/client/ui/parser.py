@@ -151,14 +151,13 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
 
     gateway_swap_parser = gateway_subparsers.add_parser(
         "swap",
-        help="Perform token swaps through gateway")
-    gateway_swap_parser.add_argument("action", nargs="?", default=None,
-                                     choices=["quote", "execute"],
-                                     help="Action to perform: 'quote' to get swap prices, 'execute' to perform the swap")
+        help="Perform token swaps through gateway - shows quote and asks for confirmation")
+    gateway_swap_parser.add_argument("connector", nargs="?", default=None,
+                                     help="Connector name (e.g., uniswap, raydium, jupiter)")
     gateway_swap_parser.add_argument("args", nargs="*",
-                                     help="Arguments: <connector> [base-quote] [side] [amount]. "
+                                     help="Arguments: [base-quote] [side] [amount]. "
                                           "Interactive mode if not all provided. "
-                                          "Example: uniswap ETH-USDC BUY 0.1")
+                                          "Example: gateway swap uniswap ETH-USDC BUY 0.1")
     gateway_swap_parser.set_defaults(func=hummingbot.gateway_swap)
 
     gateway_cert_parser = gateway_subparsers.add_parser("generate-certs", help="Create SSL certificates to encrypt endpoints")

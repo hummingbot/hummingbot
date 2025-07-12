@@ -59,7 +59,7 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
         self.notify("  gateway allowance <spender> [tokens]              - Check token allowances")
         self.notify("  gateway approve <spender> <tokens>                - Approve tokens for spending")
         self.notify("  gateway wrap <amount>                             - Wrap native tokens")
-        self.notify("  gateway swap <action> ...                         - Perform token swaps")
+        self.notify("  gateway swap <connector> [pair] [side] [amount]   - Swap tokens (shows quote first)")
         self.notify("  gateway generate-certs                            - Generate SSL certificates")
         self.notify("  gateway restart                                   - Restart gateway service")
         self.notify("\nUse 'gateway <command> --help' for more information about a command.")

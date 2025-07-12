@@ -190,18 +190,20 @@ class MockGatewayClient:
         """Mock get connectors with realistic trading types based on Gateway 2.8 architecture"""
         return {
             "connectors": [
-                # Jupiter: swap only
-                {"name": "jupiter", "trading_types": ["swap"], "available_chains": ["solana"]},
+                # Jupiter: router only
+                {"name": "jupiter", "trading_types": ["router"], "available_chains": ["solana"]},
                 # Meteora: clmm only
                 {"name": "meteora", "trading_types": ["clmm"], "available_chains": ["solana"]},
-                # Raydium: amm and clmm only (no swap)
+                # Raydium: amm and clmm only (no router)
                 {"name": "raydium", "trading_types": ["amm", "clmm"], "available_chains": ["solana"]},
-                # Uniswap: swap, amm, and clmm
-                {"name": "uniswap", "trading_types": ["swap", "amm", "clmm"], "available_chains": ["ethereum", "polygon"]},
+                # Uniswap: router, amm, and clmm
+                {"name": "uniswap", "trading_types": ["router", "amm", "clmm"], "available_chains": ["ethereum", "polygon"]},
+                # 0x: router only
+                {"name": "0x", "trading_types": ["router"], "available_chains": ["ethereum", "polygon"]},
                 # Generic test connectors
-                {"name": "test-swap", "trading_types": ["swap"], "available_chains": ["ethereum"]},
+                {"name": "test-router", "trading_types": ["router"], "available_chains": ["ethereum"]},
                 {"name": "test-amm", "trading_types": ["amm"], "available_chains": ["solana"]},
-                {"name": "test-multi", "trading_types": ["swap", "amm", "clmm"], "available_chains": ["ethereum", "solana"]}
+                {"name": "test-multi", "trading_types": ["router", "amm", "clmm"], "available_chains": ["ethereum", "solana"]}
             ]
         }
 
@@ -255,6 +257,9 @@ class MockGatewayClient:
             }
         elif endpoint == "connectors":
             return await self.get_connectors()
+        elif endpoint == "config":
+            namespace = params.get("namespace", "")
+            return self._config.get(namespace, {})
         return {"success": True}
 
     async def chain_request(self, method: str, chain: str, endpoint: str, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -263,6 +268,123 @@ class MockGatewayClient:
             network = params.get("network", "mainnet")
             return await self.get_tokens(chain, network)
         return {"success": True}
+
+    async def get_connector_info(self, connector: str) -> Dict[str, Any]:
+        """Mock get connector info"""
+        connectors_resp = await self.get_connectors()
+        for conn in connectors_resp["connectors"]:
+            if conn["name"] == connector:
+                return {
+                    "name": conn["name"],
+                    "trading_types": conn["trading_types"],
+                    "chain": conn["available_chains"][0] if conn["available_chains"] else "ethereum"
+                }
+        return None
+
+    async def get_default_wallet_for_chain(self, chain: str) -> Optional[str]:
+        """Mock get default wallet for chain"""
+        wallets = await self.get_wallets(chain)
+        if wallets and wallets[0].get("walletAddresses"):
+            return wallets[0]["walletAddresses"][0]
+        return None
+
+    async def get_default_network_for_chain(self, chain: str) -> Optional[str]:
+        """Mock get default network for chain"""
+        chains = await self.get_chains()
+        for chain_info in chains:
+            if chain_info["chain"] == chain:
+                return chain_info["networks"][0] if chain_info["networks"] else None
+        return None
+
+    async def get_config(self, namespace: str) -> Dict[str, Any]:
+        """Mock get config"""
+        if namespace in self._config:
+            return self._config[namespace]
+        # Return default slippage for swap connectors
+        return {"slippagePct": 1.0}
+
+    async def get_pools(self, connector: str, network: str, search: str = None) -> List[Dict[str, Any]]:
+        """Mock get pools"""
+        # Return mock pool for AMM/CLMM connectors
+        if search:
+            return [{"address": f"0xpool_{search.replace('/', '_')}"}]
+        return []
+
+    async def connector_request(self, method: str, connector: str, endpoint: str,
+                                params: Dict[str, Any] = None, data: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Mock connector request"""
+        if endpoint == "quote-swap":
+            # Return mock quote
+            side = params.get("side", "SELL")
+            amount = float(params.get("amount", 1))
+
+            if side == "BUY":
+                # Buying base with quote
+                amount_out = amount * 100  # Mock price of 100 quote per base
+                return {
+                    "quoteId": "mock-quote-123",
+                    "tokenIn": params.get("quoteToken"),
+                    "tokenOut": params.get("baseToken"),
+                    "amountOut": str(amount_out),
+                    "maxAmountIn": str(amount_out * 1.01),  # With slippage
+                    "price": "100",
+                    "priceWithSlippage": "101",
+                    "slippagePct": 1.0,
+                    "priceImpact": 0.001,
+                    "route": ["Pool1", "Pool2"]
+                }
+            else:
+                # Selling base for quote
+                amount_out = amount * 100  # Mock price of 100 quote per base
+                return {
+                    "quoteId": "mock-quote-123",
+                    "tokenIn": params.get("baseToken"),
+                    "tokenOut": params.get("quoteToken"),
+                    "amountOut": str(amount_out),
+                    "minAmountOut": str(amount_out * 0.99),  # With slippage
+                    "price": "100",
+                    "priceWithSlippage": "99",
+                    "slippagePct": 1.0,
+                    "priceImpact": 0.001,
+                    "route": ["Pool1", "Pool2"]
+                }
+        elif endpoint == "execute-quote":
+            # Return mock execution
+            return {
+                "signature": "0xmocktxhash123",
+                "status": 0,  # Pending
+                "hash": "0xmocktxhash123"
+            }
+        elif endpoint == "execute-swap":
+            # Return mock execution
+            return {
+                "signature": "0xmocktxhash123",
+                "status": 0,  # Pending
+                "hash": "0xmocktxhash123"
+            }
+        return {"success": True}
+
+    async def get_transaction_status(self, chain: str, network: str, tx_hash: str) -> Dict[str, Any]:
+        """Mock get transaction status"""
+        # Simulate confirmed transaction
+        return {
+            "txStatus": 1,  # Confirmed
+            "txBlock": 12345678,
+            "txReceipt": {"status": 1}
+        }
+
+    async def add_read_only_wallet(self, chain: str, address: str) -> Dict[str, Any]:
+        """Mock add read-only wallet"""
+        wallet = {
+            "walletAddresses": [address],
+            "chain": chain
+        }
+
+        if chain not in self._wallets:
+            self._wallets[chain] = []
+        self._wallets[chain].append(wallet)
+
+        return {"address": address, "chain": chain, "type": "read-only"}
 
 
 class MockGatewayConnector:
