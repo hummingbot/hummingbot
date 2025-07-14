@@ -25,7 +25,7 @@ from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
-from hummingbot.core.event.events import BuyOrderCreatedEvent, SellOrderCreatedEvent
+from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketOrderFailureEvent, SellOrderCreatedEvent
 from hummingbot.core.network_iterator import NetworkStatus
 
 
@@ -42,7 +42,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         cls.base_asset = "BTC"
         cls.quote_asset = "USD"  # linear
         cls.trading_pair = combine_to_hb_trading_pair(cls.base_asset, cls.quote_asset)
-        cls.client_order_id_prefix = "0x48424f5442454855443630616330301" # noqa: mock
+        cls.client_order_id_prefix = "0x48424f5442454855443630616330301"  # noqa: mock
 
     @property
     def all_symbols_url(self):
@@ -751,7 +751,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
     def test_user_stream_update_for_new_order(self):
         self.exchange._set_current_timestamp(1640780000)
         self.exchange.start_tracking_order(
-            order_id="0x48424f54424548554436306163303012", # noqa: mock
+            order_id="0x48424f54424548554436306163303012",  # noqa: mock
             exchange_order_id=str(self.expected_exchange_order_id),
             trading_pair=self.trading_pair,
             order_type=OrderType.LIMIT,
@@ -759,7 +759,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             price=Decimal("10000"),
             amount=Decimal("1"),
         )
-        order = self.exchange.in_flight_orders["0x48424f54424548554436306163303012"] # noqa: mock
+        order = self.exchange.in_flight_orders["0x48424f54424548554436306163303012"]  # noqa: mock
 
         order_event = self.order_event_for_new_order_websocket_update(order=order)
 
@@ -893,7 +893,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.exchange._set_current_timestamp(1640780000)
 
         self.exchange.start_tracking_order(
-            order_id="0x48424f54424548554436306163303012", # noqa: mock
+            order_id="0x48424f54424548554436306163303012",  # noqa: mock
             exchange_order_id="4",
             trading_pair=self.trading_pair,
             trade_type=TradeType.BUY,
@@ -902,8 +902,8 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             order_type=OrderType.LIMIT,
         )
 
-        self.assertIn("0x48424f54424548554436306163303012", self.exchange.in_flight_orders) # noqa: mock
-        order = self.exchange.in_flight_orders["0x48424f54424548554436306163303012"] # noqa: mock
+        self.assertIn("0x48424f54424548554436306163303012", self.exchange.in_flight_orders)  # noqa: mock
+        order = self.exchange.in_flight_orders["0x48424f54424548554436306163303012"]  # noqa: mock
 
         for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
             self.async_run_with_timeout(
@@ -1234,7 +1234,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.exchange._set_current_timestamp(1640780000)
 
         self.exchange.start_tracking_order(
-            order_id="0x48424f54424548554436306163303012", # noqa: mock
+            order_id="0x48424f54424548554436306163303012",  # noqa: mock
             exchange_order_id=self.exchange_order_id_prefix + "1",
             trading_pair=self.trading_pair,
             trade_type=TradeType.BUY,
@@ -1243,8 +1243,8 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             order_type=OrderType.LIMIT,
         )
 
-        self.assertIn("0x48424f54424548554436306163303012", self.exchange.in_flight_orders) # noqa: mock
-        order: InFlightOrder = self.exchange.in_flight_orders["0x48424f54424548554436306163303012"] # noqa: mock
+        self.assertIn("0x48424f54424548554436306163303012", self.exchange.in_flight_orders)  # noqa: mock
+        order: InFlightOrder = self.exchange.in_flight_orders["0x48424f54424548554436306163303012"]  # noqa: mock
 
         for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
             self.async_run_with_timeout(
@@ -1790,3 +1790,99 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                 f"at {Decimal('10000')}."
             )
         )
+
+    @aioresponses()
+    async def test_create_order_fails_and_raises_failure_event(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+        url = self.order_creation_url
+        mock_api.post(url,
+                      status=400,
+                      callback=lambda *args, **kwargs: request_sent_event.set())
+
+        order_id = self.place_buy_order()
+        await (request_sent_event.wait())
+        await asyncio.sleep(0.1)
+
+        order_request = self._all_executed_requests(mock_api, url)[0]
+        self.validate_auth_credentials_present(order_request)
+        self.assertNotIn(order_id, self.exchange.in_flight_orders)
+        order_to_validate_request = InFlightOrder(
+            client_order_id=order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("100"),
+            creation_timestamp=self.exchange.current_timestamp,
+            price=Decimal("10000")
+        )
+        self.validate_order_creation_request(
+            order=order_to_validate_request,
+            request_call=order_request)
+
+        self.assertEqual(0, len(self.buy_order_created_logger.event_log))
+        failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
+        self.assertEqual(OrderType.LIMIT, failure_event.order_type)
+        self.assertEqual(order_id, failure_event.order_id)
+
+        self.assertTrue(
+            self.is_logged(
+                "NETWORK",
+                f"Error submitting buy LIMIT order to {self.exchange.name_cap} for 100.000000 {self.trading_pair} 10000."
+            )
+        )
+
+    @aioresponses()
+    async def test_create_order_fails_when_trading_rule_error_and_raises_failure_event(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+
+        url = self.order_creation_url
+        mock_api.post(url,
+                      status=400,
+                      callback=lambda *args, **kwargs: request_sent_event.set())
+
+        order_id_for_invalid_order = self.place_buy_order(
+            amount=Decimal("0.0001"), price=Decimal("0.0001")
+        )
+        # The second order is used only to have the event triggered and avoid using timeouts for tests
+        order_id = self.place_buy_order()
+        await asyncio.wait_for(request_sent_event.wait(), timeout=3)
+        await asyncio.sleep(0.1)
+
+        self.assertNotIn(order_id_for_invalid_order, self.exchange.in_flight_orders)
+        self.assertNotIn(order_id, self.exchange.in_flight_orders)
+
+        self.assertEqual(0, len(self.buy_order_created_logger.event_log))
+        failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
+        self.assertEqual(OrderType.LIMIT, failure_event.order_type)
+        self.assertEqual(order_id_for_invalid_order, failure_event.order_id)
+
+        self.assertTrue(
+            self.is_logged(
+                "NETWORK",
+                f"Error submitting buy LIMIT order to {self.exchange.name_cap} for 100.000000 {self.trading_pair} 10000."
+            )
+        )
+        error_message = (
+            f"Order amount 0.0001 is lower than minimum order size 0.01 for the pair {self.trading_pair}. "
+            "The order will not be created."
+        )
+        misc_updates = {
+            "error_message": error_message,
+            "error_type": "ValueError"
+        }
+
+        expected_log = (
+            f"Order {order_id_for_invalid_order} has failed. Order Update: "
+            f"OrderUpdate(trading_pair='{self.trading_pair}', "
+            f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
+            f"client_order_id='{order_id_for_invalid_order}', exchange_order_id=None, "
+            f"misc_updates={repr(misc_updates)})"
+        )
+
+        self.assertTrue(self.is_logged("INFO", expected_log))

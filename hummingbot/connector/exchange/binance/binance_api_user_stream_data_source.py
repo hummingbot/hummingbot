@@ -44,9 +44,8 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         Creates a new WSAssistant instance.
         """
-        if self._ws_assistant is None:
-            self._ws_assistant = await self._api_factory.get_ws_assistant()
-        return self._ws_assistant
+        # Always create a new assistant to avoid connection issues
+        return await self._api_factory.get_ws_assistant()
 
     async def _get_listen_key(self, max_retries: int = MAX_RETRIES) -> str:
         """
@@ -77,7 +76,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 if retry_count > max_retries:
                     raise IOError(f"Error fetching user stream listen key after {max_retries} retries. Error: {exception}")
 
-                self.logger().warning(f"Retry {retry_count}/{max_retries} fetching user stream listen key. Error: {exception}")
+                self.logger().warning(f"Retry {retry_count}/{max_retries} fetching user stream listen key. Error: {repr(exception)}")
                 await self._sleep(backoff_time)
                 backoff_time *= 2
 
@@ -118,63 +117,52 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
         3. Handles errors and resets state when necessary
         """
         self.logger().info("Starting listen key management task...")
-        try:
-            while True:
-                try:
-                    now = int(time.time())
+        while True:
+            try:
+                now = int(time.time())
 
-                    # Initialize listen key if needed
-                    if self._current_listen_key is None:
-                        self._current_listen_key = await self._get_listen_key()
+                # Initialize listen key if needed
+                if self._current_listen_key is None:
+                    self._current_listen_key = await self._get_listen_key()
+                    self._last_listen_key_ping_ts = now
+                    self._listen_key_initialized_event.set()
+                    self.logger().info(f"Successfully obtained listen key {self._current_listen_key}")
+
+                # Refresh listen key periodically
+                if now - self._last_listen_key_ping_ts >= self.LISTEN_KEY_KEEP_ALIVE_INTERVAL:
+                    success = await self._ping_listen_key()
+                    if success:
+                        self.logger().info(f"Successfully refreshed listen key {self._current_listen_key}")
                         self._last_listen_key_ping_ts = now
-                        self._listen_key_initialized_event.set()
-                        self.logger().info(f"Successfully obtained listen key {self._current_listen_key}")
-
-                    # Refresh listen key periodically
-                    if now - self._last_listen_key_ping_ts >= self.LISTEN_KEY_KEEP_ALIVE_INTERVAL:
-                        success = await self._ping_listen_key()
-                        if success:
-                            self.logger().info(f"Successfully refreshed listen key {self._current_listen_key}")
-                            self._last_listen_key_ping_ts = now
-                        else:
-                            self.logger().error(f"Failed to refresh listen key {self._current_listen_key}. Getting new key...")
-                            raise
-                            # Continue to next iteration which will get a new key
-                    await self._sleep(self.LISTEN_KEY_RETRY_INTERVAL)
-                except asyncio.CancelledError:
-                    self.logger().info("Listen key management task cancelled")
-                    raise
-                except Exception as e:
-                    self.logger().error(f"Error occurred renewing listen key ... {e}")
-                    self._current_listen_key = None
-                    self._listen_key_initialized_event.clear()
-                    await self._sleep(self.LISTEN_KEY_RETRY_INTERVAL)
-        finally:
-            self.logger().info("Listen key management task stopped")
-            await self._ws_assistant.disconnect()
-            self._current_listen_key = None
-            self._listen_key_initialized_event.clear()
+                    else:
+                        self.logger().error(f"Failed to refresh listen key {self._current_listen_key}. Getting new key...")
+                        raise
+                        # Continue to next iteration which will get a new key
+                await self._sleep(self.LISTEN_KEY_RETRY_INTERVAL)
+            except asyncio.CancelledError:
+                self._current_listen_key = None
+                self._listen_key_initialized_event.clear()
+                raise
+            except Exception as e:
+                self.logger().error(f"Error occurred renewing listen key ... {e}")
+                self._current_listen_key = None
+                self._listen_key_initialized_event.clear()
+                await self._sleep(self.LISTEN_KEY_RETRY_INTERVAL)
 
     async def _ensure_listen_key_task_running(self):
         """
         Ensures the listen key management task is running.
         """
-        if self._manage_listen_key_task is None or self._manage_listen_key_task.done():
-            self._manage_listen_key_task = safe_ensure_future(self._manage_listen_key_task_loop())
+        # If task is already running, do nothing
+        if self._manage_listen_key_task is not None and not self._manage_listen_key_task.done():
+            return
 
-    async def _cancel_listen_key_task(self):
-        """
-        Safely cancels the listen key management task.
-        """
-        if self._manage_listen_key_task and not self._manage_listen_key_task.done():
-            self.logger().info("Cancelling listen key management task")
+        # Cancel old task if it exists and is done (failed)
+        if self._manage_listen_key_task is not None:
             self._manage_listen_key_task.cancel()
-            try:
-                await asyncio.wait_for(asyncio.shield(self._manage_listen_key_task), timeout=2.0)
-            except (asyncio.TimeoutError, asyncio.CancelledError):
-                pass
 
-        self._manage_listen_key_task = None
+        # Create new task
+        self._manage_listen_key_task = safe_ensure_future(self._manage_listen_key_task_loop())
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         """
@@ -215,6 +203,17 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
         :param websocket_assistant: The websocket assistant that was disconnected
         """
         self.logger().info("User stream interrupted. Cleaning up...")
+
+        # Cancel listen key management task first
+        if self._manage_listen_key_task and not self._manage_listen_key_task.done():
+            self._manage_listen_key_task.cancel()
+            try:
+                await self._manage_listen_key_task
+            except asyncio.CancelledError:
+                pass
+            except Exception:
+                pass  # Ignore any exception from the task
+            self._manage_listen_key_task = None
 
         # Disconnect the websocket if it exists
         websocket_assistant and await websocket_assistant.disconnect()

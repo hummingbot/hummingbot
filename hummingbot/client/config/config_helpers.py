@@ -20,7 +20,7 @@ from pydantic_core import PydanticUndefinedType
 from yaml import SafeDumper
 
 from hummingbot import get_strategy_list, root_path
-from hummingbot.client.config.client_config_map import ClientConfigMap, CommandShortcutModel
+from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map, init_fee_overrides_config
@@ -375,10 +375,6 @@ def path_representer(dumper: SafeDumper, data: Path):
     return dumper.represent_str(str(data))
 
 
-def command_shortcut_representer(dumper: SafeDumper, data: CommandShortcutModel):
-    return dumper.represent_dict(data.__dict__)
-
-
 def client_config_adapter_representer(dumper: SafeDumper, data: ClientConfigAdapter):
     return dumper.represent_dict(data._dict_in_conf_order())
 
@@ -408,9 +404,6 @@ yaml.add_representer(
 )
 yaml.add_representer(
     data_type=PosixPath, representer=path_representer, Dumper=SafeDumper
-)
-yaml.add_representer(
-    data_type=CommandShortcutModel, representer=command_shortcut_representer, Dumper=SafeDumper
 )
 yaml.add_representer(
     data_type=ClientConfigAdapter, representer=client_config_adapter_representer, Dumper=SafeDumper
@@ -951,8 +944,3 @@ def parse_config_default_to_text(config: ConfigVar) -> str:
 
 def retrieve_validation_error_msg(e: ValidationError) -> str:
     return e.errors().pop()["msg"]
-
-
-def save_previous_strategy_value(file_name: str, client_config_map: ClientConfigAdapter):
-    client_config_map.previous_strategy = file_name
-    save_to_yml(CLIENT_CONFIG_PATH, client_config_map)

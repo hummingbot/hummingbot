@@ -1,10 +1,9 @@
-import asyncio
-import unittest
 from copy import deepcopy
 from decimal import Decimal
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from test.mock.mock_cli import CLIMockingAssistant
-from typing import Awaitable, Dict, Optional
-from unittest.mock import MagicMock, patch
+from typing import Dict, Optional
+from unittest.mock import patch
 
 from hummingbot.client.config.config_helpers import read_system_configs_from_yml
 from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -25,7 +24,7 @@ class DummyRateSource(RateSourceBase):
         return deepcopy(self._price_dict)
 
 
-class RateCommandTests(unittest.TestCase):
+class RateCommandTests(IsolatedAsyncioWrapperTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -35,12 +34,10 @@ class RateCommandTests(unittest.TestCase):
         cls.original_source = RateOracle.get_instance().source
 
     @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher")
-    def setUp(self, _: MagicMock) -> None:
-        super().setUp()
-        self.ev_loop = asyncio.get_event_loop()
-
-        self.async_run_with_timeout(read_system_configs_from_yml())
-
+    @patch("hummingbot.core.gateway.gateway_status_monitor.GatewayStatusMonitor.start")
+    @patch("hummingbot.client.hummingbot_application.HummingbotApplication.mqtt_start")
+    async def asyncSetUp(self, mock_mqtt_start, mock_gateway_start, mock_trading_pair_fetcher):
+        await read_system_configs_from_yml()
         self.app = HummingbotApplication()
         self.cli_mock_assistant = CLIMockingAssistant(self.app.app)
         self.cli_mock_assistant.start()
@@ -50,11 +47,7 @@ class RateCommandTests(unittest.TestCase):
         RateOracle.get_instance().source = self.original_source
         super().tearDown()
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
-
-    def test_show_token_value(self):
+    async def test_show_token_value(self):
         self.app.client_config_map.global_token.global_token_name = self.global_token
         global_token_symbol = "$"
         self.app.client_config_map.global_token.global_token_symbol = global_token_symbol
@@ -63,7 +56,7 @@ class RateCommandTests(unittest.TestCase):
         RateOracle.get_instance().source = dummy_source
         RateOracle.get_instance().quote_token = self.global_token
 
-        self.async_run_with_timeout(self.app.show_token_value(self.target_token))
+        await self.app.show_token_value(self.target_token)
 
         self.assertTrue(
             self.cli_mock_assistant.check_log_called_with(msg=f"Source: {dummy_source.name}")
@@ -74,7 +67,7 @@ class RateCommandTests(unittest.TestCase):
             )
         )
 
-    def test_show_token_value_rate_not_available(self):
+    async def test_show_token_value_rate_not_available(self):
         self.app.client_config_map.global_token.global_token_name = self.global_token
         global_token_symbol = "$"
         self.app.client_config_map.global_token.global_token_symbol = global_token_symbol
@@ -82,7 +75,7 @@ class RateCommandTests(unittest.TestCase):
         dummy_source = DummyRateSource(price_dict={self.trading_pair: expected_rate})
         RateOracle.get_instance().source = dummy_source
 
-        self.async_run_with_timeout(self.app.show_token_value("SOMETOKEN"))
+        await self.app.show_token_value("SOMETOKEN")
 
         self.assertTrue(
             self.cli_mock_assistant.check_log_called_with(msg=f"Source: {dummy_source.name}")

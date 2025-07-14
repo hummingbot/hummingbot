@@ -10,7 +10,6 @@ from .history_command import HistoryCommand
 from .import_command import ImportCommand
 from .mqtt_command import MQTTCommand
 from .order_book_command import OrderBookCommand
-from .previous_strategy_command import PreviousCommand
 from .rate_command import RateCommand
 from .silly_commands import SillyCommands
 from .start_command import StartCommand
@@ -30,7 +29,6 @@ __all__ = [
     HistoryCommand,
     ImportCommand,
     OrderBookCommand,
-    PreviousCommand,
     RateCommand,
     SillyCommands,
     StartCommand,
