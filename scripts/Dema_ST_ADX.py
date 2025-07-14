@@ -114,6 +114,7 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
         self.prev_price = {}
         self.prev_dema = {}
         self.current_signal = {}
+        self.signal_source = {}  # Track which condition triggered the signal
         self.is_startup = {}
         # ADX tracking
         self.current_adx = {}
@@ -142,10 +143,10 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
         # Check signals for each trading pair
         for i, trading_pair in enumerate(self.config.trading_pairs):
             candles_pair = self.config.candles_pairs[i]
-            signal_result = self.get_signal(self.config.candles_exchange, candles_pair)
-            if signal_result is None:
+            signal = self.get_signal(self.config.candles_exchange, candles_pair)
+            if signal is None:
                 continue
-            signal, signal_source = signal_result
+            signal_source = self.signal_source.get(candles_pair, 0)
             active_longs, active_shorts = self.get_active_executors_by_side(self.config.exchange, trading_pair)
 
             if signal is not None and signal != 0:  # Only process non-zero signals
@@ -170,8 +171,8 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
                     # Configure triple barrier based on signal source
                     if signal_source == 3:  # Condition 3: Use DEMA as TP
                         current_dema = self.current_dema[candles_pair]
-                        tp_pct = abs(current_dema - mid_price) / mid_price / self.config.leverage
-                        sl_pct = self.config.stop_loss_pct / self.config.leverage
+                        tp_pct = abs(current_dema - mid_price) / mid_price
+                        sl_pct = self.config.stop_loss_pct
                         triple_barrier_config = TripleBarrierConfig(
                             take_profit=Decimal(str(tp_pct)),
                             stop_loss=Decimal(str(sl_pct))
@@ -194,8 +195,8 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
                     # Configure triple barrier based on signal source
                     if signal_source == 3:  # Condition 3: Use DEMA as TP
                         current_dema = self.current_dema[candles_pair]
-                        tp_pct = abs(mid_price - current_dema) / mid_price / self.config.leverage
-                        sl_pct = self.config.stop_loss_pct / self.config.leverage
+                        tp_pct = abs(mid_price - current_dema) / mid_price
+                        sl_pct = self.config.stop_loss_pct
                         triple_barrier_config = TripleBarrierConfig(
                             take_profit=Decimal(str(tp_pct)),
                             stop_loss=Decimal(str(sl_pct))
@@ -296,7 +297,7 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
                                                            self.max_records)
 
         if candles is None or candles.empty:
-            return None, 0
+            return None
 
         # Calculate indicators
         candles.ta.dema(length=self.config.dema_length, append=True)
@@ -468,7 +469,8 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
             self.is_startup[trading_pair] = False
 
         self.current_signal[trading_pair] = signal
-        return signal, signal_source
+        self.signal_source[trading_pair] = signal_source
+        return signal
 
     def apply_initial_setting(self):
         if not self.account_config_set:
