@@ -3,19 +3,18 @@ from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from test.mock.mock_cli import CLIMockingAssistant
 from typing import Awaitable
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 from hummingbot.client.config.config_helpers import read_system_configs_from_yml
 from hummingbot.client.hummingbot_application import HummingbotApplication
 
 
 class BalanceCommandTest(IsolatedAsyncioWrapperTestCase):
-    @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher")
-    def setUp(self, _: MagicMock) -> None:
-        super().setUp()
 
-    async def asyncSetUp(self):
-        await super().asyncSetUp()
+    @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher")
+    @patch("hummingbot.core.gateway.gateway_status_monitor.GatewayStatusMonitor.start")
+    @patch("hummingbot.client.hummingbot_application.HummingbotApplication.mqtt_start")
+    async def asyncSetUp(self, mock_mqtt_start, mock_gateway_start, mock_trading_pair_fetcher):
         await read_system_configs_from_yml()
         self.app = HummingbotApplication()
         self.cli_mock_assistant = CLIMockingAssistant(self.app.app)
