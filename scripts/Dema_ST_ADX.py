@@ -44,6 +44,9 @@ class DEMASTADXTokenConfig(StrategyV2ConfigBase):
     # Startup Entry Configuration
     enable_startup_entry: bool = Field(default=False)
 
+    # Triple Barrier Configuration
+    stop_loss_pct: Decimal = Field(default=Decimal("0.02"), gt=0)
+
     # ADX Configuration
     adx_length: int = Field(default=14, gt=0)
     adx_threshold_choppy: float = Field(default=20.0, gt=0)
@@ -139,7 +142,10 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
         # Check signals for each trading pair
         for i, trading_pair in enumerate(self.config.trading_pairs):
             candles_pair = self.config.candles_pairs[i]
-            signal = self.get_signal(self.config.candles_exchange, candles_pair)
+            signal_result = self.get_signal(self.config.candles_exchange, candles_pair)
+            if signal_result is None:
+                continue
+            signal, signal_source = signal_result
             active_longs, active_shorts = self.get_active_executors_by_side(self.config.exchange, trading_pair)
 
             if signal is not None and signal != 0:  # Only process non-zero signals
@@ -161,6 +167,18 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
                         self.logger().warning(f"{trading_pair}: ADX > {self.config.adx_threshold_extreme}, reducing size to {self.config.position_size_extreme_trend}")
 
                 if signal == 1 and len(active_longs) == 0:
+                    # Configure triple barrier based on signal source
+                    if signal_source == 3:  # Condition 3: Use DEMA as TP
+                        current_dema = self.current_dema[candles_pair]
+                        tp_pct = abs(current_dema - mid_price) / mid_price / self.config.leverage
+                        sl_pct = self.config.stop_loss_pct / self.config.leverage
+                        triple_barrier_config = TripleBarrierConfig(
+                            take_profit=Decimal(str(tp_pct)),
+                            stop_loss=Decimal(str(sl_pct))
+                        )
+                    else:  # Conditions 1 & 2: Default config with all barriers disabled
+                        triple_barrier_config = TripleBarrierConfig()
+
                     create_actions.append(CreateExecutorAction(
                         executor_config=PositionExecutorConfig(
                             timestamp=self.current_timestamp,
@@ -169,10 +187,22 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
                             side=TradeType.BUY,
                             entry_price=mid_price,
                             amount=base_amount / mid_price,
-                            triple_barrier_config=TripleBarrierConfig(),  # Default config with all barriers disabled
+                            triple_barrier_config=triple_barrier_config,
                             leverage=self.config.leverage
                         )))
                 elif signal == -1 and len(active_shorts) == 0:
+                    # Configure triple barrier based on signal source
+                    if signal_source == 3:  # Condition 3: Use DEMA as TP
+                        current_dema = self.current_dema[candles_pair]
+                        tp_pct = abs(mid_price - current_dema) / mid_price / self.config.leverage
+                        sl_pct = self.config.stop_loss_pct / self.config.leverage
+                        triple_barrier_config = TripleBarrierConfig(
+                            take_profit=Decimal(str(tp_pct)),
+                            stop_loss=Decimal(str(sl_pct))
+                        )
+                    else:  # Conditions 1 & 2: Default config with all barriers disabled
+                        triple_barrier_config = TripleBarrierConfig()
+
                     create_actions.append(CreateExecutorAction(
                         executor_config=PositionExecutorConfig(
                             timestamp=self.current_timestamp,
@@ -181,7 +211,7 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
                             side=TradeType.SELL,
                             entry_price=mid_price,
                             amount=base_amount / mid_price,
-                            triple_barrier_config=TripleBarrierConfig(),  # Default config with all barriers disabled
+                            triple_barrier_config=triple_barrier_config,
                             leverage=self.config.leverage
                         )))
         return create_actions
@@ -266,7 +296,7 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
                                                            self.max_records)
 
         if candles is None or candles.empty:
-            return None
+            return None, 0
 
         # Calculate indicators
         candles.ta.dema(length=self.config.dema_length, append=True)
@@ -350,8 +380,7 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
         # Long Entry Conditions:
         # 1. ADX crosses threshold with established bullish trend: ST already positive + Price > DEMA + ADX crosses above threshold
         # 2. ADX already established and ST flips: ADX above threshold + ST turns positive + Price > DEMA
-        # 3. ADX already established, ST already positive and price moves above DEMA (last candle closed above DEMA price and last to last candle closed below DEMA price (flip in price direction))
-        # 3. STARTUP: Price above DEMA AND SuperTrend is green (no flip required)
+        # 3. NEW: ST green, ADX above threshold, price below DEMA (triple barrier with DEMA as TP)
         long_condition_1 = (current_supertrend_direction == 1 and
                             current_price > current_dema and
                             adx_crossed_threshold)
@@ -367,21 +396,19 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
         #                     adx_above_threshold and
         #                     current_supertrend_direction == 1)
 
-        long_condition_startup = (is_startup_check and
-                                  self.config.enable_startup_entry and
-                                  current_price > current_dema and
-                                  adx_above_threshold and
-                                  current_supertrend_direction == 1)
+        # New condition 3: ST green, ADX above threshold, price below DEMA
+        long_condition_3 = (current_supertrend_direction == 1 and
+                            adx_above_threshold and
+                            current_price < current_dema)
 
         # self.logger().info(f"========== {trading_pair} ==========")
         # self.logger().info(f"Long Condition 1: {long_condition_1}")
         # self.logger().info(f"Long Condition 2: {long_condition_2}")
-        # self.logger().info(f"Long Condition Startup: {long_condition_startup}")
+        # self.logger().info(f"Long Condition 3: {long_condition_3}")
         # Short Entry Conditions:
         # 1. ADX crosses threshold with established bearish trend: ST already negative + Price < DEMA + ADX crosses above threshold
         # 2. ADX already established and ST flips: ADX above threshold + ST turns negative + Price < DEMA
-        # 3. ADX already established, ST already negative and price moves below DEMA (last candle closed below DEMA price and last to last candle closed above DEMA price (flip in price direction))
-        # 4. STARTUP: Price below DEMA AND SuperTrend is red (no flip required)
+        # 3. NEW: ST red, ADX above threshold, price above DEMA (triple barrier with DEMA as TP)
         short_condition_1 = (current_supertrend_direction == -1 and
                              current_price < current_dema and
                              adx_crossed_threshold)
@@ -397,19 +424,33 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
         #                      adx_above_threshold and
         #                      current_supertrend_direction == -1)
 
-        short_condition_startup = (is_startup_check and
-                                   self.config.enable_startup_entry and
-                                   current_price < current_dema and
-                                   adx_above_threshold and
-                                   current_supertrend_direction == -1)
+        # New condition 3: ST red, ADX above threshold, price above DEMA
+        short_condition_3 = (current_supertrend_direction == -1 and
+                             adx_above_threshold and
+                             current_price > current_dema)
         # self.logger().info(f"Short Condition 1: {short_condition_1}")
         # self.logger().info(f"Short Condition 2: {short_condition_2}")
-        # self.logger().info(f"Short Condition Startup: {short_condition_startup}")
-        # Determine signal
-        if long_condition_1 or long_condition_2 or long_condition_startup:
+        # self.logger().info(f"Short Condition 3: {short_condition_3}")
+        # Determine signal and track which condition triggered it
+        signal_source = 0  # 0 = no signal, 1 = condition 1, 2 = condition 2, 3 = condition 3
+        if long_condition_1:
             signal = 1
-        elif short_condition_1 or short_condition_2 or short_condition_startup:
+            signal_source = 1
+        elif long_condition_2:
+            signal = 1
+            signal_source = 2
+        elif long_condition_3:
+            signal = 1
+            signal_source = 3
+        elif short_condition_1:
             signal = -1
+            signal_source = 1
+        elif short_condition_2:
+            signal = -1
+            signal_source = 2
+        elif short_condition_3:
+            signal = -1
+            signal_source = 3
         else:
             signal = 0
 
@@ -417,15 +458,17 @@ class DEMASTADXTokenStrategy(StrategyV2Base):
         # Additional filter: Ensure directional agreement
         if signal == 1 and self.current_plus_di[trading_pair] <= self.current_minus_di[trading_pair]:
             signal = 0  # Cancel long if -DI is stronger
+            signal_source = 0
         elif signal == -1 and self.current_minus_di[trading_pair] <= self.current_plus_di[trading_pair]:
             signal = 0  # Cancel short if +DI is stronger
+            signal_source = 0
 
         # Reset startup flag after first signal check
         if is_startup_check:
             self.is_startup[trading_pair] = False
 
         self.current_signal[trading_pair] = signal
-        return signal
+        return signal, signal_source
 
     def apply_initial_setting(self):
         if not self.account_config_set:
