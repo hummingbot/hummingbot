@@ -1,5 +1,6 @@
 """
-Swap trading type handler for Gateway connectors.
+Swap handler for Gateway connectors.
+All connectors support swap operations.
 """
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Optional
@@ -137,7 +138,7 @@ class SwapHandler:
         if "/" not in connector_path:
             connector_path = f"{connector_path}/swap"
 
-        # Execute transaction with retry logic
+        # Execute transaction (no retry)
         return await self.connector.client.execute_transaction(
             chain=self.connector.config.chain,
             network=self.connector.config.network,
@@ -207,15 +208,26 @@ class SwapHandler:
         """Calculate trade fee from transaction result."""
         fee_amount = Decimal("0")
 
+        # Determine native currency based on chain
+        native_currency_map = {
+            "ethereum": "ETH",
+            "solana": "SOL",
+            "avalanche": "AVAX",
+            "polygon": "MATIC",
+            "binance-smart-chain": "BNB",
+            "arbitrum": "ETH",
+            "optimism": "ETH"
+        }
+
         if tx_result.gas_used and tx_result.gas_price:
             # Ethereum-style fee
             fee_amount = Decimal(str(tx_result.gas_used)) * tx_result.gas_price
-            fee_token = self.connector.config.network_config.native_currency_symbol
+            fee_token = native_currency_map.get(self.connector.chain, "ETH")
         elif tx_result.compute_units_used and order.priority_fee_per_cu:
             # Solana-style fee
             fee_amount = (Decimal(str(tx_result.compute_units_used)) *
                           Decimal(str(order.priority_fee_per_cu))) / Decimal("1e9")
-            fee_token = self.connector.config.network_config.native_currency_symbol
+            fee_token = native_currency_map.get(self.connector.chain, "SOL")
         else:
             fee_token = order.quote_asset
 

@@ -11,21 +11,16 @@ from .core import GatewayClient, GatewayConnector
 
 # Models
 from .models import (
-    BaseNetworkConfig,
     ConnectorConfig,
-    EthereumNetworkConfig,
     GatewayInFlightOrder,
     GatewayInFlightPosition,
-    NetworkConfig,
     PoolInfo,
     Position,
     PriceQuote,
-    SolanaNetworkConfig,
     TokenInfo,
     TradingType,
     TransactionResult,
     TransactionStatus,
-    create_network_config,
 )
 
 # Trading type handlers
@@ -49,21 +44,16 @@ __all__ = [
     "GatewayClient",
     "GatewayConnector",
     # Models
-    "BaseNetworkConfig",
     "ConnectorConfig",
-    "EthereumNetworkConfig",
     "GatewayInFlightOrder",
     "GatewayInFlightPosition",
-    "NetworkConfig",
     "PoolInfo",
     "Position",
     "PriceQuote",
-    "SolanaNetworkConfig",
     "TokenInfo",
     "TradingType",
     "TransactionResult",
     "TransactionStatus",
-    "create_network_config",
     # Trading handlers
     "AMMHandler",
     "CLMMHandler",

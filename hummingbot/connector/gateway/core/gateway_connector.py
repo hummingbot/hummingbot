@@ -156,10 +156,12 @@ class GatewayConnector(ConnectorBase):
         """Initialize appropriate trading handlers based on connector capabilities."""
         self._trading_handlers = {}
 
+        # All connectors support swap operations
+        self._trading_handlers["swap"] = SwapHandler(self)
+
+        # Additional handlers for specific trading types
         for trading_type in self.config.trading_types:
-            if trading_type == TradingType.SWAP:
-                self._trading_handlers["swap"] = SwapHandler(self)
-            elif trading_type == TradingType.AMM:
+            if trading_type == TradingType.AMM:
                 self._trading_handlers["amm"] = AMMHandler(self)
             elif trading_type == TradingType.CLMM:
                 self._trading_handlers["clmm"] = CLMMHandler(self)
@@ -231,61 +233,6 @@ class GatewayConnector(ConnectorBase):
 
     # Trading interface methods
 
-    async def _create_order(
-        self,
-        trade_type: TradeType,
-        order_id: str,
-        trading_pair: str,
-        amount: Decimal,
-        order_type: OrderType,
-        price: Optional[Decimal] = None,
-        **kwargs
-    ):
-        """
-        Create an order.
-
-        :param trade_type: BUY or SELL
-        :param order_id: Client order ID
-        :param trading_pair: Trading pair
-        :param amount: Order amount
-        :param order_type: LIMIT or MARKET
-        :param price: Price for limit orders
-        :param kwargs: Additional parameters
-        """
-        if "swap" not in self._trading_handlers:
-            raise ValueError(f"Connector {self.connector_name} does not support swap trading")
-
-        # Create in-flight order
-        order = GatewayInFlightOrder(
-            client_order_id=order_id,
-            exchange_order_id=self.wallet_address,  # Use wallet as placeholder
-            trading_pair=trading_pair,
-            order_type=order_type,
-            trade_type=trade_type,
-            price=price or Decimal("0"),
-            amount=amount,
-            creation_timestamp=self.current_timestamp,
-            connector_name=self.connector_name,
-            method="execute-swap"
-        )
-        self._in_flight_orders[order_id] = order
-
-        # Execute swap
-        try:
-            await self._trading_handlers["swap"].execute_swap(
-                order_id=order_id,
-                trading_pair=trading_pair,
-                order_type=order_type,
-                trade_type=trade_type,
-                price=price,
-                amount=amount,
-                **kwargs
-            )
-        except Exception:
-            # Remove order and raise
-            del self._in_flight_orders[order_id]
-            raise
-
     def buy(
         self,
         trading_pair: str,
@@ -296,16 +243,53 @@ class GatewayConnector(ConnectorBase):
     ) -> str:
         """Place a buy order."""
         order_id = self.create_market_order_id(TradeType.BUY, trading_pair)
-        safe_ensure_future(self._create_order(
-            TradeType.BUY,
-            order_id,
-            trading_pair,
-            amount,
-            order_type,
-            price,
-            **kwargs
+
+        # Create in-flight order synchronously
+
+        order = GatewayInFlightOrder(
+            client_order_id=order_id,
+            exchange_order_id=None,  # Will be set when we get tx hash
+            trading_pair=trading_pair,
+            order_type=order_type,
+            trade_type=TradeType.BUY,
+            price=price or Decimal("0"),
+            amount=amount,
+            creation_timestamp=self.current_timestamp,
+            connector_name=self.connector_name,
+            method="execute-swap"
+        )
+        self._in_flight_orders[order_id] = order
+
+        # Execute swap in background without blocking
+        safe_ensure_future(self._execute_buy(
+            order_id, trading_pair, amount, order_type, price, **kwargs
         ))
+
         return order_id
+
+    async def _execute_buy(
+        self,
+        order_id: str,
+        trading_pair: str,
+        amount: Decimal,
+        order_type: OrderType,
+        price: Optional[Decimal],
+        **kwargs
+    ):
+        """Execute buy order asynchronously."""
+        try:
+            await self._trading_handlers["swap"].execute_swap(
+                order_id=order_id,
+                trading_pair=trading_pair,
+                order_type=order_type,
+                trade_type=TradeType.BUY,
+                price=price,
+                amount=amount,
+                **kwargs
+            )
+        except Exception as e:
+            # Handle failure
+            self._handle_order_failure(order_id, str(e))
 
     def sell(
         self,
@@ -317,37 +301,69 @@ class GatewayConnector(ConnectorBase):
     ) -> str:
         """Place a sell order."""
         order_id = self.create_market_order_id(TradeType.SELL, trading_pair)
-        safe_ensure_future(self._create_order(
-            TradeType.SELL,
-            order_id,
-            trading_pair,
-            amount,
-            order_type,
-            price,
-            **kwargs
+
+        # Create in-flight order synchronously
+
+        order = GatewayInFlightOrder(
+            client_order_id=order_id,
+            exchange_order_id=None,  # Will be set when we get tx hash
+            trading_pair=trading_pair,
+            order_type=order_type,
+            trade_type=TradeType.SELL,
+            price=price or Decimal("0"),
+            amount=amount,
+            creation_timestamp=self.current_timestamp,
+            connector_name=self.connector_name,
+            method="execute-swap"
+        )
+        self._in_flight_orders[order_id] = order
+
+        # Execute swap in background without blocking
+        safe_ensure_future(self._execute_sell(
+            order_id, trading_pair, amount, order_type, price, **kwargs
         ))
+
         return order_id
+
+    async def _execute_sell(
+        self,
+        order_id: str,
+        trading_pair: str,
+        amount: Decimal,
+        order_type: OrderType,
+        price: Optional[Decimal],
+        **kwargs
+    ):
+        """Execute sell order asynchronously."""
+        try:
+            await self._trading_handlers["swap"].execute_swap(
+                order_id=order_id,
+                trading_pair=trading_pair,
+                order_type=order_type,
+                trade_type=TradeType.SELL,
+                price=price,
+                amount=amount,
+                **kwargs
+            )
+        except Exception as e:
+            # Handle failure
+            self._handle_order_failure(order_id, str(e))
 
     def cancel(self, trading_pair: str, order_id: str):
         """
         Cancel an order.
         Gateway orders cannot be cancelled once submitted.
         """
-        safe_ensure_future(self._execute_cancel(trading_pair, order_id))
-        return order_id
-
-    async def _execute_cancel(self, trading_pair: str, order_id: str):
-        """Execute order cancellation."""
         # Gateway orders are atomic and cannot be cancelled
         # Mark as cancelled locally
         if order_id in self._in_flight_orders:
-            # order = self._in_flight_orders[order_id]
             self.stop_tracking_order(order_id)
             self.trigger_event(
                 self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                 CancellationResult(order_id, True)
             )
             self.logger().info(f"Order {order_id} marked as cancelled (Gateway orders cannot be cancelled)")
+        return order_id
 
     async def get_order_price(
         self,
@@ -357,9 +373,6 @@ class GatewayConnector(ConnectorBase):
         ignore_shim: bool = False
     ) -> Optional[Decimal]:
         """Get price quote for an order."""
-        if "swap" not in self._trading_handlers:
-            return None
-
         return await self._trading_handlers["swap"].get_price(
             trading_pair,
             is_buy,

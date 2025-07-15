@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 
 class TradingType(str, Enum):
     """Supported trading types."""
-    SWAP = "swap"
+    ROUTER = "router"
     AMM = "amm"
     CLMM = "clmm"
 

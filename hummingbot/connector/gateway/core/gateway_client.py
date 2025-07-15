@@ -1,5 +1,5 @@
 """
-Unified Gateway HTTP client with built-in retry and fee management.
+Unified Gateway HTTP client with fee management and transaction monitoring.
 """
 import logging
 import ssl
@@ -20,8 +20,8 @@ from .transaction_monitor import TransactionMonitor
 
 class GatewayClient:
     """
-    Unified Gateway HTTP client with built-in retry and fee management.
-    Handles all HTTP communications with the Gateway service.
+    Unified Gateway HTTP client that handles all communications with the Gateway service.
+    Features transaction monitoring and dynamic fee estimation without retry logic.
     """
 
     _logger: Optional[HummingbotLogger] = None

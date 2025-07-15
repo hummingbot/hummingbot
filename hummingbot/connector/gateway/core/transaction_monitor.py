@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 class TransactionMonitor:
     """
     Monitors Gateway transaction status until confirmed/failed/timeout.
-    Replaces the retry logic with simple polling.
+    Uses simple polling mechanism without transaction retry.
     """
 
     _logger: Optional[HummingbotLogger] = None
