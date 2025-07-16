@@ -202,14 +202,14 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
         """
         raise NotImplementedError
 
-    def _stop_network(self):
+    async def stop_network(self):
         self._funding_fee_poll_notifier = asyncio.Event()
         self._perpetual_trading.stop()
         if self._funding_info_listener_task is not None:
             self._funding_info_listener_task.cancel()
             self._funding_info_listener_task = None
         self._last_funding_fee_payment_ts.clear()
-        super()._stop_network()
+        await super().stop_network()
 
     async def _create_order(
         self,
