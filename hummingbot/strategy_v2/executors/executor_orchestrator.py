@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import uuid
 from collections import deque
@@ -172,15 +173,16 @@ class ExecutorOrchestrator:
         Initialize cached performance by querying the database for stored executors and positions.
         If initial positions are provided for a controller, skip loading database positions for that controller.
         """
+        for controller_id in self.strategy.controllers.keys():
+            if controller_id not in self.cached_performance:
+                self.cached_performance[controller_id] = PerformanceReport()
+                self.active_executors[controller_id] = []
+                self.positions_held[controller_id] = []
         db_executors = MarketsRecorder.get_instance().get_all_executors()
         for executor in db_executors:
             controller_id = executor.controller_id
             if controller_id not in self.strategy.controllers:
                 continue
-            if controller_id not in self.cached_performance:
-                self.cached_performance[controller_id] = PerformanceReport()
-                self.active_executors[controller_id] = []
-                self.positions_held[controller_id] = []
             self._update_cached_performance(controller_id, executor)
 
         # Create initial positions from config overrides first
@@ -193,11 +195,12 @@ class ExecutorOrchestrator:
             # Skip if this controller has initial position overrides
             if controller_id in self.initial_positions_by_controller or controller_id not in self.strategy.controllers:
                 continue
-
-            if controller_id not in self.cached_performance:
-                self.cached_performance[controller_id] = PerformanceReport()
-                self.active_executors[controller_id] = []
-                self.positions_held[controller_id] = []
+            # Skip if the connector/trading pair is not in the current strategy markets
+            if (position.connector_name not in self.strategy.markets or
+                    position.trading_pair not in self.strategy.markets.get(position.connector_name, set())):
+                self.logger().warning(f"Skipping position for {position.connector_name}.{position.trading_pair} - "
+                                      f"not available in current strategy markets")
+                continue
             self._load_position_from_db(controller_id, position)
 
     def _update_cached_performance(self, controller_id: str, executor_info: ExecutorInfo):
@@ -284,7 +287,7 @@ class ExecutorOrchestrator:
                 self.logger().info(f"Created initial position for controller {controller_id}: {position_config.amount} "
                                    f"{position_config.side.name} {position_config.trading_pair} on {position_config.connector_name}")
 
-    def stop(self):
+    async def stop(self, max_executors_close_attempts: int = 3):
         """
         Stop the orchestrator task and all active executors.
         """
@@ -293,6 +296,11 @@ class ExecutorOrchestrator:
             for executor in executors_list:
                 if not executor.is_closed:
                     executor.early_stop()
+        for i in range(max_executors_close_attempts):
+            if all([executor.executor_info.is_done for executors_list in self.active_executors.values()
+                    for executor in executors_list]):
+                continue
+            await asyncio.sleep(2.0)
         # Store all positions
         self.store_all_positions()
         # Clear executors and trigger garbage collection
@@ -305,6 +313,12 @@ class ExecutorOrchestrator:
         markets_recorder = MarketsRecorder.get_instance()
         for controller_id, positions_list in self.positions_held.items():
             for position in positions_list:
+                # Skip if the connector/trading pair is not in the current strategy markets
+                if (position.connector_name not in self.strategy.markets or
+                        position.trading_pair not in self.strategy.markets.get(position.connector_name, set())):
+                    self.logger().warning(f"Skipping position storage for {position.connector_name}.{position.trading_pair} - "
+                                          f"not available in current strategy markets")
+                    continue
                 mid_price = self.strategy.market_data_provider.get_price_by_type(
                     position.connector_name, position.trading_pair, PriceType.MidPrice)
                 position_summary = position.get_position_summary(mid_price)
@@ -589,6 +603,12 @@ class ExecutorOrchestrator:
         # Add data from positions held and collect position summaries
         positions_summary = []
         for position in positions:
+            # Skip if the connector/trading pair is not in the current strategy markets
+            if (position.connector_name not in self.strategy.markets or
+                    position.trading_pair not in self.strategy.markets.get(position.connector_name, set())):
+                self.logger().warning(f"Skipping position in performance report for {position.connector_name}.{position.trading_pair} - "
+                                      f"not available in current strategy markets")
+                continue
             mid_price = self.strategy.market_data_provider.get_price_by_type(
                 position.connector_name, position.trading_pair, PriceType.MidPrice)
             position_summary = position.get_position_summary(mid_price if not mid_price.is_nan() else Decimal("0"))
