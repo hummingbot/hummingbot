@@ -188,9 +188,8 @@ class SwapHandler:
             return ""  # Async execution
 
         except Exception as e:
-            # If transaction submission fails, notify callback
-            if self._transaction_callback:
-                self._transaction_callback("failed", order_id, str(e))
+            # If transaction submission fails, update order directly
+            self.connector._handle_order_failure(order_id, str(e))
             raise
 
     async def _transaction_callback(self, event_type: str, order_id: str, data: Any):

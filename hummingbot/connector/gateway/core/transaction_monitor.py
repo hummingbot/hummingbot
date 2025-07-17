@@ -2,6 +2,7 @@
 Simple transaction monitor for Gateway transactions.
 """
 import asyncio
+import inspect
 import logging
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
@@ -69,16 +70,16 @@ class TransactionMonitor:
 
         # Notify callback of transaction hash
         if callback:
-            callback("tx_hash", order_id, tx_hash)
+            await self._invoke_callback(callback, "tx_hash", order_id, tx_hash)
 
         # Check if already completed
         if status == self.STATUS_CONFIRMED:
             if callback:
-                callback("confirmed", order_id, response)
+                await self._invoke_callback(callback, "confirmed", order_id, response)
             return
         elif status == self.STATUS_FAILED:
             if callback:
-                callback("failed", order_id, response.get("message", "Transaction failed"))
+                await self._invoke_callback(callback, "failed", order_id, response.get("message", "Transaction failed"))
             return
 
         # Status is PENDING - start polling
@@ -120,12 +121,12 @@ class TransactionMonitor:
                 if status == self.STATUS_CONFIRMED:
                     self.logger().info(f"Transaction {tx_hash} confirmed for order {order_id}")
                     if callback:
-                        callback("confirmed", order_id, poll_response)
+                        await self._invoke_callback(callback, "confirmed", order_id, poll_response)
                     return
                 elif status == self.STATUS_FAILED:
                     self.logger().info(f"Transaction {tx_hash} failed for order {order_id}")
                     if callback:
-                        callback("failed", order_id, poll_response.get("message", "Transaction failed"))
+                        await self._invoke_callback(callback, "failed", order_id, poll_response.get("message", "Transaction failed"))
                     return
 
                 # Still pending, continue polling
@@ -138,4 +139,18 @@ class TransactionMonitor:
         # Timeout reached
         self.logger().warning(f"Transaction {tx_hash} timed out after {self.MAX_POLL_TIME}s for order {order_id}")
         if callback:
-            callback("failed", order_id, f"Transaction timed out after {self.MAX_POLL_TIME} seconds")
+            await self._invoke_callback(callback, "failed", order_id, f"Transaction timed out after {self.MAX_POLL_TIME} seconds")
+
+    async def _invoke_callback(self, callback: Callable, event_type: str, order_id: str, data: Any) -> None:
+        """
+        Invoke callback function, handling both sync and async callbacks.
+
+        :param callback: Callback function
+        :param event_type: Event type
+        :param order_id: Order ID
+        :param data: Event data
+        """
+        if inspect.iscoroutinefunction(callback):
+            await callback(event_type, order_id, data)
+        else:
+            callback(event_type, order_id, data)
