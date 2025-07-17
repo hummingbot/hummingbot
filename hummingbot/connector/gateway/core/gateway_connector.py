@@ -1,20 +1,24 @@
 """
 Single unified Gateway connector class using composition for different trading types.
 """
+import time
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import TradeFeeBase, TradeFeeSchema
+from hummingbot.core.event.events import MarketEvent
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 
-from ..models import ConnectorConfig, GatewayInFlightOrder, GatewayInFlightPosition, TradingType
+from ..gateway_in_flight_order import GatewayInFlightOrder
+from ..gateway_order_tracker import GatewayOrderTracker
+from ..models import ConnectorConfig, TradingType
 from ..trading_types import AMMHandler, CLMMHandler, SwapHandler
 from .gateway_client import GatewayClient
 
@@ -80,10 +84,10 @@ class GatewayConnector(ConnectorBase):
         self._tokens: Dict[str, Dict[str, Any]] = {}
 
         # Order tracking
-        self._in_flight_orders: Dict[str, GatewayInFlightOrder] = {}
+        self._order_tracker: GatewayOrderTracker = GatewayOrderTracker(connector=self)
 
-        # Position tracking (for AMM/CLMM)
-        self._in_flight_positions: Dict[str, GatewayInFlightPosition] = {}
+        # Position tracking (for AMM/CLMM) - using GatewayInFlightOrder with TradeType.RANGE
+        self._in_flight_positions: Dict[str, GatewayInFlightOrder] = {}
 
         # Initialize in background
         safe_ensure_future(self._initialize())
@@ -226,12 +230,38 @@ class GatewayConnector(ConnectorBase):
     async def _update_token_list(self):
         """Update token list from Gateway."""
         try:
-            tokens = await self.client.get_tokens(self.chain, self.network)
-            self._tokens = {t["symbol"]: t for t in tokens}
+            response = await self.client.get_tokens(self.chain, self.network)
+            # Handle both list and dict responses
+            if isinstance(response, dict):
+                tokens = response.get("tokens", [])
+            else:
+                tokens = response
+
+            # Build token dictionary
+            self._tokens = {}
+            for token in tokens:
+                if isinstance(token, dict) and "symbol" in token:
+                    self._tokens[token["symbol"]] = token
         except Exception as e:
             self.logger().error(f"Error updating token list: {str(e)}")
+            # Initialize with empty dict on error
+            self._tokens = {}
 
     # Trading interface methods
+
+    def create_market_order_id(self, side: TradeType, trading_pair: str) -> str:
+        """
+        Create a unique order ID for market orders.
+
+        :param side: Trade side (BUY or SELL)
+        :param trading_pair: Trading pair
+        :return: Unique order ID
+        """
+        # Create timestamp-based order ID
+        timestamp = int(time.time() * 1e6)  # Microseconds
+        side_prefix = "buy" if side == TradeType.BUY else "sell"
+        # Format: {side}-{pair}-{timestamp}
+        return f"{side_prefix}-{trading_pair.lower()}-{timestamp}"
 
     def buy(
         self,
@@ -248,17 +278,18 @@ class GatewayConnector(ConnectorBase):
 
         order = GatewayInFlightOrder(
             client_order_id=order_id,
-            exchange_order_id=None,  # Will be set when we get tx hash
             trading_pair=trading_pair,
             order_type=order_type,
             trade_type=TradeType.BUY,
+            creation_timestamp=time.time(),
             price=price or Decimal("0"),
             amount=amount,
-            creation_timestamp=self.current_timestamp,
-            connector_name=self.connector_name,
-            method="execute-swap"
+            exchange_order_id=None,  # Will be set when we get tx hash
+            creation_transaction_hash=None,
+            gas_price=Decimal("0"),
+            initial_state=OrderState.PENDING_CREATE
         )
-        self._in_flight_orders[order_id] = order
+        self._order_tracker.start_tracking_order(order)
 
         # Execute swap in background without blocking
         safe_ensure_future(self._execute_buy(
@@ -306,17 +337,18 @@ class GatewayConnector(ConnectorBase):
 
         order = GatewayInFlightOrder(
             client_order_id=order_id,
-            exchange_order_id=None,  # Will be set when we get tx hash
             trading_pair=trading_pair,
             order_type=order_type,
             trade_type=TradeType.SELL,
+            creation_timestamp=time.time(),
             price=price or Decimal("0"),
             amount=amount,
-            creation_timestamp=self.current_timestamp,
-            connector_name=self.connector_name,
-            method="execute-swap"
+            exchange_order_id=None,  # Will be set when we get tx hash
+            creation_transaction_hash=None,
+            gas_price=Decimal("0"),
+            initial_state=OrderState.PENDING_CREATE
         )
-        self._in_flight_orders[order_id] = order
+        self._order_tracker.start_tracking_order(order)
 
         # Execute swap in background without blocking
         safe_ensure_future(self._execute_sell(
@@ -356,10 +388,10 @@ class GatewayConnector(ConnectorBase):
         """
         # Gateway orders are atomic and cannot be cancelled
         # Mark as cancelled locally
-        if order_id in self._in_flight_orders:
-            self.stop_tracking_order(order_id)
+        if order_id in self._order_tracker.active_orders:
+            self._order_tracker.stop_tracking_order(order_id)
             self.trigger_event(
-                self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                MarketEvent.OrderCancelled,
                 CancellationResult(order_id, True)
             )
             self.logger().info(f"Order {order_id} marked as cancelled (Gateway orders cannot be cancelled)")
@@ -391,32 +423,21 @@ class GatewayConnector(ConnectorBase):
     @property
     def in_flight_orders(self) -> Dict[str, InFlightOrder]:
         """Get in-flight orders."""
-        return self._in_flight_orders.copy()
+        return self._order_tracker.active_orders.copy()
 
     def get_order(self, client_order_id: str) -> Optional[InFlightOrder]:
         """Get a specific order."""
-        return self._in_flight_orders.get(client_order_id)
+        return self._order_tracker.fetch_order(client_order_id)
 
     @property
     def tracking_states(self) -> Dict[str, Any]:
         """Get tracking states for restoration."""
         return {
             "orders": {
-                oid: order.to_json() for oid, order in self._in_flight_orders.items()
+                oid: order.to_json() for oid, order in self._order_tracker.active_orders.items()
             },
             "positions": {
-                pid: {
-                    "client_position_id": pos.client_position_id,
-                    "exchange_position_id": pos.exchange_position_id,
-                    "trading_pair": pos.trading_pair,
-                    "position_action": pos.position_action.name,
-                    "base_asset": pos.base_asset,
-                    "quote_asset": pos.quote_asset,
-                    "base_amount": str(pos.base_amount),
-                    "quote_amount": str(pos.quote_amount),
-                    "creation_timestamp": pos.creation_timestamp,
-                }
-                for pid, pos in self._in_flight_positions.items()
+                pid: order.to_json() for pid, order in self._in_flight_positions.items()
             }
         }
 
@@ -425,21 +446,11 @@ class GatewayConnector(ConnectorBase):
         # Restore orders
         for order_id, order_json in saved_states.get("orders", {}).items():
             order = GatewayInFlightOrder.from_json(order_json)
-            self._in_flight_orders[order_id] = order
+            self._order_tracker.start_tracking_order(order)
 
         # Restore positions
-        for pos_id, pos_data in saved_states.get("positions", {}).items():
-            position = GatewayInFlightPosition(
-                client_position_id=pos_data["client_position_id"],
-                exchange_position_id=pos_data.get("exchange_position_id"),
-                trading_pair=pos_data["trading_pair"],
-                position_action=PositionAction[pos_data["position_action"]],
-                base_asset=pos_data["base_asset"],
-                quote_asset=pos_data["quote_asset"],
-                base_amount=Decimal(pos_data["base_amount"]),
-                quote_amount=Decimal(pos_data["quote_amount"]),
-                creation_timestamp=pos_data["creation_timestamp"]
-            )
+        for pos_id, pos_json in saved_states.get("positions", {}).items():
+            position = GatewayInFlightOrder.from_json(pos_json)
             self._in_flight_positions[pos_id] = position
 
     def quantize_order_amount(self, trading_pair: str, amount: Decimal) -> Decimal:
@@ -506,34 +517,96 @@ class GatewayConnector(ConnectorBase):
             raise ValueError(f"Connector {self.connector_name} does not support liquidity provision")
 
         base, quote = trading_pair.split("-")
-        position_id = f"pos_{self.current_timestamp}"
+        position_id = f"pos_{int(time.time() * 1e6)}"
 
-        if isinstance(handler, CLMMHandler) and lower_price is not None:
-            # CLMM with price range
-            await handler.add_liquidity(
-                position_id=position_id,
-                base_token=base,
-                quote_token=quote,
-                base_amount=base_amount,
-                quote_amount=quote_amount,
-                fee_tier=fee_tier,
-                lower_price=lower_price,
-                upper_price=upper_price,
-                **kwargs
-            )
+        # Calculate current price and total value in quote asset
+        if base_amount > 0 and quote_amount > 0:
+            current_price = quote_amount / base_amount
         else:
-            # AMM without range
-            await handler.add_liquidity(
-                position_id=position_id,
-                base_token=base,
-                quote_token=quote,
-                base_amount=base_amount,
-                quote_amount=quote_amount,
-                fee_tier=fee_tier,
-                **kwargs
-            )
+            # If either amount is 0, use market price
+            current_price = await self.get_order_price(trading_pair, False, Decimal("1"))
+            if current_price is None:
+                current_price = Decimal("1")
+
+        # Total value in quote asset
+        total_value_quote = quote_amount + (base_amount * current_price)
+
+        # Create position as GatewayInFlightOrder with TradeType.RANGE
+        position_order = GatewayInFlightOrder(
+            client_order_id=position_id,
+            trading_pair=trading_pair,
+            order_type=OrderType.LIMIT_MAKER,
+            trade_type=TradeType.RANGE,
+            creation_timestamp=time.time(),
+            price=current_price,
+            amount=total_value_quote,  # Total value in quote asset
+            exchange_order_id=None,
+            creation_transaction_hash=None,
+            gas_price=Decimal("0"),
+            initial_state=OrderState.PENDING_CREATE
+        )
+
+        # Store position order
+        self._in_flight_positions[position_id] = position_order
+
+        # Execute add liquidity
+        safe_ensure_future(self._execute_add_liquidity(
+            position_order,
+            handler,
+            base,
+            quote,
+            base_amount,
+            quote_amount,
+            fee_tier,
+            lower_price,
+            upper_price,
+            **kwargs
+        ))
 
         return position_id
+
+    async def _execute_add_liquidity(
+        self,
+        position_order: GatewayInFlightOrder,
+        handler,
+        base: str,
+        quote: str,
+        base_amount: Decimal,
+        quote_amount: Decimal,
+        fee_tier: Optional[Decimal],
+        lower_price: Optional[Decimal],
+        upper_price: Optional[Decimal],
+        **kwargs
+    ):
+        """Execute add liquidity asynchronously."""
+        try:
+            if hasattr(handler, 'CLMMHandler') and lower_price is not None:
+                # CLMM with price range
+                await handler.add_liquidity(
+                    position_id=position_order.client_order_id,
+                    base_token=base,
+                    quote_token=quote,
+                    base_amount=base_amount,
+                    quote_amount=quote_amount,
+                    fee_tier=fee_tier,
+                    lower_price=lower_price,
+                    upper_price=upper_price,
+                    **kwargs
+                )
+            else:
+                # AMM without range
+                await handler.add_liquidity(
+                    position_id=position_order.client_order_id,
+                    base_token=base,
+                    quote_token=quote,
+                    base_amount=base_amount,
+                    quote_amount=quote_amount,
+                    fee_tier=fee_tier,
+                    **kwargs
+                )
+        except Exception as e:
+            # Handle failure
+            self._handle_position_failure(position_order.client_order_id, str(e))
 
     async def remove_liquidity(self, position_id: str, position_uid: Optional[str] = None) -> str:
         """Remove liquidity from a position."""
@@ -555,11 +628,7 @@ class GatewayConnector(ConnectorBase):
 
     def _process_order_update(self, order_update: OrderUpdate):
         """Process order update."""
-        order = self._in_flight_orders.get(order_update.client_order_id)
-        if order:
-            order.update_with_order_update(order_update)
-            if order_update.new_state in ["FILLED", "CANCELED", "FAILED"]:
-                self.stop_tracking_order(order_update.client_order_id)
+        self._order_tracker.process_order_update(order_update)
 
     def _process_trade_update(self, trade_update):
         """Process trade update."""
@@ -570,30 +639,42 @@ class GatewayConnector(ConnectorBase):
 
     def _handle_order_failure(self, order_id: str, reason: str):
         """Handle order failure."""
-        order = self._in_flight_orders.get(order_id)
+        order = self._order_tracker.fetch_order(order_id)
         if order:
             self.logger().error(f"Order {order_id} failed: {reason}")
-            self.stop_tracking_order(order_id)
-            self.trigger_event(
-                self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                (order_id, order)
+            order_update = OrderUpdate(
+                trading_pair=order.trading_pair,
+                update_timestamp=time.time(),
+                new_state=OrderState.FAILED,
+                client_order_id=order_id,
+                exchange_order_id=order.exchange_order_id,
+                misc_updates={"error_message": reason}
             )
+            self._order_tracker.process_order_update(order_update)
 
-    def _emit_position_opened_event(self, position: GatewayInFlightPosition):
+    def _emit_position_opened_event(self, position: GatewayInFlightOrder):
         """Emit position opened event."""
         # Custom event for position opened
-        self.logger().info(f"Position {position.client_position_id} opened")
+        self.logger().info(f"Position {position.client_order_id} opened")
 
-    def _emit_position_closed_event(self, position: GatewayInFlightPosition):
+    def _emit_position_closed_event(self, position: GatewayInFlightOrder):
         """Emit position closed event."""
         # Custom event for position closed
-        self.logger().info(f"Position {position.client_position_id} closed")
+        self.logger().info(f"Position {position.client_order_id} closed")
 
-    def _emit_fees_collected_event(self, position: GatewayInFlightPosition):
+    def _emit_fees_collected_event(self, position: GatewayInFlightOrder):
         """Emit fees collected event."""
         # Custom event for fees collected
         self.logger().info(f"Fees collected for position {position.client_position_id}")
 
     def _handle_position_failure(self, position_id: str, reason: str):
         """Handle position failure."""
-        self.logger().error(f"Position {position_id} failed: {reason}")
+        position = self._in_flight_positions.get(position_id)
+        if position:
+            self.logger().error(f"Position {position_id} failed: {reason}")
+            position.current_state = OrderState.FAILED
+            # Emit failure event
+            self.trigger_event(
+                MarketEvent.OrderFailure,
+                (position_id, position)
+            )

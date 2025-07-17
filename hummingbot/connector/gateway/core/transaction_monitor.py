@@ -59,11 +59,12 @@ class TransactionMonitor:
         :param order_id: Order ID for tracking
         :param callback: Callback function(event_type, order_id, data)
         """
-        tx_hash = response.get("txHash", "")
+        # Check for both txHash (EVM) and signature (Solana)
+        tx_hash = response.get("txHash") or response.get("signature", "")
         status = response.get("status", self.STATUS_PENDING)
 
         if not tx_hash:
-            self.logger().warning(f"No transaction hash in response for order {order_id}")
+            self.logger().warning(f"No transaction hash/signature in response for order {order_id}")
             return
 
         # Notify callback of transaction hash
@@ -113,7 +114,8 @@ class TransactionMonitor:
                     tx_hash
                 )
 
-                status = poll_response.get("status", self.STATUS_PENDING)
+                # Check for txStatus (Solana) or status (EVM)
+                status = poll_response.get("txStatus", poll_response.get("status", self.STATUS_PENDING))
 
                 if status == self.STATUS_CONFIRMED:
                     self.logger().info(f"Transaction {tx_hash} confirmed for order {order_id}")

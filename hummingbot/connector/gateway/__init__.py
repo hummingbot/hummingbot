@@ -9,11 +9,13 @@ and multiple chains (Ethereum, Solana).
 # Core components
 from .core import GatewayClient, GatewayConnector
 
+# Order tracking
+from .gateway_in_flight_order import GatewayInFlightOrder
+from .gateway_order_tracker import GatewayOrderTracker
+
 # Models
 from .models import (
     ConnectorConfig,
-    GatewayInFlightOrder,
-    GatewayInFlightPosition,
     PoolInfo,
     Position,
     PriceQuote,
@@ -43,10 +45,11 @@ __all__ = [
     # Core
     "GatewayClient",
     "GatewayConnector",
+    # Order tracking
+    "GatewayInFlightOrder",
+    "GatewayOrderTracker",
     # Models
     "ConnectorConfig",
-    "GatewayInFlightOrder",
-    "GatewayInFlightPosition",
     "PoolInfo",
     "Position",
     "PriceQuote",

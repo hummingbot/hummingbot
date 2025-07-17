@@ -1,6 +1,7 @@
 """
 Utilities for Gateway connectors.
 """
+from .command_utils import GatewayCommandUtils
 from .factory import GatewayConnectorFactory
 from .helpers import (
     calculate_price_from_amounts,
@@ -14,6 +15,7 @@ from .helpers import (
 )
 
 __all__ = [
+    "GatewayCommandUtils",
     "GatewayConnectorFactory",
     "calculate_price_from_amounts",
     "estimate_transaction_fee",

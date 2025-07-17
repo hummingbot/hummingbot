@@ -3,28 +3,17 @@ from typing import TYPE_CHECKING, List, Optional
 
 import pandas as pd
 
+from hummingbot.connector.gateway.utils.command_utils import GatewayCommandUtils
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
 
 
-def ensure_gateway_online(func):
-    """Decorator to ensure gateway is online before executing commands."""
-
-    def wrapper(self, *args, **kwargs):
-        from hummingbot.connector.gateway.core import GatewayStatus
-        if hasattr(self, '_gateway_monitor') and self._gateway_monitor.gateway_status is GatewayStatus.OFFLINE:
-            self.logger().error("Gateway is offline")
-            return
-        return func(self, *args, **kwargs)
-    return wrapper
-
-
 class GatewayTokenCommand:
     """Handles gateway token-related commands"""
 
-    @ensure_gateway_online
+    @GatewayCommandUtils.ensure_gateway_online
     def gateway_token(self, action: str = None, args: List[str] = None):
         """
         Manage tokens in gateway.
@@ -83,16 +72,12 @@ class GatewayTokenCommand:
     async def _gateway_token_list(self, chain: Optional[str] = None, network: Optional[str] = None):
         """List tokens from gateway with optional filters."""
         try:
-            # If no filters, get all tokens for all chains/networks
+            # If no chain specified, get all chains/networks
             if not chain:
-                # Get all chains first
-                chains_resp = await self._get_gateway_instance().get_chains()
+                chains_networks = await GatewayCommandUtils.get_all_chains_networks(self._get_gateway_instance())
                 all_tokens = []
 
-                for chain_info in chains_resp:
-                    chain_name = chain_info.get("chain", "")
-                    networks = chain_info.get("networks", [])
-
+                for chain_name, networks in chains_networks.items():
                     for net in networks:
                         if network and net != network:
                             continue
@@ -129,13 +114,13 @@ class GatewayTokenCommand:
                 self.notify(df.to_string(index=False))
 
             else:
-                # Get tokens for specific chain
-                if not network:
-                    # Get default network for chain
-                    network = await self._get_default_network_for_chain(chain)
-                    if not network:
-                        self.notify(f"Error: Could not determine default network for {chain}")
-                        return
+                # Validate chain/network combination
+                chain, network, error = await GatewayCommandUtils.validate_chain_network(
+                    self._get_gateway_instance(), chain, network
+                )
+                if error:
+                    self.notify(error)
+                    return
 
                 response = await self._get_gateway_instance().get_tokens(chain, network)
                 tokens = response.get("tokens", [])
@@ -160,7 +145,7 @@ class GatewayTokenCommand:
                 self.notify(df.to_string(index=False))
 
         except Exception as e:
-            self.notify(f"Error listing tokens: {str(e)}")
+            self.notify(GatewayCommandUtils.format_gateway_exception(e))
 
     async def _gateway_token_add(self, chain: str, network: str):
         """Add a new token to the gateway."""
@@ -176,6 +161,7 @@ class GatewayTokenCommand:
             if self.app.to_stop_config or not symbol:
                 self.notify("Token addition cancelled")
                 return
+            symbol = GatewayCommandUtils.normalize_token_symbol(symbol)
 
             # Prompt for token name
             name = await self.app.prompt(prompt="Enter token name (e.g., USD Coin) >>> ")
@@ -187,6 +173,12 @@ class GatewayTokenCommand:
             address = await self.app.prompt(prompt="Enter token contract address >>> ")
             if self.app.to_stop_config or not address:
                 self.notify("Token addition cancelled")
+                return
+
+            # Validate address
+            address, error = GatewayCommandUtils.validate_address(address)
+            if error:
+                self.notify(error)
                 return
 
             # Prompt for decimals
@@ -233,7 +225,7 @@ class GatewayTokenCommand:
                 self.notify(f"\n✓ Token {symbol} added successfully to {chain}/{network}.")
 
         except Exception as e:
-            self.notify(f"Error adding token: {str(e)}")
+            self.notify(GatewayCommandUtils.format_gateway_exception(e))
         finally:
             self.placeholder_mode = False
             self.app.hide_input = False
@@ -267,7 +259,7 @@ class GatewayTokenCommand:
                 self.notify("Token removal cancelled")
 
         except Exception as e:
-            self.notify(f"Error removing token: {str(e)}")
+            self.notify(GatewayCommandUtils.format_gateway_exception(e))
 
     async def _gateway_token_show(self, chain: str, network: str, symbol_or_address: str):
         """Show details for a specific token."""
@@ -299,4 +291,4 @@ class GatewayTokenCommand:
                 self.notify(f"Token '{symbol_or_address}' not found on {chain}/{network}")
                 self.notify("Please check the token symbol/address or try adding it with 'gateway token add'")
             else:
-                self.notify(f"Error retrieving token information: {error_msg}")
+                self.notify(GatewayCommandUtils.format_gateway_exception(e))

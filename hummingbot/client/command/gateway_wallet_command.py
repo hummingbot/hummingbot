@@ -4,28 +4,17 @@ from typing import TYPE_CHECKING, List, Optional
 
 import pandas as pd
 
+from hummingbot.connector.gateway.utils.command_utils import GatewayCommandUtils
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
 
 
-def ensure_gateway_online(func):
-    """Decorator to ensure gateway is online before executing commands."""
-
-    def wrapper(self, *args, **kwargs):
-        from hummingbot.connector.gateway.core import GatewayStatus
-        if hasattr(self, '_gateway_monitor') and self._gateway_monitor.gateway_status is GatewayStatus.OFFLINE:
-            self.logger().error("Gateway is offline")
-            return
-        return func(self, *args, **kwargs)
-    return wrapper
-
-
 class GatewayWalletCommand:
     """Handles gateway wallet-related commands"""
 
-    @ensure_gateway_online
+    @GatewayCommandUtils.ensure_gateway_online
     def gateway_wallet(self, action: str = None, args: List[str] = None):
         """
         Manage wallets in gateway.
@@ -165,7 +154,7 @@ class GatewayWalletCommand:
             self.notify(f"\nTotal: {total_regular} regular, {total_hardware} hardware addresses")
 
         except Exception as e:
-            self.notify(f"Error listing wallets: {str(e)}")
+            self.notify(GatewayCommandUtils.format_gateway_exception(e))
 
     async def _gateway_wallet_add(self, chain: str):
         """Add a new wallet to the gateway."""
@@ -204,7 +193,7 @@ class GatewayWalletCommand:
                 await self._gateway_wallet_list(chain)
 
         except Exception as e:
-            self.notify(f"Error adding wallet: {str(e)}")
+            self.notify(GatewayCommandUtils.format_gateway_exception(e))
         finally:
             self.placeholder_mode = False
             self.app.hide_input = False
@@ -240,7 +229,7 @@ class GatewayWalletCommand:
                 self.notify("Wallet removal cancelled")
 
         except Exception as e:
-            self.notify(f"Error removing wallet: {str(e)}")
+            self.notify(GatewayCommandUtils.format_gateway_exception(e))
         finally:
             self.placeholder_mode = False
             self.app.hide_input = False
@@ -249,6 +238,12 @@ class GatewayWalletCommand:
     async def _gateway_wallet_add_hardware(self, chain: str, address: str):
         """Add a hardware wallet to the gateway."""
         try:
+            # Validate address format
+            address, error = GatewayCommandUtils.validate_address(address)
+            if error:
+                self.notify(error)
+                return
+
             self.notify(f"\nAdding hardware wallet for {chain}")
             self.notify(f"Address: {address}")
             self.notify("\nPlease make sure your Ledger device is connected and unlocked.")
@@ -272,7 +267,7 @@ class GatewayWalletCommand:
                 await self._gateway_wallet_list(chain)
 
         except Exception as e:
-            self.notify(f"Error adding hardware wallet: {str(e)}")
+            self.notify(GatewayCommandUtils.format_gateway_exception(e))
 
     async def _gateway_wallet_set_default(self, chain: str, address: str):
         """Set default wallet for a chain."""
@@ -300,4 +295,4 @@ class GatewayWalletCommand:
                 self.notify(f"✓ Default wallet for {chain} set to: {address}")
 
         except Exception as e:
-            self.notify(f"Error setting default wallet: {str(e)}")
+            self.notify(GatewayCommandUtils.format_gateway_exception(e))

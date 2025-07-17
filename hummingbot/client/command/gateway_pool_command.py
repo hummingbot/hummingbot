@@ -3,28 +3,17 @@ from typing import TYPE_CHECKING, List, Optional
 
 import pandas as pd
 
+from hummingbot.connector.gateway.utils.command_utils import GatewayCommandUtils
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
 
 
-def ensure_gateway_online(func):
-    """Decorator to ensure gateway is online before executing commands."""
-
-    def wrapper(self, *args, **kwargs):
-        from hummingbot.connector.gateway.core import GatewayStatus
-        if hasattr(self, '_gateway_monitor') and self._gateway_monitor.gateway_status is GatewayStatus.OFFLINE:
-            self.logger().error("Gateway is offline")
-            return
-        return func(self, *args, **kwargs)
-    return wrapper
-
-
 class GatewayPoolCommand:
     """Handles gateway pool-related commands"""
 
-    @ensure_gateway_online
+    @GatewayCommandUtils.ensure_gateway_online
     def gateway_pool(self, action: str = None, args: List[str] = None):
         """
         Manage pools in gateway.
@@ -85,15 +74,35 @@ class GatewayPoolCommand:
     async def _gateway_pool_list(self, connector: Optional[str] = None, network: Optional[str] = None, pool_type: Optional[str] = None):
         """List pools from gateway with optional filters."""
         try:
-            # Require both connector and network
-            if not connector or not network:
-                self.notify("Error: Both connector and network are required")
+            # Validate connector
+            if not connector:
+                self.notify("Error: Connector is required")
                 self.notify("Usage: gateway pool list <connector> <network> [type]")
                 self.notify("Example: gateway pool list uniswap base")
                 return
 
+            # Parse connector name to get base name
+            base_connector, _ = GatewayCommandUtils.parse_connector_trading_type(connector)
+
+            # Validate connector exists
+            connector_info = await self._get_gateway_instance().get_connector_info(base_connector)
+            if not connector_info:
+                self.notify(f"Error: Connector '{base_connector}' not found")
+                return
+
+            # Use default network if not provided
+            if not network:
+                chain = connector_info.get("chain", "")
+                network, error = await GatewayCommandUtils.get_network_for_chain(
+                    self._get_gateway_instance(), chain
+                )
+                if error:
+                    self.notify(error)
+                    return
+                self.notify(f"Using default network: {network}")
+
             # Get pools for specific connector and network
-            pools = await self._get_gateway_instance().get_pools(connector, network, pool_type)
+            pools = await self._get_gateway_instance().get_pools(base_connector, network, pool_type)
 
             if not pools:
                 filters = f"{connector}/{network}"
@@ -142,38 +151,47 @@ class GatewayPoolCommand:
                 self.notify(f"Error: Invalid pool type '{pool_type}'. Must be 'amm' or 'clmm'")
                 return
 
+            # Parse connector to get chain
+            base_connector, _ = GatewayCommandUtils.parse_connector_trading_type(connector)
+            connector_info = await self._get_gateway_instance().get_connector_info(base_connector)
+            chain = connector_info.get("chain", "ethereum") if connector_info else "ethereum"
+
             # Get available tokens for this network
-            try:
-                chain = connector.split("/")[0] if "/" in connector else "ethereum"  # Default to ethereum
-                tokens = await self._get_gateway_instance().get_tokens(chain, network)
-                if tokens:
-                    self.notify(f"\nAvailable tokens on {chain}/{network}:")
-                    token_symbols = sorted(list(set([t.get("symbol", "") for t in tokens if t.get("symbol")])))
-                    # Display tokens in columns
-                    cols = 4
-                    for i in range(0, len(token_symbols), cols):
-                        row = "  " + "  ".join(f"{sym:10}" for sym in token_symbols[i:i + cols])
-                        self.notify(row)
-            except Exception:
-                # If we can't get tokens, continue anyway
-                pass
+            token_symbols = await GatewayCommandUtils.get_available_tokens(
+                self._get_gateway_instance(), chain, network
+            )
+            if token_symbols:
+                self.notify(f"\nAvailable tokens on {chain}/{network}:")
+                # Display tokens in columns
+                cols = 4
+                for i in range(0, len(token_symbols), cols):
+                    row = "  " + "  ".join(f"{sym:10}" for sym in token_symbols[i:i + cols])
+                    self.notify(row)
 
             # Prompt for base token
             base = await self.app.prompt(prompt="\nBase token symbol (e.g., WETH): ")
             if self.app.to_stop_config or not base:
                 self.notify("Pool addition cancelled")
                 return
+            base = GatewayCommandUtils.normalize_token_symbol(base)
 
             # Prompt for quote token
             quote = await self.app.prompt(prompt="Quote token symbol (e.g., USDC): ")
             if self.app.to_stop_config or not quote:
                 self.notify("Pool addition cancelled")
                 return
+            quote = GatewayCommandUtils.normalize_token_symbol(quote)
 
             # Prompt for pool address
             address = await self.app.prompt(prompt="Pool contract address: ")
             if self.app.to_stop_config or not address:
                 self.notify("Pool addition cancelled")
+                return
+
+            # Validate address format
+            address, error = GatewayCommandUtils.validate_address(address)
+            if error:
+                self.notify(error)
                 return
 
             # Confirm addition

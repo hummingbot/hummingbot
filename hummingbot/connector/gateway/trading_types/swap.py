@@ -2,15 +2,19 @@
 Swap handler for Gateway connectors.
 All connectors support swap operations.
 """
+import time
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Optional
 
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 
-from ..models import GatewayInFlightOrder, PriceQuote, TransactionResult
+from ..core.transaction_monitor import TransactionMonitor
+from ..gateway_in_flight_order import GatewayInFlightOrder
+from ..models import PriceQuote, TransactionResult
 
 if TYPE_CHECKING:
     from ..core.gateway_connector import GatewayConnector
@@ -115,39 +119,79 @@ class SwapHandler:
         """
         base, quote = trading_pair.split("-")
 
-        # Build request parameters
-        params = {
-            "network": self.connector.config.network,
-            "address": self.connector.config.wallet_address,
-            "baseToken": base,
-            "quoteToken": quote,
-            "amount": float(amount),
-            "side": trade_type.name,
-        }
-
-        # Add slippage for market orders
-        if order_type == OrderType.MARKET:
-            slippage = kwargs.get("slippage", 0.01)  # 1% default
-            params["slippagePct"] = slippage * 100
-        else:
-            # For limit orders, add limit price
-            params["limitPrice"] = float(price)
-
         # Build connector path - include trading type if not already included
         connector_path = self.connector.config.name
         if "/" not in connector_path:
             connector_path = f"{connector_path}/swap"
 
-        # Execute transaction (no retry)
-        return await self.connector.client.execute_transaction(
-            chain=self.connector.config.chain,
-            network=self.connector.config.network,
-            connector=connector_path,
-            method="execute-swap",
-            params=params,
-            order_id=order_id,
-            callback=self._transaction_callback
-        )
+        # Check if we have a quote ID from gateway swap command
+        quote_id = kwargs.get("quote_id")
+        if quote_id:
+            # Use execute-quote endpoint with quote ID
+            execute_params = {
+                "walletAddress": self.connector.config.wallet_address,
+                "network": self.connector.config.network,
+                "quoteId": quote_id
+            }
+            method = "execute-quote"
+        else:
+            # Build standard swap parameters
+            params = {
+                "network": self.connector.config.network,
+                "address": self.connector.config.wallet_address,
+                "baseToken": base,
+                "quoteToken": quote,
+                "amount": float(amount),
+                "side": trade_type.name,
+            }
+
+            # Add optional parameters from kwargs
+            if "pool_address" in kwargs and kwargs["pool_address"]:
+                params["poolAddress"] = kwargs["pool_address"]
+            if "route" in kwargs and kwargs["route"]:
+                params["route"] = kwargs["route"]
+            if "minimum_out" in kwargs and kwargs["minimum_out"]:
+                params["minimumOut"] = kwargs["minimum_out"]
+
+            # Add slippage for market orders
+            if order_type == OrderType.MARKET:
+                slippage = kwargs.get("slippage", 0.01)  # 1% default
+                params["slippagePct"] = slippage * 100
+            else:
+                # For limit orders, add limit price
+                params["limitPrice"] = float(price)
+
+            execute_params = params
+            method = "execute-swap"
+
+        # Execute transaction using TransactionMonitor
+        try:
+            response = await self.connector.client.connector_request(
+                "POST", connector_path, method, data=execute_params
+            )
+
+            if "error" in response:
+                raise Exception(response["error"])
+
+            # Start monitoring with TransactionMonitor
+            monitor = TransactionMonitor(self.connector.client)
+            safe_ensure_future(
+                monitor.monitor_transaction(
+                    response=response,
+                    chain=self.connector.config.chain,
+                    network=self.connector.config.network,
+                    order_id=order_id,
+                    callback=self._transaction_callback
+                )
+            )
+
+            return ""  # Async execution
+
+        except Exception as e:
+            # If transaction submission fails, notify callback
+            if self._transaction_callback:
+                self._transaction_callback("failed", order_id, str(e))
+            raise
 
     async def _transaction_callback(self, event_type: str, order_id: str, data: Any):
         """
@@ -162,9 +206,10 @@ class SwapHandler:
             return
 
         if event_type == "tx_hash":
-            # Update order with transaction hash
-            order.exchange_order_id = data
+            # Update order with transaction hash as exchange_order_id
             order.update_exchange_order_id(data)
+            # Also update creation transaction hash for Gateway-specific tracking
+            order.update_creation_transaction_hash(data)
 
         elif event_type == "confirmed":
             # Process successful transaction
@@ -176,7 +221,7 @@ class SwapHandler:
                 client_order_id=order_id,
                 exchange_order_id=order.exchange_order_id,
                 trading_pair=order.trading_pair,
-                fill_timestamp=tx_result.timestamp or self.connector.current_timestamp,
+                fill_timestamp=tx_result.timestamp or time.time(),
                 fill_price=order.price,
                 fill_base_amount=order.amount,
                 fill_quote_amount=order.amount * order.price,
@@ -189,11 +234,11 @@ class SwapHandler:
             # Mark order as filled
             order_update = OrderUpdate(
                 trading_pair=order.trading_pair,
-                update_timestamp=self.connector.current_timestamp,
-                new_state="FILLED",
+                update_timestamp=time.time(),
+                new_state=OrderState.FILLED,
                 client_order_id=order_id,
                 exchange_order_id=order.exchange_order_id,
-                misc_updates={"filled_amount": order.amount}
+                misc_updates={"filled_amount": float(order.amount)}
             )
             self.connector._process_order_update(order_update)
 

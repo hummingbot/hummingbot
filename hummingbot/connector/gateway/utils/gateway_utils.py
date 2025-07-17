@@ -8,6 +8,8 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState
 
 
+# Note: parse_trading_type_from_connector_name is now available in command_utils.py
+# Keeping this for backward compatibility
 def parse_trading_type_from_connector_name(connector_name: str) -> str:
     """
     Extract trading type from connector name.
@@ -15,10 +17,9 @@ def parse_trading_type_from_connector_name(connector_name: str) -> str:
     :param connector_name: Connector name (e.g., "raydium/amm", "uniswap/clmm")
     :return: Trading type (e.g., "amm", "clmm", "swap")
     """
-    parts = connector_name.split("/")
-    if len(parts) == 2:
-        return parts[1]
-    return "swap"  # Default for aggregators
+    from .command_utils import GatewayCommandUtils
+    _, trading_type = GatewayCommandUtils.parse_connector_trading_type(connector_name)
+    return trading_type or "swap"
 
 
 def get_default_gateway_url() -> str:
@@ -99,6 +100,8 @@ def parse_gateway_error(error_response: Dict[str, Any]) -> str:
     return str(error_response)
 
 
+# Note: normalize_token_symbol is now available in command_utils.py
+# Keeping this for backward compatibility
 def normalize_token_symbol(symbol: str) -> str:
     """
     Normalize token symbol for consistency.
@@ -106,9 +109,11 @@ def normalize_token_symbol(symbol: str) -> str:
     :param symbol: Token symbol
     :return: Normalized symbol (uppercase)
     """
-    return symbol.upper().strip()
+    from .command_utils import GatewayCommandUtils
+    return GatewayCommandUtils.normalize_token_symbol(symbol)
 
 
+# Note: This function is also available in helpers.py
 def calculate_price_from_amounts(
     base_amount: Decimal,
     quote_amount: Decimal,
@@ -122,12 +127,9 @@ def calculate_price_from_amounts(
     :param side: Trade side (BUY/SELL)
     :return: Calculated price
     """
-    if side == TradeType.BUY:
-        # For buy: price = quote_amount / base_amount
-        return quote_amount / base_amount if base_amount > 0 else Decimal("0")
-    else:
-        # For sell: price = quote_amount / base_amount
-        return quote_amount / base_amount if base_amount > 0 else Decimal("0")
+    # Import from helpers to avoid duplication
+    from .helpers import calculate_price_from_amounts as calc_price
+    return calc_price(base_amount, quote_amount, side)
 
 
 def validate_connector_trading_pair(
@@ -146,6 +148,8 @@ def validate_connector_trading_pair(
     return trading_pair in available_pairs
 
 
+# Note: format_gateway_exception is now available in command_utils.py
+# Keeping this for backward compatibility
 def format_gateway_exception(exception: Exception) -> str:
     """
     Format Gateway-related exceptions for user display.
@@ -153,14 +157,5 @@ def format_gateway_exception(exception: Exception) -> str:
     :param exception: Exception to format
     :return: Formatted error message
     """
-    error_msg = str(exception)
-
-    # Common Gateway errors
-    if "ECONNREFUSED" in error_msg:
-        return "Gateway is not running. Please start Gateway first."
-    elif "404" in error_msg:
-        return "Gateway endpoint not found. Please check your Gateway version."
-    elif "timeout" in error_msg:
-        return "Gateway request timed out. Please check your connection."
-
-    return f"Gateway error: {error_msg}"
+    from .command_utils import GatewayCommandUtils
+    return GatewayCommandUtils.format_gateway_exception(exception)

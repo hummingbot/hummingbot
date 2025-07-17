@@ -2,6 +2,9 @@
 from decimal import Decimal
 from typing import TYPE_CHECKING, List, Optional
 
+from hummingbot.connector.gateway.core.gateway_connector import GatewayConnector
+from hummingbot.connector.gateway.utils.command_utils import GatewayCommandUtils
+from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 if TYPE_CHECKING:
@@ -40,80 +43,37 @@ class GatewaySwapCommand:
                                     pair: Optional[str] = None, side: Optional[str] = None, amount: Optional[str] = None):
         """Unified swap flow - get quote first, then ask for confirmation to execute."""
         try:
-            # Validate required parameters
-            if not connector:
-                self.notify("\nError: connector is a required parameter.")
-                self.notify("Usage: gateway swap <connector> [base-quote] [side] [amount]")
-                self.notify("\nExamples:")
-                self.notify("  gateway swap uniswap/router")
-                self.notify("  gateway swap raydium/amm SOL-USDC SELL 1.5")
-                self.notify("  gateway swap jupiter/router ETH-USDC BUY 0.1")
+            # Use utility to validate connector
+            connector_type, connector_info, error = await GatewayCommandUtils.validate_connector(
+                self._get_gateway_instance(),
+                connector,
+                required_trading_types=["router", "amm", "clmm"]  # Swap-capable types
+            )
+
+            if error:
+                self.notify(f"\n{error}")
+                if not connector:
+                    self.notify("Usage: gateway swap <connector> [base-quote] [side] [amount]")
+                    self.notify("\nExamples:")
+                    self.notify("  gateway swap uniswap/router")
+                    self.notify("  gateway swap raydium/amm SOL-USDC SELL 1.5")
+                    self.notify("  gateway swap jupiter/router ETH-USDC BUY 0.1")
                 return
-
-            # Check if connector includes type suffix
-            if "/" in connector:
-                # User specified the type directly (e.g., "uniswap/router")
-                base_connector, specified_type = connector.split("/", 1)
-                connector_type = connector
-
-                # Get connector info using base name
-                connector_info = await self._get_gateway_instance().get_connector_info(base_connector)
-                if not connector_info:
-                    self.notify(f"\nError: Connector '{base_connector}' not found.")
-                    return
-
-                # Verify the specified type is supported
-                trading_types = connector_info.get("trading_types", [])
-                if specified_type not in trading_types:
-                    self.notify(f"\nError: Connector '{base_connector}' does not support type '{specified_type}'.")
-                    self.notify(f"Supported types: {', '.join(trading_types)}")
-                    return
-            else:
-                # User specified base connector name only
-                connector_info = await self._get_gateway_instance().get_connector_info(connector)
-                if not connector_info:
-                    self.notify(f"\nError: Connector '{connector}' not found.")
-                    return
-
-                trading_types = connector_info.get("trading_types", [])
-
-                # Determine connector type based on trading types
-                connector_type = None
-                if "router" in trading_types:
-                    connector_type = f"{connector}/router"
-                elif "amm" in trading_types:
-                    connector_type = f"{connector}/amm"
-                elif "clmm" in trading_types:
-                    connector_type = f"{connector}/clmm"
-                else:
-                    self.notify(f"\nError: Connector '{connector}' does not support swaps.")
-                    self.notify(f"Available trading types: {', '.join(trading_types)}")
-                    return
 
             chain = connector_info.get("chain", "")
 
-            # Get default network if not provided
+            # Get network
+            network, error = await GatewayCommandUtils.get_network_for_chain(
+                self._get_gateway_instance(), chain, network
+            )
+            if error:
+                self.notify(f"\n{error}")
+                return
             if not network:
-                network = await self._get_default_network_for_chain(chain)
-                if not network:
-                    self.notify(f"\nError: Could not determine default network for {chain}.")
-                    return
                 self.notify(f"Using default network: {network}")
 
-            # Parse pair if provided
-            base_token = None
-            quote_token = None
-            if pair:
-                if "-" in pair:
-                    parts = pair.split("-", 1)
-                    if len(parts) == 2:
-                        base_token = parts[0].strip()
-                        quote_token = parts[1].strip()
-                        # Only uppercase if they're symbols (short strings), not addresses
-                        if len(base_token) <= 10:
-                            base_token = base_token.upper()
-                        if len(quote_token) <= 10:
-                            quote_token = quote_token.upper()
+            # Parse trading pair
+            base_token, quote_token = GatewayCommandUtils.parse_trading_pair(pair)
 
             # Only enter interactive mode if parameters are missing
             if not all([base_token, quote_token, side, amount]):
@@ -122,9 +82,9 @@ class GatewaySwapCommand:
 
                 try:
                     # Get available tokens
-                    tokens_resp = await self._get_gateway_instance().get_tokens(chain, network)
-                    tokens = tokens_resp.get("tokens", [])
-                    token_symbols = sorted(list(set([t.get("symbol", "") for t in tokens if t.get("symbol")])))
+                    token_symbols = await GatewayCommandUtils.get_available_tokens(
+                        self._get_gateway_instance(), chain, network
+                    )
 
                     # Update completer's token cache
                     if hasattr(self.app.input_field.completer, '_gateway_token_symbols'):
@@ -175,70 +135,53 @@ class GatewaySwapCommand:
                     self.app.change_prompt(prompt=">>> ")
 
             # Validate side
-            if side:
-                side = side.upper()
-                if side not in ["BUY", "SELL"]:
-                    self.notify(f"Error: Invalid side '{side}'. Must be BUY or SELL.")
-                    return
+            side, error = GatewayCommandUtils.validate_side(side)
+            if error:
+                self.notify(error)
+                return
 
-            # Construct pair for display (truncate addresses for readability)
-            base_display = base_token if len(base_token) <= 10 else f"{base_token[:8]}...{base_token[-4:]}"
-            quote_display = quote_token if len(quote_token) <= 10 else f"{quote_token[:8]}...{quote_token[-4:]}"
+            # Construct pair for display
+            base_display = GatewayCommandUtils.format_token_display(base_token)
+            quote_display = GatewayCommandUtils.format_token_display(quote_token)
             pair_display = f"{base_display}-{quote_display}"
 
             # Validate amount
-            try:
-                amount_decimal = Decimal(amount)
-                if amount_decimal <= 0:
-                    self.notify("Error: Amount must be greater than 0")
-                    return
-            except Exception:
-                self.notify(f"Error: Invalid amount '{amount}'")
+            amount_decimal, error = GatewayCommandUtils.validate_amount(amount)
+            if error:
+                self.notify(error)
                 return
 
-            # Get default wallet for this chain
-            wallet_address = await self._get_gateway_instance().get_default_wallet_for_chain(chain)
-            if not wallet_address:
-                self.notify(f"No default wallet found for {chain}. Please add one with 'gateway wallet add {chain}'")
+            # Get default wallet
+            wallet_address, error = await GatewayCommandUtils.get_default_wallet(
+                self._get_gateway_instance(), chain
+            )
+            if error:
+                self.notify(error)
                 return
 
             # Look up pool address if needed (for AMM/CLMM connectors)
             pool_address = None
             if connector_type.endswith("/amm") or connector_type.endswith("/clmm"):
                 self.notify(f"\nSearching for {base_token}/{quote_token} pool...")
-                try:
-                    # Get base connector name for pool search
-                    base_connector = connector_type.split("/")[0]
-                    # Search for pools with the trading pair
-                    pools = await self._get_gateway_instance().get_pools(
-                        base_connector, network, search=f"{base_token}/{quote_token}"
-                    )
-                    if not pools:
-                        # Try reverse search
-                        pools = await self._get_gateway_instance().get_pools(
-                            base_connector, network, search=f"{quote_token}/{base_token}"
-                        )
-
-                    if pools:
-                        # Use the first matching pool
-                        pool_address = pools[0].get("address")
-                        self.notify(f"Found pool: {pool_address[:10]}...")
-                    else:
-                        self.notify(f"Error: No pool found for {base_token}/{quote_token} on {base_connector}")
-                        return
-                except Exception as e:
-                    self.notify(f"Error searching for pool: {str(e)}")
+                base_connector = connector_type.split("/")[0]
+                pool_address = await GatewayCommandUtils.find_pool(
+                    self._get_gateway_instance(),
+                    base_connector,
+                    network,
+                    base_token,
+                    quote_token
+                )
+                if pool_address:
+                    self.notify(f"Found pool: {pool_address[:10]}...")
+                else:
+                    self.notify(f"Error: No pool found for {base_token}/{quote_token} on {base_connector}")
                     return
 
-            # Get connector config to show actual slippage
-            slippage_pct = "1"  # Default
-            try:
-                # Use base connector name for config (strip type suffix)
-                base_connector = connector.split("/")[0] if "/" in connector else connector
-                connector_config = await self._get_gateway_instance().get_config(namespace=base_connector)
-                slippage_pct = str(connector_config.get("slippagePct", 1))
-            except Exception:
-                pass
+            # Get connector config
+            connector_config = await GatewayCommandUtils.get_connector_config(
+                self._get_gateway_instance(), connector
+            )
+            slippage_pct = str(connector_config.get("slippagePct", 1))
 
             self.notify(f"\nGetting swap quote from {connector_type} on {network}...")
             self.notify(f"  Pair: {pair_display}")
@@ -349,87 +292,97 @@ class GatewaySwapCommand:
 
                 self.notify("\nExecuting swap...")
 
-                # Prepare execution parameters
-                if quote_id:
-                    # If we have a quote ID, use execute-quote endpoint
-                    self.logger().info(f"Executing swap with quote ID: {quote_id}")
-                    execute_params = {
-                        "walletAddress": wallet_address,
-                        "network": network,
-                        "quoteId": quote_id
-                    }
-                    execute_resp = await self._get_gateway_instance().connector_request(
-                        "POST", connector_type, "execute-quote", data=execute_params
-                    )
-                else:
-                    # Otherwise use direct execute-swap
-                    # Add slippage tolerance
-                    slippage = 0.01  # 1% default slippage
-                    if "minimumOut" in quote_resp:
-                        minimum_out = quote_resp["minimumOut"]
-                    else:
-                        # Calculate minimum out based on expected out and slippage
-                        expected_out = Decimal(quote_resp.get("expectedOut", "0"))
-                        minimum_out = str(expected_out * Decimal(1 - slippage))
+                # Create a temporary GatewayConnector instance for this swap
+                # This will handle order tracking even without an active strategy
+                connector = GatewayConnector(
+                    connector_name=connector_type,
+                    network=network,
+                    wallet_address=wallet_address,
+                    trading_required=True
+                )
 
-                    execute_params = {
-                        "chain": chain,
-                        "network": network,
-                        "connector": connector_type,
-                        "baseToken": base_token,
-                        "quoteToken": quote_token,
-                        "amount": str(amount_decimal),
-                        "side": side,
-                        "walletAddress": wallet_address,
-                        "minimumOut": minimum_out
-                    }
+                # Initialize the connector
+                await connector._initialize()
 
-                    # Add pool address if we found one
-                    if pool_address:
-                        execute_params["poolAddress"] = pool_address
-                    # Or use pool address from quote response
-                    elif "poolAddress" in quote_resp:
-                        execute_params["poolAddress"] = quote_resp["poolAddress"]
+                # Create trading pair
+                trading_pair = f"{base_token}-{quote_token}"
 
-                    # Add route if available
-                    if "route" in quote_resp:
-                        execute_params["route"] = quote_resp["route"]
-
-                    # Execute swap
-                    execute_resp = await self._get_gateway_instance().connector_request(
-                        "POST", connector_type, "execute-swap", data=execute_params
-                    )
-
-                if "error" in execute_resp:
-                    self.notify(f"\nError executing swap: {execute_resp['error']}")
+                # Use price from quote for better tracking
+                price_value = quote_resp.get('price', '0')
+                # Handle both string and numeric price values
+                try:
+                    price = Decimal(str(price_value))
+                except (ValueError, TypeError):
+                    self.notify("\nError: Invalid price received from gateway. Cannot execute swap.")
                     return
 
-                # Process response
-                tx_hash = execute_resp.get("signature") or execute_resp.get("hash")
-                tx_status = execute_resp.get("status")
+                # Store quote data in kwargs for the swap handler
+                swap_kwargs = {
+                    "quote_id": quote_id,
+                    "quote_response": quote_resp,
+                    "pool_address": pool_address or quote_resp.get("poolAddress"),
+                    "route": quote_resp.get("route"),
+                    "minimum_out": quote_resp.get("minimumOut") or quote_resp.get("minAmountOut")
+                }
 
-                if tx_hash:
-                    self.notify("\n✓ Swap submitted successfully!")
-                    self.notify(f"Transaction hash: {tx_hash}")
-
-                    # Check initial status
-                    if tx_status == 1:  # Already confirmed
-                        self.notify("\n✓ Swap confirmed!")
-                        if execute_resp.get("data"):
-                            data = execute_resp["data"]
-                            amount_out = data.get('amountOut', 'N/A')
-                            self.notify(f"Amount out: {amount_out}")
-                            self.logger().info(
-                                f"Swap confirmed - Quote ID: {quote_id}, "
-                                f"Tx Hash: {tx_hash}, "
-                                f"Amount Out: {amount_out}"
-                            )
-                    elif tx_status == -1:  # Failed
-                        self.notify("\n✗ Swap failed")
-                    else:  # Pending or not provided, monitor it
-                        await self._monitor_swap_transaction(chain, network, tx_hash)
+                # Use connector's buy/sell methods which create inflight orders
+                if side == "BUY":
+                    order_id = connector.buy(
+                        trading_pair=trading_pair,
+                        amount=amount_decimal,
+                        order_type=OrderType.MARKET,
+                        price=price,
+                        **swap_kwargs
+                    )
                 else:
-                    self.notify("\n✓ Swap request submitted (no transaction hash returned)")
+                    order_id = connector.sell(
+                        trading_pair=trading_pair,
+                        amount=amount_decimal,
+                        order_type=OrderType.MARKET,
+                        price=price,
+                        **swap_kwargs
+                    )
+
+                self.notify(f"Order created: {order_id}")
+
+                # Register the connector temporarily so events can be processed
+                # This allows MarketsRecorder to capture order events if it's running
+                if hasattr(self, 'connector_manager') and self.connector_manager:
+                    self.connector_manager.connectors[connector.name] = connector
+
+                # Wait for order completion
+                import asyncio
+                max_wait_time = 60  # seconds
+                check_interval = 2  # seconds
+                elapsed_time = 0
+
+                while elapsed_time < max_wait_time:
+                    order = connector.get_order(order_id)
+                    if order and order.is_done:
+                        if order.is_filled:
+                            self.notify("\n✓ Swap completed successfully!")
+                            if order.exchange_order_id:
+                                self.notify(f"Transaction hash: {order.exchange_order_id}")
+                        elif order.is_failure:
+                            self.notify("\n✗ Swap failed")
+                        elif order.is_cancelled:
+                            self.notify("\n✗ Swap cancelled")
+                        break
+
+                    await asyncio.sleep(check_interval)
+                    elapsed_time += check_interval
+
+                    if elapsed_time == 10:  # Show status after 10 seconds
+                        self.notify("Transaction pending...")
+
+                if elapsed_time >= max_wait_time:
+                    self.notify("\n⚠️  Transaction monitoring timed out.")
+                    if order and order.exchange_order_id:
+                        self.notify(f"You can check the transaction manually: {order.exchange_order_id}")
+
+                # Clean up - remove temporary connector
+                if hasattr(self, 'connector_manager') and self.connector_manager:
+                    self.connector_manager.connectors.pop(connector.name, None)
 
             finally:
                 self.placeholder_mode = False
@@ -439,51 +392,8 @@ class GatewaySwapCommand:
         except Exception as e:
             self.notify(f"Error executing swap: {str(e)}")
 
+    # This method is no longer needed since we use GatewayConnector's transaction monitoring
+    # Keeping it for backward compatibility but it won't be called
     async def _monitor_swap_transaction(self, chain: str, network: str, tx_hash: str):
-        """Monitor a swap transaction until completion."""
-        # Monitor all chains that support transaction polling
-        # The gateway will handle chain-specific logic
-
-        self.notify("\nMonitoring transaction...")
-        import asyncio
-
-        # Small delay to allow transaction to propagate
-        await asyncio.sleep(2)
-
-        displayed_pending = False
-        error_count = 0
-        max_errors = 3
-
-        while True:
-            try:
-                poll_resp = await self._get_gateway_instance().get_transaction_status(chain, network, tx_hash)
-                tx_status = poll_resp.get("txStatus")
-
-                if tx_status == 1:  # Confirmed
-                    self.notify("\n✓ Swap confirmed!")
-                    block = poll_resp.get("txBlock", "unknown")
-                    if block != "unknown":
-                        self.notify(f"Block: {block}")
-                    self.logger().info(
-                        f"Swap confirmed - Tx Hash: {tx_hash}, "
-                        f"Block: {block}"
-                    )
-                    break
-                elif tx_status == 2:  # Pending
-                    if not displayed_pending:
-                        self.notify("Transaction pending...")
-                        displayed_pending = True
-                    await asyncio.sleep(2)
-                else:  # Failed or unknown
-                    self.notify("\n✗ Swap failed")
-                    if poll_resp.get("txReceipt"):
-                        self.notify(f"Receipt: {poll_resp['txReceipt']}")
-                    break
-            except Exception as e:
-                error_count += 1
-                self.logger().error(f"Error polling transaction {tx_hash}: {str(e)}")
-                if error_count >= max_errors:
-                    self.notify("\n⚠️  Transaction monitoring stopped due to repeated errors.")
-                    self.notify(f"You can check the transaction manually: {tx_hash}")
-                    break
-                await asyncio.sleep(2)
+        """Monitor a swap transaction until completion - DEPRECATED."""
+        pass

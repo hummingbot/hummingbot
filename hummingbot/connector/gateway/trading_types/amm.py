@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from hummingbot.core.data_type.common import PositionAction
 from hummingbot.logger import HummingbotLogger
 
-from ..models import GatewayInFlightPosition, PoolInfo, Position
+from ..models import PoolInfo, Position
 
 if TYPE_CHECKING:
     from ..core.gateway_connector import GatewayConnector
@@ -34,7 +34,7 @@ class AMMHandler:
         :param connector: Parent GatewayConnector instance
         """
         self.connector = connector
-        self._positions: Dict[str, GatewayInFlightPosition] = {}
+        self._positions: Dict[str, Dict[str, Any]] = {}  # Track position metadata
 
     async def get_pool_info(
         self,
@@ -162,19 +162,17 @@ class AMMHandler:
         :param kwargs: Additional parameters
         :return: Transaction hash (empty string for async)
         """
-        # Create in-flight position
-        position = GatewayInFlightPosition(
-            client_position_id=position_id,
-            trading_pair=f"{base_token}-{quote_token}",
-            position_action=PositionAction.OPEN,
-            base_asset=base_token,
-            quote_asset=quote_token,
-            base_amount=base_amount,
-            quote_amount=quote_amount,
-            fee_tier=fee_tier,
-            creation_timestamp=self.connector.current_timestamp
-        )
-        self._positions[position_id] = position
+        # Store position metadata
+        self._positions[position_id] = {
+            "trading_pair": f"{base_token}-{quote_token}",
+            "position_action": PositionAction.OPEN,
+            "base_asset": base_token,
+            "quote_asset": quote_token,
+            "base_amount": base_amount,
+            "quote_amount": quote_amount,
+            "fee_tier": fee_tier,
+            "pool_address": kwargs.get("pool_address")
+        }
 
         # Build request parameters
         params = {
@@ -192,7 +190,6 @@ class AMMHandler:
         # Add pool address if provided
         if "pool_address" in kwargs:
             params["poolAddress"] = kwargs["pool_address"]
-            position.pool_address = kwargs["pool_address"]
 
         # Execute transaction
         return await self.connector.client.execute_transaction(
@@ -219,25 +216,24 @@ class AMMHandler:
         :param kwargs: Additional parameters
         :return: Transaction hash (empty string for async)
         """
-        # Find existing position
-        position = self._positions.get(position_id)
-        if not position:
-            # Create minimal position for tracking
-            position = GatewayInFlightPosition(
-                client_position_id=position_id,
-                exchange_position_id=position_uid,
-                position_action=PositionAction.CLOSE,
-                creation_timestamp=self.connector.current_timestamp
-            )
-            self._positions[position_id] = position
+        # Find existing position metadata
+        position_meta = self._positions.get(position_id)
+        if not position_meta:
+            # Create minimal metadata for tracking
+            position_meta = {
+                "position_id": position_id,
+                "exchange_position_id": position_uid,
+                "position_action": PositionAction.CLOSE
+            }
+            self._positions[position_id] = position_meta
         else:
-            position.position_action = PositionAction.CLOSE
+            position_meta["position_action"] = PositionAction.CLOSE
 
         # Build request parameters
         params = {
             "network": self.connector.config.network,
             "address": self.connector.config.wallet_address,
-            "positionId": position_uid or position.exchange_position_id,
+            "positionId": position_uid or position_meta.get("exchange_position_id"),
         }
 
         # Execute transaction
@@ -294,24 +290,31 @@ class AMMHandler:
         :param data: Event data
         :param action: Action type (add, remove, collect)
         """
-        position = self._positions.get(position_id)
-        if not position:
+        position_meta = self._positions.get(position_id)
+        if not position_meta:
+            return
+
+        # Get position order from connector
+        position_order = self.connector._in_flight_positions.get(position_id)
+        if not position_order:
             return
 
         if event_type == "tx_hash":
-            position.tx_hash = data
+            # Update transaction hash on position order
+            position_order.update_exchange_order_id(data)
+            position_order.update_creation_transaction_hash(data)
 
         elif event_type == "confirmed":
             # Process successful transaction
             if action == "add":
                 # Position opened successfully
-                self.connector._emit_position_opened_event(position)
+                self.connector._emit_position_opened_event(position_order)
             elif action == "remove":
                 # Position closed successfully
-                self.connector._emit_position_closed_event(position)
+                self.connector._emit_position_closed_event(position_order)
             elif action == "collect":
                 # Fees collected successfully
-                self.connector._emit_fees_collected_event(position)
+                self.connector._emit_fees_collected_event(position_order)
 
             # Remove from tracking if closed
             if action == "remove":

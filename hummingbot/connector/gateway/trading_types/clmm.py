@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from hummingbot.core.data_type.common import PositionAction
 
-from ..models import GatewayInFlightPosition
 from .amm import AMMHandler
 
 if TYPE_CHECKING:
@@ -49,21 +48,19 @@ class CLMMHandler(AMMHandler):
         :param kwargs: Additional parameters
         :return: Transaction hash (empty string for async)
         """
-        # Create in-flight position
-        position = GatewayInFlightPosition(
-            client_position_id=position_id,
-            trading_pair=f"{base_token}-{quote_token}",
-            position_action=PositionAction.OPEN,
-            base_asset=base_token,
-            quote_asset=quote_token,
-            base_amount=base_amount,
-            quote_amount=quote_amount,
-            fee_tier=fee_tier,
-            tick_lower=tick_lower,
-            tick_upper=tick_upper,
-            creation_timestamp=self.connector.current_timestamp
-        )
-        self._positions[position_id] = position
+        # Store position metadata
+        self._positions[position_id] = {
+            "trading_pair": f"{base_token}-{quote_token}",
+            "position_action": PositionAction.OPEN,
+            "base_asset": base_token,
+            "quote_asset": quote_token,
+            "base_amount": base_amount,
+            "quote_amount": quote_amount,
+            "fee_tier": fee_tier,
+            "tick_lower": tick_lower,
+            "tick_upper": tick_upper,
+            "pool_address": kwargs.get("pool_address")
+        }
 
         # Build request parameters
         params = {
@@ -91,7 +88,6 @@ class CLMMHandler(AMMHandler):
         # Add pool address if provided
         if "pool_address" in kwargs:
             params["poolAddress"] = kwargs["pool_address"]
-            position.pool_address = kwargs["pool_address"]
 
         # Execute transaction
         return await self.connector.client.execute_transaction(
@@ -118,24 +114,24 @@ class CLMMHandler(AMMHandler):
         :param kwargs: Additional parameters
         :return: Transaction hash (empty string for async)
         """
-        # Find existing position
-        position = self._positions.get(position_id)
-        if not position:
-            position = GatewayInFlightPosition(
-                client_position_id=position_id,
-                exchange_position_id=position_uid,
-                position_action=PositionAction.CLOSE,
-                creation_timestamp=self.connector.current_timestamp
-            )
-            self._positions[position_id] = position
+        # Find existing position metadata
+        position_meta = self._positions.get(position_id)
+        if not position_meta:
+            # Create minimal metadata for tracking
+            position_meta = {
+                "position_id": position_id,
+                "exchange_position_id": position_uid,
+                "position_action": PositionAction.CLOSE
+            }
+            self._positions[position_id] = position_meta
         else:
-            position.position_action = PositionAction.CLOSE
+            position_meta["position_action"] = PositionAction.CLOSE
 
         # Build request parameters
         params = {
             "network": self.connector.config.network,
             "address": self.connector.config.wallet_address,
-            "positionId": position_uid or position.exchange_position_id,
+            "positionId": position_uid or position_meta.get("exchange_position_id"),
         }
 
         # Execute transaction
