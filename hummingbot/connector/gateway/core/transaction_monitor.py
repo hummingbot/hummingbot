@@ -54,23 +54,23 @@ class TransactionMonitor:
         """
         Monitor a transaction until confirmed/failed/timeout.
 
-        :param response: Initial Gateway response with txHash and status
+        :param response: Initial Gateway response with signature and status
         :param chain: Blockchain chain name
         :param network: Network name
         :param order_id: Order ID for tracking
         :param callback: Callback function(event_type, order_id, data)
         """
-        # Check for both txHash (EVM) and signature (Solana)
-        tx_hash = response.get("txHash") or response.get("signature", "")
+        # Get signature from response (used for all chains)
+        signature = response.get("signature", "")
         status = response.get("status", self.STATUS_PENDING)
 
-        if not tx_hash:
-            self.logger().warning(f"No transaction hash/signature in response for order {order_id}")
+        if not signature:
+            self.logger().warning(f"No signature in response for order {order_id}")
             return
 
-        # Notify callback of transaction hash
+        # Notify callback of transaction signature
         if callback:
-            await self._invoke_callback(callback, "tx_hash", order_id, tx_hash)
+            await self._invoke_callback(callback, "tx_hash", order_id, signature)
 
         # Check if already completed
         if status == self.STATUS_CONFIRMED:
@@ -83,7 +83,7 @@ class TransactionMonitor:
             return
 
         # Status is PENDING - start polling
-        await self._poll_until_complete(tx_hash, chain, network, order_id, callback)
+        await self._poll_until_complete(signature, chain, network, order_id, callback)
 
     async def _poll_until_complete(
         self,
@@ -96,7 +96,7 @@ class TransactionMonitor:
         """
         Poll transaction status until complete or timeout.
 
-        :param tx_hash: Transaction hash to poll
+        :param tx_hash: Transaction signature to poll
         :param chain: Blockchain chain name
         :param network: Network name
         :param order_id: Order ID for tracking
@@ -108,7 +108,7 @@ class TransactionMonitor:
             await asyncio.sleep(self.POLL_INTERVAL)
 
             try:
-                # Poll transaction status
+                # Poll transaction status using signature
                 poll_response = await self._client.get_transaction_status(
                     chain,
                     network,
@@ -130,14 +130,14 @@ class TransactionMonitor:
                     return
 
                 # Still pending, continue polling
-                self.logger().debug(f"Transaction {tx_hash} still pending (attempt {attempt + 1}/{max_attempts})")
+                self.logger().debug(f"Transaction signature {tx_hash} still pending (attempt {attempt + 1}/{max_attempts})")
 
             except Exception as e:
-                self.logger().debug(f"Error polling transaction {tx_hash}: {e}")
+                self.logger().debug(f"Error polling transaction signature {tx_hash}: {e}")
                 # Continue polling even on error
 
         # Timeout reached
-        self.logger().warning(f"Transaction {tx_hash} timed out after {self.MAX_POLL_TIME}s for order {order_id}")
+        self.logger().warning(f"Transaction signature {tx_hash} timed out after {self.MAX_POLL_TIME}s for order {order_id}")
         if callback:
             await self._invoke_callback(callback, "failed", order_id, f"Transaction timed out after {self.MAX_POLL_TIME} seconds")
 

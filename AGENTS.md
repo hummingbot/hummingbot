@@ -93,6 +93,13 @@ hummingbot/
 - Add comprehensive unit tests
 - Update `CONNECTOR_SETTINGS` in configuration
 
+### Gateway Connectors
+- Use `GatewayOrderTracker` instead of standard `ClientOrderTracker`
+- Transaction monitoring handled by `TransactionMonitor` class
+- Orders are tracked by both `client_order_id` and `creation_transaction_hash`
+- Gateway connectors support swap, AMM, and CLMM trading types
+- Use `GatewayInFlightOrder` for tracking blockchain transactions
+
 ## Working with Strategies
 ### V1 Strategies
 - Inherit from `StrategyBase` (Cython)
@@ -164,6 +171,9 @@ hummingbot/
 - Communicate via REST API
 - Standardized endpoints for all operations
 - See `gateway/AGENTS.md` for Gateway-specific instructions
+- **Important**: Gateway uses `signature` field for all transaction hashes (both EVM and Solana chains)
+- Transaction status responses use `txStatus` field (1 = confirmed, 0 = pending, -1 = failed)
+- Order tracking: Gateway commands create inflight orders using GatewayOrderTracker even without active strategies
 
 ## Environment Variables
 - `HUMMINGBOT_CONF_DIR`: Configuration directory path
