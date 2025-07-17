@@ -1,11 +1,11 @@
 import re
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import TYPE_CHECKING, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Union
 
 from pydantic import ConfigDict, Field, SecretStr, field_validator
-from pyinjective.async_client import AsyncClient
-from pyinjective.composer import Composer
+from pyinjective.async_client_v2 import AsyncClient
+from pyinjective.composer_v2 import Composer
 from pyinjective.core.broadcaster import (
     MessageBasedTransactionFeeCalculator,
     SimulatedTransactionFeeCalculator,
@@ -55,7 +55,7 @@ class InjectiveFeeCalculatorMode(BaseClientModel, ABC):
 
 
 class InjectiveSimulatedTransactionFeeCalculatorMode(InjectiveFeeCalculatorMode):
-    name: str = Field(default="simulated_transaction_fee_calculator")
+    name: Literal["simulated_transaction_fee_calculator"] = "simulated_transaction_fee_calculator"
     model_config = ConfigDict(title="simulated_transaction_fee_calculator")
 
     def create_calculator(
@@ -74,7 +74,7 @@ class InjectiveSimulatedTransactionFeeCalculatorMode(InjectiveFeeCalculatorMode)
 
 
 class InjectiveMessageBasedTransactionFeeCalculatorMode(InjectiveFeeCalculatorMode):
-    name: str = Field(default="message_based_transaction_fee_calculator")
+    name: Literal["message_based_transaction_fee_calculator"] = "message_based_transaction_fee_calculator"
     model_config = ConfigDict(title="message_based_transaction_fee_calculator")
 
     def create_calculator(
@@ -357,7 +357,8 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
             "prompt_on_new": True},
     )
     fee_calculator: Union[tuple(FEE_CALCULATOR_MODES.values())] = Field(
-        default=InjectiveSimulatedTransactionFeeCalculatorMode(),
+        default=InjectiveMessageBasedTransactionFeeCalculatorMode(),
+        discriminator="name",
         json_schema_extra={
             "prompt": f"Select the fee calculator ({'/'.join(list(FEE_CALCULATOR_MODES.keys()))})",
             "prompt_on_new": True},
@@ -388,19 +389,6 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
             )
         else:
             sub_model = ACCOUNT_MODES[v].model_construct()
-        return sub_model
-
-    @field_validator("fee_calculator", mode="before")
-    @classmethod
-    def validate_fee_calculator(cls, v: Union[(str, Dict) + tuple(FEE_CALCULATOR_MODES.values())]):
-        if isinstance(v, tuple(FEE_CALCULATOR_MODES.values()) + (Dict,)):
-            sub_model = v
-        elif v not in FEE_CALCULATOR_MODES:
-            raise ValueError(
-                f"Invalid fee calculator, please choose a value from {list(FEE_CALCULATOR_MODES.keys())}."
-            )
-        else:
-            sub_model = FEE_CALCULATOR_MODES[v].model_construct()
         return sub_model
 
     def create_data_source(self):

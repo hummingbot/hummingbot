@@ -10,8 +10,9 @@ from bidict import bidict
 from google.protobuf import any_pb2
 from grpc import RpcError
 from pyinjective import Transaction
-from pyinjective.composer import Composer, injective_exchange_tx_pb
-from pyinjective.core.market import DerivativeMarket, SpotMarket
+from pyinjective.composer_v2 import Composer, injective_exchange_tx_pb
+from pyinjective.constant import GAS_PRICE
+from pyinjective.core.market_v2 import DerivativeMarket, SpotMarket
 from pyinjective.core.token import Token
 
 from hummingbot.connector.derivative.position import Position
@@ -101,6 +102,16 @@ class InjectiveDataSource(ABC):
     @property
     @abstractmethod
     def network_name(self) -> str:
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def gas_price(self) -> Decimal:
+        raise NotImplementedError
+
+    @gas_price.setter
+    @abstractmethod
+    def gas_price(self, gas_price: Decimal):
         raise NotImplementedError
 
     @property
@@ -203,6 +214,10 @@ class InjectiveDataSource(ABC):
 
     @abstractmethod
     def supported_order_types(self) -> List[OrderType]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def update_timeout_height(self, block_height: int):
         raise NotImplementedError
 
     def is_started(self):
@@ -657,7 +672,7 @@ class InjectiveDataSource(ABC):
             trading_pair=await self.trading_pair_for_market(market_id=market_id),
             index_price=last_traded_price,  # Use the last traded price as the index_price
             mark_price=oracle_price,
-            next_funding_utc_timestamp=int(updated_market_info["market"]["perpetualMarketInfo"]["nextFundingTimestamp"]),
+            next_funding_utc_timestamp=int(updated_market_info["market"]["perpetualInfo"]["marketInfo"]["nextFundingTimestamp"]),
             rate=funding_rate,
         )
         return funding_info
@@ -690,6 +705,12 @@ class InjectiveDataSource(ABC):
             last_timestamp = int(payments[0]["timestamp"]) * 1e-3
 
         return last_payment, last_timestamp
+
+    def update_gas_price(self, gas_price: Decimal):
+        if gas_price > Decimal(str(GAS_PRICE)):
+            self.gas_price = (gas_price * Decimal(CONSTANTS.GAS_PRICE_MULTIPLIER)).to_integral_value()
+        else:
+            self.gas_price = gas_price
 
     @abstractmethod
     async def _initialize_timeout_height(self):
@@ -1075,6 +1096,11 @@ class InjectiveDataSource(ABC):
     ):
         block_height = int(chain_stream_update["blockHeight"])
         block_timestamp = int(chain_stream_update["blockTime"]) * 1e-3
+        updated_gas_price = chain_stream_update.get("gasPrice", str(self.gas_price))
+        self.update_gas_price(gas_price=Decimal(str(updated_gas_price)))
+
+        self.update_timeout_height(block_height=block_height)
+
         tasks = []
 
         tasks.append(
@@ -1219,11 +1245,10 @@ class InjectiveDataSource(ABC):
             key=lambda bid: int(bid["p"]),
             reverse=True
         )
-        bids = [(market.price_from_special_chain_format(chain_price=Decimal(bid["p"])),
-                 market.quantity_from_special_chain_format(chain_quantity=Decimal(bid["q"])))
-                for bid in buy_levels]
-        asks = [(market.price_from_special_chain_format(chain_price=Decimal(ask["p"])),
-                 market.quantity_from_special_chain_format(chain_quantity=Decimal(ask["q"])))
+        bids = [(InjectiveToken.convert_value_from_extended_decimal_format(Decimal(bid["p"])),
+                 InjectiveToken.convert_value_from_extended_decimal_format(Decimal(bid["q"]))) for bid in buy_levels]
+        asks = [(InjectiveToken.convert_value_from_extended_decimal_format(Decimal(ask["p"])),
+                 InjectiveToken.convert_value_from_extended_decimal_format(Decimal(ask["q"])))
                 for ask in order_book_update["orderbook"].get("sellLevels", [])]
 
         order_book_message_content = {
@@ -1255,10 +1280,12 @@ class InjectiveDataSource(ABC):
                 trading_pair = await self.trading_pair_for_market(market_id=market_id)
                 timestamp = self._time()
                 trade_type = TradeType.BUY if trade_update.get("isBuy", False) else TradeType.SELL
-                amount = market_info.quantity_from_special_chain_format(
-                    chain_quantity=Decimal(str(trade_update["quantity"]))
+                amount = InjectiveToken.convert_value_from_extended_decimal_format(
+                    value=Decimal(str(trade_update["quantity"]))
                 )
-                price = market_info.price_from_special_chain_format(chain_price=Decimal(str(trade_update["price"])))
+                price = InjectiveToken.convert_value_from_extended_decimal_format(
+                    value=Decimal(str(trade_update["price"]))
+                )
                 order_hash = trade_update["orderHash"]
                 client_order_id = trade_update.get("cid", "")
                 trade_id = trade_update["tradeId"]
@@ -1278,7 +1305,7 @@ class InjectiveDataSource(ABC):
                     event_tag=OrderBookDataSourceEvent.TRADE_EVENT, message=trade_message
                 )
 
-                fee_amount = market_info.quote_token.value_from_special_chain_format(chain_value=Decimal(trade_update["fee"]))
+                fee_amount = InjectiveToken.convert_value_from_extended_decimal_format(value=Decimal(trade_update["fee"]))
                 fee = TradeFeeBase.new_spot_fee(
                     fee_schema=TradeFeeSchema(),
                     trade_type=trade_type,
@@ -1317,11 +1344,12 @@ class InjectiveDataSource(ABC):
 
                 trading_pair = await self.trading_pair_for_market(market_id=market_id)
                 trade_type = TradeType.BUY if trade_update.get("isBuy", False) else TradeType.SELL
-                amount = market_info.quantity_from_special_chain_format(
-                    chain_quantity=Decimal(str(trade_update["positionDelta"]["executionQuantity"]))
+                amount = InjectiveToken.convert_value_from_extended_decimal_format(
+                    value=Decimal(str(trade_update["positionDelta"]["executionQuantity"]))
                 )
-                price = market_info.price_from_special_chain_format(
-                    chain_price=Decimal(str(trade_update["positionDelta"]["executionPrice"])))
+                price = InjectiveToken.convert_value_from_extended_decimal_format(
+                    value=Decimal(str(trade_update["positionDelta"]["executionPrice"]))
+                )
                 order_hash = trade_update["orderHash"]
                 client_order_id = trade_update.get("cid", "")
                 trade_id = trade_update["tradeId"]
@@ -1342,7 +1370,7 @@ class InjectiveDataSource(ABC):
                     event_tag=OrderBookDataSourceEvent.TRADE_EVENT, message=trade_message
                 )
 
-                fee_amount = market_info.quote_token.value_from_special_chain_format(chain_value=Decimal(trade_update["fee"]))
+                fee_amount = InjectiveToken.convert_value_from_extended_decimal_format(value=Decimal(trade_update["fee"]))
                 fee = TradeFeeBase.new_perpetual_fee(
                     fee_schema=TradeFeeSchema(),
                     position_action=PositionAction.OPEN,  # will be changed by the exchange class
@@ -1404,14 +1432,19 @@ class InjectiveDataSource(ABC):
         for event in position_updates:
             try:
                 market_id = event["marketId"]
-                market = await self.derivative_market_info_for_id(market_id=market_id)
                 trading_pair = await self.trading_pair_for_market(market_id=market_id)
 
                 position_side = PositionSide.LONG if event["isLong"] else PositionSide.SHORT
                 amount_sign = Decimal(-1) if position_side == PositionSide.SHORT else Decimal(1)
-                entry_price = (market.price_from_special_chain_format(chain_price=Decimal(event["entryPrice"])))
-                amount = (market.quantity_from_special_chain_format(chain_quantity=Decimal(event["quantity"])))
-                margin = (market.price_from_special_chain_format(chain_price=Decimal(event["margin"])))
+                entry_price = InjectiveToken.convert_value_from_extended_decimal_format(
+                    value=Decimal(event["entryPrice"])
+                )
+                amount = InjectiveToken.convert_value_from_extended_decimal_format(
+                    value=Decimal(event["quantity"])
+                )
+                margin = InjectiveToken.convert_value_from_extended_decimal_format(
+                    value=Decimal(event["margin"])
+                )
                 oracle_price = await self._oracle_price(market_id=market_id)
                 leverage = (amount * entry_price) / margin
                 unrealized_pnl = (oracle_price - entry_price) * amount * amount_sign
@@ -1461,10 +1494,6 @@ class InjectiveDataSource(ABC):
                 self.logger().warning(
                     f"Error processing oracle price update for market {market.trading_pair()}", exc_info=ex,
                 )
-
-    async def _process_position_update(self, position_event: Dict[str, Any]):
-        parsed_event = await self._parse_position_update_event(event=position_event)
-        self.publisher.trigger_event(event_tag=AccountEvent.PositionUpdate, message=parsed_event)
 
     async def _process_subaccount_balance_update(
             self,
@@ -1558,6 +1587,8 @@ class InjectiveDataSource(ABC):
                 min_price_tick_size = market.min_price_tick_size()
                 min_quantity_tick_size = market.min_quantity_tick_size()
                 min_notional = market.min_notional()
+                if min_price_tick_size is None or min_quantity_tick_size is None or min_notional is None:
+                    raise ValueError(f"Market with invalid tick sizes: {market.native_market}")
                 trading_rule = TradingRule(
                     trading_pair=market.trading_pair(),
                     min_order_size=min_quantity_tick_size,

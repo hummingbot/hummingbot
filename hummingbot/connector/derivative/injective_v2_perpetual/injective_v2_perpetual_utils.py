@@ -9,8 +9,8 @@ from hummingbot.connector.exchange.injective_v2.injective_v2_utils import (
     FEE_CALCULATOR_MODES,
     NETWORK_MODES,
     InjectiveMainnetNetworkMode,
+    InjectiveMessageBasedTransactionFeeCalculatorMode,
     InjectiveReadOnlyAccountMode,
-    InjectiveSimulatedTransactionFeeCalculatorMode,
 )
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
@@ -42,7 +42,8 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
         },
     )
     fee_calculator: Union[tuple(FEE_CALCULATOR_MODES.values())] = Field(
-        default=InjectiveSimulatedTransactionFeeCalculatorMode(),
+        default=InjectiveMessageBasedTransactionFeeCalculatorMode(),
+        discriminator="name",
         json_schema_extra={
             "prompt": lambda cm: f"Select the fee calculator ({'/'.join(list(FEE_CALCULATOR_MODES.keys()))})",
             "prompt_on_new": True,
