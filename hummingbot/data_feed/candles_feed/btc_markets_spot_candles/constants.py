@@ -26,6 +26,8 @@ INTERVALS = bidict(
     }
 )
 
+POLL_INTERVAL = 5.0  # seconds
+
 MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST = 1000
 
 # Rate Limits based on BTC Markets documentation
