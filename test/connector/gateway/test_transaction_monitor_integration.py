@@ -50,7 +50,7 @@ class MockGatewayConnector:
                 update_timestamp=1234567890,
                 new_state="FILLED",
                 client_order_id=order_id,
-                exchange_order_id=data.get("txHash", ""),
+                exchange_order_id=data.get("signature", ""),
                 misc_updates={"confirmed_data": data}
             )
             self._order_tracker.process_order_update(order_update)
@@ -59,7 +59,7 @@ class MockGatewayConnector:
             trade_update = TradeUpdate(
                 trade_id=f"{order_id}-1",
                 client_order_id=order_id,
-                exchange_order_id=data.get("txHash", ""),
+                exchange_order_id=data.get("signature", ""),
                 trading_pair="ETH-USDC",
                 fill_timestamp=1234567890,
                 fill_price=Decimal("3000"),
@@ -118,7 +118,7 @@ class TestTransactionMonitorIntegration(unittest.TestCase):
     async def _test_confirmed_writes_to_database(self):
         """Async test for database writes on confirmation."""
         response = {
-            "txHash": "0x123abc",
+            "signature": "0x123abc",
             "status": 1,  # CONFIRMED
             "gasUsed": "150000",
             "effectiveGasPrice": "50000000000"
@@ -152,15 +152,15 @@ class TestTransactionMonitorIntegration(unittest.TestCase):
     async def _test_pending_polls_until_confirmed(self):
         """Async test for polling and database writes."""
         initial_response = {
-            "txHash": "0x456def",
+            "signature": "0x456def",
             "status": 0  # PENDING
         }
 
         # Mock polling responses
         poll_responses = [
-            {"status": 0, "confirmations": 0},  # First poll - still pending
-            {"status": 0, "confirmations": 1},  # Second poll - still pending
-            {"status": 1, "confirmations": 3, "gasUsed": "200000"}  # Third poll - confirmed
+            {"txStatus": 0, "confirmations": 0},  # First poll - still pending
+            {"txStatus": 0, "confirmations": 1},  # Second poll - still pending
+            {"txStatus": 1, "confirmations": 3, "gasUsed": "200000"}  # Third poll - confirmed
         ]
         self.gateway_client.get_transaction_status = AsyncMock(side_effect=poll_responses)
 
@@ -201,13 +201,13 @@ class TestTransactionMonitorIntegration(unittest.TestCase):
     async def _test_timeout_marks_as_failed(self):
         """Async test for timeout handling."""
         response = {
-            "txHash": "0x789ghi",
+            "signature": "0x789ghi",
             "status": 0  # PENDING
         }
 
         # Mock polling to always return pending
         self.gateway_client.get_transaction_status = AsyncMock(
-            return_value={"status": 0, "confirmations": 0}
+            return_value={"txStatus": 0, "confirmations": 0}
         )
 
         # Very short timeout for testing
@@ -239,7 +239,7 @@ class TestTransactionMonitorIntegration(unittest.TestCase):
     async def _test_failed_transaction_writes_to_database(self):
         """Async test for failed transaction database writes."""
         response = {
-            "txHash": "0xfailed",
+            "signature": "0xfailed",
             "status": -1,  # FAILED
             "message": "Transaction reverted: insufficient balance"
         }
@@ -268,14 +268,14 @@ class TestTransactionMonitorIntegration(unittest.TestCase):
     async def _test_pending_then_failed(self):
         """Async test for pending then failed."""
         response = {
-            "txHash": "0xpendingfail",
+            "signature": "0xpendingfail",
             "status": 0  # PENDING
         }
 
         # Mock polling to return failed after some pending
         poll_responses = [
-            {"status": 0},  # Still pending
-            {"status": -1, "message": "Out of gas"}  # Failed
+            {"txStatus": 0},  # Still pending
+            {"txStatus": -1, "message": "Out of gas"}  # Failed
         ]
         self.gateway_client.get_transaction_status = AsyncMock(side_effect=poll_responses)
 
@@ -303,9 +303,9 @@ class TestTransactionMonitorIntegration(unittest.TestCase):
         """Async test for concurrent order monitoring."""
         # Set up multiple orders
         orders = [
-            ("order-1", {"txHash": "0x111", "status": 1}),  # Immediate confirm
-            ("order-2", {"txHash": "0x222", "status": 0}),  # Pending
-            ("order-3", {"txHash": "0x333", "status": -1, "message": "Failed"}),  # Failed
+            ("order-1", {"signature": "0x111", "status": 1}),  # Immediate confirm
+            ("order-2", {"signature": "0x222", "status": 0}),  # Pending
+            ("order-3", {"signature": "0x333", "status": -1, "message": "Failed"}),  # Failed
         ]
 
         for order_id, _ in orders:
@@ -316,7 +316,7 @@ class TestTransactionMonitorIntegration(unittest.TestCase):
 
         # Mock polling for order-2
         self.gateway_client.get_transaction_status = AsyncMock(
-            return_value={"status": 1}  # Eventually confirms
+            return_value={"txStatus": 1}  # Eventually confirms
         )
 
         self.monitor.POLL_INTERVAL = 0.1
@@ -354,7 +354,7 @@ class TestTransactionMonitorIntegration(unittest.TestCase):
     async def _test_callback_exception_handling(self):
         """Async test for callback exception handling."""
         response = {
-            "txHash": "0xexception",
+            "signature": "0xexception",
             "status": 0  # PENDING
         }
 
@@ -374,7 +374,7 @@ class TestTransactionMonitorIntegration(unittest.TestCase):
 
         # Mock polling to return confirmed
         self.gateway_client.get_transaction_status = AsyncMock(
-            return_value={"status": 1}
+            return_value={"txStatus": 1}
         )
 
         self.monitor.POLL_INTERVAL = 0.1
@@ -403,13 +403,13 @@ class TestTransactionMonitorIntegration(unittest.TestCase):
     async def _test_no_callback_provided(self):
         """Async test for no callback scenario."""
         response = {
-            "txHash": "0xnocallback",
+            "signature": "0xnocallback",
             "status": 0  # PENDING
         }
 
         # Mock polling
         self.gateway_client.get_transaction_status = AsyncMock(
-            return_value={"status": 1}
+            return_value={"txStatus": 1}
         )
 
         self.monitor.POLL_INTERVAL = 0.1

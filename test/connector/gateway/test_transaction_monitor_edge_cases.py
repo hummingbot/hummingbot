@@ -49,13 +49,13 @@ class TestTransactionMonitorEdgeCases(unittest.TestCase):
         """Async test for invalid status values."""
         # Test with string status
         response = {
-            "txHash": "0x123",
+            "signature": "0x123",
             "status": "pending"  # String instead of int
         }
 
         # Should treat as pending (0)
         self.gateway_client.get_transaction_status = AsyncMock(
-            return_value={"status": 1}
+            return_value={"txStatus": 1}
         )
         self.monitor.POLL_INTERVAL = 0.1
         self.monitor.MAX_POLL_TIME = 0.3
@@ -78,7 +78,7 @@ class TestTransactionMonitorEdgeCases(unittest.TestCase):
     async def _test_null_tx_hash(self):
         """Async test for null tx hash."""
         response = {
-            "txHash": None,
+            "signature": None,
             "status": 0
         }
 
@@ -101,7 +101,7 @@ class TestTransactionMonitorEdgeCases(unittest.TestCase):
         """Async test for long tx hash."""
         long_hash = "0x" + "a" * 1000  # Very long hash
         response = {
-            "txHash": long_hash,
+            "signature": long_hash,
             "status": 1
         }
 
@@ -124,15 +124,15 @@ class TestTransactionMonitorEdgeCases(unittest.TestCase):
     async def _test_rapid_status_changes(self):
         """Async test for rapid status changes."""
         response = {
-            "txHash": "0xrapid",
+            "signature": "0xrapid",
             "status": 0
         }
 
         # Mock rapidly changing statuses
         poll_responses = [
-            {"status": 0},   # Pending
-            {"status": -1},  # Failed
-            {"status": 1},   # Should not reach this
+            {"txStatus": 0},   # Pending
+            {"txStatus": -1},  # Failed
+            {"txStatus": 1},   # Should not reach this
         ]
         self.gateway_client.get_transaction_status = AsyncMock(side_effect=poll_responses)
 
@@ -157,7 +157,7 @@ class TestTransactionMonitorEdgeCases(unittest.TestCase):
     async def _test_network_timeout_during_poll(self):
         """Async test for network timeout."""
         response = {
-            "txHash": "0xtimeout",
+            "signature": "0xtimeout",
             "status": 0
         }
 
@@ -166,7 +166,7 @@ class TestTransactionMonitorEdgeCases(unittest.TestCase):
             mock_poll.call_count += 1
             if mock_poll.call_count <= 2:
                 raise asyncio.TimeoutError("Network timeout")
-            return {"status": 1}
+            return {"txStatus": 1}
 
         mock_poll.call_count = 0
         self.gateway_client.get_transaction_status = mock_poll
@@ -192,7 +192,7 @@ class TestTransactionMonitorEdgeCases(unittest.TestCase):
     async def _test_malformed_poll_response(self):
         """Async test for malformed responses."""
         response = {
-            "txHash": "0xmalformed",
+            "signature": "0xmalformed",
             "status": 0
         }
 
@@ -201,7 +201,7 @@ class TestTransactionMonitorEdgeCases(unittest.TestCase):
             None,  # Null response
             {},    # Empty response
             {"not_status": 1},  # Missing status field
-            {"status": 1}  # Finally valid
+            {"txStatus": 1}  # Finally valid
         ]
         self.gateway_client.get_transaction_status = AsyncMock(side_effect=poll_responses)
 
@@ -217,7 +217,7 @@ class TestTransactionMonitorEdgeCases(unittest.TestCase):
 
         # Should handle malformed responses gracefully
         self.assertEqual(self.gateway_client.get_transaction_status.call_count, 4)
-        self.assertEqual(self.callback_events[-1], ("confirmed", "test-malformed", {"status": 1}))
+        self.assertEqual(self.callback_events[-1], ("confirmed", "test-malformed", {"txStatus": 1}))
 
     def test_zero_poll_interval(self):
         """Test with zero poll interval (edge case)."""
@@ -226,12 +226,12 @@ class TestTransactionMonitorEdgeCases(unittest.TestCase):
     async def _test_zero_poll_interval(self):
         """Async test for zero poll interval."""
         response = {
-            "txHash": "0xzero",
+            "signature": "0xzero",
             "status": 0
         }
 
         self.gateway_client.get_transaction_status = AsyncMock(
-            return_value={"status": 1}
+            return_value={"txStatus": 1}
         )
 
         # Set poll interval to 0
@@ -256,7 +256,7 @@ class TestTransactionMonitorEdgeCases(unittest.TestCase):
     async def _test_concurrent_same_tx_hash(self):
         """Async test for concurrent monitoring of same tx."""
         response = {
-            "txHash": "0xduplicate",
+            "signature": "0xduplicate",
             "status": 0
         }
 
@@ -267,8 +267,8 @@ class TestTransactionMonitorEdgeCases(unittest.TestCase):
             nonlocal poll_count
             poll_count += 1
             if poll_count >= 2:
-                return {"status": 1}
-            return {"status": 0}
+                return {"txStatus": 1}
+            return {"txStatus": 0}
 
         self.gateway_client.get_transaction_status = mock_poll
         self.monitor.POLL_INTERVAL = 0.1
@@ -304,7 +304,7 @@ class TestTransactionMonitorEdgeCases(unittest.TestCase):
     async def _test_unicode_in_error_message(self):
         """Async test for unicode error messages."""
         response = {
-            "txHash": "0xunicode",
+            "signature": "0xunicode",
             "status": -1,
             "message": "Transaction failed: 🚫 Insufficient funds 💰"
         }

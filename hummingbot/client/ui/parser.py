@@ -149,6 +149,10 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
     gateway_wrap_parser.add_argument("amount", nargs="?", default=None, help="Amount of native token to wrap")
     gateway_wrap_parser.set_defaults(func=hummingbot.gateway_wrap)
 
+    gateway_unwrap_parser = gateway_subparsers.add_parser("unwrap", help="Unwrap wrapped tokens to native tokens")
+    gateway_unwrap_parser.add_argument("amount", nargs="?", default=None, help="Amount of wrapped token to unwrap")
+    gateway_unwrap_parser.set_defaults(func=hummingbot.gateway_unwrap)
+
     gateway_swap_parser = gateway_subparsers.add_parser(
         "swap",
         help="Perform token swaps through gateway - shows quote and asks for confirmation")

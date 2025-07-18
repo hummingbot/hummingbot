@@ -8,10 +8,10 @@ from typing import Any, Dict, List, Optional
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.trade_fee import TradeFeeBase, TradeFeeSchema
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase, TradeFeeSchema
 from hummingbot.core.event.events import MarketEvent
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
@@ -632,8 +632,12 @@ class GatewayConnector(ConnectorBase):
 
     def _process_trade_update(self, trade_update):
         """Process trade update."""
+        # Process the trade update in order tracker first
+        self._order_tracker.process_trade_update(trade_update)
+
+        # Then trigger the event
         self.trigger_event(
-            self.MARKET_ORDER_FILLED_EVENT_TAG,
+            MarketEvent.OrderFilled,
             trade_update
         )
 
@@ -678,3 +682,237 @@ class GatewayConnector(ConnectorBase):
                 MarketEvent.OrderFailure,
                 (position_id, position)
             )
+
+    def create_transaction_order_id(self, tx_type: str, token: str = "") -> str:
+        """
+        Create a unique order ID for transaction tracking.
+
+        :param tx_type: Transaction type (wrap, approve, etc.)
+        :param token: Optional token symbol
+        :return: Unique order ID
+        """
+        timestamp = int(time.time() * 1e6)  # Microseconds
+        if token:
+            return f"{tx_type}-{token.lower()}-{timestamp}"
+        return f"{tx_type}-{timestamp}"
+
+    async def execute_transaction(
+        self,
+        tx_type: str,
+        chain: str,
+        network: str,
+        tx_hash: str,
+        amount: Decimal = Decimal("0"),
+        token: Optional[str] = None,
+        **kwargs
+    ) -> str:
+        """
+        Track a generic transaction (wrap, approve, etc.) using the order tracker.
+
+        :param tx_type: Transaction type (wrap, approve, etc.)
+        :param chain: Blockchain chain
+        :param network: Network name
+        :param tx_hash: Transaction hash
+        :param amount: Transaction amount (0 for approve)
+        :param token: Token symbol (optional)
+        :param kwargs: Additional parameters
+        :return: Order ID for tracking
+        """
+        # Create order ID
+        order_id = self.create_transaction_order_id(tx_type, token or "")
+
+        # Create a trading pair representation for the transaction
+        if tx_type == "wrap":
+            # For wrap: native token -> wrapped token
+            native_token = kwargs.get("native_token", "ETH")
+            wrapped_token = kwargs.get("wrapped_token", "WETH")
+            trading_pair = f"{native_token}-{wrapped_token}"
+        elif tx_type == "approve":
+            # For approve: token-spender
+            spender = kwargs.get("spender", "unknown")
+            trading_pair = f"{token}-{spender}"
+        else:
+            trading_pair = f"{tx_type}-{token or 'tx'}"
+
+        # Create in-flight order for tracking
+        order = GatewayInFlightOrder(
+            client_order_id=order_id,
+            trading_pair=trading_pair,
+            order_type=OrderType.AMM_SWAP,
+            trade_type=TradeType.BUY,  # Use BUY for all utility transactions
+            creation_timestamp=time.time(),
+            price=Decimal("0"),  # No price for utility transactions
+            amount=amount,
+            exchange_order_id=tx_hash,
+            creation_transaction_hash=tx_hash,
+            gas_price=Decimal("0"),
+            initial_state=OrderState.PENDING_CREATE
+        )
+
+        # Start tracking the order
+        self._order_tracker.start_tracking_order(order)
+
+        # Simple monitoring without callbacks
+        async def monitor_and_update():
+            """Monitor transaction and update order status."""
+            try:
+                # Get the order for reference
+                tracked_order = self._order_tracker.fetch_order(order_id)
+                if not tracked_order:
+                    self.logger().error(f"Order {order_id} not found in tracker")
+                    return
+                # Use shared transaction monitor instance
+                if not hasattr(self, '_transaction_monitor'):
+                    from ..core.transaction_monitor import TransactionMonitor
+                    self._transaction_monitor = TransactionMonitor(self.client)
+
+                # Create response object for monitor
+                response = {
+                    "signature": tx_hash,
+                    "status": 0  # Pending
+                }
+
+                # Create a simple callback to track completion
+                tx_completed = False
+                tx_result = None
+
+                async def completion_callback(event_type: str, order_id: str, data: Any):
+                    nonlocal tx_completed, tx_result
+                    if event_type == "confirmed":
+                        tx_completed = True
+                        tx_result = data
+                    elif event_type == "failed":
+                        tx_completed = True
+                        tx_result = None
+
+                # Start monitoring - this will handle the polling
+                await self._transaction_monitor.monitor_transaction(
+                    response=response,
+                    chain=chain,
+                    network=network,
+                    order_id=order_id,
+                    callback=completion_callback
+                )
+
+                # Check if transaction was confirmed
+                if not tx_completed or tx_result is None:
+                    self._handle_order_failure(order_id, "Transaction monitoring failed")
+                    return
+
+                # If we get here, transaction is either confirmed or failed
+                # Use the result from callback which has the actual response
+                if tx_result is None:
+                    self._handle_order_failure(order_id, "Transaction failed")
+                    return
+
+                # Use the data from the callback as it has the confirmed response
+                final_response = tx_result
+                self.logger().info(f"Transaction {tx_hash} final response: {final_response}")
+                try:
+                    status = int(final_response.get("txStatus", final_response.get("status", -1)))
+                except (ValueError, TypeError):
+                    status = 1 if tx_completed else -1
+
+                if status == 1:  # Confirmed
+                    # Extract fee from the response with proper error handling
+                    try:
+                        fee_value = final_response.get("fee", "0")
+                        if fee_value is None or fee_value == "":
+                            fee_value = "0"
+                        fee_amount = Decimal(str(fee_value))
+                    except Exception as e:
+                        self.logger().warning(f"Failed to parse fee amount: {fee_value}, using 0. Error: {e}")
+                        fee_amount = Decimal("0")
+
+                    # Get native currency symbol from gateway config
+                    chain_config = await self.client.get_configuration(chain)
+                    fee_token = "ETH"  # Default if not found
+                    if chain_config and "networks" in chain_config:
+                        network_config = chain_config["networks"].get(network, {})
+                        fee_token = network_config.get("nativeCurrencySymbol", fee_token)
+
+                    try:
+                        # Log all values being used
+                        self.logger().debug("Creating trade update with values:")
+                        self.logger().debug(f"  order_id: {order_id}")
+                        self.logger().debug(f"  tx_hash: {tx_hash}")
+                        self.logger().debug(f"  trading_pair: {tracked_order.trading_pair}")
+                        self.logger().debug(f"  fee_amount: {fee_amount} (type: {type(fee_amount)})")
+                        self.logger().debug(f"  fee_token: {fee_token}")
+                        self.logger().debug(f"  tracked_order.price: {tracked_order.price} (type: {type(tracked_order.price)})")
+                        self.logger().debug(f"  tracked_order.amount: {tracked_order.amount} (type: {type(tracked_order.amount)})")
+
+                        # Create fill amounts with explicit conversion
+                        fill_price = Decimal(str(tracked_order.price)) if tracked_order.price is not None else Decimal("0")
+                        fill_base_amount = Decimal(str(tracked_order.amount)) if tracked_order.amount is not None else Decimal("0")
+                        fill_quote_amount = fill_base_amount * fill_price if fill_price > 0 else Decimal("0")
+
+                        self.logger().debug(f"  Calculated fill_price: {fill_price}")
+                        self.logger().debug(f"  Calculated fill_base_amount: {fill_base_amount}")
+                        self.logger().debug(f"  Calculated fill_quote_amount: {fill_quote_amount}")
+
+                        # Create a trade fee object
+                        trade_fee = AddedToCostTradeFee(
+                            percent=Decimal("0"),
+                            flat_fees=[TokenAmount(amount=fee_amount, token=fee_token)]
+                        )
+
+                        # Create a trade fill for utility transactions
+                        trade_update = TradeUpdate(
+                            trade_id=f"{order_id}-{int(time.time())}",
+                            client_order_id=order_id,
+                            exchange_order_id=tx_hash,
+                            trading_pair=tracked_order.trading_pair,
+                            fee=trade_fee,
+                            fill_price=fill_price,
+                            fill_base_amount=fill_base_amount,
+                            fill_quote_amount=fill_quote_amount,
+                            fill_timestamp=time.time()
+                        )
+                        self._process_trade_update(trade_update)
+
+                        # Mark order as filled
+                        order_update = OrderUpdate(
+                            trading_pair=tracked_order.trading_pair,
+                            update_timestamp=time.time(),
+                            new_state=OrderState.FILLED,
+                            client_order_id=order_id,
+                            exchange_order_id=tx_hash,
+                            misc_updates={"tx_type": tx_type, "status": "confirmed"}
+                        )
+                        self._process_order_update(order_update)
+
+                        # Log success
+                        if tx_type == "wrap":
+                            self.logger().info(f"Wrap transaction {tx_hash} confirmed")
+                        elif tx_type == "unwrap":
+                            self.logger().info(f"Unwrap transaction {tx_hash} confirmed")
+                        elif tx_type == "approve":
+                            self.logger().info(f"Approve transaction {tx_hash} confirmed for {token}")
+                    except Exception as e:
+                        import traceback
+                        self.logger().error(f"Error processing confirmed transaction: {str(e)}")
+                        self.logger().error(f"Error type: {type(e)}")
+                        self.logger().error(f"Traceback: {traceback.format_exc()}")
+                        # Still mark as successful but log the error
+                        order_update = OrderUpdate(
+                            trading_pair=tracked_order.trading_pair,
+                            update_timestamp=time.time(),
+                            new_state=OrderState.FILLED,
+                            client_order_id=order_id,
+                            exchange_order_id=tx_hash,
+                            misc_updates={"tx_type": tx_type, "status": "confirmed", "processing_error": str(e)}
+                        )
+                        self._process_order_update(order_update)
+                else:
+                    # Handle failure
+                    self._handle_order_failure(order_id, f"Transaction failed with status {status}")
+
+            except Exception as e:
+                self.logger().error(f"Error monitoring transaction {tx_hash}: {str(e)}")
+                self._handle_order_failure(order_id, str(e))
+
+        # Start monitoring in background
+        safe_ensure_future(monitor_and_update())
+
+        return order_id

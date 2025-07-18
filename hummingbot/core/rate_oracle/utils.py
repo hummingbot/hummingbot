@@ -11,17 +11,15 @@ def unwrap_token_symbol(symbol: str) -> str:
     This function is duplicated here to avoid circular imports.
     """
     # Map of wrapped tokens to their native equivalents
+    # Only specific tokens are supported
     wrapped_tokens = {
         "WETH": "ETH",
-        "WBNB": "BNB",
-        "WMATIC": "MATIC",
-        "WAVAX": "AVAX",
-        "WFTM": "FTM",
-        "WONE": "ONE",
-        "WCELO": "CELO",
-        "WCRO": "CRO",
-        "WNEAR": "NEAR",
         "WBTC": "BTC",
+        "WAVAX": "AVAX",
+        "WBNB": "BNB",
+        "WXRP": "XRP",
+        "WPOL": "POL",
+        "WCELO": "CELO",
     }
 
     return wrapped_tokens.get(symbol.upper(), symbol)

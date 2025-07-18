@@ -42,6 +42,7 @@ class TransactionMonitor:
         :param gateway_client: GatewayClient instance for polling
         """
         self._client = gateway_client
+        self._active_monitors = set()  # Track active transaction hashes to prevent duplicates
 
     async def monitor_transaction(
         self,
@@ -50,7 +51,7 @@ class TransactionMonitor:
         network: str,
         order_id: str,
         callback: Optional[Callable] = None
-    ) -> None:
+    ) -> Dict[str, Any]:
         """
         Monitor a transaction until confirmed/failed/timeout.
 
@@ -62,11 +63,27 @@ class TransactionMonitor:
         """
         # Get signature from response (used for all chains)
         signature = response.get("signature", "")
-        status = response.get("status", self.STATUS_PENDING)
+        # Check for txStatus (Solana) or status (EVM)
+        # Convert to int to handle string values from gateway
+        try:
+            status = int(response.get("txStatus", response.get("status", self.STATUS_PENDING)))
+        except (ValueError, TypeError):
+            status = self.STATUS_PENDING
+
+        self.logger().info(f"Transaction monitor: signature={signature}, status={status}, order_id={order_id}")
 
         if not signature:
             self.logger().warning(f"No signature in response for order {order_id}")
             return
+
+        # Check if we're already monitoring this transaction
+        if signature in self._active_monitors:
+            self.logger().warning(f"Already monitoring transaction {signature} - skipping duplicate monitor request")
+            return
+
+        # Add to active monitors
+        self._active_monitors.add(signature)
+        self.logger().info(f"Starting to monitor transaction {signature}")
 
         # Notify callback of transaction signature
         if callback:
@@ -74,15 +91,20 @@ class TransactionMonitor:
 
         # Check if already completed
         if status == self.STATUS_CONFIRMED:
+            self.logger().info(f"Transaction {signature} already confirmed on initial check")
             if callback:
                 await self._invoke_callback(callback, "confirmed", order_id, response)
+            self._active_monitors.discard(signature)
+            self.logger().info(f"Stopped monitoring transaction {signature} - already confirmed")
             return
         elif status == self.STATUS_FAILED:
             if callback:
                 await self._invoke_callback(callback, "failed", order_id, response.get("message", "Transaction failed"))
+            self._active_monitors.discard(signature)
             return
 
         # Status is PENDING - start polling
+        self.logger().info(f"Transaction {signature} is pending, starting polling")
         await self._poll_until_complete(signature, chain, network, order_id, callback)
 
     async def _poll_until_complete(
@@ -116,17 +138,28 @@ class TransactionMonitor:
                 )
 
                 # Check for txStatus (Solana) or status (EVM)
-                status = poll_response.get("txStatus", poll_response.get("status", self.STATUS_PENDING))
+                # Convert to int to handle string values from gateway
+                try:
+                    status = int(poll_response.get("txStatus", poll_response.get("status", self.STATUS_PENDING)))
+                except (ValueError, TypeError):
+                    status = self.STATUS_PENDING
+                self.logger().debug(f"Poll response for {tx_hash}: status={status}, response={poll_response}")
 
                 if status == self.STATUS_CONFIRMED:
                     self.logger().info(f"Transaction {tx_hash} confirmed for order {order_id}")
                     if callback:
+                        self.logger().debug(f"Invoking callback for confirmed transaction {tx_hash}")
                         await self._invoke_callback(callback, "confirmed", order_id, poll_response)
+                    else:
+                        self.logger().warning(f"No callback provided for confirmed transaction {tx_hash}")
+                    self._active_monitors.discard(tx_hash)
+                    self.logger().info(f"Stopped polling {tx_hash} - confirmed")
                     return
                 elif status == self.STATUS_FAILED:
                     self.logger().info(f"Transaction {tx_hash} failed for order {order_id}")
                     if callback:
                         await self._invoke_callback(callback, "failed", order_id, poll_response.get("message", "Transaction failed"))
+                    self._active_monitors.discard(tx_hash)
                     return
 
                 # Still pending, continue polling
@@ -140,6 +173,7 @@ class TransactionMonitor:
         self.logger().warning(f"Transaction signature {tx_hash} timed out after {self.MAX_POLL_TIME}s for order {order_id}")
         if callback:
             await self._invoke_callback(callback, "failed", order_id, f"Transaction timed out after {self.MAX_POLL_TIME} seconds")
+        self._active_monitors.discard(tx_hash)
 
     async def _invoke_callback(self, callback: Callable, event_type: str, order_id: str, data: Any) -> None:
         """

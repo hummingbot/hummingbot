@@ -159,23 +159,8 @@ class GatewaySwapCommand:
                 self.notify(error)
                 return
 
-            # Look up pool address if needed (for AMM/CLMM connectors)
-            pool_address = None
-            if connector_type.endswith("/amm") or connector_type.endswith("/clmm"):
-                self.notify(f"\nSearching for {base_token}/{quote_token} pool...")
-                base_connector = connector_type.split("/")[0]
-                pool_address = await GatewayCommandUtils.find_pool(
-                    self._get_gateway_instance(),
-                    base_connector,
-                    network,
-                    base_token,
-                    quote_token
-                )
-                if pool_address:
-                    self.notify(f"Found pool: {pool_address[:10]}...")
-                else:
-                    self.notify(f"Error: No pool found for {base_token}/{quote_token} on {base_connector}")
-                    return
+            # For AMM/CLMM connectors, we'll let the gateway determine the pool
+            # based on baseToken and quoteToken parameters
 
             # Get connector config
             connector_config = await GatewayCommandUtils.get_connector_config(
@@ -201,10 +186,6 @@ class GatewaySwapCommand:
                 "walletAddress": wallet_address
             }
 
-            # Add pool address if found
-            if pool_address:
-                quote_params["poolAddress"] = pool_address
-
             quote_resp = await self._get_gateway_instance().connector_request(
                 "GET", connector_type, "quote-swap", params=quote_params
             )
@@ -223,6 +204,7 @@ class GatewaySwapCommand:
             token_out = quote_resp.get('tokenOut', 'N/A')
 
             # Amounts
+            amount_in = quote_resp.get('amountIn', quote_resp.get('expectedIn'))
             amount_out = quote_resp.get('amountOut', quote_resp.get('expectedOut'))
             min_amount_out = quote_resp.get('minAmountOut', quote_resp.get('minimumOut'))
 
@@ -245,7 +227,16 @@ class GatewaySwapCommand:
                 max_amount_in = quote_resp.get('maxAmountIn')
 
                 self.notify("\nYou will spend:")
-                self.notify(f"  Amount: {amount_out} {quote_token} ({token_in})")
+                # For BUY orders, we spend quote token (amount_in)
+                display_amount_in = amount_in if amount_in else max_amount_in
+                if display_amount_in:
+                    self.notify(f"  Amount: {display_amount_in} {quote_token} ({token_in})")
+                else:
+                    # Fallback calculation if amount_in not provided
+                    price = Decimal(str(quote_resp.get('price', '0')))
+                    if price > 0:
+                        calculated_amount_in = Decimal(str(amount)) * price
+                        self.notify(f"  Amount: {calculated_amount_in:.8f} {quote_token} ({token_in})")
                 if max_amount_in:
                     self.notify(f"  Maximum (with slippage): {max_amount_in} {quote_token}")
 
@@ -286,14 +277,18 @@ class GatewaySwapCommand:
                     prompt=f"Do you want to execute this swap now with {chain_name} wallet {wallet_address[:8]}...{wallet_address[-4:]}? (Yes/No) >>> "
                 )
 
+                # Restore normal prompt immediately after getting user input
+                self.placeholder_mode = False
+                self.app.hide_input = False
+
                 if execute_now.lower() not in ["y", "yes"]:
                     self.notify("Swap cancelled")
                     return
 
                 self.notify("\nExecuting swap...")
 
-                # Create a temporary GatewayConnector instance for this swap
-                # This will handle order tracking even without an active strategy
+                # Create a GatewayConnector instance for this swap
+                # We need a proper connector instance to execute the swap through its trading handlers
                 connector = GatewayConnector(
                     connector_name=connector_type,
                     network=network,
@@ -320,7 +315,7 @@ class GatewaySwapCommand:
                 swap_kwargs = {
                     "quote_id": quote_id,
                     "quote_response": quote_resp,
-                    "pool_address": pool_address or quote_resp.get("poolAddress"),
+                    "pool_address": quote_resp.get("poolAddress"),
                     "route": quote_resp.get("route"),
                     "minimum_out": quote_resp.get("minimumOut") or quote_resp.get("minAmountOut")
                 }

@@ -53,7 +53,7 @@ class HummingbotCompleter(Completer):
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)
         self._history_completer = WordCompleter(["--days", "--verbose", "--precision"], ignore_case=True)
-        self._gateway_completer = WordCompleter(["ping", "list", "config", "token", "wallet", "balance", "allowance", "approve", "pool", "swap", "wrap", "generate-certs", "restart"], ignore_case=True)
+        self._gateway_completer = WordCompleter(["ping", "list", "config", "token", "wallet", "balance", "allowance", "approve", "pool", "swap", "wrap", "unwrap", "generate-certs", "restart"], ignore_case=True)
 
         # Initialize gateway wallet chain completer first
         self._gateway_wallet_chain_completer = WordCompleter([
@@ -331,10 +331,6 @@ class HummingbotCompleter(Completer):
 
     # Removed _complete_gateway_approve_network
     # as gateway approve now only takes spender and tokens parameters
-
-    def _complete_gateway_wrap_arguments(self, document: Document) -> bool:
-        text_before_cursor: str = document.text_before_cursor
-        return text_before_cursor.startswith("gateway wrap ")
 
     def _complete_gateway_approve_spender(self, document: Document) -> bool:
         """Check if we're completing the spender argument for gateway approve"""
@@ -631,12 +627,6 @@ class HummingbotCompleter(Completer):
                 yield c
 
         # Removed gateway approve network completer as it's no longer needed
-
-        elif self._complete_gateway_wrap_arguments(document):
-            # Complete chain names for wrap command
-            chains_completer = self._get_gateway_chains_completer()
-            for c in chains_completer.get_completions(document, complete_event):
-                yield c
 
         elif self._complete_gateway_ping_chain(document):
             for c in self._gateway_available_chains_completer.get_completions(document, complete_event):

@@ -12,12 +12,14 @@ from hummingbot.client.command.gateway_pool_command import GatewayPoolCommand
 from hummingbot.client.command.gateway_swap_command import GatewaySwapCommand
 from hummingbot.client.command.gateway_token_command import GatewayTokenCommand
 from hummingbot.client.command.gateway_wallet_command import GatewayWalletCommand
+from hummingbot.client.command.gateway_wrap_command import GatewayWrapCommand
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.security import Security
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.connector.gateway.core import GatewayClient, GatewayStatus
 from hummingbot.connector.gateway.utils.gateway_utils import get_gateway_paths
+from hummingbot.core.data_type.in_flight_order import OrderState
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import build_config_dict_display
 from hummingbot.core.utils.ssl_cert import create_self_sign_certs
@@ -35,8 +37,121 @@ def ensure_gateway_online(func):
     return wrapper
 
 
-class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletCommand, GatewayPoolCommand, GatewaySwapCommand):
+class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletCommand, GatewayPoolCommand, GatewaySwapCommand, GatewayWrapCommand):
     """Main gateway command handler that inherits from specialized command classes."""
+
+    # Shared utility connector for wrap/unwrap/approve operations
+    _utility_connector = None
+
+    def _get_utility_connector(self, chain: str, network: str, wallet_address: str):
+        """Get or create a shared utility connector for wrap/unwrap/approve operations."""
+        # Create key for this chain/network combination
+        connector_key = f"{chain}_{network}"
+
+        # Check if we already have a connector for this chain/network
+        if self._utility_connector is None or getattr(self._utility_connector, '_key', None) != connector_key:
+            from hummingbot.connector.gateway.core.gateway_connector import GatewayConnector
+
+            self._utility_connector = GatewayConnector(
+                connector_name="uniswap/router",  # Use uniswap router for utility operations
+                network=network,
+                wallet_address=wallet_address,
+                trading_required=False
+            )
+
+            # Skip initialization - we just need the execute_transaction functionality
+            self._utility_connector._ready = True
+            self._utility_connector.chain = chain
+            self._utility_connector._key = connector_key
+
+        return self._utility_connector
+
+    async def _wait_for_transaction(self, connector, order_id: str, tx_hash: str, tx_type: str,
+                                    amount: str, from_token: str, to_token: str) -> None:
+        """
+        Wait for a transaction to complete. The actual monitoring is done by TransactionMonitor
+        inside the GatewayConnector.execute_transaction method.
+
+        :param connector: GatewayConnector instance
+        :param order_id: Order ID to monitor
+        :param tx_hash: Transaction hash
+        :param tx_type: Type of transaction (wrap, unwrap, approve)
+        :param amount: Amount being transacted
+        :param from_token: Source token
+        :param to_token: Destination token (for wrap/unwrap) or spender (for approve)
+        """
+        self.notify(f"\nMonitoring transaction (Order ID: {order_id})...")
+        self.logger().debug(f"_wait_for_transaction called for {tx_type} order {order_id}, tx_hash: {tx_hash}")
+
+        # Give a small delay for the order to be processed
+        # Approve transactions often confirm very quickly, so we need a bit more time
+        if tx_type == "approve":
+            await asyncio.sleep(0.5)
+        else:
+            await asyncio.sleep(0.1)
+
+        # Use same timeout as TransactionMonitor.MAX_POLL_TIME
+        max_wait_time = 30.0  # seconds
+        check_interval = 0.2  # Check very frequently for fast confirmations
+        elapsed_time = 0
+        displayed_pending = False
+        confirmed = False
+
+        while elapsed_time < max_wait_time:
+            order = connector.get_order(order_id)
+            self.logger().debug(f"Checking order {order_id}: found={order is not None}, is_done={order.is_done if order else 'N/A'}, is_filled={order.is_filled if order else 'N/A'}")
+            if order:
+                # Check if order is done (either filled or failed)
+                if order.is_done:
+                    if order.is_filled:
+                        if tx_type == "wrap":
+                            self.notify(f"\n✓ Successfully wrapped {amount} {from_token} to {to_token}")
+                        elif tx_type == "unwrap":
+                            self.notify(f"\n✓ Successfully unwrapped {amount} {from_token} to {to_token}")
+                        elif tx_type == "approve":
+                            self.notify(f"\n✓ Successfully approved {from_token} for {to_token}")
+                        self.notify(f"Transaction confirmed: {tx_hash}")
+                    elif order.is_failure:
+                        self.notify("\n✗ Transaction failed")
+                    return  # Exit the function
+                # Also check the current_state directly
+                elif hasattr(order, 'current_state') and order.current_state in [OrderState.FILLED, OrderState.FAILED]:
+                    if order.current_state == OrderState.FILLED:
+                        if tx_type == "wrap":
+                            self.notify(f"\n✓ Successfully wrapped {amount} {from_token} to {to_token}")
+                        elif tx_type == "unwrap":
+                            self.notify(f"\n✓ Successfully unwrapped {amount} {from_token} to {to_token}")
+                        elif tx_type == "approve":
+                            self.notify(f"\n✓ Successfully approved {from_token} for {to_token}")
+                        self.notify(f"Transaction confirmed: {tx_hash}")
+                    else:
+                        self.notify("\n✗ Transaction failed")
+                    confirmed = True
+                    break  # Exit the loop
+
+            if elapsed_time >= 5 and not displayed_pending:
+                self.notify("Transaction pending...")
+                displayed_pending = True
+
+            await asyncio.sleep(check_interval)
+            elapsed_time += check_interval
+
+        # If we haven't confirmed yet, check one more time
+        if not confirmed:
+            order = connector.get_order(order_id)
+            if order and order.is_filled:
+                if tx_type == "wrap":
+                    self.notify(f"\n✓ Successfully wrapped {amount} {from_token} to {to_token}")
+                elif tx_type == "unwrap":
+                    self.notify(f"\n✓ Successfully unwrapped {amount} {from_token} to {to_token}")
+                elif tx_type == "approve":
+                    self.notify(f"\n✓ Successfully approved {from_token} for {to_token}")
+                self.notify(f"Transaction confirmed: {tx_hash}")
+            elif order and order.is_failure:
+                self.notify("\n✗ Transaction failed")
+            else:
+                self.notify("\n⚠️  Transaction monitoring timed out.")
+                self.notify(f"You can check the transaction manually: {tx_hash}")
     client_config_map: ClientConfigMap
     _market: Dict[str, Any] = {}
 
@@ -59,6 +174,7 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
         self.notify("  gateway allowance <spender> [tokens]              - Check token allowances")
         self.notify("  gateway approve <spender> <tokens>                - Approve tokens for spending")
         self.notify("  gateway wrap <amount>                             - Wrap native tokens")
+        self.notify("  gateway unwrap <amount>                           - Unwrap wrapped tokens")
         self.notify("  gateway swap <connector> [pair] [side] [amount]   - Swap tokens (shows quote first)")
         self.notify("  gateway generate-certs                            - Generate SSL certificates")
         self.notify("  gateway restart                                   - Restart gateway service")
@@ -166,21 +282,6 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
 
     # Delegate to inherited methods from GatewayPoolCommand
     # The @ensure_gateway_online decorator is handled by the parent method
-
-    @ensure_gateway_online
-    def gateway_wrap(self, amount: Optional[str] = None):
-        """
-        Command to wrap native tokens to wrapped tokens
-        Usage: gateway wrap [amount]
-        """
-        if amount:
-            safe_ensure_future(self._wrap_tokens("ethereum", amount), loop=self.ev_loop)
-        else:
-            self.notify(
-                "\nPlease specify the amount to wrap.\n"
-                "Usage: gateway wrap <amount>\n"
-                "Example: gateway wrap 0.1\n"
-            )
 
     async def _gateway_restart(self):
         """Restart the gateway service."""
@@ -745,144 +846,44 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
                 self.notify(f"Approving {token} for {spender}...")
 
                 try:
+                    # Always use chain-specific approve endpoint
+                    # The spender can be a connector name (e.g., "uniswap/router") or an address
                     resp = await self._get_gateway_instance().approve_token(network, wallet_address, token, spender)
-                    transaction_hash = resp.get("approval", {}).get("hash")
+                    transaction_hash = resp.get("approval", {}).get("hash") or resp.get("signature")
 
                     if not transaction_hash:
                         self.notify(f"Failed to get transaction hash for {token} approval")
                         continue
 
-                    # Monitor transaction status
-                    displayed_pending = False
-                    while True:
-                        poll_resp = await self._get_gateway_instance().get_transaction_status("ethereum", network, transaction_hash)
-                        transaction_status = poll_resp.get("txStatus")
+                    # Get shared utility connector
+                    connector = self._get_utility_connector(chain, network, wallet_address)
 
-                        if transaction_status == 1:  # Confirmed
-                            self.notify(f"✓ Token {token} is approved for spending on {spender}")
-                            break
-                        elif transaction_status == 2:  # Pending
-                            if not displayed_pending:
-                                self.notify(f"Token {token} approval transaction pending. Hash: {transaction_hash}")
-                                displayed_pending = True
-                            await asyncio.sleep(2)
-                        else:  # Failed or unknown
-                            self.notify(f"✗ Token {token} approval failed. Please try manual approval.")
-                            break
+                    # Track the transaction
+                    order_id = await connector.execute_transaction(
+                        tx_type="approve",
+                        chain=chain,
+                        network=network,
+                        tx_hash=transaction_hash,
+                        amount=Decimal("0"),  # Approve doesn't have an amount
+                        token=token,
+                        spender=spender
+                    )
+
+                    # Wait for transaction to complete
+                    self.logger().debug(f"Starting _wait_for_transaction for approve order {order_id}")
+                    await self._wait_for_transaction(connector, order_id, transaction_hash, "approve",
+                                                     "0", token, spender)
+                    self.logger().debug(f"Completed _wait_for_transaction for approve order {order_id}")
 
                 except Exception as e:
+                    import traceback
+                    self.logger().error(f"Error in approve flow: {str(e)}")
+                    self.logger().error(f"Traceback: {traceback.format_exc()}")
                     self.notify(f"Error approving {token}: {str(e)}")
                     continue
 
         except Exception as e:
             self.notify(f"Error in approve tokens: {str(e)}")
-
-    async def _wrap_tokens(self, chain: str, amount: str):
-        """
-        Wrap native tokens to wrapped tokens (ETH→WETH, BNB→WBNB, AVAX→WAVAX, etc.)
-        """
-        try:
-            # Validate amount
-            try:
-                amount_decimal = Decimal(amount)
-                if amount_decimal <= 0:
-                    self.notify("Error: Amount must be greater than 0")
-                    return
-            except Exception:
-                self.notify("Error: Invalid amount format")
-                return
-
-            # Get default network
-            network = await self._get_default_network_for_chain(chain)
-            if not network:
-                self.notify(f"Error: Could not determine default network for {chain}")
-                return
-
-            # Get default wallet for this chain
-            wallet_address = await self._get_gateway_instance().get_default_wallet_for_chain(chain)
-            if not wallet_address:
-                self.notify(f"No default wallet found for {chain}. Please add one with 'gateway wallet add {chain}'")
-                return
-
-            # Get native token info
-            native_token = await self._get_native_currency_symbol(chain, network)
-            if not native_token:
-                self.notify(f"Could not determine native token for {chain} {network}")
-                return
-
-            # Map native token to wrapped token
-            wrapped_token_map = {
-                "ETH": "WETH",
-                "BNB": "WBNB",
-                "AVAX": "WAVAX",
-                "MATIC": "WMATIC"
-            }
-
-            wrapped_token = wrapped_token_map.get(native_token.upper())
-            if not wrapped_token:
-                self.notify(f"Wrapping not supported for {native_token}")
-                return
-
-            self.notify(f"\nWrapping {amount} {native_token} to {wrapped_token} on {network}...")
-            self.notify(f"Wallet: {wallet_address}")
-
-            # Call the wrap endpoint
-            try:
-                wrap_resp = await self._get_gateway_instance().api_request(
-                    "post",
-                    f"chains/{chain}/wrap",
-                    {
-                        "network": network,
-                        "address": wallet_address,
-                        "amount": amount
-                    }
-                )
-
-                if not wrap_resp:
-                    self.notify("Error: No response from gateway")
-                    return
-
-                # Extract transaction details
-                tx_hash = wrap_resp.get("signature")
-                fee = wrap_resp.get("fee", "0")
-                wrapped_address = wrap_resp.get("wrappedAddress")
-
-                if not tx_hash:
-                    self.notify("Error: No transaction hash received")
-                    return
-
-                self.notify(f"\nTransaction submitted. Hash: {tx_hash}")
-                self.notify(f"Wrapped token contract: {wrapped_address}")
-                self.notify(f"Estimated fee: {fee} {native_token}")
-
-                # Monitor transaction
-                self.notify("\nMonitoring transaction...")
-                displayed_pending = False
-
-                while True:
-                    poll_resp = await self._get_gateway_instance().get_transaction_status(chain, network, tx_hash)
-                    tx_status = poll_resp.get("txStatus")
-
-                    if tx_status == 1:  # Confirmed
-                        self.notify(f"\n✓ Successfully wrapped {amount} {native_token} to {wrapped_token}")
-                        self.notify(f"Transaction confirmed in block {poll_resp.get('txBlock', 'unknown')}")
-                        break
-                    elif tx_status == 2:  # Pending
-                        if not displayed_pending:
-                            self.notify("Transaction pending...")
-                            displayed_pending = True
-                        await asyncio.sleep(2)
-                    else:  # Failed or unknown
-                        self.notify("\n✗ Transaction failed")
-                        if poll_resp.get("txReceipt"):
-                            self.notify(f"Receipt: {poll_resp.get('txReceipt')}")
-                        break
-
-            except Exception as e:
-                self.notify(f"\nError executing wrap: {str(e)}")
-
-        except Exception as e:
-            self.notify(f"Error in wrap tokens: {str(e)}")
 
     def _get_gateway_instance(
         self  # type: HummingbotApplication

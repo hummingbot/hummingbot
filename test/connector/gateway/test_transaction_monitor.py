@@ -37,7 +37,7 @@ class TestTransactionMonitor(unittest.TestCase):
     async def _test_immediate_confirmed(self):
         """Async test for immediate confirmation."""
         response = {
-            "txHash": "0x123abc",
+            "signature": "0x123abc",
             "status": 1  # CONFIRMED
         }
 
@@ -61,7 +61,7 @@ class TestTransactionMonitor(unittest.TestCase):
     async def _test_immediate_failed(self):
         """Async test for immediate failure."""
         response = {
-            "txHash": "0x456def",
+            "signature": "0x456def",
             "status": -1,  # FAILED
             "message": "Insufficient funds"
         }
@@ -86,14 +86,14 @@ class TestTransactionMonitor(unittest.TestCase):
     async def _test_pending_then_confirmed(self):
         """Async test for pending then confirmed."""
         response = {
-            "txHash": "0x789ghi",
+            "signature": "0x789ghi",
             "status": 0  # PENDING
         }
 
         # Mock get_transaction_status to return confirmed after 2 calls
         poll_responses = [
-            {"status": 0},  # Still pending
-            {"status": 1}   # Confirmed
+            {"txStatus": 0},  # Still pending
+            {"txStatus": 1}   # Confirmed
         ]
         self.gateway_client.get_transaction_status = AsyncMock(side_effect=poll_responses)
 
@@ -111,7 +111,7 @@ class TestTransactionMonitor(unittest.TestCase):
         # Should have tx_hash and confirmed events
         self.assertEqual(len(self.callback_events), 2)
         self.assertEqual(self.callback_events[0], ("tx_hash", "test-order-3", "0x789ghi"))
-        self.assertEqual(self.callback_events[1], ("confirmed", "test-order-3", {"status": 1}))
+        self.assertEqual(self.callback_events[1], ("confirmed", "test-order-3", {"txStatus": 1}))
 
         # Verify polling was called
         self.assertEqual(self.gateway_client.get_transaction_status.call_count, 2)
@@ -123,13 +123,13 @@ class TestTransactionMonitor(unittest.TestCase):
     async def _test_timeout(self):
         """Async test for timeout."""
         response = {
-            "txHash": "0xabcdef",
+            "signature": "0xabcdef",
             "status": 0  # PENDING
         }
 
         # Mock get_transaction_status to always return pending
         self.gateway_client.get_transaction_status = AsyncMock(
-            return_value={"status": 0}
+            return_value={"txStatus": 0}
         )
 
         # Use very short timeout for testing
@@ -158,7 +158,7 @@ class TestTransactionMonitor(unittest.TestCase):
     async def _test_no_tx_hash(self):
         """Async test for no tx hash."""
         response = {
-            "status": 0  # No txHash
+            "status": 0  # No signature
         }
 
         await self.monitor.monitor_transaction(
@@ -179,7 +179,7 @@ class TestTransactionMonitor(unittest.TestCase):
     async def _test_polling_error_handling(self):
         """Async test for error handling during polling."""
         response = {
-            "txHash": "0x123456",
+            "signature": "0x123456",
             "status": 0  # PENDING
         }
 
@@ -187,7 +187,7 @@ class TestTransactionMonitor(unittest.TestCase):
         async def mock_poll(*args, **kwargs):
             if mock_poll.call_count == 1:
                 raise Exception("Network error")
-            return {"status": 1}  # Confirmed
+            return {"txStatus": 1}  # Confirmed
 
         mock_poll.call_count = 0
         self.gateway_client.get_transaction_status = AsyncMock(side_effect=mock_poll)
@@ -206,7 +206,7 @@ class TestTransactionMonitor(unittest.TestCase):
         # Should still get confirmed despite error
         self.assertEqual(len(self.callback_events), 2)
         self.assertEqual(self.callback_events[0], ("tx_hash", "test-order-6", "0x123456"))
-        self.assertEqual(self.callback_events[1], ("confirmed", "test-order-6", {"status": 1}))
+        self.assertEqual(self.callback_events[1], ("confirmed", "test-order-6", {"txStatus": 1}))
 
 
 if __name__ == "__main__":

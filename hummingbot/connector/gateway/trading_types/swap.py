@@ -14,7 +14,7 @@ from hummingbot.logger import HummingbotLogger
 
 from ..core.transaction_monitor import TransactionMonitor
 from ..gateway_in_flight_order import GatewayInFlightOrder
-from ..models import PriceQuote, TransactionResult
+from ..models import PriceQuote
 
 if TYPE_CHECKING:
     from ..core.gateway_connector import GatewayConnector
@@ -173,6 +173,8 @@ class SwapHandler:
             if "error" in response:
                 raise Exception(response["error"])
 
+            self.logger().info(f"Swap response: signature={response.get('signature')}, status={response.get('status')}, txStatus={response.get('txStatus')}")
+
             # Start monitoring with TransactionMonitor
             monitor = TransactionMonitor(self.connector.client)
             safe_ensure_future(
@@ -200,8 +202,11 @@ class SwapHandler:
         :param order_id: Order ID
         :param data: Event data
         """
+        self.logger().info(f"Transaction callback: event_type={event_type}, order_id={order_id}")
+
         order = self.connector._order_tracker.fetch_order(order_id)
         if not order:
+            self.logger().warning(f"Order {order_id} not found in tracker")
             return
 
         if event_type == "tx_hash":
@@ -212,22 +217,30 @@ class SwapHandler:
 
         elif event_type == "confirmed":
             # Process successful transaction
-            tx_result = TransactionResult.from_dict(data) if isinstance(data, dict) else data
+            # For immediate confirmations, data contains the full response
+            if isinstance(data, dict):
+                signature = data.get("signature", order.exchange_order_id)
+                timestamp = data.get("timestamp", time.time())
+            else:
+                # Fallback for other data formats
+                signature = str(data)
+                timestamp = time.time()
 
             # Create trade update
             trade_update = TradeUpdate(
-                trade_id=tx_result.tx_hash,
+                trade_id=signature,
                 client_order_id=order_id,
-                exchange_order_id=order.exchange_order_id,
+                exchange_order_id=order.exchange_order_id or signature,
                 trading_pair=order.trading_pair,
-                fill_timestamp=tx_result.timestamp or time.time(),
+                fill_timestamp=timestamp,
                 fill_price=order.price,
                 fill_base_amount=order.amount,
                 fill_quote_amount=order.amount * order.price,
-                fee=self._get_trade_fee(tx_result, order)
+                fee=self._get_trade_fee(data, order)
             )
 
             # Process the trade fill
+            self.logger().info(f"Processing trade fill for order {order_id}")
             self.connector._process_trade_update(trade_update)
 
             # Mark order as filled
@@ -248,8 +261,8 @@ class SwapHandler:
                 reason=str(data)
             )
 
-    def _get_trade_fee(self, tx_result: TransactionResult, order: GatewayInFlightOrder) -> TradeFeeBase:
-        """Calculate trade fee from transaction result."""
+    def _get_trade_fee(self, tx_data: Any, order: GatewayInFlightOrder) -> TradeFeeBase:
+        """Calculate trade fee from transaction data."""
         fee_amount = Decimal("0")
 
         # Determine native currency based on chain
@@ -263,17 +276,23 @@ class SwapHandler:
             "optimism": "ETH"
         }
 
-        if tx_result.gas_used and tx_result.gas_price:
-            # Ethereum-style fee
-            fee_amount = Decimal(str(tx_result.gas_used)) * tx_result.gas_price
-            fee_token = native_currency_map.get(self.connector.chain, "ETH")
-        elif tx_result.compute_units_used and order.priority_fee_per_cu:
-            # Solana-style fee
-            fee_amount = (Decimal(str(tx_result.compute_units_used)) *
-                          Decimal(str(order.priority_fee_per_cu))) / Decimal("1e9")
-            fee_token = native_currency_map.get(self.connector.chain, "SOL")
-        else:
-            fee_token = order.quote_asset
+        fee_token = native_currency_map.get(self.connector.chain, order.quote_asset)
+
+        # Try to extract fee information from response
+        if isinstance(tx_data, dict):
+            # Check for gasUsed/gasPrice (EVM chains)
+            if "gasUsed" in tx_data and "gasPrice" in tx_data:
+                gas_used = Decimal(str(tx_data["gasUsed"]))
+                gas_price = Decimal(str(tx_data["gasPrice"]))
+                fee_amount = gas_used * gas_price
+            # Check for computeUnitsUsed (Solana)
+            elif "computeUnitsUsed" in tx_data:
+                compute_units = Decimal(str(tx_data["computeUnitsUsed"]))
+                # Default Solana fee calculation
+                fee_amount = compute_units * Decimal("0.000005") / Decimal("1e9")
+            # Check for direct fee field
+            elif "fee" in tx_data:
+                fee_amount = Decimal(str(tx_data["fee"]))
 
         return TradeFeeBase.new_spot_fee(
             fee_schema=self.connector.trade_fee_schema(),
