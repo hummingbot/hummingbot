@@ -83,11 +83,8 @@ class GatewayConnector(ConnectorBase):
         # Token list cache
         self._tokens: Dict[str, Dict[str, Any]] = {}
 
-        # Order tracking
+        # Order tracking (including positions)
         self._order_tracker: GatewayOrderTracker = GatewayOrderTracker(connector=self)
-
-        # Position tracking (for AMM/CLMM) - using GatewayInFlightOrder with TradeType.RANGE
-        self._in_flight_positions: Dict[str, GatewayInFlightOrder] = {}
 
         # Initialize in background
         safe_ensure_future(self._initialize())
@@ -435,23 +432,22 @@ class GatewayConnector(ConnectorBase):
         return {
             "orders": {
                 oid: order.to_json() for oid, order in self._order_tracker.active_orders.items()
-            },
-            "positions": {
-                pid: order.to_json() for pid, order in self._in_flight_positions.items()
             }
         }
 
     def restore_tracking_states(self, saved_states: Dict[str, Any]):
         """Restore tracking states."""
-        # Restore orders
+        # Restore all orders (including positions)
         for order_id, order_json in saved_states.get("orders", {}).items():
             order = GatewayInFlightOrder.from_json(order_json)
             self._order_tracker.start_tracking_order(order)
 
-        # Restore positions
+        # Handle legacy position format for backward compatibility
         for pos_id, pos_json in saved_states.get("positions", {}).items():
             position = GatewayInFlightOrder.from_json(pos_json)
-            self._in_flight_positions[pos_id] = position
+            # Only add if not already tracked
+            if pos_id not in self._order_tracker.active_orders:
+                self._order_tracker.start_tracking_order(position)
 
     def quantize_order_amount(self, trading_pair: str, amount: Decimal) -> Decimal:
         """Quantize order amount."""
@@ -546,8 +542,8 @@ class GatewayConnector(ConnectorBase):
             initial_state=OrderState.PENDING_CREATE
         )
 
-        # Store position order
-        self._in_flight_positions[position_id] = position_order
+        # Track position as regular order
+        self._order_tracker.start_tracking_order(position_order)
 
         # Execute add liquidity
         safe_ensure_future(self._execute_add_liquidity(
@@ -660,28 +656,50 @@ class GatewayConnector(ConnectorBase):
         """Emit position opened event."""
         # Custom event for position opened
         self.logger().info(f"Position {position.client_order_id} opened")
+        # Trigger order created event for positions
+        self.trigger_event(
+            MarketEvent.BuyOrderCreated if position.trade_type == TradeType.BUY else MarketEvent.SellOrderCreated,
+            position.client_order_id,
+            position.trading_pair,
+            position.amount,
+            OrderType.LIMIT_MAKER,
+            position.creation_timestamp
+        )
 
     def _emit_position_closed_event(self, position: GatewayInFlightOrder):
         """Emit position closed event."""
         # Custom event for position closed
         self.logger().info(f"Position {position.client_order_id} closed")
+        # Mark position as completed
+        order_update = OrderUpdate(
+            trading_pair=position.trading_pair,
+            update_timestamp=time.time(),
+            new_state=OrderState.FILLED,
+            client_order_id=position.client_order_id,
+            exchange_order_id=position.exchange_order_id,
+            misc_updates={"position_status": "closed"}
+        )
+        self._order_tracker.process_order_update(order_update)
 
     def _emit_fees_collected_event(self, position: GatewayInFlightOrder):
         """Emit fees collected event."""
         # Custom event for fees collected
-        self.logger().info(f"Fees collected for position {position.client_position_id}")
+        self.logger().info(f"Fees collected for position {position.client_order_id}")
 
     def _handle_position_failure(self, position_id: str, reason: str):
         """Handle position failure."""
-        position = self._in_flight_positions.get(position_id)
+        position = self._order_tracker.fetch_order(position_id)
         if position:
             self.logger().error(f"Position {position_id} failed: {reason}")
-            position.current_state = OrderState.FAILED
-            # Emit failure event
-            self.trigger_event(
-                MarketEvent.OrderFailure,
-                (position_id, position)
+            order_update = OrderUpdate(
+                trading_pair=position.trading_pair,
+                update_timestamp=time.time(),
+                new_state=OrderState.FAILED,
+                client_order_id=position_id,
+                exchange_order_id=position.exchange_order_id,
+                misc_updates={"error_message": reason}
             )
+            self._order_tracker.process_order_update(order_update)
 
     def create_transaction_order_id(self, tx_type: str, token: str = "") -> str:
         """

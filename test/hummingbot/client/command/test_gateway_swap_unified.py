@@ -36,7 +36,6 @@ class TestGatewaySwapUnified(unittest.TestCase):
         self.command._get_gateway_instance = MagicMock(return_value=self.mock_gateway)
 
         # Add gateway methods that wrap gateway instance methods
-        self.command._get_default_network_for_chain = self.mock_gateway.get_default_network_for_chain
         self.command._monitor_swap_transaction = AsyncMock()
 
         # Mock app prompt

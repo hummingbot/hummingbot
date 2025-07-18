@@ -69,7 +69,7 @@ class GatewayWrapCommand:
                 return
 
             # Get default network
-            network = await self._get_default_network_for_chain(chain)
+            network = await self._get_gateway_instance().get_default_network_for_chain(chain)
             if not network:
                 self.notify(f"Error: Could not determine default network for {chain}")
                 return
@@ -162,7 +162,7 @@ class GatewayWrapCommand:
                 return
 
             # Get default network
-            network = await self._get_default_network_for_chain(chain)
+            network = await self._get_gateway_instance().get_default_network_for_chain(chain)
             if not network:
                 self.notify(f"Error: Could not determine default network for {chain}")
                 return

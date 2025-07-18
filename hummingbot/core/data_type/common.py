@@ -1,6 +1,13 @@
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Callable, Generic, NamedTuple, Set, TypeVar, override
+from typing import Any, Callable, Generic, NamedTuple, Set, TypeVar
+
+try:
+    from typing import override
+except ImportError:
+    # Python < 3.12 doesn't have override
+    def override(func):
+        return func
 
 from pydantic_core import core_schema
 

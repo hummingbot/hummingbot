@@ -28,7 +28,7 @@ class TestGatewayCommandSimple(unittest.TestCase):
 
         # Patch GatewayClient.get_instance
         self.gateway_instance_patcher = patch(
-            'hummingbot.client.command.gateway_command.GatewayClient.get_instance'
+            'hummingbot.connector.gateway.core.gateway_client.GatewayClient.get_instance'
         )
         self.mock_get_instance = self.gateway_instance_patcher.start()
         self.mock_get_instance.return_value = self.gateway_http_mock

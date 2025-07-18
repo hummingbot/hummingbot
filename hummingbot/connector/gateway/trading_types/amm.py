@@ -294,8 +294,8 @@ class AMMHandler:
         if not position_meta:
             return
 
-        # Get position order from connector
-        position_order = self.connector._in_flight_positions.get(position_id)
+        # Get position order from order tracker
+        position_order = self.connector._order_tracker.fetch_order(position_id)
         if not position_order:
             return
 

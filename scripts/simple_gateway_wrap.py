@@ -39,7 +39,7 @@ class SimpleGatewayCalls(ScriptStrategyBase):
                 # Create a temporary connector to get chain info
                 # Use a real connector that exists in the gateway
                 self._connector = GatewayConnector(
-                    connector_name="uniswap/router",
+                    connector_name="uniswap/router",  # Any Ethereum-based connector
                     network="mainnet",  # Temporary network, will be updated
                     trading_required=False
                 )

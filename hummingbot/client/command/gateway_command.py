@@ -353,7 +353,7 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
                         networks = chain_info.get("networks", [])
                         if networks:
                             # Use default network logic
-                            default_network = await self._get_default_network_for_chain(chain)
+                            default_network = await self._get_gateway_instance().get_default_network_for_chain(chain)
                             if not default_network:
                                 default_network = networks[0]
                             await self._check_network_status(chain, default_network)
@@ -380,7 +380,7 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
                     continue
 
                 # Use the same default network logic as gateway balance
-                default_network = await self._get_default_network_for_chain(chain_name)
+                default_network = await self._get_gateway_instance().get_default_network_for_chain(chain_name)
                 if not default_network:
                     # Fallback to first network if no default
                     default_network = networks[0]
@@ -624,7 +624,7 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
             # Process each chain
             for chain in chains_to_check:
                 # Get default network for this chain
-                default_network = await self._get_default_network_for_chain(chain)
+                default_network = await self._get_gateway_instance().get_default_network_for_chain(chain)
                 if not default_network:
                     self.notify(f"Could not determine default network for {chain}")
                     continue
@@ -810,7 +810,7 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
             chain = "ethereum"
 
             # Get default network
-            network = await self._get_default_network_for_chain(chain)
+            network = await self._get_gateway_instance().get_default_network_for_chain(chain)
             if not network:
                 self.notify(f"Error: Could not determine default network for {chain}")
                 return
@@ -889,7 +889,7 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
 
             # Get default network and wallet for ethereum
             chain = "ethereum"
-            network = await self._get_default_network_for_chain(chain)
+            network = await self._get_gateway_instance().get_default_network_for_chain(chain)
             if not network:
                 self.notify(f"Error: Could not determine default network for {chain}")
                 return
@@ -990,25 +990,3 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
 
         except Exception as e:
             self.notify(f"Error: {str(e)}")
-
-    async def _get_default_network_for_chain(self, chain: str) -> Optional[str]:
-        """Get the default network for a given chain."""
-        try:
-            # First try to get from chain config
-            default_network = await self._get_gateway_instance().get_default_network_for_chain(chain)
-            if default_network:
-                return default_network
-
-            # Fallback to getting the first network from gateway
-            chains_resp = await self._get_gateway_instance().get_chains()
-            if chains_resp:
-                # Find the chain info
-                chain_info = next((c for c in chains_resp if c["chain"] == chain), None)
-                if chain_info:
-                    networks = chain_info.get("networks", [])
-                    if networks:
-                        # Return the first network
-                        return networks[0]
-        except Exception:
-            pass
-        return None

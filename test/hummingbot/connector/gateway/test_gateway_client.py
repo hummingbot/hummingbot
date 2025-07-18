@@ -195,19 +195,17 @@ class TestGatewayClient(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Gateway request failed", str(context.exception))
 
     async def test_cache_management(self):
-        """Test compute units cache management."""
+        """Test internal cache management."""
         client = GatewayClient.get_instance(self.mock_client_config)
 
-        # Test cache storage
-        client.cache_compute_units("execute-swap", "raydium/amm", "mainnet-beta", 200000)
+        # Test internal cache attributes exist
+        self.assertIsInstance(client._config_cache, dict)
+        self.assertIsInstance(client._connector_info_cache, dict)
+        self.assertIsInstance(client._chain_info_cache, list)
+        self.assertIsInstance(client._wallets_cache, dict)
 
-        # Test cache retrieval
-        units = client.get_cached_compute_units("execute-swap", "raydium/amm", "mainnet-beta")
-        self.assertEqual(units, 200000)
-
-        # Test default value
-        units = client.get_cached_compute_units("unknown", "unknown", "unknown", 100000)
-        self.assertEqual(units, 100000)
+        # Test cache TTL
+        self.assertEqual(client._cache_ttl, 300)  # 5 minutes
 
     @patch('aiohttp.ClientSession')
     async def test_gateway_initialization(self, mock_session_class):
@@ -246,6 +244,63 @@ class TestGatewayClient(unittest.IsolatedAsyncioTestCase):
         self.assertIn("uniswap", client._connector_info_cache)
         self.assertIn("ethereum", client._wallets_cache)
         self.assertTrue(client._cache_initialized)
+
+    @patch('aiohttp.ClientSession')
+    async def test_get_default_network_for_chain(self, mock_session_class):
+        """Test get_default_network_for_chain method."""
+        # Setup mock
+        mock_session = AsyncMock()
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(return_value={"defaultNetwork": "mainnet"})
+        mock_session.closed = False
+        mock_session.get = AsyncMock(return_value=mock_response)
+        mock_session_class.return_value = mock_session
+
+        client = GatewayClient.get_instance(self.mock_client_config)
+        client._shared_session = mock_session
+
+        # Test successful retrieval
+        network = await client.get_default_network_for_chain("ethereum")
+        self.assertEqual(network, "mainnet")
+
+    @patch('aiohttp.ClientSession')
+    async def test_get_default_wallet_for_chain(self, mock_session_class):
+        """Test get_default_wallet_for_chain method."""
+        # Setup mock
+        mock_session = AsyncMock()
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(return_value={"defaultWallet": "0x123456"})
+        mock_session.closed = False
+        mock_session.get = AsyncMock(return_value=mock_response)
+        mock_session_class.return_value = mock_session
+
+        client = GatewayClient.get_instance(self.mock_client_config)
+        client._shared_session = mock_session
+
+        # Test successful retrieval
+        wallet = await client.get_default_wallet_for_chain("ethereum")
+        self.assertEqual(wallet, "0x123456")
+
+    @patch('aiohttp.ClientSession')
+    async def test_get_native_currency_symbol(self, mock_session_class):
+        """Test get_native_currency_symbol method."""
+        # Setup mock
+        mock_session = AsyncMock()
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(return_value={"nativeCurrencySymbol": "ETH"})
+        mock_session.closed = False
+        mock_session.get = AsyncMock(return_value=mock_response)
+        mock_session_class.return_value = mock_session
+
+        client = GatewayClient.get_instance(self.mock_client_config)
+        client._shared_session = mock_session
+
+        # Test successful retrieval
+        symbol = await client.get_native_currency_symbol("ethereum", "mainnet")
+        self.assertEqual(symbol, "ETH")
 
 
 if __name__ == "__main__":
