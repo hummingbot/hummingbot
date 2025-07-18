@@ -825,11 +825,9 @@ class GatewayConnector(ConnectorBase):
                         fee_amount = Decimal("0")
 
                     # Get native currency symbol from gateway config
-                    chain_config = await self.client.get_configuration(chain)
-                    fee_token = "ETH"  # Default if not found
-                    if chain_config and "networks" in chain_config:
-                        network_config = chain_config["networks"].get(network, {})
-                        fee_token = network_config.get("nativeCurrencySymbol", fee_token)
+                    fee_token = await self.client.get_native_currency_symbol(chain, network)
+                    if not fee_token:
+                        fee_token = "ETH"  # Default if not found
 
                     try:
                         # Log all values being used

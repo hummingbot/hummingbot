@@ -418,6 +418,24 @@ class GatewayClient:
             self.logger().warning(f"Failed to get default wallet for {chain}: {e}")
             return None
 
+    async def get_native_currency_symbol(self, chain: str, network: str) -> Optional[str]:
+        """
+        Get the native currency symbol for a chain and network from gateway config.
+
+        :param chain: Blockchain chain (e.g., "ethereum", "bsc")
+        :param network: Network name (e.g., "mainnet", "testnet")
+        :return: Native currency symbol (e.g., "ETH", "BNB") or None if not found
+        """
+        try:
+            # Use namespace approach for more reliable config access
+            namespace = f"{chain}-{network}"
+            network_config = await self.get_configuration(namespace)
+            if network_config:
+                return network_config.get("nativeCurrencySymbol")
+        except Exception as e:
+            self.logger().warning(f"Failed to get native currency symbol for {chain}-{network}: {e}")
+        return None
+
     async def initialize_gateway(self) -> None:
         """
         Initialize the gateway by loading all necessary information.

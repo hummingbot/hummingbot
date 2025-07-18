@@ -419,7 +419,7 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
 
                 # Try to get native currency as well
                 try:
-                    native_currency = await self._get_native_currency_symbol(chain, network)
+                    native_currency = await self._get_gateway_instance().get_native_currency_symbol(chain, network)
                     if native_currency:
                         self.notify(f"Native Token: {native_currency}")
                 except Exception:
@@ -673,7 +673,7 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
                     else:
                         # Show non-zero balances and always show native token
                         display_balances = {}
-                        native_token = await self._get_native_currency_symbol(chain, default_network)
+                        native_token = await self._get_gateway_instance().get_native_currency_symbol(chain, default_network)
 
                         for token, bal in balances.items():
                             balance_val = float(bal) if bal else 0
@@ -762,22 +762,6 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
                 f"Failed to update balances for {market}", exc_info=True)
             return str(e)
         return None
-
-    async def _get_native_currency_symbol(self, chain: str, network: str) -> Optional[str]:
-        """Get the native currency symbol for a given chain and network."""
-        try:
-            # Get from gateway configuration for the specific chain-network
-            namespace = f"{chain}-{network}"
-            config = await self._get_gateway_instance().get_configuration(namespace)
-
-            # The native currency symbol is directly in the config
-            if config and "nativeCurrencySymbol" in config:
-                return config["nativeCurrencySymbol"]
-
-            return None
-        except Exception as e:
-            self.logger().debug(f"Failed to get native currency for {chain}-{network}: {e}")
-            return None
 
     async def _gateway_list(
         self           # type: HummingbotApplication
@@ -927,7 +911,7 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
                     all_tokens_resp = await self._get_gateway_instance().get_tokens("ethereum", network)
                     all_tokens = all_tokens_resp.get("tokens", [])
                     # Filter out native token for allowances
-                    native_token = await self._get_native_currency_symbol("ethereum", network)
+                    native_token = await self._get_gateway_instance().get_native_currency_symbol("ethereum", network)
                     tokens_to_check = []
                     for token_info in all_tokens:
                         symbol = token_info.get("symbol", "")

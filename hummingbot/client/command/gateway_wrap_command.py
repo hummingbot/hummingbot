@@ -81,7 +81,7 @@ class GatewayWrapCommand:
                 return
 
             # Get native token info from parent class method
-            native_token = await self._get_native_currency_symbol(chain, network)
+            native_token = await self._get_gateway_instance().get_native_currency_symbol(chain, network)
             if not native_token:
                 self.notify(f"Could not determine native token for {chain} {network}")
                 return
@@ -174,7 +174,7 @@ class GatewayWrapCommand:
                 return
 
             # Get native token info from parent class method
-            native_token = await self._get_native_currency_symbol(chain, network)
+            native_token = await self._get_gateway_instance().get_native_currency_symbol(chain, network)
             if not native_token:
                 self.notify(f"Could not determine native token for {chain} {network}")
                 return
