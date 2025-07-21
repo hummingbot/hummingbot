@@ -114,20 +114,16 @@ class GatewaySwapCommand:
                     # Get amount if not provided
                     if not amount:
                         amount = await self.app.prompt(prompt="Enter amount to trade [1]: ")
-                        if self.app.to_stop_config:
+                        if self.app.to_stop_config or not amount:
                             self.notify("Swap cancelled")
                             return
-                        if not amount:
-                            amount = "1"  # Default amount
 
                     # Get side if not provided
                     if not side:
                         side = await self.app.prompt(prompt="Enter side (BUY/SELL) [SELL]: ")
-                        if self.app.to_stop_config:
+                        if self.app.to_stop_config or not side:
                             self.notify("Swap cancelled")
                             return
-                        if not side:
-                            side = "SELL"  # Default side
 
                 finally:
                     self.placeholder_mode = False
@@ -155,24 +151,23 @@ class GatewaySwapCommand:
             wallet_address, error = await GatewayCommandUtils.get_default_wallet(
                 self._get_gateway_instance(), chain
             )
+            wallet_display_address = f"{wallet_address[:4]}...{wallet_address[-4:]}" if len(wallet_address) > 8 else wallet_address
             if error:
                 self.notify(error)
                 return
 
-            # For AMM/CLMM connectors, we'll let the gateway determine the pool
-            # based on baseToken and quoteToken parameters
-
-            # Get connector config
-            connector_config = await GatewayCommandUtils.get_connector_config(
-                self._get_gateway_instance(), connector
-            )
-            slippage_pct = str(connector_config.get("slippagePct", 1))
-
-            self.notify(f"\nGetting swap quote from {connector_type} on {network}...")
+            self.notify(f"\nGetting swap quote from {connector_type} on {chain} {network}...")
             self.notify(f"  Pair: {pair_display}")
             self.notify(f"  Amount: {amount}")
             self.notify(f"  Side: {side}")
-            self.notify(f"  Slippage: {slippage_pct}%")
+
+            # Get connector config and display slippage if available
+            connector_config = await GatewayCommandUtils.get_connector_config(
+                self._get_gateway_instance(), connector
+            )
+            if "slippagePct" in connector_config:
+                slippage_pct = str(connector_config.get("slippagePct", "0"))
+                self.notify(f"  Slippage: {slippage_pct}% ({connector_type} default)")
 
             # Get quote from gateway
             quote_params = {
@@ -199,82 +194,105 @@ class GatewaySwapCommand:
             if quote_id:
                 self.logger().info(f"Swap quote ID: {quote_id}")
 
-            # Token addresses
-            token_in = quote_resp.get('tokenIn', 'N/A')
-            token_out = quote_resp.get('tokenOut', 'N/A')
-
-            # Amounts
-            amount_in = quote_resp.get('amountIn', quote_resp.get('expectedIn'))
-            amount_out = quote_resp.get('amountOut', quote_resp.get('expectedOut'))
-            min_amount_out = quote_resp.get('minAmountOut', quote_resp.get('minimumOut'))
+            # Extract relevant details from quote response
+            token_in = quote_resp.get('tokenIn')
+            token_out = quote_resp.get('tokenOut')
+            amount_in = quote_resp.get('amountIn')
+            amount_out = quote_resp.get('amountOut')
+            min_amount_out = quote_resp.get('minAmountOut')
+            max_amount_in = quote_resp.get('maxAmountIn')
 
             # Display transaction details
-            self.notify("\n=== Transaction Details ===")
+            self.notify("\n=== Swap Transaction ===")
 
-            # Price and slippage information
-            if "price" in quote_resp:
-                self.notify(f"\nPrice: {quote_resp['price']} {quote_token}/{base_token}")
+            # Token information
+            self.notify(f"Token In: {base_token} ({token_in})")
+            self.notify(f"Token Out: {quote_token} ({token_out})")
 
-            slippage_pct = quote_resp.get('slippagePct', 1.0)  # Default 1% if not provided
-            self.notify(f"Slippage: {slippage_pct}%")
-
-            if "priceWithSlippage" in quote_resp:
-                self.notify(f"Price with Slippage: {quote_resp['priceWithSlippage']} {quote_token}/{base_token}")
+            # Price and impact information
+            self.notify(f"\nPrice: {quote_resp['price']} {quote_token}/{base_token}")
+            if "priceImpactPct" in quote_resp:
+                impact = float(quote_resp["priceImpactPct"]) * 100
+                self.notify(f"Price Impact: {impact:.2f}%")
 
             # Show what user will spend and receive
             if side == "BUY":
                 # Buying base with quote
-                max_amount_in = quote_resp.get('maxAmountIn')
-
                 self.notify("\nYou will spend:")
-                # For BUY orders, we spend quote token (amount_in)
-                display_amount_in = amount_in if amount_in else max_amount_in
-                if display_amount_in:
-                    self.notify(f"  Amount: {display_amount_in} {quote_token} ({token_in})")
-                else:
-                    # Fallback calculation if amount_in not provided
-                    price = Decimal(str(quote_resp.get('price', '0')))
-                    if price > 0:
-                        calculated_amount_in = Decimal(str(amount)) * price
-                        self.notify(f"  Amount: {calculated_amount_in:.8f} {quote_token} ({token_in})")
-                if max_amount_in:
-                    self.notify(f"  Maximum (with slippage): {max_amount_in} {quote_token}")
+                self.notify(f"  Amount: {amount_in} {quote_token}")
+                self.notify(f"  {quote_token} {token_in}")
 
                 self.notify("\nYou will receive:")
-                self.notify(f"  Amount: {amount} {base_token} ({token_out})")
+                self.notify(f"  Amount: {amount_out} {base_token}")
+                self.notify(f"  Max Amount w/slippage): {max_amount_in} {quote_token}")
+
             else:
                 # Selling base for quote
                 self.notify("\nYou will spend:")
-                self.notify(f"  Amount: {amount} {base_token} ({token_in})")
+                self.notify(f"  Amount: {amount_in} {base_token}")
 
                 self.notify("\nYou will receive:")
-                self.notify(f"  Amount: {amount_out} {quote_token} ({token_out})")
-                if min_amount_out:
-                    self.notify(f"  Minimum (with slippage): {min_amount_out} {quote_token}")
+                self.notify(f"  Amount: {amount_out} {quote_token}")
+                self.notify(f"  Min Amount w/ slippage: {min_amount_out} {quote_token}")
 
-            # Price impact
-            if "priceImpact" in quote_resp:
-                impact = float(quote_resp["priceImpact"]) * 100
-                self.notify(f"  Price Impact: {impact:.2f}%")
+            # Fetch current balances before showing confirmation
+            self.notify(f"\n=== Wallet {wallet_display_address} Balances ===")
+            try:
+                # Fetch balances for both tokens
+                tokens_to_check = [base_token, quote_token]
+                balances_resp = await self._get_gateway_instance().get_balances(
+                    chain, network, wallet_address, tokens_to_check
+                )
+                balances = balances_resp.get("balances", {})
 
-            # Execution price (if different from price)
-            if "executionPrice" in quote_resp and quote_resp.get('executionPrice') != quote_resp.get('price'):
-                self.notify(f"  Execution Price: {quote_resp['executionPrice']} {quote_token}/{base_token}")
+                # Get current balances
+                base_balance = Decimal(balances.get(base_token))
+                quote_balance = Decimal(balances.get(quote_token))
+                if base_balance is None or quote_balance is None:
+                    raise ValueError("Could not fetch balances for one or both tokens")
 
-            # Display route if available
-            if "route" in quote_resp and quote_resp["route"]:
-                self.notify("\nRoute:")
-                for i, hop in enumerate(quote_resp["route"]):
-                    self.notify(f"  {i + 1}. {hop}")
+                # Display current balances
+                self.notify("\nCurrent Balances:")
+                self.notify(f"  {base_token}: {base_balance:.4f}")
+                self.notify(f"  {quote_token}: {quote_balance:.4f}")
+
+                # Calculate and display impact on balances
+                self.notify("\nAfter Swap:")
+                amount_in_decimal = Decimal(amount_in)
+                amount_out_decimal = Decimal(amount_out)
+
+                if side == "BUY":
+                    # Buying base with quote
+                    new_base_balance = base_balance + amount_out_decimal
+                    new_quote_balance = quote_balance - amount_in_decimal
+                    self.notify(f"  {base_token}: {new_base_balance:.4f}")
+                    self.notify(f"  {quote_token}: {new_quote_balance:.4f}")
+
+                    # Check if user has enough quote tokens
+                    if quote_balance < amount_in_decimal:
+                        self.notify(f"\n⚠️  WARNING: Insufficient {quote_token} balance! You need {amount_in_decimal:.4f} but only have {quote_balance:.4f}")
+                else:
+                    # Selling base for quote
+                    new_base_balance = base_balance - amount_in_decimal
+                    new_quote_balance = quote_balance + amount_out_decimal
+                    self.notify(f"  {base_token}: {new_base_balance:.4f}")
+                    self.notify(f"  {quote_token}: {new_quote_balance:.4f}")
+
+                    # Check if user has enough base tokens
+                    if base_balance < amount_in_decimal:
+                        self.notify(f"\n⚠️  WARNING: Insufficient {base_token} balance! You need {amount_in_decimal:.4f} but only have {base_balance:.4f}")
+
+            except Exception as e:
+                self.notify(f"\nWarning: Could not fetch balances: {str(e)}")
+                # Continue anyway - let the swap fail if there are insufficient funds
 
             # Ask if user wants to execute the swap
             self.placeholder_mode = True
             self.app.hide_input = True
             try:
                 # Show wallet info in prompt
-                chain_name = chain.capitalize()
                 execute_now = await self.app.prompt(
-                    prompt=f"Do you want to execute this swap now with {chain_name} wallet {wallet_address[:8]}...{wallet_address[-4:]}? (Yes/No) >>> "
+                    prompt="Do you want to execute this swap now? (Yes/No) >>> "
                 )
 
                 # Restore normal prompt immediately after getting user input
