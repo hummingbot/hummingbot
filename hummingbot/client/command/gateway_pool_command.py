@@ -203,7 +203,7 @@ class GatewayPoolCommand:
             self.notify(f"  Quote Token: {quote}")
             self.notify(f"  Address: {address}")
 
-            confirm = await self.app.prompt(prompt="\nDo you want to add this pool? (Yes/No) >>> ")
+            confirm = await self.app.prompt(prompt="Do you want to add this pool? (Yes/No) >>> ")
             if confirm.lower() not in ["y", "yes"]:
                 self.notify("Pool addition cancelled")
                 return

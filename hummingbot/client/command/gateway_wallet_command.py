@@ -174,7 +174,7 @@ class GatewayWalletCommand:
                 return
 
             # Confirm addition
-            confirm = await self.app.prompt(prompt="\nDo you want to add this wallet? (Yes/No) >>> ")
+            confirm = await self.app.prompt(prompt="Do you want to add this wallet? (Yes/No) >>> ")
             if confirm.lower() not in ["y", "yes"]:
                 self.notify("Wallet addition cancelled")
                 return

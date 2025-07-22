@@ -22,7 +22,6 @@ from hummingbot.client.settings import (
 )
 from hummingbot.client.ui.parser import ThrowingArgumentParser
 from hummingbot.core.rate_oracle.rate_oracle import RATE_ORACLE_SOURCES
-from hummingbot.core.utils.gateway_config_utils import list_gateway_wallets
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.strategy.strategy_v2_base import StrategyV2ConfigBase
 
@@ -83,10 +82,8 @@ class HummingbotCompleter(Completer):
         self._rate_oracle_completer = WordCompleter(list(RATE_ORACLE_SOURCES.keys()), ignore_case=True)
         self._mqtt_completer = WordCompleter(["start", "stop", "restart"], ignore_case=True)
         self._gateway_chains = []
-        self._list_gateway_wallets_parameters = {"wallets": [], "chain": ""}
         self._cached_gateway_connectors = []  # Cache for dynamically fetched connectors
         self._gateway_token_symbols = []  # Cache for token symbols
-        self._all_gateway_wallets = []  # Cache for all gateway wallets
         self._gateway_config_path_options = []  # Dynamic config path options for interactive mode
 
     def get_strategies_v2_with_config(self):
@@ -128,9 +125,6 @@ class HummingbotCompleter(Completer):
     def set_gateway_chains(self, gateway_chains):
         self._gateway_chains = gateway_chains
 
-    def set_list_gateway_wallets_parameters(self, wallets, chain):
-        self._list_gateway_wallets_parameters = {"wallets": wallets, "chain": chain}
-
     def update_gateway_chains(self, chains: List[str]):
         """Update the cached gateway chains list"""
         self._cached_gateway_chains = sorted(chains) if chains else []
@@ -168,17 +162,6 @@ class HummingbotCompleter(Completer):
     def _gateway_chain_completer(self):
         return WordCompleter(self._gateway_chains, ignore_case=True)
 
-    @property
-    def _gateway_wallet_address_completer(self):
-        # Use all cached wallets if available
-        if self._all_gateway_wallets:
-            wallets = self._all_gateway_wallets
-        else:
-            wallets = self._list_gateway_wallets_parameters["wallets"]
-
-        chain = self._list_gateway_wallets_parameters["chain"]
-        return WordCompleter(list_gateway_wallets(wallets, chain), ignore_case=True)
-
     def _get_ethereum_spenders_completer(self):
         """Get Ethereum-based spenders (connector/type combinations)"""
         spenders = [
@@ -188,28 +171,6 @@ class HummingbotCompleter(Completer):
             "0x/router",
         ]
         return WordCompleter(spenders, ignore_case=True)
-
-    def _get_wallet_addresses_for_chain_network(self, chain: str, network: str = None):
-        """Get wallet addresses for a specific chain and optionally network"""
-        addresses = []
-        try:
-            # First try using all cached wallets
-            if self._all_gateway_wallets:
-                addresses = list_gateway_wallets(self._all_gateway_wallets, chain)
-            elif self._list_gateway_wallets_parameters.get("chain") == chain:
-                wallets = self._list_gateway_wallets_parameters.get("wallets", [])
-                addresses = list_gateway_wallets(wallets, chain)
-        except Exception:
-            pass
-
-        # Remove duplicates
-        addresses = list(set(addresses))
-
-        # If no addresses found, provide a helpful placeholder
-        if not addresses:
-            addresses = ["<Enter wallet address>"]
-
-        return WordCompleter(addresses, ignore_case=True)
 
     @property
     def _gateway_available_chains_completer(self):
@@ -391,27 +352,6 @@ class HummingbotCompleter(Completer):
                 (text_before_cursor.startswith("gateway wallet setDefault ") and text_before_cursor.count(" ") == 3) or
                 (text_before_cursor.startswith("gateway wallet list ") and text_before_cursor.count(" ") == 3))
 
-    def _complete_gateway_wallet_remove_address(self, document: Document) -> bool:
-        """Check if we're completing the address argument for gateway wallet remove"""
-        text_before_cursor: str = document.text_before_cursor
-        return (text_before_cursor.startswith("gateway wallet remove ") and
-                text_before_cursor.count(" ") >= 4 and
-                not text_before_cursor.endswith("  "))  # Not multiple spaces
-
-    def _complete_gateway_wallet_add_hardware_address(self, document: Document) -> bool:
-        """Check if we're completing the address argument for gateway wallet add-hardware"""
-        text_before_cursor: str = document.text_before_cursor
-        return (text_before_cursor.startswith("gateway wallet add-hardware ") and
-                text_before_cursor.count(" ") >= 4 and
-                not text_before_cursor.endswith("  "))  # Not multiple spaces
-
-    def _complete_gateway_wallet_setdefault_address(self, document: Document) -> bool:
-        """Check if we're completing the address argument for gateway wallet setDefault"""
-        text_before_cursor: str = document.text_before_cursor
-        return (text_before_cursor.startswith("gateway wallet setDefault ") and
-                text_before_cursor.count(" ") >= 4 and
-                not text_before_cursor.endswith("  "))  # Not multiple spaces
-
     def _complete_gateway_token_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("gateway token ") and text_before_cursor.count(" ") == 2
@@ -478,9 +418,6 @@ class HummingbotCompleter(Completer):
     def _complete_gateway_chain(self, document: Document) -> bool:
         return "Which chain do you want" in self.prompt_text
 
-    def _complete_gateway_wallet_addresses(self, document: Document) -> bool:
-        return "Select a gateway wallet" in self.prompt_text
-
     def _complete_gateway_tokens(self, document: Document) -> bool:
         return "Enter base token" in self.prompt_text or "Enter quote token" in self.prompt_text
 
@@ -541,10 +478,6 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_gateway_chain(document):
             for c in self._gateway_chain_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_gateway_wallet_addresses(document):
-            for c in self._gateway_wallet_address_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_gateway_tokens(document):
@@ -633,41 +566,6 @@ class HummingbotCompleter(Completer):
                 yield c
 
         # Removed gateway ping network completer as it's no longer needed
-
-        elif self._complete_gateway_wallet_remove_address(document) or self._complete_gateway_wallet_add_hardware_address(document) or self._complete_gateway_wallet_setdefault_address(document):
-            # Extract chain from the command
-            text_before_cursor: str = document.text_before_cursor
-            parts = text_before_cursor.split()
-            if len(parts) >= 4:
-                chain = parts[3]  # gateway wallet remove <chain> ...
-
-                # Try to get wallets directly from gateway
-                addresses = []
-                try:
-                    from hummingbot.client.hummingbot_application import HummingbotApplication
-                    app = HummingbotApplication.main_application()
-                    if app and hasattr(app, '_gateway_monitor') and app._gateway_monitor:
-                        gateway_instance = app._gateway_monitor.client
-                        if gateway_instance:
-                            # Try cache first
-                            if hasattr(gateway_instance, '_wallets_cache') and chain in gateway_instance._wallets_cache:
-                                chain_wallets = gateway_instance._wallets_cache[chain]
-                                for wallet in chain_wallets:
-                                    if isinstance(wallet, dict):
-                                        addresses.extend(wallet.get("walletAddresses", []))
-                                        addresses.extend(wallet.get("hardwareWalletAddresses", []))
-                            # If no cache, use _all_gateway_wallets
-                            elif self._all_gateway_wallets:
-                                addresses = list_gateway_wallets(self._all_gateway_wallets, chain)
-                except Exception:
-                    pass
-
-                # Remove duplicates and create completer
-                addresses = list(set(addresses)) if addresses else ["<Enter wallet address>"]
-                address_completer = WordCompleter(addresses, ignore_case=True)
-
-                for c in address_completer.get_completions(document, complete_event):
-                    yield c
 
         elif self._complete_gateway_wallet_chain_arguments(document):
             for c in self._gateway_available_chains_completer.get_completions(document, complete_event):

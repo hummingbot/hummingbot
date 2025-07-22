@@ -205,7 +205,7 @@ class GatewayTokenCommand:
             self.notify(f"  Address: {address}")
             self.notify(f"  Decimals: {decimals}")
 
-            confirm = await self.app.prompt(prompt="\nDo you want to add this token? (Yes/No) >>> ")
+            confirm = await self.app.prompt(prompt="Do you want to add this token? (Yes/No) >>> ")
             if confirm.lower() not in ["y", "yes"]:
                 self.notify("Token addition cancelled")
                 return

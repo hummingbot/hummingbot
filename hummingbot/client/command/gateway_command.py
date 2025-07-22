@@ -523,7 +523,7 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
 
         try:
             # First get the current configuration to show available paths
-            config_dict = await self._get_gateway_instance().get_config(namespace=namespace)
+            config_dict = await self._get_gateway_instance().get_configuration(namespace=namespace)
 
             if not config_dict:
                 self.notify(f"No configuration found for namespace: {namespace}")
@@ -585,8 +585,7 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
         host = self.client_config_map.gateway.gateway_api_host
         port = self.client_config_map.gateway.gateway_api_port
         try:
-            # Use new get_config method with only namespace
-            config_dict = await self._get_gateway_instance().get_config(namespace=namespace)
+            config_dict = await self._get_gateway_instance().get_configuration(namespace=namespace)
 
             # Format the title
             title_parts = ["Gateway Configuration"]
@@ -607,114 +606,77 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
 
     async def _get_balances(self, chain_filter: Optional[str] = None, tokens_filter: Optional[str] = None):
         network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
-        # Use longer timeout for balance requests since some networks like Base can be slow
-        balance_timeout = max(network_timeout, 10.0)  # At least 10 seconds
         self.notify("Updating gateway balances, please wait...")
 
-        try:
-            # Determine which chains to check
-            chains_to_check = []
-            if chain_filter:
-                # Check specific chain
-                chains_to_check = [chain_filter]
-            else:
-                # Check both ethereum and solana
-                chains_to_check = ["ethereum", "solana"]
+        # Determine which chains to check
+        chains_to_check = []
+        if chain_filter:
+            # Check specific chain
+            chains_to_check = [chain_filter]
+        else:
+            # Check both ethereum and solana
+            chains_to_check = ["ethereum", "solana"]
 
-            # Process each chain
-            for chain in chains_to_check:
-                # Get default network for this chain
-                default_network = await self._get_gateway_instance().get_default_network_for_chain(chain)
-                if not default_network:
-                    self.notify(f"Could not determine default network for {chain}")
-                    continue
+        # Process each chain
+        for chain in chains_to_check:
+            # Get default network for this chain
+            default_network = await self._get_gateway_instance().get_default_network_for_chain(chain)
+            if not default_network:
+                self.notify(f"Could not determine default network for {chain}")
+                continue
 
-                # Get default wallet for this chain
-                default_wallet = await self._get_gateway_instance().get_default_wallet_for_chain(chain)
-                if not default_wallet:
-                    self.notify(f"No default wallet found for {chain}. Please add one with 'gateway wallet add {chain}'")
-                    continue
+            # Get default wallet for this chain
+            default_wallet = await self._get_gateway_instance().get_default_wallet_for_chain(chain)
+            if not default_wallet:
+                self.notify(f"No default wallet found for {chain}. Please add one with 'gateway wallet add {chain}'")
+                continue
 
-                # Check if this is a hardware wallet
-                wallets = await self._get_gateway_instance().get_wallets(chain)
-                is_hardware = False
-                if wallets:
-                    wallet_info = wallets[0]
-                    hardware_addresses = wallet_info.get("hardwareWalletAddresses", [])
-                    is_hardware = default_wallet in hardware_addresses
-                try:
-                    # Determine tokens to check
-                    if tokens_filter:
-                        # User specified tokens (comma-separated)
-                        tokens_to_check = [token.strip() for token in tokens_filter.split(",")]
-                    else:
-                        # No filter specified - fetch all tokens
-                        tokens_to_check = []
+            try:
+                # Determine tokens to check
+                if tokens_filter:
+                    # User specified tokens (comma-separated)
+                    tokens_to_check = [token.strip() for token in tokens_filter.split(",")]
+                else:
+                    # No filter specified - fetch all tokens
+                    tokens_to_check = []
 
-                    # Get balances from gateway
-                    try:
-                        tokens_display = "all" if not tokens_to_check else ", ".join(tokens_to_check)
-                        self.notify(f"Fetching balances for {chain}:{default_network} address {default_wallet[:8]}... tokens: {tokens_display}")
-                        balances_resp = await asyncio.wait_for(
-                            self._get_gateway_instance().get_balances(chain, default_network, default_wallet, tokens_to_check),
-                            balance_timeout
-                        )
-                        balances = balances_resp.get("balances", {})
-                    except asyncio.TimeoutError:
-                        self.notify(f"\nTimeout getting balance for {chain}:{default_network}")
-                        self.notify("This may happen if the network is congested or the RPC endpoint is slow.")
-                        self.notify("Try again or check your gateway configuration.")
-                        continue
+                # Get balances from gateway
+                tokens_display = "all" if not tokens_to_check else ", ".join(tokens_to_check)
+                self.notify(f"\nFetching balances for {chain}:{default_network} for tokens: {tokens_display}")
+                balances_resp = await asyncio.wait_for(
+                    self._get_gateway_instance().get_balances(chain, default_network, default_wallet, tokens_to_check),
+                    network_timeout
+                )
+                balances = balances_resp.get("balances", {})
 
-                    # Filter out zero balances unless user specified specific tokens
-                    if tokens_filter:
-                        # Show all requested tokens even if zero
-                        display_balances = balances
-                    else:
-                        # Show non-zero balances and always show native token
-                        display_balances = {}
-                        native_token = await self._get_gateway_instance().get_native_currency_symbol(chain, default_network)
+                # Show all balances including zero balances
+                display_balances = balances
 
-                        for token, bal in balances.items():
-                            balance_val = float(bal) if bal else 0
-                            # Always include native token (even if zero), include others only if non-zero
-                            if (native_token and token.upper() == native_token.upper()) or balance_val > 0:
-                                display_balances[token] = bal
+                # Display results
+                self.notify(f"\nChain: {chain.lower()}")
+                self.notify(f"Network: {default_network}")
+                self.notify(f"Address: {default_wallet}")
 
-                    # Display results
-                    self.notify(f"\nChain: {chain.lower()}")
-                    self.notify(f"Network: {default_network}")
-                    if is_hardware:
-                        self.notify(f"Address: {default_wallet} (hardware)")
-                    else:
-                        self.notify(f"Address: {default_wallet}")
+                if display_balances:
+                    rows = []
+                    for token, bal in display_balances.items():
+                        rows.append({
+                            "Token": token.upper(),
+                            "Balance": PerformanceMetrics.smart_round(Decimal(str(bal)), 4),
+                        })
 
-                    if display_balances:
-                        rows = []
-                        for token, bal in display_balances.items():
-                            rows.append({
-                                "Token": token.upper(),
-                                "Balance": PerformanceMetrics.smart_round(Decimal(str(bal)), 4),
-                            })
+                    df = pd.DataFrame(data=rows, columns=["Token", "Balance"])
+                    df.sort_values(by=["Token"], inplace=True)
 
-                        df = pd.DataFrame(data=rows, columns=["Token", "Balance"])
-                        df.sort_values(by=["Token"], inplace=True)
+                    lines = [
+                        "    " + line for line in df.to_string(index=False).split("\n")
+                    ]
+                    self.notify("\n".join(lines))
+                else:
+                    self.notify("    No balances found")
 
-                        lines = [
-                            "    " + line for line in df.to_string(index=False).split("\n")
-                        ]
-                        self.notify("\n".join(lines))
-                    else:
-                        self.notify("    No balances found")
-
-                except Exception as e:
-                    self.notify(f"\nError getting balance for {chain}:{default_network}: {str(e)}")
-                    if "internalServerError" in str(e) or "Cannot read properties of undefined" in str(e):
-                        self.notify("This may be a gateway server configuration issue.")
-                        self.notify("Check that the RPC endpoint for this network is properly configured.")
-
-        except Exception as e:
-            self.notify(f"Error fetching gateway data: {str(e)}")
+            except asyncio.TimeoutError:
+                self.notify(f"\nError getting balance for {chain}:{default_network}: Request timed out")
 
     async def _get_default_tokens_for_chain_network(self, chain: str, network: str) -> List[str]:
         """

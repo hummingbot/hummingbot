@@ -104,6 +104,7 @@ class GatewayHttpClient:
         method: str,
         endpoint: str,
         params: Optional[Dict[str, Any]] = None,
+        fail_silently: bool = False,
         use_body: bool = False,
         data: Optional[Dict[str, Any]] = None,
         **kwargs
@@ -141,9 +142,9 @@ class GatewayHttpClient:
             elif method_lower == 'delete':
                 if data is not None:
                     # DELETE with JSON body (some APIs support this)
-                    response = await self.session.delete(url, json=data)
+                    response = await client.delete(url, json=data)
                 elif params:
-                    response = await self.session.delete(url, params=params)
+                    response = await client.delete(url, params=params)
             else:
                 raise ValueError(f"Unsupported request method {method}")
 
@@ -160,8 +161,9 @@ class GatewayHttpClient:
                 raise ValueError(error_msg)
 
         except Exception as e:
-            self.logger().error(f"Gateway request error: {method} {url} - {str(e)}")
-            raise
+            if not fail_silently:
+                self.logger().error(f"Gateway request error: {method} {url} - {str(e)}")
+                raise
 
         return parsed_response
 
@@ -214,7 +216,7 @@ class GatewayHttpClient:
     async def ping_gateway(self) -> bool:
         """Check if Gateway is online."""
         try:
-            response = await self.api_request("GET", "")
+            response = await self.api_request("GET", "", fail_silently=True)
             return isinstance(response, dict) and response.get("status") == "ok"
         except Exception:
             return False
@@ -234,7 +236,7 @@ class GatewayHttpClient:
         return await self.api_request("GET", "")
 
     async def post_restart(self):
-        await self.api_request("post", "restart")
+        await self.api_request("POST", "restart")
 
     # ============================================
     # Configuration Methods
@@ -259,7 +261,7 @@ class GatewayHttpClient:
         :param value: New configuration value
         :return: Update status
         """
-        response = await self.request(
+        response = await self.api_request(
             "POST",
             "config/update",
             data={
@@ -407,6 +409,21 @@ class GatewayHttpClient:
                 "address": address
             }
         )
+
+    async def get_default_wallet_for_chain(self, chain: str) -> Optional[str]:
+        """
+        Get the default wallet for a chain from its configuration.
+
+        :param chain: Chain name (e.g., "ethereum", "solana")
+        :return: Default wallet address or None if not found
+        """
+        try:
+            # Get the configuration for the chain namespace (not chain-network)
+            config = await self.get_configuration(chain)
+            return config.get("defaultWallet")
+        except Exception as e:
+            self.logger().warning(f"Failed to get default wallet for {chain}: {e}")
+            return None
 
     async def set_default_wallet(self, chain: str, address: str) -> Dict[str, Any]:
         """Set default wallet for a chain."""

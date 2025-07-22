@@ -3,10 +3,10 @@ import logging
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
+from hummingbot.client.settings import GATEWAY_CONNECTORS
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import build_config_namespace_keys
 
-# from hummingbot.client.settings import GATEWAY_CONNECTORS
 from .gateway_http_client import GatewayHttpClient
 
 POLL_INTERVAL = 2.0
@@ -87,9 +87,9 @@ class GatewayStatusMonitor:
                 gateway_http_client = self._get_gateway_instance()
                 if await asyncio.wait_for(gateway_http_client.ping_gateway(), timeout=POLL_TIMEOUT):
                     if self.gateway_status is GatewayStatus.OFFLINE:
-                        # gateway_connectors = await gateway_http_client.get_connectors()
-                        # GATEWAY_CONNECTORS.clear()
-                        # GATEWAY_CONNECTORS.extend([connector["name"] for connector in gateway_connectors.get("connectors", [])])
+                        gateway_connectors = await gateway_http_client.get_connectors()
+                        GATEWAY_CONNECTORS.clear()
+                        GATEWAY_CONNECTORS.extend([connector["name"] for connector in gateway_connectors.get("connectors", [])])
                         await self.update_gateway_config_key_list()
 
                     self._gateway_status = GatewayStatus.ONLINE

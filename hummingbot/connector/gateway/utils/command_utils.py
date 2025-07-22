@@ -239,7 +239,7 @@ class GatewayCommandUtils:
         try:
             # Use base connector name for config (strip type suffix)
             base_connector = connector.split("/")[0] if "/" in connector else connector
-            return await gateway_client.get_config(namespace=base_connector)
+            return await gateway_client.get_configuration(namespace=base_connector)
         except Exception:
             return {}
 
