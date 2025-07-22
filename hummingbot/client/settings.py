@@ -566,3 +566,5 @@ MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT = 100
 
 STRATEGIES: List[str] = get_strategy_list()
 GATEWAY_CONNECTORS: List[str] = []
+GATEWAY_NAMESPACES: List[str] = []
+GATEWAY_CHAINS: List[str] = []

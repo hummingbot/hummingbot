@@ -3,7 +3,7 @@ import logging
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from hummingbot.client.settings import GATEWAY_CONNECTORS
+from hummingbot.client.settings import GATEWAY_CHAINS, GATEWAY_CONNECTORS, GATEWAY_NAMESPACES
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import build_config_namespace_keys
@@ -86,9 +86,47 @@ class GatewayStatusMonitor:
                 gateway_http_client = self._get_gateway_instance()
                 if await asyncio.wait_for(gateway_http_client.ping_gateway(), timeout=POLL_TIMEOUT):
                     if self.gateway_status is GatewayStatus.OFFLINE:
-                        gateway_connectors = await gateway_http_client.get_connectors(fail_silently=True)
+                        # Clear all collections
                         GATEWAY_CONNECTORS.clear()
-                        GATEWAY_CONNECTORS.extend([connector["name"] for connector in gateway_connectors.get("connectors", [])])
+                        GATEWAY_CHAINS.clear()
+                        GATEWAY_NAMESPACES.clear()
+
+                        # Get connectors
+                        gateway_connectors = await gateway_http_client.get_connectors(fail_silently=True)
+
+                        # Build connector list with trading types appended
+                        connector_list = []
+                        for connector in gateway_connectors.get("connectors", []):
+                            name = connector["name"]
+                            trading_types = connector.get("trading_types", [])
+
+                            if trading_types:
+                                # Add each trading type as a separate entry
+                                for trading_type in trading_types:
+                                    connector_list.append(f"{name}/{trading_type}")
+                            else:
+                                # Fallback to just the name if no trading types
+                                connector_list.append(name)
+
+                        GATEWAY_CONNECTORS.extend(connector_list)
+
+                        # Get chains using the dedicated endpoint
+                        try:
+                            chains_response = await gateway_http_client.get_chains(fail_silently=True)
+                            if chains_response and "chains" in chains_response:
+                                GATEWAY_CHAINS.extend(sorted(chains_response["chains"]))
+                        except Exception:
+                            pass
+
+                        # Get namespaces using the dedicated endpoint
+                        try:
+                            namespaces_response = await gateway_http_client.get_namespaces(fail_silently=True)
+                            if namespaces_response and "namespaces" in namespaces_response:
+                                GATEWAY_NAMESPACES.extend(sorted(namespaces_response["namespaces"]))
+                        except Exception:
+                            pass
+
+                        # Update config keys for backward compatibility
                         await self.update_gateway_config_key_list()
 
                     self._gateway_status = GatewayStatus.ONLINE

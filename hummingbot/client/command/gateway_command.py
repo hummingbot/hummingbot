@@ -116,6 +116,7 @@ class GatewayCommand(GatewayChainApiManager):
         Usage:
             gateway config show [namespace]
             gateway config update <namespace> <path> <value>
+            gateway config update <namespace> (interactive mode)
         """
         if args is None:
             args = []
@@ -144,6 +145,9 @@ class GatewayCommand(GatewayChainApiManager):
                 path = args[0]
                 value = args[1]
                 safe_ensure_future(self._update_gateway_configuration(namespace, path, value), loop=self.ev_loop)
+            else:
+                # Interactive mode - prompt for path and value
+                safe_ensure_future(self._update_gateway_configuration_interactive(namespace), loop=self.ev_loop)
         else:
             # Show help if unrecognized action
             self.notify("\nUsage:")
@@ -220,6 +224,67 @@ class GatewayCommand(GatewayChainApiManager):
         except Exception:
             self.notify(
                 "\nError: Gateway configuration update failed. See log file for more details.")
+
+    async def _update_gateway_configuration_interactive(self, namespace: str):
+        """Interactive mode for gateway config update"""
+        from hummingbot.client.command.gateway_api_manager import begin_placeholder_mode
+
+        try:
+            # First get the current configuration to show available paths
+            config_dict = await self._get_gateway_instance().get_configuration(namespace=namespace)
+
+            if not config_dict:
+                self.notify(f"No configuration found for namespace: {namespace}")
+                return
+
+            # Display current configuration
+            self.notify(f"\nCurrent configuration for {namespace}:")
+            lines = []
+            build_config_dict_display(lines, config_dict)
+            self.notify("\n".join(lines))
+
+            # Get available config keys
+            config_keys = list(config_dict.keys())
+
+            # Enter interactive mode
+            with begin_placeholder_mode(self):
+                self.placeholder_mode = True
+                self.app.hide_input = True
+
+                try:
+                    # Update completer's config path options
+                    if hasattr(self.app.input_field.completer, '_gateway_config_path_options'):
+                        self.app.input_field.completer._gateway_config_path_options = config_keys
+
+                    # Prompt for path
+                    self.notify(f"\nAvailable configuration paths: {', '.join(config_keys)}")
+                    path = await self.app.prompt(prompt="Enter configuration path: ")
+
+                    if self.app.to_stop_config or not path:
+                        self.notify("Configuration update cancelled")
+                        return
+
+                    # Show current value
+                    current_value = config_dict.get(path, "Not found")
+                    self.notify(f"\nCurrent value for '{path}': {current_value}")
+
+                    # Prompt for new value
+                    value = await self.app.prompt(prompt="Enter new value: ")
+
+                    if self.app.to_stop_config or not value:
+                        self.notify("Configuration update cancelled")
+                        return
+
+                    # Update the configuration
+                    await self._update_gateway_configuration(namespace, path, value)
+
+                finally:
+                    self.placeholder_mode = False
+                    self.app.hide_input = False
+                    self.app.change_prompt(prompt=">>> ")
+
+        except Exception as e:
+            self.notify(f"Error in interactive config update: {str(e)}")
 
     async def _show_gateway_configuration(
         self,  # type: HummingbotApplication
