@@ -300,6 +300,10 @@ class GatewayHttpClient:
     async def get_namespaces(self, fail_silently: bool = False) -> Dict[str, Any]:
         return await self.api_request("get", "config/namespaces", fail_silently=fail_silently)
 
+    # ============================================
+    # Fetch Defaults
+    # ============================================
+
     async def get_native_currency_symbol(self, chain: str, network: str) -> Optional[str]:
         """
         Get the native currency symbol for a chain and network from gateway config.
@@ -317,6 +321,35 @@ class GatewayHttpClient:
         except Exception as e:
             self.logger().warning(f"Failed to get native currency symbol for {chain}-{network}: {e}")
         return None
+
+    async def get_default_network_for_chain(self, chain: str) -> Optional[str]:
+        """
+        Get the default network for a chain from its configuration.
+
+        :param chain: Chain name (e.g., "ethereum", "solana")
+        :return: Default network name or None if not found
+        """
+        try:
+            config = await self.get_configuration(chain)
+            return config.get("defaultNetwork")
+        except Exception as e:
+            self.logger().warning(f"Failed to get default network for {chain}: {e}")
+            return None
+
+    async def get_default_wallet_for_chain(self, chain: str) -> Optional[str]:
+        """
+        Get the default wallet for a chain from its configuration.
+
+        :param chain: Chain name (e.g., "ethereum", "solana")
+        :return: Default wallet address or None if not found
+        """
+        try:
+            # Get the configuration for the chain namespace (not chain-network)
+            config = await self.get_configuration(chain)
+            return config.get("defaultWallet")
+        except Exception as e:
+            self.logger().warning(f"Failed to get default wallet for {chain}: {e}")
+            return None
 
     # ============================================
     # Wallet Methods

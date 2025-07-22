@@ -56,12 +56,10 @@ class HummingbotCompleter(Completer):
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)
         self._history_completer = WordCompleter(["--days", "--verbose", "--precision"], ignore_case=True)
-        self._gateway_completer = WordCompleter(["list", "balance", "config", "connect", "connector-tokens", "generate-certs", "test-connection", "allowance", "approve-tokens", "swap"], ignore_case=True)
-        self._gateway_connect_completer = WordCompleter(GATEWAY_CONNECTORS, ignore_case=True)
+        self._gateway_completer = WordCompleter(["list", "balance", "config", "generate-certs", "test-connection", "allowance", "approve-tokens", "swap"], ignore_case=True)
         self._gateway_swap_completer = WordCompleter(GATEWAY_CONNECTORS, ignore_case=True)
         self._gateway_namespace_completer = WordCompleter(GATEWAY_NAMESPACES, ignore_case=True)
-        self._gateway_connector_tokens_completer = self._exchange_amm_completer
-        self._gateway_balance_completer = self._exchange_amm_completer
+        self._gateway_balance_completer = WordCompleter(GATEWAY_CHAINS, ignore_case=True)
         self._gateway_allowance_completer = self._exchange_ethereum_completer
         self._gateway_approve_tokens_completer = self._exchange_ethereum_completer
         self._gateway_config_completer = WordCompleter(GATEWAY_NAMESPACES, ignore_case=True)
@@ -224,10 +222,6 @@ class HummingbotCompleter(Completer):
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("history ")
 
-    def _complete_gateway_connect_arguments(self, document: Document) -> bool:
-        text_before_cursor: str = document.text_before_cursor
-        return text_before_cursor.startswith("gateway connect ")
-
     def _complete_gateway_swap_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
         if not text_before_cursor.startswith("gateway swap "):
@@ -239,10 +233,6 @@ class HummingbotCompleter(Completer):
 
     def _complete_gateway_network_selection(self, document: Document) -> bool:
         return "Which" in self.prompt_text and "network do you want to connect to?" in self.prompt_text
-
-    def _complete_gateway_connector_tokens_arguments(self, document: Document) -> bool:
-        text_before_cursor: str = document.text_before_cursor
-        return text_before_cursor.startswith("gateway connector-tokens ")
 
     def _complete_gateway_balance_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -421,16 +411,8 @@ class HummingbotCompleter(Completer):
             for c in self._history_completer.get_completions(document, complete_event):
                 yield c
 
-        elif self._complete_gateway_connect_arguments(document):
-            for c in self._gateway_connect_completer.get_completions(document, complete_event):
-                yield c
-
         elif self._complete_gateway_swap_arguments(document):
             for c in self._gateway_swap_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_gateway_connector_tokens_arguments(document):
-            for c in self._gateway_connector_tokens_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_gateway_balance_arguments(document):
