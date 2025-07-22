@@ -562,7 +562,7 @@ async def load_gateway_connectors():
     """
     Load gateway connectors info. This should be called once during startup.
     """
-    from hummingbot.connector.gateway.core import GatewayClient
+    from hummingbot.connector.gateway.core import GatewayHttpClient
     from hummingbot.connector.gateway.utils.gateway_utils import get_default_gateway_url
 
     global _gateway_connectors_cache
@@ -572,7 +572,7 @@ async def load_gateway_connectors():
         return
 
     try:
-        gateway_client = GatewayClient.get_instance(get_default_gateway_url())
+        gateway_client = GatewayHttpClient.get_instance(get_default_gateway_url())
         connectors_response = await gateway_client.get_connectors()
 
         # Build a mapping of connector name to info

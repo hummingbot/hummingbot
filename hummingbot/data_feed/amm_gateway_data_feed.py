@@ -5,7 +5,7 @@ from typing import Dict, Optional, Set
 
 from pydantic import BaseModel
 
-from hummingbot.connector.gateway.core import GatewayClient
+from hummingbot.connector.gateway.core import GatewayHttpClient
 from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.network_base import NetworkBase
@@ -30,11 +30,11 @@ class AmmGatewayDataFeed(NetworkBase):
     gateway_client = None  # Will be initialized on first use
 
     @classmethod
-    def _get_gateway_client(cls) -> GatewayClient:
+    def _get_gateway_client(cls) -> GatewayHttpClient:
         """Get or create the gateway client instance."""
         if cls.gateway_client is None:
             from hummingbot.connector.gateway.utils.gateway_utils import get_default_gateway_url
-            cls.gateway_client = GatewayClient.get_instance(get_default_gateway_url())
+            cls.gateway_client = GatewayHttpClient.get_instance(get_default_gateway_url())
         return cls.gateway_client
 
     def __init__(
@@ -160,7 +160,6 @@ class AmmGatewayDataFeed(NetworkBase):
             quote,
             self.order_amount_in_base,
             trade_type,
-            fail_silently=True,
         )
 
         if token_price and "price" in token_price and token_price["price"] is not None:

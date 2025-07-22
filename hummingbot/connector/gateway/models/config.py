@@ -30,7 +30,7 @@ class ConnectorConfig:
         """
         Load configuration from Gateway API.
 
-        :param client: GatewayClient instance
+        :param client: GatewayHttpClient instance
         :param connector_name: Connector name (e.g., "raydium/amm")
         :param network: Network name (e.g., "mainnet-beta")
         :param wallet_address: Optional wallet address

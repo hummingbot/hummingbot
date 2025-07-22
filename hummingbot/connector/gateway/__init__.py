@@ -7,7 +7,7 @@ and multiple chains (Ethereum, Solana).
 """
 
 # Core components
-from .core import GatewayClient, GatewayConnector
+from .core import GatewayConnector, GatewayHttpClient
 
 # Order tracking
 from .gateway_in_flight_order import GatewayInFlightOrder
@@ -43,7 +43,7 @@ from .utils import (
 
 __all__ = [
     # Core
-    "GatewayClient",
+    "GatewayHttpClient",
     "GatewayConnector",
     # Order tracking
     "GatewayInFlightOrder",

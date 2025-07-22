@@ -1,15 +1,15 @@
 """
 Core Gateway connector components.
 """
-from .gateway_client import GatewayClient
 from .gateway_connector import GatewayConnector
-from .gateway_monitor import GatewayMonitor, GatewayStatus
+from .gateway_http_client import GatewayHttpClient
+from .gateway_status_monitor import GatewayStatus, GatewayStatusMonitor
 from .transaction_monitor import TransactionMonitor
 
 __all__ = [
-    "GatewayClient",
+    "GatewayHttpClient",
     "GatewayConnector",
-    "GatewayMonitor",
+    "GatewayStatusMonitor",
     "GatewayStatus",
     "TransactionMonitor",
 ]

@@ -5,7 +5,7 @@ Focuses on basic wallet management command functionality.
 import asyncio
 import unittest
 from decimal import Decimal
-from test.hummingbot.connector.gateway.test_utils import TEST_WALLETS, MockGatewayClient
+from test.hummingbot.connector.gateway.test_utils import TEST_WALLETS, MockGatewayHttpClient
 from unittest.mock import patch
 
 
@@ -24,11 +24,11 @@ class TestGatewayCommandSimple(unittest.TestCase):
         super().setUp()
 
         # Use our mock gateway client
-        self.gateway_http_mock = MockGatewayClient()
+        self.gateway_http_mock = MockGatewayHttpClient()
 
-        # Patch GatewayClient.get_instance
+        # Patch GatewayHttpClient.get_instance
         self.gateway_instance_patcher = patch(
-            'hummingbot.connector.gateway.core.gateway_client.GatewayClient.get_instance'
+            'hummingbot.connector.gateway.core.gateway_client.GatewayHttpClient.get_instance'
         )
         self.mock_get_instance = self.gateway_instance_patcher.start()
         self.mock_get_instance.return_value = self.gateway_http_mock
@@ -349,7 +349,7 @@ class TestGatewayCommandSimple(unittest.TestCase):
     def test_balance_error_handling(self):
         """Test balance command error handling"""
         # Create a mock that raises exceptions
-        mock_gateway_instance = MockGatewayClient()
+        mock_gateway_instance = MockGatewayHttpClient()
 
         async def failing_get_wallets(chain=None):
             raise Exception("Gateway connection failed")

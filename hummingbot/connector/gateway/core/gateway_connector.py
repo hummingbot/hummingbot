@@ -20,7 +20,7 @@ from ..gateway_in_flight_order import GatewayInFlightOrder
 from ..gateway_order_tracker import GatewayOrderTracker
 from ..models import ConnectorConfig, TradingType
 from ..trading_types import AMMHandler, CLMMHandler, SwapHandler
-from .gateway_client import GatewayClient
+from .gateway_http_client import GatewayHttpClient
 
 
 class GatewayConnector(ConnectorBase):
@@ -90,17 +90,17 @@ class GatewayConnector(ConnectorBase):
         safe_ensure_future(self._initialize())
 
     @property
-    def client(self) -> GatewayClient:
+    def client(self) -> GatewayHttpClient:
         """Get Gateway client instance."""
         if self._client is None:
             # Get from main application
             from hummingbot.client.hummingbot_application import HummingbotApplication
             app = HummingbotApplication.main_application()
             if app:
-                self._client = GatewayClient.get_instance(app.client_config_map)
+                self._client = GatewayHttpClient.get_instance(app.client_config_map)
             else:
                 # Default for testing - create a minimal config
-                self._client = GatewayClient.get_instance(None)
+                self._client = GatewayHttpClient.get_instance(None)
         return self._client
 
     @property

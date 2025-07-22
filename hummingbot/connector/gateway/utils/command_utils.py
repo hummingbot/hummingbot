@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 if TYPE_CHECKING:
-    from ..core.gateway_client import GatewayClient
+    from ..core.gateway_http_client import GatewayHttpClient
 
 
 class GatewayCommandUtils:
@@ -13,7 +13,7 @@ class GatewayCommandUtils:
 
     @staticmethod
     async def validate_connector(
-        gateway_client: "GatewayClient",
+        gateway_client: "GatewayHttpClient",
         connector: str,
         required_trading_types: Optional[list] = None
     ) -> Tuple[Optional[str], Optional[Dict], Optional[str]]:
@@ -89,7 +89,7 @@ class GatewayCommandUtils:
 
     @staticmethod
     async def get_network_for_chain(
-        gateway_client: "GatewayClient",
+        gateway_client: "GatewayHttpClient",
         chain: str,
         network: Optional[str] = None
     ) -> Tuple[Optional[str], Optional[str]]:
@@ -171,7 +171,7 @@ class GatewayCommandUtils:
 
     @staticmethod
     async def get_default_wallet(
-        gateway_client: "GatewayClient",
+        gateway_client: "GatewayHttpClient",
         chain: str
     ) -> Tuple[Optional[str], Optional[str]]:
         """
@@ -188,7 +188,7 @@ class GatewayCommandUtils:
 
     @staticmethod
     async def find_pool(
-        gateway_client: "GatewayClient",
+        gateway_client: "GatewayHttpClient",
         connector_name: str,
         network: str,
         base_token: str,
@@ -226,7 +226,7 @@ class GatewayCommandUtils:
 
     @staticmethod
     async def get_connector_config(
-        gateway_client: "GatewayClient",
+        gateway_client: "GatewayHttpClient",
         connector: str
     ) -> Dict:
         """
@@ -257,7 +257,7 @@ class GatewayCommandUtils:
 
     @staticmethod
     async def get_available_tokens(
-        gateway_client: "GatewayClient",
+        gateway_client: "GatewayHttpClient",
         chain: str,
         network: str
     ) -> list:
@@ -306,7 +306,7 @@ class GatewayCommandUtils:
 
     @staticmethod
     async def validate_chain_network(
-        gateway_client: "GatewayClient",
+        gateway_client: "GatewayHttpClient",
         chain: Optional[str],
         network: Optional[str]
     ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
@@ -399,7 +399,7 @@ class GatewayCommandUtils:
         return f"Gateway error: {error_msg}"
 
     @staticmethod
-    async def get_all_chains_networks(gateway_client: "GatewayClient") -> Dict[str, List[str]]:
+    async def get_all_chains_networks(gateway_client: "GatewayHttpClient") -> Dict[str, List[str]]:
         """
         Get all available chains and their networks.
 

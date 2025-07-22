@@ -12,7 +12,7 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 
 
-class MockGatewayClient:
+class MockGatewayHttpClient:
     """Mock Gateway client for testing"""
 
     def __init__(self):
@@ -141,7 +141,7 @@ class MockGatewayClient:
         return {"balances": balances}
 
     async def get_allowances(self, chain: str, network: str, wallet_address: str,
-                             token_symbols: List[str], spender: str, fail_silently: bool = True) -> Dict[str, Any]:
+                             token_symbols: List[str], spender: str) -> Dict[str, Any]:
         """Mock get allowances"""
         approvals = {}
         for token in token_symbols:
@@ -218,7 +218,7 @@ class MockGatewayClient:
 
         return None
 
-    async def get_tokens(self, chain: str, network: str, fail_silently: bool = True) -> Dict[str, Any]:
+    async def get_tokens(self, chain: str, network: str) -> Dict[str, Any]:
         """Mock get tokens"""
         if chain.lower() == "solana":
             return {
@@ -246,7 +246,7 @@ class MockGatewayClient:
                 ]
             }
 
-    async def api_request(self, method: str, endpoint: str, params: Dict[str, Any] = None, fail_silently: bool = True) -> Dict[str, Any]:
+    async def api_request(self, method: str, endpoint: str, params: Dict[str, Any] = None) -> Dict[str, Any]:
         """Mock API request"""
         if endpoint == "chains":
             return {
@@ -395,7 +395,7 @@ class MockGatewayConnector:
         self.chain = chain
         self.network = network
         self._in_flight_orders = {}
-        self._gateway_instance = MockGatewayClient()
+        self._gateway_instance = MockGatewayHttpClient()
         self._order_id_counter = 0
         self._wallet_cache = None
         self._wallet_cache_timestamp = 0

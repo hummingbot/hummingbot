@@ -1,7 +1,7 @@
 """Test for unified gateway swap command"""
 import asyncio
 import unittest
-from test.hummingbot.connector.gateway.test_utils import MockGatewayClient
+from test.hummingbot.connector.gateway.test_utils import MockGatewayHttpClient
 from unittest.mock import AsyncMock, MagicMock
 
 from hummingbot.client.command.gateway_swap_command import GatewaySwapCommand
@@ -32,7 +32,7 @@ class TestGatewaySwapUnified(unittest.TestCase):
         self.command.placeholder_mode = False
 
         # Mock gateway instance
-        self.mock_gateway = MockGatewayClient()
+        self.mock_gateway = MockGatewayHttpClient()
         self.command._get_gateway_instance = MagicMock(return_value=self.mock_gateway)
 
         # Add gateway methods that wrap gateway instance methods

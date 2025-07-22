@@ -17,7 +17,7 @@ from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.security import Security
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.client.ui.interface_utils import format_df_for_printout
-from hummingbot.connector.gateway.core import GatewayClient, GatewayStatus
+from hummingbot.connector.gateway.core import GatewayHttpClient, GatewayStatus
 from hummingbot.connector.gateway.utils.gateway_utils import get_gateway_paths
 from hummingbot.core.data_type.in_flight_order import OrderState
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -723,7 +723,7 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
         """
         try:
             # Fetch tokens from gateway
-            tokens_response = await self._get_gateway_instance().get_tokens(chain, network, fail_silently=True)
+            tokens_response = await self._get_gateway_instance().get_tokens(chain, network)
 
             if not tokens_response or not isinstance(tokens_response, dict):
                 return []
@@ -871,9 +871,9 @@ class GatewayCommand(GatewayChainApiManager, GatewayTokenCommand, GatewayWalletC
 
     def _get_gateway_instance(
         self  # type: HummingbotApplication
-    ) -> GatewayClient:
-        # Pass the client config map to GatewayClient
-        return GatewayClient.get_instance(self.client_config_map)
+    ) -> GatewayHttpClient:
+        # Pass the client config map to GatewayHttpClient
+        return GatewayHttpClient.get_instance(self.client_config_map)
 
     async def _get_allowances(self, spender: Optional[str] = None, tokens: Optional[str] = None):
         """Get token allowances for Ethereum-based connectors"""

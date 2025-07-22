@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 from hummingbot.logger import HummingbotLogger
 
 if TYPE_CHECKING:
-    from hummingbot.connector.gateway.core import GatewayClient
+    from hummingbot.connector.gateway.core import GatewayHttpClient
 
 
 class TransactionMonitor:
@@ -35,11 +35,11 @@ class TransactionMonitor:
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, gateway_client: "GatewayClient"):
+    def __init__(self, gateway_client: "GatewayHttpClient"):
         """
         Initialize transaction monitor.
 
-        :param gateway_client: GatewayClient instance for polling
+        :param gateway_client: GatewayHttpClient instance for polling
         """
         self._client = gateway_client
         self._active_monitors = set()  # Track active transaction hashes to prevent duplicates

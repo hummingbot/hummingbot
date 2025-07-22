@@ -455,10 +455,10 @@ class AllConnectorSettings:
         Returns a list of connector specifications that can be used to create ConnectorSettings.
         """
         try:
-            from hummingbot.connector.gateway.core import GatewayClient
+            from hummingbot.connector.gateway.core import GatewayHttpClient
             from hummingbot.connector.gateway.utils.gateway_utils import get_default_gateway_url
 
-            gateway_client = GatewayClient.get_instance(get_default_gateway_url())
+            gateway_client = GatewayHttpClient.get_instance(get_default_gateway_url())
 
             # Get available connectors from Gateway
             connectors_response = await gateway_client.get_connectors()

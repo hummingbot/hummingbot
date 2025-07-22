@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.connector.gateway.core import GatewayMonitor
+from hummingbot.connector.gateway.core import GatewayStatusMonitor
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -25,7 +25,7 @@ async def test_gateway_monitor():
     app = MockApp()
 
     # Create and start monitor
-    monitor = GatewayMonitor(app, check_interval=2.0)  # Fast interval for testing
+    monitor = GatewayStatusMonitor(app, check_interval=2.0)  # Fast interval for testing
 
     print(f"Initial status: {monitor.gateway_status}")
     print(f"Initial is_available: {monitor.is_available}")

@@ -5,7 +5,7 @@ from typing import Dict, Optional, Set
 
 import pandas as pd
 
-from hummingbot.connector.gateway.core import GatewayClient
+from hummingbot.connector.gateway.core import GatewayHttpClient
 from hummingbot.core.network_base import NetworkBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -20,7 +20,7 @@ class WalletTrackerDataFeed(NetworkBase):
     def gateway_client(self):
         if self._gateway_client is None:
             from hummingbot.connector.gateway.utils.gateway_utils import get_default_gateway_url
-            self._gateway_client = GatewayClient.get_instance(get_default_gateway_url())
+            self._gateway_client = GatewayHttpClient.get_instance(get_default_gateway_url())
         return self._gateway_client
 
     def __init__(

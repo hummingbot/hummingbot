@@ -1,11 +1,11 @@
-"""Test for GatewayClient class."""
+"""Test for GatewayHttpClient class."""
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
 
-from hummingbot.connector.gateway.core.gateway_client import GatewayClient
+from hummingbot.connector.gateway.core.gateway_http_client import GatewayHttpClient
 
 
-class TestGatewayClient(unittest.IsolatedAsyncioTestCase):
+class TestGatewayHttpClient(unittest.IsolatedAsyncioTestCase):
     """Test Gateway HTTP client functionality."""
 
     def setUp(self):
@@ -18,24 +18,24 @@ class TestGatewayClient(unittest.IsolatedAsyncioTestCase):
         self.mock_client_config.certs_path = "/path/to/certs"
 
         # Reset singleton
-        GatewayClient._GatewayClient__instance = None
+        GatewayHttpClient._GatewayHttpClient__instance = None
 
     async def test_get_instance_singleton(self):
-        """Test that GatewayClient is a singleton."""
-        client1 = GatewayClient.get_instance(self.mock_client_config)
-        client2 = GatewayClient.get_instance(self.mock_client_config)
+        """Test that GatewayHttpClient is a singleton."""
+        client1 = GatewayHttpClient.get_instance(self.mock_client_config)
+        client2 = GatewayHttpClient.get_instance(self.mock_client_config)
         self.assertIs(client1, client2)
 
     async def test_base_url_construction(self):
         """Test base URL construction with HTTP and HTTPS."""
         # Test HTTP
-        client = GatewayClient.get_instance(self.mock_client_config)
+        client = GatewayHttpClient.get_instance(self.mock_client_config)
         self.assertEqual(client.base_url, "http://localhost:15888")
 
         # Test HTTPS
-        GatewayClient._GatewayClient__instance = None
+        GatewayHttpClient._GatewayHttpClient__instance = None
         self.mock_client_config.gateway.gateway_use_ssl = True
-        client = GatewayClient.get_instance(self.mock_client_config)
+        client = GatewayHttpClient.get_instance(self.mock_client_config)
         self.assertEqual(client.base_url, "https://localhost:15888")
 
     @patch('aiohttp.ClientSession')
@@ -56,7 +56,7 @@ class TestGatewayClient(unittest.IsolatedAsyncioTestCase):
 
         mock_session_class.return_value = mock_session
 
-        client = GatewayClient.get_instance(self.mock_client_config)
+        client = GatewayHttpClient.get_instance(self.mock_client_config)
         client._shared_session = mock_session
 
         # Test GET request
@@ -90,7 +90,7 @@ class TestGatewayClient(unittest.IsolatedAsyncioTestCase):
         mock_session.closed = False
 
         mock_session_class.return_value = mock_session
-        client = GatewayClient.get_instance(self.mock_client_config)
+        client = GatewayHttpClient.get_instance(self.mock_client_config)
         client._shared_session = mock_session
 
         # Test get_wallets
@@ -128,7 +128,7 @@ class TestGatewayClient(unittest.IsolatedAsyncioTestCase):
         mock_session.closed = False
 
         mock_session_class.return_value = mock_session
-        client = GatewayClient.get_instance(self.mock_client_config)
+        client = GatewayHttpClient.get_instance(self.mock_client_config)
         client._shared_session = mock_session
 
         # Test get_chains
@@ -161,7 +161,7 @@ class TestGatewayClient(unittest.IsolatedAsyncioTestCase):
         mock_session.closed = False
 
         mock_session_class.return_value = mock_session
-        client = GatewayClient.get_instance(self.mock_client_config)
+        client = GatewayHttpClient.get_instance(self.mock_client_config)
         client._shared_session = mock_session
 
         # Test connector request
@@ -186,7 +186,7 @@ class TestGatewayClient(unittest.IsolatedAsyncioTestCase):
         mock_session.closed = False
 
         mock_session_class.return_value = mock_session
-        client = GatewayClient.get_instance(self.mock_client_config)
+        client = GatewayHttpClient.get_instance(self.mock_client_config)
         client._shared_session = mock_session
 
         # Test error response
@@ -196,7 +196,7 @@ class TestGatewayClient(unittest.IsolatedAsyncioTestCase):
 
     async def test_cache_management(self):
         """Test internal cache management."""
-        client = GatewayClient.get_instance(self.mock_client_config)
+        client = GatewayHttpClient.get_instance(self.mock_client_config)
 
         # Test internal cache attributes exist
         self.assertIsInstance(client._config_cache, dict)
@@ -233,7 +233,7 @@ class TestGatewayClient(unittest.IsolatedAsyncioTestCase):
         mock_session.get = AsyncMock(return_value=mock_response)
         mock_session_class.return_value = mock_session
 
-        client = GatewayClient.get_instance(self.mock_client_config)
+        client = GatewayHttpClient.get_instance(self.mock_client_config)
         client._shared_session = mock_session
 
         # Run initialization
@@ -257,7 +257,7 @@ class TestGatewayClient(unittest.IsolatedAsyncioTestCase):
         mock_session.get = AsyncMock(return_value=mock_response)
         mock_session_class.return_value = mock_session
 
-        client = GatewayClient.get_instance(self.mock_client_config)
+        client = GatewayHttpClient.get_instance(self.mock_client_config)
         client._shared_session = mock_session
 
         # Test successful retrieval
@@ -276,7 +276,7 @@ class TestGatewayClient(unittest.IsolatedAsyncioTestCase):
         mock_session.get = AsyncMock(return_value=mock_response)
         mock_session_class.return_value = mock_session
 
-        client = GatewayClient.get_instance(self.mock_client_config)
+        client = GatewayHttpClient.get_instance(self.mock_client_config)
         client._shared_session = mock_session
 
         # Test successful retrieval
@@ -295,7 +295,7 @@ class TestGatewayClient(unittest.IsolatedAsyncioTestCase):
         mock_session.get = AsyncMock(return_value=mock_response)
         mock_session_class.return_value = mock_session
 
-        client = GatewayClient.get_instance(self.mock_client_config)
+        client = GatewayHttpClient.get_instance(self.mock_client_config)
         client._shared_session = mock_session
 
         # Test successful retrieval
