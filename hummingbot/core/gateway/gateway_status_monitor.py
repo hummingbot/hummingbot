@@ -114,7 +114,9 @@ class GatewayStatusMonitor:
                         try:
                             chains_response = await gateway_http_client.get_chains(fail_silently=True)
                             if chains_response and "chains" in chains_response:
-                                GATEWAY_CHAINS.extend(sorted(chains_response["chains"]))
+                                # Extract just the chain names from the response
+                                chain_names = [chain_info["chain"] for chain_info in chains_response["chains"]]
+                                GATEWAY_CHAINS.extend(chain_names)
                         except Exception:
                             pass
 
