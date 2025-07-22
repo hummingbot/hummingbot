@@ -14,7 +14,9 @@ from hummingbot.client import settings
 from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
 from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.client.settings import (
+    GATEWAY_CHAINS,
     GATEWAY_CONNECTORS,
+    GATEWAY_NAMESPACES,
     SCRIPT_STRATEGIES_PATH,
     SCRIPT_STRATEGY_CONF_DIR_PATH,
     STRATEGIES,
@@ -54,13 +56,15 @@ class HummingbotCompleter(Completer):
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)
         self._history_completer = WordCompleter(["--days", "--verbose", "--precision"], ignore_case=True)
-        self._gateway_completer = WordCompleter(["list", "balance", "config", "connect", "connector-tokens", "generate-certs", "test-connection", "allowance", "approve-tokens"], ignore_case=True)
+        self._gateway_completer = WordCompleter(["list", "balance", "config", "connect", "connector-tokens", "generate-certs", "test-connection", "allowance", "approve-tokens", "swap"], ignore_case=True)
         self._gateway_connect_completer = WordCompleter(GATEWAY_CONNECTORS, ignore_case=True)
+        self._gateway_swap_completer = WordCompleter(GATEWAY_CONNECTORS, ignore_case=True)
+        self._gateway_namespace_completer = WordCompleter(GATEWAY_NAMESPACES, ignore_case=True)
         self._gateway_connector_tokens_completer = self._exchange_amm_completer
         self._gateway_balance_completer = self._exchange_amm_completer
         self._gateway_allowance_completer = self._exchange_ethereum_completer
         self._gateway_approve_tokens_completer = self._exchange_ethereum_completer
-        self._gateway_config_completer = WordCompleter(hummingbot_application.gateway_config_keys, ignore_case=True)
+        self._gateway_config_completer = WordCompleter(GATEWAY_NAMESPACES, ignore_case=True)
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
         self._script_strategy_completer = WordCompleter(file_name_list(str(SCRIPT_STRATEGIES_PATH), "py"))
         self._script_conf_completer = WordCompleter(["--conf"], ignore_case=True)
@@ -69,7 +73,7 @@ class HummingbotCompleter(Completer):
         self._controller_completer = self.get_available_controllers()
         self._rate_oracle_completer = WordCompleter(list(RATE_ORACLE_SOURCES.keys()), ignore_case=True)
         self._mqtt_completer = WordCompleter(["start", "stop", "restart"], ignore_case=True)
-        self._gateway_chains = []
+        self._gateway_chains = GATEWAY_CHAINS
         self._gateway_networks = []
         self._list_gateway_wallets_parameters = {"wallets": [], "chain": ""}
 
@@ -224,6 +228,15 @@ class HummingbotCompleter(Completer):
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("gateway connect ")
 
+    def _complete_gateway_swap_arguments(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        if not text_before_cursor.startswith("gateway swap "):
+            return False
+        # Only complete if we're at the first argument (connector)
+        args_after_swap = text_before_cursor[13:].strip()  # Remove "gateway swap "
+        # If there's no space after the first argument, we're still completing the connector
+        return " " not in args_after_swap
+
     def _complete_gateway_network_selection(self, document: Document) -> bool:
         return "Which" in self.prompt_text and "network do you want to connect to?" in self.prompt_text
 
@@ -249,7 +262,9 @@ class HummingbotCompleter(Completer):
 
     def _complete_gateway_config_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
-        return text_before_cursor.startswith("gateway config ")
+        # Only complete namespaces after "gateway config show " or "gateway config update "
+        return (text_before_cursor.startswith("gateway config show ") or
+                text_before_cursor.startswith("gateway config update "))
 
     def _complete_script_strategy_files(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -408,6 +423,10 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_gateway_connect_arguments(document):
             for c in self._gateway_connect_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_gateway_swap_arguments(document):
+            for c in self._gateway_swap_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_gateway_connector_tokens_arguments(document):

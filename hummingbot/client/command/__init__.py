@@ -5,6 +5,7 @@ from .create_command import CreateCommand
 from .exit_command import ExitCommand
 from .export_command import ExportCommand
 from .gateway_command import GatewayCommand
+from .gateway_swap_command import GatewaySwapCommand
 from .help_command import HelpCommand
 from .history_command import HistoryCommand
 from .import_command import ImportCommand
@@ -25,6 +26,7 @@ __all__ = [
     ExitCommand,
     ExportCommand,
     GatewayCommand,
+    GatewaySwapCommand,
     HelpCommand,
     HistoryCommand,
     ImportCommand,

@@ -925,12 +925,12 @@ class GatewayHttpClient:
         :param pool_data: Pool configuration data
         :return: Response with status
         """
-        data = {
+        params = {
             "connector": connector,
             "network": network,
             **pool_data
         }
-        return await self.api_request("POST", "pools", data=data)
+        return await self.api_request("POST", "pools", params=params)
 
     async def remove_pool(
         self,

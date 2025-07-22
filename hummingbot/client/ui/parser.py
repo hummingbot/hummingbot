@@ -123,6 +123,17 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
     gateway_approve_tokens_parser.add_argument("tokens", nargs="?", default=None, help="Approve these tokens")
     gateway_approve_tokens_parser.set_defaults(func=hummingbot.gateway_approve_tokens)
 
+    gateway_swap_parser = gateway_subparsers.add_parser(
+        "swap",
+        help="Perform token swaps through gateway - shows quote and asks for confirmation")
+    gateway_swap_parser.add_argument("connector", nargs="?", default=None,
+                                     help="Connector name (e.g., uniswap, raydium, jupiter)")
+    gateway_swap_parser.add_argument("args", nargs="*",
+                                     help="Arguments: [base-quote] [side] [amount]. "
+                                          "Interactive mode if not all provided. "
+                                          "Example: gateway swap uniswap ETH-USDC BUY 0.1")
+    gateway_swap_parser.set_defaults(func=hummingbot.gateway_swap)
+
     gateway_cert_parser = gateway_subparsers.add_parser("generate-certs", help="Create ssl certifcate for gateway")
     gateway_cert_parser.set_defaults(func=hummingbot.generate_certs)
 
