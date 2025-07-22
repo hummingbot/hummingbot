@@ -30,7 +30,6 @@ from hummingbot.core.utils.gateway_config_utils import (
     build_connector_tokens_display,
     build_wallet_display,
     flatten,
-    search_configs,
 )
 from hummingbot.core.utils.ssl_cert import create_self_sign_certs
 
@@ -111,15 +110,45 @@ class GatewayCommand(GatewayChainApiManager):
         safe_ensure_future(self._gateway_list(), loop=self.ev_loop)
 
     @ensure_gateway_online
-    def gateway_config(self,
-                       key: Optional[str] = None,
-                       value: str = None):
-        if value:
-            safe_ensure_future(self._update_gateway_configuration(
-                key, value), loop=self.ev_loop)
+    def gateway_config(self, action: str = None, namespace: str = None, args: List[str] = None):
+        """
+        Gateway configuration management.
+        Usage:
+            gateway config show [namespace]
+            gateway config update <namespace> <path> <value>
+        """
+        if args is None:
+            args = []
+
+        if action == "show":
+            # Format: gateway config show [namespace]
+            # namespace can be: server, uniswap, ethereum-mainnet, solana-devnet, etc.
+            safe_ensure_future(self._show_gateway_configuration(namespace=namespace), loop=self.ev_loop)
+        elif action is None:
+            # Show help when no action is provided
+            self.notify("\nUsage:")
+            self.notify("  gateway config show [namespace]")
+            self.notify("  gateway config update <namespace> <path> <value>")
+            self.notify("\nExamples:")
+            self.notify("  gateway config show ethereum-mainnet")
+            self.notify("  gateway config show uniswap")
+            self.notify("  gateway config update ethereum-mainnet gasLimitTransaction 3000000")
+        elif action == "update":
+            if namespace is None:
+                self.notify("Error: namespace is required for config update")
+                return
+
+            # Handle the format: gateway config update <namespace> <path> <value>
+            # where namespace includes network (e.g., ethereum-mainnet, solana-mainnet-beta)
+            if len(args) >= 2:
+                path = args[0]
+                value = args[1]
+                safe_ensure_future(self._update_gateway_configuration(namespace, path, value), loop=self.ev_loop)
         else:
-            safe_ensure_future(
-                self._show_gateway_configuration(key), loop=self.ev_loop)
+            # Show help if unrecognized action
+            self.notify("\nUsage:")
+            self.notify("  gateway config show [namespace]")
+            self.notify("  gateway config update <namespace> <path> <value>")
 
     async def _test_connection(self):
         # test that the gateway is running
@@ -184,9 +213,9 @@ class GatewayCommand(GatewayChainApiManager):
             self.notify(
                 "\nNo connection to Gateway server exists. Ensure Gateway server is running.")
 
-    async def _update_gateway_configuration(self, key: str, value: Any):
+    async def _update_gateway_configuration(self, namespace: str, key: str, value: Any):
         try:
-            response = await self._get_gateway_instance().update_config(key, value)
+            response = await self._get_gateway_instance().update_config(namespace=namespace, path=key, value=value)
             self.notify(response["message"])
         except Exception:
             self.notify(
@@ -194,15 +223,20 @@ class GatewayCommand(GatewayChainApiManager):
 
     async def _show_gateway_configuration(
         self,  # type: HummingbotApplication
-        key: Optional[str] = None,
+        namespace: Optional[str] = None,
     ):
         host = self.client_config_map.gateway.gateway_api_host
         port = self.client_config_map.gateway.gateway_api_port
         try:
-            config_dict: Dict[str, Any] = await self._gateway_monitor._fetch_gateway_configs()
-            if key is not None:
-                config_dict = search_configs(config_dict, key)
-            self.notify(f"\nGateway Configurations ({host}:{port}):")
+            # config_dict: Dict[str, Any] = await self._gateway_monitor._fetch_gateway_configs()
+            config_dict = await self._get_gateway_instance().get_configuration(namespace=namespace)
+            # Format the title
+            title_parts = ["Gateway Configuration"]
+            if namespace:
+                title_parts.append(f"namespace: {namespace}")
+            title = f"\n{' - '.join(title_parts)}:"
+
+            self.notify(title)
             lines = []
             build_config_dict_display(lines, config_dict)
             self.notify("\n".join(lines))

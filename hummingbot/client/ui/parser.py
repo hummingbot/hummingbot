@@ -104,8 +104,9 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
     gateway_allowance_parser.set_defaults(func=hummingbot.gateway_allowance)
 
     gateway_config_parser = gateway_subparsers.add_parser("config", help="View or update gateway configuration")
-    gateway_config_parser.add_argument("key", nargs="?", default=None, help="Name of the parameter you want to view/change")
-    gateway_config_parser.add_argument("value", nargs="?", default=None, help="New value for the parameter")
+    gateway_config_parser.add_argument("action", nargs="?", default=None, help="Action to perform (show/update)")
+    gateway_config_parser.add_argument("namespace", nargs="?", default=None, help="Namespace (e.g., ethereum-mainnet, uniswap)")
+    gateway_config_parser.add_argument("args", nargs="*", default=[], help="Additional arguments for update action")
     gateway_config_parser.set_defaults(func=hummingbot.gateway_config)
 
     gateway_connect_parser = gateway_subparsers.add_parser("connect", help="Create/view connection info for gateway connector")

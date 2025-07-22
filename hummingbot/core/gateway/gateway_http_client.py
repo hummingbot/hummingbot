@@ -236,6 +236,10 @@ class GatewayHttpClient:
 
         return parsed_response
 
+    # ============================================
+    # Gateway Status and Restart Methods
+    # ============================================
+
     async def ping_gateway(self) -> bool:
         try:
             response: Dict[str, Any] = await self.api_request("get", "", fail_silently=True)
@@ -256,10 +260,21 @@ class GatewayHttpClient:
                 app_warning_msg=str(e)
             )
 
-    async def update_config(self, config_path: str, config_value: Any) -> Dict[str, Any]:
+    async def get_network_status(
+            self,
+            chain: str = None,
+            network: str = None,
+            fail_silently: bool = False
+    ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+        req_data: Dict[str, str] = {}
+        req_data["network"] = network
+        return await self.api_request("get", f"chains/{chain}/status", req_data, fail_silently=fail_silently)
+
+    async def update_config(self, namespace: str, path: str, value: Any) -> Dict[str, Any]:
         response = await self.api_request("post", "config/update", {
-            "configPath": config_path,
-            "configValue": config_value,
+            "namespace": namespace,
+            "path": path,
+            "value": value,
         })
         self.logger().info("Detected change to Gateway config - restarting Gateway...", exc_info=False)
         await self.post_restart()
@@ -268,26 +283,77 @@ class GatewayHttpClient:
     async def post_restart(self):
         await self.api_request("post", "restart", fail_silently=False)
 
-    async def get_connectors(self, fail_silently: bool = False) -> Dict[str, Any]:
-        return await self.api_request("get", "connectors", fail_silently=fail_silently)
+    # ============================================
+    # Configuration Methods
+    # ============================================
 
-    async def get_pools(self, connector: str) -> Dict[str, Any]:
-        self.logger().info(f"Getting pools for connector: {connector}")
-        return await self.api_request("get", f"config/pools?connector={connector}")
+    async def get_configuration(self, namespace: str = None, fail_silently: bool = False) -> Dict[str, Any]:
+        params = {"namespace": namespace} if namespace is not None else {}
+        return await self.api_request("get", "config", params=params, fail_silently=fail_silently)
+
+    async def get_connectors(self, fail_silently: bool = False) -> Dict[str, Any]:
+        return await self.api_request("get", "config/connectors", fail_silently=fail_silently)
+
+    async def get_chains(self, fail_silently: bool = False) -> Dict[str, Any]:
+        return await self.api_request("get", "config/chains", fail_silently=fail_silently)
+
+    async def get_namespaces(self, fail_silently: bool = False) -> Dict[str, Any]:
+        return await self.api_request("get", "config/namespaces", fail_silently=fail_silently)
+
+    async def get_native_currency_symbol(self, chain: str, network: str) -> Optional[str]:
+        """
+        Get the native currency symbol for a chain and network from gateway config.
+
+        :param chain: Blockchain chain (e.g., "ethereum", "bsc")
+        :param network: Network name (e.g., "mainnet", "testnet")
+        :return: Native currency symbol (e.g., "ETH", "BNB") or None if not found
+        """
+        try:
+            # Use namespace approach for more reliable config access
+            namespace = f"{chain}-{network}"
+            network_config = await self.get_configuration(namespace)
+            if network_config:
+                return network_config.get("nativeCurrencySymbol")
+        except Exception as e:
+            self.logger().warning(f"Failed to get native currency symbol for {chain}-{network}: {e}")
+        return None
+
+    # ============================================
+    # Wallet Methods
+    # ============================================
 
     async def get_wallets(self, fail_silently: bool = False) -> List[Dict[str, Any]]:
         return await self.api_request("get", "wallet", fail_silently=fail_silently)
 
     async def add_wallet(
-        self, chain: str, network: str, private_key: str, **kwargs
+        self, chain: str, network: str, private_key: str, set_default: bool = True, **kwargs
     ) -> Dict[str, Any]:
-        request = {"chain": chain, "network": network, "privateKey": private_key}
+        request = {"chain": chain, "network": network, "privateKey": private_key, "setDefault": set_default}
         request.update(kwargs)
         return await self.api_request(method="post", path_url="wallet/add", params=request)
 
-    async def get_configuration(self, chain: str = None, fail_silently: bool = False) -> Dict[str, Any]:
-        params = {"chainOrConnector": chain} if chain is not None else {}
-        return await self.api_request("get", "config", params=params, fail_silently=fail_silently)
+    async def add_hardware_wallet(
+        self, chain: str, network: str, private_key: str, set_default: bool = True, **kwargs
+    ) -> Dict[str, Any]:
+        request = {"chain": chain, "network": network, "privateKey": private_key, "setDefault": set_default}
+        request.update(kwargs)
+        return await self.api_request(method="post", path_url="wallet/add-hardware", params=request)
+
+    async def remove_wallet(
+        self, chain: str, address: str
+    ) -> Dict[str, Any]:
+        return await self.api_request(method="delete", path_url="wallet/remove", params={"chain": chain, "address": address})
+
+    async def set_default_wallet(self, chain: str, address: str) -> Dict[str, Any]:
+        return await self.api_request(
+            method="post",
+            path_url="wallet/setDefault",
+            params={"chain": chain, "address": address}
+        )
+
+    # ============================================
+    # Balance and Allowance Methods
+    # ============================================
 
     async def get_balances(
             self,
@@ -313,56 +379,6 @@ class GatewayHttpClient:
         else:
             return {}
 
-    async def get_tokens(
-            self,
-            chain: str,
-            network: str,
-            fail_silently: bool = True
-    ) -> Dict[str, Any]:
-        return await self.api_request("get", f"chains/{chain}/tokens", {
-            "network": network
-        }, fail_silently=fail_silently)
-
-    async def get_network_status(
-            self,
-            chain: str = None,
-            network: str = None,
-            fail_silently: bool = False
-    ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
-        req_data: Dict[str, str] = {}
-        if chain is not None and network is not None:
-            req_data["network"] = network
-            return await self.api_request("get", f"chains/{chain}/status", req_data, fail_silently=fail_silently)
-        return await self.api_request("get", "network/status", req_data, fail_silently=fail_silently)  # Default endpoint when chain is None
-
-    async def approve_token(
-            self,
-            network: str,
-            address: str,
-            token: str,
-            spender: str,
-            nonce: Optional[int] = None,
-            max_fee_per_gas: Optional[int] = None,
-            max_priority_fee_per_gas: Optional[int] = None
-    ) -> Dict[str, Any]:
-        request_payload: Dict[str, Any] = {
-            "network": network,
-            "address": address,
-            "token": token,
-            "spender": spender
-        }
-        if nonce is not None:
-            request_payload["nonce"] = nonce
-        if max_fee_per_gas is not None:
-            request_payload["maxFeePerGas"] = str(max_fee_per_gas)
-        if max_priority_fee_per_gas is not None:
-            request_payload["maxPriorityFeePerGas"] = str(max_priority_fee_per_gas)
-        return await self.api_request(
-            "post",
-            "chains/ethereum/approve",
-            request_payload
-        )
-
     async def get_allowances(
             self,
             chain: str,
@@ -379,6 +395,28 @@ class GatewayHttpClient:
             "spender": spender
         }, fail_silently=fail_silently)
 
+    async def approve_token(
+            self,
+            network: str,
+            address: str,
+            token: str,
+            spender: str,
+            amount: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        request_payload: Dict[str, Any] = {
+            "network": network,
+            "address": address,
+            "token": token,
+            "spender": spender
+        }
+        if amount is not None:
+            request_payload["amount"] = amount
+        return await self.api_request(
+            "post",
+            "chains/ethereum/approve",
+            request_payload
+        )
+
     async def get_transaction_status(
             self,
             chain: str,
@@ -392,45 +430,9 @@ class GatewayHttpClient:
         }
         return await self.api_request("post", f"chains/{chain}/poll", request, fail_silently=fail_silently)
 
-    async def wallet_sign(
-        self,
-        chain: str,
-        network: str,
-        address: str,
-        message: str,
-    ) -> Dict[str, Any]:
-        request = {
-            "chain": chain,
-            "network": network,
-            "address": address,
-            "message": message,
-        }
-        return await self.api_request("get", "wallet/sign", request)
-
-    async def get_evm_nonce(
-            self,
-            chain: str,
-            network: str,
-            address: str,
-            fail_silently: bool = False
-    ) -> Dict[str, Any]:
-        return await self.api_request("post", "chains/ethereum/nextNonce", {
-            "network": network,
-            "address": address
-        }, fail_silently=fail_silently)
-
-    async def cancel_evm_transaction(
-            self,
-            chain: str,
-            network: str,
-            address: str,
-            nonce: int
-    ) -> Dict[str, Any]:
-        return await self.api_request("post", "chains/ethereum/cancel", {
-            "network": network,
-            "address": address,
-            "nonce": nonce
-        })
+    # ============================================
+    # AMM and CLMM Methods
+    # ============================================
 
     async def quote_swap(
             self,
@@ -554,6 +556,10 @@ class GatewayHttpClient:
             "network": network,
             "gasLimit": gas_limit
         })
+
+    # ============================================
+    # AMM and CLMM Methods
+    # ============================================
 
     async def pool_info(
             self,
@@ -780,3 +786,171 @@ class GatewayHttpClient:
             request_payload,
             fail_silently=fail_silently,
         )
+
+    # ============================================
+    # Token Methods
+    # ============================================
+
+    async def get_tokens(
+        self,
+        chain: str,
+        network: str,
+        search: Optional[str] = None
+    ) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
+        """Get available tokens for a specific chain and network."""
+        params = {"chain": chain, "network": network}
+        if search:
+            params["search"] = search
+
+        response = await self.api_request(
+            "GET",
+            "tokens",
+            params=params
+        )
+        return response
+
+    async def get_token(
+        self,
+        symbol_or_address: str,
+        chain: str,
+        network: str
+    ) -> Dict[str, Any]:
+        """Get details for a specific token by symbol or address."""
+        params = {"chain": chain, "network": network}
+        try:
+            response = await self.api_request(
+                "GET",
+                f"tokens/{symbol_or_address}",
+                params=params
+            )
+            return response
+        except Exception as e:
+            # If not found, return error
+            return {"error": f"Token '{symbol_or_address}' not found on {chain}/{network}: {str(e)}"}
+
+    async def add_token(
+        self,
+        chain: str,
+        network: str,
+        token_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Add a new token to the gateway."""
+        return await self.api_request(
+            "POST",
+            "tokens",
+            params={
+                "chain": chain,
+                "network": network,
+                "token": token_data
+            }
+        )
+
+    async def remove_token(
+        self,
+        address: str,
+        chain: str,
+        network: str
+    ) -> Dict[str, Any]:
+        """Remove a token from the gateway."""
+        return await self.api_request(
+            "DELETE",
+            f"tokens/{address}",
+            params={
+                "chain": chain,
+                "network": network
+            }
+        )
+
+    # ============================================
+    # Pool Methods
+    # ============================================
+
+    async def get_pools(
+        self,
+        connector: str,
+        network: Optional[str] = None,
+        pool_type: Optional[str] = None,
+        search: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Get pools from a connector.
+
+        :param connector: Connector name
+        :param network: Optional network name
+        :param pool_type: Optional pool type (amm or clmm)
+        :param search: Optional search term (token symbol or address)
+        :return: List of pools
+        """
+        params = {"connector": connector}
+        if network:
+            params["network"] = network
+        if pool_type:
+            params["type"] = pool_type
+        if search:
+            params["search"] = search
+
+        response = await self.api_request("GET", "pools", params=params)
+        return response if isinstance(response, list) else response.get("pools", [])
+
+    async def get_pool_info(
+        self,
+        connector: str,
+        network: str,
+        pool_address: str
+    ) -> Dict[str, Any]:
+        """
+        Get detailed information about a specific pool.
+
+        :param connector: Connector name
+        :param network: Network name
+        :param pool_address: Pool address
+        :return: Pool information
+        """
+        return await self.connector_request(
+            "GET", connector, "pool-info",
+            params={"network": network, "poolAddress": pool_address}
+        )
+
+    async def add_pool(
+        self,
+        connector: str,
+        network: str,
+        pool_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Add a new pool to tracking.
+
+        :param connector: Connector name
+        :param network: Network name
+        :param pool_data: Pool configuration data
+        :return: Response with status
+        """
+        data = {
+            "connector": connector,
+            "network": network,
+            **pool_data
+        }
+        return await self.api_request("POST", "pools", data=data)
+
+    async def remove_pool(
+        self,
+        address: str,
+        connector: str,
+        network: str,
+        pool_type: str = "amm"
+    ) -> Dict[str, Any]:
+        """
+        Remove a pool from tracking.
+
+        :param address: Pool address to remove
+        :param connector: Connector name
+        :param network: Network name
+        :param pool_type: Pool type (amm or clmm)
+        :return: Response with status
+        """
+        params = {
+            "connector": connector,
+            "network": network,
+            "type": pool_type
+        }
+        return await self.api_request("DELETE", f"pools/{address}", params=params)
