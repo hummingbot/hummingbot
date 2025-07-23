@@ -62,29 +62,31 @@ class GatewayBase(ConnectorBase):
     def __init__(self,
                  client_config_map: "ClientConfigAdapter",
                  connector_name: str,
-                 chain: str,
-                 network: str,
-                 address: str,
+                 chain: Optional[str] = None,
+                 network: Optional[str] = None,
+                 address: Optional[str] = None,
                  trading_pairs: List[str] = [],
                  trading_required: bool = True
                  ):
         """
-        :param connector_name: name of connector on gateway
-        :param chain: refers to a block chain, e.g. solana
-        :param network: refers to a network of a particular blockchain e.g. mainnet or devnet
-        :param address: the address of the sol wallet which has been added on gateway
+        :param connector_name: name of connector on gateway (e.g., 'uniswap/amm', 'jupiter/router')
+        :param chain: refers to a block chain, e.g. solana (auto-detected if not provided)
+        :param network: refers to a network of a particular blockchain e.g. mainnet or devnet (auto-detected if not provided)
+        :param address: the address of the wallet which has been added on gateway (uses default wallet if not provided)
         :param trading_pairs: a list of trading pairs
         :param trading_required: Whether actual trading is needed. Useful for some functionalities or commands like the balance command
         """
         self._connector_name = connector_name
-        self._name = f"{connector_name}_{chain}_{network}"
-        super().__init__(client_config_map)
+        # Temporarily set chain/network/address - will be populated in start_network if not provided
         self._chain = chain
         self._network = network
+        self._wallet_address = address
+        # Use connector name as temporary name until we have chain/network info
+        self._name = connector_name
+        super().__init__(client_config_map)
         self._trading_pairs = trading_pairs
         self._tokens = set()
         [self._tokens.update(set(trading_pair.split("_")[0].split("-"))) for trading_pair in trading_pairs]
-        self._wallet_address = address
         self._trading_required = trading_required
         self._last_poll_timestamp = 0.0
         self._last_balance_poll_timestamp = time.time()
