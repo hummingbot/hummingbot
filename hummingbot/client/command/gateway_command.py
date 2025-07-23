@@ -48,7 +48,7 @@ class GatewayCommand(GatewayChainApiManager):
     def gateway(self):
         """Show gateway help when no subcommand is provided."""
         self.notify("\nGateway Commands:")
-        self.notify("  gateway test-connection [chain]                   - Test gateway connection")
+        self.notify("  gateway ping [chain]                              - Test gateway connectivity and network status")
         self.notify("  gateway list                                      - List available connectors")
         self.notify("  gateway config show [namespace]                   - Show configuration")
         self.notify("  gateway config update <namespace> [path] [value]  - Update configuration")
@@ -73,28 +73,28 @@ class GatewayCommand(GatewayChainApiManager):
         safe_ensure_future(self._get_balances(chain, tokens), loop=self.ev_loop)
 
     @ensure_gateway_online
-    def gateway_allowance(self, connector_chain_network: Optional[str] = None):
+    def gateway_allowance(self, connector: Optional[str] = None):
         """
         Command to check token allowances for Ethereum-based connectors
-        Usage: gateway allowances [exchange_name]
+        Usage: gateway allowance [connector]
         """
-        safe_ensure_future(self._get_allowances(connector_chain_network), loop=self.ev_loop)
+        safe_ensure_future(self._get_allowances(connector), loop=self.ev_loop)
 
     @ensure_gateway_online
-    def gateway_approve_tokens(self, connector_chain_network: Optional[str], tokens: Optional[str]):
-        if connector_chain_network is not None and tokens is not None:
+    def gateway_approve(self, connector: Optional[str], tokens: Optional[str]):
+        if connector is not None and tokens is not None:
             safe_ensure_future(self._update_gateway_approve_tokens(
-                connector_chain_network, tokens), loop=self.ev_loop)
+                connector, tokens), loop=self.ev_loop)
         else:
             self.notify(
-                "\nPlease specify the connector_chain_network and a token to approve.\n")
+                "\nPlease specify the connector and a token to approve.\n")
 
     def generate_certs(self):
         safe_ensure_future(self._generate_certs(), loop=self.ev_loop)
 
     @ensure_gateway_online
-    def test_connection(self):
-        safe_ensure_future(self._test_connection(), loop=self.ev_loop)
+    def gateway_ping(self, chain: str = None):
+        safe_ensure_future(self._gateway_ping(chain), loop=self.ev_loop)
 
     @ensure_gateway_online
     def gateway_list(self):
@@ -145,12 +145,67 @@ class GatewayCommand(GatewayChainApiManager):
             self.notify("  gateway config show [namespace]")
             self.notify("  gateway config update <namespace> <path> <value>")
 
-    async def _test_connection(self):
-        # test that the gateway is running
-        if await self._get_gateway_instance().ping_gateway():
-            self.notify("\nSuccessfully pinged gateway.")
+    async def _gateway_ping(self, chain: str = None):
+        """Test gateway connectivity and network status"""
+        gateway = self._get_gateway_instance()
+
+        # First test basic gateway connectivity
+        if not await gateway.ping_gateway():
+            self.notify("\nUnable to ping gateway - gateway service is offline.")
+            return
+
+        self.notify("\nGateway service is online.")
+
+        # Get available chains if no specific chain is provided
+        if chain is None:
+            try:
+                chains_resp = await gateway.get_chains()
+                if not chains_resp or "chains" not in chains_resp:
+                    self.notify("No chains available on gateway.")
+                    return
+
+                chains_data = chains_resp["chains"]
+                self.notify(f"\nTesting network status for {len(chains_data)} chains...\n")
+
+                # Test each chain with its default network
+                for chain_info in chains_data:
+                    chain_name = chain_info.get("chain")
+                    # Get default network for this chain
+                    default_network = await gateway.get_default_network_for_chain(chain_name)
+                    if default_network:
+                        await self._test_network_status(chain_name, default_network)
+                    else:
+                        self.notify(f"{chain_name}: No default network configured\n")
+            except Exception as e:
+                self.notify(f"Error getting chains: {str(e)}")
         else:
-            self.notify("\nUnable to ping gateway.")
+            # Test specific chain with its default network
+            try:
+                # Get default network for the specified chain
+                default_network = await gateway.get_default_network_for_chain(chain)
+                if default_network:
+                    await self._test_network_status(chain, default_network)
+                else:
+                    self.notify(f"No default network configured for chain: {chain}")
+            except Exception as e:
+                self.notify(f"Error testing chain {chain}: {str(e)}")
+
+    async def _test_network_status(self, chain: str, network: str):
+        """Test network status for a specific chain/network combination"""
+        try:
+            gateway = self._get_gateway_instance()
+            status = await gateway.get_network_status(chain=chain, network=network)
+
+            if status:
+                self.notify(f"{chain} ({network}):")
+                self.notify(f"  - RPC URL: {status.get('rpcUrl', 'N/A')}")
+                self.notify(f"  - Current Block: {status.get('currentBlockNumber', 'N/A')}")
+                self.notify(f"  - Native Currency: {status.get('nativeCurrency', 'N/A')}")
+                self.notify("  - Status: ✓ Connected\n")
+            else:
+                self.notify(f"{chain} ({network}): ✗ Unable to get network status\n")
+        except Exception as e:
+            self.notify(f"{chain} ({network}): ✗ Error - {str(e)}\n")
 
     async def _generate_certs(
             self,       # type: HummingbotApplication

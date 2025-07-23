@@ -3,7 +3,7 @@ import logging
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from hummingbot.client.settings import GATEWAY_CHAINS, GATEWAY_CONNECTORS, GATEWAY_NAMESPACES
+from hummingbot.client.settings import GATEWAY_CHAINS, GATEWAY_CONNECTORS, GATEWAY_ETH_CONNECTORS, GATEWAY_NAMESPACES
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import build_config_namespace_keys
@@ -88,6 +88,7 @@ class GatewayStatusMonitor:
                     if self.gateway_status is GatewayStatus.OFFLINE:
                         # Clear all collections
                         GATEWAY_CONNECTORS.clear()
+                        GATEWAY_ETH_CONNECTORS.clear()
                         GATEWAY_CHAINS.clear()
                         GATEWAY_NAMESPACES.clear()
 
@@ -96,19 +97,22 @@ class GatewayStatusMonitor:
 
                         # Build connector list with trading types appended
                         connector_list = []
+                        eth_connector_list = []
                         for connector in gateway_connectors.get("connectors", []):
                             name = connector["name"]
+                            chain = connector.get("chain", "")
                             trading_types = connector.get("trading_types", [])
 
-                            if trading_types:
-                                # Add each trading type as a separate entry
-                                for trading_type in trading_types:
-                                    connector_list.append(f"{name}/{trading_type}")
-                            else:
-                                # Fallback to just the name if no trading types
-                                connector_list.append(name)
+                            # Add each trading type as a separate entry
+                            for trading_type in trading_types:
+                                connector_full_name = f"{name}/{trading_type}"
+                                connector_list.append(connector_full_name)
+                                # Add to Ethereum connectors if chain is ethereum
+                                if chain.lower() == "ethereum":
+                                    eth_connector_list.append(connector_full_name)
 
                         GATEWAY_CONNECTORS.extend(connector_list)
+                        GATEWAY_ETH_CONNECTORS.extend(eth_connector_list)
 
                         # Get chains using the dedicated endpoint
                         try:

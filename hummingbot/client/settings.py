@@ -385,13 +385,13 @@ class AllConnectorSettings:
 
     @classmethod
     def get_gateway_amm_connector_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.get_connector_settings().values() if cs.type == ConnectorType.GATEWAY_DEX}
+        # Gateway connectors are now stored in GATEWAY_CONNECTORS
+        return set(GATEWAY_CONNECTORS)
 
     @classmethod
     def get_gateway_ethereum_connector_names(cls) -> Set[str]:
-        # This method is now deprecated since gateway connectors are managed by Gateway
-        # Return empty set as ethereum connectors should be queried from Gateway API
-        return set()
+        # Return Ethereum-based gateway connectors
+        return set(GATEWAY_ETH_CONNECTORS)
 
     @classmethod
     def get_example_pairs(cls) -> Dict[str, str]:
@@ -438,5 +438,6 @@ MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT = 100
 
 STRATEGIES: List[str] = get_strategy_list()
 GATEWAY_CONNECTORS: List[str] = []
+GATEWAY_ETH_CONNECTORS: List[str] = []
 GATEWAY_NAMESPACES: List[str] = []
 GATEWAY_CHAINS: List[str] = []
