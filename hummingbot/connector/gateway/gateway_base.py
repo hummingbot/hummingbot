@@ -304,9 +304,19 @@ class GatewayBase(ConnectorBase):
             response: Dict[Any] = await self._get_gateway_instance().estimate_gas(
                 chain=self.chain, network=self.network
             )
-            feePerComputeUnits = response.get("feePerComputeUnits", None)
+            fee_amount = response.get("feePerComputeUnit", None)
             denomination = response.get("denomination", None)
-            self.network_transaction_fee = f'{feePerComputeUnits} {denomination}' if feePerComputeUnits and denomination else None
+
+            if fee_amount is not None and denomination is not None:
+                # Create a TokenAmount object for the network fee
+                self.network_transaction_fee = TokenAmount(
+                    token=denomination,
+                    amount=Decimal(str(fee_amount))
+                )
+            else:
+                self.logger().warning(
+                    f"Incomplete gas estimate response: fee={fee_amount}, denomination={denomination}"
+                )
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -322,7 +332,7 @@ class GatewayBase(ConnectorBase):
         if not all(status.values()):
             # Log which items are not ready
             not_ready = [k for k, v in status.items() if not v]
-            self.logger().info(f"Connector {self.name} not ready. Missing: {not_ready}. Status: {status}")
+            self.logger().debug(f"Connector {self.name} not ready. Missing: {not_ready}. Status: {status}")
         return all(status.values())
 
     @property
@@ -338,7 +348,7 @@ class GatewayBase(ConnectorBase):
         }
 
         # Debug logging
-        self.logger().info(
+        self.logger().debug(
             f"Status check for {self.name}: "
             f"balances={len(self._account_balances)}, "
             f"native_currency={self._native_currency}, "
