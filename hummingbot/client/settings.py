@@ -311,7 +311,7 @@ class AllConnectorSettings:
 
         # add gateway connectors dynamically from Gateway API
         # Gateway connectors are now configured in Gateway, not in Hummingbot
-        # We'll create connector settings on-demand when they're actually used
+        # Gateway connectors will be added by GatewayStatusMonitor when it connects to Gateway
 
         return cls.all_connector_settings
 

@@ -334,9 +334,9 @@ class GatewaySwapCommand:
 
                 # Use the common transaction monitoring helper
                 await GatewayCommandUtils.monitor_transaction_with_timeout(
+                    app=self,
                     connector=swap_connector,
                     order_id=order_id,
-                    notify_fn=self.notify,
                     timeout=60.0,
                     check_interval=1.0,
                     pending_msg_delay=3.0

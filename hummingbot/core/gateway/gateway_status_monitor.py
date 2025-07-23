@@ -1,9 +1,19 @@
 import asyncio
 import logging
+from decimal import Decimal
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from hummingbot.client.settings import GATEWAY_CHAINS, GATEWAY_CONNECTORS, GATEWAY_ETH_CONNECTORS, GATEWAY_NAMESPACES
+from hummingbot.client.settings import (
+    GATEWAY_CHAINS,
+    GATEWAY_CONNECTORS,
+    GATEWAY_ETH_CONNECTORS,
+    GATEWAY_NAMESPACES,
+    AllConnectorSettings,
+    ConnectorSetting,
+    ConnectorType,
+)
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import build_config_namespace_keys
@@ -113,6 +123,28 @@ class GatewayStatusMonitor:
 
                         GATEWAY_CONNECTORS.extend(connector_list)
                         GATEWAY_ETH_CONNECTORS.extend(eth_connector_list)
+
+                        # Update AllConnectorSettings with gateway connectors
+                        all_settings = AllConnectorSettings.get_connector_settings()
+                        for connector_name in connector_list:
+                            if connector_name not in all_settings:
+                                # Create connector setting for gateway connector
+                                all_settings[connector_name] = ConnectorSetting(
+                                    name=connector_name,
+                                    type=ConnectorType.GATEWAY_DEX,
+                                    centralised=False,
+                                    example_pair="ETH-USDC",
+                                    use_ethereum_wallet=False,  # Gateway handles wallet internally
+                                    trade_fee_schema=TradeFeeSchema(
+                                        maker_percent_fee_decimal=Decimal("0.003"),
+                                        taker_percent_fee_decimal=Decimal("0.003"),
+                                    ),
+                                    config_keys=None,
+                                    is_sub_domain=False,
+                                    parent_name=None,
+                                    domain_parameter=None,
+                                    use_eth_gas_lookup=False,
+                                )
 
                         # Get chains using the dedicated endpoint
                         try:

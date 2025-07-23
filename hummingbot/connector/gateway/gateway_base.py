@@ -201,6 +201,32 @@ class GatewayBase(ConnectorBase):
         return f"{side.name.lower()}-{trading_pair}-{get_tracking_nonce()}"
 
     async def start_network(self):
+        # Auto-detect chain and network if not provided
+        if not self._chain or not self._network:
+            from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
+            chain, network, error = await GatewayCommandUtils.get_connector_chain_network(
+                self._get_gateway_instance(), self._connector_name
+            )
+            if error:
+                raise ValueError(f"Failed to get chain/network info: {error}")
+            if not self._chain:
+                self._chain = chain
+            if not self._network:
+                self._network = network
+
+        # Get default wallet if not provided
+        if not self._wallet_address:
+            from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
+            wallet_address, error = await GatewayCommandUtils.get_default_wallet(
+                self._get_gateway_instance(), self._chain
+            )
+            if error:
+                raise ValueError(f"Failed to get default wallet: {error}")
+            self._wallet_address = wallet_address
+
+        # Update the name now that we have chain and network
+        self._name = f"{self._connector_name}_{self._chain}_{self._network}"
+
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._get_gas_estimate_task = safe_ensure_future(self.get_gas_estimate())

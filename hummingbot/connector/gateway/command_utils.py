@@ -3,7 +3,7 @@ Shared utilities for gateway commands.
 """
 import asyncio
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 if TYPE_CHECKING:
     from hummingbot.connector.gateway.gateway_base import GatewayBase
@@ -398,9 +398,9 @@ class GatewayCommandUtils:
 
     @staticmethod
     async def monitor_transaction_with_timeout(
+        app: Any,  # HummingbotApplication
         connector: "GatewayBase",
         order_id: str,
-        notify_fn: Callable[[str], None],
         timeout: float = 60.0,
         check_interval: float = 1.0,
         pending_msg_delay: float = 3.0
@@ -408,9 +408,9 @@ class GatewayCommandUtils:
         """
         Monitor a transaction until completion or timeout.
 
-        :param connector: Gateway connector instance
+        :param app: HummingbotApplication instance (for notify method)
+        :param connector: GatewayBase connector instance
         :param order_id: Order ID to monitor
-        :param notify_fn: Function to call for notifications
         :param timeout: Maximum time to wait in seconds
         :param check_interval: How often to check status in seconds
         :param pending_msg_delay: When to show pending message
@@ -440,13 +440,13 @@ class GatewayCommandUtils:
 
                 # Show appropriate message
                 if order and order.is_filled:
-                    notify_fn("\n✓ Transaction completed successfully!")
+                    app.notify("\n✓ Transaction completed successfully!")
                     if order.exchange_order_id:
-                        notify_fn(f"Transaction hash: {order.exchange_order_id}")
+                        app.notify(f"Transaction hash: {order.exchange_order_id}")
                 elif order and order.is_failure:
-                    notify_fn("\n✗ Transaction failed")
+                    app.notify("\n✗ Transaction failed")
                 elif order and order.is_cancelled:
-                    notify_fn("\n✗ Transaction cancelled")
+                    app.notify("\n✗ Transaction cancelled")
 
                 return result
 
@@ -455,7 +455,7 @@ class GatewayCommandUtils:
 
             # Show pending message after delay
             if elapsed >= pending_msg_delay and not pending_shown:
-                notify_fn("Transaction pending...")
+                app.notify("Transaction pending...")
                 pending_shown = True
 
         # Timeout reached
@@ -467,8 +467,8 @@ class GatewayCommandUtils:
             "elapsed_time": elapsed
         }
 
-        notify_fn("\n⚠️  Transaction may still be pending.")
+        app.notify("\n⚠️  Transaction may still be pending.")
         if order and order.exchange_order_id:
-            notify_fn(f"You can check the transaction manually: {order.exchange_order_id}")
+            app.notify(f"You can check the transaction manually: {order.exchange_order_id}")
 
         return result
