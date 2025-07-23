@@ -81,9 +81,9 @@ class GatewayApproveCommand:
 
                     # Use the common transaction monitoring helper
                     result = await GatewayCommandUtils.monitor_transaction_with_timeout(
+                        app=self,
                         connector=gateway_connector,
                         order_id=order_id,
-                        notify_fn=self.notify,
                         timeout=60.0,
                         check_interval=1.0,
                         pending_msg_delay=3.0
