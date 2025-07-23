@@ -31,7 +31,7 @@ class AmmGatewayDataFeed(NetworkBase):
 
     def __init__(
         self,
-        connector_chain_network: str,
+        connector: str,
         trading_pairs: Set[str],
         order_amount_in_base: Decimal,
         update_interval: float = 1.0,
@@ -42,9 +42,17 @@ class AmmGatewayDataFeed(NetworkBase):
         self._update_interval = update_interval
         self.fetch_data_loop_task: Optional[asyncio.Task] = None
         # param required for DEX API request
-        self.connector_chain_network = connector_chain_network
+        self.connector = connector
         self.trading_pairs = trading_pairs
         self.order_amount_in_base = order_amount_in_base
+
+        # New format: connector/type (e.g., jupiter/router)
+        if "/" not in connector:
+            raise ValueError(f"Invalid connector format: {connector}. Use format like 'jupiter/router' or 'uniswap/amm'")
+        self._connector_name = connector
+        # We'll get chain and network from gateway during price fetching
+        self._chain = None
+        self._network = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -54,19 +62,17 @@ class AmmGatewayDataFeed(NetworkBase):
 
     @property
     def name(self) -> str:
-        return f"AmmDataFeed[{self.connector_chain_network}]"
-
-    @property
-    def connector(self) -> str:
-        return self.connector_chain_network.split("_")[0]
+        return f"AmmDataFeed[{self.connector}]"
 
     @property
     def chain(self) -> str:
-        return self.connector_chain_network.split("_")[1]
+        # Chain is determined from gateway
+        return self._chain or ""
 
     @property
     def network(self) -> str:
-        return self.connector_chain_network.split("_")[2]
+        # Network is determined from gateway
+        return self._network or ""
 
     @property
     def price_dict(self) -> Dict[str, TokenBuySellPrice]:
@@ -123,8 +129,8 @@ class AmmGatewayDataFeed(NetworkBase):
                     base=base,
                     quote=quote,
                     connector=self.connector,
-                    chain=self.chain,
-                    network=self.network,
+                    chain=self._chain or "",
+                    network=self._network or "",
                     order_amount_in_base=self.order_amount_in_base,
                     buy_price=buy_price,
                     sell_price=sell_price,
@@ -134,21 +140,41 @@ class AmmGatewayDataFeed(NetworkBase):
 
     async def _request_token_price(self, trading_pair: str, trade_type: TradeType) -> Optional[Decimal]:
         base, quote = split_hb_trading_pair(trading_pair)
-        connector, chain, network = self.connector_chain_network.split("_")
-        token_price = await self.gateway_client.get_price(
-            chain,
-            network,
-            connector,
-            base,
-            quote,
-            self.order_amount_in_base,
-            trade_type,
-            fail_silently=True,
-        )
 
-        if token_price and "price" in token_price and token_price["price"] is not None:
-            return Decimal(token_price["price"])
-        return None
+        # Use gateway's quote_swap which handles chain/network internally
+        try:
+            from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
+
+            # Get chain and network from connector if not cached
+            if not self._chain or not self._network:
+                chain, network, error = await GatewayCommandUtils.get_connector_chain_network(
+                    self.gateway_client, self.connector
+                )
+                if not error:
+                    self._chain = chain
+                    self._network = network
+                else:
+                    self.logger().warning(f"Failed to get chain/network for {self.connector}: {error}")
+                    return None
+
+            # Use quote_swap which accepts the full connector name
+            response = await self.gateway_client.quote_swap(
+                network=self._network,
+                connector=self.connector,
+                base_asset=base,
+                quote_asset=quote,
+                amount=self.order_amount_in_base,
+                side=trade_type,
+                slippage_pct=None,
+                pool_address=None
+            )
+
+            if response and "price" in response:
+                return Decimal(str(response["price"]))
+            return None
+        except Exception as e:
+            self.logger().warning(f"Failed to get price using quote_swap: {e}")
+            return None
 
     @staticmethod
     async def _async_sleep(delay: float) -> None:
