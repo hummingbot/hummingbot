@@ -318,15 +318,34 @@ class GatewayBase(ConnectorBase):
 
     @property
     def ready(self):
-        return all(self.status_dict.values())
+        status = self.status_dict
+        if not all(status.values()):
+            # Log which items are not ready
+            not_ready = [k for k, v in status.items() if not v]
+            self.logger().info(f"Connector {self.name} not ready. Missing: {not_ready}. Status: {status}")
+        return all(status.values())
 
     @property
     def status_dict(self) -> Dict[str, bool]:
+        has_balance = len(self._account_balances) > 0
+        has_native_currency = self._native_currency is not None
+        has_network_fee = self.network_transaction_fee is not None
+
         status = {
-            "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
-            "native_currency": self._native_currency is not None,
-            "network_transaction_fee": self.network_transaction_fee is not None if self._trading_required else True,
+            "account_balance": has_balance if self._trading_required else True,
+            "native_currency": has_native_currency,
+            "network_transaction_fee": has_network_fee if self._trading_required else True,
         }
+
+        # Debug logging
+        self.logger().info(
+            f"Status check for {self.name}: "
+            f"balances={len(self._account_balances)}, "
+            f"native_currency={self._native_currency}, "
+            f"network_fee={self.network_transaction_fee}, "
+            f"trading_required={self._trading_required}"
+        )
+
         return status
 
     async def check_network(self) -> NetworkStatus:
