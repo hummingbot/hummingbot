@@ -31,13 +31,9 @@ class GatewaySwapCommand:
                                     pair: Optional[str] = None, side: Optional[str] = None, amount: Optional[str] = None):
         """Unified swap flow - get quote first, then ask for confirmation to execute."""
         try:
-            # Check if connector is provided
-            if not connector:
-                self.notify("Usage: gateway swap <connector> [base-quote] [side] [amount]")
-                self.notify("\nExamples:")
-                self.notify("  gateway swap uniswap/amm")
-                self.notify("  gateway swap raydium/amm SOL-USDC SELL 1.5")
-                self.notify("  gateway swap jupiter/router ETH-USDC BUY 0.1")
+            # Parse connector format (e.g., "uniswap/amm")
+            if "/" not in connector:
+                self.notify(f"Error: Invalid connector format '{connector}'. Use format like 'uniswap/amm'")
                 return
 
             # Get chain and network info for the connector
@@ -104,12 +100,13 @@ class GatewaySwapCommand:
                 self.notify("Error: Invalid amount. Please enter a valid number.")
                 return
 
-            # Get default wallet from gateway
-            wallet_address = await self._get_gateway_instance().get_default_wallet_for_chain(chain)
-            if not wallet_address:
-                self.notify(f"Error: No default wallet found for chain '{chain}'. Please add a wallet first.")
+            # Get default wallet for the chain
+            wallet_address, error = await GatewayCommandUtils.get_default_wallet(
+                self._get_gateway_instance(), chain
+            )
+            if error:
+                self.notify(error)
                 return
-
             wallet_display_address = f"{wallet_address[:4]}...{wallet_address[-4:]}" if len(wallet_address) > 8 else wallet_address
 
             self.notify(f"\nGetting swap quote from {connector} on {chain} {network}...")

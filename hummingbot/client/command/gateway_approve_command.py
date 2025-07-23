@@ -44,9 +44,11 @@ class GatewayApproveCommand:
                 return
 
             # Get default wallet for the chain
-            wallet_address = await self._get_gateway_instance().get_default_wallet_for_chain(chain)
-            if not wallet_address:
-                self.notify(f"No default wallet found for {chain}. Please add one with 'gateway wallet add {chain}'")
+            wallet_address, error = await GatewayCommandUtils.get_default_wallet(
+                self._get_gateway_instance(), chain
+            )
+            if error:
+                self.notify(error)
                 return
 
             # Create a temporary GatewayBase instance for approval

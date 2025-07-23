@@ -2,7 +2,6 @@
 Shared utilities for gateway commands.
 """
 import asyncio
-from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 if TYPE_CHECKING:
@@ -61,39 +60,6 @@ class GatewayCommandUtils:
             quote_token = quote_token.upper()
 
         return base_token, quote_token
-
-    @staticmethod
-    def validate_amount(amount: str) -> Tuple[Optional[Decimal], Optional[str]]:
-        """
-        Validate and convert amount string to Decimal.
-
-        :param amount: Amount string
-        :return: Tuple of (amount_decimal, error_message)
-        """
-        try:
-            amount_decimal = Decimal(amount)
-            if amount_decimal <= 0:
-                return None, "Error: Amount must be greater than 0"
-            return amount_decimal, None
-        except Exception:
-            return None, f"Error: Invalid amount '{amount}'"
-
-    @staticmethod
-    def validate_side(side: str) -> Tuple[Optional[str], Optional[str]]:
-        """
-        Validate and normalize trade side.
-
-        :param side: Trade side string
-        :return: Tuple of (normalized_side, error_message)
-        """
-        if not side:
-            return None, "Error: Side is required"
-
-        side_upper = side.upper()
-        if side_upper not in ["BUY", "SELL"]:
-            return None, f"Error: Invalid side '{side}'. Must be BUY or SELL."
-
-        return side_upper, None
 
     @staticmethod
     async def get_default_wallet(
