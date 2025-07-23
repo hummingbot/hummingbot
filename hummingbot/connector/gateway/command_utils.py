@@ -12,82 +12,6 @@ class GatewayCommandUtils:
     """Utility functions for gateway commands."""
 
     @staticmethod
-    async def validate_connector(
-        gateway_client: "GatewayHttpClient",
-        connector: str,
-        required_trading_types: Optional[list] = None
-    ) -> Tuple[Optional[str], Optional[Dict], Optional[str]]:
-        """
-        Validate connector and determine the full connector type.
-
-        :param gateway_client: Gateway client instance
-        :param connector: Connector name (with or without type suffix)
-        :param required_trading_types: List of required trading types (e.g., ["router", "amm", "clmm"])
-        :return: Tuple of (connector_type, connector_info, error_message)
-        """
-        if not connector:
-            return None, None, "Error: connector is a required parameter."
-
-        # Check if connector includes type suffix
-        if "/" in connector:
-            # User specified the type directly (e.g., "uniswap/router")
-            base_connector, specified_type = connector.split("/", 1)
-            connector_type = connector
-
-            # Get connector info using base name
-            connector_info = await gateway_client.get_connector_info(base_connector)
-            if not connector_info:
-                return None, None, f"Error: Connector '{base_connector}' not found."
-
-            # Verify the specified type is supported
-            trading_types = connector_info.get("trading_types", [])
-            if specified_type not in trading_types:
-                error_msg = f"Error: Connector '{base_connector}' does not support type '{specified_type}'.\n"
-                error_msg += f"Supported types: {', '.join(trading_types)}"
-                return None, None, error_msg
-
-            # Check if it supports required trading types
-            if required_trading_types and specified_type not in required_trading_types:
-                error_msg = f"Error: This command requires one of: {', '.join(required_trading_types)}\n"
-                error_msg += f"'{connector}' is type '{specified_type}'"
-                return None, None, error_msg
-        else:
-            # User specified base connector name only
-            connector_info = await gateway_client.get_connector_info(connector)
-            if not connector_info:
-                return None, None, f"Error: Connector '{connector}' not found."
-
-            trading_types = connector_info.get("trading_types", [])
-
-            # Determine connector type based on trading types and requirements
-            connector_type = None
-
-            if required_trading_types:
-                # Use the first matching required type
-                for req_type in required_trading_types:
-                    if req_type in trading_types:
-                        connector_type = f"{connector}/{req_type}"
-                        break
-            else:
-                # Default priority for general use
-                if "router" in trading_types:
-                    connector_type = f"{connector}/router"
-                elif "amm" in trading_types:
-                    connector_type = f"{connector}/amm"
-                elif "clmm" in trading_types:
-                    connector_type = f"{connector}/clmm"
-
-            if not connector_type:
-                if required_trading_types:
-                    error_msg = f"Error: Connector '{connector}' does not support required types: {', '.join(required_trading_types)}\n"
-                else:
-                    error_msg = f"Error: Connector '{connector}' does not support any known operations.\n"
-                error_msg += f"Available trading types: {', '.join(trading_types)}"
-                return None, None, error_msg
-
-        return connector_type, connector_info, None
-
-    @staticmethod
     async def get_network_for_chain(
         gateway_client: "GatewayHttpClient",
         chain: str,
@@ -242,6 +166,56 @@ class GatewayCommandUtils:
             return await gateway_client.get_configuration(namespace=base_connector)
         except Exception:
             return {}
+
+    @staticmethod
+    async def get_connector_chain_network(
+        gateway_client: "GatewayHttpClient",
+        connector: str
+    ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+        """
+        Get chain and default network for a connector.
+
+        :param gateway_client: Gateway client instance
+        :param connector: Connector name in format 'name/type' (e.g., 'uniswap/amm')
+        :return: Tuple of (chain, network, error_message)
+        """
+        # Parse connector format
+        connector_parts = connector.split('/')
+        if len(connector_parts) != 2:
+            return None, None, "Invalid connector format. Use format like 'uniswap/amm' or 'jupiter/router'"
+
+        connector_name = connector_parts[0]
+
+        # Get all connectors to find chain info
+        try:
+            connectors_resp = await gateway_client.get_connectors()
+            if "error" in connectors_resp:
+                return None, None, f"Error getting connectors: {connectors_resp['error']}"
+
+            # Find the connector info
+            connector_info = None
+            for conn in connectors_resp.get("connectors", []):
+                if conn.get("name") == connector_name:
+                    connector_info = conn
+                    break
+
+            if not connector_info:
+                return None, None, f"Connector '{connector_name}' not found"
+
+            # Get chain from connector info
+            chain = connector_info.get("chain")
+            if not chain:
+                return None, None, f"Could not determine chain for connector '{connector_name}'"
+
+            # Get default network for the chain
+            network = await gateway_client.get_default_network_for_chain(chain)
+            if not network:
+                return None, None, f"Could not get default network for chain '{chain}'"
+
+            return chain, network, None
+
+        except Exception as e:
+            return None, None, f"Error getting connector info: {str(e)}"
 
     @staticmethod
     def format_token_display(token: str) -> str:
