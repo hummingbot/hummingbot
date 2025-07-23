@@ -14,12 +14,8 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 class DEXTradeConfig(BaseClientModel):
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
-    connector: str = Field("jupiter", json_schema_extra={
-        "prompt": "Connector name (e.g. jupiter, uniswap)", "prompt_on_new": True})
-    chain: str = Field("solana", json_schema_extra={
-        "prompt": "Chain (e.g. solana, ethereum)", "prompt_on_new": True})
-    network: str = Field("mainnet-beta", json_schema_extra={
-        "prompt": "Network (e.g. mainnet-beta (solana), base (ethereum))", "prompt_on_new": True})
+    connector: str = Field("jupiter/router", json_schema_extra={
+        "prompt": "DEX connector in format 'name/type' (e.g., jupiter/router, uniswap/amm)", "prompt_on_new": True})
     trading_pair: str = Field("SOL-USDC", json_schema_extra={
         "prompt": "Trading pair (e.g. SOL-USDC)", "prompt_on_new": True})
     target_price: Decimal = Field(Decimal("142"), json_schema_extra={
@@ -41,13 +37,13 @@ class DEXTrade(ScriptStrategyBase):
 
     @classmethod
     def init_markets(cls, config: DEXTradeConfig):
-        connector_chain_network = f"{config.connector}_{config.chain}_{config.network}"
-        cls.markets = {connector_chain_network: {config.trading_pair}}
+        # New gateway connector format: name/type (e.g., jupiter/router, uniswap/amm)
+        cls.markets = {config.connector: {config.trading_pair}}
 
     def __init__(self, connectors: Dict[str, ConnectorBase], config: DEXTradeConfig):
         super().__init__(connectors)
         self.config = config
-        self.exchange = f"{config.connector}_{config.chain}_{config.network}"
+        self.exchange = config.connector  # Now in format name/type
         self.base, self.quote = self.config.trading_pair.split("-")
 
         # State tracking
@@ -84,7 +80,6 @@ class DEXTrade(ScriptStrategyBase):
 
         side = "buy" if self.config.is_buy else "sell"
         msg = (f"Getting quote on {self.config.connector} "
-               f"({self.config.chain}/{self.config.network}) "
                f"to {side} {self.config.amount} {self.base} "
                f"for {self.quote}")
 
@@ -159,11 +154,10 @@ class DEXTrade(ScriptStrategyBase):
 
         lines = []
         side = "buy" if self.config.is_buy else "sell"
-        connector_chain_network = f"{self.config.connector}_{self.config.chain}_{self.config.network}"
         condition = "rises above" if self.config.trigger_above else "falls below"
 
         lines.append("=== DEX Trade Monitor ===")
-        lines.append(f"Exchange: {connector_chain_network}")
+        lines.append(f"Exchange: {self.config.connector}")
         lines.append(f"Pair: {self.base}-{self.quote}")
         lines.append(f"Strategy: {side.upper()} {self.config.amount} {self.base} when price {condition} {self.config.target_price}")
         lines.append(f"Check interval: Every {self.config.check_interval} seconds")

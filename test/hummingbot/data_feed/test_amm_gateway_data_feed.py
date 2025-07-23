@@ -14,7 +14,7 @@ class TestAmmGatewayDataFeed(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest)
     def setUpClass(cls):
         super().setUpClass()
         cls.data_feed = AmmGatewayDataFeed(
-            connector_chain_network="connector_chain_network",
+            connector="uniswap/amm",
             trading_pairs={"HBOT-USDT"},
             order_amount_in_base=Decimal("1"),
         )
@@ -46,17 +46,19 @@ class TestAmmGatewayDataFeed(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest)
         self.assertEqual(2, fetch_data_mock.call_count)
         self.assertTrue(
             self.is_logged(log_level=LogLevel.ERROR,
-                           message="Error getting data from AmmDataFeed[connector_chain_network]Check network "
+                           message="Error getting data from AmmDataFeed[uniswap/amm]Check network "
                                    "connection. Error: test exception"))
 
     @patch("hummingbot.data_feed.amm_gateway_data_feed.AmmGatewayDataFeed.gateway_client", new_callable=AsyncMock)
-    async def test_fetch_data_successful(self, gateway_client_mock: AsyncMock):
-        gateway_client_mock.get_price.side_effect = [{"price": "1"}, {"price": "2"}]
+    @patch("hummingbot.connector.gateway.command_utils.GatewayCommandUtils.get_connector_chain_network", new_callable=AsyncMock)
+    async def test_fetch_data_successful(self, get_connector_chain_network_mock: AsyncMock, gateway_client_mock: AsyncMock):
+        get_connector_chain_network_mock.return_value = ("ethereum", "mainnet", None)
+        gateway_client_mock.quote_swap.side_effect = [{"price": "1"}, {"price": "2"}]
         try:
             await self.data_feed._fetch_data()
         except asyncio.CancelledError:
             pass
-        self.assertEqual(2, gateway_client_mock.get_price.call_count)
+        self.assertEqual(2, gateway_client_mock.quote_swap.call_count)
         self.assertEqual(Decimal("1"), self.data_feed.price_dict["HBOT-USDT"].buy_price)
         self.assertEqual(Decimal("2"), self.data_feed.price_dict["HBOT-USDT"].sell_price)
 
@@ -72,9 +74,9 @@ class TestAmmGatewayDataFeed(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest)
             "HBOT-USDT": TokenBuySellPrice(
                 base="HBOT",
                 quote="USDT",
-                connector="connector",
-                chain="chain",
-                network="network",
+                connector="uniswap/amm",
+                chain="",
+                network="",
                 order_amount_in_base=Decimal("1"),
                 buy_price=Decimal("1"),
                 sell_price=Decimal("2"),
@@ -83,30 +85,35 @@ class TestAmmGatewayDataFeed(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest)
         self.assertTrue(self.data_feed.is_ready())
 
     @patch("hummingbot.data_feed.amm_gateway_data_feed.AmmGatewayDataFeed.gateway_client", new_callable=AsyncMock)
-    async def test_register_token_buy_sell_price_exception(self, gateway_client_mock: AsyncMock):
+    @patch("hummingbot.connector.gateway.command_utils.GatewayCommandUtils.get_connector_chain_network", new_callable=AsyncMock)
+    async def test_register_token_buy_sell_price_exception(self, get_connector_chain_network_mock: AsyncMock, gateway_client_mock: AsyncMock):
         # Test lines 132-133: exception handling in _register_token_buy_sell_price
-        gateway_client_mock.get_price.side_effect = Exception("API error")
+        get_connector_chain_network_mock.return_value = ("ethereum", "mainnet", None)
+        gateway_client_mock.quote_swap.side_effect = Exception("API error")
         await self.data_feed._register_token_buy_sell_price("HBOT-USDT")
         self.assertTrue(
             self.is_logged(log_level=LogLevel.WARNING,
-                           message="Failed to get price for HBOT-USDT: API error"))
+                           message="Failed to get price for HBOT-USDT: Failed to get price using quote_swap: API error"))
 
     @patch("hummingbot.data_feed.amm_gateway_data_feed.AmmGatewayDataFeed.gateway_client", new_callable=AsyncMock)
-    async def test_request_token_price_returns_none(self, gateway_client_mock: AsyncMock):
+    @patch("hummingbot.connector.gateway.command_utils.GatewayCommandUtils.get_connector_chain_network", new_callable=AsyncMock)
+    async def test_request_token_price_returns_none(self, get_connector_chain_network_mock: AsyncMock, gateway_client_mock: AsyncMock):
         # Test line 151: _request_token_price returns None when price is not in response
         from hummingbot.core.data_type.common import TradeType
 
+        get_connector_chain_network_mock.return_value = ("ethereum", "mainnet", None)
+
         # Case 1: Empty response
-        gateway_client_mock.get_price.return_value = {}
+        gateway_client_mock.quote_swap.return_value = {}
         result = await self.data_feed._request_token_price("HBOT-USDT", TradeType.BUY)
         self.assertIsNone(result)
 
         # Case 2: Response with null price
-        gateway_client_mock.get_price.return_value = {"price": None}
+        gateway_client_mock.quote_swap.return_value = {"price": None}
         result = await self.data_feed._request_token_price("HBOT-USDT", TradeType.BUY)
         self.assertIsNone(result)
 
         # Case 3: No response (None)
-        gateway_client_mock.get_price.return_value = None
+        gateway_client_mock.quote_swap.return_value = None
         result = await self.data_feed._request_token_price("HBOT-USDT", TradeType.BUY)
         self.assertIsNone(result)
