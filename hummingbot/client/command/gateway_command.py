@@ -82,12 +82,9 @@ class GatewayCommand(GatewayChainApiManager):
 
     @ensure_gateway_online
     def gateway_approve(self, connector: Optional[str], tokens: Optional[str]):
-        if connector is not None and tokens is not None:
-            safe_ensure_future(self._update_gateway_approve_tokens(
-                connector, tokens), loop=self.ev_loop)
-        else:
-            self.notify(
-                "\nPlease specify the connector and a token to approve.\n")
+        # Delegate to GatewayApproveCommand
+        from hummingbot.client.command.gateway_approve_command import GatewayApproveCommand
+        GatewayApproveCommand.gateway_approve(self, connector, tokens)
 
     def generate_certs(self):
         safe_ensure_future(self._generate_certs(), loop=self.ev_loop)
@@ -623,85 +620,6 @@ class GatewayCommand(GatewayChainApiManager):
             connectors_df,
             table_format=self.client_config_map.tables_format).split("\n")]
         self.notify("\n".join(lines))
-
-    async def _update_gateway_approve_tokens(
-            self,           # type: HummingbotApplication
-            connector: str,
-            tokens: str,
-    ):
-        """
-        Allow the user to approve tokens for spending.
-        """
-        from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
-
-        try:
-            # Parse connector format (e.g., "uniswap/amm")
-            if "/" not in connector:
-                self.notify(f"Error: Invalid connector format '{connector}'. Use format like 'uniswap/amm'")
-                return
-
-            # Get chain and network from connector
-            chain, network, error = await GatewayCommandUtils.get_connector_chain_network(
-                self._get_gateway_instance(), connector
-            )
-            if error:
-                self.notify(error)
-                return
-
-            # Get default wallet for the chain
-            wallet_address = await self._get_gateway_instance().get_default_wallet_for_chain(chain)
-            if not wallet_address:
-                self.notify(f"No default wallet found for {chain}. Please add one with 'gateway wallet add {chain}'")
-                return
-
-            # Extract base connector name
-            base_connector = connector.split("/")[0]
-
-            self.logger().info(
-                f"Approving tokens {tokens} for {connector} on {chain}:{network}")
-
-            # Approve tokens
-            resp: Dict[str, Any] = await self._get_gateway_instance().approve_token(
-                network, wallet_address, tokens, base_connector
-            )
-
-            transaction_hash: Optional[str] = resp.get("signature")
-            if not transaction_hash:
-                self.logger().error(f"No transaction hash returned from approval request. Response: {resp}")
-                self.notify("Error: No transaction hash returned from approval request.")
-                return
-
-            displayed_pending: bool = False
-            while True:
-                pollResp: Dict[str, Any] = await self._get_gateway_instance().get_transaction_status(
-                    chain, network, transaction_hash
-                )
-                transaction_status: Optional[str] = pollResp.get("txStatus")
-
-                if transaction_status == 1:
-                    self.logger().info(
-                        f"Token {tokens} is approved for spending for '{connector}' for Wallet: {wallet_address}")
-                    self.notify(
-                        f"Token {tokens} is approved for spending for '{connector}' for Wallet: {wallet_address}")
-                    break
-                elif transaction_status == 2:
-                    if not displayed_pending:
-                        self.logger().info(
-                            f"Token {tokens} approval transaction is pending. Transaction hash: {transaction_hash}")
-                        displayed_pending = True
-                        await asyncio.sleep(2)
-                    continue
-                else:
-                    self.logger().info(
-                        f"Tokens {tokens} is not approved for spending. Please use manual approval.")
-                    self.notify(
-                        f"Tokens {tokens} is not approved for spending. Please use manual approval.")
-                    break
-
-        except Exception as e:
-            self.logger().error(f"Error approving tokens: {e}")
-            self.notify(f"Error approving tokens: {str(e)}")
-            return
 
     def _get_gateway_instance(
         self  # type: HummingbotApplication

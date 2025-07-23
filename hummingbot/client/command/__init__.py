@@ -4,6 +4,7 @@ from .connect_command import ConnectCommand
 from .create_command import CreateCommand
 from .exit_command import ExitCommand
 from .export_command import ExportCommand
+from .gateway_approve_command import GatewayApproveCommand
 from .gateway_command import GatewayCommand
 from .gateway_swap_command import GatewaySwapCommand
 from .help_command import HelpCommand
@@ -25,6 +26,7 @@ __all__ = [
     CreateCommand,
     ExitCommand,
     ExportCommand,
+    GatewayApproveCommand,
     GatewayCommand,
     GatewaySwapCommand,
     HelpCommand,
