@@ -586,3 +586,61 @@ class GatewayBase(ConnectorBase):
 
         if attempts >= max_attempts:
             self.logger().warning(f"Transaction monitoring timed out for order {order_id}, transaction {transaction_hash}")
+
+    async def approve_token(self, token_symbol: str, spender: Optional[str] = None, amount: Optional[Decimal] = None) -> str:
+        """
+        Approve tokens for spending by the connector's spender contract.
+
+        :param token_symbol: The token to approve
+        :param spender: Optional custom spender address (defaults to connector's spender)
+        :param amount: Optional approval amount (defaults to max uint256)
+        :return: The approval transaction hash
+        """
+        try:
+            # Create approval order ID
+            order_id = f"approve-{token_symbol.lower()}-{get_tracking_nonce()}"
+
+            # Extract base connector name if it's in format like "uniswap/amm"
+            base_connector = self._connector_name.split("/")[0] if "/" in self._connector_name else self._connector_name
+
+            # Call gateway to approve token
+            approve_result = await self._get_gateway_instance().approve_token(
+                network=self.network,
+                address=self.address,
+                token=token_symbol,
+                spender=spender or base_connector,
+                amount=str(amount) if amount else None
+            )
+
+            if "signature" not in approve_result:
+                raise Exception(f"No transaction hash returned from approval: {approve_result}")
+
+            transaction_hash = approve_result["signature"]
+
+            # Start tracking the approval order
+            self.start_tracking_order(
+                order_id=order_id,
+                exchange_order_id=transaction_hash,
+                trading_pair=f"{token_symbol}-APPROVAL",
+                trade_type=TradeType.BUY,  # Use BUY as a placeholder for approval
+                price=s_decimal_0,
+                amount=amount or s_decimal_0,
+                gas_price=Decimal(str(approve_result.get("gasPrice", 0))),
+                is_approval=True
+            )
+
+            # Update order with transaction hash
+            self.update_order_from_hash(
+                order_id=order_id,
+                trading_pair=f"{token_symbol}-APPROVAL",
+                transaction_hash=transaction_hash,
+                transaction_result=approve_result
+            )
+
+            self.logger().info(f"Token approval submitted. Order ID: {order_id}, Transaction: {transaction_hash}")
+
+            return order_id
+
+        except Exception as e:
+            self.logger().error(f"Error approving {token_symbol}: {str(e)}", exc_info=True)
+            raise

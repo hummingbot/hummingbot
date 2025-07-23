@@ -332,39 +332,15 @@ class GatewaySwapCommand:
                 if hasattr(self, 'connector_manager') and self.connector_manager:
                     self.connector_manager.connectors[swap_connector.name] = swap_connector
 
-                # Poll for order completion since we don't have access to event listeners without strategy framework
-                import asyncio
-                max_wait = 60  # Maximum 60 seconds
-                check_interval = 1  # Check every 1 second
-                elapsed = 0
-
-                while elapsed < max_wait:
-                    order = swap_connector.get_order(order_id)
-                    if order and order.is_done:
-                        if order.is_filled:
-                            self.notify("\n✓ Swap completed successfully!")
-                            if order.exchange_order_id:
-                                self.notify(f"Transaction hash: {order.exchange_order_id}")
-                        elif order.is_failure:
-                            self.notify("\n✗ Swap failed")
-                        elif order.is_cancelled:
-                            self.notify("\n✗ Swap cancelled")
-                        break
-
-                    await asyncio.sleep(check_interval)
-                    elapsed += check_interval
-
-                    # Show pending message after 3 seconds
-                    if elapsed == 3:
-                        self.notify("Transaction pending...")
-
-                # If still not done after max wait
-                if elapsed >= max_wait:
-                    order = swap_connector.get_order(order_id)
-                    if order and not order.is_done:
-                        self.notify("\n⚠️  Transaction may still be pending.")
-                        if order.exchange_order_id:
-                            self.notify(f"You can check the transaction manually: {order.exchange_order_id}")
+                # Use the common transaction monitoring helper
+                await GatewayCommandUtils.monitor_transaction_with_timeout(
+                    connector=swap_connector,
+                    order_id=order_id,
+                    notify_fn=self.notify,
+                    timeout=60.0,
+                    check_interval=1.0,
+                    pending_msg_delay=3.0
+                )
 
                 # Clean up - remove temporary connector and stop network
                 if hasattr(self, 'connector_manager') and self.connector_manager:

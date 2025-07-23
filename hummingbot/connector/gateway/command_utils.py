@@ -1,10 +1,12 @@
 """
 Shared utilities for gateway commands.
 """
+import asyncio
 from decimal import Decimal
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 
 if TYPE_CHECKING:
+    from hummingbot.connector.gateway.gateway_base import GatewayBase
     from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 
 
@@ -393,3 +395,80 @@ class GatewayCommandUtils:
             return result
         except Exception:
             return {}
+
+    @staticmethod
+    async def monitor_transaction_with_timeout(
+        connector: "GatewayBase",
+        order_id: str,
+        notify_fn: Callable[[str], None],
+        timeout: float = 60.0,
+        check_interval: float = 1.0,
+        pending_msg_delay: float = 3.0
+    ) -> Dict[str, Any]:
+        """
+        Monitor a transaction until completion or timeout.
+
+        :param connector: Gateway connector instance
+        :param order_id: Order ID to monitor
+        :param notify_fn: Function to call for notifications
+        :param timeout: Maximum time to wait in seconds
+        :param check_interval: How often to check status in seconds
+        :param pending_msg_delay: When to show pending message
+        :return: Dictionary with status information
+        """
+        elapsed = 0
+        pending_shown = False
+
+        while elapsed < timeout:
+            order = connector.get_order(order_id)
+
+            if order and order.is_done:
+                # Give a small delay to ensure order state is fully updated
+                await asyncio.sleep(0.5)
+
+                # Re-fetch the order to get the latest state
+                order = connector.get_order(order_id)
+
+                result = {
+                    "completed": True,
+                    "success": order.is_filled if order else False,
+                    "failed": order.is_failure if order else False,
+                    "cancelled": order.is_cancelled if order else False,
+                    "order": order,
+                    "elapsed_time": elapsed
+                }
+
+                # Show appropriate message
+                if order and order.is_filled:
+                    notify_fn("\n✓ Transaction completed successfully!")
+                    if order.exchange_order_id:
+                        notify_fn(f"Transaction hash: {order.exchange_order_id}")
+                elif order and order.is_failure:
+                    notify_fn("\n✗ Transaction failed")
+                elif order and order.is_cancelled:
+                    notify_fn("\n✗ Transaction cancelled")
+
+                return result
+
+            await asyncio.sleep(check_interval)
+            elapsed += check_interval
+
+            # Show pending message after delay
+            if elapsed >= pending_msg_delay and not pending_shown:
+                notify_fn("Transaction pending...")
+                pending_shown = True
+
+        # Timeout reached
+        order = connector.get_order(order_id)
+        result = {
+            "completed": False,
+            "timeout": True,
+            "order": order,
+            "elapsed_time": elapsed
+        }
+
+        notify_fn("\n⚠️  Transaction may still be pending.")
+        if order and order.exchange_order_id:
+            notify_fn(f"You can check the transaction manually: {order.exchange_order_id}")
+
+        return result
