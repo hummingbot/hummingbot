@@ -7,7 +7,8 @@ from typing import Dict
 from pydantic import Field
 
 from hummingbot.client.config.config_data_types import BaseClientModel
-from hummingbot.client.settings import GatewayConnectionSetting
+
+# GatewayConnectionSetting removed - gateway connectors now managed by Gateway
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -94,27 +95,19 @@ class CLMMPositionManager(ScriptStrategyBase):
                 self.gateway_ready = True
                 self.logger().info("Gateway server is online!")
 
-                # Verify wallet connections
-                connector = self.config.connector
+                # Get wallet from Gateway
                 chain = self.config.chain
-                network = self.config.network
-                gateway_connections_conf = GatewayConnectionSetting.load()
 
-                if len(gateway_connections_conf) < 1:
-                    self.logger().error("No wallet connections found. Please connect a wallet using 'gateway connect'.")
+                # Get default wallet for the chain
+                wallet_address = await self.gateway.get_default_wallet_for_chain(chain)
+                if not wallet_address:
+                    self.logger().error(f"No default wallet found for {chain}. Please add one with 'gateway wallet add {chain}'")
                 else:
-                    wallet = [w for w in gateway_connections_conf
-                              if w["chain"] == chain and w["connector"] == connector and w["network"] == network]
+                    self.wallet_address = wallet_address
+                    self.logger().info(f"Found wallet connection: {self.wallet_address}")
 
-                    if not wallet:
-                        self.logger().error(f"No wallet found for {chain}/{connector}/{network}. "
-                                            f"Please connect using 'gateway connect'.")
-                    else:
-                        self.wallet_address = wallet[0]["wallet_address"]
-                        self.logger().info(f"Found wallet connection: {self.wallet_address}")
-
-                        # Get pool info to get token information
-                        await self.fetch_pool_info()
+                    # Get pool info to get token information
+                    await self.fetch_pool_info()
             else:
                 self.gateway_ready = False
                 self.logger().error("Gateway server is offline! Make sure Gateway is running before using this strategy.")
