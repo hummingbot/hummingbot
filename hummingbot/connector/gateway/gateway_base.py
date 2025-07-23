@@ -284,6 +284,9 @@ class GatewayBase(ConnectorBase):
             self._chain_info = await self._get_gateway_instance().get_network_status(
                 chain=self.chain, network=self.network
             )
+            # Set native currency from chain info
+            if self._chain_info and "nativeCurrency" in self._chain_info:
+                self._native_currency = self._chain_info["nativeCurrency"]
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -360,7 +363,9 @@ class GatewayBase(ConnectorBase):
             self._last_balance_poll_timestamp = current_tick
             local_asset_names = set(self._account_balances.keys())
             remote_asset_names = set()
-            token_list = list(self._tokens) + [self._native_currency]
+            token_list = list(self._tokens)
+            if self._native_currency:
+                token_list.append(self._native_currency)
             resp_json: Dict[str, Any] = await self._get_gateway_instance().get_balances(
                 chain=self.chain,
                 network=self.network,
