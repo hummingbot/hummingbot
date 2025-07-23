@@ -7,7 +7,7 @@ from typing import Callable, Dict, List, Optional, Tuple, cast
 import pandas as pd
 
 from hummingbot.client.performance import PerformanceMetrics
-from hummingbot.client.settings import AllConnectorSettings, GatewayConnectionSetting
+from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -160,8 +160,15 @@ class AmmArbStrategy(StrategyPyBase):
     @staticmethod
     @lru_cache(maxsize=10)
     def is_gateway_market_evm_compatible(market_info: MarketTradingPairTuple) -> bool:
-        connector_spec: Dict[str, str] = GatewayConnectionSetting.get_connector_spec_from_market_name(market_info.market.name)
-        return connector_spec["chain"] == "ethereum"
+        # Gateway connectors are now managed by Gateway
+        # Assume all gateway connectors are EVM compatible
+        # This can be enhanced later by querying Gateway API
+        connector_name = market_info.market.name
+        connector_settings = AllConnectorSettings.get_connector_settings().get(connector_name)
+        if connector_settings and connector_settings.uses_gateway_generic_connector():
+            # For now, assume all gateway connectors are EVM compatible
+            return True
+        return False
 
     def tick(self, timestamp: float):
         """
