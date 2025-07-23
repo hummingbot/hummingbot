@@ -101,7 +101,7 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
     gateway_balance_parser.set_defaults(func=hummingbot.gateway_balance)
 
     gateway_allowance_parser = gateway_subparsers.add_parser("allowance", help="Check token allowances for Ethereum-based connectors")
-    gateway_allowance_parser.add_argument("connector_chain_network", nargs="?", default=None, help="Name of Ethereum-based connector you want to check allowances for")
+    gateway_allowance_parser.add_argument("connector", nargs="?", default=None, help="Name of Ethereum-based connector you want to check allowances for")
     gateway_allowance_parser.set_defaults(func=hummingbot.gateway_allowance)
 
     gateway_config_parser = gateway_subparsers.add_parser("config", help="View or update gateway configuration")
@@ -110,19 +110,10 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
     gateway_config_parser.add_argument("args", nargs="*", default=[], help="Additional arguments for update action")
     gateway_config_parser.set_defaults(func=hummingbot.gateway_config)
 
-    # gateway_connect_parser = gateway_subparsers.add_parser("connect", help="Create/view connection info for gateway connector")
-    # gateway_connect_parser.add_argument("connector", nargs="?", default=None, help="Name of connector you want to create a profile for")
-    # gateway_connect_parser.set_defaults(func=hummingbot.gateway_connect)
-
-    # gateway_connector_tokens_parser = gateway_subparsers.add_parser("connector-tokens", help="Report token balances for gateway connectors")
-    # gateway_connector_tokens_parser.add_argument("connector_chain_network", nargs="?", default=None, help="Name of connector_chain_network you want to edit reported tokens for")
-    # gateway_connector_tokens_parser.add_argument("new_tokens", nargs="?", default=None, help="Report balance of these tokens - separate multiple tokens with commas (,)")
-    # gateway_connector_tokens_parser.set_defaults(func=hummingbot.gateway_connector_tokens)
-
-    gateway_approve_tokens_parser = gateway_subparsers.add_parser("approve-tokens", help="Approve tokens for gateway connectors")
-    gateway_approve_tokens_parser.add_argument("connector_chain_network", nargs="?", default=None, help="Name of connector you want to approve tokens for")
-    gateway_approve_tokens_parser.add_argument("tokens", nargs="?", default=None, help="Approve these tokens")
-    gateway_approve_tokens_parser.set_defaults(func=hummingbot.gateway_approve_tokens)
+    gateway_approve_parser = gateway_subparsers.add_parser("approve", help="Approve tokens for gateway connectors")
+    gateway_approve_parser.add_argument("connector", nargs="?", default=None, help="Name of connector you want to approve tokens for")
+    gateway_approve_parser.add_argument("tokens", nargs="?", default=None, help="Approve these tokens")
+    gateway_approve_parser.set_defaults(func=hummingbot.gateway_approve)
 
     gateway_swap_parser = gateway_subparsers.add_parser(
         "swap",
@@ -141,8 +132,9 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
     gateway_list_parser = gateway_subparsers.add_parser("list", help="List gateway connectors and chains and tiers")
     gateway_list_parser.set_defaults(func=hummingbot.gateway_list)
 
-    gateway_test_parser = gateway_subparsers.add_parser("test-connection", help="Ping gateway api server")
-    gateway_test_parser.set_defaults(func=hummingbot.test_connection)
+    gateway_ping_parser = gateway_subparsers.add_parser("ping", help="Test gateway connectivity and network status")
+    gateway_ping_parser.add_argument("chain", nargs="?", default=None, help="Specific chain to test (optional)")
+    gateway_ping_parser.set_defaults(func=hummingbot.gateway_ping)
 
     exit_parser = subparsers.add_parser("exit", help="Exit and cancel all outstanding orders")
     exit_parser.add_argument("-f", "--force", action="store_true", help="Force exit without canceling outstanding orders",

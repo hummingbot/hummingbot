@@ -16,6 +16,7 @@ from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.client.settings import (
     GATEWAY_CHAINS,
     GATEWAY_CONNECTORS,
+    GATEWAY_ETH_CONNECTORS,
     GATEWAY_NAMESPACES,
     SCRIPT_STRATEGIES_PATH,
     SCRIPT_STRATEGY_CONF_DIR_PATH,
@@ -56,12 +57,13 @@ class HummingbotCompleter(Completer):
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)
         self._history_completer = WordCompleter(["--days", "--verbose", "--precision"], ignore_case=True)
-        self._gateway_completer = WordCompleter(["list", "balance", "config", "generate-certs", "test-connection", "allowance", "approve-tokens", "swap"], ignore_case=True)
+        self._gateway_completer = WordCompleter(["list", "balance", "config", "generate-certs", "ping", "allowance", "approve", "swap"], ignore_case=True)
         self._gateway_swap_completer = WordCompleter(GATEWAY_CONNECTORS, ignore_case=True)
         self._gateway_namespace_completer = WordCompleter(GATEWAY_NAMESPACES, ignore_case=True)
         self._gateway_balance_completer = WordCompleter(GATEWAY_CHAINS, ignore_case=True)
-        self._gateway_allowance_completer = self._exchange_ethereum_completer
-        self._gateway_approve_tokens_completer = self._exchange_ethereum_completer
+        self._gateway_ping_completer = WordCompleter(GATEWAY_CHAINS, ignore_case=True)
+        self._gateway_allowance_completer = WordCompleter(GATEWAY_ETH_CONNECTORS, ignore_case=True)
+        self._gateway_approve_completer = WordCompleter(GATEWAY_ETH_CONNECTORS, ignore_case=True)
         self._gateway_config_completer = WordCompleter(GATEWAY_NAMESPACES, ignore_case=True)
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
         self._script_strategy_completer = WordCompleter(file_name_list(str(SCRIPT_STRATEGIES_PATH), "py"))
@@ -242,9 +244,13 @@ class HummingbotCompleter(Completer):
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("gateway allowance ")
 
-    def _complete_gateway_approve_tokens_arguments(self, document: Document) -> bool:
+    def _complete_gateway_approve_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
-        return text_before_cursor.startswith("gateway approve-tokens ")
+        return text_before_cursor.startswith("gateway approve ")
+
+    def _complete_gateway_ping_arguments(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return text_before_cursor.startswith("gateway ping ")
 
     def _complete_gateway_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -423,8 +429,12 @@ class HummingbotCompleter(Completer):
             for c in self._gateway_allowance_completer.get_completions(document, complete_event):
                 yield c
 
-        elif self._complete_gateway_approve_tokens_arguments(document):
-            for c in self._gateway_approve_tokens_completer.get_completions(document, complete_event):
+        elif self._complete_gateway_approve_arguments(document):
+            for c in self._gateway_approve_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_gateway_ping_arguments(document):
+            for c in self._gateway_ping_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_gateway_arguments(document):

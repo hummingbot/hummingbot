@@ -256,8 +256,6 @@ class GatewayBase(ConnectorBase):
             self._chain_info = await self._get_gateway_instance().get_network_status(
                 chain=self.chain, network=self.network
             )
-            if not isinstance(self._chain_info, list):
-                self._native_currency = self._chain_info.get("nativeCurrency", "SOL")
         except asyncio.CancelledError:
             raise
         except Exception as e:
