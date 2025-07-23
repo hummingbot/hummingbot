@@ -10,15 +10,10 @@ import pandas as pd
 
 from hummingbot.client.command.gateway_api_manager import GatewayChainApiManager, begin_placeholder_mode
 from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import (
-    ReadOnlyClientConfigAdapter,
-    get_connector_class,
-    refresh_trade_fees_config,
-)
+from hummingbot.client.config.config_helpers import ReadOnlyClientConfigAdapter, get_connector_class
 from hummingbot.client.config.security import Security
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.client.settings import AllConnectorSettings, GatewayConnectionSetting, gateway_connector_trading_pairs
-from hummingbot.client.ui.completer import load_completer
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.core.gateway import get_gateway_paths
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
@@ -26,9 +21,7 @@ from hummingbot.core.gateway.gateway_status_monitor import GatewayStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.gateway_config_utils import (
     build_config_dict_display,
-    build_connector_display,
     build_connector_tokens_display,
-    build_wallet_display,
     flatten,
 )
 from hummingbot.core.utils.ssl_cert import create_self_sign_certs
@@ -313,167 +306,6 @@ class GatewayCommand(GatewayChainApiManager):
         except Exception:
             remote_host = ':'.join([host, port])
             self.notify(f"\nError: Connection to Gateway {remote_host} failed")
-
-    async def _gateway_connect(
-            self,           # type: HummingbotApplication
-            connector: str = None
-    ):
-        with begin_placeholder_mode(self):
-            gateway_connections_conf: List[Dict[str,
-                                                str]] = GatewayConnectionSetting.load()
-            if connector is None:
-                if len(gateway_connections_conf) < 1:
-                    self.notify("No existing connection.\n")
-                else:
-                    connector_df: pd.DataFrame = build_connector_display(
-                        gateway_connections_conf)
-                    self.notify(connector_df.to_string(index=False))
-            else:
-                # get available networks
-                connector_configs: Dict[str, Any] = await self._get_gateway_instance().get_connectors()
-                connector_config: List[Dict[str, Any]] = [
-                    d for d in connector_configs["connectors"] if d["name"] == connector
-                ]
-                if len(connector_config) < 1:
-                    self.notify(
-                        f"No available blockchain networks available for the connector '{connector}'.")
-                    return
-                # Get chain and networks directly from the connector_config now that they're at the root level
-                chain = connector_config[0]["chain"]
-                networks = connector_config[0]["networks"]
-                trading_types: str = connector_config[0]["trading_types"]
-
-                # networks as options
-                # Set networks in the completer before the prompt
-                self.app.input_field.completer.set_gateway_networks(networks)
-
-                while True:
-                    network = await self.app.prompt(
-                        prompt=f"Which {chain}-based network do you want to connect to? ({', '.join(networks)}) >>> "
-                    )
-                    if self.app.to_stop_config:
-                        self.app.to_stop_config = False
-                        return
-
-                    if network in networks:
-                        break
-                    self.notify(f"{network} network not supported.\n")
-
-                # test you can connect to the uri, otherwise request the url
-                await self._test_node_url_from_gateway_config(chain, network, attempt_connection=False)
-
-                if self.app.to_stop_config:
-                    return
-
-                # get wallets for the selected chain
-                wallets_response: List[Dict[str, Any]] = await self._get_gateway_instance().get_wallets()
-                matching_wallets: List[Dict[str, Any]] = [
-                    w for w in wallets_response if w["chain"] == chain]
-                wallets: List[str]
-                if len(matching_wallets) < 1:
-                    wallets = []
-                else:
-                    wallets = matching_wallets[0]['walletAddresses']
-
-                # if the user has no wallet, ask them to select one
-                if len(wallets) < 1:
-                    wallet_address = await self._prompt_for_wallet_address(
-                        chain=chain, network=network
-                    )
-
-                # the user has a wallet. Ask if they want to use it or create a new one.
-                else:
-                    # print table
-                    while True:
-                        use_existing_wallet: str = await self.app.prompt(
-                            prompt=f"Do you want to connect to {chain}-{network} with one of your existing wallets on "
-                                   f"Gateway? (Yes/No) >>> "
-                        )
-                        if self.app.to_stop_config:
-                            return
-                        if use_existing_wallet in ["Y", "y", "Yes", "yes", "N", "n", "No", "no"]:
-                            break
-                        self.notify(
-                            "Invalid input. Please try again or exit config [CTRL + x].\n")
-
-                    self.app.clear_input()
-                    # they use an existing wallet
-                    if use_existing_wallet is not None and use_existing_wallet in ["Y", "y", "Yes", "yes"]:
-                        native_token: str = await self._get_native_currency_symbol(chain, network)
-                        wallet_table: List[Dict[str, Any]] = []
-                        for w in wallets:
-                            balances: Dict[str, Any] = await self._get_gateway_instance().get_balances(
-                                chain, network, w, [native_token]
-                            )
-                            balance = (
-                                balances['balances'].get(native_token)
-                                or balances['balances']['total'].get(native_token)
-                            )
-                            wallet_table.append(
-                                {"balance": balance, "address": w})
-
-                        wallet_df: pd.DataFrame = build_wallet_display(
-                            native_token, wallet_table)
-                        self.notify(wallet_df.to_string(index=False))
-                        self.app.input_field.completer.set_list_gateway_wallets_parameters(
-                            wallets_response, chain)
-
-                        while True:
-                            wallet_address: str = await self.app.prompt(prompt="Select a gateway wallet >>> ")
-                            if self.app.to_stop_config:
-                                return
-                            if wallet_address in wallets:
-                                self.notify(
-                                    f"You have selected {wallet_address}.")
-                                break
-                            self.notify("Error: Invalid wallet address")
-
-                    # they want to create a new wallet even though they have other ones
-                    else:
-                        while True:
-                            try:
-                                wallet_address = await self._prompt_for_wallet_address(
-                                    chain=chain, network=network
-                                )
-                                break
-                            except Exception:
-                                self.notify(
-                                    "Error adding wallet. Check private key.\n")
-
-                        # display wallet balance
-                        native_token: str = await self._get_native_currency_symbol(chain, network)
-                        balances: Dict[str, Any] = await self._get_gateway_instance().get_balances(
-                            chain, network, wallet_address, [
-                                native_token], connector
-                        )
-                        wallet_table: List[Dict[str, Any]] = [{"balance": balances['balances'].get(
-                            native_token) or balances['balances']['total'].get(native_token), "address": wallet_address}]
-                        wallet_df: pd.DataFrame = build_wallet_display(
-                            native_token, wallet_table)
-                        self.notify(wallet_df.to_string(index=False))
-
-                self.app.clear_input()
-
-                # write wallets to Gateway connectors settings.
-                GatewayConnectionSetting.upsert_connector_spec(
-                    connector_name=connector,
-                    chain=chain,
-                    network=network,
-                    trading_types=trading_types,
-                    wallet_address=wallet_address,
-                )
-                self.notify(
-                    f"The {connector} connector now uses wallet {wallet_address} on {chain}-{network}")
-
-                # update AllConnectorSettings and fee overrides.
-                AllConnectorSettings.create_connector_settings()
-                AllConnectorSettings.initialize_paper_trade_settings(
-                    self.client_config_map.paper_trade.paper_trade_exchanges
-                )
-                await refresh_trade_fees_config(self.client_config_map)
-
-                # Reload completer here to include newly added gateway connectors
-                self.app.input_field.completer = load_completer(self)
 
     async def _prompt_for_wallet_address(
         self,           # type: HummingbotApplication

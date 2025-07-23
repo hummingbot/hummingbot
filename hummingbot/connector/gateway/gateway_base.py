@@ -7,7 +7,6 @@ import time
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union, cast
 
-from hummingbot.client.settings import GatewayConnectionSetting
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
@@ -59,8 +58,6 @@ class GatewayBase(ConnectorBase):
     _order_tracker: ClientOrderTracker
     _native_currency: str
     _amount_quantum_dict: Dict[str, Decimal]
-    _allowances: Dict[str, Decimal]
-    _get_allowances_task: Optional[asyncio.Task]
 
     def __init__(self,
                  client_config_map: "ClientConfigAdapter",
@@ -102,7 +99,6 @@ class GatewayBase(ConnectorBase):
         self._order_tracker: ClientOrderTracker = ClientOrderTracker(connector=self, lost_order_count_limit=10)
         self._amount_quantum_dict = {}
         self._allowances = {}
-        self._get_allowances_task: Optional[asyncio.Task] = None
         safe_ensure_future(self.load_token_data())
 
     @classmethod
@@ -183,6 +179,10 @@ class GatewayBase(ConnectorBase):
     def in_flight_orders(self) -> Dict[str, GatewayInFlightOrder]:
         return self._order_tracker.active_orders
 
+    def get_order(self, client_order_id: str) -> Optional[GatewayInFlightOrder]:
+        """Get a specific order."""
+        return self._order_tracker.fetch_order(client_order_id)
+
     @property
     def tracking_states(self) -> Dict[str, Any]:
         return {
@@ -216,9 +216,6 @@ class GatewayBase(ConnectorBase):
         if self._get_gas_estimate_task is not None:
             self._get_gas_estimate_task.cancel()
             self._get_gas_estimate_task = None
-        if self._get_allowances_task is not None:
-            self._get_allowances_task.cancel()
-            self._get_allowances_task = None
 
     async def _status_polling_loop(self):
         await self.update_balances(on_interval=False)
@@ -278,14 +275,14 @@ class GatewayBase(ConnectorBase):
             response: Dict[Any] = await self._get_gateway_instance().estimate_gas(
                 chain=self.chain, network=self.network
             )
-            self.network_transaction_fee = TokenAmount(
-                response.get("gasPriceToken"), Decimal(response.get("gasCost"))
-            )
+            feePerComputeUnits = response.get("feePerComputeUnits", None)
+            denomination = response.get("denomination", None)
+            self.network_transaction_fee = f'{feePerComputeUnits} {denomination}' if feePerComputeUnits and denomination else None
         except asyncio.CancelledError:
             raise
         except Exception as e:
             self.logger().network(
-                f"Error getting gas price estimates for {self.connector_name} on {self.network}.",
+                f"Error getting gas estimates for {self.connector_name} on {self.network}.",
                 exc_info=True,
                 app_warning_msg=str(e)
             )
@@ -331,14 +328,13 @@ class GatewayBase(ConnectorBase):
         """
         if self._native_currency is None:
             await self.get_chain_info()
-        connector_tokens = GatewayConnectionSetting.get_connector_spec_from_market_name(self._name).get("tokens", "").split(",")
         last_tick = self._last_balance_poll_timestamp
         current_tick = self.current_timestamp
         if not on_interval or (current_tick - last_tick) > self.UPDATE_BALANCE_INTERVAL:
             self._last_balance_poll_timestamp = current_tick
             local_asset_names = set(self._account_balances.keys())
             remote_asset_names = set()
-            token_list = list(self._tokens) + [self._native_currency] + connector_tokens
+            token_list = list(self._tokens) + [self._native_currency]
             resp_json: Dict[str, Any] = await self._get_gateway_instance().get_balances(
                 chain=self.chain,
                 network=self.network,
@@ -468,16 +464,11 @@ class GatewayBase(ConnectorBase):
                 continue
 
             tx_status: int = tx_details["txStatus"]
-
-            # Call chain-specific method to get transaction receipt
-            tx_receipt = self._get_transaction_receipt_from_details(tx_details)
+            fee = tx_details.get("fee", 0)
 
             # Chain-specific check for transaction success
-            if self._is_transaction_successful(tx_status, tx_receipt):
-                # Calculate fee using chain-specific method
-                fee = self._calculate_transaction_fee(tracked_order, tx_receipt)
-
-                self.process_transaction_confirmation_update(tracked_order=tracked_order, fee=fee)
+            if tx_status == 1:
+                self.process_transaction_confirmation_update(tracked_order=tracked_order, fee=Decimal(str(fee or 0)))
 
                 order_update: OrderUpdate = OrderUpdate(
                     client_order_id=tracked_order.client_order_id,
@@ -487,12 +478,12 @@ class GatewayBase(ConnectorBase):
                 )
                 self._order_tracker.process_order_update(order_update)
 
-            # Check if transaction is still pending using chain-specific method
-            elif self._is_transaction_pending(tx_status):
+            # Check if transaction is still pending
+            elif tx_status == 0:
                 pass
 
             # Transaction failed
-            elif self._is_transaction_failed(tx_status, tx_receipt):
+            elif tx_status == -1:
                 self.logger().network(
                     f"Error fetching transaction status for the order {tracked_order.client_order_id}: {tx_details}.",
                     app_warning_msg=f"Failed to fetch transaction status for the order {tracked_order.client_order_id}."
@@ -529,49 +520,71 @@ class GatewayBase(ConnectorBase):
             update_timestamp=self.current_timestamp,
             new_state=OrderState.OPEN,
             misc_updates={
-                "nonce": transaction_result.get("nonce", 0),
-                "gas_price": Decimal(transaction_result.get("gasPrice", 0)),
-                "gas_limit": int(transaction_result.get("gasLimit", 0)),
-                "gas_cost": Decimal(transaction_result.get("fee", 0)),
+                "gas_cost": Decimal(str(transaction_result.get("fee", 0) or 0)),
                 "gas_price_token": self._native_currency,
-                "fee_asset": self._native_currency
             }
         )
         self._order_tracker.process_order_update(order_update)
 
-    def _get_transaction_receipt_from_details(self, tx_details: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        if self.chain == "ethereum":
-            return tx_details.get("txReceipt")
-        elif self.chain == "solana":
-            return tx_details.get("txData")
-        raise NotImplementedError(f"Unsupported chain: {self.chain}")
+        # Start monitoring this specific transaction immediately
+        safe_ensure_future(self._monitor_transaction_status(order_id, transaction_hash))
 
-    def _is_transaction_successful(self, tx_status: int, tx_receipt: Optional[Dict[str, Any]]) -> bool:
-        if self.chain == "ethereum":
-            return tx_status == 1 and tx_receipt is not None and tx_receipt.get("status") == 1
-        elif self.chain == "solana":
-            return tx_status == 1 and tx_receipt is not None
-        raise NotImplementedError(f"Unsupported chain: {self.chain}")
+    async def _monitor_transaction_status(self, order_id: str, transaction_hash: str, check_interval: float = 2.0):
+        """
+        Monitor a specific transaction status until it's confirmed or failed.
+        This is useful for quick transactions that complete before the regular polling interval.
+        """
+        tracked_order = self._order_tracker.fetch_order(order_id)
+        if not tracked_order:
+            self.logger().warning(f"Order {order_id} not found in tracker, cannot monitor transaction status")
+            return
 
-    def _is_transaction_pending(self, tx_status: int) -> bool:
-        if self.chain == "ethereum":
-            return tx_status in [0, 2, 3]
-        elif self.chain == "solana":
-            return tx_status == 0
-        raise NotImplementedError(f"Unsupported chain: {self.chain}")
+        max_attempts = 30  # Maximum 60 seconds of monitoring
+        attempts = 0
 
-    def _is_transaction_failed(self, tx_status: int, tx_receipt: Optional[Dict[str, Any]]) -> bool:
-        if self.chain == "ethereum":
-            return tx_status == -1 or (tx_receipt is not None and tx_receipt.get("status") == 0)
-        elif self.chain == "solana":
-            return tx_status == -1
-        raise NotImplementedError(f"Unsupported chain: {self.chain}")
+        while attempts < max_attempts and tracked_order.current_state not in [OrderState.FILLED, OrderState.FAILED, OrderState.CANCELED]:
+            try:
+                tx_details = await self._get_gateway_instance().get_transaction_status(
+                    self.chain,
+                    self.network,
+                    transaction_hash
+                )
 
-    def _calculate_transaction_fee(self, tracked_order: GatewayInFlightOrder, tx_receipt: Dict[str, Any]) -> Decimal:
-        if self.chain == "ethereum":
-            gas_used: int = tx_receipt["gasUsed"]
-            gas_price: Decimal = tracked_order.gas_price
-            return Decimal(str(gas_used)) * gas_price / Decimal(1e9)
-        elif self.chain == "solana":
-            return Decimal(tx_receipt["meta"]["fee"]) / Decimal(1e9)
-        raise NotImplementedError(f"Unsupported chain: {self.chain}")
+                if "signature" not in tx_details:
+                    self.logger().error(f"No signature field for transaction status of {order_id}: {tx_details}")
+                    break
+
+                tx_status = tx_details.get("txStatus", 0)
+                fee = tx_details.get("fee", 0)
+
+                # Transaction confirmed
+                if tx_status == 1:
+                    self.process_transaction_confirmation_update(tracked_order=tracked_order, fee=Decimal(str(fee or 0)))
+
+                    order_update = OrderUpdate(
+                        client_order_id=order_id,
+                        trading_pair=tracked_order.trading_pair,
+                        update_timestamp=self.current_timestamp,
+                        new_state=OrderState.FILLED,
+                    )
+                    self._order_tracker.process_order_update(order_update)
+
+                    self.logger().info(f"Transaction {transaction_hash} confirmed for order {order_id}")
+                    break
+
+                # Transaction failed
+                elif tx_status == -1:
+                    self.logger().error(f"Transaction {transaction_hash} failed for order {order_id}")
+                    await self._order_tracker.process_order_not_found(order_id)
+                    break
+
+                # Still pending, wait and try again
+                await asyncio.sleep(check_interval)
+                attempts += 1
+
+            except Exception as e:
+                self.logger().error(f"Error monitoring transaction status for {order_id}: {str(e)}", exc_info=True)
+                break
+
+        if attempts >= max_attempts:
+            self.logger().warning(f"Transaction monitoring timed out for order {order_id}, transaction {transaction_hash}")

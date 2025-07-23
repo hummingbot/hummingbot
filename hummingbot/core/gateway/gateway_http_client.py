@@ -539,26 +539,20 @@ class GatewayHttpClient:
 
     async def execute_swap(
         self,
-        network: str,
         connector: str,
-        address: str,
         base_asset: str,
         quote_asset: str,
         side: TradeType,
         amount: Decimal,
         slippage_pct: Optional[Decimal] = None,
         pool_address: Optional[str] = None,
-        # limit_price: Optional[Decimal] = None,
-        nonce: Optional[int] = None,
+        network: Optional[str] = None,
+        wallet_address: Optional[str] = None,
     ) -> Dict[str, Any]:
         if side not in [TradeType.BUY, TradeType.SELL]:
             raise ValueError("Only BUY and SELL prices are supported.")
 
-        connector_type = get_connector_type(connector)
-
         request_payload: Dict[str, Any] = {
-            "network": network,
-            "walletAddress": address,
             "baseToken": base_asset,
             "quoteToken": quote_asset,
             "amount": float(amount),
@@ -566,15 +560,45 @@ class GatewayHttpClient:
         }
         if slippage_pct is not None:
             request_payload["slippagePct"] = float(slippage_pct)
-        # if limit_price is not None:
-        #     request_payload["limitPrice"] = float(limit_price)
-        if nonce is not None:
-            request_payload["nonce"] = int(nonce)
-        if connector_type in (ConnectorType.CLMM, ConnectorType.AMM) and pool_address is not None:
+        if pool_address is not None:
             request_payload["poolAddress"] = pool_address
+        if network is not None:
+            request_payload["network"] = network
+        if wallet_address is not None:
+            request_payload["walletAddress"] = wallet_address
         return await self.api_request(
             "post",
             f"connectors/{connector}/execute-swap",
+            request_payload
+        )
+
+    async def execute_quote(
+        self,
+        connector: str,
+        quote_id: str,
+        network: Optional[str] = None,
+        wallet_address: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Execute a previously obtained quote by its ID.
+
+        :param connector: Connector name (e.g., 'jupiter/router')
+        :param quote_id: ID of the quote to execute
+        :param network: Optional blockchain network to use
+        :param wallet_address: Optional wallet address that will execute the swap
+        :return: Transaction details
+        """
+        request_payload: Dict[str, Any] = {
+            "quoteId": quote_id,
+        }
+        if network is not None:
+            request_payload["network"] = network
+        if wallet_address is not None:
+            request_payload["walletAddress"] = wallet_address
+
+        return await self.api_request(
+            "post",
+            f"connectors/{connector}/execute-quote",
             request_payload
         )
 
@@ -836,7 +860,7 @@ class GatewayHttpClient:
             params["search"] = search
 
         response = await self.api_request(
-            "GET",
+            "get",
             "tokens",
             params=params
         )
@@ -852,7 +876,7 @@ class GatewayHttpClient:
         params = {"chain": chain, "network": network}
         try:
             response = await self.api_request(
-                "GET",
+                "get",
                 f"tokens/{symbol_or_address}",
                 params=params
             )
@@ -869,7 +893,7 @@ class GatewayHttpClient:
     ) -> Dict[str, Any]:
         """Add a new token to the gateway."""
         return await self.api_request(
-            "POST",
+            "post",
             "tokens",
             params={
                 "chain": chain,
@@ -886,7 +910,7 @@ class GatewayHttpClient:
     ) -> Dict[str, Any]:
         """Remove a token from the gateway."""
         return await self.api_request(
-            "DELETE",
+            "delete",
             f"tokens/{address}",
             params={
                 "chain": chain,
@@ -922,7 +946,7 @@ class GatewayHttpClient:
         if search:
             params["search"] = search
 
-        response = await self.api_request("GET", "pools", params=params)
+        response = await self.api_request("get", "pools", params=params)
         return response if isinstance(response, list) else response.get("pools", [])
 
     async def get_pool_info(
@@ -940,7 +964,7 @@ class GatewayHttpClient:
         :return: Pool information
         """
         return await self.connector_request(
-            "GET", connector, "pool-info",
+            "get", connector, "pool-info",
             params={"network": network, "poolAddress": pool_address}
         )
 
@@ -963,7 +987,7 @@ class GatewayHttpClient:
             "network": network,
             **pool_data
         }
-        return await self.api_request("POST", "pools", params=params)
+        return await self.api_request("post", "pools", params=params)
 
     async def remove_pool(
         self,
@@ -986,4 +1010,4 @@ class GatewayHttpClient:
             "network": network,
             "type": pool_type
         }
-        return await self.api_request("DELETE", f"pools/{address}", params=params)
+        return await self.api_request("delete", f"pools/{address}", params=params)
