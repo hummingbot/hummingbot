@@ -222,14 +222,18 @@ class GatewayLp(GatewaySwap):
         lower_price = price * (1 - spread_pct_decimal)
         upper_price = price * (1 + spread_pct_decimal)
 
+        # Get pool address for the trading pair
+        pool_address = await self.get_pool_address(trading_pair)
+        if not pool_address:
+            raise ValueError(f"Could not find pool for {trading_pair}")
+
         # Open position
         try:
             transaction_result = await self._get_gateway_instance().clmm_open_position(
                 connector=self.connector_name,
                 network=self.network,
                 wallet_address=self.address,
-                base_token=base_token,
-                quote_token=quote_token,
+                pool_address=pool_address,
                 lower_price=lower_price,
                 upper_price=upper_price,
                 base_token_amount=base_token_amount,

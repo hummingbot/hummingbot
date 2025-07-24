@@ -38,9 +38,21 @@ class GatewayLPCommand:
             self.notify("  add-liquidity     - Add liquidity to a pool")
             self.notify("  remove-liquidity  - Remove liquidity from a position")
             self.notify("  position-info     - View your liquidity positions")
-            self.notify("  collect-fees      - Collect accumulated fees")
+            self.notify("  collect-fees      - Collect accumulated fees (CLMM only)")
             self.notify("\nExample: gateway lp uniswap/amm add-liquidity")
             return
+
+        # Check if collect-fees is being called on non-CLMM connector
+        if action == "collect-fees":
+            try:
+                connector_type = get_connector_type(connector)
+                if connector_type != ConnectorType.CLMM:
+                    self.notify("\nError: Fee collection is only available for concentrated liquidity (CLMM) connectors")
+                    self.notify("AMM connectors collect fees automatically when removing liquidity")
+                    return
+            except Exception:
+                # If we can't determine connector type, let _collect_fees handle it
+                pass
 
         # Route to appropriate handler
         if action == "add-liquidity":
@@ -60,10 +72,12 @@ class GatewayLPCommand:
     def _display_pool_info(
         self,
         pool_info: Union[AMMPoolInfo, CLMMPoolInfo],
-        is_clmm: bool
+        is_clmm: bool,
+        base_token: str = None,
+        quote_token: str = None
     ):
         """Display pool information in a user-friendly format"""
-        LPCommandUtils.display_pool_info(self, pool_info, is_clmm)
+        LPCommandUtils.display_pool_info(self, pool_info, is_clmm, base_token, quote_token)
 
     def _format_position_id(
         self,
@@ -236,7 +250,7 @@ class GatewayLPCommand:
         try:
             # 1. Validate connector and get chain/network info
             if "/" not in connector:
-                self.notify(f"Error: Invalid connector format '{connector}'")
+                self.notify(f"Error: Invalid connector format '{connector}'. Use format like 'uniswap/amm'")
                 return
 
             chain, network, error = await GatewayCommandUtils.get_connector_chain_network(
@@ -401,7 +415,7 @@ class GatewayLPCommand:
 
                 base_token, quote_token = GatewayCommandUtils.parse_trading_pair(pair)
                 if not base_token or not quote_token:
-                    self.notify("Error: Invalid trading pair format")
+                    self.notify("Error: Invalid trading pair format. Use format like 'SOL-USDC'")
                     return
 
                 trading_pair = f"{base_token}-{quote_token}"
@@ -427,7 +441,7 @@ class GatewayLPCommand:
                     return
 
                 # Display pool information
-                self._display_pool_info(pool_info, is_clmm)
+                self._display_pool_info(pool_info, is_clmm, base_token, quote_token)
 
                 # 8. Get position parameters based on type
                 position_params = {}
@@ -438,65 +452,48 @@ class GatewayLPCommand:
                     # For CLMM, get price range
                     current_price = pool_info.price
 
-                    # Ask for price range method
-                    range_method = await self.app.prompt(
-                        prompt="\nSelect price range method:\n"
-                               "1. Percentage from current price (recommended)\n"
-                               "2. Custom price range\n"
-                               "Enter choice (1 or 2): "
+                    self.notify(f"\nCurrent pool price: {current_price:.6f}")
+                    self.notify("Enter your price range for liquidity provision:")
+
+                    # Get lower price bound
+                    lower_price_str = await self.app.prompt(
+                        prompt="Lower price bound: "
                     )
 
-                    if range_method == "1":
-                        spread_pct = await self.app.prompt(
-                            prompt="Enter range width percentage (e.g., 10 for ±10%): "
-                        )
-                        try:
-                            spread_pct = float(spread_pct)
-                            position_params['spread_pct'] = spread_pct
+                    # Get upper price bound
+                    upper_price_str = await self.app.prompt(
+                        prompt="Upper price bound: "
+                    )
 
-                            # Calculate and show price range
-                            lower_price = current_price * (1 - spread_pct / 100)
-                            upper_price = current_price * (1 + spread_pct / 100)
+                    try:
+                        lower_price = float(lower_price_str)
+                        upper_price = float(upper_price_str)
 
-                            self.notify("\nPrice range:")
-                            self.notify(f"  Lower: {lower_price:.6f}")
-                            self.notify(f"  Current: {current_price:.6f}")
-                            self.notify(f"  Upper: {upper_price:.6f}")
-
-                        except ValueError:
-                            self.notify("Error: Invalid percentage")
+                        if lower_price >= upper_price:
+                            self.notify("Error: Lower price must be less than upper price")
                             return
-                    else:
-                        # Custom price range
-                        lower_price_str = await self.app.prompt(
-                            prompt=f"Enter lower price (current: {current_price:.6f}): "
-                        )
-                        upper_price_str = await self.app.prompt(
-                            prompt=f"Enter upper price (current: {current_price:.6f}): "
-                        )
 
-                        try:
-                            lower_price = float(lower_price_str)
-                            upper_price = float(upper_price_str)
+                        if lower_price > current_price or upper_price < current_price:
+                            self.notify("\nWarning: Current price is outside your range!")
+                            self.notify("You will only earn fees when price is within your range.")
 
-                            if lower_price >= upper_price:
-                                self.notify("Error: Lower price must be less than upper price")
-                                return
+                        # Display selected range
+                        self.notify("\nSelected price range:")
+                        self.notify(f"  Lower: {lower_price:.6f}")
+                        self.notify(f"  Current: {current_price:.6f}")
+                        self.notify(f"  Upper: {upper_price:.6f}")
 
-                            if lower_price > current_price or upper_price < current_price:
-                                self.notify("Warning: Current price is outside your range!")
+                        # Calculate spread percentage for internal use
+                        mid_price = (lower_price + upper_price) / 2
+                        spread_pct = ((upper_price - lower_price) / (2 * mid_price)) * 100
+                        position_params['spread_pct'] = spread_pct
 
-                            # Calculate spread percentage for the connector
-                            mid_price = (lower_price + upper_price) / 2
-                            spread_pct = ((upper_price - lower_price) / (2 * mid_price)) * 100
-                            position_params['spread_pct'] = spread_pct
-
-                        except ValueError:
-                            self.notify("Error: Invalid price values")
-                            return
+                    except ValueError:
+                        self.notify("Error: Invalid price values")
+                        return
 
                 # 9. Get token amounts
-                self.notify("\nEnter token amounts to add (press Enter to skip):")
+                self.notify("Enter token amounts to add (press Enter to skip):")
 
                 base_amount_str = await self.app.prompt(
                     prompt=f"Amount of {base_token} (optional): "
@@ -704,11 +701,11 @@ class GatewayLPCommand:
                     self.notify("\n✓ Liquidity added successfully!")
                     self.notify("Use 'gateway lp position-info' to view your position")
 
-                # Stop the connector
-                await lp_connector.stop_network()
-
             finally:
                 await GatewayCommandUtils.exit_interactive_mode(self)
+                # Always stop the connector
+                if lp_connector:
+                    await lp_connector.stop_network()
 
         except Exception as e:
             self.logger().error(f"Error in add liquidity: {e}", exc_info=True)
@@ -726,7 +723,7 @@ class GatewayLPCommand:
         try:
             # 1. Validate connector and get chain/network info
             if "/" not in connector:
-                self.notify(f"Error: Invalid connector format '{connector}'")
+                self.notify(f"Error: Invalid connector format '{connector}'. Use format like 'uniswap/amm'")
                 return
 
             chain, network, error = await GatewayCommandUtils.get_connector_chain_network(
@@ -765,10 +762,11 @@ class GatewayLPCommand:
             await lp_connector.start_network()
 
             try:
-                # 5. Get trading pair from user
+                # 5. Enter interactive mode for all user inputs
                 await GatewayCommandUtils.enter_interactive_mode(self)
 
                 try:
+                    # Get trading pair from user
                     pair_input = await self.app.prompt(
                         prompt="Enter trading pair (e.g., SOL-USDC): "
                     )
@@ -821,14 +819,6 @@ class GatewayLPCommand:
                             )
 
                         self.notify(position_display)
-
-                finally:
-                    await GatewayCommandUtils.exit_interactive_mode(self)
-
-                # 6. Enter interactive mode again for position selection
-                await GatewayCommandUtils.enter_interactive_mode(self)
-
-                try:
                     # 7. Let user select position
                     selected_position = await LPCommandUtils.prompt_for_position_selection(
                         self, positions, prompt_text=f"\nSelect position number (1-{len(positions)}): "
@@ -842,18 +832,14 @@ class GatewayLPCommand:
 
                     # 8. Get removal percentage
                     percentage = await GatewayCommandUtils.prompt_for_percentage(
-                        self, prompt_text="\nPercentage to remove (0-100, default 100): "
+                        self, prompt_text="Percentage to remove (0-100, default 100): "
                     )
 
                     if percentage is None:
                         return
 
-                    # 9. For 100% removal, ask about closing position
-                    close_position = False
-                    if percentage == 100.0 and is_clmm:
-                        close_position = await GatewayCommandUtils.prompt_for_confirmation(
-                            self, "\nCompletely close this position?"
-                        )
+                    # 9. For 100% removal on CLMM, always close position
+                    close_position = percentage == 100.0 and is_clmm
 
                     # 10. Calculate and display removal impact
                     base_to_receive, quote_to_receive = LPCommandUtils.display_position_removal_impact(
@@ -987,7 +973,7 @@ class GatewayLPCommand:
         try:
             # 1. Validate connector and get chain/network info
             if "/" not in connector:
-                self.notify(f"Error: Invalid connector format '{connector}'")
+                self.notify(f"Error: Invalid connector format '{connector}'. Use format like 'uniswap/amm'")
                 return
 
             chain, network, error = await GatewayCommandUtils.get_connector_chain_network(
@@ -1028,33 +1014,58 @@ class GatewayLPCommand:
             await lp_connector.start_network()
 
             try:
-                # 5. Get positions with fees
-                self.notify("\nFetching positions with uncollected fees...")
-                all_positions = await lp_connector.get_user_positions()
-
-                # Filter positions with fees > 0
-                positions_with_fees = [
-                    pos for pos in all_positions
-                    if hasattr(pos, 'base_fee_amount') and
-                    (pos.base_fee_amount > 0 or pos.quote_fee_amount > 0)
-                ]
-
-                if not positions_with_fees:
-                    self.notify("\nNo uncollected fees found in your positions")
-                    return
-
-                # 5. Display positions with fees
-                self._display_positions_with_fees(positions_with_fees)
-
-                # 6. Calculate and display total fees
-                GatewayCommandUtils.calculate_and_display_fees(
-                    self, positions_with_fees
-                )
-
-                # 7. Enter interactive mode
+                # 5. Enter interactive mode to get trading pair
                 await GatewayCommandUtils.enter_interactive_mode(self)
 
                 try:
+                    pair_input = await self.app.prompt(
+                        prompt="Enter trading pair (e.g., SOL-USDC): "
+                    )
+
+                    if self.app.to_stop_config:
+                        return
+
+                    if not pair_input.strip():
+                        self.notify("Error: Trading pair is required")
+                        return
+
+                    trading_pair = pair_input.strip().upper()
+
+                    # Validate trading pair format
+                    if "-" not in trading_pair:
+                        self.notify("Error: Invalid trading pair format. Use format like 'SOL-USDC'")
+                        return
+
+                    self.notify(f"\nFetching positions for {trading_pair}...")
+
+                    # Get pool address for the trading pair
+                    pool_address = await lp_connector.get_pool_address(trading_pair)
+                    if not pool_address:
+                        self.notify(f"No pool found for {trading_pair}")
+                        return
+
+                    # Get positions for this pool
+                    all_positions = await lp_connector.get_user_positions(pool_address=pool_address)
+
+                    # Filter positions with fees > 0
+                    positions_with_fees = [
+                        pos for pos in all_positions
+                        if hasattr(pos, 'base_fee_amount') and
+                        (pos.base_fee_amount > 0 or pos.quote_fee_amount > 0)
+                    ]
+
+                    if not positions_with_fees:
+                        self.notify(f"\nNo uncollected fees found in your {trading_pair} positions")
+                        return
+
+                    # 5. Display positions with fees
+                    self._display_positions_with_fees(positions_with_fees)
+
+                    # 6. Calculate and display total fees
+                    GatewayCommandUtils.calculate_and_display_fees(
+                        self, positions_with_fees
+                    )
+
                     # 8. Select position to collect fees from
                     selected_position = await LPCommandUtils.prompt_for_position_selection(
                         self, positions_with_fees,

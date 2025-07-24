@@ -203,7 +203,9 @@ class LPCommandUtils:
     def display_pool_info(
         app: Any,  # HummingbotApplication
         pool_info: Union["AMMPoolInfo", "CLMMPoolInfo"],
-        is_clmm: bool
+        is_clmm: bool,
+        base_token: str = None,
+        quote_token: str = None
     ):
         """Display pool information in a user-friendly format"""
         app.notify("\n=== Pool Information ===")
@@ -216,13 +218,16 @@ class LPCommandUtils:
             app.notify(f"Bin Step: {pool_info.bin_step}")
 
         app.notify("\nPool Reserves:")
-        app.notify(f"  Base: {pool_info.base_token_amount:.6f}")
-        app.notify(f"  Quote: {pool_info.quote_token_amount:.6f}")
+        # Use actual token symbols if provided, otherwise fallback to Base/Quote
+        base_label = base_token if base_token else "Base"
+        quote_label = quote_token if quote_token else "Quote"
+        app.notify(f"  {base_label}: {pool_info.base_token_amount:.6f}")
+        app.notify(f"  {quote_label}: {pool_info.quote_token_amount:.6f}")
 
         # Calculate TVL if prices available
         tvl_estimate = (pool_info.base_token_amount * pool_info.price +
                         pool_info.quote_token_amount)
-        app.notify(f"  TVL (in quote): ~{tvl_estimate:.2f}")
+        app.notify(f"  TVL (in {quote_label}): ~{tvl_estimate:.2f}")
 
     @staticmethod
     def format_position_id(
