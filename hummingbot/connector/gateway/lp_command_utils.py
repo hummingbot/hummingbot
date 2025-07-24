@@ -225,47 +225,6 @@ class LPCommandUtils:
         app.notify(f"  TVL (in quote): ~{tvl_estimate:.2f}")
 
     @staticmethod
-    def display_positions_table(
-        app: Any,  # HummingbotApplication
-        positions: List[Union["AMMPositionInfo", "CLMMPositionInfo"]],
-        is_clmm: bool
-    ):
-        """Display user positions in a formatted table"""
-        if is_clmm:
-            # CLMM positions table
-            rows = []
-            for i, pos in enumerate(positions):
-                rows.append({
-                    "No": i + 1,
-                    "ID": LPCommandUtils.format_position_id(pos),
-                    "Pair": f"{pos.base_token}-{pos.quote_token}",
-                    "Range": f"{pos.lower_price:.2f}-{pos.upper_price:.2f}",
-                    "Value": f"{pos.base_token_amount:.4f} / {pos.quote_token_amount:.4f}",
-                    "Fees": f"{pos.base_fee_amount:.4f} / {pos.quote_fee_amount:.4f}"
-                })
-
-            df = pd.DataFrame(rows)
-            app.notify("\nYour Concentrated Liquidity Positions:")
-        else:
-            # AMM positions table
-            rows = []
-            for i, pos in enumerate(positions):
-                rows.append({
-                    "No": i + 1,
-                    "Pool": LPCommandUtils.format_position_id(pos),
-                    "Pair": f"{pos.base_token}-{pos.quote_token}",
-                    "LP Tokens": f"{pos.lp_token_amount:.6f}",
-                    "Value": f"{pos.base_token_amount:.4f} / {pos.quote_token_amount:.4f}",
-                    "Price": f"{pos.price:.6f}"
-                })
-
-            df = pd.DataFrame(rows)
-            app.notify("\nYour Liquidity Positions:")
-
-        lines = ["    " + line for line in df.to_string(index=False).split("\n")]
-        app.notify("\n".join(lines))
-
-    @staticmethod
     def format_position_id(
         position: Union["AMMPositionInfo", "CLMMPositionInfo"]
     ) -> str:
@@ -291,59 +250,86 @@ class LPCommandUtils:
         return base_amount, quote_amount
 
     @staticmethod
-    def display_positions_summary(
-        app: Any,  # HummingbotApplication
-        positions: List[Union["AMMPositionInfo", "CLMMPositionInfo"]],
-        is_clmm: bool
-    ):
-        """Display summary of all positions"""
-        total_value_base = 0
-        total_value_quote = 0
-        total_fees_base = 0
-        total_fees_quote = 0
+    def format_amm_position_display(
+        position: Any,  # AMMPositionInfo
+        base_token: str = None,
+        quote_token: str = None
+    ) -> str:
+        """
+        Format AMM position for display.
 
-        # Calculate totals
-        for pos in positions:
-            total_value_base += pos.base_token_amount
-            total_value_quote += pos.quote_token_amount
+        :param position: AMM position info object
+        :param base_token: Base token symbol override
+        :param quote_token: Quote token symbol override
+        :return: Formatted position string
+        """
+        # Use provided tokens or fall back to position data
+        base = base_token or getattr(position, 'base_token', 'Unknown')
+        quote = quote_token or getattr(position, 'quote_token', 'Unknown')
 
-            if hasattr(pos, 'base_fee_amount'):
-                total_fees_base += pos.base_fee_amount
-                total_fees_quote += pos.quote_fee_amount
+        lines = []
+        lines.append("\n=== AMM Position ===")
+        lines.append(f"Pool: {GatewayCommandUtils.format_address_display(position.pool_address)}")
+        lines.append(f"Pair: {base}-{quote}")
+        lines.append(f"Price: {position.price:.6f} {quote}/{base}")
+        lines.append("\nHoldings:")
+        lines.append(f"  {base}: {position.base_token_amount:.6f}")
+        lines.append(f"  {quote}: {position.quote_token_amount:.6f}")
+        lines.append(f"\nLP Tokens: {position.lp_token_amount:.6f}")
 
-        app.notify(f"\nTotal Positions: {len(positions)}")
-        app.notify("Total Value Locked:")
+        return "\n".join(lines)
 
-        # Group by token pair
-        positions_by_pair = {}
-        for pos in positions:
-            pair = f"{pos.base_token}-{pos.quote_token}"
-            if pair not in positions_by_pair:
-                positions_by_pair[pair] = []
-            positions_by_pair[pair].append(pos)
+    @staticmethod
+    def format_clmm_position_display(
+        position: Any,  # CLMMPositionInfo
+        base_token: str = None,
+        quote_token: str = None
+    ) -> str:
+        """
+        Format CLMM position for display.
 
-        for pair, pair_positions in positions_by_pair.items():
-            base_token, quote_token = pair.split("-")
-            pair_base_total = sum(p.base_token_amount for p in pair_positions)
-            pair_quote_total = sum(p.quote_token_amount for p in pair_positions)
+        :param position: CLMM position info object
+        :param base_token: Base token symbol override
+        :param quote_token: Quote token symbol override
+        :return: Formatted position string
+        """
+        # Use provided tokens or fall back to position data
+        base = base_token or getattr(position, 'base_token', 'Unknown')
+        quote = quote_token or getattr(position, 'quote_token', 'Unknown')
 
-            app.notify(f"  {pair}: {pair_base_total:.6f} {base_token} / "
-                       f"{pair_quote_total:.6f} {quote_token}")
+        lines = []
+        lines.append("\n=== CLMM Position ===")
+        lines.append(f"Position: {GatewayCommandUtils.format_address_display(position.address)}")
+        lines.append(f"Pool: {GatewayCommandUtils.format_address_display(position.pool_address)}")
+        lines.append(f"Pair: {base}-{quote}")
+        lines.append(f"Current Price: {position.price:.6f} {quote}/{base}")
 
-        if total_fees_base > 0 or total_fees_quote > 0:
-            app.notify("\nTotal Uncollected Fees:")
-            for pair, pair_positions in positions_by_pair.items():
-                if any(hasattr(p, 'base_fee_amount') for p in pair_positions):
-                    base_token, quote_token = pair.split("-")
-                    pair_fees_base = sum(getattr(p, 'base_fee_amount', 0) for p in pair_positions)
-                    pair_fees_quote = sum(getattr(p, 'quote_fee_amount', 0) for p in pair_positions)
+        # Price range
+        lines.append("\nPrice Range:")
+        lines.append(f"  Lower: {position.lower_price:.6f}")
+        lines.append(f"  Upper: {position.upper_price:.6f}")
 
-                    if pair_fees_base > 0 or pair_fees_quote > 0:
-                        app.notify(f"  {pair}: {pair_fees_base:.6f} {base_token} / "
-                                   f"{pair_fees_quote:.6f} {quote_token}")
+        # Range status
+        if position.lower_price <= position.price <= position.upper_price:
+            lines.append("  Status: ✓ In Range")
+        else:
+            if position.price < position.lower_price:
+                lines.append("  Status: ⚠️  Below Range")
+            else:
+                lines.append("  Status: ⚠️  Above Range")
 
-        # Display positions table
-        LPCommandUtils.display_positions_table(app, positions, is_clmm)
+        # Holdings
+        lines.append("\nHoldings:")
+        lines.append(f"  {base}: {position.base_token_amount:.6f}")
+        lines.append(f"  {quote}: {position.quote_token_amount:.6f}")
+
+        # Fees if present
+        if position.base_fee_amount > 0 or position.quote_fee_amount > 0:
+            lines.append("\nUncollected Fees:")
+            lines.append(f"  {base}: {position.base_fee_amount:.6f}")
+            lines.append(f"  {quote}: {position.quote_fee_amount:.6f}")
+
+        return "\n".join(lines)
 
     @staticmethod
     def display_positions_with_fees(
