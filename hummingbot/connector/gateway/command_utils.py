@@ -177,12 +177,20 @@ class GatewayCommandUtils:
         while elapsed < timeout:
             order = connector.get_order(order_id)
 
-            if order and order.is_done:
-                # Give a small delay to ensure order state is fully updated
-                await asyncio.sleep(0.5)
+            # Check if we have a transaction hash - this indicates the transaction was submitted
+            has_tx_hash = order and order.exchange_order_id
+
+            if has_tx_hash or (order and order.is_done):
+                # Give a longer delay to ensure order state is fully updated
+                await asyncio.sleep(2.0)
 
                 # Re-fetch the order to get the latest state
                 order = connector.get_order(order_id)
+
+                # If we have a transaction hash but order isn't done yet, wait a bit more
+                if has_tx_hash and not order.is_done:
+                    await asyncio.sleep(2.0)
+                    order = connector.get_order(order_id)
 
                 result = {
                     "completed": True,
@@ -202,6 +210,10 @@ class GatewayCommandUtils:
                     app.notify("\n✗ Transaction failed")
                 elif order and order.is_cancelled:
                     app.notify("\n✗ Transaction cancelled")
+                else:
+                    # Log the actual order state for debugging
+                    state = order.current_state if order else "No order"
+                    app.notify(f"\n⚠ Transaction completed with state: {state}")
 
                 return result
 
