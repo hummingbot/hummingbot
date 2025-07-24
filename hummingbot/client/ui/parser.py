@@ -136,6 +136,11 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
     gateway_ping_parser.add_argument("chain", nargs="?", default=None, help="Specific chain to test (optional)")
     gateway_ping_parser.set_defaults(func=hummingbot.gateway_ping)
 
+    gateway_lp_parser = gateway_subparsers.add_parser("lp", help="Manage liquidity positions on DEX protocols")
+    gateway_lp_parser.add_argument("connector", nargs="?", type=str, help="Gateway connector name (e.g., 'uniswap/amm', 'raydium/clmm')")
+    gateway_lp_parser.add_argument("action", nargs="?", type=str, choices=["add-liquidity", "remove-liquidity", "position-info", "collect-fees"], help="LP action to perform")
+    gateway_lp_parser.set_defaults(func=hummingbot.gateway_lp)
+
     exit_parser = subparsers.add_parser("exit", help="Exit and cancel all outstanding orders")
     exit_parser.add_argument("-f", "--force", action="store_true", help="Force exit without canceling outstanding orders",
                              default=False)

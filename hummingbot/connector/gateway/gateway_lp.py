@@ -1,6 +1,6 @@
 import asyncio
 from decimal import Decimal
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -48,6 +48,8 @@ class AMMPositionInfo(BaseModel):
     base_token_amount: float = Field(alias="baseTokenAmount")
     quote_token_amount: float = Field(alias="quoteTokenAmount")
     price: float
+    base_token: Optional[str] = None
+    quote_token: Optional[str] = None
 
 
 class CLMMPositionInfo(BaseModel):
@@ -64,6 +66,8 @@ class CLMMPositionInfo(BaseModel):
     lower_price: float = Field(alias="lowerPrice")
     upper_price: float = Field(alias="upperPrice")
     price: float
+    base_token: Optional[str] = None
+    quote_token: Optional[str] = None
 
 
 class GatewayLp(GatewaySwap):
@@ -582,3 +586,57 @@ class GatewayLp(GatewaySwap):
                 app_warning_msg=str(e)
             )
             return None
+
+    async def get_user_positions(self) -> List[Union[AMMPositionInfo, CLMMPositionInfo]]:
+        """
+        Fetch all user positions for this connector and wallet.
+
+        :return: List of position information objects
+        """
+        positions = []
+
+        try:
+            # Call gateway endpoint to list user positions
+            response = await self._get_gateway_instance().get_user_positions(
+                connector=self.connector_name,
+                network=self.network,
+                wallet_address=self.address
+            )
+
+            connector_type = get_connector_type(self.connector_name)
+
+            # Parse position data based on connector type
+            for pos_data in response.get("positions", []):
+                try:
+                    if connector_type == ConnectorType.CLMM:
+                        position = CLMMPositionInfo(**pos_data)
+
+                        # Add token symbols if not present
+                        if not hasattr(position, 'base_token') or not position.base_token:
+                            # Get token info from addresses if needed
+                            base_info = self.get_token_info(position.base_token_address)
+                            quote_info = self.get_token_info(position.quote_token_address)
+                            position.base_token = base_info.get('symbol', 'Unknown') if base_info else 'Unknown'
+                            position.quote_token = quote_info.get('symbol', 'Unknown') if quote_info else 'Unknown'
+
+                        positions.append(position)
+                    else:
+                        position = AMMPositionInfo(**pos_data)
+
+                        # Add token symbols if not present
+                        if not hasattr(position, 'base_token') or not position.base_token:
+                            base_info = self.get_token_info(position.base_token_address)
+                            quote_info = self.get_token_info(position.quote_token_address)
+                            position.base_token = base_info.get('symbol', 'Unknown') if base_info else 'Unknown'
+                            position.quote_token = quote_info.get('symbol', 'Unknown') if quote_info else 'Unknown'
+
+                        positions.append(position)
+
+                except Exception as e:
+                    self.logger().error(f"Error parsing position data: {e}", exc_info=True)
+                    continue
+
+        except Exception as e:
+            self.logger().error(f"Error fetching positions: {e}", exc_info=True)
+
+        return positions
