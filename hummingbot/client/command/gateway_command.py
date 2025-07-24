@@ -61,6 +61,7 @@ class GatewayCommand(GatewayChainApiManager):
         # self.notify("  gateway wrap <amount>                             - Wrap native tokens")
         # self.notify("  gateway unwrap <amount>                           - Unwrap wrapped tokens")
         self.notify("  gateway swap <connector> [pair] [side] [amount]   - Swap tokens (shows quote first)")
+        self.notify("  gateway lp <connector> <action>                   - Manage liquidity positions")
         self.notify("  gateway generate-certs                            - Generate SSL certificates")
         self.notify("\nUse 'gateway <command> --help' for more information about a command.")
 

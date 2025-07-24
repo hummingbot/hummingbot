@@ -490,3 +490,111 @@ class GatewayCommandUtils:
         app.notify(f"  Price per {unit_name}: {fee_per_unit:.4f} {denomination}")
         app.notify(f"  Estimated {unit_name}: {estimated_units:,}")
         app.notify(f"  Total Fee: ~{fee_in_native:.6f} {native_token}")
+
+    @staticmethod
+    def format_pool_info_display(
+        pool_info: Any,  # Union[AMMPoolInfo, CLMMPoolInfo]
+        base_symbol: str,
+        quote_symbol: str
+    ) -> List[Dict[str, str]]:
+        """
+        Format pool information for display.
+
+        :param pool_info: Pool information object
+        :param base_symbol: Base token symbol
+        :param quote_symbol: Quote token symbol
+        :return: List of formatted rows
+        """
+        rows = []
+
+        rows.append({
+            "Property": "Pool Address",
+            "Value": GatewayCommandUtils.format_address_display(pool_info.address)
+        })
+
+        rows.append({
+            "Property": "Current Price",
+            "Value": f"{pool_info.price:.6f} {quote_symbol}/{base_symbol}"
+        })
+
+        rows.append({
+            "Property": "Fee Tier",
+            "Value": f"{pool_info.fee_pct}%"
+        })
+
+        rows.append({
+            "Property": "Base Reserves",
+            "Value": f"{pool_info.base_token_amount:.6f} {base_symbol}"
+        })
+
+        rows.append({
+            "Property": "Quote Reserves",
+            "Value": f"{pool_info.quote_token_amount:.6f} {quote_symbol}"
+        })
+
+        if hasattr(pool_info, 'active_bin_id'):
+            rows.append({
+                "Property": "Active Bin",
+                "Value": str(pool_info.active_bin_id)
+            })
+        if hasattr(pool_info, 'bin_step'):
+            rows.append({
+                "Property": "Bin Step",
+                "Value": str(pool_info.bin_step)
+            })
+
+        return rows
+
+    @staticmethod
+    def format_position_info_display(
+        position: Any  # Union[AMMPositionInfo, CLMMPositionInfo]
+    ) -> List[Dict[str, str]]:
+        """
+        Format position information for display.
+
+        :param position: Position information object
+        :return: List of formatted rows
+        """
+        rows = []
+
+        if hasattr(position, 'address'):
+            rows.append({
+                "Property": "Position ID",
+                "Value": GatewayCommandUtils.format_address_display(position.address)
+            })
+
+        rows.append({
+            "Property": "Pool",
+            "Value": GatewayCommandUtils.format_address_display(position.pool_address)
+        })
+
+        rows.append({
+            "Property": "Base Amount",
+            "Value": f"{position.base_token_amount:.6f}"
+        })
+
+        rows.append({
+            "Property": "Quote Amount",
+            "Value": f"{position.quote_token_amount:.6f}"
+        })
+
+        if hasattr(position, 'lower_price') and hasattr(position, 'upper_price'):
+            rows.append({
+                "Property": "Price Range",
+                "Value": f"{position.lower_price:.6f} - {position.upper_price:.6f}"
+            })
+
+            if hasattr(position, 'base_fee_amount') and hasattr(position, 'quote_fee_amount'):
+                if position.base_fee_amount > 0 or position.quote_fee_amount > 0:
+                    rows.append({
+                        "Property": "Uncollected Fees",
+                        "Value": f"{position.base_fee_amount:.6f} / {position.quote_fee_amount:.6f}"
+                    })
+
+        elif hasattr(position, 'lp_token_amount'):
+            rows.append({
+                "Property": "LP Tokens",
+                "Value": f"{position.lp_token_amount:.6f}"
+            })
+
+        return rows
