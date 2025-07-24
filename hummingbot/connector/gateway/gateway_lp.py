@@ -634,8 +634,6 @@ class GatewayLp(GatewaySwap):
                     connector=self.connector_name,
                     network=self.network,
                     pool_address=position_address,
-                    base_token=base_token,
-                    quote_token=quote_token,
                     wallet_address=self.address,
                 )
                 # Validate response against AMM schema
@@ -697,8 +695,6 @@ class GatewayLp(GatewaySwap):
                     connector=self.connector_name,
                     network=self.network,
                     pool_address=pool_address,
-                    base_token=pool_resp.get("baseToken", ""),
-                    quote_token=pool_resp.get("quoteToken", ""),
                     wallet_address=self.address
                 )
 
