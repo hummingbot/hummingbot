@@ -292,11 +292,46 @@ class GatewayLPCommand:
 
             try:
                 # 5. Get user's positions
-                self.notify("\nFetching your liquidity positions...")
-                positions = await lp_connector.get_user_positions()
+                positions = []
+
+                # Ask for trading pair for both AMM and CLMM to filter by pool
+                await GatewayCommandUtils.enter_interactive_mode(self)
+
+                try:
+                    pair_input = await self.app.prompt(
+                        prompt="\nEnter trading pair (e.g., SOL-USDC): "
+                    )
+
+                    if self.app.to_stop_config:
+                        return
+
+                    if not pair_input.strip():
+                        self.notify("Error: Trading pair is required")
+                        return
+
+                    trading_pair = pair_input.strip().upper()
+
+                    # Validate trading pair format
+                    if "-" not in trading_pair:
+                        self.notify("Error: Invalid trading pair format. Use format like 'SOL-USDC'")
+                        return
+
+                    self.notify(f"\nFetching positions for {trading_pair}...")
+
+                    # Get pool address for the trading pair
+                    pool_address = await lp_connector.get_pool_address(trading_pair)
+                    if not pool_address:
+                        self.notify(f"No pool found for {trading_pair}")
+                        return
+
+                    # Get positions for this pool
+                    positions = await lp_connector.get_user_positions(pool_address=pool_address)
+
+                finally:
+                    await GatewayCommandUtils.exit_interactive_mode(self)
 
                 if not positions:
-                    self.notify("\nNo liquidity positions found for this connector")
+                    self.notify("\nNo liquidity positions found")
                     return
 
                 # 5. Display positions summary
