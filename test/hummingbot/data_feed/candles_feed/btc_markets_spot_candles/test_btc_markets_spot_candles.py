@@ -13,11 +13,29 @@ class TestBtcMarketsSpotCandles(TestCandlesBase):
     __test__ = True
     level = 0
 
+    def setUp(self) -> None:
+        super().setUp()
+
+        self.data_feed = BtcMarketsSpotCandles(trading_pair=self.trading_pair, interval=self.interval)
+
+        self.log_records = []
+        self.data_feed.logger().setLevel(1)
+        self.data_feed.logger().addHandler(self)
+        self.resume_test_event = asyncio.Event()
+
+    def tearDown(self) -> None:
+        super().tearDown()
+
+    async def asyncTearDown(self):
+        # Clean shutdown of any running tasks
+        if hasattr(self.data_feed, "_polling_task") and self.data_feed._polling_task:
+            await self.data_feed.stop_network()
+        await super().asyncTearDown()
+
     @classmethod
     def setUpClass(cls) -> None:
         # Suppress the specific deprecation warning about event loops
         warnings.filterwarnings("ignore", category=DeprecationWarning, message="There is no current event loop")
-
         super().setUpClass()
         cls.base_asset = "BTC"
         cls.quote_asset = "AUD"
@@ -25,15 +43,6 @@ class TestBtcMarketsSpotCandles(TestCandlesBase):
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = cls.base_asset + "-" + cls.quote_asset  # BTC Markets uses same format
         cls.max_records = 150
-
-    def setUp(self) -> None:
-        super().setUp()
-        self.data_feed = BtcMarketsSpotCandles(trading_pair=self.trading_pair, interval=self.interval)
-
-        self.log_records = []
-        self.data_feed.logger().setLevel(1)
-        self.data_feed.logger().addHandler(self)
-        self.resume_test_event = asyncio.Event()
 
     async def asyncSetUp(self):
         await super().asyncSetUp()
@@ -161,12 +170,10 @@ class TestBtcMarketsSpotCandles(TestCandlesBase):
     def test_get_rest_candles_params_basic(self):
         """Test basic REST candles parameters"""
         params = self.data_feed._get_rest_candles_params()
-
         expected_params = {
             "timeWindow": self.data_feed.intervals[self.interval],
-            "limit": self.data_feed.candles_max_result_per_rest_request,
+            "limit": 3,  # Default limit for real-time polling when no start/end time
         }
-
         self.assertEqual(params, expected_params)
 
     def test_get_rest_candles_params_with_start_time(self):
@@ -195,7 +202,6 @@ class TestBtcMarketsSpotCandles(TestCandlesBase):
         """Test REST candles parameters with custom limit"""
         limit = 100
         params = self.data_feed._get_rest_candles_params(limit=limit)
-
         self.assertEqual(params["limit"], limit)
 
     def test_get_rest_candles_params_with_all_parameters(self):
@@ -215,7 +221,6 @@ class TestBtcMarketsSpotCandles(TestCandlesBase):
             "from": start_iso,
             "to": end_iso,
         }
-
         self.assertEqual(params, expected_params)
 
     def test_parse_rest_candles_success(self):
@@ -278,6 +283,20 @@ class TestBtcMarketsSpotCandles(TestCandlesBase):
         result = self.data_feed._parse_rest_candles([])
         self.assertEqual(result, [])
 
+    @patch.object(BtcMarketsSpotCandles, "logger")
+    def test_parse_rest_candles_error_logging(self, mock_logger):
+        """Test that error logging works correctly when parsing fails"""
+        # Mock data with invalid values to trigger error logging
+        mock_data = [
+            ["invalid_timestamp", "invalid_open", "16816.45", "16779.96", "16786.86", "6529.22759"],
+        ]
+
+        result = self.data_feed._parse_rest_candles(mock_data)
+
+        # Should log error for the bad data
+        mock_logger.return_value.error.assert_called()
+        self.assertEqual(len(result), 0)  # No valid candles parsed
+
     def test_ws_subscription_payload_not_implemented(self):
         """Test that ws_subscription_payload raises NotImplementedError"""
         with self.assertRaises(NotImplementedError):
@@ -310,27 +329,109 @@ class TestBtcMarketsSpotCandles(TestCandlesBase):
     def test_initialization_with_default_parameters(self):
         """Test initialization with default parameters"""
         data_feed = BtcMarketsSpotCandles(trading_pair="BTC-AUD")
-
         self.assertEqual(data_feed._trading_pair, "BTC-AUD")
         self.assertEqual(data_feed.interval, "1m")  # Default interval
         self.assertEqual(data_feed.max_records, 150)  # Default max_records
 
-    @patch.object(BtcMarketsSpotCandles, "logger")
-    def test_parse_rest_candles_debug_logging(self, mock_logger):
-        """Test that debug logging works correctly in parse_rest_candles"""
-        mock_data = self.get_candles_rest_data_mock()
+    async def test_start_and_stop_network(self):
+        """Test that we can start and stop the polling gracefully"""
+        with patch.object(self.data_feed, "fetch_recent_candles", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.return_value = [self.get_fetch_candles_data_mock()[0]]
 
-        self.data_feed._parse_rest_candles(mock_data)
+            await self.data_feed.start_network()
+            self.assertTrue(self.data_feed._is_running)
+            self.assertIsNotNone(self.data_feed._polling_task)
 
-        # Check that debug logs were called
-        mock_logger.return_value.debug.assert_called()
+            await asyncio.sleep(0.1)
 
-        # Verify the content of debug logs
-        calls = mock_logger.return_value.debug.call_args_list
-        self.assertTrue(any("Parsing" in str(call) for call in calls))
-        self.assertTrue(any("Parsed" in str(call) for call in calls))
+            await self.data_feed.stop_network()
+            self.assertFalse(self.data_feed._is_running)
+            self.assertTrue(self.data_feed._polling_task is None or self.data_feed._polling_task.done())
 
-    # Override inherited WebSocket tests that don't apply to BTC Markets
+    async def test_poll_and_update_candles_directly(self):
+        """Test the polling logic in isolation"""
+        with patch.object(self.data_feed, "fetch_recent_candles", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.return_value = [self.get_fetch_candles_data_mock()[0]]
+
+            await self.data_feed._poll_and_update_candles()
+
+            mock_fetch.assert_called_once_with(limit=3)
+            self.assertEqual(len(self.data_feed._candles), 1)
+
+    async def test_initialize_candles_method(self):
+        """Test candle initialization without infinite loop"""
+        with patch.object(self.data_feed, "fetch_recent_candles", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.return_value = [self.get_fetch_candles_data_mock()[0]]
+
+            await self.data_feed._initialize_candles()
+
+            mock_fetch.assert_called_once()
+            self.assertEqual(len(self.data_feed._candles), 1)
+
+    async def test_listen_for_subscriptions_cancellation(self):
+        """Test that listen_for_subscriptions can be cancelled"""
+        with patch.object(self.data_feed, "fetch_recent_candles", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.return_value = [self.get_fetch_candles_data_mock()[0]]
+
+            listen_task = asyncio.create_task(self.data_feed.listen_for_subscriptions())
+            await asyncio.sleep(0.1)
+            listen_task.cancel()
+
+            with self.assertRaises(asyncio.CancelledError):
+                await listen_task
+
+    async def test_listen_for_subscriptions_raises_cancel_exception(self):
+        """Test that listen_for_subscriptions raises CancelledError when cancelled"""
+        with patch.object(self.data_feed, "fetch_recent_candles", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.return_value = [self.get_fetch_candles_data_mock()[0]]
+
+            listen_task = asyncio.create_task(self.data_feed.listen_for_subscriptions())
+            await asyncio.sleep(0.1)
+            listen_task.cancel()
+
+            with self.assertRaises(asyncio.CancelledError):
+                await listen_task
+
+    async def test_polling_loop_with_timeout(self):
+        """Test polling loop runs for a specific duration"""
+        with patch.object(self.data_feed, "fetch_recent_candles", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.return_value = [self.get_fetch_candles_data_mock()[0]]
+
+            polling_task = asyncio.create_task(self.data_feed._polling_loop())
+            await asyncio.sleep(0.2)  # Should allow at least one poll cycle
+            self.data_feed._shutdown_event.set()
+            await polling_task
+
+            mock_fetch.assert_called()
+
+    async def test_polling_loop_handles_errors(self):
+        """Test error handling in the polling loop"""
+        with patch.object(self.data_feed, "fetch_recent_candles", new_callable=AsyncMock) as mock_fetch:
+            # Make it fail once, then succeed
+            mock_fetch.side_effect = [
+                Exception("Network error"),
+                [self.get_fetch_candles_data_mock()[0]],
+                [self.get_fetch_candles_data_mock()[0]],  # Continue succeeding
+            ]
+
+            await self.data_feed.start_network()
+            await asyncio.sleep(6.0)  # Wait longer than error retry delay
+            self.assertGreaterEqual(mock_fetch.call_count, 2)
+            await self.data_feed.stop_network()
+
+    async def test_polling_loop_graceful_shutdown(self):
+        """Test that polling loop shuts down gracefully when shutdown event is set"""
+        with patch.object(self.data_feed, "fetch_recent_candles", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.return_value = [self.get_fetch_candles_data_mock()[0]]
+
+            self.data_feed._is_running = True
+            polling_task = asyncio.create_task(self.data_feed._polling_loop())
+            await asyncio.sleep(0.1)
+            self.data_feed._shutdown_event.set()
+            await polling_task
+
+            self.assertFalse(self.data_feed._is_running)
+
     async def test_fetch_candles(self):
         """Test fetch_candles with reasonable timestamps for BTC Markets"""
         import json
@@ -355,6 +456,7 @@ class TestBtcMarketsSpotCandles(TestCandlesBase):
             if len(resp) > 0:  # If data was returned
                 self.assertEqual(len(resp[0]), 10)  # Should have 10 fields per candle
 
+    # Tests that should raise NotImplementedError for BTC Markets (WebSocket not supported)
     async def test_listen_for_subscriptions_subscribes_to_klines(self):
         """WebSocket not supported for BTC Markets"""
         with self.assertRaises(NotImplementedError):
@@ -379,3 +481,25 @@ class TestBtcMarketsSpotCandles(TestCandlesBase):
         """WebSocket not supported for BTC Markets"""
         with self.assertRaises(NotImplementedError):
             self.data_feed.ws_subscription_payload()
+
+    async def test_subscribe_channels_raises_exception_and_logs_error(self):
+        """WebSocket not supported for BTC Markets"""
+        with self.assertRaises(NotImplementedError):
+            self.data_feed.ws_subscription_payload()
+
+    async def test_listen_for_subscriptions_logs_exception_details(self):
+        """Test error logging during polling"""
+        with patch.object(self.data_feed, "fetch_recent_candles", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.side_effect = Exception("TEST ERROR.")
+
+            await self.data_feed._poll_and_update_candles()
+
+            self.assertTrue(
+                self.is_logged("ERROR", "Error fetching recent candles: TEST ERROR.")
+                or self.is_logged("ERROR", "Error during polling: TEST ERROR.")
+            )
+
+    def _create_exception_and_unlock_test_with_event(self, exception):
+        """Helper method to unlock test and raise exception"""
+        self.resume_test_event.set()
+        raise exception
