@@ -765,18 +765,67 @@ class GatewayLPCommand:
             await lp_connector.start_network()
 
             try:
-                # 5. Get user's positions using the connector
-                self.notify("\nFetching your liquidity positions...")
-                positions = await lp_connector.get_user_positions()
+                # 5. Get trading pair from user
+                await GatewayCommandUtils.enter_interactive_mode(self)
 
-                if not positions:
-                    self.notify("No liquidity positions found for this connector")
-                    return
+                try:
+                    pair_input = await self.app.prompt(
+                        prompt="Enter trading pair (e.g., SOL-USDC): "
+                    )
 
-                # 5. Display positions
-                self.notify(f"\nFound {len(positions)} liquidity position(s):")
+                    if self.app.to_stop_config:
+                        return
 
-                # 6. Enter interactive mode
+                    if not pair_input.strip():
+                        self.notify("Error: Trading pair is required")
+                        return
+
+                    trading_pair = pair_input.strip().upper()
+
+                    # Validate trading pair format
+                    if "-" not in trading_pair:
+                        self.notify("Error: Invalid trading pair format. Use format like 'SOL-USDC'")
+                        return
+
+                    self.notify(f"\nFetching positions for {trading_pair}...")
+
+                    # Get pool address for the trading pair
+                    pool_address = await lp_connector.get_pool_address(trading_pair)
+                    if not pool_address:
+                        self.notify(f"No pool found for {trading_pair}")
+                        return
+
+                    # Get positions for this pool
+                    positions = await lp_connector.get_user_positions(pool_address=pool_address)
+
+                    if not positions:
+                        self.notify(f"\nNo liquidity positions found for {trading_pair}")
+                        return
+
+                    # Extract base and quote tokens
+                    base_token, quote_token = trading_pair.split("-")
+
+                    # Display positions
+                    for i, position in enumerate(positions):
+                        if len(positions) > 1:
+                            self.notify(f"\n--- Position {i + 1} of {len(positions)} ---")
+
+                        # Display position using the appropriate formatter
+                        if is_clmm:
+                            position_display = LPCommandUtils.format_clmm_position_display(
+                                position, base_token, quote_token
+                            )
+                        else:
+                            position_display = LPCommandUtils.format_amm_position_display(
+                                position, base_token, quote_token
+                            )
+
+                        self.notify(position_display)
+
+                finally:
+                    await GatewayCommandUtils.exit_interactive_mode(self)
+
+                # 6. Enter interactive mode again for position selection
                 await GatewayCommandUtils.enter_interactive_mode(self)
 
                 try:
@@ -809,17 +858,16 @@ class GatewayLPCommand:
                     # 10. Calculate and display removal impact
                     base_to_receive, quote_to_receive = LPCommandUtils.display_position_removal_impact(
                         self, selected_position, percentage,
-                        selected_position.base_token, selected_position.quote_token
+                        base_token, quote_token
                     )
 
                     # 11. Update LP connector with the selected trading pair
-                    trading_pair = f"{selected_position.base_token}-{selected_position.quote_token}"
                     lp_connector._trading_pairs = [trading_pair]
                     # Reload token data for the selected pair if needed
                     await lp_connector.load_token_data()
 
                     # 12. Check balances and estimate fees
-                    tokens_to_check = [selected_position.base_token, selected_position.quote_token]
+                    tokens_to_check = [base_token, quote_token]
                     native_token = lp_connector.native_currency or chain.upper()
 
                     current_balances = await GatewayCommandUtils.get_wallet_balances(
@@ -845,13 +893,13 @@ class GatewayLPCommand:
 
                     # 14. Calculate balance changes (positive for receiving tokens)
                     balance_changes = {}
-                    balance_changes[selected_position.base_token] = base_to_receive
-                    balance_changes[selected_position.quote_token] = quote_to_receive
+                    balance_changes[base_token] = base_to_receive
+                    balance_changes[quote_token] = quote_to_receive
 
                     # Add fees to balance changes
                     if hasattr(selected_position, 'base_fee_amount'):
-                        balance_changes[selected_position.base_token] += selected_position.base_fee_amount
-                        balance_changes[selected_position.quote_token] += selected_position.quote_fee_amount
+                        balance_changes[base_token] += selected_position.base_fee_amount
+                        balance_changes[quote_token] += selected_position.quote_fee_amount
 
                     # 15. Display balance impact
                     warnings = []
