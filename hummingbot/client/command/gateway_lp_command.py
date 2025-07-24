@@ -299,7 +299,7 @@ class GatewayLPCommand:
 
                 try:
                     pair_input = await self.app.prompt(
-                        prompt="\nEnter trading pair (e.g., SOL-USDC): "
+                        prompt="Enter trading pair (e.g., SOL-USDC): "
                     )
 
                     if self.app.to_stop_config:
@@ -421,7 +421,7 @@ class GatewayLPCommand:
             try:
                 # 5. Get trading pair
                 pair = await self.app.prompt(
-                    prompt="Enter trading pair (e.g., ETH-USDC): "
+                    prompt="Enter trading pair (e.g., SOL-USDC): "
                 )
                 if self.app.to_stop_config or not pair:
                     self.notify("Add liquidity cancelled")
