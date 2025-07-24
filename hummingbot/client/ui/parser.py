@@ -110,9 +110,9 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
     gateway_config_parser.add_argument("args", nargs="*", default=[], help="Additional arguments for update action")
     gateway_config_parser.set_defaults(func=hummingbot.gateway_config)
 
-    gateway_approve_parser = gateway_subparsers.add_parser("approve", help="Approve tokens for gateway connectors")
-    gateway_approve_parser.add_argument("connector", nargs="?", default=None, help="Name of connector you want to approve tokens for")
-    gateway_approve_parser.add_argument("tokens", nargs="?", default=None, help="Approve these tokens")
+    gateway_approve_parser = gateway_subparsers.add_parser("approve", help="Approve token for gateway connector spending")
+    gateway_approve_parser.add_argument("connector", nargs="?", default=None, help="Gateway connector (e.g., uniswap/amm)")
+    gateway_approve_parser.add_argument("token", nargs="?", default=None, help="Token symbol to approve (e.g., WETH)")
     gateway_approve_parser.set_defaults(func=hummingbot.gateway_approve)
 
     gateway_swap_parser = gateway_subparsers.add_parser(

@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import asyncio
 from typing import TYPE_CHECKING, Optional
 
 from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
@@ -13,21 +14,21 @@ if TYPE_CHECKING:
 class GatewayApproveCommand:
     """Handles gateway token approval commands"""
 
-    def gateway_approve(self, connector: Optional[str], tokens: Optional[str]):
-        if connector is not None and tokens is not None:
-            safe_ensure_future(self._update_gateway_approve_tokens(
-                connector, tokens), loop=self.ev_loop)
+    def gateway_approve(self, connector: Optional[str], token: Optional[str]):
+        if connector is not None and token is not None:
+            safe_ensure_future(self._update_gateway_approve_token(
+                connector, token), loop=self.ev_loop)
         else:
             self.notify(
-                "\nPlease specify the connector and a token to approve.\n")
+                "\nPlease specify an Ethereum connector and a token to approve.\n")
 
-    async def _update_gateway_approve_tokens(
+    async def _update_gateway_approve_token(
             self,           # type: HummingbotApplication
             connector: str,
-            tokens: str,
+            token: str,
     ):
         """
-        Allow the user to approve tokens for spending using the connector.
+        Allow the user to approve a token for spending using the connector.
         """
         try:
             # Parse connector format (e.g., "uniswap/amm")
@@ -51,7 +52,12 @@ class GatewayApproveCommand:
                 self.notify(error)
                 return
 
-            # Create a temporary GatewayBase instance for approval
+            wallet_display_address = GatewayCommandUtils.format_address_display(wallet_address)
+
+            # Clean up token symbol/address
+            token = token.strip()
+
+            # Create a temporary GatewayBase instance for gas estimation and approval
             gateway_connector = GatewayBase(
                 client_config_map=self.client_config_map,
                 connector_name=connector,
@@ -59,51 +65,156 @@ class GatewayApproveCommand:
                 network=network,
                 address=wallet_address,
                 trading_pairs=[],
-                trading_required=False
+                trading_required=True  # Set to True to enable gas estimation
             )
 
             # Start the connector network
             await gateway_connector.start_network()
 
+            # Get current allowance
+            self.notify(f"\nFetching {connector} allowance for {token}...")
+
+            # Display approval transaction header
+            self.notify("\n=== Approve Transaction ===")
+            self.notify(f"Connector: {connector}")
+            self.notify(f"Network: {chain} {network}")
+            self.notify(f"Wallet: {wallet_display_address}")
+
             try:
-                # Parse token list
-                token_list = [token.strip() for token in tokens.split(",")]
+                allowance_resp = await self._get_gateway_instance().get_allowances(
+                    chain, network, wallet_address, [token], connector, fail_silently=True
+                )
+                current_allowances = allowance_resp.get("approvals", {})
+                current_allowance = current_allowances.get(token, "0")
+            except Exception as e:
+                self.logger().warning(f"Failed to get current allowance: {e}")
+                current_allowance = "0"
 
-                self.notify(f"\nApproving tokens for {connector}...")
+            # Get token info and display approval details
+            token_info = gateway_connector.get_token_info(token)
+            token_data_for_display = {token: token_info} if token_info else {}
+            formatted_rows = GatewayCommandUtils.format_allowance_display(
+                {token: current_allowance},
+                token_data=token_data_for_display
+            )
 
-                # Approve each token
-                for token in token_list:
-                    self.notify(f"Submitting approval for {token}...")
+            formatted_row = formatted_rows[0] if formatted_rows else {"Symbol": token.upper(), "Address": "Unknown", "Allowance": "0"}
 
-                    # Call the approve method on the connector
-                    order_id = await gateway_connector.approve_token(token_symbol=token)
+            self.notify("\nToken to approve:")
+            self.notify(f"  Symbol: {formatted_row['Symbol']}")
+            self.notify(f"  Address: {formatted_row['Address']}")
+            self.notify(f"  Current Allowance: {formatted_row['Allowance']}")
 
-                    self.notify(f"Approval submitted for {token}. Order ID: {order_id}")
-                    self.notify("Monitoring transaction status...")
+            # Log the connector state for debugging
+            self.logger().info(f"Gateway connector initialized: chain={chain}, network={network}, connector={connector}")
+            self.logger().info(f"Network transaction fee before check: {gateway_connector.network_transaction_fee}")
 
-                    # Use the common transaction monitoring helper
-                    result = await GatewayCommandUtils.monitor_transaction_with_timeout(
-                        app=self,
-                        connector=gateway_connector,
-                        order_id=order_id,
-                        timeout=60.0,
-                        check_interval=1.0,
-                        pending_msg_delay=3.0
-                    )
+            # Wait a moment for gas estimation to complete if needed
+            await asyncio.sleep(0.5)
 
-                    # Add token-specific success/failure message
-                    if result["completed"] and result["success"]:
-                        self.notify(f"Token {token} is approved for spending for '{connector}'")
-                    elif result["completed"] and not result["success"]:
-                        self.notify(f"Token {token} approval failed. Please check your transaction.")
+            # Collect warnings throughout the command
+            warnings = []
+
+            # Get fee estimation from gateway
+            self.notify(f"\nEstimating transaction fees for {chain} {network}...")
+            fee_info = await GatewayCommandUtils.estimate_transaction_fee(
+                self._get_gateway_instance(),
+                chain,
+                network,
+                transaction_type="approve"
+            )
+
+            native_token = fee_info.get("native_token", chain.upper())
+            gas_fee_estimate = fee_info.get("fee_in_native", 0) if fee_info.get("success", False) else None
+
+            # Get all tokens to check (include native token for gas)
+            tokens_to_check = [token]
+            if native_token and native_token.upper() != token.upper():
+                tokens_to_check.append(native_token)
+
+            # Get current balances
+            current_balances = await GatewayCommandUtils.get_wallet_balances(
+                gateway_client=self._get_gateway_instance(),
+                chain=chain,
+                network=network,
+                wallet_address=wallet_address,
+                tokens_to_check=tokens_to_check,
+                native_token=native_token
+            )
+
+            # For approve, there's no token balance change, only gas fee
+            balance_changes = {}
+
+            # Display balance impact table (only gas fee impact)
+            GatewayCommandUtils.display_balance_impact_table(
+                app=self,
+                wallet_address=wallet_address,
+                current_balances=current_balances,
+                balance_changes=balance_changes,
+                native_token=native_token,
+                gas_fee=gas_fee_estimate or 0,
+                warnings=warnings,
+                title="Balance Impact After Approval"
+            )
+
+            # Display transaction fee details
+            GatewayCommandUtils.display_transaction_fee_details(app=self, fee_info=fee_info)
+
+            # Display any warnings
+            if warnings:
+                self.notify("\n⚠️  WARNINGS:")
+                for warning in warnings:
+                    self.notify(f"  • {warning}")
+
+            # Ask for confirmation
+            self.placeholder_mode = True
+            self.app.hide_input = True
+            try:
+                approve_now = await self.app.prompt(
+                    prompt="Do you want to proceed with the approval? (Yes/No) >>> "
+                )
+
+                if approve_now.lower() not in ["y", "yes"]:
+                    self.notify("Approval cancelled")
+                    return
+
+                self.notify(f"\nApproving {token} for {connector}...")
+
+                # Submit approval
+                self.notify(f"\nSubmitting approval for {token}...")
+
+                # Call the approve method on the connector
+                order_id = await gateway_connector.approve_token(token_symbol=token)
+
+                self.notify(f"Approval submitted for {token}. Order ID: {order_id}")
+                self.notify("Monitoring transaction status...")
+
+                # Use the common transaction monitoring helper
+                result = await GatewayCommandUtils.monitor_transaction_with_timeout(
+                    app=self,
+                    connector=gateway_connector,
+                    order_id=order_id,
+                    timeout=60.0,
+                    check_interval=1.0,
+                    pending_msg_delay=3.0
+                )
+
+                # Add token-specific success/failure message
+                if result["completed"] and result["success"]:
+                    self.notify(f"✓ Token {token} is approved for spending on {connector}")
+                elif result["completed"] and not result["success"]:
+                    self.notify(f"✗ Token {token} approval failed. Please check your transaction.")
 
             finally:
+                self.placeholder_mode = False
+                self.app.hide_input = False
+                self.app.change_prompt(prompt=">>> ")
                 # Stop the connector
                 await gateway_connector.stop_network()
 
         except Exception as e:
-            self.logger().error(f"Error approving tokens: {e}", exc_info=True)
-            self.notify(f"Error approving tokens: {str(e)}")
+            self.logger().error(f"Error approving token: {e}", exc_info=True)
+            self.notify(f"Error approving token: {str(e)}")
             return
 
     def _get_gateway_instance(self) -> GatewayHttpClient:

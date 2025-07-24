@@ -74,9 +74,10 @@ class GatewaySwap(GatewayBase):
         :param amount: The order amount (in base token unit)
         :param order_type: Any order type is fine, not needed for this.
         :param price: The maximum price for the order.
+        :param kwargs: Additional parameters like quote_id
         :return: A newly created order id (internal).
         """
-        return self.place_order(True, trading_pair, amount, price)
+        return self.place_order(True, trading_pair, amount, price, **kwargs)
 
     def sell(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal, **kwargs) -> str:
         """
@@ -85,9 +86,10 @@ class GatewaySwap(GatewayBase):
         :param amount: The order amount (in base token unit)
         :param order_type: Any order type is fine, not needed for this.
         :param price: The minimum price for the order.
+        :param kwargs: Additional parameters like quote_id
         :return: A newly created order id (internal).
         """
-        return self.place_order(False, trading_pair, amount, price)
+        return self.place_order(False, trading_pair, amount, price, **kwargs)
 
     def place_order(self, is_buy: bool, trading_pair: str, amount: Decimal, price: Decimal, **request_args) -> str:
         """
@@ -109,7 +111,8 @@ class GatewaySwap(GatewayBase):
             order_id: str,
             trading_pair: str,
             amount: Decimal,
-            price: Decimal
+            price: Decimal,
+            **kwargs
     ):
         """
         Calls buy or sell API end point to place an order, starts tracking the order and triggers relevant order events.
@@ -118,6 +121,7 @@ class GatewaySwap(GatewayBase):
         :param trading_pair: The market to place order
         :param amount: The order amount (in base token value)
         :param price: The order price (TO-DO: add limit_price to Gateway execute-swap schema)
+        :param kwargs: Additional parameters like quote_id
         """
 
         amount = self.quantize_order_amount(trading_pair, amount)
@@ -130,15 +134,27 @@ class GatewaySwap(GatewayBase):
                                   price=price,
                                   amount=amount)
         try:
-            order_result: Dict[str, Any] = await self._get_gateway_instance().execute_swap(
-                connector=self.connector_name,
-                base_asset=base,
-                quote_asset=quote,
-                side=trade_type,
-                amount=amount,
-                network=self.network,
-                wallet_address=self.address
-            )
+            # Check if we have a quote_id to execute
+            quote_id = kwargs.get("quote_id")
+            if quote_id:
+                # Use execute_quote if we have a quote_id
+                order_result: Dict[str, Any] = await self._get_gateway_instance().execute_quote(
+                    connector=self.connector_name,
+                    quote_id=quote_id,
+                    network=self.network,
+                    wallet_address=self.address
+                )
+            else:
+                # Use execute_swap for direct swaps without quote
+                order_result: Dict[str, Any] = await self._get_gateway_instance().execute_swap(
+                    connector=self.connector_name,
+                    base_asset=base,
+                    quote_asset=quote,
+                    side=trade_type,
+                    amount=amount,
+                    network=self.network,
+                    wallet_address=self.address
+                )
             transaction_hash: Optional[str] = order_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
                 self.update_order_from_hash(order_id, trading_pair, transaction_hash, order_result)

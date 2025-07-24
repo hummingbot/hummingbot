@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union, cast
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.connector.gateway.common_types import TransactionStatus
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -100,6 +101,7 @@ class GatewayBase(ConnectorBase):
         self._native_currency = None
         self._order_tracker: ClientOrderTracker = ClientOrderTracker(connector=self, lost_order_count_limit=10)
         self._amount_quantum_dict = {}
+        self._token_data = {}  # Store complete token information
         self._allowances = {}
         safe_ensure_future(self.load_token_data())
 
@@ -172,6 +174,11 @@ class GatewayBase(ConnectorBase):
     @property
     def network_transaction_fee(self) -> TokenAmount:
         return self._network_transaction_fee
+
+    @property
+    def native_currency(self) -> Optional[str]:
+        """Returns the native currency symbol for this chain."""
+        return self._native_currency
 
     @network_transaction_fee.setter
     def network_transaction_fee(self, new_fee: TokenAmount):
@@ -264,7 +271,10 @@ class GatewayBase(ConnectorBase):
     async def load_token_data(self):
         tokens = await GatewayHttpClient.get_instance().get_tokens(self.chain, self.network)
         for t in tokens.get("tokens", []):
-            self._amount_quantum_dict[t["symbol"]] = Decimal(str(10 ** -t["decimals"]))
+            symbol = t["symbol"]
+            self._amount_quantum_dict[symbol] = Decimal(str(10 ** -t["decimals"]))
+            # Store complete token data for easy access
+            self._token_data[symbol] = t
 
     def get_taker_order_type(self):
         return OrderType.LIMIT
@@ -275,6 +285,10 @@ class GatewayBase(ConnectorBase):
     def get_order_size_quantum(self, trading_pair: str, order_size: Decimal) -> Decimal:
         base, quote = trading_pair.split("-")
         return max(self._amount_quantum_dict[base], self._amount_quantum_dict[quote])
+
+    def get_token_info(self, token_symbol: str) -> Optional[Dict[str, Any]]:
+        """Get token information for a given symbol."""
+        return self._token_data.get(token_symbol)
 
     async def get_chain_info(self):
         """
@@ -527,7 +541,7 @@ class GatewayBase(ConnectorBase):
             fee = tx_details.get("fee", 0)
 
             # Chain-specific check for transaction success
-            if tx_status == 1:
+            if tx_status == TransactionStatus.CONFIRMED.value:
                 self.process_transaction_confirmation_update(tracked_order=tracked_order, fee=Decimal(str(fee or 0)))
 
                 order_update: OrderUpdate = OrderUpdate(
@@ -539,11 +553,11 @@ class GatewayBase(ConnectorBase):
                 self._order_tracker.process_order_update(order_update)
 
             # Check if transaction is still pending
-            elif tx_status == 0:
+            elif tx_status == TransactionStatus.PENDING.value:
                 pass
 
             # Transaction failed
-            elif tx_status == -1:
+            elif tx_status == TransactionStatus.FAILED.value:
                 self.logger().network(
                     f"Error fetching transaction status for the order {tracked_order.client_order_id}: {tx_details}.",
                     app_warning_msg=f"Failed to fetch transaction status for the order {tracked_order.client_order_id}."
@@ -614,11 +628,11 @@ class GatewayBase(ConnectorBase):
                     self.logger().error(f"No signature field for transaction status of {order_id}: {tx_details}")
                     break
 
-                tx_status = tx_details.get("txStatus", 0)
+                tx_status = tx_details.get("txStatus", TransactionStatus.PENDING.value)
                 fee = tx_details.get("fee", 0)
 
                 # Transaction confirmed
-                if tx_status == 1:
+                if tx_status == TransactionStatus.CONFIRMED.value:
                     self.process_transaction_confirmation_update(tracked_order=tracked_order, fee=Decimal(str(fee or 0)))
 
                     order_update = OrderUpdate(
@@ -633,7 +647,7 @@ class GatewayBase(ConnectorBase):
                     break
 
                 # Transaction failed
-                elif tx_status == -1:
+                elif tx_status == TransactionStatus.FAILED.value:
                     self.logger().error(f"Transaction {transaction_hash} failed for order {order_id}")
                     await self._order_tracker.process_order_not_found(order_id)
                     break
