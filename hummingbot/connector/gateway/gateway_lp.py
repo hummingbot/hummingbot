@@ -290,14 +290,18 @@ class GatewayLp(GatewaySwap):
                                   price=Decimal(str(price)),
                                   amount=Decimal(str(total_amount_in_base)))
 
+        # Get pool address for the trading pair
+        pool_address = await self.get_pool_address(trading_pair)
+        if not pool_address:
+            raise ValueError(f"Could not find pool for {trading_pair}")
+
         # Add liquidity to AMM pool
         try:
             transaction_result = await self._get_gateway_instance().amm_add_liquidity(
                 connector=self.connector_name,
                 network=self.network,
                 wallet_address=self.address,
-                base_token=base_token,
-                quote_token=quote_token,
+                pool_address=pool_address,
                 base_token_amount=base_token_amount,
                 quote_token_amount=quote_token_amount,
                 slippage_pct=slippage_pct
@@ -464,12 +468,10 @@ class GatewayLp(GatewaySwap):
         if get_connector_type(self.connector_name) != ConnectorType.AMM:
             raise ValueError(f"Connector {self.connector_name} is not of type AMM.")
 
-        # Split trading_pair to get base and quote tokens
-        tokens = trading_pair.split("-")
-        if len(tokens) != 2:
-            raise ValueError(f"Invalid trading pair format: {trading_pair}")
-
-        base_token, quote_token = tokens
+        # Get pool address for the trading pair
+        pool_address = await self.get_pool_address(trading_pair)
+        if not pool_address:
+            raise ValueError(f"Could not find pool for {trading_pair}")
 
         # Start tracking order
         self.start_tracking_order(order_id=order_id,
@@ -481,8 +483,7 @@ class GatewayLp(GatewaySwap):
                 connector=self.connector_name,
                 network=self.network,
                 wallet_address=self.address,
-                base_token=base_token,
-                quote_token=quote_token,
+                pool_address=pool_address,
                 percentage=percentage,
                 fail_silently=fail_silently
             )
@@ -518,12 +519,10 @@ class GatewayLp(GatewaySwap):
         if get_connector_type(self.connector_name) != ConnectorType.AMM:
             raise ValueError(f"Connector {self.connector_name} is not of type AMM.")
 
-        # Split trading_pair to get base and quote tokens
-        tokens = trading_pair.split("-")
-        if len(tokens) != 2:
-            raise ValueError(f"Invalid trading pair format: {trading_pair}")
-
-        base_token, quote_token = tokens
+        # Get pool address for the trading pair
+        pool_address = await self.get_pool_address(trading_pair)
+        if not pool_address:
+            raise ValueError(f"Could not find pool for {trading_pair}")
 
         order_id: str = self.create_market_order_id(TradeType.RANGE, trading_pair)
         self.start_tracking_order(order_id=order_id,
@@ -534,8 +533,7 @@ class GatewayLp(GatewaySwap):
                 connector=self.connector_name,
                 network=self.network,
                 wallet_address=self.address,
-                base_token=base_token,
-                quote_token=quote_token,
+                pool_address=pool_address,
                 base_token_amount=base_token_amount,
                 quote_token_amount=quote_token_amount,
                 slippage_pct=slippage_pct,
@@ -568,12 +566,10 @@ class GatewayLp(GatewaySwap):
         if get_connector_type(self.connector_name) != ConnectorType.AMM:
             raise ValueError(f"Connector {self.connector_name} is not of type AMM.")
 
-        # Split trading_pair to get base and quote tokens
-        tokens = trading_pair.split("-")
-        if len(tokens) != 2:
-            raise ValueError(f"Invalid trading pair format: {trading_pair}")
-
-        base_token, quote_token = tokens
+        # Get pool address for the trading pair
+        pool_address = await self.get_pool_address(trading_pair)
+        if not pool_address:
+            raise ValueError(f"Could not find pool for {trading_pair}")
 
         order_id: str = self.create_market_order_id(TradeType.RANGE, trading_pair)
         self.start_tracking_order(order_id=order_id,
@@ -584,8 +580,7 @@ class GatewayLp(GatewaySwap):
                 connector=self.connector_name,
                 network=self.network,
                 wallet_address=self.address,
-                base_token=base_token,
-                quote_token=quote_token,
+                pool_address=pool_address,
                 percentage=percentage,
                 fail_silently=fail_silently
             )
