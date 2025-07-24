@@ -35,6 +35,11 @@ class BtcMarketsSpotCandles(CandlesBase):
         self._consecutive_empty_responses = 0
         self._historical_fill_in_progress = False
 
+        # Task management for polling
+        self._polling_task: Optional[asyncio.Task] = None
+        self._shutdown_event = asyncio.Event()
+        self._is_running = False
+
     @property
     def name(self):
         return f"btc_markets_{self._trading_pair}"
@@ -87,6 +92,38 @@ class BtcMarketsSpotCandles(CandlesBase):
     @property
     def _current_candle_timestamp(self):
         return self._candles[-1][0] if self._candles else None
+
+    async def start_network(self):
+        """
+        Start the network and begin polling.
+        """
+        await self.stop_network()
+        await self.initialize_exchange_data()
+        self._is_running = True
+        self._shutdown_event.clear()
+        self._polling_task = asyncio.create_task(self._polling_loop())
+
+    async def stop_network(self):
+        """
+        Stop the network by gracefully shutting down the polling task.
+        """
+        if self._polling_task and not self._polling_task.done():
+            self._is_running = False
+            self._shutdown_event.set()
+
+            try:
+                # Wait for graceful shutdown
+                await asyncio.wait_for(self._polling_task, timeout=10.0)
+            except asyncio.TimeoutError:
+                self.logger().warning("Polling task didn't stop gracefully, cancelling...")
+                self._polling_task.cancel()
+                try:
+                    await self._polling_task
+                except asyncio.CancelledError:
+                    pass
+
+        self._polling_task = None
+        self._is_running = False
 
     async def check_network(self) -> NetworkStatus:
         rest_assistant = await self._api_factory.get_rest_assistant()
@@ -364,36 +401,77 @@ class BtcMarketsSpotCandles(CandlesBase):
             self.logger().error(f"Error fetching recent candles: {e}")
             return []
 
+    async def _polling_loop(self):
+        """
+        Main polling loop - separated from listen_for_subscriptions for better testability.
+        This method can be cancelled cleanly and tested independently.
+        """
+        try:
+            self.logger().info(f"Starting constant polling for {self._trading_pair} candles")
+
+            # Initial setup
+            await self._initialize_candles()
+
+            while self._is_running and not self._shutdown_event.is_set():
+                try:
+                    # Poll for updates
+                    await self._poll_and_update_candles()
+
+                    # Ensure heartbeats up to current time
+                    self._ensure_heartbeats_to_current_time()
+
+                    # Wait for either shutdown signal or polling interval
+                    try:
+                        await asyncio.wait_for(
+                            self._shutdown_event.wait(),
+                            timeout=CONSTANTS.POLL_INTERVAL
+                        )
+                        # If we reach here, shutdown was requested
+                        break
+                    except asyncio.TimeoutError:
+                        # Normal case - polling interval elapsed
+                        continue
+
+                except asyncio.CancelledError:
+                    self.logger().info("Polling loop cancelled")
+                    raise
+                except Exception as e:
+                    self.logger().exception(f"Unexpected error during polling: {e}")
+
+                    # Wait before retrying, but also listen for shutdown
+                    try:
+                        await asyncio.wait_for(
+                            self._shutdown_event.wait(),
+                            timeout=5.0
+                        )
+                        break
+                    except asyncio.TimeoutError:
+                        continue
+
+        finally:
+            self.logger().info("Polling loop stopped")
+            self._is_running = False
+
     async def listen_for_subscriptions(self):
         """
-        Main polling loop with constant frequency for real-time candle updates.
+        Legacy method for compatibility with base class.
+        Now just delegates to the task-based approach.
         """
-        self.logger().info(f"Starting constant polling for {self._trading_pair} candles")
+        if not self._is_running:
+            await self.start_network()
 
-        # Initial setup
-        await self._initialize_candles()
-
-        while True:
+        # Wait for the polling task to complete
+        if self._polling_task:
             try:
-                # Poll for updates
-                await self._poll_and_update_candles()
-
-                # Ensure heartbeats up to current time
-                self._ensure_heartbeats_to_current_time()
-
-                # Constant sleep interval
-                await self._sleep(CONSTANTS.POLL_INTERVAL)
-
+                await self._polling_task
             except asyncio.CancelledError:
-                self.logger().info("Polling cancelled")
+                self.logger().info("Listen for subscriptions cancelled")
                 raise
-            except Exception as e:
-                self.logger().exception(f"Unexpected error during polling: {e}")
-                await self._sleep(5.0)
 
     async def _poll_and_update_candles(self):
         """
         Fetch recent candles and update data structure.
+        This method is now easily testable in isolation.
         """
         try:
             # Always fetch recent candles to get current candle updates
