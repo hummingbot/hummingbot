@@ -574,7 +574,7 @@ async def _add_liquidity(
 
             # Create order ID and execute
             if is_clmm:
-                order_id = lp_connector.open_position(
+                order_id = lp_connector.add_liquidity(
                     trading_pair=trading_pair,
                     price=pool_info.price,
                     spread_pct=position_params['spread_pct'],
@@ -583,7 +583,7 @@ async def _add_liquidity(
                     slippage_pct=slippage_pct
                 )
             else:
-                order_id = lp_connector.open_position(
+                order_id = lp_connector.add_liquidity(
                     trading_pair=trading_pair,
                     price=pool_info.price,
                     base_token_amount=base_amount,
@@ -918,7 +918,7 @@ async def _remove_liquidity(
             position_address = getattr(selected_position, 'address', None) or \
                              getattr(selected_position, 'pool_address', None)
 
-            order_id = lp_connector.close_position(
+            order_id = lp_connector.remove_liquidity(
                 trading_pair=trading_pair,
                 position_address=position_address,
                 percentage=percentage if not close_position else 100.0
@@ -1994,14 +1994,14 @@ class TestGatewayLPCommand:
         with patch('hummingbot.connector.gateway.gateway_lp.GatewayLp') as MockLP:
             mock_lp = MockLP.return_value
             mock_lp.get_pool_info.return_value = pool_info
-            mock_lp.open_position.return_value = "order-123"
+            mock_lp.add_liquidity.return_value = "order-123"
 
             # Test the flow
             await lp_command._add_liquidity("uniswap/amm")
 
             # Verify correct calls
             assert mock_lp.get_pool_info.called
-            assert mock_lp.open_position.called
+            assert mock_lp.add_liquidity.called
 
     @pytest.mark.asyncio
     async def test_remove_liquidity_clmm_partial(self, lp_command):

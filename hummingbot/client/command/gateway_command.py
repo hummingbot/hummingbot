@@ -50,8 +50,8 @@ class GatewayCommand(GatewayChainApiManager):
         self.notify("\nGateway Commands:")
         self.notify("  gateway ping [chain]                              - Test gateway connectivity and network status")
         self.notify("  gateway list                                      - List available connectors")
-        self.notify("  gateway config show [namespace]                   - Show configuration")
-        self.notify("  gateway config update <namespace> [path] [value]  - Update configuration")
+        self.notify("  gateway config [namespace]                        - Show configuration")
+        self.notify("  gateway config <namespace> update                 - Update configuration (interactive)")
         # self.notify("  gateway token <action> ...                        - Manage tokens")
         # self.notify("  gateway wallet <action> ...                       - Manage wallets")
         # self.notify("  gateway pool <action> ...                         - Manage liquidity pools")
@@ -60,7 +60,7 @@ class GatewayCommand(GatewayChainApiManager):
         self.notify("  gateway approve <connector> <tokens>              - Approve tokens for spending")
         # self.notify("  gateway wrap <amount>                             - Wrap native tokens")
         # self.notify("  gateway unwrap <amount>                           - Unwrap wrapped tokens")
-        self.notify("  gateway swap <connector> [pair] [side] [amount]   - Swap tokens (shows quote first)")
+        self.notify("  gateway swap <connector> [pair] [side] [amount]   - Swap tokens")
         self.notify("  gateway lp <connector> <action>                   - Manage liquidity positions")
         self.notify("  gateway generate-certs                            - Generate SSL certificates")
         self.notify("\nUse 'gateway <command> --help' for more information about a command.")
@@ -99,49 +99,38 @@ class GatewayCommand(GatewayChainApiManager):
         safe_ensure_future(self._gateway_list(), loop=self.ev_loop)
 
     @ensure_gateway_online
-    def gateway_config(self, action: str = None, namespace: str = None, args: List[str] = None):
+    def gateway_config(self, namespace: str = None, action: str = None, args: List[str] = None):
         """
         Gateway configuration management.
         Usage:
-            gateway config show [namespace]
-            gateway config update <namespace> <path> <value>
-            gateway config update <namespace> (interactive mode)
+            gateway config [namespace]       - Show configuration for namespace
+            gateway config <namespace> update - Update configuration (interactive)
         """
         if args is None:
             args = []
 
-        if action == "show":
-            # Format: gateway config show [namespace]
-            # namespace can be: server, uniswap, ethereum-mainnet, solana-devnet, etc.
-            safe_ensure_future(self._show_gateway_configuration(namespace=namespace), loop=self.ev_loop)
-        elif action is None:
-            # Show help when no action is provided
+        if namespace is None:
+            # Show help when no namespace is provided
             self.notify("\nUsage:")
-            self.notify("  gateway config show [namespace]")
-            self.notify("  gateway config update <namespace> <path> <value>")
+            self.notify("  gateway config [namespace]        - Show configuration")
+            self.notify("  gateway config <namespace> update - Update configuration (interactive)")
             self.notify("\nExamples:")
-            self.notify("  gateway config show ethereum-mainnet")
-            self.notify("  gateway config show uniswap")
-            self.notify("  gateway config update ethereum-mainnet gasLimitTransaction 3000000")
+            self.notify("  gateway config ethereum-mainnet")
+            self.notify("  gateway config uniswap")
+            self.notify("  gateway config ethereum-mainnet update")
+        elif action is None:
+            # Format: gateway config <namespace>
+            # Show configuration for the specified namespace
+            safe_ensure_future(self._show_gateway_configuration(namespace=namespace), loop=self.ev_loop)
         elif action == "update":
-            if namespace is None:
-                self.notify("Error: namespace is required for config update")
-                return
-
-            # Handle the format: gateway config update <namespace> <path> <value>
-            # where namespace includes network (e.g., ethereum-mainnet, solana-mainnet-beta)
-            if len(args) >= 2:
-                path = args[0]
-                value = args[1]
-                safe_ensure_future(self._update_gateway_configuration(namespace, path, value), loop=self.ev_loop)
-            else:
-                # Interactive mode - prompt for path and value
-                safe_ensure_future(self._update_gateway_configuration_interactive(namespace), loop=self.ev_loop)
+            # Interactive mode only - prompt for path and value
+            safe_ensure_future(self._update_gateway_configuration_interactive(namespace), loop=self.ev_loop)
         else:
-            # Show help if unrecognized action
+            # If action is not "update", it might be a namespace typo
+            self.notify(f"\nError: Invalid action '{action}'. Use 'update' to modify configuration.")
             self.notify("\nUsage:")
-            self.notify("  gateway config show [namespace]")
-            self.notify("  gateway config update <namespace> <path> <value>")
+            self.notify("  gateway config <namespace>        - Show configuration")
+            self.notify("  gateway config <namespace> update - Update configuration")
 
     async def _gateway_ping(self, chain: str = None):
         """Test gateway connectivity and network status"""

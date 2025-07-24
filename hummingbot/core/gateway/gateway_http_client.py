@@ -622,28 +622,25 @@ class GatewayHttpClient:
             self,
             connector: str,
             network: str,
-            pool_address: Optional[str] = None,
-            base_token: Optional[str] = None,
-            quote_token: Optional[str] = None,
+            pool_address: str,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
         Gets information about a AMM or CLMM pool
-        Either pool_address or both base_token and quote_token must be provided
         """
         query_params = {
             "network": network,
+            "poolAddress": pool_address
         }
-        if pool_address is not None:
-            query_params["poolAddress"] = pool_address
-        if base_token is not None:
-            query_params["baseToken"] = base_token
-        if quote_token is not None:
-            query_params["quoteToken"] = quote_token
+
+        # Parse connector to get name and type
+        # Format is always "raydium/amm" with the "/" included
+        connector_name, connector_type = connector.split("/", 1)
+        path = f"connectors/{connector_name}/{connector_type}/pool-info"
 
         return await self.api_request(
             "get",
-            f"connectors/{connector}/pool-info",
+            path,
             params=query_params,
             fail_silently=fail_silently,
         )
@@ -664,9 +661,15 @@ class GatewayHttpClient:
             "positionAddress": position_address,
             "walletAddress": wallet_address,
         }
+
+        # Parse connector to get name and type
+        # Format is always "raydium/clmm" with the "/" included
+        connector_name, connector_type = connector.split("/", 1)
+        path = f"connectors/{connector_name}/{connector_type}/position-info"
+
         return await self.api_request(
             "get",
-            f"connectors/{connector}/position-info",
+            path,
             params=query_params,
             fail_silently=fail_silently,
         )
@@ -676,29 +679,26 @@ class GatewayHttpClient:
             connector: str,
             network: str,
             wallet_address: str,
-            pool_address: Optional[str] = None,
-            base_token: Optional[str] = None,
-            quote_token: Optional[str] = None,
+            pool_address: str,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
         Gets information about a AMM liquidity position
-        Either pool_address or both base_token and quote_token must be provided
         """
         query_params = {
             "network": network,
             "walletAddress": wallet_address,
+            "poolAddress": pool_address
         }
-        if pool_address is not None:
-            query_params["poolAddress"] = pool_address
-        if base_token is not None:
-            query_params["baseToken"] = base_token
-        if quote_token is not None:
-            query_params["quoteToken"] = quote_token
+
+        # Parse connector to get name and type
+        # Format is always "raydium/amm" with the "/" included
+        connector_name, connector_type = connector.split("/", 1)
+        path = f"connectors/{connector_name}/{connector_type}/position-info"
 
         return await self.api_request(
             "get",
-            f"connectors/{connector}/position-info",
+            path,
             params=query_params,
             fail_silently=fail_silently,
         )
@@ -708,23 +708,21 @@ class GatewayHttpClient:
             connector: str,
             network: str,
             wallet_address: str,
+            pool_address: str,
             lower_price: float,
             upper_price: float,
             base_token_amount: Optional[float] = None,
             quote_token_amount: Optional[float] = None,
             slippage_pct: Optional[float] = None,
-            pool_address: Optional[str] = None,
-            base_token: Optional[str] = None,
-            quote_token: Optional[str] = None,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
         Opens a new concentrated liquidity position
-        Either pool_address or both base_token and quote_token must be provided
         """
         request_payload = {
             "network": network,
             "walletAddress": wallet_address,
+            "poolAddress": pool_address,
             "lowerPrice": lower_price,
             "upperPrice": upper_price,
         }
@@ -734,16 +732,14 @@ class GatewayHttpClient:
             request_payload["quoteTokenAmount"] = quote_token_amount
         if slippage_pct is not None:
             request_payload["slippagePct"] = slippage_pct
-        if pool_address is not None:
-            request_payload["poolAddress"] = pool_address
-        if base_token is not None:
-            request_payload["baseToken"] = base_token
-        if quote_token is not None:
-            request_payload["quoteToken"] = quote_token
+
+        # Parse connector to get name and type
+        connector_name, connector_type = connector.split("/", 1)
+        path = f"connectors/{connector_name}/{connector_type}/open-position"
 
         return await self.api_request(
             "post",
-            f"connectors/{connector}/open-position",
+            path,
             request_payload,
             fail_silently=fail_silently,
         )
@@ -764,10 +760,211 @@ class GatewayHttpClient:
             "walletAddress": wallet_address,
             "positionAddress": position_address,
         }
+
+        # Parse connector to get name and type
+        connector_name, connector_type = connector.split("/", 1)
+        path = f"connectors/{connector_name}/{connector_type}/close-position"
+
         return await self.api_request(
             "post",
-            f"connectors/{connector}/close-position",
+            path,
             request_payload,
+            fail_silently=fail_silently,
+        )
+
+    async def clmm_add_liquidity(
+            self,
+            connector: str,
+            network: str,
+            wallet_address: str,
+            position_address: str,
+            base_token_amount: Optional[float] = None,
+            quote_token_amount: Optional[float] = None,
+            slippage_pct: Optional[float] = None,
+            fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Add liquidity to an existing concentrated liquidity position
+        """
+        request_payload = {
+            "network": network,
+            "walletAddress": wallet_address,
+            "positionAddress": position_address,
+        }
+        if base_token_amount is not None:
+            request_payload["baseTokenAmount"] = base_token_amount
+        if quote_token_amount is not None:
+            request_payload["quoteTokenAmount"] = quote_token_amount
+        if slippage_pct is not None:
+            request_payload["slippagePct"] = slippage_pct
+
+        # Parse connector to get name and type
+        connector_name, connector_type = connector.split("/", 1)
+        path = f"connectors/{connector_name}/{connector_type}/add-liquidity"
+
+        return await self.api_request(
+            "post",
+            path,
+            request_payload,
+            fail_silently=fail_silently,
+        )
+
+    async def clmm_remove_liquidity(
+            self,
+            connector: str,
+            network: str,
+            wallet_address: str,
+            position_address: str,
+            percentage: float,
+            fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Remove liquidity from a concentrated liquidity position
+        """
+        request_payload = {
+            "network": network,
+            "walletAddress": wallet_address,
+            "positionAddress": position_address,
+            "percentageToRemove": percentage,
+        }
+
+        # Parse connector to get name and type
+        connector_name, connector_type = connector.split("/", 1)
+        path = f"connectors/{connector_name}/{connector_type}/remove-liquidity"
+
+        return await self.api_request(
+            "post",
+            path,
+            request_payload,
+            fail_silently=fail_silently,
+        )
+
+    async def clmm_collect_fees(
+            self,
+            connector: str,
+            network: str,
+            wallet_address: str,
+            position_address: str,
+            fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Collect accumulated fees from a concentrated liquidity position
+        """
+        request_payload = {
+            "network": network,
+            "walletAddress": wallet_address,
+            "positionAddress": position_address,
+        }
+
+        # Parse connector to get name and type
+        connector_name, connector_type = connector.split("/", 1)
+        path = f"connectors/{connector_name}/{connector_type}/collect-fees"
+
+        return await self.api_request(
+            "post",
+            path,
+            request_payload,
+            fail_silently=fail_silently,
+        )
+
+    async def clmm_positions_owned(
+            self,
+            connector: str,
+            network: str,
+            wallet_address: str,
+            pool_address: Optional[str] = None,
+            fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Get all CLMM positions owned by a wallet, optionally filtered by pool
+        """
+        query_params = {
+            "network": network,
+            "walletAddress": wallet_address,
+        }
+        if pool_address:
+            query_params["poolAddress"] = pool_address
+
+        # Parse connector to get name and type
+        connector_name, connector_type = connector.split("/", 1)
+        path = f"connectors/{connector_name}/{connector_type}/positions-owned"
+
+        return await self.api_request(
+            "get",
+            path,
+            params=query_params,
+            fail_silently=fail_silently,
+        )
+
+    async def amm_quote_liquidity(
+            self,
+            connector: str,
+            network: str,
+            pool_address: str,
+            base_token_amount: float,
+            quote_token_amount: float,
+            slippage_pct: Optional[float] = None,
+            fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Quote the required token amounts for adding liquidity to an AMM pool
+        """
+        query_params = {
+            "network": network,
+            "poolAddress": pool_address,
+            "baseTokenAmount": base_token_amount,
+            "quoteTokenAmount": quote_token_amount,
+        }
+        if slippage_pct is not None:
+            query_params["slippagePct"] = slippage_pct
+
+        # Parse connector to get name and type
+        connector_name, connector_type = connector.split("/", 1)
+        path = f"connectors/{connector_name}/{connector_type}/quote-liquidity"
+
+        return await self.api_request(
+            "get",
+            path,
+            params=query_params,
+            fail_silently=fail_silently,
+        )
+
+    async def clmm_quote_position(
+            self,
+            connector: str,
+            network: str,
+            pool_address: str,
+            lower_price: float,
+            upper_price: float,
+            base_token_amount: Optional[float] = None,
+            quote_token_amount: Optional[float] = None,
+            slippage_pct: Optional[float] = None,
+            fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Quote the required token amounts for opening a CLMM position
+        """
+        query_params = {
+            "network": network,
+            "poolAddress": pool_address,
+            "lowerPrice": lower_price,
+            "upperPrice": upper_price,
+        }
+        if base_token_amount is not None:
+            query_params["baseTokenAmount"] = base_token_amount
+        if quote_token_amount is not None:
+            query_params["quoteTokenAmount"] = quote_token_amount
+        if slippage_pct is not None:
+            query_params["slippagePct"] = slippage_pct
+
+        # Parse connector to get name and type
+        connector_name, connector_type = connector.split("/", 1)
+        path = f"connectors/{connector_name}/{connector_type}/quote-position"
+
+        return await self.api_request(
+            "get",
+            path,
+            params=query_params,
             fail_silently=fail_silently,
         )
 
@@ -776,36 +973,32 @@ class GatewayHttpClient:
             connector: str,
             network: str,
             wallet_address: str,
+            pool_address: str,
             base_token_amount: float,
             quote_token_amount: float,
             slippage_pct: Optional[float] = None,
-            pool_address: Optional[str] = None,
-            base_token: Optional[str] = None,
-            quote_token: Optional[str] = None,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
         Add liquidity to an AMM liquidity position
-        Either pool_address or both base_token and quote_token must be provided
         """
         request_payload = {
             "network": network,
             "walletAddress": wallet_address,
+            "poolAddress": pool_address,
             "baseTokenAmount": base_token_amount,
             "quoteTokenAmount": quote_token_amount,
         }
         if slippage_pct is not None:
             request_payload["slippagePct"] = slippage_pct
-        if pool_address is not None:
-            request_payload["poolAddress"] = pool_address
-        if base_token is not None:
-            request_payload["baseToken"] = base_token
-        if quote_token is not None:
-            request_payload["quoteToken"] = quote_token
+
+        # Parse connector to get name and type
+        connector_name, connector_type = connector.split("/", 1)
+        path = f"connectors/{connector_name}/{connector_type}/add-liquidity"
 
         return await self.api_request(
             "post",
-            f"connectors/{connector}/add-liquidity",
+            path,
             request_payload,
             fail_silently=fail_silently,
         )
@@ -815,31 +1008,27 @@ class GatewayHttpClient:
             connector: str,
             network: str,
             wallet_address: str,
+            pool_address: str,
             percentage: float,
-            pool_address: Optional[str] = None,
-            base_token: Optional[str] = None,
-            quote_token: Optional[str] = None,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
         Closes an existing AMM liquidity position
-        Either pool_address or both base_token and quote_token must be provided
         """
         request_payload = {
             "network": network,
             "walletAddress": wallet_address,
+            "poolAddress": pool_address,
             "percentageToRemove": percentage,
         }
-        if pool_address is not None:
-            request_payload["poolAddress"] = pool_address
-        if base_token is not None:
-            request_payload["baseToken"] = base_token
-        if quote_token is not None:
-            request_payload["quoteToken"] = quote_token
+
+        # Parse connector to get name and type
+        connector_name, connector_type = connector.split("/", 1)
+        path = f"connectors/{connector_name}/{connector_type}/remove-liquidity"
 
         return await self.api_request(
             "post",
-            f"connectors/{connector}/remove-liquidity",
+            path,
             request_payload,
             fail_silently=fail_silently,
         )
@@ -922,51 +1111,30 @@ class GatewayHttpClient:
     # Pool Methods
     # ============================================
 
-    async def get_pools(
+    async def get_pool(
         self,
-        connector: str,
-        network: Optional[str] = None,
-        pool_type: Optional[str] = None,
-        search: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
-        """
-        Get pools from a connector.
-
-        :param connector: Connector name
-        :param network: Optional network name
-        :param pool_type: Optional pool type (amm or clmm)
-        :param search: Optional search term (token symbol or address)
-        :return: List of pools
-        """
-        params = {"connector": connector}
-        if network:
-            params["network"] = network
-        if pool_type:
-            params["type"] = pool_type
-        if search:
-            params["search"] = search
-
-        response = await self.api_request("get", "pools", params=params)
-        return response if isinstance(response, list) else response.get("pools", [])
-
-    async def get_pool_info(
-        self,
+        trading_pair: str,
         connector: str,
         network: str,
-        pool_address: str
+        type: str = "amm"
     ) -> Dict[str, Any]:
         """
-        Get detailed information about a specific pool.
+        Get pool information for a specific trading pair.
 
-        :param connector: Connector name
-        :param network: Network name
-        :param pool_address: Pool address
-        :return: Pool information
+        :param trading_pair: Trading pair (e.g., "SOL-USDC")
+        :param connector: Connector name (e.g., "raydium")
+        :param network: Network name (e.g., "mainnet-beta")
+        :param type: Pool type ("amm" or "clmm"), defaults to "amm"
+        :return: Pool information including address
         """
-        return await self.connector_request(
-            "get", connector, "pool-info",
-            params={"network": network, "poolAddress": pool_address}
-        )
+        params = {
+            "connector": connector,
+            "network": network,
+            "type": type
+        }
+
+        response = await self.api_request("get", f"pools/{trading_pair}", params=params)
+        return response
 
     async def add_pool(
         self,

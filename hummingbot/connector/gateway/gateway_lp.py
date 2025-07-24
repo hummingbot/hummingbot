@@ -76,13 +76,34 @@ class GatewayLp(GatewaySwap):
     Maintains order tracking and wallet interactions in the base class.
     """
 
-    async def get_pool_address(self, trading_pair: str):
-        self.logger().info(f"Fetching pool address for {trading_pair} on {self.connector_name}")
-        pools = await self._get_gateway_instance().get_pools(self.connector_name)
-        pool_address = pools[trading_pair]
-        self.logger().info(f"Pool address: {pool_address}")
+    async def get_pool_address(self, trading_pair: str) -> Optional[str]:
+        """Get pool address for a trading pair"""
+        try:
+            self.logger().info(f"Fetching pool address for {trading_pair} on {self.connector_name}")
 
-        return pool_address
+            # Parse connector to get type (amm or clmm)
+            connector_type = get_connector_type(self.connector_name)
+            pool_type = "clmm" if connector_type == ConnectorType.CLMM else "amm"
+
+            # Get pool info from gateway using the get_pool method
+            pool_info = await self._get_gateway_instance().get_pool(
+                trading_pair=trading_pair,
+                connector=self.connector_name.split("/")[0],  # Just the name part
+                network=self.network,
+                type=pool_type
+            )
+
+            pool_address = pool_info.get("address")
+            if pool_address:
+                self.logger().info(f"Pool address: {pool_address}")
+            else:
+                self.logger().warning(f"No pool address found for {trading_pair}")
+
+            return pool_address
+
+        except Exception as e:
+            self.logger().error(f"Error getting pool address for {trading_pair}: {e}")
+            return None
 
     @async_ttl_cache(ttl=5, maxsize=10)
     async def get_pool_info(
@@ -94,18 +115,17 @@ class GatewayLp(GatewaySwap):
         Uses the appropriate model (AMMPoolInfo or CLMMPoolInfo) based on connector type.
         """
         try:
-            # Split trading_pair to get base and quote tokens
-            tokens = trading_pair.split("-")
-            if len(tokens) != 2:
-                raise ValueError(f"Invalid trading pair format: {trading_pair}")
+            # First get the pool address for the trading pair
+            pool_address = await self.get_pool_address(trading_pair)
 
-            base_token, quote_token = tokens
+            if not pool_address:
+                self.logger().warning(f"Could not find pool address for {trading_pair}")
+                return None
 
             resp: Dict[str, Any] = await self._get_gateway_instance().pool_info(
-                network=self.network,
                 connector=self.connector_name,
-                base_token=base_token,
-                quote_token=quote_token,
+                network=self.network,
+                pool_address=pool_address,
             )
 
             # Determine which model to use based on connector type
@@ -128,12 +148,12 @@ class GatewayLp(GatewaySwap):
             )
             return None
 
-    def open_position(self, trading_pair: str, price: float, **request_args) -> str:
+    def add_liquidity(self, trading_pair: str, price: float, **request_args) -> str:
         """
-        Opens a liquidity position - either concentrated (CLMM) or regular (AMM) based on the connector type.
+        Adds liquidity to a pool - either concentrated (CLMM) or regular (AMM) based on the connector type.
         :param trading_pair: The market trading pair
         :param price: The center price for the position.
-        :param request_args: Additional arguments for position opening
+        :param request_args: Additional arguments for liquidity addition
         :return: A newly created order id (internal).
         """
         trade_type: TradeType = TradeType.RANGE
@@ -142,15 +162,15 @@ class GatewayLp(GatewaySwap):
         # Check connector type and call appropriate function
         connector_type = get_connector_type(self.connector_name)
         if connector_type == ConnectorType.CLMM:
-            safe_ensure_future(self._clmm_open_position(trade_type, order_id, trading_pair, price, **request_args))
+            safe_ensure_future(self._clmm_add_liquidity(trade_type, order_id, trading_pair, price, **request_args))
         elif connector_type == ConnectorType.AMM:
-            safe_ensure_future(self._amm_open_position(trade_type, order_id, trading_pair, price, **request_args))
+            safe_ensure_future(self._amm_add_liquidity(trade_type, order_id, trading_pair, price, **request_args))
         else:
             raise ValueError(f"Connector type {connector_type} does not support liquidity provision")
 
         return order_id
 
-    async def _clmm_open_position(
+    async def _clmm_add_liquidity(
         self,
         trade_type: TradeType,
         order_id: str,
@@ -227,7 +247,7 @@ class GatewayLp(GatewaySwap):
         except Exception as e:
             self._handle_operation_failure(order_id, trading_pair, "opening CLMM position", e)
 
-    async def _amm_open_position(
+    async def _amm_add_liquidity(
         self,
         trade_type: TradeType,
         order_id: str,
@@ -293,7 +313,7 @@ class GatewayLp(GatewaySwap):
         except Exception as e:
             self._handle_operation_failure(order_id, trading_pair, "opening AMM position", e)
 
-    def close_position(
+    def remove_liquidity(
         self,
         trading_pair: str,
         position_address: Optional[str] = None,
@@ -301,10 +321,10 @@ class GatewayLp(GatewaySwap):
         **request_args
     ) -> str:
         """
-        Closes a liquidity position - either concentrated (CLMM) or regular (AMM) based on the connector type.
+        Removes liquidity from a position - either concentrated (CLMM) or regular (AMM) based on the connector type.
         :param trading_pair: The market trading pair
-        :param position_address: The address of the position to close (required for CLMM, optional for AMM)
-        :param percentage: Percentage of liquidity to remove (for AMM, defaults to 100%)
+        :param position_address: The address of the position (required for CLMM, optional for AMM)
+        :param percentage: Percentage of liquidity to remove (defaults to 100%)
         :return: A newly created order id (internal).
         """
         connector_type = get_connector_type(self.connector_name)
@@ -316,11 +336,17 @@ class GatewayLp(GatewaySwap):
         trade_type: TradeType = TradeType.RANGE
         order_id: str = self.create_market_order_id(trade_type, trading_pair)
 
-        # Call appropriate function based on connector type
+        # Call appropriate function based on connector type and percentage
         if connector_type == ConnectorType.CLMM:
-            safe_ensure_future(self._clmm_close_position(trade_type, order_id, trading_pair, position_address, **request_args))
+            if percentage == 100.0:
+                # Complete close for CLMM
+                safe_ensure_future(self._clmm_close_position(trade_type, order_id, trading_pair, position_address, **request_args))
+            else:
+                # Partial removal for CLMM
+                safe_ensure_future(self._clmm_remove_liquidity(trade_type, order_id, trading_pair, position_address, percentage, **request_args))
         elif connector_type == ConnectorType.AMM:
-            safe_ensure_future(self._amm_close_position(trade_type, order_id, trading_pair, percentage, **request_args))
+            # AMM always uses remove_liquidity
+            safe_ensure_future(self._amm_remove_liquidity(trade_type, order_id, trading_pair, percentage, **request_args))
         else:
             raise ValueError(f"Connector type {connector_type} does not support liquidity provision")
 
@@ -370,7 +396,54 @@ class GatewayLp(GatewaySwap):
         except Exception as e:
             self._handle_operation_failure(order_id, trading_pair, "closing CLMM position", e)
 
-    async def _amm_close_position(
+    async def _clmm_remove_liquidity(
+        self,
+        trade_type: TradeType,
+        order_id: str,
+        trading_pair: str,
+        position_address: str,
+        percentage: float = 100.0,
+        fail_silently: bool = False,
+    ):
+        """
+        Removes liquidity from a CLMM position (partial removal).
+
+        :param trade_type: The trade type (should be RANGE)
+        :param order_id: Internal order id (also called client_order_id)
+        :param trading_pair: The trading pair for the position
+        :param position_address: The address of the position
+        :param percentage: Percentage of liquidity to remove (0-100)
+        :param fail_silently: Whether to fail silently on error
+        """
+        # Check connector type is CLMM
+        if get_connector_type(self.connector_name) != ConnectorType.CLMM:
+            raise ValueError(f"Connector {self.connector_name} is not of type CLMM.")
+
+        # Start tracking order
+        self.start_tracking_order(order_id=order_id,
+                                  trading_pair=trading_pair,
+                                  trade_type=trade_type)
+        try:
+            transaction_result = await self._get_gateway_instance().clmm_remove_liquidity(
+                connector=self.connector_name,
+                network=self.network,
+                wallet_address=self.address,
+                position_address=position_address,
+                percentage=percentage,
+                fail_silently=fail_silently
+            )
+            transaction_hash: Optional[str] = transaction_result.get("signature")
+            if transaction_hash is not None and transaction_hash != "":
+                self.update_order_from_hash(order_id, trading_pair, transaction_hash, transaction_result)
+                return transaction_hash
+            else:
+                raise ValueError("No transaction hash returned from gateway")
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self._handle_operation_failure(order_id, trading_pair, "removing CLMM liquidity", e)
+
+    async def _amm_remove_liquidity(
         self,
         trade_type: TradeType,
         order_id: str,
@@ -587,25 +660,64 @@ class GatewayLp(GatewaySwap):
             )
             return None
 
-    async def get_user_positions(self) -> List[Union[AMMPositionInfo, CLMMPositionInfo]]:
+    async def get_user_positions(self, pool_address: Optional[str] = None) -> List[Union[AMMPositionInfo, CLMMPositionInfo]]:
         """
         Fetch all user positions for this connector and wallet.
 
+        :param pool_address: Optional pool address to filter positions (required for AMM)
         :return: List of position information objects
         """
         positions = []
 
         try:
-            # Call gateway endpoint to list user positions
-            response = await self._get_gateway_instance().get_user_positions(
-                connector=self.connector_name,
-                network=self.network,
-                wallet_address=self.address
-            )
-
             connector_type = get_connector_type(self.connector_name)
 
-            # Parse position data based on connector type
+            if connector_type == ConnectorType.CLMM:
+                # For CLMM, use positions-owned endpoint
+                response = await self._get_gateway_instance().clmm_positions_owned(
+                    connector=self.connector_name,
+                    network=self.network,
+                    wallet_address=self.address,
+                    pool_address=pool_address  # Optional filter by pool
+                )
+            else:
+                # For AMM, we need a pool address
+                if not pool_address:
+                    self.logger().warning("AMM position fetching requires a pool address")
+                    return []
+
+                # For AMM, get position info directly from the pool
+                # We'll need to get pool info first to extract tokens
+                pool_resp = await self._get_gateway_instance().pool_info(
+                    connector=self.connector_name,
+                    network=self.network,
+                    pool_address=pool_address
+                )
+
+                if not pool_resp:
+                    return []
+
+                # Now get the position info
+                resp = await self._get_gateway_instance().amm_position_info(
+                    connector=self.connector_name,
+                    network=self.network,
+                    pool_address=pool_address,
+                    base_token=pool_resp.get("baseToken", ""),
+                    quote_token=pool_resp.get("quoteToken", ""),
+                    wallet_address=self.address
+                )
+
+                if resp:
+                    position = AMMPositionInfo(**resp)
+                    # Add token symbols if not present
+                    if not hasattr(position, 'base_token') or not position.base_token:
+                        position.base_token = pool_resp.get("baseToken", "Unknown")
+                        position.quote_token = pool_resp.get("quoteToken", "Unknown")
+                    return [position]
+                else:
+                    return []
+
+            # Parse position data based on connector type (for CLMM)
             for pos_data in response.get("positions", []):
                 try:
                     if connector_type == ConnectorType.CLMM:

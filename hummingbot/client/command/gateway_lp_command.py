@@ -3,8 +3,6 @@ import asyncio
 import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
-import pandas as pd
-
 from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
 from hummingbot.connector.gateway.common_types import ConnectorType, TransactionStatus, get_connector_type
 from hummingbot.connector.gateway.gateway_lp import (
@@ -14,6 +12,7 @@ from hummingbot.connector.gateway.gateway_lp import (
     CLMMPositionInfo,
     GatewayLp,
 )
+from hummingbot.connector.gateway.lp_command_utils import LPCommandUtils
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 if TYPE_CHECKING:
@@ -64,23 +63,7 @@ class GatewayLPCommand:
         is_clmm: bool
     ):
         """Display pool information in a user-friendly format"""
-        self.notify("\n=== Pool Information ===")
-        self.notify(f"Pool Address: {pool_info.address}")
-        self.notify(f"Current Price: {pool_info.price:.6f}")
-        self.notify(f"Fee: {pool_info.fee_pct}%")
-
-        if is_clmm and isinstance(pool_info, CLMMPoolInfo):
-            self.notify(f"Active Bin ID: {pool_info.active_bin_id}")
-            self.notify(f"Bin Step: {pool_info.bin_step}")
-
-        self.notify("\nPool Reserves:")
-        self.notify(f"  Base: {pool_info.base_token_amount:.6f}")
-        self.notify(f"  Quote: {pool_info.quote_token_amount:.6f}")
-
-        # Calculate TVL if prices available
-        tvl_estimate = (pool_info.base_token_amount * pool_info.price +
-                        pool_info.quote_token_amount)
-        self.notify(f"  TVL (in quote): ~{tvl_estimate:.2f}")
+        LPCommandUtils.display_pool_info(self, pool_info, is_clmm)
 
     def _display_positions_table(
         self,
@@ -88,51 +71,14 @@ class GatewayLPCommand:
         is_clmm: bool
     ):
         """Display user positions in a formatted table"""
-        if is_clmm:
-            # CLMM positions table
-            rows = []
-            for i, pos in enumerate(positions):
-                rows.append({
-                    "No": i + 1,
-                    "ID": self._format_position_id(pos),
-                    "Pair": f"{pos.base_token}-{pos.quote_token}",
-                    "Range": f"{pos.lower_price:.2f}-{pos.upper_price:.2f}",
-                    "Value": f"{pos.base_token_amount:.4f} / {pos.quote_token_amount:.4f}",
-                    "Fees": f"{pos.base_fee_amount:.4f} / {pos.quote_fee_amount:.4f}"
-                })
-
-            df = pd.DataFrame(rows)
-            self.notify("\nYour Concentrated Liquidity Positions:")
-        else:
-            # AMM positions table
-            rows = []
-            for i, pos in enumerate(positions):
-                rows.append({
-                    "No": i + 1,
-                    "Pool": self._format_position_id(pos),
-                    "Pair": f"{pos.base_token}-{pos.quote_token}",
-                    "LP Tokens": f"{pos.lp_token_amount:.6f}",
-                    "Value": f"{pos.base_token_amount:.4f} / {pos.quote_token_amount:.4f}",
-                    "Price": f"{pos.price:.6f}"
-                })
-
-            df = pd.DataFrame(rows)
-            self.notify("\nYour Liquidity Positions:")
-
-        lines = ["    " + line for line in df.to_string(index=False).split("\n")]
-        self.notify("\n".join(lines))
+        LPCommandUtils.display_positions_table(self, positions, is_clmm)
 
     def _format_position_id(
         self,
         position: Union[AMMPositionInfo, CLMMPositionInfo]
     ) -> str:
         """Format position identifier for display"""
-        if hasattr(position, 'address'):
-            # CLMM position with unique address
-            return GatewayCommandUtils.format_address_display(position.address)
-        else:
-            # AMM position identified by pool
-            return GatewayCommandUtils.format_address_display(position.pool_address)
+        return LPCommandUtils.format_position_id(position)
 
     def _calculate_removal_amounts(
         self,
@@ -140,12 +86,7 @@ class GatewayLPCommand:
         percentage: float
     ) -> Tuple[float, float]:
         """Calculate token amounts to receive when removing liquidity"""
-        factor = percentage / 100.0
-
-        base_amount = position.base_token_amount * factor
-        quote_amount = position.quote_token_amount * factor
-
-        return base_amount, quote_amount
+        return LPCommandUtils.calculate_removal_amounts(position, percentage)
 
     def _display_positions_summary(
         self,
@@ -153,94 +94,21 @@ class GatewayLPCommand:
         is_clmm: bool
     ):
         """Display summary of all positions"""
-        total_value_base = 0
-        total_value_quote = 0
-        total_fees_base = 0
-        total_fees_quote = 0
-
-        # Calculate totals
-        for pos in positions:
-            total_value_base += pos.base_token_amount
-            total_value_quote += pos.quote_token_amount
-
-            if hasattr(pos, 'base_fee_amount'):
-                total_fees_base += pos.base_fee_amount
-                total_fees_quote += pos.quote_fee_amount
-
-        self.notify(f"\nTotal Positions: {len(positions)}")
-        self.notify("Total Value Locked:")
-
-        # Group by token pair
-        positions_by_pair = {}
-        for pos in positions:
-            pair = f"{pos.base_token}-{pos.quote_token}"
-            if pair not in positions_by_pair:
-                positions_by_pair[pair] = []
-            positions_by_pair[pair].append(pos)
-
-        for pair, pair_positions in positions_by_pair.items():
-            base_token, quote_token = pair.split("-")
-            pair_base_total = sum(p.base_token_amount for p in pair_positions)
-            pair_quote_total = sum(p.quote_token_amount for p in pair_positions)
-
-            self.notify(f"  {pair}: {pair_base_total:.6f} {base_token} / "
-                        f"{pair_quote_total:.6f} {quote_token}")
-
-        if total_fees_base > 0 or total_fees_quote > 0:
-            self.notify("\nTotal Uncollected Fees:")
-            for pair, pair_positions in positions_by_pair.items():
-                if any(hasattr(p, 'base_fee_amount') for p in pair_positions):
-                    base_token, quote_token = pair.split("-")
-                    pair_fees_base = sum(getattr(p, 'base_fee_amount', 0) for p in pair_positions)
-                    pair_fees_quote = sum(getattr(p, 'quote_fee_amount', 0) for p in pair_positions)
-
-                    if pair_fees_base > 0 or pair_fees_quote > 0:
-                        self.notify(f"  {pair}: {pair_fees_base:.6f} {base_token} / "
-                                    f"{pair_fees_quote:.6f} {quote_token}")
-
-        # Display positions table
-        self._display_positions_table(positions, is_clmm)
+        LPCommandUtils.display_positions_summary(self, positions, is_clmm)
 
     def _display_positions_with_fees(
         self,
         positions: List[CLMMPositionInfo]
     ):
         """Display positions that have uncollected fees"""
-        rows = []
-        for i, pos in enumerate(positions):
-            rows.append({
-                "No": i + 1,
-                "Position": self._format_position_id(pos),
-                "Pair": f"{pos.base_token}-{pos.quote_token}",
-                "Base Fees": f"{pos.base_fee_amount:.6f}",
-                "Quote Fees": f"{pos.quote_fee_amount:.6f}"
-            })
-
-        df = pd.DataFrame(rows)
-        self.notify("\nPositions with Uncollected Fees:")
-        lines = ["    " + line for line in df.to_string(index=False).split("\n")]
-        self.notify("\n".join(lines))
+        LPCommandUtils.display_positions_with_fees(self, positions)
 
     def _calculate_total_fees(
         self,
         positions: List[CLMMPositionInfo]
     ) -> Dict[str, float]:
         """Calculate total fees across positions grouped by token"""
-        fees_by_token = {}
-
-        for pos in positions:
-            base_token = pos.base_token
-            quote_token = pos.quote_token
-
-            if base_token not in fees_by_token:
-                fees_by_token[base_token] = 0
-            if quote_token not in fees_by_token:
-                fees_by_token[quote_token] = 0
-
-            fees_by_token[base_token] += pos.base_fee_amount
-            fees_by_token[quote_token] += pos.quote_fee_amount
-
-        return fees_by_token
+        return LPCommandUtils.calculate_total_fees(positions)
 
     def _calculate_clmm_pair_amount(
         self,
@@ -255,25 +123,9 @@ class GatewayLPCommand:
         This is a simplified calculation - actual implementation would use
         proper CLMM math based on the protocol.
         """
-        current_price = pool_info.price
-
-        if current_price <= lower_price:
-            # All quote token
-            return known_amount * current_price if is_base_known else 0
-        elif current_price >= upper_price:
-            # All base token
-            return known_amount / current_price if not is_base_known else 0
-        else:
-            # Calculate based on liquidity distribution in range
-            # This is protocol-specific and would need proper implementation
-            price_ratio = (current_price - lower_price) / (upper_price - lower_price)
-
-            if is_base_known:
-                # Known base, calculate quote
-                return known_amount * current_price * (1 - price_ratio)
-            else:
-                # Known quote, calculate base
-                return known_amount / current_price * price_ratio
+        return LPCommandUtils.calculate_clmm_pair_amount(
+            known_amount, pool_info, lower_price, upper_price, is_base_known
+        )
 
     async def _display_position_details(
         self,
@@ -452,36 +304,26 @@ class GatewayLPCommand:
 
                 # 6. Enter interactive mode for detailed view
                 if len(positions) > 1:
-                    self.placeholder_mode = True
-                    self.app.hide_input = True
+                    await GatewayCommandUtils.enter_interactive_mode(self)
 
                     try:
-                        view_details = await self.app.prompt(
-                            prompt="\nView detailed position info? (Yes/No): "
+                        view_details = await GatewayCommandUtils.prompt_for_confirmation(
+                            self, "\nView detailed position info?"
                         )
 
-                        if view_details.lower() in ["y", "yes"]:
-                            position_num = await self.app.prompt(
-                                prompt=f"Select position number (1-{len(positions)}): "
+                        if view_details:
+                            selected_position = await LPCommandUtils.prompt_for_position_selection(
+                                self, positions
                             )
 
-                            try:
-                                position_idx = int(position_num) - 1
-                                if 0 <= position_idx < len(positions):
-                                    selected_position = positions[position_idx]
-                                    await self._display_position_details(
-                                        connector, selected_position, is_clmm,
-                                        chain, network, wallet_address
-                                    )
-                                else:
-                                    self.notify("Error: Invalid position number")
-                            except ValueError:
-                                self.notify("Error: Please enter a valid number")
+                            if selected_position:
+                                await self._display_position_details(
+                                    connector, selected_position, is_clmm,
+                                    chain, network, wallet_address
+                                )
 
                     finally:
-                        self.placeholder_mode = False
-                        self.app.hide_input = False
-                        self.app.change_prompt(prompt=">>> ")
+                        await GatewayCommandUtils.exit_interactive_mode(self)
                 else:
                     # Single position - show details directly
                     await self._display_position_details(
@@ -539,8 +381,7 @@ class GatewayLPCommand:
             self.notify(f"Type: {'Concentrated Liquidity' if is_clmm else 'Standard AMM'}")
 
             # 4. Enter interactive mode
-            self.placeholder_mode = True
-            self.app.hide_input = True
+            await GatewayCommandUtils.enter_interactive_mode(self)
 
             try:
                 # 5. Get trading pair
@@ -680,26 +521,67 @@ class GatewayLPCommand:
                     self.notify("Error: Must provide at least one token amount")
                     return
 
-                # 10. Calculate optimal amounts if only one provided
-                if is_clmm:
-                    # For CLMM, calculate based on price range
-                    if base_amount and not quote_amount:
-                        # Calculate quote amount based on range and liquidity distribution
-                        quote_amount = self._calculate_clmm_pair_amount(
-                            base_amount, pool_info, lower_price, upper_price, True
-                        )
-                    elif quote_amount and not base_amount:
-                        base_amount = self._calculate_clmm_pair_amount(
-                            quote_amount, pool_info, lower_price, upper_price, False
-                        )
-                else:
-                    # For AMM, maintain pool ratio
-                    pool_ratio = pool_info.base_token_amount / pool_info.quote_token_amount
+                # 10. Get quote for optimal amounts
+                self.notify("\nCalculating optimal token amounts...")
 
-                    if base_amount and not quote_amount:
-                        quote_amount = base_amount / pool_ratio
-                    elif quote_amount and not base_amount:
-                        base_amount = quote_amount * pool_ratio
+                # Get slippage from connector config
+                connector_config = await GatewayCommandUtils.get_connector_config(
+                    self._get_gateway_instance(), connector
+                )
+                slippage_pct = connector_config.get("slippagePct", 1.0)
+
+                if is_clmm:
+                    # For CLMM, use quote_position
+                    quote_result = await self._get_gateway_instance().clmm_quote_position(
+                        connector=connector,
+                        network=network,
+                        pool_address=pool_info.address,
+                        lower_price=lower_price,
+                        upper_price=upper_price,
+                        base_token_amount=base_amount,
+                        quote_token_amount=quote_amount,
+                        slippage_pct=slippage_pct
+                    )
+
+                    # Update amounts based on quote
+                    base_amount = quote_result.get("baseTokenAmount", base_amount)
+                    quote_amount = quote_result.get("quoteTokenAmount", quote_amount)
+
+                    # Show if position is base or quote limited
+                    if quote_result.get("baseLimited"):
+                        self.notify("Note: Position size is limited by base token amount")
+                    else:
+                        self.notify("Note: Position size is limited by quote token amount")
+
+                else:
+                    # For AMM, need both amounts for quote
+                    if not base_amount or not quote_amount:
+                        # If only one amount provided, calculate the other based on pool ratio
+                        pool_ratio = pool_info.base_token_amount / pool_info.quote_token_amount
+                        if base_amount and not quote_amount:
+                            quote_amount = base_amount / pool_ratio
+                        elif quote_amount and not base_amount:
+                            base_amount = quote_amount * pool_ratio
+
+                    # Get quote for AMM
+                    quote_result = await self._get_gateway_instance().amm_quote_liquidity(
+                        connector=connector,
+                        network=network,
+                        pool_address=pool_info.address,
+                        base_token_amount=base_amount,
+                        quote_token_amount=quote_amount,
+                        slippage_pct=slippage_pct
+                    )
+
+                    # Update amounts based on quote
+                    base_amount = quote_result.get("baseTokenAmount", base_amount)
+                    quote_amount = quote_result.get("quoteTokenAmount", quote_amount)
+
+                    # Show if position is base or quote limited
+                    if quote_result.get("baseLimited"):
+                        self.notify("Note: Liquidity will be limited by base token amount")
+                    else:
+                        self.notify("Note: Liquidity will be limited by quote token amount")
 
                 # Display calculated amounts
                 self.notify("\nToken amounts to add:")
@@ -764,24 +646,15 @@ class GatewayLPCommand:
                     self.notify(f"\nAdding liquidity to pool at current price: {pool_info.price:.6f}")
 
                 # 17. Display warnings
-                if warnings:
-                    self.notify("\n⚠️  WARNINGS:")
-                    for warning in warnings:
-                        self.notify(f"  • {warning}")
+                GatewayCommandUtils.display_warnings(self, warnings)
 
                 # 18. Show slippage info
-                connector_config = await GatewayCommandUtils.get_connector_config(
-                    self._get_gateway_instance(), connector
-                )
-                slippage_pct = connector_config.get("slippagePct", 1.0)
                 self.notify(f"\nSlippage tolerance: {slippage_pct}%")
 
                 # 19. Confirmation
-                confirm = await self.app.prompt(
-                    prompt="\nDo you want to add liquidity? (Yes/No) >>> "
-                )
-
-                if confirm.lower() not in ["y", "yes"]:
+                if not await GatewayCommandUtils.prompt_for_confirmation(
+                    self, "Do you want to add liquidity?"
+                ):
                     self.notify("Add liquidity cancelled")
                     return
 
@@ -790,7 +663,7 @@ class GatewayLPCommand:
 
                 # Create order ID and execute
                 if is_clmm:
-                    order_id = lp_connector.open_position(
+                    order_id = lp_connector.add_liquidity(
                         trading_pair=trading_pair,
                         price=pool_info.price,
                         spread_pct=position_params['spread_pct'],
@@ -799,7 +672,7 @@ class GatewayLPCommand:
                         slippage_pct=slippage_pct
                     )
                 else:
-                    order_id = lp_connector.open_position(
+                    order_id = lp_connector.add_liquidity(
                         trading_pair=trading_pair,
                         price=pool_info.price,
                         base_token_amount=base_amount,
@@ -828,9 +701,7 @@ class GatewayLPCommand:
                 await lp_connector.stop_network()
 
             finally:
-                self.placeholder_mode = False
-                self.app.hide_input = False
-                self.app.change_prompt(prompt=">>> ")
+                await GatewayCommandUtils.exit_interactive_mode(self)
 
         except Exception as e:
             self.logger().error(f"Error in add liquidity: {e}", exc_info=True)
@@ -899,73 +770,40 @@ class GatewayLPCommand:
                 self._display_positions_table(positions, is_clmm)
 
                 # 6. Enter interactive mode
-                self.placeholder_mode = True
-                self.app.hide_input = True
+                await GatewayCommandUtils.enter_interactive_mode(self)
 
                 try:
                     # 7. Let user select position
-                    if len(positions) == 1:
-                        selected_position = positions[0]
-                        self.notify(f"\nSelected position: {self._format_position_id(selected_position)}")
-                    else:
-                        position_num = await self.app.prompt(
-                            prompt=f"\nSelect position number (1-{len(positions)}): "
-                        )
-
-                        try:
-                            position_idx = int(position_num) - 1
-                            if 0 <= position_idx < len(positions):
-                                selected_position = positions[position_idx]
-                            else:
-                                self.notify("Error: Invalid position number")
-                                return
-                        except ValueError:
-                            self.notify("Error: Please enter a valid number")
-                            return
-
-                    # 8. Get removal percentage
-                    percentage_str = await self.app.prompt(
-                        prompt="\nPercentage to remove (0-100, default 100): "
+                    selected_position = await LPCommandUtils.prompt_for_position_selection(
+                        self, positions, prompt_text=f"\nSelect position number (1-{len(positions)}): "
                     )
 
-                    if not percentage_str:
-                        percentage = 100.0
-                    else:
-                        try:
-                            percentage = float(percentage_str)
-                            if percentage <= 0 or percentage > 100:
-                                self.notify("Error: Percentage must be between 0 and 100")
-                                return
-                        except ValueError:
-                            self.notify("Error: Invalid percentage")
-                            return
+                    if not selected_position:
+                        return
+
+                    if len(positions) == 1:
+                        self.notify(f"\nSelected position: {self._format_position_id(selected_position)}")
+
+                    # 8. Get removal percentage
+                    percentage = await GatewayCommandUtils.prompt_for_percentage(
+                        self, prompt_text="\nPercentage to remove (0-100, default 100): "
+                    )
+
+                    if percentage is None:
+                        return
 
                     # 9. For 100% removal, ask about closing position
                     close_position = False
                     if percentage == 100.0 and is_clmm:
-                        close_prompt = await self.app.prompt(
-                            prompt="\nCompletely close this position? (Yes/No): "
+                        close_position = await GatewayCommandUtils.prompt_for_confirmation(
+                            self, "\nCompletely close this position?"
                         )
-                        close_position = close_prompt.lower() in ["y", "yes"]
 
-                    # 10. Calculate tokens to receive
-                    base_to_receive, quote_to_receive = self._calculate_removal_amounts(
-                        selected_position, percentage
+                    # 10. Calculate and display removal impact
+                    base_to_receive, quote_to_receive = LPCommandUtils.display_position_removal_impact(
+                        self, selected_position, percentage,
+                        selected_position.base_token, selected_position.quote_token
                     )
-
-                    self.notify("\nYou will receive:")
-                    self.notify(f"  {selected_position.base_token}: {base_to_receive:.6f}")
-                    self.notify(f"  {selected_position.quote_token}: {quote_to_receive:.6f}")
-
-                    # Show fees if any
-                    if hasattr(selected_position, 'base_fee_amount'):
-                        total_base_fees = selected_position.base_fee_amount
-                        total_quote_fees = selected_position.quote_fee_amount
-                        if total_base_fees > 0 or total_quote_fees > 0:
-                            self.notify("\nUncollected fees:")
-                            self.notify(f"  {selected_position.base_token}: {total_base_fees:.6f}")
-                            self.notify(f"  {selected_position.quote_token}: {total_quote_fees:.6f}")
-                            self.notify("Note: Fees will be automatically collected")
 
                     # 11. Update LP connector with the selected trading pair
                     trading_pair = f"{selected_position.base_token}-{selected_position.quote_token}"
@@ -1025,31 +863,29 @@ class GatewayLPCommand:
                     GatewayCommandUtils.display_transaction_fee_details(app=self, fee_info=fee_info)
 
                     # 17. Display warnings
-                    if warnings:
-                        self.notify("\n⚠️  WARNINGS:")
-                        for warning in warnings:
-                            self.notify(f"  • {warning}")
+                    GatewayCommandUtils.display_warnings(self, warnings)
 
                     # 18. Confirmation
                     action_text = "close position" if close_position else f"remove {percentage}% liquidity"
-                    confirm = await self.app.prompt(
-                        prompt=f"\nDo you want to {action_text}? (Yes/No) >>> "
-                    )
-
-                    if confirm.lower() not in ["y", "yes"]:
+                    if not await GatewayCommandUtils.prompt_for_confirmation(
+                        self, f"Do you want to {action_text}?"
+                    ):
                         self.notify("Remove liquidity cancelled")
                         return
 
                     # 20. Execute transaction
                     self.notify(f"\n{'Closing position' if close_position else 'Removing liquidity'}...")
 
-                    # Create order ID and execute
+                    # Get position address
                     position_address = getattr(selected_position, 'address', None) or getattr(selected_position, 'pool_address', None)
 
-                    order_id = lp_connector.close_position(
+                    # The remove_liquidity method now handles the routing correctly:
+                    # - For CLMM: uses clmm_close_position if 100%, clmm_remove_liquidity otherwise
+                    # - For AMM: always uses amm_remove_liquidity
+                    order_id = lp_connector.remove_liquidity(
                         trading_pair=trading_pair,
                         position_address=position_address,
-                        percentage=percentage if not close_position else 100.0
+                        percentage=percentage
                     )
 
                     self.notify(f"Transaction submitted. Order ID: {order_id}")
@@ -1073,9 +909,7 @@ class GatewayLPCommand:
                             self.notify("Use 'gateway lp position-info' to view remaining position")
 
                 finally:
-                    self.placeholder_mode = False
-                    self.app.hide_input = False
-                    self.app.change_prompt(prompt=">>> ")
+                    await GatewayCommandUtils.exit_interactive_mode(self)
 
             finally:
                 # Always stop the connector
@@ -1157,76 +991,39 @@ class GatewayLPCommand:
                 # 5. Display positions with fees
                 self._display_positions_with_fees(positions_with_fees)
 
-                # 6. Calculate total fees
-                total_fees = self._calculate_total_fees(positions_with_fees)
-
-                self.notify("\nTotal fees to collect:")
-                for token, amount in total_fees.items():
-                    if amount > 0:
-                        self.notify(f"  {token}: {amount:.6f}")
+                # 6. Calculate and display total fees
+                GatewayCommandUtils.calculate_and_display_fees(
+                    self, positions_with_fees
+                )
 
                 # 7. Enter interactive mode
-                self.placeholder_mode = True
-                self.app.hide_input = True
+                await GatewayCommandUtils.enter_interactive_mode(self)
 
                 try:
-                    # 8. Ask which positions to collect from
+                    # 8. Select position to collect fees from
+                    selected_position = await LPCommandUtils.prompt_for_position_selection(
+                        self, positions_with_fees,
+                        prompt_text=f"\nSelect position to collect fees from (1-{len(positions_with_fees)}): "
+                    )
+
+                    if not selected_position:
+                        return
+
                     if len(positions_with_fees) == 1:
-                        selected_positions = positions_with_fees
-                        self.notify("\nCollecting fees from 1 position")
-                    else:
-                        collect_choice = await self.app.prompt(
-                            prompt=f"\nCollect fees from:\n"
-                                   f"1. All positions ({len(positions_with_fees)} positions)\n"
-                                   f"2. Select specific positions\n"
-                                   f"Enter choice (1 or 2): "
-                        )
+                        self.notify(f"\nSelected position: {self._format_position_id(selected_position)}")
 
-                        if collect_choice == "1":
-                            selected_positions = positions_with_fees
-                        elif collect_choice == "2":
-                            # Let user select specific positions
-                            position_nums = await self.app.prompt(
-                                prompt="Enter position numbers to collect from "
-                                       "(comma-separated, e.g., 1,3,5): "
-                            )
-
-                            try:
-                                indices = [int(x.strip()) - 1 for x in position_nums.split(",")]
-                                selected_positions = [
-                                    positions_with_fees[i] for i in indices
-                                    if 0 <= i < len(positions_with_fees)
-                                ]
-
-                                if not selected_positions:
-                                    self.notify("Error: No valid positions selected")
-                                    return
-
-                            except (ValueError, IndexError):
-                                self.notify("Error: Invalid position selection")
-                                return
-                        else:
-                            self.notify("Invalid choice")
-                            return
-
-                    # 9. Calculate fees to collect from selected positions
-                    fees_to_collect = self._calculate_total_fees(selected_positions)
-
-                    self.notify(f"\nFees to collect from {len(selected_positions)} position(s):")
-                    for token, amount in fees_to_collect.items():
-                        if amount > 0:
-                            self.notify(f"  {token}: {amount:.6f}")
+                    # 9. Show fees to collect from selected position
+                    self.notify("\nFees to collect:")
+                    self.notify(f"  {selected_position.base_token}: {selected_position.base_fee_amount:.6f}")
+                    self.notify(f"  {selected_position.quote_token}: {selected_position.quote_fee_amount:.6f}")
 
                     # 10. Check gas costs vs fees
                     # Get native token for gas estimation
                     native_token = lp_connector.native_currency or chain.upper()
 
-                    # Update connector with the trading pairs from selected positions
-                    trading_pairs = list(set(
-                        f"{pos.base_token}-{pos.quote_token}"
-                        for pos in selected_positions
-                    ))
-                    lp_connector._trading_pairs = trading_pairs
+                    # Update connector with the trading pair from selected position
+                    trading_pair = f"{selected_position.base_token}-{selected_position.quote_token}"
+                    lp_connector._trading_pairs = [trading_pair]
                     await lp_connector.load_token_data()
 
                     # 11. Estimate transaction fee
@@ -1241,7 +1038,7 @@ class GatewayLPCommand:
                     gas_fee_estimate = fee_info.get("fee_in_native", 0) if fee_info.get("success", False) else 0
 
                     # 12. Get current balances
-                    tokens_to_check = list(fees_to_collect.keys())
+                    tokens_to_check = [selected_position.base_token, selected_position.quote_token]
                     if native_token not in tokens_to_check:
                         tokens_to_check.append(native_token)
 
@@ -1256,11 +1053,17 @@ class GatewayLPCommand:
 
                     # 13. Display balance impact
                     warnings = []
+                    # Calculate fees to receive
+                    fees_to_receive = {
+                        selected_position.base_token: selected_position.base_fee_amount,
+                        selected_position.quote_token: selected_position.quote_fee_amount
+                    }
+
                     GatewayCommandUtils.display_balance_impact_table(
                         app=self,
                         wallet_address=wallet_address,
                         current_balances=current_balances,
-                        balance_changes=fees_to_collect,  # Fees are positive (receiving)
+                        balance_changes=fees_to_receive,  # Fees are positive (receiving)
                         native_token=native_token,
                         gas_fee=gas_fee_estimate,
                         warnings=warnings,
@@ -1274,92 +1077,51 @@ class GatewayLPCommand:
                     self.notify(f"\nEstimated gas cost: ~{gas_fee_estimate:.6f} {native_token}")
 
                     # 16. Display warnings
-                    if warnings:
-                        self.notify("\n⚠️  WARNINGS:")
-                        for warning in warnings:
-                            self.notify(f"  • {warning}")
+                    GatewayCommandUtils.display_warnings(self, warnings)
 
                     # 17. Confirmation
-                    confirm = await self.app.prompt(
-                        prompt="\nDo you want to collect these fees? (Yes/No) >>> "
-                    )
-
-                    if confirm.lower() not in ["y", "yes"]:
+                    if not await GatewayCommandUtils.prompt_for_confirmation(
+                        self, "Do you want to collect these fees?"
+                    ):
                         self.notify("Fee collection cancelled")
                         return
 
                     # 18. Execute fee collection
                     self.notify("\nCollecting fees...")
 
-                    # Collect fees for each selected position
-                    # This would ideally be batched if the protocol supports it
-                    results = []
-                    for i, position in enumerate(selected_positions):
-                        self.notify(f"Collecting from position {i + 1}/{len(selected_positions)}...")
+                    try:
+                        # Call gateway to collect fees
+                        result = await self._get_gateway_instance().clmm_collect_fees(
+                            connector=connector,
+                            network=network,
+                            wallet_address=wallet_address,
+                            position_address=selected_position.address
+                        )
 
-                        try:
-                            # Call gateway to collect fees
-                            result = await self._get_gateway_instance().clmm_collect_fees(
-                                connector=connector,
-                                network=network,
-                                wallet_address=wallet_address,
-                                position_address=position.address
-                            )
+                        if result.get("signature"):
+                            tx_hash = result["signature"]
+                            self.notify(f"Transaction submitted: {tx_hash}")
+                            self.notify("Monitoring transaction status...")
 
-                            if result.get("signature"):
-                                results.append({
-                                    'position': position,
-                                    'tx_hash': result["signature"],
-                                    'success': True
-                                })
-                            else:
-                                results.append({
-                                    'position': position,
-                                    'error': result.get('error', 'Unknown error'),
-                                    'success': False
-                                })
-
-                        except Exception as e:
-                            results.append({
-                                'position': position,
-                                'error': str(e),
-                                'success': False
-                            })
-
-                    # 19. Monitor transactions
-                    successful_txs = [r for r in results if r['success']]
-
-                    if successful_txs:
-                        self.notify(f"\nMonitoring {len(successful_txs)} transaction(s)...")
-
-                        # Monitor each transaction
-                        for result in successful_txs:
-                            tx_hash = result['tx_hash']
-                            self.notify(f"Transaction: {tx_hash}")
-
-                            # Simple monitoring - in production would track all
+                            # Monitor transaction
                             tx_status = await self._monitor_fee_collection_tx(
                                 lp_connector, tx_hash
                             )
 
                             if tx_status['success']:
-                                pos = result['position']
-                                self.notify(f"✓ Fees collected from position "
-                                            f"{self._format_position_id(pos)}")
+                                self.notify(f"\n✓ Fees collected successfully from position "
+                                            f"{self._format_position_id(selected_position)}!")
+                            else:
+                                self.notify(f"\n✗ Transaction failed: {tx_status.get('error', 'Unknown error')}")
+                        else:
+                            self.notify(f"\n✗ Failed to submit transaction: {result.get('error', 'Unknown error')}")
 
-                    # 20. Summary
-                    failed_count = len([r for r in results if not r['success']])
-                    if failed_count > 0:
-                        self.notify(f"\n⚠️  {failed_count} collection(s) failed")
-
-                    if successful_txs:
-                        self.notify(f"\n✓ Successfully collected fees from "
-                                    f"{len(successful_txs)} position(s)!")
+                    except Exception as e:
+                        self.notify(f"\n✗ Error collecting fees: {str(e)}")
+                        self.logger().error(f"Error collecting fees: {e}", exc_info=True)
 
                 finally:
-                    self.placeholder_mode = False
-                    self.app.hide_input = False
-                    self.app.change_prompt(prompt=">>> ")
+                    await GatewayCommandUtils.exit_interactive_mode(self)
 
             finally:
                 # Always stop the connector

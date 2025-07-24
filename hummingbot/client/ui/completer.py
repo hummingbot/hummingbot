@@ -65,6 +65,7 @@ class HummingbotCompleter(Completer):
         self._gateway_allowance_completer = WordCompleter(GATEWAY_ETH_CONNECTORS, ignore_case=True)
         self._gateway_approve_completer = WordCompleter(GATEWAY_ETH_CONNECTORS, ignore_case=True)
         self._gateway_config_completer = WordCompleter(GATEWAY_NAMESPACES, ignore_case=True)
+        self._gateway_config_action_completer = WordCompleter(["update"], ignore_case=True)
         self._gateway_lp_completer = WordCompleter(GATEWAY_CONNECTORS, ignore_case=True)
         self._gateway_lp_action_completer = WordCompleter(["add-liquidity", "remove-liquidity", "position-info", "collect-fees"], ignore_case=True)
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
@@ -260,9 +261,27 @@ class HummingbotCompleter(Completer):
 
     def _complete_gateway_config_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
-        # Only complete namespaces after "gateway config show " or "gateway config update "
-        return (text_before_cursor.startswith("gateway config show ") or
-                text_before_cursor.startswith("gateway config update "))
+        # Complete namespaces directly after "gateway config "
+        if not text_before_cursor.startswith("gateway config "):
+            return False
+        # Get everything after "gateway config "
+        args_after_config = text_before_cursor[15:]  # Keep trailing spaces
+        # Complete namespace only if:
+        # 1. We have no arguments yet (just typed "gateway config ")
+        # 2. We're typing the first argument (no spaces in args_after_config)
+        return " " not in args_after_config
+
+    def _complete_gateway_config_action(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        if not text_before_cursor.startswith("gateway config "):
+            return False
+        # Complete action if we have namespace but not action yet
+        args_after_config = text_before_cursor[15:]  # Remove "gateway config " (keep trailing spaces)
+        parts = args_after_config.strip().split()
+        # Complete action if we have exactly one part (namespace) followed by space
+        # or if we're typing the second part
+        return (len(parts) == 1 and args_after_config.endswith(" ")) or \
+               (len(parts) == 2 and not args_after_config.endswith(" "))
 
     def _complete_gateway_lp_connector(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -476,6 +495,10 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_gateway_config_arguments(document):
             for c in self._gateway_config_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_gateway_config_action(document):
+            for c in self._gateway_config_action_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_derivatives(document):

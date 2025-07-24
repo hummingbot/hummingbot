@@ -100,14 +100,13 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
     gateway_balance_parser.add_argument("tokens", nargs="?", default=None, help="Comma-separated list of tokens to check (optional)")
     gateway_balance_parser.set_defaults(func=hummingbot.gateway_balance)
 
-    gateway_allowance_parser = gateway_subparsers.add_parser("allowance", help="Check token allowances for Ethereum connectors")
+    gateway_allowance_parser = gateway_subparsers.add_parser("allowance", help="Check token allowances for ethereum-based connectors")
     gateway_allowance_parser.add_argument("connector", nargs="?", default=None, help="Ethereum connector name/type (e.g., uniswap/amm)")
     gateway_allowance_parser.set_defaults(func=hummingbot.gateway_allowance)
 
     gateway_config_parser = gateway_subparsers.add_parser("config", help="View or update gateway configuration")
-    gateway_config_parser.add_argument("action", nargs="?", default=None, help="Action to perform (show/update)")
     gateway_config_parser.add_argument("namespace", nargs="?", default=None, help="Namespace (e.g., ethereum-mainnet, uniswap)")
-    gateway_config_parser.add_argument("args", nargs="*", default=[], help="Additional arguments for update action")
+    gateway_config_parser.add_argument("action", nargs="?", default=None, help="Action to perform (update)")
     gateway_config_parser.set_defaults(func=hummingbot.gateway_config)
 
     gateway_approve_parser = gateway_subparsers.add_parser("approve", help="Approve token for gateway connector spending")
@@ -117,7 +116,7 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
 
     gateway_swap_parser = gateway_subparsers.add_parser(
         "swap",
-        help="Perform token swaps through gateway - shows quote and asks for confirmation")
+        help="Perform token swaps through gateway connectors")
     gateway_swap_parser.add_argument("connector", nargs="?", default=None,
                                      help="Connector name/type (e.g., jupiter/router)")
     gateway_swap_parser.add_argument("args", nargs="*",
