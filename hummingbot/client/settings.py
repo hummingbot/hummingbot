@@ -155,6 +155,23 @@ class GatewayConnectionSetting:
 
 
 class ConnectorSetting(NamedTuple):
+
+# Manuelle Registrierung des XT-Connectors
+
+from hummingbot.client.config.connector_setting import ConnectorSetting
+from hummingbot.client.config.config_helpers import ConnectorType
+
+CONNECTOR_SETTINGS["xt"] = ConnectorSetting(
+    name="xt",
+    connector="xt",
+    type=ConnectorType.Exchange,
+    example_pair="BTC-USDT",
+    use_ethereum_token=True,
+    trade_fee_schema=None,
+    config_keys=[],
+    is_sub_domain=False,
+    is_testnet=False,
+)
     name: str
     type: ConnectorType
     example_pair: str
