@@ -161,20 +161,14 @@ class GatewayApproveCommand:
             GatewayCommandUtils.display_transaction_fee_details(app=self, fee_info=fee_info)
 
             # Display any warnings
-            if warnings:
-                self.notify("\n⚠️  WARNINGS:")
-                for warning in warnings:
-                    self.notify(f"  • {warning}")
+            GatewayCommandUtils.display_warnings(self, warnings)
 
             # Ask for confirmation
-            self.placeholder_mode = True
-            self.app.hide_input = True
+            await GatewayCommandUtils.enter_interactive_mode(self)
             try:
-                approve_now = await self.app.prompt(
-                    prompt="Do you want to proceed with the approval? (Yes/No) >>> "
-                )
-
-                if approve_now.lower() not in ["y", "yes"]:
+                if not await GatewayCommandUtils.prompt_for_confirmation(
+                    self, "Do you want to proceed with the approval?"
+                ):
                     self.notify("Approval cancelled")
                     return
 
@@ -206,9 +200,7 @@ class GatewayApproveCommand:
                     self.notify(f"✗ Token {token} approval failed. Please check your transaction.")
 
             finally:
-                self.placeholder_mode = False
-                self.app.hide_input = False
-                self.app.change_prompt(prompt=">>> ")
+                await GatewayCommandUtils.exit_interactive_mode(self)
                 # Stop the connector
                 await gateway_connector.stop_network()
 

@@ -49,8 +49,7 @@ class GatewaySwapCommand:
 
             # Only enter interactive mode if parameters are missing
             if not all([base_token, quote_token, side, amount]):
-                self.placeholder_mode = True
-                self.app.hide_input = True
+                await GatewayCommandUtils.enter_interactive_mode(self)
 
                 try:
                     # Get base token if not provided
@@ -82,9 +81,7 @@ class GatewaySwapCommand:
                             return
 
                 finally:
-                    self.placeholder_mode = False
-                    self.app.hide_input = False
-                    self.app.change_prompt(prompt=">>> ")
+                    await GatewayCommandUtils.exit_interactive_mode(self)
 
             # Convert side to uppercase for consistency
             if side:
@@ -247,25 +244,15 @@ class GatewaySwapCommand:
             GatewayCommandUtils.display_transaction_fee_details(app=self, fee_info=fee_info)
 
             # Display any warnings
-            if warnings:
-                self.notify("\n⚠️  WARNINGS:")
-                for warning in warnings:
-                    self.notify(f"  • {warning}")
+            GatewayCommandUtils.display_warnings(self, warnings)
 
             # Ask if user wants to execute the swap
-            self.placeholder_mode = True
-            self.app.hide_input = True
+            await GatewayCommandUtils.enter_interactive_mode(self)
             try:
                 # Show wallet info in prompt
-                execute_now = await self.app.prompt(
-                    prompt="Do you want to execute this swap now? (Yes/No) >>> "
-                )
-
-                # Restore normal prompt immediately after getting user input
-                self.placeholder_mode = False
-                self.app.hide_input = False
-
-                if execute_now.lower() not in ["y", "yes"]:
+                if not await GatewayCommandUtils.prompt_for_confirmation(
+                    self, "Do you want to execute this swap now?"
+                ):
                     self.notify("Swap cancelled")
                     return
 
@@ -349,9 +336,7 @@ class GatewaySwapCommand:
                 await swap_connector.stop_network()
 
             finally:
-                self.placeholder_mode = False
-                self.app.hide_input = False
-                self.app.change_prompt(prompt=">>> ")
+                await GatewayCommandUtils.exit_interactive_mode(self)
 
         except Exception as e:
             self.notify(f"Error executing swap: {str(e)}")

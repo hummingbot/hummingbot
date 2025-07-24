@@ -149,8 +149,8 @@ class LpPositionManager(ScriptStrategyBase):
                 self.logger().info(f"Opening AMM position with target price {target_price}")
                 self.logger().info(f"Position will be closed if price moves outside range: {lower_bound:.6f} to {upper_bound:.6f}")
 
-            # Use the connector's open_position method
-            order_id = self.connectors[self.exchange].open_position(
+            # Use the connector's add_liquidity method
+            order_id = self.connectors[self.exchange].add_liquidity(
                 trading_pair=self.config.trading_pair,
                 price=current_price,
                 spread_pct=float(self.config.position_width_pct),
@@ -263,9 +263,9 @@ class LpPositionManager(ScriptStrategyBase):
             return
 
         try:
-            # Use the connector's close_position method
+            # Use the connector's remove_liquidity method
             self.logger().info(f"Closing position {self.position_info.address}...")
-            order_id = self.connectors[self.exchange].close_position(
+            order_id = self.connectors[self.exchange].remove_liquidity(
                 trading_pair=self.config.trading_pair,
                 position_address=self.position_info.address
             )

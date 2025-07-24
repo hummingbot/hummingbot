@@ -492,109 +492,149 @@ class GatewayCommandUtils:
         app.notify(f"  Total Fee: ~{fee_in_native:.6f} {native_token}")
 
     @staticmethod
-    def format_pool_info_display(
-        pool_info: Any,  # Union[AMMPoolInfo, CLMMPoolInfo]
-        base_symbol: str,
-        quote_symbol: str
-    ) -> List[Dict[str, str]]:
+    async def prompt_for_confirmation(
+        app: Any,  # HummingbotApplication
+        message: str,
+        is_warning: bool = False
+    ) -> bool:
         """
-        Format pool information for display.
+        Prompt user for yes/no confirmation.
 
-        :param pool_info: Pool information object
-        :param base_symbol: Base token symbol
-        :param quote_symbol: Quote token symbol
-        :return: List of formatted rows
+        :param app: HummingbotApplication instance
+        :param message: Confirmation message to display
+        :param is_warning: Whether this is a warning confirmation
+        :return: True if confirmed, False otherwise
         """
-        rows = []
-
-        rows.append({
-            "Property": "Pool Address",
-            "Value": GatewayCommandUtils.format_address_display(pool_info.address)
-        })
-
-        rows.append({
-            "Property": "Current Price",
-            "Value": f"{pool_info.price:.6f} {quote_symbol}/{base_symbol}"
-        })
-
-        rows.append({
-            "Property": "Fee Tier",
-            "Value": f"{pool_info.fee_pct}%"
-        })
-
-        rows.append({
-            "Property": "Base Reserves",
-            "Value": f"{pool_info.base_token_amount:.6f} {base_symbol}"
-        })
-
-        rows.append({
-            "Property": "Quote Reserves",
-            "Value": f"{pool_info.quote_token_amount:.6f} {quote_symbol}"
-        })
-
-        if hasattr(pool_info, 'active_bin_id'):
-            rows.append({
-                "Property": "Active Bin",
-                "Value": str(pool_info.active_bin_id)
-            })
-        if hasattr(pool_info, 'bin_step'):
-            rows.append({
-                "Property": "Bin Step",
-                "Value": str(pool_info.bin_step)
-            })
-
-        return rows
+        prefix = "⚠️  " if is_warning else ""
+        response = await app.app.prompt(
+            prompt=f"{prefix}{message} (Yes/No) >>> "
+        )
+        return response.lower() in ["y", "yes"]
 
     @staticmethod
-    def format_position_info_display(
-        position: Any  # Union[AMMPositionInfo, CLMMPositionInfo]
-    ) -> List[Dict[str, str]]:
+    def display_warnings(
+        app: Any,  # HummingbotApplication
+        warnings: List[str],
+        title: str = "WARNINGS"
+    ):
         """
-        Format position information for display.
+        Display a list of warnings to the user.
 
-        :param position: Position information object
-        :return: List of formatted rows
+        :param app: HummingbotApplication instance
+        :param warnings: List of warning messages
+        :param title: Title for the warnings section
         """
-        rows = []
+        if not warnings:
+            return
 
-        if hasattr(position, 'address'):
-            rows.append({
-                "Property": "Position ID",
-                "Value": GatewayCommandUtils.format_address_display(position.address)
-            })
+        app.notify(f"\n⚠️  {title}:")
+        for warning in warnings:
+            app.notify(f"  • {warning}")
 
-        rows.append({
-            "Property": "Pool",
-            "Value": GatewayCommandUtils.format_address_display(position.pool_address)
-        })
+    @staticmethod
+    def calculate_and_display_fees(
+        app: Any,  # HummingbotApplication
+        positions: List[Any],
+        base_token: str = None,
+        quote_token: str = None
+    ) -> Dict[str, float]:
+        """
+        Calculate total fees across positions and display them.
 
-        rows.append({
-            "Property": "Base Amount",
-            "Value": f"{position.base_token_amount:.6f}"
-        })
+        :param app: HummingbotApplication instance
+        :param positions: List of positions with fee information
+        :param base_token: Base token symbol (optional, extracted from positions if not provided)
+        :param quote_token: Quote token symbol (optional, extracted from positions if not provided)
+        :return: Dictionary of total fees by token
+        """
+        fees_by_token = {}
 
-        rows.append({
-            "Property": "Quote Amount",
-            "Value": f"{position.quote_token_amount:.6f}"
-        })
+        for pos in positions:
+            # Extract tokens from position if not provided
+            if not base_token and hasattr(pos, 'base_token'):
+                base_token = pos.base_token
+            if not quote_token and hasattr(pos, 'quote_token'):
+                quote_token = pos.quote_token
 
-        if hasattr(position, 'lower_price') and hasattr(position, 'upper_price'):
-            rows.append({
-                "Property": "Price Range",
-                "Value": f"{position.lower_price:.6f} - {position.upper_price:.6f}"
-            })
+            # Skip if no fee attributes
+            if not hasattr(pos, 'base_fee_amount'):
+                continue
 
-            if hasattr(position, 'base_fee_amount') and hasattr(position, 'quote_fee_amount'):
-                if position.base_fee_amount > 0 or position.quote_fee_amount > 0:
-                    rows.append({
-                        "Property": "Uncollected Fees",
-                        "Value": f"{position.base_fee_amount:.6f} / {position.quote_fee_amount:.6f}"
-                    })
+            # Use position tokens if available
+            pos_base = getattr(pos, 'base_token', base_token)
+            pos_quote = getattr(pos, 'quote_token', quote_token)
 
-        elif hasattr(position, 'lp_token_amount'):
-            rows.append({
-                "Property": "LP Tokens",
-                "Value": f"{position.lp_token_amount:.6f}"
-            })
+            if pos_base and pos_base not in fees_by_token:
+                fees_by_token[pos_base] = 0
+            if pos_quote and pos_quote not in fees_by_token:
+                fees_by_token[pos_quote] = 0
 
-        return rows
+            if pos_base:
+                fees_by_token[pos_base] += getattr(pos, 'base_fee_amount', 0)
+            if pos_quote:
+                fees_by_token[pos_quote] += getattr(pos, 'quote_fee_amount', 0)
+
+        # Display fees if any
+        if any(amount > 0 for amount in fees_by_token.values()):
+            app.notify("\nTotal Uncollected Fees:")
+            for token, amount in fees_by_token.items():
+                if amount > 0:
+                    app.notify(f"  {token}: {amount:.6f}")
+
+        return fees_by_token
+
+    @staticmethod
+    async def prompt_for_percentage(
+        app: Any,  # HummingbotApplication
+        prompt_text: str = "Enter percentage (0-100): ",
+        default: float = 100.0
+    ) -> Optional[float]:
+        """
+        Prompt user for a percentage value.
+
+        :param app: HummingbotApplication instance
+        :param prompt_text: Custom prompt text
+        :param default: Default value if user presses enter
+        :return: Percentage value or None if invalid
+        """
+        try:
+            response = await app.app.prompt(prompt=prompt_text)
+
+            if app.app.to_stop_config:
+                return None
+
+            if not response.strip():
+                return default
+
+            percentage = float(response)
+            if 0 <= percentage <= 100:
+                return percentage
+            else:
+                app.notify("Error: Percentage must be between 0 and 100")
+                return None
+        except ValueError:
+            app.notify("Error: Please enter a valid number")
+            return None
+
+    @staticmethod
+    async def enter_interactive_mode(app: Any) -> Any:
+        """
+        Enter interactive mode for prompting.
+
+        :param app: HummingbotApplication instance
+        :return: Context manager handle
+        """
+        app.placeholder_mode = True
+        app.app.hide_input = True
+        return app
+
+    @staticmethod
+    async def exit_interactive_mode(app: Any):
+        """
+        Exit interactive mode and restore normal prompt.
+
+        :param app: HummingbotApplication instance
+        """
+        app.placeholder_mode = False
+        app.app.hide_input = False
+        app.app.change_prompt(prompt=">>> ")
