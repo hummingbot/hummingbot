@@ -700,10 +700,13 @@ class GatewayLp(GatewaySwap):
 
                 if resp:
                     position = AMMPositionInfo(**resp)
-                    # Add token symbols if not present
-                    if not hasattr(position, 'base_token') or not position.base_token:
-                        position.base_token = pool_resp.get("baseToken", "Unknown")
-                        position.quote_token = pool_resp.get("quoteToken", "Unknown")
+                    # Get token symbols from loaded token data
+                    base_token_info = self.get_token_by_address(position.base_token_address)
+                    quote_token_info = self.get_token_by_address(position.quote_token_address)
+
+                    # Use symbol if found, otherwise use address
+                    position.base_token = base_token_info.get("symbol", position.base_token_address) if base_token_info else position.base_token_address
+                    position.quote_token = quote_token_info.get("symbol", position.quote_token_address) if quote_token_info else position.quote_token_address
                     return [position]
                 else:
                     return []
@@ -714,24 +717,25 @@ class GatewayLp(GatewaySwap):
                     if connector_type == ConnectorType.CLMM:
                         position = CLMMPositionInfo(**pos_data)
 
-                        # Add token symbols if not present
-                        if not hasattr(position, 'base_token') or not position.base_token:
-                            # Get token info from addresses if needed
-                            base_info = self.get_token_info(position.base_token_address)
-                            quote_info = self.get_token_info(position.quote_token_address)
-                            position.base_token = base_info.get('symbol', 'Unknown') if base_info else 'Unknown'
-                            position.quote_token = quote_info.get('symbol', 'Unknown') if quote_info else 'Unknown'
+                        # Get token symbols from loaded token data
+                        base_token_info = self.get_token_by_address(position.base_token_address)
+                        quote_token_info = self.get_token_by_address(position.quote_token_address)
+
+                        # Use symbol if found, otherwise use address
+                        position.base_token = base_token_info.get("symbol", position.base_token_address) if base_token_info else position.base_token_address
+                        position.quote_token = quote_token_info.get("symbol", position.quote_token_address) if quote_token_info else position.quote_token_address
 
                         positions.append(position)
                     else:
                         position = AMMPositionInfo(**pos_data)
 
-                        # Add token symbols if not present
-                        if not hasattr(position, 'base_token') or not position.base_token:
-                            base_info = self.get_token_info(position.base_token_address)
-                            quote_info = self.get_token_info(position.quote_token_address)
-                            position.base_token = base_info.get('symbol', 'Unknown') if base_info else 'Unknown'
-                            position.quote_token = quote_info.get('symbol', 'Unknown') if quote_info else 'Unknown'
+                        # Get token symbols from loaded token data
+                        base_token_info = self.get_token_by_address(position.base_token_address)
+                        quote_token_info = self.get_token_by_address(position.quote_token_address)
+
+                        # Use symbol if found, otherwise use address
+                        position.base_token = base_token_info.get("symbol", position.base_token_address) if base_token_info else position.base_token_address
+                        position.quote_token = quote_token_info.get("symbol", position.quote_token_address) if quote_token_info else position.quote_token_address
 
                         positions.append(position)
 

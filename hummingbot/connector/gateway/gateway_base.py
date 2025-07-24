@@ -290,6 +290,14 @@ class GatewayBase(ConnectorBase):
         """Get token information for a given symbol."""
         return self._token_data.get(token_symbol)
 
+    def get_token_by_address(self, token_address: str) -> Optional[Dict[str, Any]]:
+        """Get token information for a given address."""
+        # Search through all tokens to find matching address
+        for symbol, token_data in self._token_data.items():
+            if token_data.get("address", "").lower() == token_address.lower():
+                return token_data
+        return None
+
     async def get_chain_info(self):
         """
         Calls the base endpoint of the connector on Gateway to know basic info about chain being used.

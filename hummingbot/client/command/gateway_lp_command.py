@@ -65,14 +65,6 @@ class GatewayLPCommand:
         """Display pool information in a user-friendly format"""
         LPCommandUtils.display_pool_info(self, pool_info, is_clmm)
 
-    def _display_positions_table(
-        self,
-        positions: List[Union[AMMPositionInfo, CLMMPositionInfo]],
-        is_clmm: bool
-    ):
-        """Display user positions in a formatted table"""
-        LPCommandUtils.display_positions_table(self, positions, is_clmm)
-
     def _format_position_id(
         self,
         position: Union[AMMPositionInfo, CLMMPositionInfo]
@@ -87,14 +79,6 @@ class GatewayLPCommand:
     ) -> Tuple[float, float]:
         """Calculate token amounts to receive when removing liquidity"""
         return LPCommandUtils.calculate_removal_amounts(position, percentage)
-
-    def _display_positions_summary(
-        self,
-        positions: List[Union[AMMPositionInfo, CLMMPositionInfo]],
-        is_clmm: bool
-    ):
-        """Display summary of all positions"""
-        LPCommandUtils.display_positions_summary(self, positions, is_clmm)
 
     def _display_positions_with_fees(
         self,
@@ -334,37 +318,25 @@ class GatewayLPCommand:
                     self.notify("\nNo liquidity positions found")
                     return
 
-                # 5. Display positions summary
-                self._display_positions_summary(positions, is_clmm)
+                # Extract base and quote tokens from trading pair
+                base_token, quote_token = trading_pair.split("-")
 
-                # 6. Enter interactive mode for detailed view
-                if len(positions) > 1:
-                    await GatewayCommandUtils.enter_interactive_mode(self)
+                # 5. Display positions
+                for i, position in enumerate(positions):
+                    if len(positions) > 1:
+                        self.notify(f"\n--- Position {i + 1} of {len(positions)} ---")
 
-                    try:
-                        view_details = await GatewayCommandUtils.prompt_for_confirmation(
-                            self, "\nView detailed position info?"
+                    # Display position using the appropriate formatter
+                    if is_clmm:
+                        position_display = LPCommandUtils.format_clmm_position_display(
+                            position, base_token, quote_token
+                        )
+                    else:
+                        position_display = LPCommandUtils.format_amm_position_display(
+                            position, base_token, quote_token
                         )
 
-                        if view_details:
-                            selected_position = await LPCommandUtils.prompt_for_position_selection(
-                                self, positions
-                            )
-
-                            if selected_position:
-                                await self._display_position_details(
-                                    connector, selected_position, is_clmm,
-                                    chain, network, wallet_address
-                                )
-
-                    finally:
-                        await GatewayCommandUtils.exit_interactive_mode(self)
-                else:
-                    # Single position - show details directly
-                    await self._display_position_details(
-                        connector, positions[0], is_clmm,
-                        chain, network, wallet_address
-                    )
+                    self.notify(position_display)
 
             finally:
                 # Always stop the connector
@@ -802,7 +774,7 @@ class GatewayLPCommand:
                     return
 
                 # 5. Display positions
-                self._display_positions_table(positions, is_clmm)
+                self.notify(f"\nFound {len(positions)} liquidity position(s):")
 
                 # 6. Enter interactive mode
                 await GatewayCommandUtils.enter_interactive_mode(self)
