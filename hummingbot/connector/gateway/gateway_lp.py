@@ -712,7 +712,9 @@ class GatewayLp(GatewaySwap):
                     return []
 
             # Parse position data based on connector type (for CLMM)
-            for pos_data in response.get("positions", []):
+            # Handle case where response might be a list directly or a dict with 'positions' key
+            positions_list = response if isinstance(response, list) else response.get("positions", [])
+            for pos_data in positions_list:
                 try:
                     if connector_type == ConnectorType.CLMM:
                         position = CLMMPositionInfo(**pos_data)
