@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, List, Optional
 
 from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
 from hummingbot.connector.gateway.gateway_swap import GatewaySwap
-from hummingbot.core.data_type.common import OrderType
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
@@ -25,10 +25,10 @@ class GatewaySwapCommand:
         side = args[1] if args and len(args) > 1 else None
         amount = args[2] if args and len(args) > 2 else None
 
-        safe_ensure_future(self._gateway_unified_swap(connector, pair, side, amount), loop=self.ev_loop)
+        safe_ensure_future(self._gateway_swap(connector, pair, side, amount), loop=self.ev_loop)
 
-    async def _gateway_unified_swap(self, connector: Optional[str] = None,
-                                    pair: Optional[str] = None, side: Optional[str] = None, amount: Optional[str] = None):
+    async def _gateway_swap(self, connector: Optional[str] = None,
+                            pair: Optional[str] = None, side: Optional[str] = None, amount: Optional[str] = None):
         """Unified swap flow - get quote first, then ask for confirmation to execute."""
         try:
             # Parse connector format (e.g., "uniswap/amm")
@@ -107,15 +107,10 @@ class GatewaySwapCommand:
             if error:
                 self.notify(error)
                 return
-            wallet_display_address = f"{wallet_address[:4]}...{wallet_address[-4:]}" if len(wallet_address) > 8 else wallet_address
 
-            self.notify(f"\nGetting swap quote from {connector} on {chain} {network}...")
-            self.notify(f"  Pair: {pair_display}")
-            self.notify(f"  Amount: {amount}")
-            self.notify(f"  Side: {side}")
+            self.notify(f"\nFetching swap quote for {pair_display} from {connector}...")
 
             # Get quote from gateway
-            from hummingbot.core.data_type.common import TradeType
             trade_side = TradeType.BUY if side == "BUY" else TradeType.SELL
 
             quote_resp = await self._get_gateway_instance().quote_swap(
@@ -153,8 +148,17 @@ class GatewaySwapCommand:
             self.notify(f"Token In: {base_token} ({token_in})")
             self.notify(f"Token Out: {quote_token} ({token_out})")
 
+            # Get connector config to show slippage
+            connector_config = await GatewayCommandUtils.get_connector_config(
+                self._get_gateway_instance(), connector
+            )
+            slippage_pct = connector_config.get("slippagePct")
+
             # Price and impact information
             self.notify(f"\nPrice: {quote_resp['price']} {quote_token}/{base_token}")
+            if slippage_pct is not None:
+                self.notify(f"Slippage: {slippage_pct}%")
+
             if "priceImpactPct" in quote_resp:
                 impact = float(quote_resp["priceImpactPct"]) * 100
                 self.notify(f"Price Impact: {impact:.2f}%")
@@ -164,11 +168,10 @@ class GatewaySwapCommand:
                 # Buying base with quote
                 self.notify("\nYou will spend:")
                 self.notify(f"  Amount: {amount_in} {quote_token}")
-                self.notify(f"  {quote_token} {token_in}")
+                self.notify(f"  Max Amount (w/ slippage): {max_amount_in} {quote_token}")
 
                 self.notify("\nYou will receive:")
                 self.notify(f"  Amount: {amount_out} {base_token}")
-                self.notify(f"  Max Amount w/slippage): {max_amount_in} {quote_token}")
 
             else:
                 # Selling base for quote
@@ -177,58 +180,77 @@ class GatewaySwapCommand:
 
                 self.notify("\nYou will receive:")
                 self.notify(f"  Amount: {amount_out} {quote_token}")
-                self.notify(f"  Min Amount w/ slippage: {min_amount_out} {quote_token}")
+                self.notify(f"  Min Amount (w/ slippage): {min_amount_out} {quote_token}")
 
-            # Fetch current balances before showing confirmation
-            self.notify(f"\n=== Wallet {wallet_display_address} Balances ===")
+            # Get fee estimation from gateway
+            self.notify(f"\nEstimating transaction fees for {chain} {network}...")
+            fee_info = await GatewayCommandUtils.estimate_transaction_fee(
+                self._get_gateway_instance(),
+                chain,
+                network,
+                transaction_type="swap"
+            )
+
+            native_token = fee_info.get("native_token", chain.upper())
+            gas_fee_estimate = fee_info.get("fee_in_native", 0) if fee_info.get("success", False) else None
+
+            # Get all tokens to check (include native token for gas)
+            tokens_to_check = [base_token, quote_token]
+            if native_token and native_token.upper() not in [base_token.upper(), quote_token.upper()]:
+                tokens_to_check.append(native_token)
+
+            # Collect warnings throughout the command
+            warnings = []
+
+            # Get current balances
+            current_balances = await GatewayCommandUtils.get_wallet_balances(
+                gateway_client=self._get_gateway_instance(),
+                chain=chain,
+                network=network,
+                wallet_address=wallet_address,
+                tokens_to_check=tokens_to_check,
+                native_token=native_token
+            )
+
+            # Calculate balance changes from the swap
+            balance_changes = {}
             try:
-                # Fetch balances for both tokens
-                tokens_to_check = [base_token, quote_token]
-                balances_resp = await self._get_gateway_instance().get_balances(
-                    chain, network, wallet_address, tokens_to_check
-                )
-                balances = balances_resp.get("balances", {})
-
-                # Get current balances
-                base_balance = Decimal(balances.get(base_token))
-                quote_balance = Decimal(balances.get(quote_token))
-                if base_balance is None or quote_balance is None:
-                    raise ValueError("Could not fetch balances for one or both tokens")
-
-                # Display current balances
-                self.notify("\nCurrent Balances:")
-                self.notify(f"  {base_token}: {base_balance:.4f}")
-                self.notify(f"  {quote_token}: {quote_balance:.4f}")
-
-                # Calculate and display impact on balances
-                self.notify("\nAfter Swap:")
                 amount_in_decimal = Decimal(amount_in)
                 amount_out_decimal = Decimal(amount_out)
 
                 if side == "BUY":
                     # Buying base with quote
-                    new_base_balance = base_balance + amount_out_decimal
-                    new_quote_balance = quote_balance - amount_in_decimal
-                    self.notify(f"  {base_token}: {new_base_balance:.4f}")
-                    self.notify(f"  {quote_token}: {new_quote_balance:.4f}")
-
-                    # Check if user has enough quote tokens
-                    if quote_balance < amount_in_decimal:
-                        self.notify(f"\n⚠️  WARNING: Insufficient {quote_token} balance! You need {amount_in_decimal:.4f} but only have {quote_balance:.4f}")
+                    balance_changes[base_token] = float(amount_out_decimal)  # Receiving base
+                    balance_changes[quote_token] = -float(amount_in_decimal)  # Spending quote
                 else:
                     # Selling base for quote
-                    new_base_balance = base_balance - amount_in_decimal
-                    new_quote_balance = quote_balance + amount_out_decimal
-                    self.notify(f"  {base_token}: {new_base_balance:.4f}")
-                    self.notify(f"  {quote_token}: {new_quote_balance:.4f}")
-
-                    # Check if user has enough base tokens
-                    if base_balance < amount_in_decimal:
-                        self.notify(f"\n⚠️  WARNING: Insufficient {base_token} balance! You need {amount_in_decimal:.4f} but only have {base_balance:.4f}")
+                    balance_changes[base_token] = -float(amount_in_decimal)  # Spending base
+                    balance_changes[quote_token] = float(amount_out_decimal)  # Receiving quote
 
             except Exception as e:
-                self.notify(f"\nWarning: Could not fetch balances: {str(e)}")
-                # Continue anyway - let the swap fail if there are insufficient funds
+                self.notify(f"\nWarning: Could not calculate balance changes: {str(e)}")
+                balance_changes = {}
+
+            # Display unified balance impact table
+            GatewayCommandUtils.display_balance_impact_table(
+                app=self,
+                wallet_address=wallet_address,
+                current_balances=current_balances,
+                balance_changes=balance_changes,
+                native_token=native_token,
+                gas_fee=gas_fee_estimate or 0,
+                warnings=warnings,
+                title="Balance Impact After Swap"
+            )
+
+            # Display transaction fee details
+            GatewayCommandUtils.display_transaction_fee_details(app=self, fee_info=fee_info)
+
+            # Display any warnings
+            if warnings:
+                self.notify("\n⚠️  WARNINGS:")
+                for warning in warnings:
+                    self.notify(f"  • {warning}")
 
             # Ask if user wants to execute the swap
             self.placeholder_mode = True
@@ -252,8 +274,8 @@ class GatewaySwapCommand:
                 # Create trading pair first
                 trading_pair = f"{base_token}-{quote_token}"
 
-                # Create a GatewaySwap instance for this swap
-                # Pass the trading pair so it loads the correct token data
+                # Create a new GatewaySwap instance for this swap
+                # (The temporary one was already stopped)
                 swap_connector = GatewaySwap(
                     client_config_map=self.client_config_map,
                     connector_name=connector,  # DEX connector (e.g., 'uniswap/amm', 'raydium/clmm')
@@ -265,26 +287,6 @@ class GatewaySwapCommand:
 
                 # Start the network connection
                 await swap_connector.start_network()
-
-                # Ensure token data is loaded for these specific tokens
-                # This is needed in case the tokens aren't in the gateway's token list
-                if base_token not in swap_connector._amount_quantum_dict:
-                    # Try to get token info from gateway
-                    token_info = await self._get_gateway_instance().get_token(base_token, chain, network)
-                    if "decimals" in token_info:
-                        swap_connector._amount_quantum_dict[base_token] = Decimal(str(10 ** -token_info["decimals"]))
-                    else:
-                        # Default to 9 decimals for unknown tokens
-                        swap_connector._amount_quantum_dict[base_token] = Decimal("1e-9")
-
-                if quote_token not in swap_connector._amount_quantum_dict:
-                    # Try to get token info from gateway
-                    token_info = await self._get_gateway_instance().get_token(quote_token, chain, network)
-                    if "decimals" in token_info:
-                        swap_connector._amount_quantum_dict[quote_token] = Decimal(str(10 ** -token_info["decimals"]))
-                    else:
-                        # Default to 9 decimals for unknown tokens
-                        swap_connector._amount_quantum_dict[quote_token] = Decimal("1e-9")
 
                 # Use price from quote for better tracking
                 price_value = quote_resp.get('price', '0')
