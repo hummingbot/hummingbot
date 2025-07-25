@@ -97,7 +97,7 @@ class GatewayTokenCommand:
             if found_tokens:
                 self._display_tokens_table(found_tokens)
             else:
-                self.notify(f"\nToken '{symbol_or_address}' not found on any supported chain.")
+                self.notify(f"\nToken '{symbol_or_address}' not found on default networks.")
                 self.notify("You may need to add it using 'gateway token <symbol> update'")
 
         except Exception as e:
@@ -141,7 +141,7 @@ class GatewayTokenCommand:
 
                     # Ask if they want to update
                     response = await self.app.prompt(
-                        prompt="\nDo you want to update this token? (Yes/No) >>> "
+                        prompt="Do you want to update this token? (Yes/No) >>> "
                     )
 
                     if response.lower() not in ["y", "yes"]:
