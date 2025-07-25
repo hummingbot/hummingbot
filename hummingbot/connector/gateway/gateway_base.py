@@ -240,6 +240,8 @@ class GatewayBase(ConnectorBase):
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._get_gas_estimate_task = safe_ensure_future(self.get_gas_estimate())
         self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
+        # Load token data to populate amount quantum dict
+        await self.load_token_data()
 
     async def stop_network(self):
         if self._status_polling_task is not None:
