@@ -8,6 +8,7 @@ from .gateway_approve_command import GatewayApproveCommand
 from .gateway_command import GatewayCommand
 from .gateway_lp_command import GatewayLPCommand
 from .gateway_swap_command import GatewaySwapCommand
+from .gateway_token_command import GatewayTokenCommand
 from .help_command import HelpCommand
 from .history_command import HistoryCommand
 from .import_command import ImportCommand
@@ -31,6 +32,7 @@ __all__ = [
     GatewayCommand,
     GatewayLPCommand,
     GatewaySwapCommand,
+    GatewayTokenCommand,
     HelpCommand,
     HistoryCommand,
     ImportCommand,
