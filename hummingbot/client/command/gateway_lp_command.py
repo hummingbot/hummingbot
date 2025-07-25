@@ -1045,7 +1045,21 @@ class GatewayLPCommand:
                         return
 
                     # Get positions for this pool
-                    all_positions = await lp_connector.get_user_positions(pool_address=pool_address)
+                    try:
+                        all_positions = await lp_connector.get_user_positions(pool_address=pool_address)
+                    except Exception as e:
+                        self.notify(f"\n❌ Error fetching positions: {str(e)}")
+                        self.notify("Please check that:")
+                        self.notify("  • Your wallet has positions in this pool")
+                        self.notify("  • The trading pair is correct")
+                        self.notify("  • Gateway is properly connected")
+                        return
+
+                    # Check if we got any positions
+                    if not all_positions:
+                        self.notify(f"\nNo positions found for {trading_pair}")
+                        self.notify("Please check that you have open positions in this pool.")
+                        return
 
                     # Filter positions with fees > 0
                     positions_with_fees = [
@@ -1056,6 +1070,7 @@ class GatewayLPCommand:
 
                     if not positions_with_fees:
                         self.notify(f"\nNo uncollected fees found in your {trading_pair} positions")
+                        self.notify("All fees have already been collected.")
                         return
 
                     # 5. Display positions with fees
