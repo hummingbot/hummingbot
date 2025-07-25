@@ -96,11 +96,11 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
     gateway_parser.set_defaults(func=hummingbot.gateway)
     gateway_subparsers = gateway_parser.add_subparsers()
 
-    gateway_allowance_parser = gateway_subparsers.add_parser("allowance", help="Check token allowances")
+    gateway_allowance_parser = gateway_subparsers.add_parser("allowance", help="Check token allowances for ethereum connectors")
     gateway_allowance_parser.add_argument("connector", nargs="?", default=None, help="Ethereum connector name/type (e.g., uniswap/amm)")
     gateway_allowance_parser.set_defaults(func=hummingbot.gateway_allowance)
 
-    gateway_approve_parser = gateway_subparsers.add_parser("approve", help="Approve token for spending")
+    gateway_approve_parser = gateway_subparsers.add_parser("approve", help="Approve token for use with ethereum connectors")
     gateway_approve_parser.add_argument("connector", nargs="?", default=None, help="Connector name/type (e.g., jupiter/router)")
     gateway_approve_parser.add_argument("token", nargs="?", default=None, help="Token symbol to approve (e.g., WETH)")
     gateway_approve_parser.set_defaults(func=hummingbot.gateway_approve)
@@ -133,6 +133,12 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
     gateway_ping_parser = gateway_subparsers.add_parser("ping", help="Test node and chain/network status")
     gateway_ping_parser.add_argument("chain", nargs="?", default=None, help="Specific chain to test (optional)")
     gateway_ping_parser.set_defaults(func=hummingbot.gateway_ping)
+
+    gateway_pool_parser = gateway_subparsers.add_parser("pool", help="View or update pool information")
+    gateway_pool_parser.add_argument("connector", nargs="?", default=None, help="Connector name/type (e.g., uniswap/amm)")
+    gateway_pool_parser.add_argument("trading_pair", nargs="?", default=None, help="Trading pair (e.g., ETH-USDC)")
+    gateway_pool_parser.add_argument("action", nargs="?", default=None, help="Action to perform (update)")
+    gateway_pool_parser.set_defaults(func=hummingbot.gateway_pool)
 
     gateway_swap_parser = gateway_subparsers.add_parser(
         "swap",
