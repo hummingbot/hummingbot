@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Any, Dict
+from typing import Any, Dict, Literal
 
 from pydantic import Field, SecretStr
 
@@ -25,7 +25,7 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
 
 class XtConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="xt", const=True, client_data=None)
+    connector: Literal["xt"] = Field(default="xt", client_data=None)
     xt_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
