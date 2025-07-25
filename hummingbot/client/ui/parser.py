@@ -93,49 +93,50 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
     history_parser.set_defaults(func=hummingbot.history)
 
     gateway_parser = subparsers.add_parser("gateway", help="Helper commands for Gateway server.")
+    gateway_parser.set_defaults(func=hummingbot.gateway)
     gateway_subparsers = gateway_parser.add_subparsers()
 
-    gateway_allowance_parser = gateway_subparsers.add_parser("allowance", help="Check token allowances for ethereum-based connectors")
+    gateway_allowance_parser = gateway_subparsers.add_parser("allowance", help="Get token allowances for ethereum connectors")
     gateway_allowance_parser.add_argument("connector", nargs="?", default=None, help="Ethereum connector name/type (e.g., uniswap/amm)")
     gateway_allowance_parser.set_defaults(func=hummingbot.gateway_allowance)
 
-    gateway_approve_parser = gateway_subparsers.add_parser("approve", help="Approve token for gateway connector spending")
+    gateway_approve_parser = gateway_subparsers.add_parser("approve", help="Approve token for ethereum connectors")
     gateway_approve_parser.add_argument("connector", nargs="?", default=None, help="Connector name/type (e.g., jupiter/router)")
     gateway_approve_parser.add_argument("token", nargs="?", default=None, help="Token symbol to approve (e.g., WETH)")
     gateway_approve_parser.set_defaults(func=hummingbot.gateway_approve)
 
-    gateway_balance_parser = gateway_subparsers.add_parser("balance", help="Display your token balances across gateway chains")
+    gateway_balance_parser = gateway_subparsers.add_parser("balance", help="Display your token balances")
     gateway_balance_parser.add_argument("chain", nargs="?", default=None, help="Chain name (e.g., ethereum, solana)")
     gateway_balance_parser.add_argument("tokens", nargs="?", default=None, help="Comma-separated list of tokens to check (optional)")
     gateway_balance_parser.set_defaults(func=hummingbot.gateway_balance)
 
-    gateway_config_parser = gateway_subparsers.add_parser("config", help="View or update gateway configuration")
+    gateway_config_parser = gateway_subparsers.add_parser("config", help="View or update configurations")
     gateway_config_parser.add_argument("namespace", nargs="?", default=None, help="Namespace (e.g., ethereum-mainnet, uniswap)")
     gateway_config_parser.add_argument("action", nargs="?", default=None, help="Action to perform (update)")
     gateway_config_parser.set_defaults(func=hummingbot.gateway_config)
 
-    gateway_connect_parser = gateway_subparsers.add_parser("connect", help="Add a wallet for a chain")
+    gateway_connect_parser = gateway_subparsers.add_parser("connect", help="Add default wallet for a chain")
     gateway_connect_parser.add_argument("chain", nargs="?", default=None, help="Blockchain chain (e.g., ethereum, solana)")
     gateway_connect_parser.set_defaults(func=hummingbot.gateway_connect)
 
-    gateway_cert_parser = gateway_subparsers.add_parser("generate-certs", help="Create SSL certificates for gateway")
+    gateway_cert_parser = gateway_subparsers.add_parser("generate-certs", help="Create SSL certificate")
     gateway_cert_parser.set_defaults(func=hummingbot.generate_certs)
 
-    gateway_list_parser = gateway_subparsers.add_parser("list", help="List gateway connectors and chains and tiers")
+    gateway_list_parser = gateway_subparsers.add_parser("list", help="List gateway connectors")
     gateway_list_parser.set_defaults(func=hummingbot.gateway_list)
 
-    gateway_lp_parser = gateway_subparsers.add_parser("lp", help="Manage liquidity positions on AMM/CLMM connectors")
+    gateway_lp_parser = gateway_subparsers.add_parser("lp", help="Manage liquidity positions")
     gateway_lp_parser.add_argument("connector", nargs="?", type=str, help="Connector name/type (e.g., raydium/amm)")
     gateway_lp_parser.add_argument("action", nargs="?", type=str, choices=["add-liquidity", "remove-liquidity", "position-info", "collect-fees"], help="LP action to perform")
     gateway_lp_parser.set_defaults(func=hummingbot.gateway_lp)
 
-    gateway_ping_parser = gateway_subparsers.add_parser("ping", help="Test gateway connectivity and network status")
+    gateway_ping_parser = gateway_subparsers.add_parser("ping", help="Test network connectivity")
     gateway_ping_parser.add_argument("chain", nargs="?", default=None, help="Specific chain to test (optional)")
     gateway_ping_parser.set_defaults(func=hummingbot.gateway_ping)
 
     gateway_swap_parser = gateway_subparsers.add_parser(
         "swap",
-        help="Perform token swaps through gateway connectors")
+        help="Perform token swaps")
     gateway_swap_parser.add_argument("connector", nargs="?", default=None,
                                      help="Connector name/type (e.g., jupiter/router)")
     gateway_swap_parser.add_argument("args", nargs="*",
