@@ -52,6 +52,7 @@ class GatewayCommand(GatewayChainApiManager):
         self.notify("  gateway list                                      - List available connectors")
         self.notify("  gateway config [namespace]                        - Show configuration")
         self.notify("  gateway config <namespace> update                 - Update configuration (interactive)")
+        self.notify("  gateway connect <chain>                           - Add a wallet for a chain")
         # self.notify("  gateway token <action> ...                        - Manage tokens")
         # self.notify("  gateway wallet <action> ...                       - Manage wallets")
         # self.notify("  gateway pool <action> ...                         - Manage liquidity pools")
@@ -86,6 +87,20 @@ class GatewayCommand(GatewayChainApiManager):
         # Delegate to GatewayApproveCommand
         from hummingbot.client.command.gateway_approve_command import GatewayApproveCommand
         GatewayApproveCommand.gateway_approve(self, connector, tokens)
+
+    @ensure_gateway_online
+    def gateway_connect(self, chain: Optional[str]):
+        """
+        Add a wallet for a specific chain.
+        Usage: gateway connect <chain>
+        """
+        if not chain:
+            self.notify("\nError: Chain is required")
+            self.notify("Usage: gateway connect <chain>")
+            self.notify("Example: gateway connect ethereum")
+            return
+
+        safe_ensure_future(self._gateway_connect(chain), loop=self.ev_loop)
 
     def generate_certs(self):
         safe_ensure_future(self._generate_certs(), loop=self.ev_loop)
@@ -193,6 +208,85 @@ class GatewayCommand(GatewayChainApiManager):
                 self.notify(f"{chain} ({network}): ✗ Unable to get network status\n")
         except Exception as e:
             self.notify(f"{chain} ({network}): ✗ Error - {str(e)}\n")
+
+    async def _gateway_connect(
+        self,  # type: HummingbotApplication
+        chain: str
+    ):
+        """Add a wallet for a specific chain."""
+        try:
+            # Get default network for the chain
+            default_network = await self._get_gateway_instance().get_default_network_for_chain(chain)
+            if not default_network:
+                self.notify(f"\nError: Could not determine default network for chain '{chain}'")
+                self.notify("Please check that the chain name is correct.")
+                return
+
+            self.notify(f"\n=== Add Wallet for {chain} ===")
+            self.notify(f"Network: {default_network}")
+
+            # Enter interactive mode
+            with begin_placeholder_mode(self):
+                # Ask for wallet type
+                wallet_type = await self.app.prompt(
+                    prompt="Wallet type (1: Regular, 2: Hardware) [default: 1]: "
+                )
+
+                if self.app.to_stop_config:
+                    self.notify("Wallet addition cancelled")
+                    return
+
+                # Default to regular wallet if empty or invalid input
+                is_hardware = wallet_type == "2"
+                wallet_type_str = "hardware" if is_hardware else "regular"
+
+                # For hardware wallets, we need the address instead of private key
+                if is_hardware:
+                    wallet_input = await self.app.prompt(
+                        prompt=f"Enter your {chain} wallet address: "
+                    )
+                else:
+                    wallet_input = await self.app.prompt(
+                        prompt=f"Enter your {chain} wallet private key: ",
+                        is_password=True
+                    )
+
+                if self.app.to_stop_config or not wallet_input:
+                    self.notify("Wallet addition cancelled")
+                    return
+
+                # Add wallet based on type
+                self.notify(f"\nAdding {wallet_type_str} wallet...")
+
+                if is_hardware:
+                    # For hardware wallets, pass the address as the identifier
+                    response = await self._get_gateway_instance().add_hardware_wallet(
+                        chain=chain,
+                        network=default_network,
+                        private_key=wallet_input,  # This is actually the address for hardware wallets
+                        set_default=True
+                    )
+                else:
+                    # For regular wallets, pass the private key
+                    response = await self._get_gateway_instance().add_wallet(
+                        chain=chain,
+                        network=default_network,
+                        private_key=wallet_input,
+                        set_default=True
+                    )
+
+                # Check response
+                if response and "address" in response:
+                    self.notify(f"\n✓ Successfully added {wallet_type_str} wallet!")
+                    self.notify(f"Address: {response['address']}")
+                    self.notify(f"Set as default wallet for {chain}")
+                else:
+                    error_msg = response.get("error", "Unknown error") if response else "No response"
+                    self.notify(f"\n✗ Failed to add wallet: {error_msg}")
+
+        except Exception as e:
+            self.notify(f"\nError adding wallet: {str(e)}")
+            self.logger().error(f"Error in gateway connect: {e}", exc_info=True)
 
     async def _generate_certs(
             self,       # type: HummingbotApplication
