@@ -214,24 +214,18 @@ class GatewayCommandUtils:
         """
         elapsed = 0
         pending_shown = False
+        hardware_wallet_msg_shown = False
 
         while elapsed < timeout:
             order = connector.get_order(order_id)
 
-            # Check if we have a transaction hash - this indicates the transaction was submitted
-            has_tx_hash = order and order.exchange_order_id
-
-            if has_tx_hash or (order and order.is_done):
+            # Check if transaction is complete (success, failed, or cancelled)
+            if order and order.is_done:
                 # Give a longer delay to ensure order state is fully updated
                 await asyncio.sleep(2.0)
 
                 # Re-fetch the order to get the latest state
                 order = connector.get_order(order_id)
-
-                # If we have a transaction hash but order isn't done yet, wait a bit more
-                if has_tx_hash and not order.is_done:
-                    await asyncio.sleep(2.0)
-                    order = connector.get_order(order_id)
 
                 result = {
                     "completed": True,
@@ -257,6 +251,15 @@ class GatewayCommandUtils:
                     app.notify(f"\n⚠ Transaction completed with state: {state}")
 
                 return result
+
+            # Special handling for PENDING_CREATE state
+            if order and hasattr(order, 'current_state') and str(order.current_state) == "OrderState.PENDING_CREATE":
+                if not pending_shown:
+                    app.notify("\n⏳ Waiting for wallet signature...")
+                    pending_shown = True
+                if elapsed > 10 and not hardware_wallet_msg_shown:  # After 10 seconds, provide more guidance
+                    app.notify("If using a hardware wallet, please approve the transaction on your device.")
+                    hardware_wallet_msg_shown = True
 
             await asyncio.sleep(check_interval)
             elapsed += check_interval
