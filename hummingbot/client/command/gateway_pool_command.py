@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import json
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, TypedDict
 
 from hummingbot.client.command.gateway_api_manager import begin_placeholder_mode
 from hummingbot.core.gateway.gateway_status_monitor import GatewayStatus
@@ -8,6 +8,15 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
+
+
+class PoolListInfo(TypedDict):
+    """Pool information structure returned by gateway get_pool endpoint."""
+    type: str  # "amm" or "clmm"
+    network: str
+    baseSymbol: str
+    quoteSymbol: str
+    address: str
 
 
 def ensure_gateway_online(func):
@@ -98,7 +107,12 @@ class GatewayPoolCommand:
                 self.notify(f"You may need to add it using 'gateway pool {connector} {trading_pair} update'")
             else:
                 # Display pool information
-                self._display_pool_info(response, connector, trading_pair)
+                try:
+                    self._display_pool_info(response, connector, trading_pair)
+                except Exception as display_error:
+                    # Log the response structure for debugging
+                    self.notify(f"\nReceived pool data: {response}")
+                    self.notify(f"Error displaying pool information: {str(display_error)}")
 
         except Exception as e:
             self.notify(f"Error fetching pool information: {str(e)}")
@@ -261,20 +275,8 @@ class GatewayPoolCommand:
         self.notify("\n=== Pool Information ===")
         self.notify(f"Connector: {connector}")
         self.notify(f"Trading Pair: {trading_pair}")
+        self.notify(f"Pool Type: {pool_info.get('type', 'N/A')}")
+        self.notify(f"Network: {pool_info.get('network', 'N/A')}")
+        self.notify(f"Base Token: {pool_info.get('baseSymbol', 'N/A')}")
+        self.notify(f"Quote Token: {pool_info.get('quoteSymbol', 'N/A')}")
         self.notify(f"Pool Address: {pool_info.get('address', 'N/A')}")
-
-        # Display additional pool details if available
-        if "fee" in pool_info:
-            self.notify(f"Fee: {pool_info['fee']}%")
-        if "liquidity" in pool_info:
-            self.notify(f"Liquidity: ${pool_info['liquidity']:,.2f}")
-        if "volume24h" in pool_info:
-            self.notify(f"24h Volume: ${pool_info['volume24h']:,.2f}")
-
-        # Display any additional fields
-        standard_fields = {'address', 'fee', 'liquidity', 'volume24h', 'baseToken', 'quoteToken', 'type'}
-        extra_fields = {k: v for k, v in pool_info.items() if k not in standard_fields}
-        if extra_fields:
-            self.notify("\nAdditional Information:")
-            for key, value in extra_fields.items():
-                self.notify(f"  {key}: {value}")
