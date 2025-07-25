@@ -44,6 +44,18 @@ class GatewayCommandUtils:
         return base_token, quote_token
 
     @staticmethod
+    def is_placeholder_wallet(wallet_address: str) -> bool:
+        """
+        Check if a wallet address is a placeholder.
+
+        :param wallet_address: Wallet address to check
+        :return: True if it's a placeholder, False otherwise
+        """
+        if not wallet_address:
+            return False
+        return "wallet-address" in wallet_address.lower()
+
+    @staticmethod
     async def get_default_wallet(
         gateway_client: "GatewayHttpClient",
         chain: str
@@ -60,7 +72,7 @@ class GatewayCommandUtils:
             return None, f"No default wallet found for {chain}. Please add one with 'gateway connect {chain}'"
 
         # Check if wallet address is a placeholder
-        if "wallet-address" in wallet_address.lower():
+        if GatewayCommandUtils.is_placeholder_wallet(wallet_address):
             return None, f"{chain} wallet not configured (found placeholder: {wallet_address}). Please add a real wallet with: gateway connect {chain}"
 
         return wallet_address, None

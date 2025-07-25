@@ -228,6 +228,46 @@ class GatewayCommand(GatewayChainApiManager):
             self.notify(f"\n=== Add Wallet for {chain} ===")
             self.notify(f"Network: {default_network}")
 
+            # Get existing wallets to show
+            wallets_response = await self._get_gateway_instance().get_wallets(show_hardware=True)
+
+            # Find wallets for this chain
+            chain_wallets = None
+            for wallet_info in wallets_response:
+                if wallet_info.get("chain") == chain:
+                    chain_wallets = wallet_info
+                    break
+
+            if chain_wallets:
+                # Get current default wallet
+                default_wallet = await self._get_gateway_instance().get_default_wallet_for_chain(chain)
+
+                # Display existing wallets
+                self.notify("\nExisting wallets:")
+
+                # Regular wallets
+                wallet_addresses = chain_wallets.get("walletAddresses", [])
+                for address in wallet_addresses:
+                    if address == default_wallet:
+                        self.notify(f"  • {address} (default)")
+                    else:
+                        self.notify(f"  • {address}")
+
+                    # Check for placeholder wallet
+                    from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
+                    if GatewayCommandUtils.is_placeholder_wallet(address):
+                        self.notify("    ⚠️  This is a placeholder wallet - please replace it")
+
+                # Hardware wallets
+                hardware_addresses = chain_wallets.get("hardwareWalletAddresses", [])
+                for address in hardware_addresses:
+                    if address == default_wallet:
+                        self.notify(f"  • {address} (hardware, default)")
+                    else:
+                        self.notify(f"  • {address} (hardware)")
+            else:
+                self.notify("\nNo existing wallets found for this chain.")
+
             # Enter interactive mode
             with begin_placeholder_mode(self):
                 # Ask for wallet type
@@ -489,7 +529,8 @@ class GatewayCommand(GatewayChainApiManager):
                 continue
 
             # Check if wallet address is a placeholder
-            if "wallet-address" in default_wallet.lower():
+            from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
+            if GatewayCommandUtils.is_placeholder_wallet(default_wallet):
                 self.notify(f"\n⚠️  {chain} wallet not configured (found placeholder: {default_wallet})")
                 self.notify(f"Please add a real wallet with: gateway connect {chain}")
                 continue
