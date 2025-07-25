@@ -170,8 +170,8 @@ def create_live_field():
 
 def create_log_toggle(function):
     return Button(
-        text='> log pane',
-        width=13,
+        text='> Ctrl-T',
+        width=10,
         handler=function,
         left_symbol='',
         right_symbol='',
