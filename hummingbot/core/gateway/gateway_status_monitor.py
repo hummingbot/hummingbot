@@ -125,26 +125,7 @@ class GatewayStatusMonitor:
                         GATEWAY_ETH_CONNECTORS.extend(eth_connector_list)
 
                         # Update AllConnectorSettings with gateway connectors
-                        all_settings = AllConnectorSettings.get_connector_settings()
-                        for connector_name in connector_list:
-                            if connector_name not in all_settings:
-                                # Create connector setting for gateway connector
-                                all_settings[connector_name] = ConnectorSetting(
-                                    name=connector_name,
-                                    type=ConnectorType.GATEWAY_DEX,
-                                    centralised=False,
-                                    example_pair="ETH-USDC",
-                                    use_ethereum_wallet=False,  # Gateway handles wallet internally
-                                    trade_fee_schema=TradeFeeSchema(
-                                        maker_percent_fee_decimal=Decimal("0.003"),
-                                        taker_percent_fee_decimal=Decimal("0.003"),
-                                    ),
-                                    config_keys=None,
-                                    is_sub_domain=False,
-                                    parent_name=None,
-                                    domain_parameter=None,
-                                    use_eth_gas_lookup=False,
-                                )
+                        await self._register_gateway_connectors(connector_list)
 
                         # Get chains using the dedicated endpoint
                         try:
@@ -166,6 +147,11 @@ class GatewayStatusMonitor:
 
                         # Update config keys for backward compatibility
                         await self.update_gateway_config_key_list()
+
+                    # If gateway was already online, ensure connectors are registered
+                    if self._gateway_status is GatewayStatus.ONLINE and not GATEWAY_CONNECTORS:
+                        # Gateway is online but connectors haven't been registered yet
+                        await self.ensure_gateway_connectors_registered()
 
                     self._gateway_status = GatewayStatus.ONLINE
                 else:
@@ -207,3 +193,52 @@ class GatewayStatusMonitor:
     def _get_gateway_instance(self) -> GatewayHttpClient:
         gateway_instance = GatewayHttpClient.get_instance(self._app.client_config_map)
         return gateway_instance
+
+    async def _register_gateway_connectors(self, connector_list: List[str]):
+        """Register gateway connectors in AllConnectorSettings"""
+        all_settings = AllConnectorSettings.get_connector_settings()
+        for connector_name in connector_list:
+            if connector_name not in all_settings:
+                # Create connector setting for gateway connector
+                all_settings[connector_name] = ConnectorSetting(
+                    name=connector_name,
+                    type=ConnectorType.GATEWAY_DEX,
+                    centralised=False,
+                    example_pair="ETH-USDC",
+                    use_ethereum_wallet=False,  # Gateway handles wallet internally
+                    trade_fee_schema=TradeFeeSchema(
+                        maker_percent_fee_decimal=Decimal("0.003"),
+                        taker_percent_fee_decimal=Decimal("0.003"),
+                    ),
+                    config_keys=None,
+                    is_sub_domain=False,
+                    parent_name=None,
+                    domain_parameter=None,
+                    use_eth_gas_lookup=False,
+                )
+
+    async def ensure_gateway_connectors_registered(self):
+        """Ensure gateway connectors are registered in AllConnectorSettings"""
+        if self.gateway_status is not GatewayStatus.ONLINE:
+            return
+
+        try:
+            gateway_http_client = self._get_gateway_instance()
+            gateway_connectors = await gateway_http_client.get_connectors(fail_silently=True)
+
+            # Build connector list with trading types appended
+            connector_list = []
+            for connector in gateway_connectors.get("connectors", []):
+                name = connector["name"]
+                trading_types = connector.get("trading_types", [])
+
+                # Add each trading type as a separate entry
+                for trading_type in trading_types:
+                    connector_full_name = f"{name}/{trading_type}"
+                    connector_list.append(connector_full_name)
+
+            # Register the connectors
+            await self._register_gateway_connectors(connector_list)
+
+        except Exception as e:
+            self.logger().error(f"Error ensuring gateway connectors are registered: {e}", exc_info=True)
