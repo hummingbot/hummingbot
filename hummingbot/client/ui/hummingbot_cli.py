@@ -182,10 +182,10 @@ class HummingbotCLI(PubSub):
     def toggle_right_pane(self):
         if self.layout_components["pane_right"].filter():
             self.layout_components["pane_right"].filter = lambda: False
-            self.layout_components["item_top_toggle"].text = '< Ctrl-T'
+            self.layout_components["item_top_toggle"].text = '< Ctrl+T'
         else:
             self.layout_components["pane_right"].filter = lambda: True
-            self.layout_components["item_top_toggle"].text = '> Ctrl-T'
+            self.layout_components["item_top_toggle"].text = '> Ctrl+T'
 
     def log_button_clicked(self):
         for tab in self.command_tabs.values():
