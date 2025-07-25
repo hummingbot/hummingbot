@@ -157,6 +157,42 @@ class GatewayCommandUtils:
             return []
 
     @staticmethod
+    async def validate_tokens(
+        gateway_client: "GatewayHttpClient",
+        chain: str,
+        network: str,
+        token_symbols: List[str]
+    ) -> Tuple[List[str], List[str]]:
+        """
+        Validate that tokens exist in the available token list.
+
+        :param gateway_client: Gateway client instance
+        :param chain: Chain name
+        :param network: Network name
+        :param token_symbols: List of token symbols to validate
+        :return: Tuple of (valid_tokens, invalid_tokens)
+        """
+        if not token_symbols:
+            return [], []
+
+        # Get available tokens
+        available_tokens = await GatewayCommandUtils.get_available_tokens(gateway_client, chain, network)
+        available_symbols = {token["symbol"].upper() for token in available_tokens}
+
+        # Check which tokens are valid/invalid
+        valid_tokens = []
+        invalid_tokens = []
+
+        for token in token_symbols:
+            token_upper = token.upper()
+            if token_upper in available_symbols:
+                valid_tokens.append(token_upper)
+            else:
+                invalid_tokens.append(token)
+
+        return valid_tokens, invalid_tokens
+
+    @staticmethod
     async def monitor_transaction_with_timeout(
         app: Any,  # HummingbotApplication
         connector: "GatewayBase",
