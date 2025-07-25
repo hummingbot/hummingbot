@@ -109,6 +109,10 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
     gateway_config_parser.add_argument("action", nargs="?", default=None, help="Action to perform (update)")
     gateway_config_parser.set_defaults(func=hummingbot.gateway_config)
 
+    gateway_connect_parser = gateway_subparsers.add_parser("connect", help="Add a wallet for a chain")
+    gateway_connect_parser.add_argument("chain", nargs="?", default=None, help="Blockchain chain (e.g., ethereum, solana)")
+    gateway_connect_parser.set_defaults(func=hummingbot.gateway_connect)
+
     gateway_approve_parser = gateway_subparsers.add_parser("approve", help="Approve token for gateway connector spending")
     gateway_approve_parser.add_argument("connector", nargs="?", default=None, help="Connector name/type (e.g., jupiter/router)")
     gateway_approve_parser.add_argument("token", nargs="?", default=None, help="Token symbol to approve (e.g., WETH)")

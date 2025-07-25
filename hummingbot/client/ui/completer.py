@@ -57,11 +57,12 @@ class HummingbotCompleter(Completer):
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)
         self._history_completer = WordCompleter(["--days", "--verbose", "--precision"], ignore_case=True)
-        self._gateway_completer = WordCompleter(["list", "balance", "config", "generate-certs", "ping", "allowance", "approve", "swap", "lp"], ignore_case=True)
+        self._gateway_completer = WordCompleter(["list", "balance", "config", "connect", "generate-certs", "ping", "allowance", "approve", "swap", "lp"], ignore_case=True)
         self._gateway_swap_completer = WordCompleter(GATEWAY_CONNECTORS, ignore_case=True)
         self._gateway_namespace_completer = WordCompleter(GATEWAY_NAMESPACES, ignore_case=True)
         self._gateway_balance_completer = WordCompleter(GATEWAY_CHAINS, ignore_case=True)
         self._gateway_ping_completer = WordCompleter(GATEWAY_CHAINS, ignore_case=True)
+        self._gateway_connect_completer = WordCompleter(GATEWAY_CHAINS, ignore_case=True)
         self._gateway_allowance_completer = WordCompleter(GATEWAY_ETH_CONNECTORS, ignore_case=True)
         self._gateway_approve_completer = WordCompleter(GATEWAY_ETH_CONNECTORS, ignore_case=True)
         self._gateway_config_completer = WordCompleter(GATEWAY_NAMESPACES, ignore_case=True)
@@ -335,7 +336,8 @@ class HummingbotCompleter(Completer):
                 "import" in text_before_cursor)
 
     def _complete_gateway_chain(self, document: Document) -> bool:
-        return "Which chain do you want" in self.prompt_text
+        return "Which chain do you want" in self.prompt_text or \
+               (document.text.startswith("gateway connect") and len(document.text.split()) <= 2)
 
     def _complete_gateway_network(self, document: Document) -> bool:
         return "Which network do you want" in self.prompt_text
