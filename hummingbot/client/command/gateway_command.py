@@ -57,8 +57,10 @@ class GatewayCommand(GatewayChainApiManager):
         self.notify("  gateway generate-certs                            - Generate SSL certificates")
         self.notify("  gateway list                                      - List available connectors")
         self.notify("  gateway lp <connector> <action>                   - Manage liquidity positions")
-        self.notify("  gateway ping [chain]                              - Test gateway connectivity and network status")
+        self.notify("  gateway ping [chain]                              - Test node and chain/network status")
         self.notify("  gateway swap <connector> [pair] [side] [amount]   - Swap tokens")
+        self.notify("  gateway token <symbol_or_address>                 - View token information")
+        self.notify("  gateway token <symbol> update                     - Update token information")
         self.notify("\nUse 'gateway <command> --help' for more information about a command.")
 
     @ensure_gateway_online
@@ -103,6 +105,12 @@ class GatewayCommand(GatewayChainApiManager):
     @ensure_gateway_online
     def gateway_ping(self, chain: str = None):
         safe_ensure_future(self._gateway_ping(chain), loop=self.ev_loop)
+
+    @ensure_gateway_online
+    def gateway_token(self, symbol_or_address: Optional[str], action: Optional[str]):
+        # Delegate to GatewayTokenCommand
+        from hummingbot.client.command.gateway_token_command import GatewayTokenCommand
+        GatewayTokenCommand.gateway_token(self, symbol_or_address, action)
 
     @ensure_gateway_online
     def gateway_list(self):
