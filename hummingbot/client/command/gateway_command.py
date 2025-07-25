@@ -259,18 +259,16 @@ class GatewayCommand(GatewayChainApiManager):
                 self.notify(f"\nAdding {wallet_type_str} wallet...")
 
                 if is_hardware:
-                    # For hardware wallets, pass the address as the identifier
+                    # For hardware wallets, pass the address parameter
                     response = await self._get_gateway_instance().add_hardware_wallet(
                         chain=chain,
-                        network=default_network,
-                        private_key=wallet_input,  # This is actually the address for hardware wallets
+                        address=wallet_input,  # Hardware wallets use address parameter
                         set_default=True
                     )
                 else:
                     # For regular wallets, pass the private key
                     response = await self._get_gateway_instance().add_wallet(
                         chain=chain,
-                        network=default_network,
                         private_key=wallet_input,
                         set_default=True
                     )

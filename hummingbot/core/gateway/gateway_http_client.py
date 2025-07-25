@@ -359,16 +359,22 @@ class GatewayHttpClient:
         return await self.api_request("get", "wallet", fail_silently=fail_silently)
 
     async def add_wallet(
-        self, chain: str, network: str, private_key: str, set_default: bool = True, **kwargs
+        self, chain: str, network: str = None, private_key: str = None, set_default: bool = True, **kwargs
     ) -> Dict[str, Any]:
-        request = {"chain": chain, "network": network, "privateKey": private_key, "setDefault": set_default}
+        # Wallet only needs chain, privateKey, and setDefault
+        request = {"chain": chain, "setDefault": set_default}
+        if private_key:
+            request["privateKey"] = private_key
         request.update(kwargs)
         return await self.api_request(method="post", path_url="wallet/add", params=request)
 
     async def add_hardware_wallet(
-        self, chain: str, network: str, private_key: str, set_default: bool = True, **kwargs
+        self, chain: str, network: str = None, address: str = None, set_default: bool = True, **kwargs
     ) -> Dict[str, Any]:
-        request = {"chain": chain, "network": network, "privateKey": private_key, "setDefault": set_default}
+        # Hardware wallet only needs chain, address, and setDefault
+        request = {"chain": chain, "setDefault": set_default}
+        if address:
+            request["address"] = address
         request.update(kwargs)
         return await self.api_request(method="post", path_url="wallet/add-hardware", params=request)
 
