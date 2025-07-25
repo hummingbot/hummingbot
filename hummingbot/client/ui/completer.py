@@ -69,6 +69,7 @@ class HummingbotCompleter(Completer):
         self._gateway_config_action_completer = WordCompleter(["update"], ignore_case=True)
         self._gateway_lp_completer = WordCompleter(GATEWAY_CONNECTORS, ignore_case=True)
         self._gateway_lp_action_completer = WordCompleter(["add-liquidity", "remove-liquidity", "position-info", "collect-fees"], ignore_case=True)
+        self._gateway_token_action_completer = WordCompleter(["update"], ignore_case=True)
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
         self._script_strategy_completer = WordCompleter(file_name_list(str(SCRIPT_STRATEGIES_PATH), "py"))
         self._script_conf_completer = WordCompleter(["--conf"], ignore_case=True)
@@ -307,6 +308,18 @@ class HummingbotCompleter(Completer):
         return (len(parts) == 1 and args_after_lp.endswith(" ")) or \
                (len(parts) == 2 and not args_after_lp.endswith(" "))
 
+    def _complete_gateway_token_action(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        if not text_before_cursor.startswith("gateway token "):
+            return False
+        # Complete action if we have symbol but not action yet
+        args_after_token = text_before_cursor[14:]  # Remove "gateway token " (keep trailing spaces)
+        parts = args_after_token.strip().split()
+        # Complete action if we have exactly one part (symbol) followed by space
+        # or if we're typing the second part
+        return (len(parts) == 1 and args_after_token.endswith(" ")) or \
+               (len(parts) == 2 and not args_after_token.endswith(" "))
+
     def _complete_script_strategy_files(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("start --script ") and "--conf" not in text_before_cursor and ".py" not in text_before_cursor
@@ -489,6 +502,10 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_gateway_lp_action(document):
             for c in self._gateway_lp_action_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_gateway_token_action(document):
+            for c in self._gateway_token_action_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_gateway_arguments(document):
