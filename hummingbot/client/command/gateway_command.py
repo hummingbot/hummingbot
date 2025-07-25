@@ -496,6 +496,20 @@ class GatewayCommand(GatewayChainApiManager):
                 if tokens_filter:
                     # User specified tokens (comma-separated)
                     tokens_to_check = [token.strip() for token in tokens_filter.split(",")]
+
+                    # Validate tokens
+                    from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
+                    valid_tokens, invalid_tokens = await GatewayCommandUtils.validate_tokens(
+                        self._get_gateway_instance(), chain, default_network, tokens_to_check
+                    )
+
+                    if invalid_tokens:
+                        self.notify(f"\n❌ Unknown tokens for {chain}: {', '.join(invalid_tokens)}")
+                        self.notify("Please check the token symbol(s) and try again.")
+                        continue
+
+                    # Use validated tokens
+                    tokens_to_check = valid_tokens
                 else:
                     # No filter specified - fetch all tokens
                     tokens_to_check = []
