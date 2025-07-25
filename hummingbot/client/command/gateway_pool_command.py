@@ -164,12 +164,16 @@ class GatewayPoolCommand:
 
             with begin_placeholder_mode(self):
                 # Check if pool already exists
-                existing_pool = await self._get_gateway_instance().get_pool(
-                    trading_pair=trading_pair,
-                    connector=connector_name,
-                    network=network,
-                    type=trading_type
-                )
+                try:
+                    existing_pool = await self._get_gateway_instance().get_pool(
+                        trading_pair=trading_pair,
+                        connector=connector_name,
+                        network=network,
+                        type=trading_type
+                    )
+                except Exception:
+                    # Pool doesn't exist, which is fine for adding a new pool
+                    existing_pool = {"error": "Pool not found"}
 
                 if "error" not in existing_pool:
                     # Pool exists, show current info
@@ -185,7 +189,7 @@ class GatewayPoolCommand:
                         self.notify("Pool update cancelled")
                         return
                 else:
-                    self.notify(f"\nPool '{trading_pair}' not found. Let's add it.")
+                    self.notify(f"\nPool '{trading_pair}' not found. Let's add it to {chain} ({network}).")
 
                 # Collect pool information
                 self.notify("\nEnter pool information:")
@@ -213,8 +217,8 @@ class GatewayPoolCommand:
                 # Create pool data
                 pool_data = {
                     "address": pool_address,
-                    "baseToken": base_token,
-                    "quoteToken": quote_token,
+                    "baseSymbol": base_token,
+                    "quoteSymbol": quote_token,
                     "type": trading_type
                 }
 
@@ -227,7 +231,7 @@ class GatewayPoolCommand:
 
                 # Confirm
                 confirm = await self.app.prompt(
-                    prompt="\nAdd this pool? (Yes/No) >>> "
+                    prompt="Add this pool? (Yes/No) >>> "
                 )
 
                 if confirm.lower() not in ["y", "yes"]:
@@ -238,7 +242,6 @@ class GatewayPoolCommand:
                 self.notify("\nAdding pool...")
                 result = await self._get_gateway_instance().add_pool(
                     connector=connector_name,
-                    chain=chain,
                     network=network,
                     pool_data=pool_data
                 )
