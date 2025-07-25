@@ -211,7 +211,14 @@ def get_gateway_status():
     hb = HummingbotApplication.main_application()
     gateway_status = hb._gateway_monitor.gateway_status.name
     style = "class:log_field"
-    return [(style, f"Gateway: {gateway_status}")]
+
+    # Add visual indicator based on status
+    if gateway_status == "ONLINE":
+        status_display = f"🟢 {gateway_status}"
+    else:
+        status_display = f"🔴 {gateway_status}"
+
+    return [(style, f"Gateway: {status_display}")]
 
 
 def generate_layout(input_field: TextArea,
