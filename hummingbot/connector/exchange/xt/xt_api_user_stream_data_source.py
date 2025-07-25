@@ -47,8 +47,7 @@ class XtAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 await self._subscribe_channels(websocket_assistant=self._ws_assistant)
                 self.logger().info("Subscribed to private account and orders channels...")
                 # Start background ping loop
-                self._ping_task = asyncio.create_task(self._ping_loop(self._ws_assistant))
-                await self._ws_assistant.ping()  # to update last_recv_timestamp
+                self._ping_task = asyncio.create_task(self._send_raw_ping(self._ws_assistant))
                 await self._process_websocket_messages(websocket_assistant=self._ws_assistant, queue=output)
             except asyncio.CancelledError:
                 raise
@@ -58,6 +57,12 @@ class XtAPIUserStreamDataSource(UserStreamTrackerDataSource):
             finally:
                 await self._on_user_stream_interruption(websocket_assistant=self._ws_assistant)
                 self._ws_assistant = None
+                if hasattr(self, '_ping_task') and self._ping_task is not None:
+                    self._ping_task.cancel()
+                    try:
+                        await self._ping_task
+                    except Exception:
+                        pass
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         """
@@ -96,9 +101,6 @@ class XtAPIUserStreamDataSource(UserStreamTrackerDataSource):
             await self._process_event_message(event_message=data, queue=queue)
 
     async def _process_event_message(self, event_message: Any, queue: asyncio.Queue):
-        # Log pong responses
-        if event_message == "pong":
-            self.logger().info("Received pong from XT WebSocket.")
         if isinstance(event_message, dict) and len(event_message) > 0 and ("data" in event_message and "topic" in event_message):
             queue.put_nowait(event_message)
 
@@ -127,11 +129,13 @@ class XtAPIUserStreamDataSource(UserStreamTrackerDataSource):
         await super()._on_user_stream_interruption(websocket_assistant=websocket_assistant)
         self._current_listen_key = None
 
-    async def _ping_loop(self, websocket_assistant: WSAssistant):
-        try:
-            while True:
-                await asyncio.sleep(CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
-                self.logger().info("Sending raw 'ping' string to XT WebSocket...")
-                await websocket_assistant.send("ping")
-        except Exception as e:
-            self.logger().debug(f'Ping loop error: {e}')
+    async def _send_raw_ping(self, ws: WSAssistant):
+        """Send a raw 'ping' string every WS_HEARTBEAT_TIME_INTERVAL seconds."""
+        while True:
+            try:
+                await ws._connection._send_plain_text("ping")
+                self.logger().info("Sent raw 'ping' string to XT WebSocket.")
+            except Exception as e:
+                self.logger().error(f"Error sending raw ping: {e}")
+                break
+            await asyncio.sleep(CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
