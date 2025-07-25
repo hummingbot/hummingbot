@@ -103,7 +103,6 @@ class GatewayBase(ConnectorBase):
         self._amount_quantum_dict = {}
         self._token_data = {}  # Store complete token information
         self._allowances = {}
-        safe_ensure_future(self.load_token_data())
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -233,8 +232,8 @@ class GatewayBase(ConnectorBase):
                 raise ValueError(f"Failed to get default wallet: {error}")
             self._wallet_address = wallet_address
 
-        # Update the name now that we have chain and network
-        self._name = f"{self._connector_name}_{self._chain}_{self._network}"
+        # Update the name to same as the connector name
+        self._name = f"{self._connector_name}"
 
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
@@ -575,8 +574,12 @@ class GatewayBase(ConnectorBase):
                 await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
 
     def process_transaction_confirmation_update(self, tracked_order: GatewayInFlightOrder, fee: Decimal):
+        # Use base token from trading pair if fee_asset is None
+        base_token = tracked_order.trading_pair.split("-")[0]
+        fee_asset = tracked_order.fee_asset if tracked_order.fee_asset else base_token
+
         trade_fee: TradeFeeBase = AddedToCostTradeFee(
-            flat_fees=[TokenAmount(tracked_order.fee_asset, fee)]
+            flat_fees=[TokenAmount(fee_asset, fee)]
         )
 
         trade_update: TradeUpdate = TradeUpdate(

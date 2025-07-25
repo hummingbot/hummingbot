@@ -10,6 +10,7 @@ from hummingbot.client.config.config_data_types import BaseClientModel
 
 # GatewayConnectionSetting removed - gateway connectors now managed by Gateway
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
@@ -17,33 +18,30 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 class CLMMPositionManagerConfig(BaseClientModel):
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
-    connector: str = Field("meteora/clmm", json_schema_extra={
+    connector: str = Field("raydium/clmm", json_schema_extra={
         "prompt": "CLMM Connector (e.g. meteora/clmm, raydium/clmm)", "prompt_on_new": True})
-    chain: str = Field("solana", json_schema_extra={
-        "prompt": "Chain (e.g. solana)", "prompt_on_new": False})
-    network: str = Field("mainnet-beta", json_schema_extra={
-        "prompt": "Network (e.g. mainnet-beta)", "prompt_on_new": False})
-    pool_address: str = Field("9d9mb8kooFfaD3SctgZtkxQypkshx6ezhbKio89ixyy2", json_schema_extra={
-        "prompt": "Pool address (e.g. TRUMP-USDC Meteora pool)", "prompt_on_new": True})
+    pool_address: str = Field("3ucNos4NbumPLZNWztqGHNFFgkHeRMBQAVemeeomsUxv", json_schema_extra={
+        "prompt": "Pool address (e.g. SOL-USDC Raydium 0.04% pool)", "prompt_on_new": True})
     target_price: Decimal = Field(Decimal("10.0"), json_schema_extra={
         "prompt": "Target price to trigger position opening", "prompt_on_new": True})
     trigger_above: bool = Field(False, json_schema_extra={
         "prompt": "Trigger when price rises above target? (True for above/False for below)", "prompt_on_new": True})
     position_width_pct: Decimal = Field(Decimal("10.0"), json_schema_extra={
-        "prompt": "Position width in percentage (e.g. 5.0 for ±5% around target price)", "prompt_on_new": True})
+        "prompt": "Position width per side in percentage (e.g. 10.0 for ±10% around center price)", "prompt_on_new": True})
     base_token_amount: Decimal = Field(Decimal("0.1"), json_schema_extra={
         "prompt": "Base token amount to add to position (0 for quote only)", "prompt_on_new": True})
-    quote_token_amount: Decimal = Field(Decimal("1.0"), json_schema_extra={
+    quote_token_amount: Decimal = Field(Decimal("2.0"), json_schema_extra={
         "prompt": "Quote token amount to add to position (0 for base only)", "prompt_on_new": True})
     out_of_range_pct: Decimal = Field(Decimal("1.0"), json_schema_extra={
         "prompt": "Percentage outside range that triggers closing (e.g. 1.0 for 1%)", "prompt_on_new": True})
-    out_of_range_secs: int = Field(300, json_schema_extra={
-        "prompt": "Seconds price must be out of range before closing (e.g. 300 for 5 min)", "prompt_on_new": True})
+    out_of_range_secs: int = Field(60, json_schema_extra={
+        "prompt": "Seconds price must be out of range before closing (e.g. 60 for 1 min)", "prompt_on_new": True})
 
 
 class CLMMPositionManager(ScriptStrategyBase):
     """
-    This strategy monitors CLMM pool prices, opens a position when a target price is reached,
+    This strategy shows how to use the Gateway HttpClient methods directly to manage a CLMM position.
+    It monitors CLMM pool prices, opens a position when a target price is reached,
     and closes the position if the price moves out of range for a specified duration.
     """
 
@@ -70,24 +68,26 @@ class CLMMPositionManager(ScriptStrategyBase):
         self.position_lower_price = None
         self.position_upper_price = None
         self.out_of_range_start_time = None
+        self.chain = None  # Will be auto-detected from connector
+        self.network = None  # Will be auto-detected from connector
 
         # Log startup information
         self.logger().info("Starting CLMMPositionManager strategy")
         self.logger().info(f"Connector: {self.config.connector}")
-        self.logger().info(f"Chain: {self.config.chain}")
-        self.logger().info(f"Network: {self.config.network}")
         self.logger().info(f"Pool address: {self.config.pool_address}")
         self.logger().info(f"Target price: {self.config.target_price}")
         condition = "rises above" if self.config.trigger_above else "falls below"
         self.logger().info(f"Will open position when price {condition} target")
-        self.logger().info(f"Position width: ±{self.config.position_width_pct}%")
+        self.logger().info(f"Position width: ±{self.config.position_width_pct}% from center price")
         self.logger().info(f"Will close position if price is outside range by {self.config.out_of_range_pct}% for {self.config.out_of_range_secs} seconds")
 
         # Check Gateway status
         safe_ensure_future(self.check_gateway_status())
 
     async def check_gateway_status(self):
-        """Check if Gateway server is online and verify wallet connection"""
+        """
+        Check if Gateway server is online and verify wallet connection
+        """
         self.logger().info("Checking Gateway server status...")
         try:
             gateway_http_client = GatewayHttpClient.get_instance()
@@ -95,11 +95,23 @@ class CLMMPositionManager(ScriptStrategyBase):
                 self.gateway_ready = True
                 self.logger().info("Gateway server is online!")
 
-                # Get wallet from Gateway
-                chain = self.config.chain
+                # Get chain and network from connector
+                chain, network, error = await GatewayCommandUtils.get_connector_chain_network(
+                    gateway_http_client,
+                    self.config.connector
+                )
+
+                if error:
+                    self.logger().error(f"Error getting chain info: {error}")
+                    return
+
+                # Store chain and network for later use
+                self.chain = chain
+                self.network = network
+                self.logger().info(f"Auto-detected chain: {chain}, network: {network}")
 
                 # Get default wallet for the chain
-                wallet_address = await self.gateway.get_default_wallet_for_chain(chain)
+                wallet_address = await gateway_http_client.get_default_wallet_for_chain(chain)
                 if not wallet_address:
                     self.logger().error(f"No default wallet found for {chain}. Please add one with 'gateway wallet add {chain}'")
                 else:
@@ -121,7 +133,7 @@ class CLMMPositionManager(ScriptStrategyBase):
             self.logger().info(f"Fetching information for pool {self.config.pool_address}...")
             pool_info = await GatewayHttpClient.get_instance().pool_info(
                 self.config.connector,
-                self.config.network,
+                self.network,  # Use auto-detected network
                 self.config.pool_address
             )
 
@@ -156,7 +168,7 @@ class CLMMPositionManager(ScriptStrategyBase):
             self.logger().info(f"Fetching position info for {self.position_address}...")
             position_info = await GatewayHttpClient.get_instance().clmm_position_info(
                 connector=self.config.connector,
-                network=self.config.network,
+                network=self.network,  # Use auto-detected network
                 position_address=self.position_address,
                 wallet_address=self.wallet_address
             )
@@ -248,12 +260,13 @@ class CLMMPositionManager(ScriptStrategyBase):
             lower_price = current_price * (1 - width_pct)
             upper_price = current_price * (1 + width_pct)
 
-            self.logger().info(f"Opening position around current price {current_price} with requested range: {lower_price} to {upper_price}")
+            self.logger().info(f"Opening position around current price {current_price} with ±{self.config.position_width_pct}% width")
+            self.logger().info(f"Requested range: {lower_price} to {upper_price}")
 
             # Open position - only send one transaction
             response = await GatewayHttpClient.get_instance().clmm_open_position(
                 connector=self.config.connector,
-                network=self.config.network,
+                network=self.network,  # Use auto-detected network
                 wallet_address=self.wallet_address,
                 pool_address=self.config.pool_address,
                 lower_price=lower_price,
@@ -378,7 +391,7 @@ class CLMMPositionManager(ScriptStrategyBase):
                 self.logger().info(f"Closing position {self.position_address}...")
                 response = await GatewayHttpClient.get_instance().clmm_close_position(
                     connector=self.config.connector,
-                    network=self.config.network,
+                    network=self.network,  # Use auto-detected network
                     wallet_address=self.wallet_address,
                     position_address=self.position_address
                 )
@@ -443,9 +456,16 @@ class CLMMPositionManager(ScriptStrategyBase):
             poll_attempts += 1
             try:
                 # Use the get_transaction_status method to check transaction status
-                poll_data = await GatewayHttpClient.get_instance().get_transaction_status(
-                    chain=self.config.chain,
-                    network=self.config.network,
+                # Get chain from connector for transaction status
+                gateway_http_client = GatewayHttpClient.get_instance()
+                chain, _, _ = await GatewayCommandUtils.get_connector_chain_network(
+                    gateway_http_client,
+                    self.config.connector
+                )
+
+                poll_data = await gateway_http_client.get_transaction_status(
+                    chain=chain,
+                    network=self.network,  # Use auto-detected network
                     transaction_hash=signature,
                 )
 
@@ -486,10 +506,12 @@ class CLMMPositionManager(ScriptStrategyBase):
             return "No wallet connected. Please connect a wallet using 'gateway connect'."
 
         lines = []
-        connector_chain_network = f"{self.config.connector}_{self.config.chain}_{self.config.network}"
+        connector_display = f"{self.config.connector}"
+        if self.network:
+            connector_display += f"_{self.network}"
 
         if self.position_opened:
-            lines.append(f"Position is open on {connector_chain_network}")
+            lines.append(f"Position is open on {connector_display}")
             lines.append(f"Position address: {self.position_address}")
             lines.append(f"Position price range: {self.position_lower_price:.6f} to {self.position_upper_price:.6f}")
             lines.append(f"Current price: {self.last_price}")
@@ -514,11 +536,11 @@ class CLMMPositionManager(ScriptStrategyBase):
                     else:
                         lines.append("⚠️  Price is outside position range but within buffer")
         elif self.position_opening:
-            lines.append(f"Opening position on {connector_chain_network}...")
+            lines.append(f"Opening position on {connector_display}...")
         elif self.position_closing:
-            lines.append(f"Closing position on {connector_chain_network}...")
+            lines.append(f"Closing position on {connector_display}...")
         else:
-            lines.append(f"Monitoring {self.base_token}-{self.quote_token} pool on {connector_chain_network}")
+            lines.append(f"Monitoring {self.base_token}-{self.quote_token} pool on {connector_display}")
             lines.append(f"Pool address: {self.config.pool_address}")
             lines.append(f"Current price: {self.last_price}")
             lines.append(f"Target price: {self.config.target_price}")
