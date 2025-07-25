@@ -57,7 +57,7 @@ class XtAuth(AuthBase):
             Y = "#{}#{}#{}".format(method.value, path, params_str)
 
         signature = self._generate_signature(X + Y)
-        headers["xt-validate-signature"] = signature
+        headers["validate-signature"] = signature
 
         headers["Content-Type"] = CONSTANTS.XT_VALIDATE_CONTENTTYPE_URLENCODE if method == RESTMethod.GET else CONSTANTS.XT_VALIDATE_CONTENTTYPE_JSON
 
@@ -66,12 +66,12 @@ class XtAuth(AuthBase):
     def header_for_authentication(self) -> Dict[str, str]:
 
         headers = OrderedDict()
-        headers["xt-validate-algorithms"] = CONSTANTS.XT_VALIDATE_ALGORITHMS
-        headers["xt-validate-appkey"] = self.api_key
-        headers["xt-validate-recvwindow"] = CONSTANTS.XT_VALIDATE_RECVWINDOW
+        headers["validate-algorithms"] = CONSTANTS.XT_VALIDATE_ALGORITHMS
+        headers["validate-appkey"] = self.api_key
+        headers["validate-recvwindow"] = CONSTANTS.XT_VALIDATE_RECVWINDOW
 
         timestamp = str(int(self.time_provider.time() * 1e3))
-        headers["xt-validate-timestamp"] = timestamp
+        headers["validate-timestamp"] = timestamp
         return headers
 
     def _generate_signature(self, encoded_params_str: str) -> str:
