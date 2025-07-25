@@ -272,14 +272,23 @@ class GatewayCommand(GatewayChainApiManager):
             with begin_placeholder_mode(self):
                 # Ask for wallet type
                 wallet_type = await self.app.prompt(
-                    prompt="Wallet type (1: Regular, 2: Hardware) [default: 1]: "
+                    prompt="Wallet type (1: Regular, 2: Hardware, 3: Exit) [default: 3]: "
                 )
 
                 if self.app.to_stop_config:
                     self.notify("Wallet addition cancelled")
                     return
 
-                # Default to regular wallet if empty or invalid input
+                # Default to exit if empty input
+                if not wallet_type or wallet_type == "3":
+                    self.notify("Wallet addition cancelled")
+                    return
+
+                # Check for valid wallet type
+                if wallet_type not in ["1", "2"]:
+                    self.notify("Invalid option. Wallet addition cancelled")
+                    return
+
                 is_hardware = wallet_type == "2"
                 wallet_type_str = "hardware" if is_hardware else "regular"
 
