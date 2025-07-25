@@ -194,7 +194,7 @@ class XtExchange(ExchangePyBase):
             is_auth_required=True)
 
         if "result" not in order_result or order_result["result"] is None:
-            raise
+            raise IOError(f"Error submitting order to XT. API response: {order_result}")
 
         o_id = str(order_result["result"]["orderId"])
         transact_time = self.current_timestamp
@@ -287,7 +287,7 @@ class XtExchange(ExchangePyBase):
         trading_pair_rules = exchange_info_dict["result"].get("symbols", [])
         retval = []
         for rule in filter(xt_utils.is_exchange_information_valid, trading_pair_rules):
-            
+
             try:
                 trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule.get("symbol"))
                 filters = rule.get("filters")
@@ -366,7 +366,7 @@ class XtExchange(ExchangePyBase):
 
                         order_update = OrderUpdate(
                             trading_pair=tracked_order.trading_pair,
-                            update_timestamp=order_update["t"] * 1e-3,
+                            update_timestamp=(order_update["t"] * 1e-3) if "t" in order_update and order_update["t"] is not None else None,
                             new_state=CONSTANTS.ORDER_STATE[order_update["st"]],
                             client_order_id=tracked_order.client_order_id,
                             exchange_order_id=str(order_update["i"]),
@@ -482,7 +482,7 @@ class XtExchange(ExchangePyBase):
             client_order_id=tracked_order.client_order_id,
             exchange_order_id=str(updated_order_data["orderId"]),
             trading_pair=tracked_order.trading_pair,
-            update_timestamp=updated_order_data["updatedTime"] * 1e-3,
+            update_timestamp=(updated_order_data["updatedTime"] * 1e-3) if "updatedTime" in updated_order_data and updated_order_data["updatedTime"] is not None else None,
             new_state=new_state,
         )
 

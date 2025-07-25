@@ -3,8 +3,8 @@ from hummingbot.core.data_type.in_flight_order import OrderState
 
 DEFAULT_DOMAIN = "com"
 
-HBOT_ORDER_ID_PREFIX = "xt-"
-MAX_ORDER_ID_LEN = 32
+HBOT_ORDER_ID_PREFIX = ""
+MAX_ORDER_ID_LEN = 20
 
 # Base URL
 REST_URL = "https://sapi.xt.{}/"
