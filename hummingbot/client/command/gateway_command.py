@@ -482,7 +482,13 @@ class GatewayCommand(GatewayChainApiManager):
             # Get default wallet for this chain
             default_wallet = await self._get_gateway_instance().get_default_wallet_for_chain(chain)
             if not default_wallet:
-                self.notify(f"No default wallet found for {chain}. Please add one with 'gateway wallet add {chain}'")
+                self.notify(f"No default wallet found for {chain}. Please add one with 'gateway connect {chain}'")
+                continue
+
+            # Check if wallet address is a placeholder
+            if "wallet-address" in default_wallet.lower():
+                self.notify(f"\n⚠️  {chain} wallet not configured (found placeholder: {default_wallet})")
+                self.notify(f"Please add a real wallet with: gateway connect {chain}")
                 continue
 
             try:
