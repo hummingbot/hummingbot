@@ -64,7 +64,7 @@ class GatewayTokenCommand:
             chains_to_check = ["ethereum", "solana"]
             found_tokens: List[Dict] = []
 
-            self.notify(f"\nSearching for token '{symbol_or_address}' across chains...")
+            self.notify(f"\nSearching for token '{symbol_or_address}' across all chains' default networks...")
 
             for chain in chains_to_check:
                 # Get default network for this chain
