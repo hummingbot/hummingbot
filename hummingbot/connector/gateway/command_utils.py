@@ -57,7 +57,12 @@ class GatewayCommandUtils:
         """
         wallet_address = await gateway_client.get_default_wallet_for_chain(chain)
         if not wallet_address:
-            return None, f"No default wallet found for {chain}. Please add one with 'gateway wallet add {chain}'"
+            return None, f"No default wallet found for {chain}. Please add one with 'gateway connect {chain}'"
+
+        # Check if wallet address is a placeholder
+        if "wallet-address" in wallet_address.lower():
+            return None, f"{chain} wallet not configured (found placeholder: {wallet_address}). Please add a real wallet with: gateway connect {chain}"
+
         return wallet_address, None
 
     @staticmethod
