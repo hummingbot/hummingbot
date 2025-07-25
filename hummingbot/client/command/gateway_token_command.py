@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 import json
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
+
+import pandas as pd
 
 from hummingbot.client.command.gateway_api_manager import begin_placeholder_mode
 from hummingbot.core.gateway.gateway_status_monitor import GatewayStatus
@@ -56,12 +58,13 @@ class GatewayTokenCommand:
         self,  # type: HummingbotApplication
         symbol_or_address: str
     ):
-        """View token information."""
+        """View token information across all chains."""
         try:
-            # First need to determine chain and network
-            # For now, we'll check ethereum and solana
+            # Check ethereum and solana chains
             chains_to_check = ["ethereum", "solana"]
-            token_found = False
+            found_tokens: List[Dict] = []
+
+            self.notify(f"\nSearching for token '{symbol_or_address}' across chains...")
 
             for chain in chains_to_check:
                 # Get default network for this chain
@@ -70,18 +73,30 @@ class GatewayTokenCommand:
                     continue
 
                 # Try to get the token
-                token_info = await self._get_gateway_instance().get_token(
+                response = await self._get_gateway_instance().get_token(
                     symbol_or_address=symbol_or_address,
                     chain=chain,
                     network=default_network
                 )
 
-                if "error" not in token_info:
-                    token_found = True
-                    self._display_token_info(token_info, chain, default_network)
-                    break
+                if "error" not in response:
+                    # Extract token data - it might be nested under 'token' key
+                    token_data = response.get("token", response)
 
-            if not token_found:
+                    # Add chain and network info to token data
+                    token_info = {
+                        "chain": chain,
+                        "network": default_network,
+                        "symbol": token_data.get("symbol", "N/A"),
+                        "name": token_data.get("name", "N/A"),
+                        "address": token_data.get("address", "N/A"),
+                        "decimals": token_data.get("decimals", "N/A")
+                    }
+                    found_tokens.append(token_info)
+
+            if found_tokens:
+                self._display_tokens_table(found_tokens)
+            else:
                 self.notify(f"\nToken '{symbol_or_address}' not found on any supported chain.")
                 self.notify("You may need to add it using 'gateway token <symbol> update'")
 
@@ -120,7 +135,9 @@ class GatewayTokenCommand:
                 if "error" not in existing_token:
                     # Token exists, show current info
                     self.notify("\nCurrent token information:")
-                    self._display_token_info(existing_token, chain, default_network)
+                    # Extract token data - it might be nested under 'token' key
+                    token_data = existing_token.get("token", existing_token)
+                    self._display_single_token(token_data, chain, default_network)
 
                     # Ask if they want to update
                     response = await self.app.prompt(
@@ -211,30 +228,38 @@ class GatewayTokenCommand:
                     )
                     if "error" not in updated_token:
                         self.notify("\nUpdated token information:")
-                        self._display_token_info(updated_token, chain, default_network)
+                        # Extract token data - it might be nested under 'token' key
+                        token_data = updated_token.get("token", updated_token)
+                        self._display_single_token(token_data, chain, default_network)
 
         except Exception as e:
             self.notify(f"Error updating token: {str(e)}")
 
-    def _display_token_info(
+    def _display_tokens_table(self, tokens: List[Dict]):
+        """Display tokens in a table format."""
+        self.notify("\nFound tokens:")
+
+        # Create DataFrame for display
+        df = pd.DataFrame(tokens)
+
+        # Reorder columns for better display
+        columns_order = ["chain", "network", "symbol", "name", "address", "decimals"]
+        df = df[columns_order]
+
+        # Format the dataframe for display
+        lines = ["    " + line for line in df.to_string(index=False).split("\n")]
+        self.notify("\n".join(lines))
+
+    def _display_single_token(
         self,
         token_info: dict,
         chain: str,
         network: str
     ):
-        """Display token information in a formatted way."""
-        self.notify("\n=== Token Information ===")
-        self.notify(f"Chain: {chain}")
+        """Display a single token's information."""
+        self.notify(f"\nChain: {chain}")
         self.notify(f"Network: {network}")
         self.notify(f"Symbol: {token_info.get('symbol', 'N/A')}")
         self.notify(f"Name: {token_info.get('name', 'N/A')}")
         self.notify(f"Address: {token_info.get('address', 'N/A')}")
         self.notify(f"Decimals: {token_info.get('decimals', 'N/A')}")
-
-        # Display any additional fields
-        standard_fields = {'symbol', 'name', 'address', 'decimals', 'chain', 'network'}
-        extra_fields = {k: v for k, v in token_info.items() if k not in standard_fields}
-        if extra_fields:
-            self.notify("\nAdditional Information:")
-            for key, value in extra_fields.items():
-                self.notify(f"  {key}: {value}")
