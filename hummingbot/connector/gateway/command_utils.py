@@ -227,9 +227,16 @@ class GatewayCommandUtils:
                 # Re-fetch the order to get the latest state
                 order = connector.get_order(order_id)
 
+                # Special case: if is_done but state is PENDING_CREATE, treat as success
+                is_pending_create = (
+                    order and
+                    hasattr(order, 'current_state') and
+                    str(order.current_state) == "OrderState.PENDING_CREATE"
+                )
+
                 result = {
                     "completed": True,
-                    "success": order.is_filled if order else False,
+                    "success": order.is_filled or is_pending_create if order else False,
                     "failed": order.is_failure if order else False,
                     "cancelled": order.is_cancelled if order else False,
                     "order": order,
@@ -237,7 +244,7 @@ class GatewayCommandUtils:
                 }
 
                 # Show appropriate message
-                if order and order.is_filled:
+                if order and (order.is_filled or is_pending_create):
                     app.notify("\n✓ Transaction completed successfully!")
                     if order.exchange_order_id:
                         app.notify(f"Transaction hash: {order.exchange_order_id}")
