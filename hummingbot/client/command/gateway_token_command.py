@@ -148,7 +148,7 @@ class GatewayTokenCommand:
                         self.notify("Token update cancelled")
                         return
                 else:
-                    self.notify(f"\nToken '{symbol}' not found. Let's add it.")
+                    self.notify(f"\nToken '{symbol}' not found. Let's add it to {chain} ({default_network}).")
 
                 # Collect token information
                 self.notify("\nEnter token information:")
@@ -225,21 +225,10 @@ class GatewayTokenCommand:
                     try:
                         await self._get_gateway_instance().post_restart()
                         self.notify("✓ Gateway restarted successfully")
+                        self.notify(f"\nYou can now use 'gateway token {token_symbol}' to view the token information.")
                     except Exception as e:
                         self.notify(f"⚠️  Failed to restart Gateway: {str(e)}")
                         self.notify("You may need to restart Gateway manually for changes to take effect")
-
-                    # Show the updated token info
-                    updated_token = await self._get_gateway_instance().get_token(
-                        symbol_or_address=token_symbol,
-                        chain=chain,
-                        network=default_network
-                    )
-                    if "error" not in updated_token:
-                        self.notify("\nUpdated token information:")
-                        # Extract token data - it might be nested under 'token' key
-                        token_data = updated_token.get("token", updated_token)
-                        self._display_single_token(token_data, chain, default_network)
 
         except Exception as e:
             self.notify(f"Error updating token: {str(e)}")

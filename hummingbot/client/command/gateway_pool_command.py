@@ -178,7 +178,7 @@ class GatewayPoolCommand:
 
                     # Ask if they want to update
                     response = await self.app.prompt(
-                        prompt="\nDo you want to update this pool? (Yes/No) >>> "
+                        prompt="Do you want to update this pool? (Yes/No) >>> "
                     )
 
                     if response.lower() not in ["y", "yes"]:
