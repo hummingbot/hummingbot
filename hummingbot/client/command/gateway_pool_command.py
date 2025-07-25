@@ -107,12 +107,7 @@ class GatewayPoolCommand:
                 self.notify(f"You may need to add it using 'gateway pool {connector} {trading_pair} update'")
             else:
                 # Display pool information
-                try:
-                    self._display_pool_info(response, connector, trading_pair)
-                except Exception as display_error:
-                    # Log the response structure for debugging
-                    self.notify(f"\nReceived pool data: {response}")
-                    self.notify(f"Error displaying pool information: {str(display_error)}")
+                self._display_pool_info(response, connector, trading_pair)
 
         except Exception as e:
             self.notify(f"Error fetching pool information: {str(e)}")
