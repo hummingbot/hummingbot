@@ -699,7 +699,7 @@ class GatewayLPCommand:
 
                 if result["completed"] and result["success"]:
                     self.notify("\n✓ Liquidity added successfully!")
-                    self.notify("Use 'gateway lp position-info' to view your position")
+                    self.notify(f"Use 'gateway lp {connector} position-info' to view your position")
 
             finally:
                 await GatewayCommandUtils.exit_interactive_mode(self)
@@ -947,7 +947,7 @@ class GatewayLPCommand:
                             self.notify("\n✓ Position closed successfully!")
                         else:
                             self.notify(f"\n✓ {percentage}% liquidity removed successfully!")
-                            self.notify("Use 'gateway lp position-info' to view remaining position")
+                            self.notify(f"Use 'gateway lp {connector} position-info' to view remaining position")
 
                 finally:
                     await GatewayCommandUtils.exit_interactive_mode(self)
