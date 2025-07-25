@@ -261,9 +261,6 @@ class GatewayCommandUtils:
 
             # Special handling for PENDING_CREATE state
             if order and hasattr(order, 'current_state') and str(order.current_state) == "OrderState.PENDING_CREATE":
-                if not pending_shown:
-                    app.notify("\n⏳ Waiting for wallet signature...")
-                    pending_shown = True
                 if elapsed > 10 and not hardware_wallet_msg_shown:  # After 10 seconds, provide more guidance
                     app.notify("If using a hardware wallet, please approve the transaction on your device.")
                     hardware_wallet_msg_shown = True
