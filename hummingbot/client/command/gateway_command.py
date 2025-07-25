@@ -58,6 +58,8 @@ class GatewayCommand(GatewayChainApiManager):
         self.notify("  gateway list                                      - List available connectors")
         self.notify("  gateway lp <connector> <action>                   - Manage liquidity positions")
         self.notify("  gateway ping [chain]                              - Test node and chain/network status")
+        self.notify("  gateway pool <connector> <pair>                   - View pool information")
+        self.notify("  gateway pool <connector> <pair> update            - Add/update pool information")
         self.notify("  gateway swap <connector> [pair] [side] [amount]   - Swap tokens")
         self.notify("  gateway token <symbol_or_address>                 - View token information")
         self.notify("  gateway token <symbol> update                     - Update token information")
@@ -111,6 +113,12 @@ class GatewayCommand(GatewayChainApiManager):
         # Delegate to GatewayTokenCommand
         from hummingbot.client.command.gateway_token_command import GatewayTokenCommand
         GatewayTokenCommand.gateway_token(self, symbol_or_address, action)
+
+    @ensure_gateway_online
+    def gateway_pool(self, connector: Optional[str], trading_pair: Optional[str], action: Optional[str]):
+        # Delegate to GatewayPoolCommand
+        from hummingbot.client.command.gateway_pool_command import GatewayPoolCommand
+        GatewayPoolCommand.gateway_pool(self, connector, trading_pair, action)
 
     @ensure_gateway_online
     def gateway_list(self):
