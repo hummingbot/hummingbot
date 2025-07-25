@@ -355,8 +355,9 @@ class GatewayHttpClient:
     # Wallet Methods
     # ============================================
 
-    async def get_wallets(self, fail_silently: bool = False) -> List[Dict[str, Any]]:
-        return await self.api_request("get", "wallet", fail_silently=fail_silently)
+    async def get_wallets(self, show_hardware: bool = True, fail_silently: bool = False) -> List[Dict[str, Any]]:
+        params = {"showHardware": str(show_hardware).lower()}
+        return await self.api_request("get", "wallet", params=params, fail_silently=fail_silently)
 
     async def add_wallet(
         self, chain: str, network: str = None, private_key: str = None, set_default: bool = True, **kwargs
