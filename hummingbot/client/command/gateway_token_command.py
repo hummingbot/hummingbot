@@ -97,7 +97,7 @@ class GatewayTokenCommand:
             if found_tokens:
                 self._display_tokens_table(found_tokens)
             else:
-                self.notify(f"\nToken '{symbol_or_address}' not found on default networks.")
+                self.notify(f"\nToken '{symbol_or_address}' not found on any chain's default network.")
                 self.notify("You may need to add it using 'gateway token <symbol> update'")
 
         except Exception as e:
@@ -200,7 +200,7 @@ class GatewayTokenCommand:
 
                 # Confirm
                 confirm = await self.app.prompt(
-                    prompt="\nAdd/update this token? (Yes/No) >>> "
+                    prompt="Add/update this token? (Yes/No) >>> "
                 )
 
                 if confirm.lower() not in ["y", "yes"]:
@@ -219,6 +219,15 @@ class GatewayTokenCommand:
                     self.notify(f"Error: {result['error']}")
                 else:
                     self.notify("✓ Token successfully added/updated!")
+
+                    # Restart gateway for changes to take effect
+                    self.notify("\nRestarting Gateway for changes to take effect...")
+                    try:
+                        await self._get_gateway_instance().post_restart()
+                        self.notify("✓ Gateway restarted successfully")
+                    except Exception as e:
+                        self.notify(f"⚠️  Failed to restart Gateway: {str(e)}")
+                        self.notify("You may need to restart Gateway manually for changes to take effect")
 
                     # Show the updated token info
                     updated_token = await self._get_gateway_instance().get_token(
