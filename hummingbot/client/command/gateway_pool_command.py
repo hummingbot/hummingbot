@@ -81,6 +81,9 @@ class GatewayPoolCommand:
                 self.notify(f"Error: Invalid trading pair format '{trading_pair}'. Use format like 'ETH-USDC'")
                 return
 
+            # Capitalize the trading pair
+            trading_pair = trading_pair.upper()
+
             # Get chain and network from connector
             from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
             chain, network, error = await GatewayCommandUtils.get_connector_chain_network(
@@ -107,7 +110,12 @@ class GatewayPoolCommand:
                 self.notify(f"You may need to add it using 'gateway pool {connector} {trading_pair} update'")
             else:
                 # Display pool information
-                self._display_pool_info(response, connector, trading_pair)
+                try:
+                    GatewayPoolCommand._display_pool_info(self, response, connector, trading_pair)
+                except Exception as display_error:
+                    # Log the response structure for debugging
+                    self.notify(f"\nReceived pool data: {response}")
+                    self.notify(f"Error displaying pool information: {str(display_error)}")
 
         except Exception as e:
             self.notify(f"Error fetching pool information: {str(e)}")
@@ -132,6 +140,9 @@ class GatewayPoolCommand:
             if "-" not in trading_pair:
                 self.notify(f"Error: Invalid trading pair format '{trading_pair}'. Use format like 'ETH-USDC'")
                 return
+
+            # Capitalize the trading pair
+            trading_pair = trading_pair.upper()
 
             tokens = trading_pair.split("-")
             base_token = tokens[0]
@@ -163,7 +174,7 @@ class GatewayPoolCommand:
                 if "error" not in existing_pool:
                     # Pool exists, show current info
                     self.notify("\nPool already exists:")
-                    self._display_pool_info(existing_pool, connector, trading_pair)
+                    GatewayPoolCommand._display_pool_info(self, existing_pool, connector, trading_pair)
 
                     # Ask if they want to update
                     response = await self.app.prompt(
@@ -255,7 +266,7 @@ class GatewayPoolCommand:
                     )
                     if "error" not in updated_pool:
                         self.notify("\nAdded pool information:")
-                        self._display_pool_info(updated_pool, connector, trading_pair)
+                        GatewayPoolCommand._display_pool_info(self, updated_pool, connector, trading_pair)
 
         except Exception as e:
             self.notify(f"Error updating pool: {str(e)}")
