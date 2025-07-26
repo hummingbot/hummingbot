@@ -60,15 +60,31 @@ class XtAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         return data["result"]
 
+    async def _send_periodic_ping(self, ws: WSAssistant, interval: float = 15.0):
+        """
+        Periodically sends a raw string 'ping' message through the websocket connection using the low-level method.
+        """
+        try:
+            while True:
+                await asyncio.sleep(interval)
+                await ws._connection._send_plain_text("ping")
+                self.logger().info("XtAPIOrderBookDataSource - Sent raw 'ping' to websocket.")
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            self.logger().exception("Error sending periodic ping.")
+
     async def listen_for_subscriptions(self):
         """
         Connects to the trade events and order diffs websocket endpoints and listens to the messages sent by the
         exchange. Each message is stored in its own queue.
         """
         ws: Optional[WSAssistant] = None
+        ping_task: Optional[asyncio.Task] = None
         while True:
             try:
                 ws: WSAssistant = await self._connected_websocket_assistant()
+                ping_task = asyncio.create_task(self._send_periodic_ping(ws))
                 await self._subscribe_channels(ws)
                 await self._process_websocket_messages(websocket_assistant=ws)
             except asyncio.CancelledError:
@@ -79,6 +95,12 @@ class XtAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 )
                 await self._sleep(1.0)
             finally:
+                if ping_task is not None:
+                    ping_task.cancel()
+                    try:
+                        await ping_task
+                    except Exception:
+                        pass
                 ws and await ws.disconnect()
 
     async def _subscribe_channels(self, ws: WSAssistant):
