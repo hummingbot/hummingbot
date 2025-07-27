@@ -391,6 +391,19 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
             sub_model = ACCOUNT_MODES[v].model_construct()
         return sub_model
 
+    @field_validator("fee_calculator", mode="before")
+    @classmethod
+    def validate_fee_calculator(cls, v: Union[(str, Dict) + tuple(FEE_CALCULATOR_MODES.values())]):
+        if isinstance(v, tuple(FEE_CALCULATOR_MODES.values()) + (Dict,)):
+            sub_model = v
+        elif v not in FEE_CALCULATOR_MODES:
+            raise ValueError(
+                f"Invalid fee calculator, please choose a value from {list(FEE_CALCULATOR_MODES.keys())}."
+            )
+        else:
+            sub_model = FEE_CALCULATOR_MODES[v].model_construct()
+        return sub_model
+
     def create_data_source(self):
         return self.account_type.create_data_source(
             network=self.network.network(),
