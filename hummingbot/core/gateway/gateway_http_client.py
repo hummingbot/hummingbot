@@ -66,7 +66,7 @@ class GatewayHttpClient:
             client_config_map = HummingbotApplication.main_application().client_config_map
         api_host = client_config_map.gateway.gateway_api_host
         api_port = client_config_map.gateway.gateway_api_port
-        use_ssl = getattr(client_config_map.gateway, "gateway_use_ssl", False)
+        use_ssl = client_config_map.gateway.gateway_use_ssl
         if GatewayHttpClient.__instance is None:
             protocol = "https" if use_ssl else "http"
             self._base_url = f"{protocol}://{api_host}:{api_port}"
