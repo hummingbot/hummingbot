@@ -59,4 +59,4 @@ dependencies:
   - yaml>=0.2.5
   - zlib>=1.2.13
   - pip:
-    - injective-py==1.11.0rc6
+    - injective-py==1.11.*
