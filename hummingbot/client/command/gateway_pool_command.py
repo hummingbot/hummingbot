@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import json
-from typing import TYPE_CHECKING, Optional, TypedDict
+from typing import TYPE_CHECKING, List, Optional, TypedDict
 
 from hummingbot.client.command.gateway_api_manager import begin_placeholder_mode
 from hummingbot.core.gateway.gateway_status_monitor import GatewayStatus
@@ -32,28 +32,43 @@ class GatewayPoolCommand:
     """Commands for managing gateway pools."""
 
     @ensure_gateway_online
-    def gateway_pool(self, connector: Optional[str], trading_pair: Optional[str], action: Optional[str]):
+    def gateway_pool(self, connector: Optional[str], trading_pair: Optional[str], action: Optional[str], args: List[str] = None):
         """
         View or update pool information.
         Usage:
-            gateway pool <connector> <trading_pair>        - View pool information
-            gateway pool <connector> <trading_pair> update - Add/update pool information
+            gateway pool <connector> <trading_pair>                - View pool information
+            gateway pool <connector> <trading_pair> update         - Add/update pool information (interactive)
+            gateway pool <connector> <trading_pair> update <address> - Add/update pool information (direct)
         """
+        if args is None:
+            args = []
+
         if not connector or not trading_pair:
             # Show help when insufficient arguments provided
             self.notify("\nGateway Pool Commands:")
-            self.notify("  gateway pool <connector> <trading_pair>        - View pool information")
-            self.notify("  gateway pool <connector> <trading_pair> update - Add/update pool information")
+            self.notify("  gateway pool <connector> <trading_pair>                - View pool information")
+            self.notify("  gateway pool <connector> <trading_pair> update         - Add/update pool information (interactive)")
+            self.notify("  gateway pool <connector> <trading_pair> update <address> - Add/update pool information (direct)")
             self.notify("\nExamples:")
             self.notify("  gateway pool uniswap/amm ETH-USDC")
             self.notify("  gateway pool raydium/clmm SOL-USDC update")
+            self.notify("  gateway pool uniswap/amm ETH-USDC update 0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640")
             return
 
         if action == "update":
-            safe_ensure_future(
-                self._update_pool_interactive(connector, trading_pair),
-                loop=self.ev_loop
-            )
+            if args and len(args) > 0:
+                # Non-interactive mode: gateway pool <connector> <trading_pair> update <address>
+                pool_address = args[0]
+                safe_ensure_future(
+                    self._update_pool_direct(connector, trading_pair, pool_address),
+                    loop=self.ev_loop
+                )
+            else:
+                # Interactive mode: gateway pool <connector> <trading_pair> update
+                safe_ensure_future(
+                    self._update_pool_interactive(connector, trading_pair),
+                    loop=self.ev_loop
+                )
         else:
             safe_ensure_future(
                 self._view_pool(connector, trading_pair),
@@ -119,6 +134,84 @@ class GatewayPoolCommand:
 
         except Exception as e:
             self.notify(f"Error fetching pool information: {str(e)}")
+
+    async def _update_pool_direct(
+        self,  # type: HummingbotApplication
+        connector: str,
+        trading_pair: str,
+        pool_address: str
+    ):
+        """Direct mode to add a pool with just the address."""
+        try:
+            # Parse connector format
+            if "/" not in connector:
+                self.notify(f"Error: Invalid connector format '{connector}'. Use format like 'uniswap/amm'")
+                return
+
+            connector_parts = connector.split("/")
+            connector_name = connector_parts[0]
+            trading_type = connector_parts[1]
+
+            # Parse trading pair
+            if "-" not in trading_pair:
+                self.notify(f"Error: Invalid trading pair format '{trading_pair}'. Use format like 'ETH-USDC'")
+                return
+
+            # Capitalize the trading pair
+            trading_pair = trading_pair.upper()
+
+            tokens = trading_pair.split("-")
+            base_token = tokens[0]
+            quote_token = tokens[1]
+
+            # Get chain and network from connector
+            from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
+            chain, network, error = await GatewayCommandUtils.get_connector_chain_network(
+                self._get_gateway_instance(), connector
+            )
+
+            if error:
+                self.notify(error)
+                return
+
+            self.notify(f"\nAdding pool for {trading_pair} on {connector}")
+            self.notify(f"Chain: {chain}")
+            self.notify(f"Network: {network}")
+            self.notify(f"Pool Address: {pool_address}")
+
+            # Create pool data
+            pool_data = {
+                "address": pool_address,
+                "baseSymbol": base_token,
+                "quoteSymbol": quote_token,
+                "type": trading_type
+            }
+
+            # Add pool
+            self.notify("\nAdding pool...")
+            result = await self._get_gateway_instance().add_pool(
+                connector=connector_name,
+                network=network,
+                pool_data=pool_data
+            )
+
+            if "error" in result:
+                self.notify(f"Error: {result['error']}")
+            else:
+                self.notify("✓ Pool successfully added!")
+
+                # Restart gateway for changes to take effect
+                self.notify("\nRestarting Gateway for changes to take effect...")
+                try:
+                    await self._get_gateway_instance().post_restart()
+                    self.notify("✓ Gateway restarted successfully")
+                    self.notify(f"\nPool has been added. You can view it with: gateway pool {connector} {trading_pair}")
+                except Exception as e:
+                    self.notify(f"⚠️  Failed to restart Gateway: {str(e)}")
+                    self.notify("You may need to restart Gateway manually for changes to take effect")
+
+        except Exception as e:
+            self.notify(f"Error adding pool: {str(e)}")
 
     async def _update_pool_interactive(
         self,  # type: HummingbotApplication
@@ -202,18 +295,6 @@ class GatewayPoolCommand:
                     self.notify("Pool addition cancelled")
                     return
 
-                # Fee tier (for certain DEXs)
-                fee_tier = None
-                if connector_name.lower() in ["uniswap", "pancakeswap"]:
-                    fee_tier_str = await self.app.prompt(
-                        prompt="Fee tier (e.g., 500, 3000, 10000) [optional]: "
-                    )
-                    if fee_tier_str and not self.app.to_stop_config:
-                        try:
-                            fee_tier = int(fee_tier_str)
-                        except ValueError:
-                            self.notify("Invalid fee tier. Proceeding without fee tier.")
-
                 # Create pool data
                 pool_data = {
                     "address": pool_address,
@@ -221,9 +302,6 @@ class GatewayPoolCommand:
                     "quoteSymbol": quote_token,
                     "type": trading_type
                 }
-
-                if fee_tier is not None:
-                    pool_data["feeTier"] = fee_tier
 
                 # Display summary
                 self.notify("\nPool to add:")
@@ -256,20 +334,10 @@ class GatewayPoolCommand:
                     try:
                         await self._get_gateway_instance().post_restart()
                         self.notify("✓ Gateway restarted successfully")
+                        self.notify(f"\nPool has been added. You can view it with: gateway pool {connector} {trading_pair}")
                     except Exception as e:
                         self.notify(f"⚠️  Failed to restart Gateway: {str(e)}")
                         self.notify("You may need to restart Gateway manually for changes to take effect")
-
-                    # Show the added pool info
-                    updated_pool = await self._get_gateway_instance().get_pool(
-                        trading_pair=trading_pair,
-                        connector=connector_name,
-                        network=network,
-                        type=trading_type
-                    )
-                    if "error" not in updated_pool:
-                        self.notify("\nAdded pool information:")
-                        GatewayPoolCommand._display_pool_info(self, updated_pool, connector, trading_pair)
 
         except Exception as e:
             self.notify(f"Error updating pool: {str(e)}")
