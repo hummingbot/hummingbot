@@ -113,6 +113,7 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
     gateway_config_parser = gateway_subparsers.add_parser("config", help="Show or update configuration")
     gateway_config_parser.add_argument("namespace", nargs="?", default=None, help="Namespace (e.g., ethereum-mainnet, uniswap)")
     gateway_config_parser.add_argument("action", nargs="?", default=None, help="Action to perform (update)")
+    gateway_config_parser.add_argument("args", nargs="*", help="Additional arguments: <path> <value> for direct update")
     gateway_config_parser.set_defaults(func=hummingbot.gateway_config)
 
     gateway_connect_parser = gateway_subparsers.add_parser("connect", help="Add a wallet for a chain")
@@ -138,6 +139,7 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
     gateway_pool_parser.add_argument("connector", nargs="?", default=None, help="Connector name/type (e.g., uniswap/amm)")
     gateway_pool_parser.add_argument("trading_pair", nargs="?", default=None, help="Trading pair (e.g., ETH-USDC)")
     gateway_pool_parser.add_argument("action", nargs="?", default=None, help="Action to perform (update)")
+    gateway_pool_parser.add_argument("args", nargs="*", help="Additional arguments: <address> for direct pool update")
     gateway_pool_parser.set_defaults(func=hummingbot.gateway_pool)
 
     gateway_swap_parser = gateway_subparsers.add_parser(

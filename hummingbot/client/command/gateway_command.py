@@ -18,7 +18,6 @@ from hummingbot.core.gateway import get_gateway_paths
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.gateway.gateway_status_monitor import GatewayStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.core.utils.gateway_config_utils import build_config_dict_display
 from hummingbot.core.utils.ssl_cert import create_self_sign_certs
 from hummingbot.user.user_balances import UserBalances
 
@@ -48,21 +47,23 @@ class GatewayCommand(GatewayChainApiManager):
     def gateway(self):
         """Show gateway help when no subcommand is provided."""
         self.notify("\nGateway Commands:")
-        self.notify("  gateway allowance <connector> [tokens]            - Check token allowances")
-        self.notify("  gateway approve <connector> <tokens>              - Approve tokens for spending")
-        self.notify("  gateway balance [chain] [tokens]                  - Check token balances")
-        self.notify("  gateway config [namespace]                        - Show configuration")
-        self.notify("  gateway config <namespace> update                 - Update configuration (interactive)")
-        self.notify("  gateway connect <chain>                           - Add a wallet for a chain")
-        self.notify("  gateway generate-certs                            - Generate SSL certificates")
-        self.notify("  gateway list                                      - List available connectors")
-        self.notify("  gateway lp <connector> <action>                   - Manage liquidity positions")
-        self.notify("  gateway ping [chain]                              - Test node and chain/network status")
-        self.notify("  gateway pool <connector> <pair>                   - View pool information")
-        self.notify("  gateway pool <connector> <pair> update            - Add/update pool information")
-        self.notify("  gateway swap <connector> [pair] [side] [amount]   - Swap tokens")
-        self.notify("  gateway token <symbol_or_address>                 - View token information")
-        self.notify("  gateway token <symbol> update                     - Update token information")
+        self.notify("  gateway allowance <connector> [tokens]                    - Check token allowances")
+        self.notify("  gateway approve <connector> <tokens>                      - Approve tokens for spending")
+        self.notify("  gateway balance [chain] [tokens]                          - Check token balances")
+        self.notify("  gateway config [namespace]                                - Show configuration")
+        self.notify("  gateway config <namespace> update                         - Update configuration (interactive)")
+        self.notify("  gateway config <namespace> update <path> <value>          - Update configuration (direct)")
+        self.notify("  gateway connect <chain>                                   - Add a wallet for a chain")
+        self.notify("  gateway generate-certs                                    - Generate SSL certificates")
+        self.notify("  gateway list                                              - List available connectors")
+        self.notify("  gateway lp <connector> <action>                           - Manage liquidity positions")
+        self.notify("  gateway ping [chain]                                      - Test node and chain/network status")
+        self.notify("  gateway pool <connector> <pair>                           - View pool information")
+        self.notify("  gateway pool <connector> <pair> update                    - Add/update pool information (interactive)")
+        self.notify("  gateway pool <connector> <pair> update <address>          - Add/update pool information (direct)")
+        self.notify("  gateway swap <connector> [pair] [side] [amount]           - Swap tokens")
+        self.notify("  gateway token <symbol_or_address>                         - View token information")
+        self.notify("  gateway token <symbol> update                             - Update token information")
         self.notify("\nUse 'gateway <command> --help' for more information about a command.")
 
     @ensure_gateway_online
@@ -115,10 +116,10 @@ class GatewayCommand(GatewayChainApiManager):
         GatewayTokenCommand.gateway_token(self, symbol_or_address, action)
 
     @ensure_gateway_online
-    def gateway_pool(self, connector: Optional[str], trading_pair: Optional[str], action: Optional[str]):
+    def gateway_pool(self, connector: Optional[str], trading_pair: Optional[str], action: Optional[str], args: List[str] = None):
         # Delegate to GatewayPoolCommand
         from hummingbot.client.command.gateway_pool_command import GatewayPoolCommand
-        GatewayPoolCommand.gateway_pool(self, connector, trading_pair, action)
+        GatewayPoolCommand.gateway_pool(self, connector, trading_pair, action, args)
 
     @ensure_gateway_online
     def gateway_list(self):
@@ -126,37 +127,9 @@ class GatewayCommand(GatewayChainApiManager):
 
     @ensure_gateway_online
     def gateway_config(self, namespace: str = None, action: str = None, args: List[str] = None):
-        """
-        Gateway configuration management.
-        Usage:
-            gateway config [namespace]       - Show configuration for namespace
-            gateway config <namespace> update - Update configuration (interactive)
-        """
-        if args is None:
-            args = []
-
-        if namespace is None:
-            # Show help when no namespace is provided
-            self.notify("\nUsage:")
-            self.notify("  gateway config [namespace]        - Show configuration")
-            self.notify("  gateway config <namespace> update - Update configuration (interactive)")
-            self.notify("\nExamples:")
-            self.notify("  gateway config ethereum-mainnet")
-            self.notify("  gateway config uniswap")
-            self.notify("  gateway config ethereum-mainnet update")
-        elif action is None:
-            # Format: gateway config <namespace>
-            # Show configuration for the specified namespace
-            safe_ensure_future(self._show_gateway_configuration(namespace=namespace), loop=self.ev_loop)
-        elif action == "update":
-            # Interactive mode only - prompt for path and value
-            safe_ensure_future(self._update_gateway_configuration_interactive(namespace), loop=self.ev_loop)
-        else:
-            # If action is not "update", it might be a namespace typo
-            self.notify(f"\nError: Invalid action '{action}'. Use 'update' to modify configuration.")
-            self.notify("\nUsage:")
-            self.notify("  gateway config <namespace>        - Show configuration")
-            self.notify("  gateway config <namespace> update - Update configuration")
+        # Delegate to GatewayConfigCommand
+        from hummingbot.client.command.gateway_config_command import GatewayConfigCommand
+        GatewayConfigCommand.gateway_config(self, namespace, action, args)
 
     async def _gateway_ping(self, chain: str = None):
         """Test gateway connectivity and network status"""
@@ -401,101 +374,6 @@ class GatewayCommand(GatewayChainApiManager):
         else:
             self.notify(
                 "\nNo connection to Gateway server exists. Ensure Gateway server is running.")
-
-    async def _update_gateway_configuration(self, namespace: str, key: str, value: Any):
-        try:
-            response = await self._get_gateway_instance().update_config(namespace=namespace, path=key, value=value)
-            self.notify(response["message"])
-        except Exception:
-            self.notify(
-                "\nError: Gateway configuration update failed. See log file for more details.")
-
-    async def _update_gateway_configuration_interactive(self, namespace: str):
-        """Interactive mode for gateway config update"""
-        from hummingbot.client.command.gateway_api_manager import begin_placeholder_mode
-
-        try:
-            # First get the current configuration to show available paths
-            config_dict = await self._get_gateway_instance().get_configuration(namespace=namespace)
-
-            if not config_dict:
-                self.notify(f"No configuration found for namespace: {namespace}")
-                return
-
-            # Display current configuration
-            self.notify(f"\nCurrent configuration for {namespace}:")
-            lines = []
-            build_config_dict_display(lines, config_dict)
-            self.notify("\n".join(lines))
-
-            # Get available config keys
-            config_keys = list(config_dict.keys())
-
-            # Enter interactive mode
-            with begin_placeholder_mode(self):
-                self.placeholder_mode = True
-                self.app.hide_input = True
-
-                try:
-                    # Update completer's config path options
-                    if hasattr(self.app.input_field.completer, '_gateway_config_path_options'):
-                        self.app.input_field.completer._gateway_config_path_options = config_keys
-
-                    # Prompt for path
-                    self.notify(f"\nAvailable configuration paths: {', '.join(config_keys)}")
-                    path = await self.app.prompt(prompt="Enter configuration path: ")
-
-                    if self.app.to_stop_config or not path:
-                        self.notify("Configuration update cancelled")
-                        return
-
-                    # Show current value
-                    current_value = config_dict.get(path, "Not found")
-                    self.notify(f"\nCurrent value for '{path}': {current_value}")
-
-                    # Prompt for new value
-                    value = await self.app.prompt(prompt="Enter new value: ")
-
-                    if self.app.to_stop_config or not value:
-                        self.notify("Configuration update cancelled")
-                        return
-
-                    # Update the configuration
-                    await self._update_gateway_configuration(namespace, path, value)
-
-                finally:
-                    self.placeholder_mode = False
-                    self.app.hide_input = False
-                    self.app.change_prompt(prompt=">>> ")
-
-        except Exception as e:
-            self.notify(f"Error in interactive config update: {str(e)}")
-
-    async def _show_gateway_configuration(
-        self,  # type: HummingbotApplication
-        namespace: Optional[str] = None,
-    ):
-        host = self.client_config_map.gateway.gateway_api_host
-        port = self.client_config_map.gateway.gateway_api_port
-        try:
-            # config_dict: Dict[str, Any] = await self._gateway_monitor._fetch_gateway_configs()
-            config_dict = await self._get_gateway_instance().get_configuration(namespace=namespace)
-            # Format the title
-            title_parts = ["Gateway Configuration"]
-            if namespace:
-                title_parts.append(f"namespace: {namespace}")
-            title = f"\n{' - '.join(title_parts)}:"
-
-            self.notify(title)
-            lines = []
-            build_config_dict_display(lines, config_dict)
-            self.notify("\n".join(lines))
-
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            remote_host = ':'.join([host, port])
-            self.notify(f"\nError: Connection to Gateway {remote_host} failed")
 
     async def _prompt_for_wallet_address(
         self,           # type: HummingbotApplication

@@ -169,6 +169,35 @@ class GatewayCommandUtils:
             return []
 
     @staticmethod
+    async def get_available_networks_for_chain(
+        gateway_client: "GatewayHttpClient",
+        chain: str
+    ) -> List[str]:
+        """
+        Get list of available networks for a specific chain.
+
+        :param gateway_client: Gateway client instance
+        :param chain: Chain name (e.g., "ethereum", "solana")
+        :return: List of network names available for the chain
+        """
+        try:
+            # Get chain configuration
+            chains_resp = await gateway_client.get_chains()
+            if not chains_resp or "chains" not in chains_resp:
+                return []
+
+            # Find the specific chain
+            for chain_info in chains_resp["chains"]:
+                if chain_info.get("chain", "").lower() == chain.lower():
+                    # Get networks from the chain config
+                    networks = chain_info.get("networks", [])
+                    return networks
+
+            return []
+        except Exception:
+            return []
+
+    @staticmethod
     async def validate_tokens(
         gateway_client: "GatewayHttpClient",
         chain: str,
