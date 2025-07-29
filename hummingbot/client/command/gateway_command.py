@@ -53,7 +53,7 @@ class GatewayCommand(GatewayChainApiManager):
         self.notify("  gateway config [namespace]                                - Show configuration")
         self.notify("  gateway config <namespace> update                         - Update configuration (interactive)")
         self.notify("  gateway config <namespace> update <path> <value>          - Update configuration (direct)")
-        self.notify("  gateway connect <chain>                                   - Add a wallet for a chain")
+        self.notify("  gateway connect <chain>                                   - View and add wallets for a chain")
         self.notify("  gateway generate-certs                                    - Generate SSL certificates")
         self.notify("  gateway list                                              - List available connectors")
         self.notify("  gateway lp <connector> <action>                           - Manage liquidity positions")
@@ -91,7 +91,7 @@ class GatewayCommand(GatewayChainApiManager):
     @ensure_gateway_online
     def gateway_connect(self, chain: Optional[str]):
         """
-        Add a wallet for a specific chain.
+        View and add wallets for a chain.
         Usage: gateway connect <chain>
         """
         if not chain:
@@ -197,7 +197,7 @@ class GatewayCommand(GatewayChainApiManager):
         self,  # type: HummingbotApplication
         chain: str
     ):
-        """Add a wallet for a specific chain."""
+        """View and add wallets for a chain."""
         try:
             # Get default network for the chain
             default_network = await self._get_gateway_instance().get_default_network_for_chain(chain)
@@ -206,7 +206,7 @@ class GatewayCommand(GatewayChainApiManager):
                 self.notify("Please check that the chain name is correct.")
                 return
 
-            self.notify(f"\n=== Add Wallet for {chain} ===")
+            self.notify(f"\n=== {chain} wallets ===")
             self.notify(f"Network: {default_network}")
 
             # Get existing wallets to show
@@ -253,21 +253,21 @@ class GatewayCommand(GatewayChainApiManager):
             with begin_placeholder_mode(self):
                 # Ask for wallet type
                 wallet_type = await self.app.prompt(
-                    prompt="Wallet type (1: Regular, 2: Hardware, 3: Exit) [default: 3]: "
+                    prompt="Select Option (1) Add Regular Wallet, (2) Add Hardware Wallet, (3) Exit [default: 3]: "
                 )
 
                 if self.app.to_stop_config:
-                    self.notify("Wallet addition cancelled")
+                    self.notify("No wallet added.")
                     return
 
                 # Default to exit if empty input
                 if not wallet_type or wallet_type == "3":
-                    self.notify("Wallet addition cancelled")
+                    self.notify("No wallet added.")
                     return
 
                 # Check for valid wallet type
                 if wallet_type not in ["1", "2"]:
-                    self.notify("Invalid option. Wallet addition cancelled")
+                    self.notify("Invalid option. No wallet added.")
                     return
 
                 is_hardware = wallet_type == "2"
