@@ -12,7 +12,7 @@ def start(self):
     spot_market = spot_perpetual_arbitrage_config_map.get("spot_market").value
     perpetual_connector = spot_perpetual_arbitrage_config_map.get("perpetual_connector").value.lower()
     perpetual_market = spot_perpetual_arbitrage_config_map.get("perpetual_market").value
-    order_amount = spot_perpetual_arbitrage_config_map.get("order_amount").value
+    max_possible_arbitrage_amount = spot_perpetual_arbitrage_config_map.get("max_possible_arbitrage_amount").value
     perpetual_leverage = spot_perpetual_arbitrage_config_map.get("perpetual_leverage").value
     min_opening_arbitrage_pct = spot_perpetual_arbitrage_config_map.get("min_opening_arbitrage_pct").value / Decimal("100")
     min_closing_arbitrage_pct = spot_perpetual_arbitrage_config_map.get("min_closing_arbitrage_pct").value / Decimal("100")
@@ -31,7 +31,7 @@ def start(self):
     self.strategy = SpotPerpetualArbitrageStrategy()
     self.strategy.init_params(spot_market_info,
                               perpetual_market_info,
-                              order_amount,
+                              max_possible_arbitrage_amount,
                               perpetual_leverage,
                               min_opening_arbitrage_pct,
                               min_closing_arbitrage_pct,

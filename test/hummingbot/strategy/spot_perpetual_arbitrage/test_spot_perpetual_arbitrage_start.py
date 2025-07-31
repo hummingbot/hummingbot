@@ -29,7 +29,7 @@ class SpotPerpetualArbitrageStartTest(unittest.TestCase):
         strategy_cmap.get("perpetual_connector").value = "kucoin"
         strategy_cmap.get("perpetual_market").value = "BTC-USDT"
 
-        strategy_cmap.get("order_amount").value = Decimal("1")
+        strategy_cmap.get("max_possible_arbitrage_amount").value = Decimal("1")
         strategy_cmap.get("perpetual_leverage").value = Decimal("2")
         strategy_cmap.get("min_opening_arbitrage_pct").value = Decimal("10")
         strategy_cmap.get("min_closing_arbitrage_pct").value = Decimal("1")
@@ -51,7 +51,7 @@ class SpotPerpetualArbitrageStartTest(unittest.TestCase):
 
     def test_strategy_creation(self):
         strategy_start.start(self)
-        self.assertEqual(self.strategy._order_amount, Decimal("1"))
+        self.assertEqual(self.strategy._max_possible_arbitrage_amount, Decimal("1"))
         self.assertEqual(self.strategy._perp_leverage, Decimal("2"))
         self.assertEqual(self.strategy._min_opening_arbitrage_pct, Decimal("0.1"))
         self.assertEqual(self.strategy._min_closing_arbitrage_pct, Decimal("0.01"))

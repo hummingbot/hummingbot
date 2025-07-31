@@ -50,7 +50,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
     def init_params(self,
                     spot_market_info: MarketTradingPairTuple,
                     perp_market_info: MarketTradingPairTuple,
-                    order_amount: Decimal,
+                    max_possible_arbitrage_amount: Decimal,
                     perp_leverage: int,
                     min_opening_arbitrage_pct: Decimal,
                     min_closing_arbitrage_pct: Decimal,
@@ -61,7 +61,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         """
         :param spot_market_info: The spot market info
         :param perp_market_info: The perpetual market info
-        :param order_amount: The order amount
+        :param max_possible_arbitrage_amount: The maximum amount of base asset to arbitrage
         :param perp_leverage: The leverage level to use on perpetual market
         :param min_opening_arbitrage_pct: The minimum spread to open arbitrage position (e.g. 0.0003 for 0.3%)
         :param min_closing_arbitrage_pct: The minimum spread to close arbitrage position (e.g. 0.0003 for 0.3%)
@@ -75,7 +75,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         self._perp_market_info = perp_market_info
         self._min_opening_arbitrage_pct = min_opening_arbitrage_pct
         self._min_closing_arbitrage_pct = min_closing_arbitrage_pct
-        self._order_amount = order_amount
+        self._max_possible_arbitrage_amount = max_possible_arbitrage_amount
         self._perp_leverage = perp_leverage
         self._spot_market_slippage_buffer = spot_market_slippage_buffer
         self._perp_market_slippage_buffer = perp_market_slippage_buffer
@@ -114,12 +114,12 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         return self._min_closing_arbitrage_pct
 
     @property
-    def order_amount(self) -> Decimal:
-        return self._order_amount
+    def max_possible_arbitrage_amount(self) -> Decimal:
+        return self._max_possible_arbitrage_amount
 
-    @order_amount.setter
-    def order_amount(self, value):
-        self._order_amount = value
+    @max_possible_arbitrage_amount.setter
+    def max_possible_arbitrage_amount(self, value):
+        self._max_possible_arbitrage_amount = value
 
     @property
     def market_info_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
@@ -201,21 +201,20 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         proposals = await self.create_base_proposals()
         if self._strategy_state == StrategyState.Opened:
             perp_is_buy = False if self.perp_positions[0].amount > 0 else True
-            proposals = [p for p in proposals if p.perp_side.is_buy == perp_is_buy and p.profit_pct() >=
-                         self._min_closing_arbitrage_pct]
-        else:
-            proposals = [p for p in proposals if p.profit_pct() >= self._min_opening_arbitrage_pct]
-        if len(proposals) == 0:
-            return
+            proposals = [p for p in proposals if p.perp_side.is_buy == perp_is_buy]
         proposal = proposals[0]
-        if self._last_arb_op_reported_ts + 60 < self.current_timestamp:
-            pos_txt = "closing" if self._strategy_state == StrategyState.Opened else "opening"
-            self.logger().info(f"Arbitrage position {pos_txt} opportunity found.")
-            self.logger().info(f"Profitability ({proposal.profit_pct():.2%}) is now above min_{pos_txt}_arbitrage_pct.")
-            self._last_arb_op_reported_ts = self.current_timestamp
         self.apply_slippage_buffers(proposal)
-        if self.check_budget_constraint(proposal):
-            self.execute_arb_proposal(proposal)
+        order_amount = proposal.get_max_profit_order_amount()
+        if not order_amount:
+            return
+        if self.perp_positions:
+            order_amount = min(order_amount, abs(self.perp_positions[0].amount))
+        if self._strategy_state == StrategyState.Opened and proposal.profit_pct(order_amount) < self._min_closing_arbitrage_pct:
+            return
+        elif self._strategy_state == StrategyState.Closed and proposal.profit_pct(order_amount) < self._min_opening_arbitrage_pct:
+            return
+        if self.check_budget_constraint(proposal, order_amount):
+            self.execute_arb_proposal(proposal, order_amount)
 
     def update_strategy_state(self):
         """
@@ -237,22 +236,22 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         :return: A list of 2 base proposals.
         """
         tasks = [self._spot_market_info.market.get_order_price(self._spot_market_info.trading_pair, True,
-                                                               self._order_amount),
+                                                               self._max_possible_arbitrage_amount),
                  self._spot_market_info.market.get_order_price(self._spot_market_info.trading_pair, False,
-                                                               self._order_amount),
+                                                               self._max_possible_arbitrage_amount),
                  self._perp_market_info.market.get_order_price(self._perp_market_info.trading_pair, True,
-                                                               self._order_amount),
+                                                               self._max_possible_arbitrage_amount),
                  self._perp_market_info.market.get_order_price(self._perp_market_info.trading_pair, False,
-                                                               self._order_amount)]
+                                                               self._max_possible_arbitrage_amount)]
         prices = await safe_gather(*tasks, return_exceptions=True)
-        spot_buy, spot_sell, perp_buy, perp_sell = [*prices]
+        spot_buy_levels, spot_sell_levels, perp_buy_levels, perp_sell_levels = [*prices]
         return [
-            ArbProposal(ArbProposalSide(self._spot_market_info, True, spot_buy),
-                        ArbProposalSide(self._perp_market_info, False, perp_sell),
-                        self._order_amount),
-            ArbProposal(ArbProposalSide(self._spot_market_info, False, spot_sell),
-                        ArbProposalSide(self._perp_market_info, True, perp_buy),
-                        self._order_amount)
+            ArbProposal(ArbProposalSide(self._spot_market_info, True, spot_buy_levels),
+                        ArbProposalSide(self._perp_market_info, False, perp_sell_levels),
+                        self._max_possible_arbitrage_amount),
+            ArbProposal(ArbProposalSide(self._spot_market_info, False, spot_sell_levels),
+                        ArbProposalSide(self._perp_market_info, True, perp_buy_levels),
+                        self._max_possible_arbitrage_amount)
         ]
 
     def apply_slippage_buffers(self, proposal: ArbProposal):
@@ -269,9 +268,10 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
                 else self._perp_market_slippage_buffer
             if not arb_side.is_buy:
                 s_buffer *= Decimal("-1")
-            arb_side.order_price *= Decimal("1") + s_buffer
-            arb_side.order_price = market.quantize_order_price(arb_side.market_info.trading_pair,
-                                                               arb_side.order_price)
+            for order_level in arb_side.order_levels:
+                order_level[0] *= Decimal("1") + s_buffer
+                order_level[0] = market.quantize_order_price(arb_side.market_info.trading_pair,
+                                                               order_level[0])
 
     def check_budget_available(self) -> bool:
         """
@@ -300,22 +300,21 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
 
         return True
 
-    def check_budget_constraint(self, proposal: ArbProposal) -> bool:
+    def check_budget_constraint(self, proposal: ArbProposal, order_amount: Decimal) -> bool:
         """
         Check balances on both exchanges if there is enough to submit both orders in a proposal.
         :param proposal: An arbitrage proposal
         :return: True if user has available balance enough for both orders submission.
         """
-        return self.check_spot_budget_constraint(proposal) and self.check_perpetual_budget_constraint(proposal)
+        return self.check_spot_budget_constraint(proposal, order_amount) and self.check_perpetual_budget_constraint(proposal, order_amount)
 
-    def check_spot_budget_constraint(self, proposal: ArbProposal) -> bool:
+    def check_spot_budget_constraint(self, proposal: ArbProposal, order_amount: Decimal) -> bool:
         """
         Check balance on spot exchange.
         :param proposal: An arbitrage proposal
         :return: True if user has available balance enough for both orders submission.
         """
         proposal_side = proposal.spot_side
-        order_amount = proposal.order_amount
         market_info = proposal_side.market_info
         budget_checker = market_info.market.budget_checker
         order_candidate = OrderCandidate(
@@ -324,7 +323,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             order_type=OrderType.LIMIT,
             order_side=TradeType.BUY if proposal_side.is_buy else TradeType.SELL,
             amount=order_amount,
-            price=proposal_side.order_price,
+            price=proposal_side.get_order_price(order_amount),
         )
 
         adjusted_candidate_order = budget_checker.adjust_candidate(order_candidate, all_or_none=True)
@@ -338,14 +337,13 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
 
         return True
 
-    def check_perpetual_budget_constraint(self, proposal: ArbProposal) -> bool:
+    def check_perpetual_budget_constraint(self, proposal: ArbProposal, order_amount: Decimal) -> bool:
         """
         Check balance on spot exchange.
         :param proposal: An arbitrage proposal
         :return: True if user has available balance enough for both orders submission.
         """
         proposal_side = proposal.perp_side
-        order_amount = proposal.order_amount
         market_info = proposal_side.market_info
         budget_checker = market_info.market.budget_checker
 
@@ -362,7 +360,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             order_type=OrderType.LIMIT,
             order_side=TradeType.BUY if proposal_side.is_buy else TradeType.SELL,
             amount=order_amount,
-            price=proposal_side.order_price,
+            price=proposal_side.get_order_price(order_amount),
             leverage=Decimal(self._perp_leverage),
             position_close=position_close,
         )
@@ -378,26 +376,27 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
 
         return True
 
-    def execute_arb_proposal(self, proposal: ArbProposal):
+    def execute_arb_proposal(self, proposal: ArbProposal, order_amount: Decimal):
         """
         Execute both sides of the arbitrage trades concurrently.
         :param proposal: the arbitrage proposal
         """
-        if proposal.order_amount == s_decimal_zero:
+        initial_perp_position = abs(self.perp_positions[0].amount) if self.perp_positions else None
+        if order_amount == s_decimal_zero:
             return
         spot_side = proposal.spot_side
         spot_order_fn = self.buy_with_specific_market if spot_side.is_buy else self.sell_with_specific_market
         side = "BUY" if spot_side.is_buy else "SELL"
         self.log_with_clock(
             logging.INFO,
-            f"Placing {side} order for {proposal.order_amount} {spot_side.market_info.base_asset} "
-            f"at {spot_side.market_info.market.display_name} at {spot_side.order_price} price"
+            f"Placing {side} order for {order_amount} {spot_side.market_info.base_asset} "
+            f"at {spot_side.market_info.market.display_name} at {spot_side.get_order_price(order_amount)} price"
         )
         spot_order_fn(
             spot_side.market_info,
-            proposal.order_amount,
+            order_amount,
             spot_side.market_info.market.get_taker_order_type(),
-            spot_side.order_price,
+            spot_side.get_order_price(order_amount),
         )
         perp_side = proposal.perp_side
         perp_order_fn = self.buy_with_specific_market if perp_side.is_buy else self.sell_with_specific_market
@@ -405,19 +404,20 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         position_action = PositionAction.CLOSE if self._strategy_state == StrategyState.Opened else PositionAction.OPEN
         self.log_with_clock(
             logging.INFO,
-            f"Placing {side} order for {proposal.order_amount} {perp_side.market_info.base_asset} "
-            f"at {perp_side.market_info.market.display_name} at {perp_side.order_price} price to "
+            f"Placing {side} order for {order_amount} {perp_side.market_info.base_asset} "
+            f"at {perp_side.market_info.market.display_name} at {perp_side.get_order_price(order_amount)} price to "
             f"{position_action.name} position."
         )
         perp_order_fn(
             perp_side.market_info,
-            proposal.order_amount,
+            order_amount,
             perp_side.market_info.market.get_taker_order_type(),
-            perp_side.order_price,
+            perp_side.get_order_price(order_amount),
             position_action=position_action
         )
         if self._strategy_state == StrategyState.Opened:
-            self._strategy_state = StrategyState.Closing
+            # possible partial closure of position
+            self._strategy_state = StrategyState.Closing if initial_perp_position == order_amount else StrategyState.Opening
             self._completed_closing_order_ids.clear()
         else:
             self._strategy_state = StrategyState.Opening
@@ -446,19 +446,13 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         Returns a status string formatted to display nicely on terminal. The strings composes of 4 parts: markets,
         assets, spread and warnings(if any).
         """
-        columns = ["Exchange", "Market", "Sell Price", "Buy Price", "Mid Price"]
+        columns = ["Exchange", "Market"]
         data = []
         for market_info in [self._spot_market_info, self._perp_market_info]:
             market, trading_pair, base_asset, quote_asset = market_info
-            buy_price = await market.get_quote_price(trading_pair, True, self._order_amount)
-            sell_price = await market.get_quote_price(trading_pair, False, self._order_amount)
-            mid_price = (buy_price + sell_price) / 2
             data.append([
                 market.display_name,
                 trading_pair,
-                float(sell_price),
-                float(buy_price),
-                float(mid_price)
             ])
         markets_df = pd.DataFrame(data=data, columns=columns)
         lines = []
@@ -498,11 +492,8 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         for proposal in arb_proposal:
             spot_side = "buy" if proposal.spot_side.is_buy else "sell"
             perp_side = "buy" if proposal.perp_side.is_buy else "sell"
-            profit_pct = proposal.profit_pct()
-            lines.append(f"{'    ' if indented else ''}{spot_side} at "
-                         f"{proposal.spot_side.market_info.market.display_name}"
-                         f", {perp_side} at {proposal.perp_side.market_info.market.display_name}: "
-                         f"{profit_pct:.2%}")
+            lines.append(f"{'    ' if indented else ''}{spot_side} at {proposal.spot_side.market_info.market.display_name}"
+                         f", {perp_side} at {proposal.perp_side.market_info.market.display_name}")
         return lines
 
     @property
