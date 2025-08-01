@@ -59,10 +59,6 @@ class RemoteIfaceMQTTTests(IsolatedAsyncioWrapperTestCase):
         self.patch_loggers_mock = self.patch_loggers_patcher.start()
         self.patch_loggers_mock.return_value = None
 
-    async def asyncSetUp(self):
-        await super().asyncSetUp()
-        # await self.hbapp.start_mqtt_async()
-
     async def asyncTearDown(self):
         await self.hbapp.stop_mqtt_async()
         await asyncio.sleep(0.1)
