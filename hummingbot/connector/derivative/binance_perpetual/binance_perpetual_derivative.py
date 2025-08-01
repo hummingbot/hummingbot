@@ -256,7 +256,7 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
             api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_GTC
         if order_type == OrderType.LIMIT_MAKER:
             api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_GTX
-        if self._position_mode == PositionMode.HEDGE:
+        if self.position_mode == PositionMode.HEDGE:
             if position_action == PositionAction.OPEN:
                 api_params["positionSide"] = "LONG" if trade_type is TradeType.BUY else "SHORT"
             else:

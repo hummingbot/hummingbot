@@ -14,10 +14,12 @@ from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.markets_recorder import MarketsRecorder
+from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.common import MarketDict, PositionMode
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
 from hummingbot.exceptions import InvalidController
+from hummingbot.remote_iface.mqtt import ETopicPublisher
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 from hummingbot.strategy_v2.controllers.controller_base import ControllerBase, ControllerConfigBase
 from hummingbot.strategy_v2.controllers.directional_trading_controller_base import (
@@ -204,6 +206,32 @@ class StrategyV2Base(ScriptStrategyBase):
             strategy=self,
             initial_positions_by_controller=self._collect_initial_positions()
         )
+        self.mqtt_enabled = False
+        self._pub: Optional[ETopicPublisher] = None
+
+    def start(self, clock: Clock, timestamp: float) -> None:
+        """
+        Start the strategy.
+        :param clock: Clock to use.
+        :param timestamp: Current time.
+        """
+        self._last_timestamp = timestamp
+        self.apply_initial_setting()
+        # Check if MQTT is enabled at runtime
+        from hummingbot.client.hummingbot_application import HummingbotApplication
+        if HummingbotApplication.main_application()._mqtt is not None:
+            self.mqtt_enabled = True
+            self._pub = ETopicPublisher("performance", use_bot_prefix=True)
+
+        # Start controllers
+        for controller in self.controllers.values():
+            controller.start()
+
+    def apply_initial_setting(self):
+        """
+        Apply initial settings for the strategy, such as setting position mode and leverage for all connectors.
+        """
+        pass
 
     def _collect_initial_positions(self) -> Dict[str, List]:
         """
@@ -236,7 +264,6 @@ class StrategyV2Base(ScriptStrategyBase):
     def add_controller(self, config: ControllerConfigBase):
         try:
             controller = config.get_controller_class()(config, self.market_data_provider, self.actions_queue)
-            controller.start()
             self.controllers[config.id] = controller
         except Exception as e:
             self.logger().error(f"Error adding controller: {e}", exc_info=True)
@@ -294,16 +321,15 @@ class StrategyV2Base(ScriptStrategyBase):
 
     async def on_stop(self):
         self._is_stop_triggered = True
-        self.executor_orchestrator.stop()
-        self.market_data_provider.stop()
         self.listen_to_executor_actions_task.cancel()
+        await self.executor_orchestrator.stop(self.max_executors_close_attempts)
         for controller in self.controllers.values():
             controller.stop()
-        for i in range(self.max_executors_close_attempts):
-            if all([executor.is_done for executor in self.get_all_executors()]):
-                continue
-            await asyncio.sleep(5.0)
+        self.market_data_provider.stop()
         self.executor_orchestrator.store_all_executors()
+        if self.mqtt_enabled:
+            self._pub({controller_id: {} for controller_id in self.controllers.keys()})
+            self._pub = None
 
     def on_tick(self):
         self.update_executors_info()
@@ -354,8 +380,7 @@ class StrategyV2Base(ScriptStrategyBase):
 
     def get_all_executors(self) -> List[ExecutorInfo]:
         """Get all executors from all controllers."""
-        return [executor for report in self.controller_reports.values()
-                for executor in report.get("executors", [])]
+        return [executor for executors_list in [report.get("executors", []) for report in self.controller_reports.values()] for executor in executors_list]
 
     def get_positions_by_controller(self, controller_id: str) -> List[PositionSummary]:
         """Get positions for a specific controller from the unified reports."""
