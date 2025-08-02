@@ -99,6 +99,7 @@ class GatewayBase(ConnectorBase):
         self._network_transaction_fee = None
         self._poll_notifier = None
         self._native_currency = None
+        self._native_currency_decimals = None
         self._order_tracker: ClientOrderTracker = ClientOrderTracker(connector=self, lost_order_count_limit=10)
         self._amount_quantum_dict = {}
         self._allowances = {}
@@ -261,6 +262,14 @@ class GatewayBase(ConnectorBase):
             )
             if not isinstance(self._chain_info, list):
                 self._native_currency = self._chain_info.get("nativeCurrency", "SOL")
+                tokens_info = await self._get_gateway_instance().get_tokens(
+                    chain=self.chain, network=self.network
+                )
+                native_token_info = next(
+                    t for t in tokens_info["tokens"]
+                    if t["symbol"] == self._native_currency
+                )
+                self._native_currency_decimals = native_token_info["decimals"]
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -438,9 +447,13 @@ class GatewayBase(ConnectorBase):
         if len(tracked_orders) < 1:
             return
 
-        tx_hash_list: List[str] = await safe_gather(
-            *[tracked_order.get_exchange_order_id() for tracked_order in tracked_orders]
-        )
+        tx_hash_list: List[str] = [
+            tx_hash for tx_hash in await safe_gather(
+                *[tracked_order.get_exchange_order_id() for tracked_order in tracked_orders],
+                return_exceptions=True
+            )
+            if not isinstance(tx_hash, Exception)
+        ]
 
         self.logger().info(
             "Polling for order status updates of %d orders. Transaction hashes: %s",
@@ -484,6 +497,11 @@ class GatewayBase(ConnectorBase):
                     trading_pair=tracked_order.trading_pair,
                     update_timestamp=self.current_timestamp,
                     new_state=OrderState.FILLED,
+                    misc_updates={
+                        "nonce": tx_receipt["nonce"],
+                        "fee_asset": self._native_currency,
+                        "gas_price": tx_receipt["gasPrice"],
+                    }
                 )
                 self._order_tracker.process_order_update(order_update)
 
@@ -501,7 +519,7 @@ class GatewayBase(ConnectorBase):
 
     def process_transaction_confirmation_update(self, tracked_order: GatewayInFlightOrder, fee: Decimal):
         trade_fee: TradeFeeBase = AddedToCostTradeFee(
-            flat_fees=[TokenAmount(tracked_order.fee_asset, fee)]
+            flat_fees=[TokenAmount(self._native_currency, fee)]
         )
 
         trade_update: TradeUpdate = TradeUpdate(
@@ -540,16 +558,12 @@ class GatewayBase(ConnectorBase):
         self._order_tracker.process_order_update(order_update)
 
     def _get_transaction_receipt_from_details(self, tx_details: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        if self.chain == "ethereum":
-            return tx_details.get("txReceipt")
-        elif self.chain == "solana":
+        if self.chain in ["solana", "ethereum"]:
             return tx_details.get("txData")
         raise NotImplementedError(f"Unsupported chain: {self.chain}")
 
     def _is_transaction_successful(self, tx_status: int, tx_receipt: Optional[Dict[str, Any]]) -> bool:
-        if self.chain == "ethereum":
-            return tx_status == 1 and tx_receipt is not None and tx_receipt.get("status") == 1
-        elif self.chain == "solana":
+        if self.chain in ["solana", "ethereum"]:
             return tx_status == 1 and tx_receipt is not None
         raise NotImplementedError(f"Unsupported chain: {self.chain}")
 
@@ -561,17 +575,15 @@ class GatewayBase(ConnectorBase):
         raise NotImplementedError(f"Unsupported chain: {self.chain}")
 
     def _is_transaction_failed(self, tx_status: int, tx_receipt: Optional[Dict[str, Any]]) -> bool:
-        if self.chain == "ethereum":
-            return tx_status == -1 or (tx_receipt is not None and tx_receipt.get("status") == 0)
-        elif self.chain == "solana":
+        if self.chain in ["solana", "ethereum"]:
             return tx_status == -1
         raise NotImplementedError(f"Unsupported chain: {self.chain}")
 
     def _calculate_transaction_fee(self, tracked_order: GatewayInFlightOrder, tx_receipt: Dict[str, Any]) -> Decimal:
         if self.chain == "ethereum":
-            gas_used: int = tx_receipt["gasUsed"]
-            gas_price: Decimal = tracked_order.gas_price
-            return Decimal(str(gas_used)) * gas_price / Decimal(1e9)
+            gas_used: Decimal = Decimal(tx_receipt["gasUsed"])
+            gas_price: Decimal = tracked_order.gas_price or Decimal(tx_receipt["gasPrice"])
+            return Decimal(str(gas_used)) * gas_price / Decimal(f"1e{self._native_currency_decimals}")
         elif self.chain == "solana":
             return Decimal(tx_receipt["meta"]["fee"]) / Decimal(1e9)
         raise NotImplementedError(f"Unsupported chain: {self.chain}")

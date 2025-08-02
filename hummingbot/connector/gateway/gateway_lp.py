@@ -74,7 +74,7 @@ class GatewayLp(GatewaySwap):
 
     async def get_pool_address(self, trading_pair: str):
         self.logger().info(f"Fetching pool address for {trading_pair} on {self.connector_name}")
-        pools = await self._get_gateway_instance().get_pools(self.connector_name)
+        pools = await self._get_gateway_instance().get_pools(self.connector_name, self.network)
         pool_address = pools[trading_pair]
         self.logger().info(f"Pool address: {pool_address}")
 

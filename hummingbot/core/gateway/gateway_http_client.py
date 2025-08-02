@@ -168,12 +168,12 @@ class GatewayHttpClient:
         return False
 
     async def api_request(
-            self,
-            method: str,
-            path_url: str,
-            params: Dict[str, Any] = {},
-            fail_silently: bool = False,
-            use_body: bool = False,
+        self,
+        method: str,
+        path_url: str,
+        params: Dict[str, Any] = {},
+        fail_silently: bool = False,
+        use_body: bool = False,
     ) -> Optional[Union[Dict[str, Any], List[Dict[str, Any]]]]:
         """
         Sends an aiohttp request and waits for a response.
@@ -212,9 +212,7 @@ class GatewayHttpClient:
                     parsed_response = await response.json()
                 except ContentTypeError:
                     parsed_response = await response.text()
-                if response.status != 200 and \
-                   not fail_silently and \
-                   not self.is_timeout_error(parsed_response):
+                if response.status != 200 and not fail_silently and not self.is_timeout_error(parsed_response):
                     self.log_error_codes(parsed_response)
 
                     if "error" in parsed_response:
@@ -271,9 +269,9 @@ class GatewayHttpClient:
     async def get_connectors(self, fail_silently: bool = False) -> Dict[str, Any]:
         return await self.api_request("get", "connectors", fail_silently=fail_silently)
 
-    async def get_pools(self, connector: str) -> Dict[str, Any]:
+    async def get_pools(self, connector: str, network: str) -> Dict[str, Any]:
         self.logger().info(f"Getting pools for connector: {connector}")
-        return await self.api_request("get", f"config/pools?connector={connector}")
+        return await self.api_request("get", f"config/pools?connector={connector}&network={network}")
 
     async def get_wallets(self, fail_silently: bool = False) -> List[Dict[str, Any]]:
         return await self.api_request("get", "wallet", fail_silently=fail_silently)
@@ -290,12 +288,12 @@ class GatewayHttpClient:
         return await self.api_request("get", "config", params=params, fail_silently=fail_silently)
 
     async def get_balances(
-            self,
-            chain: str,
-            network: str,
-            address: str,
-            token_symbols: List[str],
-            fail_silently: bool = False,
+        self,
+        chain: str,
+        network: str,
+        address: str,
+        token_symbols: List[str],
+        fail_silently: bool = False,
     ) -> Dict[str, Any]:
         if isinstance(token_symbols, list):
             token_symbols = [x for x in token_symbols if isinstance(x, str) and x.strip() != '']
@@ -314,20 +312,20 @@ class GatewayHttpClient:
             return {}
 
     async def get_tokens(
-            self,
-            chain: str,
-            network: str,
-            fail_silently: bool = True
+        self,
+        chain: str,
+        network: str,
+        fail_silently: bool = True
     ) -> Dict[str, Any]:
         return await self.api_request("get", f"chains/{chain}/tokens", {
             "network": network
         }, fail_silently=fail_silently)
 
     async def get_network_status(
-            self,
-            chain: str = None,
-            network: str = None,
-            fail_silently: bool = False
+        self,
+        chain: str = None,
+        network: str = None,
+        fail_silently: bool = False
     ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
         req_data: Dict[str, str] = {}
         if chain is not None and network is not None:
@@ -336,14 +334,14 @@ class GatewayHttpClient:
         return await self.api_request("get", "network/status", req_data, fail_silently=fail_silently)  # Default endpoint when chain is None
 
     async def approve_token(
-            self,
-            network: str,
-            address: str,
-            token: str,
-            spender: str,
-            nonce: Optional[int] = None,
-            max_fee_per_gas: Optional[int] = None,
-            max_priority_fee_per_gas: Optional[int] = None
+        self,
+        network: str,
+        address: str,
+        token: str,
+        spender: str,
+        nonce: Optional[int] = None,
+        max_fee_per_gas: Optional[int] = None,
+        max_priority_fee_per_gas: Optional[int] = None
     ) -> Dict[str, Any]:
         request_payload: Dict[str, Any] = {
             "network": network,
@@ -364,13 +362,13 @@ class GatewayHttpClient:
         )
 
     async def get_allowances(
-            self,
-            chain: str,
-            network: str,
-            address: str,
-            token_symbols: List[str],
-            spender: str,
-            fail_silently: bool = False
+        self,
+        chain: str,
+        network: str,
+        address: str,
+        token_symbols: List[str],
+        spender: str,
+        fail_silently: bool = False
     ) -> Dict[str, Any]:
         return await self.api_request("post", "chains/ethereum/allowances", {
             "network": network,
@@ -380,11 +378,11 @@ class GatewayHttpClient:
         }, fail_silently=fail_silently)
 
     async def get_transaction_status(
-            self,
-            chain: str,
-            network: str,
-            transaction_hash: str,
-            fail_silently: bool = False
+        self,
+        chain: str,
+        network: str,
+        transaction_hash: str,
+        fail_silently: bool = False
     ) -> Dict[str, Any]:
         request = {
             "network": network,
@@ -408,11 +406,11 @@ class GatewayHttpClient:
         return await self.api_request("get", "wallet/sign", request)
 
     async def get_evm_nonce(
-            self,
-            chain: str,
-            network: str,
-            address: str,
-            fail_silently: bool = False
+        self,
+        chain: str,
+        network: str,
+        address: str,
+        fail_silently: bool = False
     ) -> Dict[str, Any]:
         return await self.api_request("post", "chains/ethereum/nextNonce", {
             "network": network,
@@ -420,11 +418,11 @@ class GatewayHttpClient:
         }, fail_silently=fail_silently)
 
     async def cancel_evm_transaction(
-            self,
-            chain: str,
-            network: str,
-            address: str,
-            nonce: int
+        self,
+        chain: str,
+        network: str,
+        address: str,
+        nonce: int
     ) -> Dict[str, Any]:
         return await self.api_request("post", "chains/ethereum/cancel", {
             "network": network,
@@ -433,16 +431,16 @@ class GatewayHttpClient:
         })
 
     async def quote_swap(
-            self,
-            network: str,
-            connector: str,
-            base_asset: str,
-            quote_asset: str,
-            amount: Decimal,
-            side: TradeType,
-            slippage_pct: Optional[Decimal] = None,
-            pool_address: Optional[str] = None,
-            fail_silently: bool = False,
+        self,
+        network: str,
+        connector: str,
+        base_asset: str,
+        quote_asset: str,
+        amount: Decimal,
+        side: TradeType,
+        slippage_pct: Optional[Decimal] = None,
+        pool_address: Optional[str] = None,
+        fail_silently: bool = False,
     ) -> Dict[str, Any]:
         if side not in [TradeType.BUY, TradeType.SELL]:
             raise ValueError("Only BUY and SELL prices are supported.")
@@ -469,16 +467,16 @@ class GatewayHttpClient:
         )
 
     async def get_price(
-            self,
-            chain: str,
-            network: str,
-            connector: str,
-            base_asset: str,
-            quote_asset: str,
-            amount: Decimal,
-            side: TradeType,
-            fail_silently: bool = False,
-            pool_address: Optional[str] = None
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        base_asset: str,
+        quote_asset: str,
+        amount: Decimal,
+        side: TradeType,
+        fail_silently: bool = False,
+        pool_address: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Wrapper for quote_swap
@@ -544,10 +542,10 @@ class GatewayHttpClient:
         )
 
     async def estimate_gas(
-            self,
-            chain: str,
-            network: str,
-            gas_limit: Optional[int] = None,
+        self,
+        chain: str,
+        network: str,
+        gas_limit: Optional[int] = None,
     ) -> Dict[str, Any]:
         return await self.api_request("post", f"chains/{chain}/estimate-gas", {
             "chain": chain,
@@ -556,13 +554,13 @@ class GatewayHttpClient:
         })
 
     async def pool_info(
-            self,
-            connector: str,
-            network: str,
-            pool_address: Optional[str] = None,
-            base_token: Optional[str] = None,
-            quote_token: Optional[str] = None,
-            fail_silently: bool = False
+        self,
+        connector: str,
+        network: str,
+        pool_address: Optional[str] = None,
+        base_token: Optional[str] = None,
+        quote_token: Optional[str] = None,
+        fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
         Gets information about a AMM or CLMM pool
@@ -586,12 +584,12 @@ class GatewayHttpClient:
         )
 
     async def clmm_position_info(
-            self,
-            connector: str,
-            network: str,
-            position_address: str,
-            wallet_address: str,
-            fail_silently: bool = False
+        self,
+        connector: str,
+        network: str,
+        position_address: str,
+        wallet_address: str,
+        fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
         Gets information about a concentrated liquidity position
@@ -609,14 +607,14 @@ class GatewayHttpClient:
         )
 
     async def amm_position_info(
-            self,
-            connector: str,
-            network: str,
-            wallet_address: str,
-            pool_address: Optional[str] = None,
-            base_token: Optional[str] = None,
-            quote_token: Optional[str] = None,
-            fail_silently: bool = False
+        self,
+        connector: str,
+        network: str,
+        wallet_address: str,
+        pool_address: Optional[str] = None,
+        base_token: Optional[str] = None,
+        quote_token: Optional[str] = None,
+        fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
         Gets information about a AMM liquidity position
@@ -641,19 +639,19 @@ class GatewayHttpClient:
         )
 
     async def clmm_open_position(
-            self,
-            connector: str,
-            network: str,
-            wallet_address: str,
-            lower_price: float,
-            upper_price: float,
-            base_token_amount: Optional[float] = None,
-            quote_token_amount: Optional[float] = None,
-            slippage_pct: Optional[float] = None,
-            pool_address: Optional[str] = None,
-            base_token: Optional[str] = None,
-            quote_token: Optional[str] = None,
-            fail_silently: bool = False
+        self,
+        connector: str,
+        network: str,
+        wallet_address: str,
+        lower_price: float,
+        upper_price: float,
+        base_token_amount: Optional[float] = None,
+        quote_token_amount: Optional[float] = None,
+        slippage_pct: Optional[float] = None,
+        pool_address: Optional[str] = None,
+        base_token: Optional[str] = None,
+        quote_token: Optional[str] = None,
+        fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
         Opens a new concentrated liquidity position
@@ -686,12 +684,12 @@ class GatewayHttpClient:
         )
 
     async def clmm_close_position(
-            self,
-            connector: str,
-            network: str,
-            wallet_address: str,
-            position_address: str,
-            fail_silently: bool = False
+        self,
+        connector: str,
+        network: str,
+        wallet_address: str,
+        position_address: str,
+        fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
         Closes an existing concentrated liquidity position
@@ -709,17 +707,17 @@ class GatewayHttpClient:
         )
 
     async def amm_add_liquidity(
-            self,
-            connector: str,
-            network: str,
-            wallet_address: str,
-            base_token_amount: float,
-            quote_token_amount: float,
-            slippage_pct: Optional[float] = None,
-            pool_address: Optional[str] = None,
-            base_token: Optional[str] = None,
-            quote_token: Optional[str] = None,
-            fail_silently: bool = False
+        self,
+        connector: str,
+        network: str,
+        wallet_address: str,
+        base_token_amount: float,
+        quote_token_amount: float,
+        slippage_pct: Optional[float] = None,
+        pool_address: Optional[str] = None,
+        base_token: Optional[str] = None,
+        quote_token: Optional[str] = None,
+        fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
         Add liquidity to an AMM liquidity position
@@ -748,15 +746,15 @@ class GatewayHttpClient:
         )
 
     async def amm_remove_liquidity(
-            self,
-            connector: str,
-            network: str,
-            wallet_address: str,
-            percentage: float,
-            pool_address: Optional[str] = None,
-            base_token: Optional[str] = None,
-            quote_token: Optional[str] = None,
-            fail_silently: bool = False
+        self,
+        connector: str,
+        network: str,
+        wallet_address: str,
+        percentage: float,
+        pool_address: Optional[str] = None,
+        base_token: Optional[str] = None,
+        quote_token: Optional[str] = None,
+        fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
         Closes an existing AMM liquidity position
