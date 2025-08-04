@@ -811,16 +811,28 @@ class ClientConfigMap(BaseClientModel):
     @classmethod
     def validate_kill_switch_mode(cls, v: Any):
         if isinstance(v, tuple(KILL_SWITCH_MODES.values())):
-            sub_model = v
-        elif v == {}:
-            sub_model = KillSwitchDisabledMode()
-        elif v not in KILL_SWITCH_MODES:
-            raise ValueError(
-                f"Invalid kill switch mode, please choose a value from {list(KILL_SWITCH_MODES.keys())}."
-            )
-        else:
-            sub_model = KILL_SWITCH_MODES[v].model_construct()
-        return sub_model
+            return v  # Already a valid model
+
+        if v == {}:
+            return KillSwitchDisabledMode()
+
+        if isinstance(v, dict):
+            # Try validating against known mode models
+            for mode_cls in KILL_SWITCH_MODES.values():
+                try:
+                    return mode_cls.model_validate(v)
+                except Exception:
+                    continue
+            raise ValueError(f"Could not match dict to any known kill switch mode: {v}")
+
+        if isinstance(v, str):
+            if v not in KILL_SWITCH_MODES:
+                raise ValueError(
+                    f"Invalid kill switch mode string. Choose from: {list(KILL_SWITCH_MODES.keys())}."
+                )
+            return KILL_SWITCH_MODES[v].model_construct()
+
+        raise ValueError(f"Unsupported type for kill switch mode: {type(v)}")
 
     @field_validator("autofill_import", mode="before")
     @classmethod
