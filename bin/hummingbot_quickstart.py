@@ -60,7 +60,10 @@ class CmdlineParser(argparse.ArgumentParser):
                           help="Try to automatically set config / logs / data dir permissions, "
                                "useful for Docker containers.")
         self.add_argument("--headless",
-                          action="store_true",
+                          type=bool,
+                          nargs='?',
+                          const=True,
+                          default=None,
                           help="Run in headless mode without CLI interface.")
 
 
