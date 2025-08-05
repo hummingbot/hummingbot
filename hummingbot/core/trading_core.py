@@ -7,12 +7,15 @@ import time
 from decimal import Decimal
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
+
+from sqlalchemy.orm import Query, Session
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.client.config.config_helpers import ClientConfigAdapter, get_strategy_starter_file
 from hummingbot.client.config.strategy_config_data_types import BaseStrategyConfigMap
+from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.client.settings import SCRIPT_STRATEGIES_MODULE, STRATEGIES
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.markets_recorder import MarketsRecorder
@@ -23,6 +26,7 @@ from hummingbot.core.utils.kill_switch import KillSwitch
 from hummingbot.exceptions import InvalidScriptModule
 from hummingbot.logger import HummingbotLogger
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
+from hummingbot.model.trade_fill import TradeFill
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.strategy.directional_strategy_base import DirectionalStrategyBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
@@ -654,6 +658,10 @@ class TradingCore:
         """Get balance for an asset from a connector."""
         return self.connector_manager.get_balance(connector_name, asset)
 
+    def get_order_book(self, connector_name: str, trading_pair: str):
+        """Get order book from a connector."""
+        return self.connector_manager.get_order_book(connector_name, trading_pair)
+
     async def get_current_balances(self, connector_name: str):
         if connector_name in self.connector_manager.connectors and self.connector_manager.connectors[connector_name].ready:
             return self.connector_manager.connectors[connector_name].get_all_balances()
@@ -666,9 +674,66 @@ class TradingCore:
             await self.connector_manager.update_connector_balances(connector_name)
             return self.connector_manager.get_all_balances(connector_name)
 
-    def get_order_book(self, connector_name: str, trading_pair: str):
-        """Get order book from a connector."""
-        return self.connector_manager.get_order_book(connector_name, trading_pair)
+    async def calculate_profitability(self) -> Decimal:
+        """
+        Determines the profitability of the trading bot.
+        This function is used by the KillSwitch class.
+        Must be updated if the method of performance report gets updated.
+        """
+        if not self.markets_recorder:
+            return s_decimal_0
+        if any(not market.ready for market in self.connector_manager.connectors.values()):
+            return s_decimal_0
+
+        start_time = self.init_time
+
+        with self.trade_fill_db.get_new_session() as session:
+            trades: List[TradeFill] = self._get_trades_from_session(
+                int(start_time * 1e3),
+                session=session,
+                config_file_path=self.strategy_file_name)
+            perf_metrics = await self.calculate_performance_metrics_by_connector_pair(trades)
+            returns_pct = [perf.return_pct for perf in perf_metrics]
+            return sum(returns_pct) / len(returns_pct) if len(returns_pct) > 0 else s_decimal_0
+
+    async def calculate_performance_metrics_by_connector_pair(self, trades: List[TradeFill]) -> List[PerformanceMetrics]:
+        """
+        Calculates performance metrics by connector and trading pair using the provided trades and the PerformanceMetrics class.
+        """
+        market_info: Set[Tuple[str, str]] = set((t.market, t.symbol) for t in trades)
+        performance_metrics: List[PerformanceMetrics] = []
+        for market, symbol in market_info:
+            cur_trades = [t for t in trades if t.market == market and t.symbol == symbol]
+            network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
+            try:
+                cur_balances = await asyncio.wait_for(self.get_current_balances(market), network_timeout)
+            except asyncio.TimeoutError:
+                self.logger().warning("\nA network error prevented the balances retrieval to complete. See logs for more details.")
+                raise
+            perf = await PerformanceMetrics.create(symbol, cur_trades, cur_balances)
+            performance_metrics.append(perf)
+        return performance_metrics
+
+    @staticmethod
+    def _get_trades_from_session(start_timestamp: int,
+                                 session: Session,
+                                 number_of_rows: Optional[int] = None,
+                                 config_file_path: str = None) -> List[TradeFill]:
+
+        filters = [TradeFill.timestamp >= start_timestamp]
+        if config_file_path is not None:
+            filters.append(TradeFill.config_file_path.like(f"%{config_file_path}%"))
+        query: Query = (session
+                        .query(TradeFill)
+                        .filter(*filters)
+                        .order_by(TradeFill.timestamp.desc()))
+        if number_of_rows is None:
+            result: List[TradeFill] = query.all() or []
+        else:
+            result: List[TradeFill] = query.limit(number_of_rows).all() or []
+
+        result.reverse()
+        return result
 
     async def shutdown(self, skip_order_cancellation: bool = False) -> bool:
         """
