@@ -452,10 +452,6 @@ class TradingCore:
 
             self._strategy_running = True
 
-            # Start clock if not already running
-            if not self._is_running:
-                await self.start_clock()
-
             self.logger().info(f"Strategy {strategy_name} started successfully")
             return True
 
