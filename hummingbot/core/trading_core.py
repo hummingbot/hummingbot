@@ -4,6 +4,7 @@ import inspect
 import logging
 import sys
 import time
+from decimal import Decimal
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
@@ -28,6 +29,9 @@ from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
+
+# Constants
+s_decimal_0 = Decimal("0")
 
 
 class StrategyType(Enum):
@@ -649,6 +653,18 @@ class TradingCore:
     def get_balance(self, connector_name: str, asset: str) -> float:
         """Get balance for an asset from a connector."""
         return self.connector_manager.get_balance(connector_name, asset)
+
+    async def get_current_balances(self, connector_name: str):
+        if connector_name in self.connector_manager.connectors and self.connector_manager.connectors[connector_name].ready:
+            return self.connector_manager.connectors[connector_name].get_all_balances()
+        elif "Paper" in connector_name:
+            paper_balances = self.client_config_map.paper_trade.paper_trade_account_balance
+            if paper_balances is None:
+                return {}
+            return {token: Decimal(str(bal)) for token, bal in paper_balances.items()}
+        else:
+            await self.connector_manager.update_connector_balances(connector_name)
+            return self.connector_manager.get_all_balances(connector_name)
 
     def get_order_book(self, connector_name: str, trading_pair: str):
         """Get order book from a connector."""

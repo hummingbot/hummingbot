@@ -7,13 +7,11 @@ from typing import TYPE_CHECKING, List, Optional, Set, Tuple
 
 import pandas as pd
 
-from hummingbot.client.command.gateway_command import GatewayCommand
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.client.settings import MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT, AllConnectorSettings
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.model.trade_fill import TradeFill
-from hummingbot.user.user_balances import UserBalances
 
 s_float_0 = float(0)
 s_decimal_0 = Decimal("0")
@@ -78,7 +76,7 @@ class HistoryCommand:
             cur_trades = [t for t in trades if t.market == market and t.symbol == symbol]
             network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
             try:
-                cur_balances = await asyncio.wait_for(self.get_current_balances(market), network_timeout)
+                cur_balances = await asyncio.wait_for(self.trading_core.get_current_balances(market), network_timeout)
             except asyncio.TimeoutError:
                 self.notify(
                     "\nA network error prevented the balances retrieval to complete. See logs for more details."
@@ -92,23 +90,6 @@ class HistoryCommand:
         if display_report and len(return_pcts) > 1:
             self.notify(f"\nAveraged Return = {avg_return:.2%}")
         return avg_return
-
-    async def get_current_balances(self,  # type: HummingbotApplication
-                                   market: str):
-        if market in self.trading_core.markets and self.trading_core.markets[market].ready:
-            return self.trading_core.markets[market].get_all_balances()
-        elif "Paper" in market:
-            paper_balances = self.client_config_map.paper_trade.paper_trade_account_balance
-            if paper_balances is None:
-                return {}
-            return {token: Decimal(str(bal)) for token, bal in paper_balances.items()}
-        else:
-            if UserBalances.instance().is_gateway_market(market):
-                await GatewayCommand.update_exchange_balances(self, market, self.client_config_map)
-                return GatewayCommand.all_balance(self, market)
-            else:
-                await UserBalances.instance().update_exchange_balance(market, self.client_config_map)
-                return UserBalances.instance().all_balances(market)
 
     def report_header(self,  # type: HummingbotApplication
                       start_time: float):
