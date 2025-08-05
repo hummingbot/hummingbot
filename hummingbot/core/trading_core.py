@@ -530,6 +530,8 @@ class TradingCore:
             if not all_ready:
                 await asyncio.sleep(0.5)
             else:
+                if inspect.iscoroutinefunction(func):
+                    return await func(*args, **kwargs)
                 return func(*args, **kwargs)
 
     async def stop_strategy(self) -> bool:
