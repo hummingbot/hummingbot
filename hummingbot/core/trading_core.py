@@ -430,8 +430,6 @@ class TradingCore:
                 self._config_source = strategy_config
             elif isinstance(strategy_config, dict):
                 self._config_data = strategy_config
-            else:
-                self.strategy_config_map = strategy_config
 
             # Initialize strategy based on type
             strategy_type = self.detect_strategy_type(strategy_name)
