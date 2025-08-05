@@ -28,7 +28,7 @@ from hummingbot.core.rate_oracle.sources.rate_source_base import RateSourceBase
 from hummingbot.core.utils.kill_switch import ActiveKillSwitch, KillSwitch, PassThroughKillSwitch
 
 if TYPE_CHECKING:
-    from hummingbot.client.hummingbot_application import HummingbotApplication
+    from hummingbot.core.trading_core import TradingCore
 
 
 def generate_client_id() -> str:
@@ -229,7 +229,7 @@ class PaperTradeConfigMap(BaseClientModel):
 
 class KillSwitchMode(BaseClientModel, ABC):
     @abstractmethod
-    def get_kill_switch(self, hb: "HummingbotApplication") -> KillSwitch:
+    def get_kill_switch(self, trading_core: "TradingCore") -> KillSwitch:
         ...
 
 
@@ -243,15 +243,15 @@ class KillSwitchEnabledMode(KillSwitchMode):
     )
     model_config = ConfigDict(title="kill_switch_enabled")
 
-    def get_kill_switch(self, hb: "HummingbotApplication") -> ActiveKillSwitch:
-        kill_switch = ActiveKillSwitch(kill_switch_rate=self.kill_switch_rate, hummingbot_application=hb)
+    def get_kill_switch(self, trading_core: "TradingCore") -> ActiveKillSwitch:
+        kill_switch = ActiveKillSwitch(kill_switch_rate=self.kill_switch_rate, trading_core=trading_core)
         return kill_switch
 
 
 class KillSwitchDisabledMode(KillSwitchMode):
     model_config = ConfigDict(title="kill_switch_disabled")
 
-    def get_kill_switch(self, hb: "HummingbotApplication") -> PassThroughKillSwitch:
+    def get_kill_switch(self, trading_core: "TradingCore") -> PassThroughKillSwitch:
         kill_switch = PassThroughKillSwitch()
         return kill_switch
 
