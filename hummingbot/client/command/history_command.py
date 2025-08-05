@@ -175,28 +175,6 @@ class HistoryCommand:
 
         self.notify("\n".join(lines))
 
-    async def calculate_profitability(self,  # type: HummingbotApplication
-                                      ) -> Decimal:
-        """
-        Determines the profitability of the trading bot.
-        This function is used by the KillSwitch class.
-        Must be updated if the method of performance report gets updated.
-        """
-        if not self.trading_core.markets_recorder:
-            return s_decimal_0
-        if any(not market.ready for market in self.trading_core.markets.values()):
-            return s_decimal_0
-
-        start_time = self.init_time
-
-        with self.trading_core.trade_fill_db.get_new_session() as session:
-            trades: List[TradeFill] = self._get_trades_from_session(
-                int(start_time * 1e3),
-                session=session,
-                config_file_path=self.strategy_file_name)
-            avg_return = await self.history_report(start_time, trades, display_report=False)
-        return avg_return
-
     def list_trades(self,  # type: HummingbotApplication
                     start_time: float):
         if threading.current_thread() != threading.main_thread():
