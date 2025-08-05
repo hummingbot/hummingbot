@@ -509,8 +509,6 @@ class TradingCore:
                     self.client_config_map.kill_switch_mode.model_config.get("title") == "kill_switch_enabled"):
                 self.kill_switch = self.client_config_map.kill_switch_mode.get_kill_switch(self)
                 await self._wait_till_ready(self.kill_switch.start)
-                if self.clock:
-                    self.clock.add_iterator(self.kill_switch)
 
             self.logger().info(f"'{self.strategy_name}' strategy execution started.")
 
