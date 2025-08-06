@@ -676,6 +676,8 @@ class TradingCore:
         """
         if not self.markets_recorder:
             return s_decimal_0
+        if not self.trade_fill_db:
+            return s_decimal_0
         if any(not market.ready for market in self.connector_manager.connectors.values()):
             return s_decimal_0
 
