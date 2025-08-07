@@ -17,9 +17,8 @@ class TestXRPLSubmitTransaction(IsolatedAsyncioTestCase):
         self.exchange = XrplExchange(
             client_config_map=client_config_map,
             xrpl_secret_key="",
-            wss_node_url="wss://sample.com",
-            wss_second_node_url="wss://sample.com",
-            wss_third_node_url="wss://sample.com",
+            wss_node_urls=["wss://sample.com"],
+            max_request_per_minute=100,
             trading_pairs=["SOLO-XRP"],
             trading_required=False,
         )

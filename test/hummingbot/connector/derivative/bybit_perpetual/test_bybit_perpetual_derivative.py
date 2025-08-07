@@ -1264,7 +1264,7 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
 
     def test_user_stream_balance_update(self):
         # Implement once bybit returns again something related to available balance
-        return True
+        pass
 
     @aioresponses()
     def test_update_balances(self, mock_api):

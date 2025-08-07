@@ -4,9 +4,9 @@ import re
 from abc import ABC, abstractmethod
 from decimal import Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Union
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
+from pydantic import ConfigDict, Field, SecretStr, field_validator, model_validator
 from tabulate import tabulate_formats
 
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum
@@ -658,11 +658,6 @@ class DeriveRateSourceMode(ExchangeRateSourceModeBase):
     model_config = ConfigDict(title="derive")
 
 
-class TegroRateSourceMode(ExchangeRateSourceModeBase):
-    name: str = Field(default="tegro")
-    model_config = ConfigDict(title="tegro")
-
-
 RATE_SOURCE_MODES = {
     AscendExRateSourceMode.model_config["title"]: AscendExRateSourceMode,
     BinanceRateSourceMode.model_config["title"]: BinanceRateSourceMode,
@@ -676,16 +671,8 @@ RATE_SOURCE_MODES = {
     CubeRateSourceMode.model_config["title"]: CubeRateSourceMode,
     HyperliquidRateSourceMode.model_config["title"]: HyperliquidRateSourceMode,
     DeriveRateSourceMode.model_config["title"]: DeriveRateSourceMode,
-    TegroRateSourceMode.model_config["title"]: TegroRateSourceMode,
     MexcRateSourceMode.model_config["title"]: MexcRateSourceMode,
 }
-
-
-class CommandShortcutModel(BaseModel):
-    command: str
-    help: str
-    arguments: List[str]
-    output: List[str]
 
 
 class ClientConfigMap(BaseClientModel):
@@ -730,10 +717,6 @@ class ClientConfigMap(BaseClientModel):
         description="Error log sharing",
         json_schema_extra={"prompt": lambda cm: "Would you like to send error logs to hummingbot? (True/False)"},
     )
-    previous_strategy: Optional[str] = Field(
-        default=None,
-        description="Can store the previous strategy ran for quick retrieval."
-    )
     db_mode: Union[tuple(DB_MODES.values())] = Field(
         default=DBSqliteMode(),
         description=("Advanced database options, currently supports SQLAlchemy's included dialects"
@@ -775,19 +758,6 @@ class ClientConfigMap(BaseClientModel):
         default=AnonymizedMetricsEnabledMode(),
         description="Whether to enable aggregated order and trade data collection",
         json_schema_extra={"prompt": lambda cm: f"Select the desired metrics mode ({'/'.join(list(METRICS_MODES.keys()))})"},
-    )
-    command_shortcuts: List[CommandShortcutModel] = Field(
-        default=[
-            CommandShortcutModel(
-                command="spreads",
-                help="Set bid and ask spread",
-                arguments=["Bid Spread", "Ask Spread"],
-                output=["config bid_spread $1", "config ask_spread $2"]
-            )
-        ],
-        description=("Command Shortcuts"
-                     "\nDefine abbreviations for often used commands"
-                     "\nor batch grouped commands together"),
     )
     rate_oracle_source: Union[tuple(RATE_SOURCE_MODES.values())] = Field(
         default=BinanceRateSourceMode(),

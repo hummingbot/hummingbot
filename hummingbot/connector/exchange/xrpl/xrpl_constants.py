@@ -55,7 +55,7 @@ SIDE_BUY = 0
 SIDE_SELL = 1
 
 # Orderbook settings
-ORDER_BOOK_DEPTH = 120
+ORDER_BOOK_DEPTH = 100
 FETCH_ORDER_BOOK_MAX_RETRY = 3
 FETCH_ORDER_BOOK_RETRY_INTERVAL = 5
 
@@ -63,7 +63,7 @@ FETCH_ORDER_BOOK_RETRY_INTERVAL = 5
 LEDGER_OFFSET = _LEDGER_OFFSET * 2
 
 # Timeout for pending order status check
-PENDING_ORDER_STATUS_CHECK_TIMEOUT = 30
+PENDING_ORDER_STATUS_CHECK_TIMEOUT = 120
 
 # Request Timeout
 REQUEST_TIMEOUT = 60
@@ -81,10 +81,10 @@ PLACE_ORDER_MAX_RETRY = 3
 PLACE_ORDER_RETRY_INTERVAL = 5
 
 # Transaction fee multiplier
-FEE_MULTIPLIER = 3
+FEE_MULTIPLIER = 5
 
 # Cancel All Timeout
-CANCEL_ALL_TIMEOUT = 120.0
+CANCEL_ALL_TIMEOUT = 600
 
 # Cancel retry parameters
 CANCEL_MAX_RETRY = 3
@@ -101,10 +101,14 @@ AUTOFILL_TRANSACTION_MAX_RETRY = 3
 REQUEST_RETRY_INTERVAL = 5
 
 # Request Orderbook Interval
-REQUEST_ORDERBOOK_INTERVAL = 5
+REQUEST_ORDERBOOK_INTERVAL = 10
 
 # Client refresh interval
 CLIENT_REFRESH_INTERVAL = 30
+
+# Websocket configuration
+WEBSOCKET_MAX_SIZE_BYTES = 2**22  # 4MB
+WEBSOCKET_CONNECTION_TIMEOUT = 30
 
 # XRPL maximum digit for issued currency
 XRPL_MAX_DIGIT = 16
@@ -127,7 +131,7 @@ MARKETS = {
         "base": "XRP",
         "quote": "USDC",
         "base_issuer": "",
-        "quote_issuer": "rcEGREd8NmkKRE8GE424sksyt1tJVFZwu",
+        "quote_issuer": "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE",
     },
     "IBTC-RLUSD": {
         "base": "iBTC",
@@ -289,7 +293,7 @@ MARKETS = {
         "base": "USD",
         "quote": "USDC",
         "base_issuer": "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq",
-        "quote_issuer": "rcEGREd8NmkKRE8GE424sksyt1tJVFZwu",
+        "quote_issuer": "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE",
     },
     "USD-WXRP": {
         "base": "USD",
@@ -361,7 +365,7 @@ MARKETS = {
         "base": "EUR",
         "quote": "USDC",
         "base_issuer": "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq",
-        "quote_issuer": "rcEGREd8NmkKRE8GE424sksyt1tJVFZwu",
+        "quote_issuer": "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE",
     },
     "EUR-WXRP": {
         "base": "EUR",
@@ -402,7 +406,7 @@ MARKETS = {
     "USDC-XRP": {
         "base": "USDC",
         "quote": "XRP",
-        "base_issuer": "rcEGREd8NmkKRE8GE424sksyt1tJVFZwu",
+        "base_issuer": "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE",
         "quote_issuer": "",
     },
     "SOLO-XRP": {
@@ -541,12 +545,12 @@ MARKETS = {
         "base": "RLUSD",
         "quote": "USDC",
         "base_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
-        "quote_issuer": "rcEGREd8NmkKRE8GE424sksyt1tJVFZwu",
+        "quote_issuer": "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE",
     },
     "USDC-RLUSD": {
         "base": "USDC",
         "quote": "RLUSD",
-        "base_issuer": "rcEGREd8NmkKRE8GE424sksyt1tJVFZwu",
+        "base_issuer": "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE",
         "quote_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
     },
     "RLUSD-BTC": {
@@ -679,6 +683,6 @@ MARKETS = {
         "base": "iBTC",
         "quote": "USDC",
         "base_issuer": "rGcyRGrZPaJAZbZDi4NqRFLA5GQH63iFpD",
-        "quote_issuer": "rcEGREd8NmkKRE8GE424sksyt1tJVFZwu",
+        "quote_issuer": "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE",
     },
 }

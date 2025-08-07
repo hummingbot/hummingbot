@@ -1,5 +1,5 @@
-import unittest
 from decimal import Decimal
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from xrpl.asyncio.clients import AsyncWebsocketClient
@@ -16,7 +16,7 @@ from hummingbot.connector.exchange.xrpl.xrpl_utils import (
 )
 
 
-class TestXRPLAMMFunctions(unittest.IsolatedAsyncioTestCase):
+class TestXRPLAMMFunctions(IsolatedAsyncioWrapperTestCase):
     level = 0
 
     @classmethod
@@ -54,6 +54,7 @@ class TestXRPLAMMFunctions(unittest.IsolatedAsyncioTestCase):
         self.connector.get_currencies_from_trading_pair = MagicMock(return_value=(self.xrp, self.usd))
         self.connector._submit_transaction = AsyncMock()
         self.connector._sleep = AsyncMock()
+        self.connector._lock_delay_seconds = 0
 
     @patch("xrpl.utils.xrp_to_drops")
     @patch("xrpl.utils.drops_to_xrp")
@@ -110,7 +111,7 @@ class TestXRPLAMMFunctions(unittest.IsolatedAsyncioTestCase):
                 "amount": "1000000000",  # XRP amount in drops
                 "amount2": {
                     "currency": "USD",
-                    "issuer": "rP9jPyP5kyvFRb6ZiLdcyzmUZ1Zp5t2V7R",
+                    "issuer": "rP9jPyP5kyvFRb6ZiLdcyzmUZ1Zp5t2V7R",  # noqa: mock
                     "value": "1000",
                 },  # noqa: mock
                 "lp_token": {
@@ -135,8 +136,7 @@ class TestXRPLAMMFunctions(unittest.IsolatedAsyncioTestCase):
         # Verify the method called request_with_retry with the correct parameters
         self.connector.request_with_retry.assert_called_once()
         call_args = self.connector.request_with_retry.call_args[0]
-        self.assertEqual(call_args[0], self.client)
-        self.assertEqual(call_args[1].method, "amm_info")
+        self.assertEqual(call_args[0].method, "amm_info")
 
         # Verify the result
         self.assertEqual(result.address, "rAMMPoolAddress123")  # noqa: mock
@@ -149,12 +149,11 @@ class TestXRPLAMMFunctions(unittest.IsolatedAsyncioTestCase):
         # Verify the method called request_with_retry with the correct parameters
         self.connector.request_with_retry.assert_called_once()
         call_args = self.connector.request_with_retry.call_args[0]
-        self.assertEqual(call_args[0], self.client)
-        self.assertEqual(call_args[1].method, "amm_info")
+        self.assertEqual(call_args[0].method, "amm_info")
 
         # Test error case - missing required parameters
-        with self.assertRaises(ValueError):
-            await self.connector.amm_get_pool_info()
+        result_without_params = await self.connector.amm_get_pool_info()
+        self.assertIsNone(result_without_params)
 
     async def test_amm_quote_add_liquidity(self):
         # Setup mock for amm_get_pool_info
@@ -325,7 +324,7 @@ class TestXRPLAMMFunctions(unittest.IsolatedAsyncioTestCase):
                             "PreviousFields": {
                                 "Balance": {
                                     "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
-                                    "issuer": "rAMMPoolAddress123",  # noqa: mock
+                                    "issuer": "rAMMPoolAddress123",
                                     "value": "0",
                                 }
                             },
@@ -398,7 +397,7 @@ class TestXRPLAMMFunctions(unittest.IsolatedAsyncioTestCase):
         call_args = self.connector._submit_transaction.call_args[0]
         tx = call_args[0]
         self.assertIsInstance(tx, AMMDeposit)
-        self.assertEqual(tx.account, "rP9jPyP5kyvFRb6ZiLdcyzmUZ1Zp5t2V7R")
+        self.assertEqual(tx.account, "rP9jPyP5kyvFRb6ZiLdcyzmUZ1Zp5t2V7R")  # noqa: mock
         self.assertEqual(tx.asset, self.xrp)
         self.assertEqual(tx.asset2, self.usd)
 
@@ -555,7 +554,7 @@ class TestXRPLAMMFunctions(unittest.IsolatedAsyncioTestCase):
                                 "Asset": {"currency": "XRP"},
                                 "Asset2": {
                                     "currency": "USD",
-                                    "issuer": "rP9jPyP5kyvFRb6ZiLdcyzmUZ1Zp5t2V7R",
+                                    "issuer": "rP9jPyP5kyvFRb6ZiLdcyzmUZ1Zp5t2V7R",  # noqa: mock
                                 },  # noqa: mock
                                 "AuctionSlot": {
                                     "Account": "rAMMPoolAddress123",
@@ -705,3 +704,72 @@ class TestXRPLAMMFunctions(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["lp_token_amount_pct"], Decimal("0"))
         self.assertEqual(result["base_token_lp_amount"], Decimal("0"))
         self.assertEqual(result["quote_token_lp_amount"], Decimal("0"))
+
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_utils.convert_string_to_hex")
+    @patch("xrpl.utils.xrp_to_drops")
+    async def test_amm_add_liquidity_none_pool_info(self, mock_xrp_to_drops, mock_convert_string_to_hex):
+        # Setup mocks
+        mock_xrp_to_drops.return_value = "10000000"
+        mock_convert_string_to_hex.return_value = (
+            "68626F742D6C69717569646974792D61646465642D73756363657373"  # noqa: mock
+        )
+
+        # Mock amm_get_pool_info to return None
+        self.connector.amm_get_pool_info = AsyncMock(return_value=None)
+
+        # Use the real implementation for amm_add_liquidity
+        self.connector.amm_add_liquidity = XrplExchange.amm_add_liquidity.__get__(self.connector)
+
+        # Call amm_add_liquidity
+        result = await self.connector.amm_add_liquidity(
+            pool_address="rAMMPoolAddress123",  # noqa: mock
+            wallet_address="rWalletAddress123",  # noqa: mock
+            base_token_amount=Decimal("10"),
+            quote_token_amount=Decimal("20"),
+            slippage_pct=Decimal("0.01"),
+        )
+
+        # Verify the result is None
+        self.assertIsNone(result)
+
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_utils.convert_string_to_hex")
+    @patch("xrpl.utils.xrp_to_drops")
+    async def test_amm_add_liquidity_none_quote(self, mock_xrp_to_drops, mock_convert_string_to_hex):
+        # Setup mocks
+        mock_xrp_to_drops.return_value = "10000000"
+        mock_convert_string_to_hex.return_value = (
+            "68626F742D6C69717569646974792D61646465642D73756363657373"  # noqa: mock
+        )
+
+        # Mock pool info
+        mock_pool_info = PoolInfo(
+            address="rAMMPoolAddress123",  # noqa: mock
+            base_token_address=self.xrp,
+            quote_token_address=self.usd,
+            lp_token_address=self.lp_token,
+            fee_pct=Decimal("0.005"),
+            price=Decimal("2"),
+            base_token_amount=Decimal("1000"),
+            quote_token_amount=Decimal("2000"),
+            lp_token_amount=Decimal("1000"),
+            pool_type="XRPL-AMM",
+        )
+        self.connector.amm_get_pool_info = AsyncMock(return_value=mock_pool_info)
+
+        # Mock amm_quote_add_liquidity to return None
+        self.connector.amm_quote_add_liquidity = AsyncMock(return_value=None)
+
+        # Use the real implementation for amm_add_liquidity
+        self.connector.amm_add_liquidity = XrplExchange.amm_add_liquidity.__get__(self.connector)
+
+        # Call amm_add_liquidity
+        result = await self.connector.amm_add_liquidity(
+            pool_address="rAMMPoolAddress123",  # noqa: mock
+            wallet_address="rWalletAddress123",  # noqa: mock
+            base_token_amount=Decimal("10"),
+            quote_token_amount=Decimal("20"),
+            slippage_pct=Decimal("0.01"),
+        )
+
+        # Verify the result is None
+        self.assertIsNone(result)

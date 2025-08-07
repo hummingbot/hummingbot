@@ -271,6 +271,10 @@ class GatewayHttpClient:
     async def get_connectors(self, fail_silently: bool = False) -> Dict[str, Any]:
         return await self.api_request("get", "connectors", fail_silently=fail_silently)
 
+    async def get_pools(self, connector: str) -> Dict[str, Any]:
+        self.logger().info(f"Getting pools for connector: {connector}")
+        return await self.api_request("get", f"config/pools?connector={connector}")
+
     async def get_wallets(self, fail_silently: bool = False) -> List[Dict[str, Any]]:
         return await self.api_request("get", "wallet", fail_silently=fail_silently)
 
@@ -298,11 +302,11 @@ class GatewayHttpClient:
             request_params = {
                 "network": network,
                 "address": address,
-                "tokenSymbols": token_symbols,
+                "tokens": token_symbols,
             }
             return await self.api_request(
                 method="post",
-                path_url=f"{chain}/balances",
+                path_url=f"chains/{chain}/balances",
                 params=request_params,
                 fail_silently=fail_silently,
             )
@@ -315,7 +319,7 @@ class GatewayHttpClient:
             network: str,
             fail_silently: bool = True
     ) -> Dict[str, Any]:
-        return await self.api_request("get", f"{chain}/tokens", {
+        return await self.api_request("get", f"chains/{chain}/tokens", {
             "network": network
         }, fail_silently=fail_silently)
 
@@ -328,7 +332,7 @@ class GatewayHttpClient:
         req_data: Dict[str, str] = {}
         if chain is not None and network is not None:
             req_data["network"] = network
-            return await self.api_request("get", f"{chain}/status", req_data, fail_silently=fail_silently)
+            return await self.api_request("get", f"chains/{chain}/status", req_data, fail_silently=fail_silently)
         return await self.api_request("get", "network/status", req_data, fail_silently=fail_silently)  # Default endpoint when chain is None
 
     async def approve_token(
@@ -355,7 +359,7 @@ class GatewayHttpClient:
             request_payload["maxPriorityFeePerGas"] = str(max_priority_fee_per_gas)
         return await self.api_request(
             "post",
-            "ethereum/approve",
+            "chains/ethereum/approve",
             request_payload
         )
 
@@ -368,10 +372,10 @@ class GatewayHttpClient:
             spender: str,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
-        return await self.api_request("post", "ethereum/allowances", {
+        return await self.api_request("post", "chains/ethereum/allowances", {
             "network": network,
             "address": address,
-            "tokenSymbols": token_symbols,
+            "tokens": token_symbols,
             "spender": spender
         }, fail_silently=fail_silently)
 
@@ -384,9 +388,9 @@ class GatewayHttpClient:
     ) -> Dict[str, Any]:
         request = {
             "network": network,
-            "txHash": transaction_hash
+            "signature": transaction_hash
         }
-        return await self.api_request("post", f"{chain}/poll", request, fail_silently=fail_silently)
+        return await self.api_request("post", f"chains/{chain}/poll", request, fail_silently=fail_silently)
 
     async def wallet_sign(
         self,
@@ -410,7 +414,7 @@ class GatewayHttpClient:
             address: str,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
-        return await self.api_request("post", "ethereum/nextNonce", {
+        return await self.api_request("post", "chains/ethereum/nextNonce", {
             "network": network,
             "address": address
         }, fail_silently=fail_silently)
@@ -422,7 +426,7 @@ class GatewayHttpClient:
             address: str,
             nonce: int
     ) -> Dict[str, Any]:
-        return await self.api_request("post", "ethereum/cancel", {
+        return await self.api_request("post", "chains/ethereum/cancel", {
             "network": network,
             "address": address,
             "nonce": nonce
@@ -459,10 +463,44 @@ class GatewayHttpClient:
 
         return await self.api_request(
             "get",
-            f"{connector}/quote-swap",
+            f"connectors/{connector}/quote-swap",
             request_payload,
             fail_silently=fail_silently
         )
+
+    async def get_price(
+            self,
+            chain: str,
+            network: str,
+            connector: str,
+            base_asset: str,
+            quote_asset: str,
+            amount: Decimal,
+            side: TradeType,
+            fail_silently: bool = False,
+            pool_address: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Wrapper for quote_swap
+        """
+        try:
+            response = await self.quote_swap(
+                network=network,
+                connector=connector,
+                base_asset=base_asset,
+                quote_asset=quote_asset,
+                amount=amount,
+                side=side,
+                pool_address=pool_address
+            )
+            return response
+        except Exception as e:
+            if not fail_silently:
+                raise
+            return {
+                "price": None,
+                "error": str(e)
+            }
 
     async def execute_swap(
         self,
@@ -501,7 +539,7 @@ class GatewayHttpClient:
             request_payload["poolAddress"] = pool_address
         return await self.api_request(
             "post",
-            f"{connector}/execute-swap",
+            f"connectors/{connector}/execute-swap",
             request_payload
         )
 
@@ -511,34 +549,38 @@ class GatewayHttpClient:
             network: str,
             gas_limit: Optional[int] = None,
     ) -> Dict[str, Any]:
-        return await self.api_request("post", f"{chain}/estimate-gas", {
+        return await self.api_request("post", f"chains/{chain}/estimate-gas", {
             "chain": chain,
             "network": network,
             "gasLimit": gas_limit
         })
 
-    async def clmm_pool_info(
+    async def pool_info(
             self,
             connector: str,
             network: str,
-            pool_address: str,
+            pool_address: Optional[str] = None,
+            base_token: Optional[str] = None,
+            quote_token: Optional[str] = None,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
-        Gets information about a concentrated liquidity pool
-        :param connector: The connector/protocol (e.g., "meteora")
-        :param network: The network to use (e.g., "mainnet")
-        :param pool_address: The address of the pool
-        :param fail_silently: Whether to fail silently on error
-        :return: Pool information including price, liquidity, and bin data
+        Gets information about a AMM or CLMM pool
+        Either pool_address or both base_token and quote_token must be provided
         """
         query_params = {
             "network": network,
-            "poolAddress": pool_address,
         }
+        if pool_address is not None:
+            query_params["poolAddress"] = pool_address
+        if base_token is not None:
+            query_params["baseToken"] = base_token
+        if quote_token is not None:
+            query_params["quoteToken"] = quote_token
+
         return await self.api_request(
             "get",
-            f"{connector}/pool-info",
+            f"connectors/{connector}/pool-info",
             params=query_params,
             fail_silently=fail_silently,
         )
@@ -553,12 +595,6 @@ class GatewayHttpClient:
     ) -> Dict[str, Any]:
         """
         Gets information about a concentrated liquidity position
-        :param connector: The connector/protocol (e.g., "meteora")
-        :param network: The network to use (e.g., "mainnet")
-        :param position_address: The address of the position
-        :param wallet_address: The wallet address that owns the position
-        :param fail_silently: Whether to fail silently on error
-        :return: Position information including amounts and price range
         """
         query_params = {
             "network": network,
@@ -567,7 +603,39 @@ class GatewayHttpClient:
         }
         return await self.api_request(
             "get",
-            f"{connector}/position-info",
+            f"connectors/{connector}/position-info",
+            params=query_params,
+            fail_silently=fail_silently,
+        )
+
+    async def amm_position_info(
+            self,
+            connector: str,
+            network: str,
+            wallet_address: str,
+            pool_address: Optional[str] = None,
+            base_token: Optional[str] = None,
+            quote_token: Optional[str] = None,
+            fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Gets information about a AMM liquidity position
+        Either pool_address or both base_token and quote_token must be provided
+        """
+        query_params = {
+            "network": network,
+            "walletAddress": wallet_address,
+        }
+        if pool_address is not None:
+            query_params["poolAddress"] = pool_address
+        if base_token is not None:
+            query_params["baseToken"] = base_token
+        if quote_token is not None:
+            query_params["quoteToken"] = quote_token
+
+        return await self.api_request(
+            "get",
+            f"connectors/{connector}/position-info",
             params=query_params,
             fail_silently=fail_silently,
         )
@@ -577,32 +645,23 @@ class GatewayHttpClient:
             connector: str,
             network: str,
             wallet_address: str,
-            pool_address: str,
             lower_price: float,
             upper_price: float,
             base_token_amount: Optional[float] = None,
             quote_token_amount: Optional[float] = None,
             slippage_pct: Optional[float] = None,
+            pool_address: Optional[str] = None,
+            base_token: Optional[str] = None,
+            quote_token: Optional[str] = None,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
         Opens a new concentrated liquidity position
-        :param connector: The connector/protocol (e.g., "meteora")
-        :param network: The network to use (e.g., "mainnet")
-        :param wallet_address: The wallet address creating the position
-        :param pool_address: The address of the pool
-        :param lower_price: The lower price bound of the position
-        :param upper_price: The upper price bound of the position
-        :param base_token_amount: The amount of base token to add (optional)
-        :param quote_token_amount: The amount of quote token to add (optional)
-        :param slippage_pct: Allowed slippage percentage (optional)
-        :param fail_silently: Whether to fail silently on error
-        :return: Details of the opened position
+        Either pool_address or both base_token and quote_token must be provided
         """
         request_payload = {
             "network": network,
             "walletAddress": wallet_address,
-            "poolAddress": pool_address,
             "lowerPrice": lower_price,
             "upperPrice": upper_price,
         }
@@ -612,10 +671,16 @@ class GatewayHttpClient:
             request_payload["quoteTokenAmount"] = quote_token_amount
         if slippage_pct is not None:
             request_payload["slippagePct"] = slippage_pct
+        if pool_address is not None:
+            request_payload["poolAddress"] = pool_address
+        if base_token is not None:
+            request_payload["baseToken"] = base_token
+        if quote_token is not None:
+            request_payload["quoteToken"] = quote_token
 
         return await self.api_request(
             "post",
-            f"{connector}/open-position",
+            f"connectors/{connector}/open-position",
             request_payload,
             fail_silently=fail_silently,
         )
@@ -630,12 +695,6 @@ class GatewayHttpClient:
     ) -> Dict[str, Any]:
         """
         Closes an existing concentrated liquidity position
-        :param connector: The connector/protocol (e.g., "meteora")
-        :param network: The network to use (e.g., "mainnet")
-        :param wallet_address: The wallet address that owns the position
-        :param position_address: The address of the position to close
-        :param fail_silently: Whether to fail silently on error
-        :return: Details of the closed position including refunded amounts
         """
         request_payload = {
             "network": network,
@@ -644,51 +703,80 @@ class GatewayHttpClient:
         }
         return await self.api_request(
             "post",
-            f"{connector}/close-position",
+            f"connectors/{connector}/close-position",
             request_payload,
             fail_silently=fail_silently,
         )
 
-    async def get_price(
+    async def amm_add_liquidity(
             self,
-            chain: str,
-            network: str,
             connector: str,
-            base_asset: str,
-            quote_asset: str,
-            amount: Decimal,
-            side: TradeType,
-            fail_silently: bool = False,
-            pool_address: Optional[str] = None
+            network: str,
+            wallet_address: str,
+            base_token_amount: float,
+            quote_token_amount: float,
+            slippage_pct: Optional[float] = None,
+            pool_address: Optional[str] = None,
+            base_token: Optional[str] = None,
+            quote_token: Optional[str] = None,
+            fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
-        Fetches price for a given trading pair using quote_swap
-        :param chain: Not used since connectors are wedded to specific chain architectures in Gateway 2.5+
-        :param network: The network where the trading occurs (e.g., "mainnet", "testnet")
-        :param connector: The connector/protocol to use (e.g., "uniswap", "jupiter")
-        :param base_asset: The base token symbol
-        :param quote_asset: The quote token symbol
-        :param amount: The amount of token to swap
-        :param side: Trade side (BUY/SELL)
-        :param fail_silently: If True, no exception will be raised on error
-        :param pool_address: Optional pool identifier for specific pools
-        :return: Dictionary containing price information
+        Add liquidity to an AMM liquidity position
+        Either pool_address or both base_token and quote_token must be provided
         """
-        try:
-            response = await self.quote_swap(
-                network=network,
-                connector=connector,
-                base_asset=base_asset,
-                quote_asset=quote_asset,
-                amount=amount,
-                side=side,
-                pool_address=pool_address
-            )
-            return response
-        except Exception as e:
-            if not fail_silently:
-                raise
-            return {
-                "price": None,
-                "error": str(e)
-            }
+        request_payload = {
+            "network": network,
+            "walletAddress": wallet_address,
+            "baseTokenAmount": base_token_amount,
+            "quoteTokenAmount": quote_token_amount,
+        }
+        if slippage_pct is not None:
+            request_payload["slippagePct"] = slippage_pct
+        if pool_address is not None:
+            request_payload["poolAddress"] = pool_address
+        if base_token is not None:
+            request_payload["baseToken"] = base_token
+        if quote_token is not None:
+            request_payload["quoteToken"] = quote_token
+
+        return await self.api_request(
+            "post",
+            f"connectors/{connector}/add-liquidity",
+            request_payload,
+            fail_silently=fail_silently,
+        )
+
+    async def amm_remove_liquidity(
+            self,
+            connector: str,
+            network: str,
+            wallet_address: str,
+            percentage: float,
+            pool_address: Optional[str] = None,
+            base_token: Optional[str] = None,
+            quote_token: Optional[str] = None,
+            fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Closes an existing AMM liquidity position
+        Either pool_address or both base_token and quote_token must be provided
+        """
+        request_payload = {
+            "network": network,
+            "walletAddress": wallet_address,
+            "percentageToRemove": percentage,
+        }
+        if pool_address is not None:
+            request_payload["poolAddress"] = pool_address
+        if base_token is not None:
+            request_payload["baseToken"] = base_token
+        if quote_token is not None:
+            request_payload["quoteToken"] = quote_token
+
+        return await self.api_request(
+            "post",
+            f"connectors/{connector}/remove-liquidity",
+            request_payload,
+            fail_silently=fail_silently,
+        )

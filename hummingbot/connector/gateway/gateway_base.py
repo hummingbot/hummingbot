@@ -13,9 +13,9 @@ from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
+from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeFeeBase, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.data_type.trade_fee import TokenAmount
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
@@ -31,7 +31,7 @@ s_decimal_0 = Decimal("0")
 
 class GatewayBase(ConnectorBase):
     """
-    Defines basic functions common to all Gateway AMM connectors
+    Defines basic functions common to all Gateway connectors
     """
 
     API_CALL_TIMEOUT = 10.0
@@ -135,6 +135,13 @@ class GatewayBase(ConnectorBase):
     def address(self):
         return self._wallet_address
 
+    @property
+    def trading_pairs(self):
+        """
+        Returns the list of trading pairs supported by this connector.
+        """
+        return self._trading_pairs
+
     async def all_trading_pairs(self) -> List[str]:
         """
         Calls the tokens endpoint on Gateway.
@@ -197,8 +204,6 @@ class GatewayBase(ConnectorBase):
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._get_gas_estimate_task = safe_ensure_future(self.get_gas_estimate())
-            if self.chain == "ethereum":
-                self._get_allowances_task = safe_ensure_future(self.update_allowances())
         self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
 
     async def stop_network(self):
@@ -404,6 +409,28 @@ class GatewayBase(ConnectorBase):
         """
         self._order_tracker.stop_tracking_order(client_order_id=order_id)
 
+    def _handle_operation_failure(self, order_id: str, trading_pair: str, operation_name: str, error: Exception):
+        """
+        Helper method to handle operation failures consistently across different methods.
+        Logs the error and updates the order state to FAILED.
+
+        :param order_id: The ID of the order that failed
+        :param trading_pair: The trading pair for the order
+        :param operation_name: A description of the operation that failed
+        :param error: The exception that occurred
+        """
+        self.logger().error(
+            f"Error {operation_name} for {trading_pair} on {self.connector_name}: {str(error)}",
+            exc_info=True
+        )
+        order_update: OrderUpdate = OrderUpdate(
+            client_order_id=order_id,
+            trading_pair=trading_pair,
+            update_timestamp=self.current_timestamp,
+            new_state=OrderState.FAILED
+        )
+        self._order_tracker.process_order_update(order_update)
+
     async def update_order_status(self, tracked_orders: List[GatewayInFlightOrder]):
         """
         Calls REST API to get status update for each in-flight AMM orders.
@@ -435,8 +462,8 @@ class GatewayBase(ConnectorBase):
                 self.logger().error(f"An error occurred fetching transaction status of {tracked_order.client_order_id}")
                 continue
 
-            if "txHash" not in tx_details:
-                self.logger().error(f"No txHash field for transaction status of {tracked_order.client_order_id}: "
+            if "signature" not in tx_details:
+                self.logger().error(f"No signature field for transaction status of {tracked_order.client_order_id}: "
                                     f"{tx_details}.")
                 continue
 
@@ -450,7 +477,7 @@ class GatewayBase(ConnectorBase):
                 # Calculate fee using chain-specific method
                 fee = self._calculate_transaction_fee(tracked_order, tx_receipt)
 
-                self.process_trade_fill_update(tracked_order=tracked_order, fee=fee)
+                self.process_transaction_confirmation_update(tracked_order=tracked_order, fee=fee)
 
                 order_update: OrderUpdate = OrderUpdate(
                     client_order_id=tracked_order.client_order_id,
@@ -471,6 +498,46 @@ class GatewayBase(ConnectorBase):
                     app_warning_msg=f"Failed to fetch transaction status for the order {tracked_order.client_order_id}."
                 )
                 await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
+
+    def process_transaction_confirmation_update(self, tracked_order: GatewayInFlightOrder, fee: Decimal):
+        trade_fee: TradeFeeBase = AddedToCostTradeFee(
+            flat_fees=[TokenAmount(tracked_order.fee_asset, fee)]
+        )
+
+        trade_update: TradeUpdate = TradeUpdate(
+            trade_id=tracked_order.exchange_order_id,
+            client_order_id=tracked_order.client_order_id,
+            exchange_order_id=tracked_order.exchange_order_id,
+            trading_pair=tracked_order.trading_pair,
+            fill_timestamp=self.current_timestamp,
+            fill_price=tracked_order.price,
+            fill_base_amount=tracked_order.amount,
+            fill_quote_amount=tracked_order.amount * tracked_order.price,
+            fee=trade_fee
+        )
+
+        self._order_tracker.process_trade_update(trade_update)
+
+    def update_order_from_hash(self, order_id: str, trading_pair: str, transaction_hash: str, transaction_result: dict):
+        """
+        Helper to create and process an OrderUpdate from a transaction hash and result dict.
+        """
+        order_update = OrderUpdate(
+            client_order_id=order_id,
+            exchange_order_id=transaction_hash,
+            trading_pair=trading_pair,
+            update_timestamp=self.current_timestamp,
+            new_state=OrderState.OPEN,
+            misc_updates={
+                "nonce": transaction_result.get("nonce", 0),
+                "gas_price": Decimal(transaction_result.get("gasPrice", 0)),
+                "gas_limit": int(transaction_result.get("gasLimit", 0)),
+                "gas_cost": Decimal(transaction_result.get("fee", 0)),
+                "gas_price_token": self._native_currency,
+                "fee_asset": self._native_currency
+            }
+        )
+        self._order_tracker.process_order_update(order_update)
 
     def _get_transaction_receipt_from_details(self, tx_details: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         if self.chain == "ethereum":

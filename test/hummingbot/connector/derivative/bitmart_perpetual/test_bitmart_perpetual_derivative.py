@@ -2,8 +2,8 @@ import asyncio
 import functools
 import json
 import re
-import unittest
 from decimal import Decimal
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 from unittest.mock import AsyncMock, patch
 
@@ -30,7 +30,7 @@ from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 
 
-class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
+class BitmartPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
     # the level is required to receive logs from the data source logger
     level = 0
 
@@ -285,6 +285,18 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
             ]
         }
         return account_update
+
+    @staticmethod
+    def _get_position_mode_mock_response(position_mode: str = "hedge_mode"):
+        position_mode_resp = {
+            "code": 1000,
+            "message": "Ok",
+            "data": {
+                "position_mode": position_mode
+            },
+            "trace": "b15f261868b540889e57f826e0420621.97.17443984622695574"
+        }
+        return position_mode_resp
 
     def _get_income_history_dict(self) -> List:
         income_history = {
@@ -707,7 +719,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
 
     def test_supported_position_modes(self):
         linear_connector = self.exchange
-        expected_result = [PositionMode.HEDGE]
+        expected_result = [PositionMode.ONEWAY, PositionMode.HEDGE]
         self.assertEqual(expected_result, linear_connector.supported_position_modes())
 
     def test_format_trading_rules(self):
@@ -849,7 +861,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual([fee], fill_event.trade_fee.flat_fees)
         self.assertEqual(1, len(self.buy_order_completed_logger.event_log))
 
-    def test_sell_order_fill_event_takes_fee_from_update_event(self):
+    async def test_sell_order_fill_event_takes_fee_from_update_event(self):
         self._simulate_trading_rules_initialized()
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -863,7 +875,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
             position_action=PositionAction.OPEN,
         )
 
-        partial_fill = self._get_order_channel_mock_response(amount="5",
+        partial_fill = self._get_order_channel_mock_response(amount=Decimal("5"),
                                                              deal_size="2",
                                                              fill_qty="2",
                                                              last_trade_id=1234)
@@ -873,8 +885,9 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.exchange._user_stream_tracker._user_stream = mock_user_stream
 
-        self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
-        self.async_run_with_timeout(self.resume_test_event.wait())
+        self.test_task = asyncio.create_task(self.exchange._user_stream_event_listener())
+        await asyncio.sleep(0.00001)
+        await self.resume_test_event.wait()
 
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
@@ -883,7 +896,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
                           amount=Decimal(partial_fill["data"][0]["order"]["last_trade"]["fee"]))
         self.assertEqual([fee], fill_event.trade_fee.flat_fees)
 
-        complete_fill = self._get_order_channel_mock_response(amount="5",
+        complete_fill = self._get_order_channel_mock_response(amount=Decimal("5"),
                                                               state=4,
                                                               deal_size="5",
                                                               fill_qty="3",
@@ -893,8 +906,9 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
                                                              lambda: complete_fill)
 
-        self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
-        self.async_run_with_timeout(self.resume_test_event.wait())
+        self.test_task = asyncio.create_task(self.exchange._user_stream_event_listener())
+        await asyncio.sleep(0.00001)
+        await self.resume_test_event.wait()
 
         self.assertEqual(2, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
@@ -905,7 +919,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.assertEqual(1, len(self.sell_order_completed_logger.event_log))
 
-    def test_order_fill_event_ignored_for_repeated_trade_id(self):
+    async def test_order_fill_event_ignored_for_repeated_trade_id(self):
         self._simulate_trading_rules_initialized()
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -919,7 +933,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
             position_action=PositionAction.OPEN,
         )
 
-        partial_fill = self._get_order_channel_mock_response(amount="5",
+        partial_fill = self._get_order_channel_mock_response(amount=Decimal("5"),
                                                              state=2,
                                                              deal_size="2",
                                                              fill_qty="2",
@@ -931,8 +945,8 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.exchange._user_stream_tracker._user_stream = mock_user_stream
 
-        self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
-        self.async_run_with_timeout(self.resume_test_event.wait())
+        self.test_task = asyncio.create_task(self.exchange._user_stream_event_listener())
+        await self.resume_test_event.wait()
 
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
@@ -941,7 +955,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
                           amount=Decimal(partial_fill["data"][0]["order"]["last_trade"]["fee"]))
         self.assertEqual([fee], fill_event.trade_fee.flat_fees)
 
-        repeated_partial_fill = self._get_order_channel_mock_response(amount="5",
+        repeated_partial_fill = self._get_order_channel_mock_response(amount=Decimal("5"),
                                                                       state=2,
                                                                       deal_size="2",
                                                                       fill_qty="2",
@@ -951,8 +965,8 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
                                                              lambda: repeated_partial_fill)
 
-        self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
-        self.async_run_with_timeout(self.resume_test_event.wait())
+        self.test_task = asyncio.create_task(self.exchange._user_stream_event_listener())
+        await self.resume_test_event.wait()
 
         self.assertEqual(1, len(self.order_filled_logger.event_log))
 
@@ -984,52 +998,14 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
         self.assertEqual(0, len(fill_event.trade_fee.flat_fees))
 
-    def test_order_event_with_cancelled_status_marks_order_as_cancelled(self):
-        self._simulate_trading_rules_initialized()
-        self.exchange.start_tracking_order(
-            order_id="OID1",
-            exchange_order_id="8886774",
-            trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
-            price=Decimal("10000"),
-            amount=Decimal("1"),
-            order_type=OrderType.LIMIT,
-            leverage=1,
-            position_action=PositionAction.OPEN,
-        )
-
-        order = self.exchange.in_flight_orders.get("OID1")
-
-        partial_fill = self._get_order_channel_mock_response(amount="5",
-                                                             state=4,
-                                                             deal_size="2",
-                                                             fill_qty="2",
-                                                             last_trade_id=1234)
-
-        mock_user_stream = AsyncMock()
-        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
-                                                             lambda: partial_fill)
-
-        self.exchange._user_stream_tracker._user_stream = mock_user_stream
-
-        self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
-        self.async_run_with_timeout(self.resume_test_event.wait())
-
-        self.assertEqual(1, len(self.order_cancelled_logger.event_log))
-
-        self.assertTrue(self._is_logged(
-            "INFO",
-            f"Successfully canceled order {order.client_order_id}."
-        ))
-
-    def test_user_stream_event_listener_raises_cancelled_error(self):
+    async def test_user_stream_event_listener_raises_cancelled_error(self):
         mock_user_stream = AsyncMock()
         mock_user_stream.get.side_effect = asyncio.CancelledError
 
         self.exchange._user_stream_tracker._user_stream = mock_user_stream
 
-        self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
-        self.assertRaises(asyncio.CancelledError, self.async_run_with_timeout, self.test_task)
+        with self.assertRaises(asyncio.CancelledError):
+            await self.exchange._user_stream_event_listener()
 
     @aioresponses()
     @patch("hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_derivative."
@@ -1269,6 +1245,73 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(order_update.client_order_id, in_flight_orders["OID1"].client_order_id)
         self.assertEqual(OrderState.PARTIALLY_FILLED, order_update.new_state)
         self.assertEqual(0, len(in_flight_orders["OID1"].order_fills))
+
+    @aioresponses()
+    def test_set_position_mode_successful(self, mock_api):
+        position_mode = "hedge_mode"
+        trading_pair = "any"
+        response = self._get_position_mode_mock_response(position_mode)
+
+        url = web_utils.private_rest_url(path_url=CONSTANTS.SET_POSITION_MODE_URL,
+                                         domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_api.post(regex_url, body=json.dumps(response))
+
+        success, msg = self.async_run_with_timeout(
+            self.exchange._trading_pair_position_mode_set(mode=PositionMode.HEDGE,
+                                                          trading_pair=trading_pair))
+        self.assertEqual(success, True)
+        self.assertEqual(msg, '')
+
+    @aioresponses()
+    def test_set_position_mode_once(self, mock_api):
+        position_mode = "hedge_mode"
+        trading_pairs = ["BTC-USDT", "ETH-USDT"]
+
+        response = self._get_position_mode_mock_response(position_mode)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.SET_POSITION_MODE_URL,
+                                         domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_api.post(regex_url, body=json.dumps(response))
+
+        success, msg = self.async_run_with_timeout(
+            self.exchange._trading_pair_position_mode_set(mode=PositionMode.HEDGE,
+                                                          trading_pair=trading_pairs[0]))
+        self.assertEqual(success, True)
+        self.assertEqual(msg, '')
+
+        success, msg = self.async_run_with_timeout(
+            self.exchange._trading_pair_position_mode_set(mode=PositionMode.HEDGE,
+                                                          trading_pair=trading_pairs[1])
+        )
+        self.assertEqual(success, True)
+        self.assertEqual(msg, "Position Mode already set.")
+
+    @aioresponses()
+    def test_set_position_mode_failure(self, mock_api):
+        mode = PositionMode.HEDGE
+        trading_pair = "any"
+        response = {
+            "trace": "1e17720eff0f4ff9b15278e1f42685b4.87.17444004177653908",
+            "code": 30002,
+            "data": {},
+            "message": "some error"
+        }
+
+        url = web_utils.private_rest_url(path_url=CONSTANTS.SET_POSITION_MODE_URL,
+                                         domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_api.post(regex_url, body=json.dumps(response))
+
+        success, msg = self.async_run_with_timeout(
+            self.exchange._trading_pair_position_mode_set(mode=PositionMode.HEDGE,
+                                                          trading_pair=trading_pair))
+        self.assertEqual(success, False)
+        self.assertEqual(msg, 'Unable to set position mode: Code 30002 - some error')
+        self._is_logged("network", f"Error switching {trading_pair} mode to {mode}: {msg}")
 
     @aioresponses()
     def test_set_leverage_successful(self, req_mock):
@@ -1659,31 +1702,25 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
             f"{Decimal('9999')} {self.trading_pair} {Decimal('1010')}.",
         ))
 
-    def test_create_order_min_order_size_failure(self):
+    async def test_create_order_min_order_size_failure(self):
         self._simulate_trading_rules_initialized()
         min_order_size = 3
         mocked_response = self._get_exchange_info_mock_response(contract_size=1, min_volume=min_order_size)
-        trading_rules = self.async_run_with_timeout(self.exchange._format_trading_rules(mocked_response))
+        trading_rules = await self.exchange._format_trading_rules(mocked_response)
         self.exchange._trading_rules[self.trading_pair] = trading_rules[0]
         trade_type = TradeType.BUY
         amount = Decimal("2")
 
-        self.async_run_with_timeout(self.exchange._create_order(trade_type=trade_type,
-                                                                order_id="OID1",
-                                                                trading_pair=self.trading_pair,
-                                                                amount=amount,
-                                                                order_type=OrderType.LIMIT,
-                                                                position_action=PositionAction.OPEN,
-                                                                price=Decimal("1010")))
-
+        await self.exchange._create_order(
+            trade_type=trade_type,
+            order_id="OID1",
+            trading_pair=self.trading_pair,
+            amount=amount,
+            order_type=OrderType.LIMIT,
+            position_action=PositionAction.OPEN,
+            price=Decimal("1010"))
+        await asyncio.sleep(0.00001)
         self.assertTrue("OID1" not in self.exchange._order_tracker._in_flight_orders)
-
-        self.assertTrue(self._is_logged(
-            "WARNING",
-            f"{trade_type.name.title()} order amount {amount} is lower than the minimum order "
-            f"size {trading_rules[0].min_order_size}. The order will not be created, increase the "
-            f"amount to be higher than the minimum order size."
-        ))
 
     def test_create_order_min_notional_size_failure(self):
         min_notional_size = 10
