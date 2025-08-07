@@ -323,9 +323,11 @@ class ConnectorManagerTest(IsolatedAsyncioWrapperTestCase):
         # Connector should not be added
         self.assertNotIn("binance", self.connector_manager.connectors)
 
-    def test_is_gateway_market(self):
+    @patch("hummingbot.core.connector_manager.AllConnectorSettings")
+    def test_is_gateway_market(self, mock_settings):
         """Test is_gateway_market static method"""
         # Test with gateway market
+        mock_settings.get_gateway_amm_connector_names.return_value = {"jupiter_solana_mainnet-beta"}
         self.assertTrue(ConnectorManager.is_gateway_market("jupiter_solana_mainnet-beta"))
 
         # Test with non-gateway market
