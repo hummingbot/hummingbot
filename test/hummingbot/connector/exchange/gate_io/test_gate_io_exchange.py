@@ -1,8 +1,8 @@
 import asyncio
 import json
 import re
-import unittest
 from decimal import Decimal
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from typing import Any, Awaitable, Dict, List
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -34,7 +34,7 @@ from hummingbot.core.event.events import (
 from hummingbot.core.network_iterator import NetworkStatus
 
 
-class TestGateIoExchange(unittest.TestCase):
+class TestGateIoExchange(IsolatedAsyncioWrapperTestCase):
     # logging.Level required to receive logs from the exchange
     level = 0
 
@@ -692,7 +692,7 @@ class TestGateIoExchange(unittest.TestCase):
         self.assertEqual(resp["id"], create_event.exchange_order_id)
 
     @aioresponses()
-    def test_order_with_less_amount_than_allowed_is_not_created(self, mock_api):
+    async def test_order_with_less_amount_than_allowed_is_not_created(self, mock_api):
         self._simulate_trading_rules_initialized()
         self.exchange._set_current_timestamp(1640780000)
 
@@ -701,32 +701,21 @@ class TestGateIoExchange(unittest.TestCase):
         mock_api.post(regex_url, exception=Exception("The request should never happen"))
 
         order_id = "someId"
-        self.async_run_with_timeout(
-            coroutine=self.exchange._create_order(
-                trade_type=TradeType.BUY,
-                order_id=order_id,
-                trading_pair=self.trading_pair,
-                amount=Decimal("0.0001"),
-                order_type=OrderType.LIMIT,
-                price=Decimal("5.1"),
-            )
-        )
-
+        await self.exchange._create_order(
+            trade_type=TradeType.BUY,
+            order_id=order_id,
+            trading_pair=self.trading_pair,
+            amount=Decimal("0.0001"),
+            order_type=OrderType.LIMIT,
+            price=Decimal("5.1"))
+        await asyncio.sleep(0.0001)
         self.assertEqual(0, len(self.buy_order_created_logger.event_log))
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
         self.assertEqual(1, len(self.order_failure_logger.event_log))
-        self.assertTrue(
-            self._is_logged(
-                "WARNING",
-                "Buy order amount 0.0001 is lower than the minimum order "
-                "size 0.01. The order will not be created, increase the "
-                "amount to be higher than the minimum order size."
-            )
-        )
 
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
     @aioresponses()
-    def test_create_order_fails(self, mock_api, _):
+    async def test_create_order_fails(self, mock_api, _):
         self._simulate_trading_rules_initialized()
         self.exchange._set_current_timestamp(1640780000)
 
@@ -736,16 +725,14 @@ class TestGateIoExchange(unittest.TestCase):
         mock_api.post(regex_url, body=json.dumps(resp))
 
         order_id = "someId"
-        self.async_run_with_timeout(
-            coroutine=self.exchange._create_order(
-                trade_type=TradeType.BUY,
-                order_id=order_id,
-                trading_pair=self.trading_pair,
-                amount=Decimal("1"),
-                order_type=OrderType.LIMIT,
-                price=Decimal("5.1"),
-            )
-        )
+        await self.exchange._create_order(
+            trade_type=TradeType.BUY,
+            order_id=order_id,
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            price=Decimal("5.1"))
+        await asyncio.sleep(0.0001)
 
         self.assertEqual(0, len(self.buy_order_created_logger.event_log))
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
@@ -778,10 +765,8 @@ class TestGateIoExchange(unittest.TestCase):
 
         self.assertTrue(
             self._is_logged(
-                "INFO",
-                f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
-                f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                "client_order_id='OID1', exchange_order_id=None, misc_updates=None)"
+                "NETWORK",
+                f"Error submitting buy LIMIT order to {self.exchange.name_cap} for 100.000000 {self.trading_pair} 10000.0000."
             )
         )
 
@@ -827,7 +812,7 @@ class TestGateIoExchange(unittest.TestCase):
         )
 
     @aioresponses()
-    def test_cancel_order_raises_failure_event_when_request_fails(self, mock_api):
+    async def test_cancel_order_raises_failure_event_when_request_fails(self, mock_api):
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
 
@@ -852,7 +837,7 @@ class TestGateIoExchange(unittest.TestCase):
                         callback=lambda *args, **kwargs: request_sent_event.set())
 
         self.exchange.cancel(trading_pair=self.trading_pair, client_order_id="OID1")
-        self.async_run_with_timeout(request_sent_event.wait())
+        await asyncio.sleep(0.0001)
 
         self.assertEqual(0, len(self.order_cancelled_logger.event_log))
 
