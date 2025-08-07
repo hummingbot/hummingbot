@@ -20,7 +20,7 @@ class GridConfig(BaseModel):
     end_price: Decimal = Field(json_schema_extra={"is_updatable": True})
     limit_price: Decimal = Field(json_schema_extra={"is_updatable": True})
     side: TradeType = Field(json_schema_extra={"is_updatable": True})
-    amount_quote: Decimal = Field(json_schema_extra={"is_updatable": True})
+    amount_quote_pct: Decimal = Field(json_schema_extra={"is_updatable": True})  # Percentage of total amount (0.0 to 1.0)
     enabled: bool = Field(default=True, json_schema_extra={"is_updatable": True})
 
 
@@ -39,6 +39,9 @@ class MultiGridStrikeConfig(ControllerConfigBase):
     # Common configuration
     connector_name: str = "binance_perpetual"
     trading_pair: str = "WLD-USDT"
+
+    # Total capital allocation
+    total_amount_quote: Decimal = Field(default=Decimal("1000"), json_schema_extra={"is_updatable": True})
 
     # Grid configurations
     grids: List[GridConfig] = Field(default_factory=list, json_schema_extra={"is_updatable": True})
@@ -81,7 +84,7 @@ class MultiGridStrike(ControllerBase):
     def _get_config_hash(self) -> str:
         """Generate a hash of the current grid configurations"""
         return str(hash(tuple(
-            (g.grid_id, g.start_price, g.end_price, g.limit_price, g.side, g.amount_quote, g.enabled)
+            (g.grid_id, g.start_price, g.end_price, g.limit_price, g.side, g.amount_quote_pct, g.enabled)
             for g in self.config.grids
         )))
 
@@ -107,6 +110,10 @@ class MultiGridStrike(ControllerBase):
                 if executor.id == executor_id:
                     return executor
         return None
+
+    def calculate_grid_amount(self, grid: GridConfig) -> Decimal:
+        """Calculate the actual amount for a grid based on its percentage allocation"""
+        return self.config.total_amount_quote * grid.amount_quote_pct
 
     def is_inside_bounds(self, price: Decimal, grid: GridConfig) -> bool:
         """Check if price is within grid bounds"""
@@ -150,7 +157,7 @@ class MultiGridStrike(ControllerBase):
                         leverage=self.config.leverage,
                         limit_price=grid.limit_price,
                         side=grid.side,
-                        total_amount_quote=grid.amount_quote,
+                        total_amount_quote=self.calculate_grid_amount(grid),
                         min_spread_between_orders=self.config.min_spread_between_orders,
                         min_order_amount_quote=self.config.min_order_amount_quote,
                         max_open_orders=self.config.max_open_orders,
@@ -218,7 +225,9 @@ class MultiGridStrike(ControllerBase):
             status.append(status_line)
 
             # Grid configuration
-            config_line = f"│ Start: {grid.start_price:.4f} │ End: {grid.end_price:.4f} │ Side: {grid.side} │ Limit: {grid.limit_price:.4f} │ Amount: {grid.amount_quote:.2f} │"
+            grid_amount = self.calculate_grid_amount(grid)
+            pct_display = f"{grid.amount_quote_pct * 100:.1f}%"
+            config_line = f"│ Start: {grid.start_price:.4f} │ End: {grid.end_price:.4f} │ Side: {grid.side} │ Limit: {grid.limit_price:.4f} │ Amount: {grid_amount:.2f} ({pct_display}) │"
             config_line += " " * (box_width - len(config_line) + 1) + "│"
             status.append(config_line)
 
