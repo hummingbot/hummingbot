@@ -46,25 +46,27 @@ class GatewayCommand(GatewayChainApiManager):
 
     def gateway(self):
         """Show gateway help when no subcommand is provided."""
-        self.notify("\nGateway Commands:")
-        self.notify("  gateway allowance <connector> [tokens]                    - Check token allowances")
-        self.notify("  gateway approve <connector> <tokens>                      - Approve tokens for spending")
-        self.notify("  gateway balance [chain] [tokens]                          - Check token balances")
-        self.notify("  gateway config [namespace]                                - Show configuration")
-        self.notify("  gateway config <namespace> update                         - Update configuration (interactive)")
-        self.notify("  gateway config <namespace> update <path> <value>          - Update configuration (direct)")
-        self.notify("  gateway connect <chain>                                   - View and add wallets for a chain")
-        self.notify("  gateway generate-certs                                    - Generate SSL certificates")
-        self.notify("  gateway list                                              - List available connectors")
-        self.notify("  gateway lp <connector> <action>                           - Manage liquidity positions")
-        self.notify("  gateway ping [chain]                                      - Test node and chain/network status")
-        self.notify("  gateway pool <connector> <pair>                           - View pool information")
-        self.notify("  gateway pool <connector> <pair> update                    - Add/update pool information (interactive)")
-        self.notify("  gateway pool <connector> <pair> update <address>          - Add/update pool information (direct)")
-        self.notify("  gateway swap <connector> [pair] [side] [amount]           - Swap tokens")
-        self.notify("  gateway token <symbol_or_address>                         - View token information")
-        self.notify("  gateway token <symbol> update                             - Update token information")
-        self.notify("\nUse 'gateway <command> --help' for more information about a command.")
+        self.notify("""
+Gateway Commands:
+  gateway allowance <connector> [tokens]                    - Check token allowances
+  gateway approve <connector> <tokens>                      - Approve tokens for spending
+  gateway balance [chain] [tokens]                          - Check token balances
+  gateway config [namespace]                                - Show configuration
+  gateway config <namespace> update                         - Update configuration (interactive)
+  gateway config <namespace> update <path> <value>          - Update configuration (direct)
+  gateway connect <chain>                                   - View and add wallets for a chain
+  gateway generate-certs                                    - Generate SSL certificates
+  gateway list                                              - List available connectors
+  gateway lp <connector> <action>                           - Manage liquidity positions
+  gateway ping [chain]                                      - Test node and chain/network status
+  gateway pool <connector> <pair>                           - View pool information
+  gateway pool <connector> <pair> update                    - Add/update pool information (interactive)
+  gateway pool <connector> <pair> update <address>          - Add/update pool information (direct)
+  gateway swap <connector> [pair] [side] [amount]           - Swap tokens
+  gateway token <symbol_or_address>                         - View token information
+  gateway token <symbol> update                             - Update token information
+
+Use 'gateway <command> --help' for more information about a command.""")
 
     @ensure_gateway_online
     def gateway_status(self):
