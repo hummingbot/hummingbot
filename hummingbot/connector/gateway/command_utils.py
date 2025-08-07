@@ -262,13 +262,11 @@ class GatewayCommandUtils:
 
             # Check if transaction is complete (success, failed, or cancelled)
             if order and order.is_done:
-                # Give a longer delay to ensure order state is fully updated
-                await asyncio.sleep(2.0)
-
                 # Re-fetch the order to get the latest state
                 order = connector.get_order(order_id)
 
                 # Special case: if is_done but state is PENDING_CREATE, treat as success
+                # This occurs when the transaction is confirmed immediately after submission
                 is_pending_create = (
                     order and
                     hasattr(order, 'current_state') and
