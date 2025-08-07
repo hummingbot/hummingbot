@@ -99,6 +99,7 @@ class GatewayBase(ConnectorBase):
         self._network_transaction_fee = None
         self._poll_notifier = None
         self._native_currency = None
+        self._native_currency_decimals = None
         self._order_tracker: ClientOrderTracker = ClientOrderTracker(connector=self, lost_order_count_limit=10)
         self._amount_quantum_dict = {}
         self._token_data = {}  # Store complete token information
@@ -310,6 +311,14 @@ class GatewayBase(ConnectorBase):
             # Set native currency from chain info
             if self._chain_info and "nativeCurrency" in self._chain_info:
                 self._native_currency = self._chain_info["nativeCurrency"]
+                tokens_info = await self._get_gateway_instance().get_tokens(
+                    chain=self.chain, network=self.network
+                )
+                native_token_info = next(
+                    t for t in tokens_info["tokens"]
+                    if t["symbol"] == self._native_currency
+                )
+                self._native_currency_decimals = native_token_info["decimals"]
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -517,9 +526,13 @@ class GatewayBase(ConnectorBase):
         if len(tracked_orders) < 1:
             return
 
-        tx_hash_list: List[str] = await safe_gather(
-            *[tracked_order.get_exchange_order_id() for tracked_order in tracked_orders]
-        )
+        tx_hash_list: List[str] = [
+            tx_hash for tx_hash in await safe_gather(
+                *[tracked_order.get_exchange_order_id() for tracked_order in tracked_orders],
+                return_exceptions=True
+            )
+            if not isinstance(tx_hash, Exception)
+        ]
 
         self.logger().info(
             "Polling for order status updates of %d orders. Transaction hashes: %s",
@@ -558,6 +571,9 @@ class GatewayBase(ConnectorBase):
                     trading_pair=tracked_order.trading_pair,
                     update_timestamp=self.current_timestamp,
                     new_state=OrderState.FILLED,
+                    misc_updates={
+                        "fee_asset": self._native_currency,
+                    }
                 )
                 self._order_tracker.process_order_update(order_update)
 
@@ -574,10 +590,7 @@ class GatewayBase(ConnectorBase):
                 await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
 
     def process_transaction_confirmation_update(self, tracked_order: GatewayInFlightOrder, fee: Decimal):
-        # Use base token from trading pair if fee_asset is None
-        base_token = tracked_order.trading_pair.split("-")[0]
-        fee_asset = tracked_order.fee_asset if tracked_order.fee_asset else base_token
-
+        fee_asset = tracked_order.fee_asset if tracked_order.fee_asset else self._native_currency
         trade_fee: TradeFeeBase = AddedToCostTradeFee(
             flat_fees=[TokenAmount(fee_asset, fee)]
         )
