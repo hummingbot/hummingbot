@@ -81,6 +81,13 @@ class GroupedSetDict(dict[_KT, Set[_VT]]):
             self[key] = set(args)
         return self
 
+    def remove(self, key: _KT, value: _VT) -> "GroupedSetDict":
+        if key in self:
+            self[key].discard(value)
+            if not self[key]:  # If set becomes empty, remove the key
+                del self[key]
+        return self
+
     @classmethod
     def __get_pydantic_core_schema__(
         cls,
