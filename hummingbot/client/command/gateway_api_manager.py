@@ -73,7 +73,7 @@ class GatewayChainApiManager:
                         continue
                     return node_url
                 except Exception:
-                    self.notify(f"Error occured when trying to ping the node URL: {node_url}.")
+                    self.notify(f"Error occurred when trying to ping the node URL: {node_url}.")
 
     async def _test_node_url_from_gateway_config(self, chain: str, network: str, attempt_connection: bool = True) -> bool:
         """
