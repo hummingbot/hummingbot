@@ -59,8 +59,6 @@ async def start_trade_monitor(trade_monitor):
     from hummingbot.client.hummingbot_application import HummingbotApplication
     hb = HummingbotApplication.main_application()
     trade_monitor.log("Trades: 0, Total P&L: 0.00, Return %: 0.00%")
-    return_pcts = []
-    pnls = []
 
     while True:
         try:
@@ -72,6 +70,8 @@ async def start_trade_monitor(trade_monitor):
                             session=session,
                             config_file_path=hb.strategy_file_name)
                         if len(trades) > 0:
+                            return_pcts = []
+                            pnls = []
                             market_info: Set[Tuple[str, str]] = set((t.market, t.symbol) for t in trades)
                             for market, symbol in market_info:
                                 cur_trades = [t for t in trades if t.market == market and t.symbol == symbol]
@@ -87,8 +87,6 @@ async def start_trade_monitor(trade_monitor):
                                 total_pnls = "N/A"
                             trade_monitor.log(f"Trades: {len(trades)}, Total P&L: {total_pnls}, "
                                               f"Return %: {avg_return:.2%}")
-                            return_pcts.clear()
-                            pnls.clear()
             await _sleep(2.0)  # sleeping for longer to manage resources
         except asyncio.CancelledError:
             raise
