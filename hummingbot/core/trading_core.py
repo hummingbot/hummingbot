@@ -545,7 +545,6 @@ class TradingCore:
 
             # Remove kill switch from clock
             if self.clock is not None and self.kill_switch is not None:
-                self.clock.remove_iterator(self.kill_switch)
                 self.kill_switch.stop()
 
             # Stop rate oracle
