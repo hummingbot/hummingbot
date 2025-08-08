@@ -93,7 +93,7 @@ class TestAmmGatewayDataFeed(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest)
         await self.data_feed._register_token_buy_sell_price("HBOT-USDT")
         self.assertTrue(
             self.is_logged(log_level=LogLevel.WARNING,
-                           message="Failed to get price for HBOT-USDT: Failed to get price using quote_swap: API error"))
+                           message="Failed to get price using quote_swap: API error"))
 
     @patch("hummingbot.data_feed.amm_gateway_data_feed.AmmGatewayDataFeed.gateway_client", new_callable=AsyncMock)
     @patch("hummingbot.connector.gateway.command_utils.GatewayCommandUtils.get_connector_chain_network", new_callable=AsyncMock)
