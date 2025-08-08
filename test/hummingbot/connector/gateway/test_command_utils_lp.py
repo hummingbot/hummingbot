@@ -2,6 +2,7 @@ import unittest
 
 from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
 from hummingbot.connector.gateway.gateway_lp import AMMPoolInfo, AMMPositionInfo, CLMMPoolInfo, CLMMPositionInfo
+from hummingbot.connector.gateway.lp_command_utils import LPCommandUtils
 
 
 class TestGatewayCommandUtilsLP(unittest.TestCase):
@@ -19,7 +20,7 @@ class TestGatewayCommandUtilsLP(unittest.TestCase):
             quoteTokenAmount=1500000.0
         )
 
-        rows = GatewayCommandUtils.format_pool_info_display(pool_info, "ETH", "USDC")
+        rows = LPCommandUtils.format_pool_info_display(pool_info, "ETH", "USDC")
 
         # Check basic properties
         self.assertEqual(len(rows), 5)
@@ -44,7 +45,7 @@ class TestGatewayCommandUtilsLP(unittest.TestCase):
             activeBinId=1000
         )
 
-        rows = GatewayCommandUtils.format_pool_info_display(pool_info, "ETH", "USDC")
+        rows = LPCommandUtils.format_pool_info_display(pool_info, "ETH", "USDC")
 
         # Check CLMM-specific properties
         self.assertEqual(len(rows), 7)  # AMM has 5, CLMM has 2 more
@@ -66,7 +67,7 @@ class TestGatewayCommandUtilsLP(unittest.TestCase):
             price=1500.0
         )
 
-        rows = GatewayCommandUtils.format_position_info_display(position)
+        rows = LPCommandUtils.format_position_info_display(position)
 
         self.assertEqual(len(rows), 4)
         self.assertEqual(rows[0]["Property"], "Pool")
@@ -94,7 +95,7 @@ class TestGatewayCommandUtilsLP(unittest.TestCase):
             price=1500.0
         )
 
-        rows = GatewayCommandUtils.format_position_info_display(position)
+        rows = LPCommandUtils.format_position_info_display(position)
 
         # Check for position ID (CLMM specific)
         self.assertEqual(rows[0]["Property"], "Position ID")
@@ -126,7 +127,7 @@ class TestGatewayCommandUtilsLP(unittest.TestCase):
             price=1500.0
         )
 
-        rows = GatewayCommandUtils.format_position_info_display(position)
+        rows = LPCommandUtils.format_position_info_display(position)
 
         # Should not have uncollected fees row
         fees_rows = [r for r in rows if r["Property"] == "Uncollected Fees"]

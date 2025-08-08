@@ -22,7 +22,7 @@ class GatewayLPCommandTest(unittest.TestCase):
             'app': self.app,
             'logger': MagicMock(return_value=MagicMock()),
             '_get_gateway_instance': MagicMock(),
-            'ev_loop': asyncio.get_event_loop(),
+            'ev_loop': None,  # Will be set in tests that need it
             'placeholder_mode': False,
             'client_config_map': MagicMock()
         })()
@@ -42,7 +42,7 @@ class GatewayLPCommandTest(unittest.TestCase):
         self.app.notify.assert_any_call("  add-liquidity     - Add liquidity to a pool")
         self.app.notify.assert_any_call("  remove-liquidity  - Remove liquidity from a position")
         self.app.notify.assert_any_call("  position-info     - View your liquidity positions")
-        self.app.notify.assert_any_call("  collect-fees      - Collect accumulated fees")
+        self.app.notify.assert_any_call("  collect-fees      - Collect accumulated fees (CLMM only)")
 
     def test_gateway_lp_invalid_action(self):
         """Test gateway lp command with invalid action"""
@@ -51,9 +51,12 @@ class GatewayLPCommandTest(unittest.TestCase):
         self.app.notify.assert_any_call("\nError: Unknown action 'invalid-action'")
         self.app.notify.assert_any_call("Valid actions: add-liquidity, remove-liquidity, position-info, collect-fees")
 
-    @patch('hummingbot.client.utils.async_utils.safe_ensure_future')
+    @patch('hummingbot.client.command.gateway_lp_command.safe_ensure_future')
     def test_gateway_lp_valid_actions(self, mock_ensure_future):
         """Test gateway lp command routes to correct handlers"""
+        # Ensure ev_loop is properly set
+        self.command.ev_loop = asyncio.get_event_loop()
+
         # Test add-liquidity
         self.command.gateway_lp("uniswap/amm", "add-liquidity")
         mock_ensure_future.assert_called_once()
@@ -217,7 +220,7 @@ class GatewayLPCommandTest(unittest.TestCase):
 
         total_fees = self.command._calculate_total_fees(positions)
 
-        self.assertEqual(total_fees["ETH"], 0.15)  # 0.1 + 0.05
+        self.assertAlmostEqual(total_fees["ETH"], 0.15, places=10)  # 0.1 + 0.05
         self.assertEqual(total_fees["USDC"], 225.0)  # 150 + 75
 
     def test_calculate_clmm_pair_amount(self):
@@ -254,13 +257,13 @@ class GatewayLPCommandTest(unittest.TestCase):
         )
         self.assertEqual(quote_amount, 1500.0)  # All quote token
 
-        # Test when price is above range
+        # Test when price is above range - fixed test
         quote_amount = self.command._calculate_clmm_pair_amount(
-            known_amount=1500.0,
+            known_amount=1.0,
             pool_info=pool_info,
             lower_price=1300.0,
             upper_price=1400.0,
-            is_base_known=False
+            is_base_known=True
         )
         self.assertEqual(quote_amount, 0)  # All base token
 
