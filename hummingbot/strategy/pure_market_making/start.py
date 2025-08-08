@@ -68,6 +68,9 @@ def start(self):
             c_map.get("bid_order_level_amounts").value)
         ask_order_level_amounts = convert_decimal_string_to_list(
             c_map.get("ask_order_level_amounts").value)
+        coin_id_overrides = c_map.get("coin_id_overrides").value
+        invert_custom_api_price = c_map.get("invert_custom_api_price").value
+        header_custom_api = c_map.get("header_custom_api").value
         if split_order_levels_enabled:
             buy_list = [['buy', spread, amount] for spread, amount in zip(bid_order_level_spreads, bid_order_level_amounts)]
             sell_list = [['sell', spread, amount] for spread, amount in zip(ask_order_level_spreads, ask_order_level_amounts)]
@@ -137,7 +140,10 @@ def start(self):
             bid_order_level_spreads=bid_order_level_spreads,
             ask_order_level_spreads=ask_order_level_spreads,
             should_wait_order_cancel_confirmation=should_wait_order_cancel_confirmation,
-            moving_price_band=moving_price_band
+            moving_price_band=moving_price_band,
+            coin_id_overrides=coin_id_overrides,
+            invert_custom_api_price=invert_custom_api_price,
+            header_custom_api=header_custom_api
         )
     except Exception as e:
         self.notify(str(e))

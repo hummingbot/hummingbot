@@ -445,4 +445,25 @@ pure_market_making_config_map = {
                       "split_order_levels_enabled").value,
                   type_str="str",
                   validator=validate_decimal_list),
+    "coin_id_overrides":
+        ConfigVar(key="coin_id_overrides",
+                  prompt="Enter custom CoinGecko coin ID overrides in JSON format (optional) >>> ",
+                  default={},
+                  required_if=lambda: False,
+                  type_str="json"),
+
+    "invert_custom_api_price":
+        ConfigVar(key="invert_custom_api_price",
+                  prompt="Invert price from custom API? (Yes/No) >>> ",
+                  default=False,
+                  required_if=lambda: False,
+                  type_str="bool",
+                  validator=validate_bool),
+
+    "header_custom_api":
+        ConfigVar(key="header_custom_api",
+                  prompt="Enter optional custom API headers in JSON format >>> ",
+                  default={},
+                  required_if=lambda: False,
+                  type_str="json")
 }

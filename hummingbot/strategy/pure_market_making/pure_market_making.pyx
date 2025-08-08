@@ -85,7 +85,10 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     bid_order_level_spreads: List[Decimal] = None,
                     ask_order_level_spreads: List[Decimal] = None,
                     should_wait_order_cancel_confirmation: bool = True,
-                    moving_price_band: Optional[MovingPriceBand] = None
+                    moving_price_band: Optional[MovingPriceBand] = None,
+                    invert_custom_api_price: bool = False,
+                    coin_id_overrides: Dict[str, str] = None,
+                    header_custom_api: Dict[str, str] = None
                     ):
         if order_override is None:
             order_override = {}
@@ -144,6 +147,9 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._last_own_trade_price = Decimal('nan')
         self._should_wait_order_cancel_confirmation = should_wait_order_cancel_confirmation
         self._moving_price_band = moving_price_band
+        self._invert_custom_api_price = invert_custom_api_price
+        self._coin_id_overrides = coin_id_overrides
+        self._header_custom_api = header_custom_api
         self.c_add_markets([market_info.market])
 
     def all_markets_ready(self):
@@ -366,6 +372,18 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     @property
     def ask_order_level_spreads(self):
         return self._ask_order_level_spreads
+
+    @property
+    def invert_custom_api_price(self):
+        return self.invert_custom_api_price
+
+    @property
+    def coin_id_overrides(self):
+        return self.coin_id_overrides
+
+    @property
+    def header_custom_api(self):
+        return self.header_custom_api
 
     @order_override.setter
     def order_override(self, value: Dict[str, List[str]]):

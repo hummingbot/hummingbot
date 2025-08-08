@@ -145,3 +145,12 @@ bid_order_level_amounts: null
 ask_order_level_amounts: null
 # If the strategy should wait to receive cancellations confirmation before creating new orders during refresh time
 should_wait_order_cancel_confirmation: True
+
+# CoinGecko coin ID overrides for rate oracle
+coin_id_overrides: {}
+
+# Invert custom API price
+invert_custom_api_price: false
+
+# Custom API headers
+header_custom_api: {}
