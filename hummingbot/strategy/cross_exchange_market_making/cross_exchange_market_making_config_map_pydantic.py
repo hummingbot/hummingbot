@@ -2,9 +2,7 @@ from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import Dict, Tuple, Union
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
-
-import hummingbot.client.settings as settings
+from pydantic import ConfigDict, Field, field_validator
 from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.client.config.config_validators import validate_bool
 from hummingbot.client.config.strategy_config_data_types import BaseTradingStrategyMakerTakerConfigMap
@@ -347,23 +345,3 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
             if ret is not None:
                 raise ValueError(ret)
         return v
-
-    @model_validator(mode="after")
-    def post_validations(self):
-        # Add the maker and taker markets to the required exchanges
-        settings.required_exchanges.add(self.maker_market)
-        settings.required_exchanges.add(self.taker_market)
-
-        first_base, first_quote = self.maker_market_trading_pair.split("-")
-        second_base, second_quote = self.taker_market_trading_pair.split("-")
-        if first_base != second_base or first_quote != second_quote:
-            settings.required_rate_oracle = True
-            settings.rate_oracle_pairs = []
-            if first_base != second_base:
-                settings.rate_oracle_pairs.append(f"{second_base}-{first_base}")
-            if first_quote != second_quote:
-                settings.rate_oracle_pairs.append(f"{second_quote}-{first_quote}")
-        else:
-            settings.required_rate_oracle = False
-            settings.rate_oracle_pairs = []
-        return self
