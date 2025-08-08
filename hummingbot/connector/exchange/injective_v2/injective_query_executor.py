@@ -2,11 +2,12 @@ from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, List, Optional
 
 from grpc import RpcError
-from pyinjective.async_client import AsyncClient
+from pyinjective.async_client_v2 import AsyncClient
 from pyinjective.client.model.pagination import PaginationOption
-from pyinjective.core.market import DerivativeMarket, SpotMarket
+from pyinjective.core.market_v2 import DerivativeMarket, SpotMarket
 from pyinjective.core.token import Token
-from pyinjective.proto.injective.stream.v1beta1 import query_pb2 as chain_stream_query
+from pyinjective.indexer_client import IndexerClient
+from pyinjective.proto.injective.stream.v2 import query_pb2 as chain_stream_query
 
 
 class BaseInjectiveQueryExecutor(ABC):
@@ -150,12 +151,13 @@ class BaseInjectiveQueryExecutor(ABC):
 
 class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
 
-    def __init__(self, sdk_client: AsyncClient):
+    def __init__(self, sdk_client: AsyncClient, indexer_client: IndexerClient):
         super().__init__()
         self._sdk_client = sdk_client
+        self._indexer_client = indexer_client
 
     async def ping(self):  # pragma: no cover
-        await self._sdk_client.fetch_ping()
+        await self._indexer_client.fetch_ping()
 
     async def spot_markets(self) -> Dict[str, SpotMarket]:  # pragma: no cover
         return await self._sdk_client.all_spot_markets()
@@ -167,11 +169,11 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
         return await self._sdk_client.all_tokens()
 
     async def derivative_market(self, market_id: str) -> Dict[str, Any]:  # pragma: no cover
-        response = await self._sdk_client.fetch_derivative_market(market_id=market_id)
+        response = await self._sdk_client.fetch_chain_derivative_market(market_id=market_id)
         return response
 
     async def get_spot_orderbook(self, market_id: str) -> Dict[str, Any]:  # pragma: no cover
-        order_book_response = await self._sdk_client.fetch_spot_orderbook_v2(market_id=market_id)
+        order_book_response = await self._indexer_client.fetch_spot_orderbook_v2(market_id=market_id, depth=0)
         order_book_data = order_book_response["orderbook"]
         result = {
             "buys": [(buy["price"], buy["quantity"], int(buy["timestamp"])) for buy in order_book_data.get("buys", [])],
@@ -183,8 +185,8 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
         return result
 
     async def get_derivative_orderbook(self, market_id: str) -> Dict[str, Any]:  # pragma: no cover
-        order_book_response = await self._sdk_client.fetch_derivative_orderbooks_v2(market_ids=[market_id])
-        order_book_data = order_book_response["orderbooks"][0]["orderbook"]
+        order_book_response = await self._indexer_client.fetch_derivative_orderbook_v2(market_id=market_id, depth=0)
+        order_book_data = order_book_response["orderbook"]
         result = {
             "buys": [(buy["price"], buy["quantity"], int(buy["timestamp"])) for buy in order_book_data.get("buys", [])],
             "sells": [(sell["price"], sell["quantity"], int(sell["timestamp"])) for sell in
@@ -207,7 +209,7 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
         return transaction_response
 
     async def account_portfolio(self, account_address: str) -> Dict[str, Any]:  # pragma: no cover
-        portfolio_response = await self._sdk_client.fetch_account_portfolio_balances(account_address=account_address)
+        portfolio_response = await self._indexer_client.fetch_account_portfolio_balances(account_address=account_address)
         return portfolio_response
 
     async def simulate_tx(self, tx_byte: bytes) -> Dict[str, Any]:  # pragma: no cover
@@ -232,7 +234,7 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
     ) -> Dict[str, Any]:  # pragma: no cover
         subaccount_ids = [subaccount_id] if subaccount_id is not None else None
         pagination = PaginationOption(skip=skip, limit=limit, start_time=start_time)
-        response = await self._sdk_client.fetch_spot_trades(
+        response = await self._indexer_client.fetch_spot_trades(
             market_ids=market_ids,
             subaccount_ids=subaccount_ids,
             pagination=pagination,
@@ -249,7 +251,7 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
     ) -> Dict[str, Any]:  # pragma: no cover
         subaccount_ids = [subaccount_id] if subaccount_id is not None else None
         pagination = PaginationOption(skip=skip, limit=limit, start_time=start_time)
-        response = await self._sdk_client.fetch_derivative_trades(
+        response = await self._indexer_client.fetch_derivative_trades(
             market_ids=market_ids,
             subaccount_ids=subaccount_ids,
             pagination=pagination,
@@ -264,7 +266,7 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
             skip: int,
     ) -> Dict[str, Any]:  # pragma: no cover
         pagination = PaginationOption(skip=skip, start_time=start_time)
-        response = await self._sdk_client.fetch_spot_orders_history(
+        response = await self._indexer_client.fetch_spot_orders_history(
             market_ids=market_ids,
             subaccount_id=subaccount_id,
             pagination=pagination
@@ -279,7 +281,7 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
             skip: int,
     ) -> Dict[str, Any]:  # pragma: no cover
         pagination = PaginationOption(skip=skip, start_time=start_time)
-        response = await self._sdk_client.fetch_derivative_orders_history(
+        response = await self._indexer_client.fetch_derivative_orders_history(
             market_ids=market_ids,
             subaccount_id=subaccount_id,
             pagination=pagination,
@@ -288,12 +290,12 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
 
     async def get_funding_rates(self, market_id: str, limit: int) -> Dict[str, Any]:  # pragma: no cover
         pagination = PaginationOption(limit=limit)
-        response = await self._sdk_client.fetch_funding_rates(market_id=market_id, pagination=pagination)
+        response = await self._indexer_client.fetch_funding_rates(market_id=market_id, pagination=pagination)
         return response
 
     async def get_funding_payments(self, subaccount_id: str, market_id: str, limit: int) -> Dict[str, Any]:    # pragma: no cover
         pagination = PaginationOption(limit=limit)
-        response = await self._sdk_client.fetch_funding_payments(
+        response = await self._indexer_client.fetch_funding_payments(
             market_ids=[market_id],
             subaccount_id=subaccount_id,
             pagination=pagination,
@@ -302,7 +304,7 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
 
     async def get_derivative_positions(self, subaccount_id: str, skip: int) -> Dict[str, Any]:    # pragma: no cover
         pagination = PaginationOption(skip=skip)
-        response = await self._sdk_client.fetch_derivative_positions_v2(
+        response = await self._indexer_client.fetch_derivative_positions_v2(
             subaccount_id=subaccount_id, pagination=pagination
         )
         return response
@@ -314,7 +316,7 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
             oracle_type: str,
             oracle_scale_factor: int,
     ) -> Dict[str, Any]:    # pragma: no cover
-        response = await self._sdk_client.fetch_oracle_price(
+        response = await self._indexer_client.fetch_oracle_price(
             base_symbol=base_symbol,
             quote_symbol=quote_symbol,
             oracle_type=oracle_type,
@@ -328,7 +330,7 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
         on_end_callback: Callable,
         on_status_callback: Callable,
     ):  # pragma: no cover
-        await self._sdk_client.listen_txs_updates(
+        await self._indexer_client.listen_txs_updates(
             callback=callback,
             on_end_callback=on_end_callback,
             on_status_callback=on_status_callback,

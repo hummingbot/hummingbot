@@ -7,8 +7,8 @@ from unittest import TestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from bidict import bidict
-from pyinjective.composer import Composer
-from pyinjective.core.market import SpotMarket
+from pyinjective.composer_v2 import Composer
+from pyinjective.core.market_v2 import SpotMarket
 from pyinjective.core.token import Token
 from pyinjective.wallet import Address, PrivateKey
 
@@ -217,6 +217,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         trade_data = {
             "blockHeight": "20583",
             "blockTime": "1640001112223",
+            "gasPrice": "160000000.000000000000000000",
             "subaccountDeposits": [],
             "spotOrderbookUpdates": [],
             "derivativeOrderbookUpdates": [],
@@ -270,14 +271,13 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         self.query_executor._tokens_responses.put_nowait(
             {token.symbol: token for token in [market.base_token, market.quote_token]}
         )
-        base_decimals = market.base_token.decimals
-        quote_decimals = market.quote_token.decimals
 
         order_hash = "0x070e2eb3d361c8b26eae510f481bed513a1fb89c0869463a387cfa7995a27043"  # noqa: mock
 
         trade_data = {
             "blockHeight": "20583",
             "blockTime": "1640001112223",
+            "gasPrice": "160000000.000000000000000000",
             "subaccountDeposits": [],
             "spotOrderbookUpdates": [],
             "derivativeOrderbookUpdates": [],
@@ -312,10 +312,8 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
 
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
-        expected_price = (Decimal(trade_data["spotTrades"][0]["price"])
-                          * Decimal(f"1e{base_decimals - quote_decimals - 18}"))
-        expected_amount = (Decimal(trade_data["spotTrades"][0]["quantity"])
-                           * Decimal(f"1e{-base_decimals - 18}"))
+        expected_price = (Decimal(trade_data["spotTrades"][0]["price"]) * Decimal("1e-18"))
+        expected_amount = (Decimal(trade_data["spotTrades"][0]["quantity"]) * Decimal("1e-18"))
         expected_trade_id = trade_data["spotTrades"][0]["tradeId"]
         self.assertEqual(OrderBookMessageType.TRADE, msg.type)
         self.assertEqual(expected_trade_id, msg.trade_id)
@@ -350,6 +348,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         order_book_data = {
             "blockHeight": "20583",
             "blockTime": "1640001112223",
+            "gasPrice": "160000000.000000000000000000",
             "subaccountDeposits": [],
             "spotOrderbookUpdates": [
                 {
@@ -413,12 +412,11 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         self.query_executor._tokens_responses.put_nowait(
             {token.symbol: token for token in [market.base_token, market.quote_token]}
         )
-        base_decimals = market.base_token.decimals
-        quote_decimals = market.quote_token.decimals
 
         order_book_data = {
             "blockHeight": "20583",
             "blockTime": "1640001112223",
+            "gasPrice": "160000000.000000000000000000",
             "subaccountDeposits": [],
             "spotOrderbookUpdates": [
                 {
@@ -427,18 +425,18 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
                         "marketId": self.market_id,
                         "buyLevels": [
                             {
-                                "p": "7684000",
-                                "q": "4578787000000000000000000000000000000000"
+                                "p": "7684000000000000000",
+                                "q": "4578787000000000000000"
                             },
                             {
-                                "p": "7685000",
-                                "q": "4412340000000000000000000000000000000000"
+                                "p": "7685000000000000000",
+                                "q": "4412340000000000000000"
                             },
                         ],
                         "sellLevels": [
                             {
-                                "p": "7723000",
-                                "q": "3478787000000000000000000000000000000000"
+                                "p": "7723000000000000000",
+                                "q": "3478787000000000000000"
                             },
                         ],
                     }
@@ -473,17 +471,17 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         self.assertEqual(2, len(bids))
 
         first_bid_price = (Decimal(order_book_data["spotOrderbookUpdates"][0]["orderbook"]["buyLevels"][1]["p"])
-                           * Decimal(f"1e{base_decimals - quote_decimals - 18}"))
+                           * Decimal("1e-18"))
         first_bid_quantity = (Decimal(order_book_data["spotOrderbookUpdates"][0]["orderbook"]["buyLevels"][1]["q"])
-                              * Decimal(f"1e{-base_decimals - 18}"))
+                              * Decimal("1e-18"))
         self.assertEqual(float(first_bid_price), bids[0].price)
         self.assertEqual(float(first_bid_quantity), bids[0].amount)
         self.assertEqual(expected_update_id, bids[0].update_id)
         self.assertEqual(1, len(asks))
         first_ask_price = (Decimal(order_book_data["spotOrderbookUpdates"][0]["orderbook"]["sellLevels"][0]["p"])
-                           * Decimal(f"1e{base_decimals - quote_decimals - 18}"))
+                           * Decimal("1e-18"))
         first_ask_quantity = (Decimal(order_book_data["spotOrderbookUpdates"][0]["orderbook"]["sellLevels"][0]["q"])
-                              * Decimal(f"1e{-base_decimals - 18}"))
+                              * Decimal("1e-18"))
         self.assertEqual(float(first_ask_price), asks[0].price)
         self.assertEqual(float(first_ask_quantity), asks[0].amount)
         self.assertEqual(expected_update_id, asks[0].update_id)
@@ -497,6 +495,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
             decimals=18,
             logo="https://static.alchemyapi.io/images/assets/7226.png",
             updated=1687190809715,
+            unique_symbol="",
         )
         quote_native_token = Token(
             name="Quote Asset",
@@ -506,6 +505,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
             decimals=6,
             logo="https://static.alchemyapi.io/images/assets/825.png",
             updated=1687190809716,
+            unique_symbol="",
         )
 
         native_market = SpotMarket(
@@ -517,9 +517,9 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
             maker_fee_rate=Decimal("-0.0001"),
             taker_fee_rate=Decimal("0.001"),
             service_provider_fee=Decimal("0.4"),
-            min_price_tick_size=Decimal("0.000000000000001"),
-            min_quantity_tick_size=Decimal("1000000000000000"),
-            min_notional=Decimal("1000000"),
+            min_price_tick_size=Decimal("0.0001"),
+            min_quantity_tick_size=Decimal("0.001"),
+            min_notional=Decimal("0.000001"),
         )
 
         return {native_market.id: native_market}
