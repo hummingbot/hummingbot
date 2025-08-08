@@ -7,8 +7,8 @@ from typing import Awaitable, Optional, Union
 from unittest import TestCase
 from unittest.mock import patch
 
-from pyinjective.composer import Composer
-from pyinjective.core.market import SpotMarket
+from pyinjective.composer_v2 import Composer
+from pyinjective.core.market_v2 import SpotMarket
 from pyinjective.core.network import Network
 from pyinjective.core.token import Token
 from pyinjective.wallet import Address, PrivateKey
@@ -69,10 +69,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
         self.query_executor = ProgrammableQueryExecutor()
         self.data_source._query_executor = self.query_executor
 
-        self.data_source._composer = Composer(
-            network=self.data_source.network_name,
-            spot_markets=self._spot_markets_response(),
-        )
+        self.data_source._composer = Composer(network=self.data_source.network_name)
 
         self.log_records = []
         self._logs_event: Optional[asyncio.Event] = None
@@ -282,6 +279,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
             decimals=6,
             logo="https://static.alchemyapi.io/images/assets/825.png",
             updated=1685371052879,
+            unique_symbol="",
         )
         quote_native_token = Token(
             name="USD Coin",
@@ -291,6 +289,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
             decimals=6,
             logo="https://static.alchemyapi.io/images/assets/3408.png",
             updated=1687190809716,
+            unique_symbol="",
         )
 
         native_market = SpotMarket(
@@ -303,8 +302,8 @@ class InjectiveGranteeDataSourceTests(TestCase):
             taker_fee_rate=Decimal("0.002"),
             service_provider_fee=Decimal("0.4"),
             min_price_tick_size=Decimal("0.0001"),
-            min_quantity_tick_size=Decimal("100"),
-            min_notional=Decimal("1000000"),
+            min_quantity_tick_size=Decimal("0.01"),
+            min_notional=Decimal("1"),
         )
 
         return native_market
@@ -318,6 +317,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
             decimals=18,
             logo="https://static.alchemyapi.io/images/assets/7226.png",
             updated=1687190809715,
+            unique_symbol="",
         )
         quote_native_token = Token(
             name="Tether",
@@ -327,6 +327,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
             decimals=6,
             logo="https://static.alchemyapi.io/images/assets/825.png",
             updated=1685371052879,
+            unique_symbol="",
         )
 
         native_market = SpotMarket(
@@ -338,9 +339,9 @@ class InjectiveGranteeDataSourceTests(TestCase):
             maker_fee_rate=Decimal("-0.0001"),
             taker_fee_rate=Decimal("0.001"),
             service_provider_fee=Decimal("0.4"),
-            min_price_tick_size=Decimal("0.000000000000001"),
-            min_quantity_tick_size=Decimal("1000000000000000"),
-            min_notional=Decimal("1000000"),
+            min_price_tick_size=Decimal("0.0001"),
+            min_quantity_tick_size=Decimal("0.001"),
+            min_notional=Decimal("1"),
         )
 
         return native_market
@@ -377,10 +378,7 @@ class InjectiveVaultsDataSourceTests(TestCase):
         self.query_executor = ProgrammableQueryExecutor()
         self.data_source._query_executor = self.query_executor
 
-        self.data_source._composer = Composer(
-            network=self.data_source.network_name,
-            spot_markets=self._spot_markets_response(),
-        )
+        self.data_source._composer = Composer(network=self.data_source.network_name)
 
     def tearDown(self) -> None:
         self.async_run_with_timeout(self.data_source.stop())
@@ -566,6 +564,7 @@ class InjectiveVaultsDataSourceTests(TestCase):
             decimals=18,
             logo="https://static.alchemyapi.io/images/assets/7226.png",
             updated=1687190809715,
+            unique_symbol="",
         )
         quote_native_token = Token(
             name="Tether",
@@ -575,6 +574,7 @@ class InjectiveVaultsDataSourceTests(TestCase):
             decimals=6,
             logo="https://static.alchemyapi.io/images/assets/825.png",
             updated=1687190809716,
+            unique_symbol="",
         )
 
         native_market = SpotMarket(
@@ -586,9 +586,9 @@ class InjectiveVaultsDataSourceTests(TestCase):
             maker_fee_rate=Decimal("-0.0001"),
             taker_fee_rate=Decimal("0.001"),
             service_provider_fee=Decimal("0.4"),
-            min_price_tick_size=Decimal("0.000000000000001"),
-            min_quantity_tick_size=Decimal("1000000000000000"),
-            min_notional=Decimal("1000000"),
+            min_price_tick_size=Decimal("0.0001"),
+            min_quantity_tick_size=Decimal("0.001"),
+            min_notional=Decimal("1"),
         )
 
         return native_market
