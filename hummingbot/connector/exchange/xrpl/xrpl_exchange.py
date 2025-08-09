@@ -260,21 +260,47 @@ class XrplExchange(ExchangePyBase):
             if client_order_id in self._order_last_update_timestamps:
                 del self._order_last_update_timestamps[client_order_id]
 
-    def _can_update_order_status(self, client_order_id: str, force_update: bool = False) -> bool:
+    def _can_update_order_status(
+        self, client_order_id: str, force_update: bool = False, is_final_state: bool = False
+    ) -> bool:
         """
-        Check if enough time has passed since the last status update for this order.
+        Enhanced timing guard with comprehensive final state bypass.
 
         :param client_order_id: The client order ID to check
         :param force_update: If True, bypass the timing check
+        :param is_final_state: If True, bypass timing check for final states (FILLED, CANCELED, FAILED)
         :return: True if the order status can be updated, False otherwise
         """
-        if force_update:
+        # Always allow updates for final states or when explicitly forced
+        if force_update or is_final_state:
             return True
 
         current_time = time.time()
         last_update_time = self._order_last_update_timestamps.get(client_order_id, 0)
 
         return (current_time - last_update_time) >= self._min_update_interval_seconds
+
+    def _is_final_order_state(self, status_or_state) -> bool:
+        """
+        Helper method to identify final states from various status formats.
+        Handles both OrderState enums and string status values from XRPL.
+
+        :param status_or_state: Either an OrderState enum or string status from XRPL
+        :return: True if this represents a final state, False otherwise
+        """
+        if isinstance(status_or_state, OrderState):
+            return status_or_state in [OrderState.FILLED, OrderState.CANCELED, OrderState.FAILED]
+
+        # Handle string status variations from XRPL responses
+        if isinstance(status_or_state, str):
+            status_str = status_or_state.lower().strip()
+            return status_str in [
+                "filled",  # Complete fill - maps to OrderState.FILLED
+                "cancelled",  # Cancelled orders - maps to OrderState.CANCELED
+                "rejected",  # Rejected orders - maps to OrderState.FAILED
+            ]
+
+        return False
 
     def _record_order_status_update(self, client_order_id: str):
         """
@@ -411,9 +437,9 @@ class XrplExchange(ExchangePyBase):
                     continue
 
                 # Check timing safeguards before acquiring lock (except for final states)
-                is_final_state_change = offer_change["status"] in ["filled", "cancelled"]
-                if not is_final_state_change and not self._can_update_order_status(
-                    tracked_order.client_order_id
+                is_final_state_change = self._is_final_order_state(offer_change["status"])
+                if not self._can_update_order_status(
+                    tracked_order.client_order_id, is_final_state=is_final_state_change
                 ):
                     self.logger().debug(
                         f"Skipping order status update for {tracked_order.client_order_id} due to timing safeguard"
@@ -1822,7 +1848,8 @@ class XrplExchange(ExchangePyBase):
                             await self._cleanup_order_status_lock(order.client_order_id)
                         continue
 
-                    # Check timing safeguards for periodic updates (be more lenient than real-time updates)
+                    # Check timing safeguards for periodic updates - force updates always allowed
+                    # Note: force_update=True should always bypass timing guard
                     if not self._can_update_order_status(order.client_order_id, force_update=True):
                         continue
 
