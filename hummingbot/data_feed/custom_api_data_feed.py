@@ -97,7 +97,7 @@ class CustomAPIDataFeed(NetworkBase):
 
             try:
 
-                market = c_map.get("market").value.lower()
+                market = c_map.get("price_source_market").value.lower()
                 price_source_custom_api = c_map.get("price_source_custom_api").value
                 invert_custom_api_price = c_map.get("invert_custom_api_price").value
                 coin_id_map = c_map.get("coin_id_overrides").value

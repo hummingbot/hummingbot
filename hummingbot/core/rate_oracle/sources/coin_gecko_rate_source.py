@@ -47,6 +47,9 @@ class CoinGeckoRateSource(RateSourceBase):
     @api_key.setter
     def api_key(self, new_api_key: str):
         self._api_key = new_api_key
+
+        self.logger().info(f"API Key rate source: {new_api_key}")
+
         # Update data feed if it already exists
         if self._coin_gecko_data_feed is not None:
             self._coin_gecko_data_feed._api_key = new_api_key
@@ -139,6 +142,8 @@ class CoinGeckoRateSource(RateSourceBase):
         return results
 
     def _ensure_data_feed(self):
+        self.logger().info(f"[DEBUG] api key rate source: {self._api_key}")
+
         if self._coin_gecko_data_feed is None:
             self._coin_gecko_data_feed = CoinGeckoDataFeed(
                 api_key=self._api_key,

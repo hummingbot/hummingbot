@@ -121,6 +121,8 @@ class CoinGeckoDataFeed(DataFeedBase):
             if header_key:
                 headers[header_key] = self._api_key
 
+        self.logger().info(f"Header api key: {headers[header_key]}")
+
         return await rest_assistant.execute_request(
             url=url,
             throttler_limit_id=REST_CALL_RATE_LIMIT_ID,
@@ -156,6 +158,9 @@ class CoinGeckoDataFeed(DataFeedBase):
                 for result in results:
                     symbol = result["symbol"].upper()
                     price = float(result["current_price"]) if result["current_price"] is not None else 0.0
+
+                    self.logger().info(f"[DEBUG] Fetching price: {price}")
+
                     if symbol not in price_dict:
                         price_dict[symbol] = price
                         self._price_dict[symbol] = price

@@ -96,3 +96,5 @@ coverage.xml
 .env
 
 **/.claude/settings.local.json
+
+bots/
