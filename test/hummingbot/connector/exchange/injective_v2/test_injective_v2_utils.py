@@ -1,8 +1,13 @@
+import copy
+import io
 from unittest import TestCase
 
+import yaml
+from pydantic import ValidationError
 from pyinjective import Address, PrivateKey
 from pyinjective.core.network import Network
 
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.injective_v2 import injective_constants as CONSTANTS
 from hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source import (
     InjectiveGranteeDataSource,
@@ -11,7 +16,6 @@ from hummingbot.connector.exchange.injective_v2.data_sources.injective_vaults_da
     InjectiveVaultsDataSource,
 )
 from hummingbot.connector.exchange.injective_v2.injective_v2_utils import (
-    FEE_CALCULATOR_MODES,
     InjectiveConfigMap,
     InjectiveCustomNetworkMode,
     InjectiveDelegatedAccountMode,
@@ -137,19 +141,62 @@ class InjectiveConfigMapTests(TestCase):
 
         self.assertEqual(InjectiveGranteeDataSource, type(data_source))
 
-    def test_fee_calculator_validator(self):
+    # def test_fee_calculator_validator(self):
+    #     config = InjectiveConfigMap()
+    #
+    #     config.fee_calculator = InjectiveSimulatedTransactionFeeCalculatorMode.model_config["title"]
+    #     self.assertEqual(InjectiveSimulatedTransactionFeeCalculatorMode(), config.fee_calculator)
+    #
+    #     config.fee_calculator = InjectiveMessageBasedTransactionFeeCalculatorMode.model_config["title"]
+    #     self.assertEqual(InjectiveMessageBasedTransactionFeeCalculatorMode(), config.fee_calculator)
+    #
+    #     with self.assertRaises(ValueError) as ex_context:
+    #         config.fee_calculator = "invalid"
+    #
+    #     self.assertEqual(
+    #         f"Invalid fee calculator, please choose a value from {list(FEE_CALCULATOR_MODES.keys())}.",
+    #         str(ex_context.exception.errors()[0]["ctx"]["error"].args[0])
+    #     )
+
+    def test_fee_calculator_mode_config_parsing(self):
         config = InjectiveConfigMap()
+        config.fee_calculator = InjectiveSimulatedTransactionFeeCalculatorMode()
 
-        config.fee_calculator = InjectiveSimulatedTransactionFeeCalculatorMode.model_config["title"]
-        self.assertEqual(InjectiveSimulatedTransactionFeeCalculatorMode(), config.fee_calculator)
+        config_adapter = ClientConfigAdapter(config)
+        result_yaml = config_adapter.generate_yml_output_str_with_comments()
 
-        config.fee_calculator = InjectiveMessageBasedTransactionFeeCalculatorMode.model_config["title"]
-        self.assertEqual(InjectiveMessageBasedTransactionFeeCalculatorMode(), config.fee_calculator)
+        expected_yaml = """###############################
+###   injective_v2 config   ###
+###############################
 
-        with self.assertRaises(ValueError) as ex_context:
-            config.fee_calculator = "invalid"
+connector: injective_v2
 
-        self.assertEqual(
-            f"Invalid fee calculator, please choose a value from {list(FEE_CALCULATOR_MODES.keys())}.",
-            str(ex_context.exception.errors()[0]["ctx"]["error"].args[0])
-        )
+receive_connector_configuration: true
+
+network: {}
+
+account_type: {}
+
+fee_calculator:
+  name: simulated_transaction_fee_calculator
+"""
+
+        self.assertEqual(expected_yaml, result_yaml)
+
+        stream = io.StringIO(result_yaml)
+        config_dict = yaml.safe_load(stream)
+
+        new_config = InjectiveConfigMap()
+        loaded_config = new_config.model_validate(config_dict)
+
+        self.assertIsInstance(new_config.fee_calculator, InjectiveMessageBasedTransactionFeeCalculatorMode)
+        self.assertIsInstance(loaded_config.fee_calculator, InjectiveSimulatedTransactionFeeCalculatorMode)
+
+        invalid_yaml = copy.deepcopy(config_dict)
+        invalid_yaml["fee_calculator"]["name"] = "invalid"
+
+        with self.assertRaises(ValidationError) as ex_context:
+            new_config.model_validate(invalid_yaml)
+
+        expected_error_message = "Input tag 'invalid' found using 'name' does not match any of the expected tags: 'simulated_transaction_fee_calculator', 'message_based_transaction_fee_calculator' [type=union_tag_invalid, input_value={'name': 'invalid'}, input_type=dict]"
+        self.assertIn(expected_error_message, str(ex_context.exception))
