@@ -182,12 +182,12 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
 
     async def test_safe_get_last_traded_prices(self):
         connector = AsyncMock()
-        connector.get_last_traded_prices.return_value = {"BTC-USDT": 100}
+        connector._get_last_traded_price.return_value = 100
         result = await self.provider._safe_get_last_traded_prices(connector, ["BTC-USDT"])
         self.assertEqual(result, {"BTC-USDT": 100})
-        connector.get_last_traded_prices.side_effect = Exception("Error")
+        connector._get_last_traded_price.side_effect = Exception("Error")
         result = await self.provider._safe_get_last_traded_prices(connector, ["BTC-USDT"])
-        self.assertEqual(result, {})
+        self.assertEqual(result, {"BTC-USDT": Decimal("0")})
 
     def test_remove_rate_sources(self):
         # Test removing regular connector rate sources

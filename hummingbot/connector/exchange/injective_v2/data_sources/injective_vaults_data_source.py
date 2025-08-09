@@ -5,9 +5,10 @@ from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional
 
 from google.protobuf import any_pb2, json_format
 from pyinjective import Transaction
-from pyinjective.async_client import AsyncClient
-from pyinjective.composer import Composer, injective_exchange_tx_pb
+from pyinjective.async_client_v2 import DEFAULT_TIMEOUTHEIGHT, AsyncClient
+from pyinjective.composer_v2 import Composer, injective_exchange_tx_pb
 from pyinjective.core.network import Network
+from pyinjective.indexer_client import IndexerClient
 from pyinjective.wallet import Address, PrivateKey
 
 from hummingbot.connector.exchange.injective_v2 import injective_constants as CONSTANTS
@@ -48,8 +49,14 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         self._client = AsyncClient(
             network=self._network,
         )
+        self._indexer_client = IndexerClient(
+            network=self._network,
+        )
         self._composer = None
-        self._query_executor = PythonSDKInjectiveQueryExecutor(sdk_client=self._client)
+        self._query_executor = PythonSDKInjectiveQueryExecutor(
+            sdk_client=self._client,
+            indexer_client=self._indexer_client,
+        )
         self._fee_calculator_mode = fee_calculator_mode
         self._fee_calculator = None
 
@@ -74,6 +81,8 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         self._publisher = PubSub()
         self._last_received_message_timestamp = 0
         self._throttler = AsyncThrottler(rate_limits=rate_limits)
+
+        self._gas_price = Decimal(str(CONSTANTS.TX_GAS_PRICE))
 
         self._is_timeout_height_initialized = False
         self._is_trading_account_initialized = False
@@ -126,6 +135,14 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
     @property
     def network_name(self) -> str:
         return self._network.string()
+
+    @property
+    def gas_price(self) -> Decimal:
+        return self._gas_price
+
+    @gas_price.setter
+    def gas_price(self, gas_price: Decimal):
+        self._gas_price = gas_price
 
     @property
     def last_received_message_timestamp(self) -> float:
@@ -317,6 +334,9 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
 
         return resulting_trading_pair
 
+    def update_timeout_height(self, block_height: int):
+        self._client.timeout_height = block_height + DEFAULT_TIMEOUTHEIGHT
+
     async def _initialize_timeout_height(self):
         await self._client.sync_timeout_height()
         self._is_timeout_height_initialized = True
@@ -365,11 +385,16 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
             preserving_proto_field_name=True,
             use_integers_for_enums=True,
         )
+
         del message_as_dictionary["subaccount_id"]
+        for spot_order_dictionary in message_as_dictionary.get("spot_orders_to_create", []):
+            del spot_order_dictionary["expiration_block"]
+        for derivative_order_dictionary in message_as_dictionary.get("derivative_orders_to_create", []):
+            del derivative_order_dictionary["expiration_block"]
 
         execute_message_parameter = self._create_execute_contract_internal_message(batch_update_orders_params=message_as_dictionary)
 
-        execute_contract_message = composer.MsgExecuteContract(
+        execute_contract_message = composer.msg_execute_contract(
             sender=self._vault_admin_address.to_acc_bech32(),
             contract=self._vault_contract_address.to_acc_bech32(),
             msg=json.dumps(execute_message_parameter),
@@ -400,7 +425,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
 
         execute_message_parameter = self._create_execute_contract_internal_message(batch_update_orders_params=message_as_dictionary)
 
-        execute_contract_message = composer.MsgExecuteContract(
+        execute_contract_message = composer.msg_execute_contract(
             sender=self._vault_admin_address.to_acc_bech32(),
             contract=self._vault_contract_address.to_acc_bech32(),
             msg=json.dumps(execute_message_parameter),
@@ -432,7 +457,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         execute_message_parameter = self._create_execute_contract_internal_message(
             batch_update_orders_params=message_as_dictionary)
 
-        execute_contract_message = composer.MsgExecuteContract(
+        execute_contract_message = composer.msg_execute_contract(
             sender=self._vault_admin_address.to_acc_bech32(),
             contract=self._vault_contract_address.to_acc_bech32(),
             msg=json.dumps(execute_message_parameter),
@@ -444,13 +469,11 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         composer = await self.composer()
         order_hash = order.exchange_order_id
         cid = order.client_order_id if order_hash is None else None
-        order_data = composer.order_data(
+        order_data = composer.order_data_without_mask(
             market_id=market_id,
             subaccount_id=str(self.portfolio_account_subaccount_index),
             order_hash=order_hash,
             cid=cid,
-            is_buy=order.trade_type == TradeType.BUY,
-            is_market_order=order.order_type == OrderType.MARKET,
         )
 
         return order_data
@@ -462,13 +485,14 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         if order.order_type == OrderType.LIMIT_MAKER:
             order_type = order_type + "_PO"
         market_id = await self.market_id_for_spot_trading_pair(order.trading_pair)
+        market = await self.spot_market_info_for_id(market_id)
         composer = await self.composer()
         definition = composer.spot_order(
             market_id=market_id,
             subaccount_id=str(self.portfolio_account_subaccount_index),
             fee_recipient=self.portfolio_account_injective_address,
-            price=order.price,
-            quantity=order.amount,
+            price=InjectiveToken.convert_value_from_extended_decimal_format(market.price_to_chain_format(order.price)),
+            quantity=InjectiveToken.convert_value_from_extended_decimal_format(market.quantity_to_chain_format(order.amount)),
             order_type=order_type,
             cid=order.client_order_id,
         )
@@ -484,16 +508,19 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         if order.order_type == OrderType.LIMIT_MAKER:
             order_type = order_type + "_PO"
         market_id = await self.market_id_for_derivative_trading_pair(order.trading_pair)
+        market = await self.derivative_market_info_for_id(market_id)
         composer = await self.composer()
+        formatted_price = InjectiveToken.convert_value_from_extended_decimal_format(market.price_to_chain_format(order.price))
+        formatted_quantity = InjectiveToken.convert_value_from_extended_decimal_format(market.quantity_to_chain_format(order.amount))
         definition = composer.derivative_order(
             market_id=market_id,
             subaccount_id=str(self.portfolio_account_subaccount_index),
             fee_recipient=self.portfolio_account_injective_address,
-            price=order.price,
-            quantity=order.amount,
+            price=formatted_price,
+            quantity=formatted_quantity,
             margin=composer.calculate_margin(
-                quantity=order.amount,
-                price=order.price,
+                quantity=formatted_quantity,
+                price=formatted_price,
                 leverage=Decimal(str(order.leverage)),
                 is_reduce_only=order.position == PositionAction.CLOSE,
             ),
@@ -541,7 +568,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
             self._fee_calculator = self._fee_calculator_mode.create_calculator(
                 client=self._client,
                 composer=await self.composer(),
-                gas_price=CONSTANTS.TX_GAS_PRICE,
+                gas_price=int(self.gas_price),
                 gas_limit_adjustment_multiplier=multiplier,
             )
 

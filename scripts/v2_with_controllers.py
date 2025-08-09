@@ -4,6 +4,7 @@ from typing import Dict, List, Optional, Set
 
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.core.event.events import MarketOrderFailureEvent
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
 from hummingbot.strategy_v2.models.base import RunnableStatus
@@ -145,3 +146,18 @@ class V2WithControllers(StrategyV2Base):
                                                                                     trading_pair=config_dict["trading_pair"])
         for connector_name, position_mode in connectors_position_mode.items():
             self.connectors[connector_name].set_position_mode(position_mode)
+
+    def did_fail_order(self, order_failed_event: MarketOrderFailureEvent):
+        """
+        Handle order failure events by logging the error and stopping the strategy if necessary.
+        """
+        if "position side" in order_failed_event.error_message.lower():
+            connectors_position_mode = {}
+            for controller_id, controller in self.controllers.items():
+                config_dict = controller.config.model_dump()
+                if "connector_name" in config_dict:
+                    if self.is_perpetual(config_dict["connector_name"]):
+                        if "position_mode" in config_dict:
+                            connectors_position_mode[config_dict["connector_name"]] = config_dict["position_mode"]
+            for connector_name, position_mode in connectors_position_mode.items():
+                self.connectors[connector_name].set_position_mode(position_mode)
