@@ -1,0 +1,22 @@
+services:
+  hummingbot:
+    image: ${IMAGE_NAME:-yourrepo/hummingbot}:${IMAGE_TAG:-dev}
+    volumes:
+      - ${BOT_DIR:-.}/conf:/home/hummingbot/conf
+      - ${BOT_DIR:-.}/conf/connectors:/home/hummingbot/conf/connectors
+      - ${BOT_DIR:-.}/conf/strategies:/home/hummingbot/conf/strategies
+      - ${BOT_DIR:-.}/conf/controllers:/home/hummingbot/conf/controllers
+      - ${BOT_DIR:-.}/conf/scripts:/home/hummingbot/conf/scripts
+      - ${BOT_DIR:-.}/logs:/home/hummingbot/logs
+      - ${BOT_DIR:-.}/data:/home/hummingbot/data
+      - ${BOT_DIR:-.}/certs:/home/hummingbot/certs
+      - ./scripts:/home/hummingbot/scripts
+      - ./controllers:/home/hummingbot/controllers
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    tty: true
+    stdin_open: true
+    network_mode: host
