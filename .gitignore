@@ -97,4 +97,11 @@ coverage.xml
 
 **/.claude/settings.local.json
 
-bots/
+bots/***/conf/connectors/*
+bots/***/conf/scripts/*
+bots/***/conf/controllers/*
+bots/***/data
+bots/***/logs
+bots/***/conf/.*
+bots/***/conf/hummingbot_logs.yml
+bots/***/conf/conf_fee_overrides.yml
