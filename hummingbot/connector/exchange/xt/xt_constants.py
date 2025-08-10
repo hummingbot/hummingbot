@@ -72,13 +72,8 @@ MULTIPLE_SYMBOLS = 10
 # A single rate limit id for managing orders: GET open-orders, order/trade details, DELETE cancel order.
 MANAGE_ORDER = "ManageOrder"
 
+GLOBAL_RATE_LIMIT = "GlobalRateLimit"
+
 RATE_LIMITS = [
-    RateLimit(limit_id=TICKER_PRICE_CHANGE_PATH_URL, limit=SINGLE_SYMBOL, time_interval=ONE_SECOND),
-    RateLimit(limit_id=EXCHANGE_INFO_PATH_URL, limit=MULTIPLE_SYMBOLS, time_interval=ONE_SECOND),
-    RateLimit(limit_id=SNAPSHOT_PATH_URL, limit=2 * SINGLE_SYMBOL, time_interval=ONE_SECOND),
-    RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=100, time_interval=ONE_SECOND),
-    RateLimit(limit_id=ACCOUNTS_PATH_URL, limit=10, time_interval=ONE_SECOND),
-    RateLimit(limit_id=MANAGE_ORDER, limit=500, time_interval=ONE_SECOND),
-    RateLimit(limit_id=ORDER_PATH_URL, limit=50, time_interval=ONE_SECOND),
-    RateLimit(limit_id=GET_ACCOUNT_LISTENKEY, limit=10, time_interval=ONE_SECOND)
+    RateLimit(limit_id=GLOBAL_RATE_LIMIT, limit=30, time_interval=ONE_SECOND),
 ]

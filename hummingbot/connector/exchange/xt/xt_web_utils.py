@@ -69,7 +69,7 @@ async def get_current_server_time(
     response = await rest_assistant.execute_request(
         url=public_rest_url(path_url=CONSTANTS.SERVER_TIME_PATH_URL, domain=domain),
         method=RESTMethod.GET,
-        throttler_limit_id=CONSTANTS.SERVER_TIME_PATH_URL,
+        throttler_limit_id=CONSTANTS.GLOBAL_RATE_LIMIT,
     )
     server_time = response["result"]["serverTime"]
     return server_time

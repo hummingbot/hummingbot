@@ -110,7 +110,7 @@ class XtAPIUserStreamDataSource(UserStreamTrackerDataSource):
             data = await rest_assistant.execute_request(
                 url=web_utils.public_rest_url(path_url=CONSTANTS.GET_ACCOUNT_LISTENKEY, domain=self._domain),
                 method=RESTMethod.POST,
-                throttler_limit_id=CONSTANTS.GET_ACCOUNT_LISTENKEY,
+                throttler_limit_id=CONSTANTS.GLOBAL_RATE_LIMIT,
                 headers=self._auth.add_auth_to_headers(RESTMethod.POST, f"/{CONSTANTS.PUBLIC_API_VERSION}{CONSTANTS.GET_ACCOUNT_LISTENKEY}")
             )
         except asyncio.CancelledError:

@@ -55,7 +55,7 @@ class XtAPIOrderBookDataSource(OrderBookTrackerDataSource):
             url=web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self._domain),
             params=params,
             method=RESTMethod.GET,
-            throttler_limit_id=CONSTANTS.SNAPSHOT_PATH_URL,
+            throttler_limit_id=CONSTANTS.GLOBAL_RATE_LIMIT,
         )
 
         return data["result"]
