@@ -252,8 +252,8 @@ class HyperliquidExchange(ExchangePyBase):
             self.logger().debug(f"The order {order_id} does not exist on Hyperliquid s. "
                                 f"No cancelation needed.")
             await self._order_tracker.process_order_not_found(order_id)
-            raise IOError(f'{cancel_result["response"]["data"]["statuses"][0]["error"]}')
-        if "success" in cancel_result["response"]["data"]["statuses"][0]:
+            raise IOError(f'{cancel_result["response"]}')
+        if cancel_result["status"] == "ok" and "success" in cancel_result["response"]["data"]["statuses"][0]:
             return True
         return False
 
