@@ -56,6 +56,10 @@ ORDER_STATE = {
     "canceled": OrderState.CANCELED,
     "rejected": OrderState.FAILED,
     "reduceOnlyCanceled": OrderState.CANCELED,
+    "selfTradeCanceled": OrderState.CANCELED,
+    "siblingFilledCanceled": OrderState.CANCELED,
+    "delistedCanceled": OrderState.CANCELED,
+    "liquidatedCanceled": OrderState.CANCELED,
 }
 
 HEARTBEAT_TIME_INTERVAL = 30.0
