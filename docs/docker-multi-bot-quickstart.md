@@ -3,7 +3,7 @@
 ### 1) Build an image with your local changes
 ```bash
 chmod +x scripts/build_release_image.sh
-./scripts/build_release_image.sh local/hummingbot v1.0.0-local
+./scripts/build_release_image.sh local/hummingbot v1
 ```
 
 Rebuild when you change Python/Cython sources under `hummingbot/`, `controllers/`, `scripts/`, or any `.pyx` files. Bump the tag, e.g. `v1.0.1-local`.
@@ -37,24 +37,35 @@ docker attach <container_id_or_name>   # detach: Ctrl-p then Ctrl-q
 ### 4) Run multiple independent bots
 Create per-bot folders (first time only):
 ```bash
-mkdir -p bots/hb001/{conf,logs,data,certs}
-cp -R conf/* bots/hb001/conf/  # optional: seed base configs
+mkdir -p bots/DEURO-USDT/{conf,logs,data,certs}
 
-mkdir -p bots/hb002/{conf,logs,data,certs}
-cp -R conf/* bots/hb002/conf/
+mkdir -p bots/DEURO-BTC/{conf,logs,data,certs}
+
+mkdir -p bots/DEPS-USDT/{conf,logs,data,certs}
+
+mkdir -p bots/DEPS-BTC/{conf,logs,data,certs}
 ```
 
 Start each bot with a unique project name (-p) and BOT_DIR:
 ```bash
 # Bot 1
-IMAGE_NAME=local/hummingbot IMAGE_TAG=v1.0.0-local \
-BOT_DIR="$(pwd)/bots/hb001" \
-docker-compose -f docker-compose.prod.yml -p hb001 up -d
+IMAGE_NAME=local/hummingbot IMAGE_TAG=v1 \
+BOT_DIR="$(pwd)/bots/DEURO-USDT" \
+docker-compose -f docker-compose.prod.yml -p DEURO-USDT up -d
 
 # Bot 2
-IMAGE_NAME=local/hummingbot IMAGE_TAG=v1.0.0-local \
-BOT_DIR="$(pwd)/bots/hb002" \
-docker-compose -f docker-compose.prod.yml -p hb002 up -d
+IMAGE_NAME=local/hummingbot IMAGE_TAG=v1 \
+BOT_DIR="$(pwd)/bots/DEURO-BTC" \
+docker-compose -f docker-compose.prod.yml -p DEURO-BTC up -d
+
+IMAGE_NAME=local/hummingbot IMAGE_TAG=v1 \
+BOT_DIR="$(pwd)/bots/DEPS-USDT" \
+docker-compose -f docker-compose.prod.yml -p DEPS-USDT up -d
+
+# Bot 2
+IMAGE_NAME=local/hummingbot IMAGE_TAG=v1 \
+BOT_DIR="$(pwd)/bots/DEPS-BTC" \
+docker-compose -f docker-compose.prod.yml -p DEPS-BTC up -d
 ```
 
 Logs / stop per bot:
