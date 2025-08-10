@@ -1,0 +1,180 @@
+####################################
+###   client_config_map config   ###
+####################################
+
+instance_id: f6a62c27c2ba7f263566ae30df715aee23e452bc
+
+# Fetch trading pairs from all exchanges if True, otherwise fetch only from connected exchanges.
+fetch_pairs_from_all_exchanges: false
+
+log_level: INFO
+
+debug_console: false
+
+strategy_report_interval: 900.0
+
+logger_override_whitelist:
+- hummingbot.strategy.arbitrage
+- hummingbot.strategy.cross_exchange_market_making
+- conf
+
+log_file_path: /home/hummingbot/logs
+
+kill_switch_mode: {}
+
+# What to auto-fill in the prompt after each import command (start/config)
+autofill_import: disabled
+
+# MQTT Bridge configuration.
+mqtt_bridge:
+  mqtt_host: localhost
+  mqtt_port: 1883
+  mqtt_username: ''
+  mqtt_password: ''
+  mqtt_namespace: hbot
+  mqtt_ssl: false
+  mqtt_logger: true
+  mqtt_notifier: true
+  mqtt_commands: true
+  mqtt_events: true
+  mqtt_external_events: true
+  mqtt_autostart: false
+
+# Error log sharing
+send_error_logs: true
+
+# Advanced database options, currently supports SQLAlchemy's included dialects
+# Reference: https://docs.sqlalchemy.org/en/13/dialects/
+# To use an instance of SQLite DB the required configuration is
+#   db_engine: sqlite
+# To use a DBMS the required configuration is
+#   db_host: 127.0.0.1
+#   db_port: 3306
+#   db_username: username
+#   db_password: password
+#   db_name: dbname
+db_mode:
+  db_engine: sqlite
+
+# Balance Limit Configurations
+# e.g. Setting USDT and BTC limits on Binance.
+# balance_asset_limit:
+#   binance:
+#     BTC: 0.1
+#     USDT: 1000
+balance_asset_limit:
+  cube: {}
+  hyperliquid: {}
+  ascend_ex: {}
+  xrpl: {}
+  bitstamp: {}
+  xt: {}
+  bitrue: {}
+  htx: {}
+  bitmart: {}
+  dexalot_testnet: {}
+  binance_us: {}
+  coinbase_advanced_trade: {}
+  okx: {}
+  vertex: {}
+  bing_x: {}
+  btc_markets: {}
+  ndax: {}
+  vertex_testnet: {}
+  kraken: {}
+  bybit_testnet: {}
+  mexc: {}
+  injective_v2: {}
+  derive: {}
+  binance: {}
+  dexalot: {}
+  bybit: {}
+  kucoin: {}
+  hyperliquid_testnet: {}
+  kucoin_hft: {}
+  ndax_testnet: {}
+  derive_testnet: {}
+  gate_io: {}
+
+# Fixed gas price (in Gwei) for Ethereum transactions
+manual_gas_price: 50.0
+
+# Gateway API Configurations
+# default host to only use localhost
+# Port need to match the final installation port for Gateway
+gateway:
+  gateway_api_host: localhost
+  gateway_api_port: '15888'
+
+certs_path: /home/hummingbot/certs
+
+# Whether to enable aggregated order and trade data collection
+anonymized_metrics_mode:
+  anonymized_metrics_interval_min: 15.0
+
+# A source for rate oracle, currently ascend_ex, binance, binance_us, coin_gecko, coin_cap, dexalot, kucoin, gate_io, coinbase_advanced_trade, cube, hyperliquid, derive, mexc
+rate_oracle_source:
+  name: coin_gecko
+  extra_tokens: []
+  api_key: ''
+  api_tier: PUBLIC
+
+# A universal token which to display tokens values in, e.g. USD,EUR,BTC
+global_token:
+  global_token_name: USDT
+  global_token_symbol: $
+
+# Percentage of API rate limits (on any exchange and any end point) allocated to this bot instance.
+# Enter 50 to indicate 50%. E.g. if the API rate limit is 100 calls per second, and you allocate
+# 50% to this setting, the bot will have a maximum (limit) of 50 calls per second
+rate_limits_share_pct: 100.0
+
+commands_timeout:
+  create_command_timeout: 10.0
+  other_commands_timeout: 30.0
+
+# Tabulate table format style (https://github.com/astanin/python-tabulate#table-format)
+tables_format: psql
+
+paper_trade:
+  paper_trade_exchanges:
+  - binance
+  - kucoin
+  - kraken
+  - gate_io
+  paper_trade_account_balance:
+    BTC: 1.0
+    USDT: 100000.0
+    USDC: 100000.0
+    ETH: 20.0
+    WETH: 20.0
+    SOL: 100.0
+    DOGE: 1000000.0
+    HBOT: 10000000.0
+
+color:
+  top_pane: '#000000'
+  bottom_pane: '#000000'
+  output_pane: '#262626'
+  input_pane: '#1C1C1C'
+  logs_pane: '#121212'
+  terminal_primary: '#5FFFD7'
+  primary_label: '#5FFFD7'
+  secondary_label: '#FFFFFF'
+  success_label: '#5FFFD7'
+  warning_label: '#FFFF00'
+  info_label: '#5FD7FF'
+  error_label: '#FF0000'
+  gold_label: '#FFD700'
+  silver_label: '#C0C0C0'
+  bronze_label: '#CD7F32'
+
+# The tick size is the frequency with which the clock notifies the time iterators by calling the
+# c_tick() method, that means for example that if the tick size is 1, the logic of the strategy
+# will run every second.
+tick_size: 1.0
+
+market_data_collection:
+  market_data_collection_enabled: false
+  market_data_collection_interval: 60
+  market_data_collection_depth: 20
