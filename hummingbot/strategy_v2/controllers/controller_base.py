@@ -36,7 +36,7 @@ class ControllerConfigBase(BaseClientModel):
     controller_name: str
     controller_type: str = "generic"
     total_amount_quote: Decimal = Field(
-        default=100,
+        default=Decimal("100"),
         json_schema_extra={
             "prompt": "Enter the total amount in quote asset to use for trading (e.g., 1000): ",
             "prompt_on_new": True,

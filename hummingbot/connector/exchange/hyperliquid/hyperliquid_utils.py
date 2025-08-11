@@ -13,9 +13,9 @@ DEFAULT_FEES = TradeFeeSchema(
     buy_percent_fee_deducted_from_returns=True
 )
 
-CENTRALIZED = True
+CENTRALIZED = False
 
-EXAMPLE_PAIR = "BTC-USD"
+EXAMPLE_PAIR = "HYPE-USD"
 
 BROKER_ID = "HBOT"
 
@@ -74,7 +74,7 @@ KEYS = HyperliquidConfigMap.model_construct()
 
 OTHER_DOMAINS = ["hyperliquid_testnet"]
 OTHER_DOMAINS_PARAMETER = {"hyperliquid_testnet": "hyperliquid_testnet"}
-OTHER_DOMAINS_EXAMPLE_PAIR = {"hyperliquid_testnet": "BTC-USD"}
+OTHER_DOMAINS_EXAMPLE_PAIR = {"hyperliquid_testnet": "HYPE-USD"}
 OTHER_DOMAINS_DEFAULT_FEES = {"hyperliquid_testnet": [0, 0.025]}
 
 
