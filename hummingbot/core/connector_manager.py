@@ -157,6 +157,10 @@ class ConnectorManager:
 
         return True
 
+    @staticmethod
+    def is_gateway_market(connector_name: str) -> bool:
+        return connector_name in AllConnectorSettings.get_gateway_amm_connector_names()
+
     def get_connector(self, connector_name: str) -> Optional[ExchangeBase]:
         """Get a connector by name."""
         return self.connectors.get(connector_name)
@@ -188,6 +192,19 @@ class ConnectorManager:
             return {}
 
         return connector.get_all_balances()
+
+    async def update_connector_balances(self, connector_name: str):
+        """
+        Update balances for a specific connector.
+
+        Args:
+            connector_name: Name of the connector to update balances for
+        """
+        connector = self.get_connector(connector_name)
+        if connector:
+            await connector._update_balances()
+        else:
+            raise ValueError(f"Connector {connector_name} not found")
 
     def get_status(self) -> Dict[str, Any]:
         """Get status of all connectors."""

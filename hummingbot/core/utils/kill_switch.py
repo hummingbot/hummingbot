@@ -2,10 +2,13 @@ import asyncio
 import logging
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.core.trading_core import TradingCore
 
 
 class KillSwitch(ABC):
@@ -29,8 +32,8 @@ class ActiveKillSwitch(KillSwitch):
 
     def __init__(self,
                  kill_switch_rate: Decimal,
-                 hummingbot_application: "HummingbotApplication"):  # noqa F821
-        self._hummingbot_application = hummingbot_application
+                 trading_core: "TradingCore"):  # noqa F821
+        self._trading_core = trading_core
 
         self._kill_switch_rate: Decimal = kill_switch_rate / Decimal(100)
         self._started = False
@@ -41,16 +44,15 @@ class ActiveKillSwitch(KillSwitch):
     async def check_profitability_loop(self):
         while True:
             try:
-                self._profitability: Decimal = await self._hummingbot_application.calculate_profitability()
+                self._profitability: Decimal = await self._trading_core.calculate_profitability()
 
                 # Stop the bot if losing too much money, or if gained a certain amount of profit
                 if (self._profitability <= self._kill_switch_rate < Decimal("0.0")) or \
                         (self._profitability >= self._kill_switch_rate > Decimal("0.0")):
                     self.logger().info("Kill switch threshold reached. Stopping the bot...")
-                    self._hummingbot_application.notify(f"\n[Kill switch triggered]\n"
-                                                        f"Current profitability "
-                                                        f"is {self._profitability}. Stopping the bot...")
-                    self._hummingbot_application.stop()
+                    self._trading_core.notify(f"\n[Kill switch triggered]\nCurrent profitability is "
+                                              f"{self._profitability}. Stopping the bot...")
+                    await self._trading_core.shutdown()
                     break
 
             except asyncio.CancelledError:

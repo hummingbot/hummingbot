@@ -4,6 +4,8 @@ import time
 from collections import deque
 from typing import Deque, Dict, List, Optional, Union
 
+from sqlalchemy.orm import Session
+
 from hummingbot.client.command import __all__ as commands
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import (
@@ -29,6 +31,7 @@ from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.exceptions import ArgumentParserError
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
+from hummingbot.model.trade_fill import TradeFill
 from hummingbot.remote_iface.mqtt import MQTTGateway
 
 s_logger = None
@@ -270,6 +273,13 @@ class HummingbotApplication(*commands):
             name = tab_class.get_command_name()
             command_tabs[name] = CommandTab(name, None, None, None, tab_class)
         return command_tabs
+
+    def _get_trades_from_session(self,
+                                 start_timestamp: int,
+                                 session: Session,
+                                 number_of_rows: Optional[int] = None,
+                                 config_file_path: str = None) -> List[TradeFill]:
+        return self.trading_core._get_trades_from_session(start_timestamp, session, number_of_rows, config_file_path)
 
     def save_client_config(self):
         save_to_yml(CLIENT_CONFIG_PATH, self.client_config_map)
