@@ -63,10 +63,10 @@ class BinanceConfigMap(BaseConnectorConfigMap):
 
 KEYS = BinanceConfigMap.model_construct()
 
-OTHER_DOMAINS = ["binance_us"]
-OTHER_DOMAINS_PARAMETER = {"binance_us": "us"}
-OTHER_DOMAINS_EXAMPLE_PAIR = {"binance_us": "BTC-USDT"}
-OTHER_DOMAINS_DEFAULT_FEES = {"binance_us": DEFAULT_FEES}
+OTHER_DOMAINS = ["binance_us", "binance_testnet"]
+OTHER_DOMAINS_PARAMETER = {"binance_us": "us", "binance_testnet": "binance_testnet"}
+OTHER_DOMAINS_EXAMPLE_PAIR = {"binance_us": "BTC-USDT", "binance_testnet": "BTC-USDT"}
+OTHER_DOMAINS_DEFAULT_FEES = {"binance_us": DEFAULT_FEES, "binance_testnet": DEFAULT_FEES}
 
 
 class BinanceUSConfigMap(BaseConnectorConfigMap):
@@ -92,4 +92,27 @@ class BinanceUSConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="binance_us")
 
 
-OTHER_DOMAINS_KEYS = {"binance_us": BinanceUSConfigMap.model_construct()}
+class BinanceTestnetConfigMap(BaseConnectorConfigMap):
+    connector: str = "binance_testnet"
+    binance_testnet_api_key: SecretStr = Field(
+        default=...,
+        json_schema_extra={
+            "prompt": "Enter your Binance Testnet API key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
+    )
+    binance_testnet_api_secret: SecretStr = Field(
+        default=...,
+        json_schema_extra={
+            "prompt": "Enter your Binance Testnet API secret",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
+    )
+    model_config = ConfigDict(title="binance_testnet")
+
+
+OTHER_DOMAINS_KEYS = {"binance_us": BinanceUSConfigMap.model_construct(), "binance_testnet": BinanceTestnetConfigMap.model_construct()}

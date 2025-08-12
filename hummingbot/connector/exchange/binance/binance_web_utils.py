@@ -16,6 +16,8 @@ def public_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> st
     :param domain: the Binance domain to connect to ("com" or "us"). The default value is "com"
     :return: the full URL to the endpoint
     """
+    if domain == CONSTANTS.TESTNET_DOMAIN:
+        return CONSTANTS.TESTNET_REST_URL + CONSTANTS.PUBLIC_API_VERSION + path_url
     return CONSTANTS.REST_URL.format(domain) + CONSTANTS.PUBLIC_API_VERSION + path_url
 
 
@@ -26,6 +28,8 @@ def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> s
     :param domain: the Binance domain to connect to ("com" or "us"). The default value is "com"
     :return: the full URL to the endpoint
     """
+    if domain == CONSTANTS.TESTNET_DOMAIN:
+        return CONSTANTS.TESTNET_REST_URL + CONSTANTS.PRIVATE_API_VERSION + path_url
     return CONSTANTS.REST_URL.format(domain) + CONSTANTS.PRIVATE_API_VERSION + path_url
 
 

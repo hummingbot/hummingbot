@@ -2,6 +2,7 @@ from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, Rate
 from hummingbot.core.data_type.in_flight_order import OrderState
 
 DEFAULT_DOMAIN = "com"
+TESTNET_DOMAIN = "binance_testnet"
 
 HBOT_ORDER_ID_PREFIX = "x-MG43PCSN"
 MAX_ORDER_ID_LEN = 32
@@ -9,6 +10,9 @@ MAX_ORDER_ID_LEN = 32
 # Base URL
 REST_URL = "https://api.binance.{}/api/"
 WSS_URL = "wss://stream.binance.{}:9443/ws"
+
+TESTNET_REST_URL = "https://testnet.binance.vision/api/"
+TESTNET_WSS_URL = "wss://stream.testnet.binance.vision/ws"
 
 PUBLIC_API_VERSION = "v3"
 PRIVATE_API_VERSION = "v3"
