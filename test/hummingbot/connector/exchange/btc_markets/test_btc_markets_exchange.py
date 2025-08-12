@@ -511,7 +511,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
     def order_event_for_new_order_websocket_update(self, order: InFlightOrder):
         return {
             "orderId": self.expected_exchange_order_id,
-            "clientOrderId": order.client_order_id,  # leave this property here as it is being asserted in the the tests
+            "clientOrderId": order.client_order_id,  # leave this property here as it is being asserted in the tests
             "marketId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
             "side": "Bid",
             "type": "Limit",
@@ -526,7 +526,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
     def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
         return {
             "orderId": self.expected_exchange_order_id,
-            "clientOrderId": order.client_order_id,  # leave this property here as it is being asserted in the the tests
+            "clientOrderId": order.client_order_id,  # leave this property here as it is being asserted in the tests
             "marketId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
             "side": "Bid",
             "type": "Limit",
@@ -542,7 +542,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
     def order_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         return {
             "orderId": self.expected_exchange_order_id,
-            # "clientOrderId": order.client_order_id,  # leave this property here as it is being asserted in the the tests
+            # "clientOrderId": order.client_order_id,  # leave this property here as it is being asserted in the tests
             "marketId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
             "side": "Bid",
             "type": "Limit",
@@ -566,7 +566,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         return {
             "tradeId": self.expected_exchange_trade_id,
-            # "clientOrderId": order.client_order_id,  # leave this property here as it is being asserted in the the tests
+            # "clientOrderId": order.client_order_id,  # leave this property here as it is being asserted in the tests
             "marketId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
             "side": "Bid",
             "price": str(order.price),
@@ -606,7 +606,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
         exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
         return {
             "orderId": exchange_order_id,
-            "clientOrderId": order.client_order_id,  # leave this property here as it is being asserted in the the tests
+            "clientOrderId": order.client_order_id,  # leave this property here as it is being asserted in the tests
             "marketId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
             "side": "Bid",
             "type": "Limit",
@@ -621,7 +621,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
         exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
         return {
             "orderId": exchange_order_id,
-            "clientOrderId": order.client_order_id,  # leave this property here as it is being asserted in the the tests
+            "clientOrderId": order.client_order_id,  # leave this property here as it is being asserted in the tests
             "marketId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
             "side": "Bid",
             "type": "Limit",
@@ -654,7 +654,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
         exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
         return {
             "orderId": exchange_order_id,
-            "clientOrderId": order.client_order_id,  # leave this property here as it is being asserted in the the tests
+            "clientOrderId": order.client_order_id,  # leave this property here as it is being asserted in the tests
             "marketId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
             "side": "Bid",
             "type": "Limit",
@@ -669,7 +669,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
         exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
         return {
             "orderId": exchange_order_id,
-            "clientOrderId": order.client_order_id,  # leave this property here as it is being asserted in the the tests
+            "clientOrderId": order.client_order_id,  # leave this property here as it is being asserted in the tests
             "marketId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
             "side": "Bid",
             "type": "Limit",
