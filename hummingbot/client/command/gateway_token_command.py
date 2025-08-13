@@ -76,7 +76,8 @@ class GatewayTokenCommand:
                 response = await self._get_gateway_instance().get_token(
                     symbol_or_address=symbol_or_address,
                     chain=chain,
-                    network=default_network
+                    network=default_network,
+                    fail_silently=True  # Don't raise error if token not found
                 )
 
                 if "error" not in response:
@@ -129,7 +130,8 @@ class GatewayTokenCommand:
                 existing_token = await self._get_gateway_instance().get_token(
                     symbol_or_address=symbol,
                     chain=chain,
-                    network=default_network
+                    network=default_network,
+                    fail_silently=True  # Don't raise error if token not found
                 )
 
                 if "error" not in existing_token:

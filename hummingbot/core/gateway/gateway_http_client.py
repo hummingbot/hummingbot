@@ -1076,7 +1076,8 @@ class GatewayHttpClient:
         self,
         symbol_or_address: str,
         chain: str,
-        network: str
+        network: str,
+        fail_silently: bool = False
     ) -> Dict[str, Any]:
         """Get details for a specific token by symbol or address."""
         params = {"chain": chain, "network": network}
@@ -1084,14 +1085,11 @@ class GatewayHttpClient:
             response = await self.api_request(
                 "get",
                 f"tokens/{symbol_or_address}",
-                params=params
+                params=params,
+                fail_silently=fail_silently
             )
             return response
         except Exception as e:
-            # Check if it's a 404 (not found) error to avoid logging noise
-            if hasattr(e, 'status') and e.status == 404:
-                return {"error": f"Token '{symbol_or_address}' not found on {chain}/{network}"}
-            # For other errors, include the full error message
             return {"error": f"Token '{symbol_or_address}' not found on {chain}/{network}: {str(e)}"}
 
     async def add_token(
