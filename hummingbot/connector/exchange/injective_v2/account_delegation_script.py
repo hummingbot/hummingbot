@@ -1,8 +1,9 @@
 import asyncio
+import json
 
-from pyinjective.async_client import AsyncClient
+from pyinjective.async_client_v2 import AsyncClient
+from pyinjective.core.broadcaster import MsgBroadcasterWithPk
 from pyinjective.core.network import Network
-from pyinjective.transaction import Transaction
 from pyinjective.wallet import PrivateKey
 
 # Values to be configured by the user
@@ -28,74 +29,57 @@ async def main() -> None:
     # initialize grpc client
     client = AsyncClient(NETWORK)
     composer = await client.composer()
-    await client.sync_timeout_height()
+
+    gas_price = await client.current_chain_gas_price()
+    # adjust gas price to make it valid even if it changes between the time it is requested and the TX is broadcasted
+    gas_price = int(gas_price * 1.1)
+
+    message_broadcaster = MsgBroadcasterWithPk.new_using_gas_heuristics(
+        network=NETWORK,
+        private_key=GRANTER_ACCOUNT_PRIVATE_KEY,
+        gas_price=gas_price,
+        client=client,
+        composer=composer,
+    )
 
     # load account
     granter_private_key = PrivateKey.from_hex(GRANTER_ACCOUNT_PRIVATE_KEY)
     granter_public_key = granter_private_key.to_public_key()
     granter_address = granter_public_key.to_address()
-    account = await client.fetch_account(granter_address.to_acc_bech32())  # noqa: F841
     granter_subaccount_id = granter_address.get_subaccount_id(index=GRANTER_SUBACCOUNT_INDEX)
 
-    msg_spot_market = composer.MsgGrantTyped(
+    msg_spot_market = composer.msg_grant_typed(
         granter=granter_address.to_acc_bech32(),
         grantee=GRANTEE_PUBLIC_INJECTIVE_ADDRESS,
         msg_type="CreateSpotMarketOrderAuthz",
-        expire_in=GRANT_EXPIRATION_IN_DAYS * SECONDS_PER_DAY,
+        expiration_time_seconds=GRANT_EXPIRATION_IN_DAYS * SECONDS_PER_DAY,
         subaccount_id=granter_subaccount_id,
         market_ids=SPOT_MARKET_IDS,
     )
 
-    msg_derivative_market = composer.MsgGrantTyped(
+    msg_derivative_market = composer.msg_grant_typed(
         granter=granter_address.to_acc_bech32(),
         grantee=GRANTEE_PUBLIC_INJECTIVE_ADDRESS,
         msg_type="CreateDerivativeMarketOrderAuthz",
-        expire_in=GRANT_EXPIRATION_IN_DAYS * SECONDS_PER_DAY,
+        expiration_time_seconds=GRANT_EXPIRATION_IN_DAYS * SECONDS_PER_DAY,
         subaccount_id=granter_subaccount_id,
         market_ids=DERIVATIVE_MARKET_IDS,
     )
 
-    msg_batch_update = composer.MsgGrantTyped(
+    msg_batch_update = composer.msg_grant_typed(
         granter = granter_address.to_acc_bech32(),
         grantee = GRANTEE_PUBLIC_INJECTIVE_ADDRESS,
         msg_type = "BatchUpdateOrdersAuthz",
-        expire_in=GRANT_EXPIRATION_IN_DAYS * SECONDS_PER_DAY,
+        expiration_time_seconds=GRANT_EXPIRATION_IN_DAYS * SECONDS_PER_DAY,
         subaccount_id=granter_subaccount_id,
         spot_markets=SPOT_MARKET_IDS,
         derivative_markets=DERIVATIVE_MARKET_IDS,
     )
 
-    tx = (
-        Transaction()
-        .with_messages(msg_spot_market, msg_derivative_market, msg_batch_update)
-        .with_sequence(client.get_sequence())
-        .with_account_num(client.get_number())
-        .with_chain_id(NETWORK.chain_id)
-    )
-    sim_sign_doc = tx.get_sign_doc(granter_public_key)
-    sim_sig = granter_private_key.sign(sim_sign_doc.SerializeToString())
-    sim_tx_raw_bytes = tx.get_tx_data(sim_sig, granter_public_key)
-
-    # simulate tx
-    simulation = await client.simulate(sim_tx_raw_bytes)
-    # build tx
-    gas_price = 500000000
-    gas_limit = int(simulation["gasInfo"]["gasUsed"]) + 20000
-    gas_fee = "{:.18f}".format((gas_price * gas_limit) / pow(10, 18)).rstrip("0")
-    fee = [composer.coin(
-        amount=gas_price * gas_limit,
-        denom=NETWORK.fee_denom,
-    )]
-
-    tx = tx.with_gas(gas_limit).with_fee(fee).with_memo("").with_timeout_height(client.timeout_height)
-    sign_doc = tx.get_sign_doc(granter_public_key)
-    sig = granter_private_key.sign(sign_doc.SerializeToString())
-    tx_raw_bytes = tx.get_tx_data(sig, granter_public_key)
-
-    res = await client.broadcast_tx_sync_mode(tx_raw_bytes)
-    print(res)
-    print("gas wanted: {}".format(gas_limit))
-    print("gas fee: {} INJ".format(gas_fee))
+    # broadcast the transaction
+    result = await message_broadcaster.broadcast([msg_spot_market, msg_derivative_market, msg_batch_update])
+    print("---Transaction Response---")
+    print(json.dumps(result, indent=2))
 
 
 if __name__ == "__main__":
