@@ -1088,7 +1088,10 @@ class GatewayHttpClient:
             )
             return response
         except Exception as e:
-            # If not found, return error
+            # Check if it's a 404 (not found) error to avoid logging noise
+            if hasattr(e, 'status') and e.status == 404:
+                return {"error": f"Token '{symbol_or_address}' not found on {chain}/{network}"}
+            # For other errors, include the full error message
             return {"error": f"Token '{symbol_or_address}' not found on {chain}/{network}: {str(e)}"}
 
     async def add_token(
