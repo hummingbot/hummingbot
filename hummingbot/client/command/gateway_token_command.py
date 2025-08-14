@@ -60,8 +60,9 @@ class GatewayTokenCommand:
     ):
         """View token information across all chains."""
         try:
-            # Check ethereum and solana chains
-            chains_to_check = ["ethereum", "solana"]
+            # Get all available chains from the Chain enum
+            from hummingbot.connector.gateway.common_types import Chain
+            chains_to_check = [chain.chain for chain in Chain]
             found_tokens: List[Dict] = []
 
             self.notify(f"\nSearching for token '{symbol_or_address}' across all chains' default networks...")

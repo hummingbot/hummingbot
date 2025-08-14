@@ -17,9 +17,8 @@ from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.core.gateway import get_gateway_paths
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.gateway.gateway_status_monitor import GatewayStatus
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.ssl_cert import create_self_sign_certs
-from hummingbot.user.user_balances import UserBalances
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
@@ -408,8 +407,9 @@ Use 'gateway <command> --help' for more information about a command.""")
             # Check specific chain
             chains_to_check = [chain_filter]
         else:
-            # Check both ethereum and solana
-            chains_to_check = ["ethereum", "solana"]
+            # Get all available chains from the Chain enum
+            from hummingbot.connector.gateway.common_types import Chain
+            chains_to_check = [chain.chain for chain in Chain]
 
         # Process each chain
         for chain in chains_to_check:
@@ -508,54 +508,84 @@ Use 'gateway <command> --help' for more information about a command.""")
             return {}
         return self._market[exchange].get_all_balances()
 
-    async def update_exchange_balances(self, exchange, client_config_map: ClientConfigMap) -> Optional[Tuple[Dict[str, Any], Dict[str, Any]]]:
-        is_gateway_markets = UserBalances.is_gateway_market(exchange)
-        if is_gateway_markets and exchange in self._market:
-            del self._market[exchange]
-        if exchange in self._market:
-            return await self._update_balances(self._market[exchange])
-        else:
-            await Security.wait_til_decryption_done()
-            api_keys = Security.api_keys(
-                exchange) if not UserBalances.is_gateway_market(exchange) else {}
-            return await self.add_gateway_exchange(exchange, client_config_map, **api_keys)
-
     async def update_exchange(
         self,
         client_config_map: ClientConfigMap,
         reconnect: bool = False,
         exchanges: Optional[List[str]] = None
     ) -> Dict[str, Optional[str]]:
-        exchanges = exchanges or []
-        tasks = []
-        # Update user balances
-        if len(exchanges) == 0:
-            exchanges = [
-                cs.name for cs in AllConnectorSettings.get_connector_settings().values()]
-        exchanges: List[str] = [
-            cs.name
-            for cs in AllConnectorSettings.get_connector_settings().values()
-            if not cs.use_ethereum_wallet
-            and cs.name in exchanges
-            and not cs.name.endswith("paper_trade")
-        ]
-
-        if reconnect:
-            self._market.clear()
-        for exchange in exchanges:
-            tasks.append(self.update_exchange_balances(
-                exchange, client_config_map))
-        results = await safe_gather(*tasks)
-        return {ex: err_msg for ex, err_msg in zip(exchanges, results)}
+        """
+        Simple gateway balance update for compatibility.
+        Returns empty dict (no errors) since gateway balances are fetched on-demand.
+        """
+        # Gateway balances are fetched directly from the gateway when needed
+        # No need to maintain cached balances like CEX connectors
+        return {}
 
     async def balance(self, exchange, client_config_map: ClientConfigMap, *symbols) -> Dict[str, Decimal]:
-        if await self.update_exchange_balances(exchange, client_config_map) is None:
+        """
+        Get balances for specified tokens from a gateway connector.
+
+        Args:
+            exchange: The gateway connector name (e.g., "uniswap_ethereum_mainnet")
+            client_config_map: Client configuration
+            *symbols: Token symbols to get balances for
+
+        Returns:
+            Dict mapping token symbols to their balances
+        """
+        try:
+            from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
+
+            # Parse exchange name to get connector format
+            # Exchange names like "uniswap_ethereum_mainnet" need to be converted to "uniswap/amm" format
+            parts = exchange.split("_")
+            if len(parts) < 1:
+                self.logger().warning(f"Invalid gateway exchange format: {exchange}")
+                return {}
+
+            # The connector name is the first part
+            connector_name = parts[0]
+
+            # Determine connector type - this is a simplified mapping
+            # In practice, this should be determined from the connector settings
+            connector_type = "amm"  # Default to AMM for now
+            connector = f"{connector_name}/{connector_type}"
+
+            # Get chain and network from the connector
+            gateway = self._get_gateway_instance()
+            chain, network, error = await GatewayCommandUtils.get_connector_chain_network(
+                gateway, connector
+            )
+
+            if error:
+                self.logger().warning(f"Error getting chain/network for {exchange}: {error}")
+                return {}
+
+            # Get default wallet for the chain
+            default_wallet = await gateway.get_default_wallet_for_chain(chain)
+            if not default_wallet:
+                self.logger().warning(f"No default wallet for chain {chain}")
+                return {}
+
+            # Fetch balances directly from gateway
+            tokens_list = list(symbols) if symbols else []
+            balances_resp = await gateway.get_balances(chain, network, default_wallet, tokens_list)
+            balances = balances_resp.get("balances", {})
+
+            # Convert to Decimal and match requested symbols
             results = {}
-            for token, bal in self.all_balance(exchange).items():
-                matches = [s for s in symbols if s.lower() == token.lower()]
-                if matches:
-                    results[matches[0]] = bal
+            for token, balance in balances.items():
+                for symbol in symbols:
+                    if token.lower() == symbol.lower():
+                        results[symbol] = Decimal(str(balance))
+                        break
+
             return results
+
+        except Exception as e:
+            self.logger().error(f"Error getting gateway balances: {e}", exc_info=True)
+            return {}
 
     async def _gateway_list(
         self           # type: HummingbotApplication

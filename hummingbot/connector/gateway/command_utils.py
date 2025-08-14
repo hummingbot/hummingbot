@@ -503,50 +503,21 @@ class GatewayCommandUtils:
         :return: Dictionary with fee estimation details
         """
         try:
-            # Determine compute/gas units based on chain and transaction type
-            if chain.lower() == "solana":
-                # Solana uses compute units
-                if transaction_type == "swap":
-                    estimated_units = 300000  # 300k for swaps
-                else:
-                    estimated_units = 100000  # 100k for other transactions
-                unit_name = "compute units"
-                native_token = "SOL"
-            else:
-                # Ethereum-based chains use gas
-                if transaction_type == "swap":
-                    estimated_units = 200000  # 200k for swaps
-                elif transaction_type == "approve":
-                    estimated_units = 50000   # 50k for approvals
-                else:
-                    estimated_units = 100000  # 100k default
-                unit_name = "gas"
-                native_token = "ETH" if chain.lower() == "ethereum" else chain.upper()
-
-            # Get gas estimation from gateway (returns fee per unit)
+            # Get gas estimation from gateway
             gas_resp = await gateway_client.estimate_gas(chain, network)
 
-            # Extract fee info from response
+            # Extract fee info directly from response
             fee_per_unit = gas_resp.get("feePerComputeUnit", 0)
             denomination = gas_resp.get("denomination", "")
-
-            # Calculate fee based on denomination
-            if denomination.lower() == "gwei":
-                # Convert gwei to ETH (1 ETH = 1e9 gwei)
-                fee_in_native = (fee_per_unit * estimated_units) / 1e9
-            elif denomination.lower() == "lamports":
-                # Convert lamports to SOL (1 SOL = 1e9 lamports)
-                fee_in_native = (fee_per_unit * estimated_units) / 1e9
-            else:
-                # Assume price is already in native token
-                fee_in_native = fee_per_unit * estimated_units
+            compute_units = gas_resp.get("computeUnits", 0)
+            fee_in_native = gas_resp.get("fee", 0)  # Use the fee directly from response
+            native_token = gas_resp.get("feeAsset", chain.upper())  # Use feeAsset from response
 
             return {
                 "success": True,
                 "fee_per_unit": fee_per_unit,
+                "estimated_units": compute_units,
                 "denomination": denomination,
-                "estimated_units": estimated_units,
-                "unit_name": unit_name,
                 "fee_in_native": fee_in_native,
                 "native_token": native_token
             }
@@ -556,9 +527,8 @@ class GatewayCommandUtils:
                 "success": False,
                 "error": str(e),
                 "fee_per_unit": 0,
-                "denomination": "",
                 "estimated_units": 0,
-                "unit_name": "units",
+                "denomination": "units",
                 "fee_in_native": 0,
                 "native_token": chain.upper()
             }
@@ -580,15 +550,13 @@ class GatewayCommandUtils:
 
         fee_per_unit = fee_info["fee_per_unit"]
         denomination = fee_info["denomination"]
-        estimated_units = fee_info["estimated_units"]
-        unit_name = fee_info["unit_name"]
         fee_in_native = fee_info["fee_in_native"]
         native_token = fee_info["native_token"]
 
         app.notify("\nTransaction Fee Details:")
-        app.notify(f"  Price per {unit_name}: {fee_per_unit:.4f} {denomination}")
-        app.notify(f"  Estimated {unit_name}: {estimated_units:,}")
-        app.notify(f"  Total Fee: ~{fee_in_native:.6f} {native_token}")
+        if fee_per_unit and denomination:
+            app.notify(f"  Current Gas Price: {fee_per_unit:.4f} {denomination}")
+        app.notify(f"  Estimated Gas Cost: ~{fee_in_native:.6f} {native_token}")
 
     @staticmethod
     async def prompt_for_confirmation(
