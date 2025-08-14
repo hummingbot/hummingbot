@@ -15,7 +15,7 @@ The Hummingbot codebase is free and publicly available under the Apache 2.0 open
 * [Website and Docs](https://hummingbot.org): Official Hummingbot website and documentation
 * [Installation](https://hummingbot.org/installation/docker/): Install Hummingbot on various platforms
 * [Discord](https://discord.gg/hummingbot): The main gathering spot for the global Hummingbot community
-* [YouTube](https://www.youtube.com/c/hummingbot): Videos that teach you how to get the most of Hummingbot
+* [YouTube](https://www.youtube.com/c/hummingbot): Videos that teach you how to get the most out of Hummingbot
 * [Twitter](https://twitter.com/_hummingbot): Get the latest announcements about Hummingbot
 * [Reported Volumes](https://p.datadoghq.com/sb/a96a744f5-a15479d77992ccba0d23aecfd4c87a52): Reported trading volumes across all Hummingbot instances
 * [Newsletter](https://hummingbot.substack.com): Get our newsletter whenever we ship a new release
@@ -95,7 +95,7 @@ Currently, the master branch of Hummingbot also includes the following exchange 
 
 * [Deploy](https://github.com/hummingbot/deploy): Deploy Hummingbot in various configurations with Docker
 * [Dashboard](https://github.com/hummingbot/dashboard): Web app that helps you create, backtest, deploy, and manage Hummingbot instances
-* [Quants Lab](https://github.com/hummingbot/quants-lab): Juypter notebooks that enable you to fetch data and perform research using Hummingbot
+* [Quants Lab](https://github.com/hummingbot/quants-lab): Jupyter notebooks that enable you to fetch data and perform research using Hummingbot
 * [Gateway](https://github.com/hummingbot/gateway): Typescript based API client for DEX connectors
 * [Hummingbot Site](https://github.com/hummingbot/hummingbot-site): Official documentation for Hummingbot - we welcome contributions here too!
 
