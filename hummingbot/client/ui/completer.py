@@ -43,17 +43,10 @@ class HummingbotCompleter(Completer):
         self.hummingbot_application = hummingbot_application
         self._path_completer = WordCompleter(file_name_list(str(STRATEGIES_CONF_DIR_PATH), "yml"))
         self._command_completer = WordCompleter(self.parser.commands, ignore_case=True)
-        self._refresh_gateway_completers()
 
-    def _refresh_gateway_completers(self):
-        """Refresh completers that include gateway connectors"""
-        self._exchange_completer = WordCompleter(sorted(AllConnectorSettings.get_connector_settings().keys()), ignore_case=True)
+        # Static completers that don't need gateway
         self._spot_exchange_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names()), ignore_case=True)
-        self._exchange_amm_completer = WordCompleter(sorted(AllConnectorSettings.get_gateway_amm_connector_names()), ignore_case=True)
-        self._exchange_ethereum_completer = WordCompleter(sorted(AllConnectorSettings.get_gateway_ethereum_connector_names()), ignore_case=True)
         self._exchange_clob_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names()), ignore_case=True)
-        self._exchange_clob_amm_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names().union(
-            AllConnectorSettings.get_gateway_amm_connector_names())), ignore_case=True)
         self._trading_timeframe_completer = WordCompleter(["infinite", "from_date_to_date", "daily_between_times"], ignore_case=True)
         self._derivative_completer = WordCompleter(AllConnectorSettings.get_derivative_names(), ignore_case=True)
         self._derivative_exchange_completer = WordCompleter(AllConnectorSettings.get_derivative_names(), ignore_case=True)
@@ -156,6 +149,25 @@ class HummingbotCompleter(Completer):
                 break
         trading_pairs = trading_pair_fetcher.trading_pairs.get(market, []) if trading_pair_fetcher.ready and market else []
         return WordCompleter(trading_pairs, ignore_case=True, sentence=True)
+
+    @property
+    def _exchange_completer(self):
+        """Dynamic completer for all connectors including gateway"""
+        all_connectors = list(AllConnectorSettings.get_connector_settings().keys())
+        all_connectors.extend(GATEWAY_CONNECTORS)
+        return WordCompleter(sorted(set(all_connectors)), ignore_case=True)
+
+    @property
+    def _exchange_amm_completer(self):
+        """Dynamic completer for AMM connectors"""
+        return WordCompleter(sorted(AllConnectorSettings.get_gateway_amm_connector_names()), ignore_case=True)
+
+    @property
+    def _exchange_clob_amm_completer(self):
+        """Dynamic completer for Exchange/AMM/CLOB"""
+        connectors = AllConnectorSettings.get_exchange_names().union(
+            AllConnectorSettings.get_gateway_amm_connector_names())
+        return WordCompleter(sorted(connectors), ignore_case=True)
 
     @property
     def _gateway_chain_completer(self):
