@@ -923,11 +923,11 @@ class FoxbitExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     async def test_create_order(self, mock_api):
         self._simulate_trading_rules_initialized()
         _order = await self.exchange._create_order(TradeType.BUY,
-                                             '551100',
-                                             self.trading_pair,
-                                             Decimal(1.01),
-                                             OrderType.LIMIT,
-                                             Decimal(22354.01))
+                                                   '551100',
+                                                   self.trading_pair,
+                                                   Decimal(1.01),
+                                                   OrderType.LIMIT,
+                                                   Decimal(22354.01))
         self.assertIsNone(_order)
 
     @aioresponses()
@@ -935,11 +935,11 @@ class FoxbitExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         self._simulate_trading_rules_initialized()
         try:
             await self.exchange._create_order(TradeType.BUY,
-                                                '551100',
-                                                self.trading_pair,
-                                                Decimal(1.01),
-                                                OrderType.LIMIT,
-                                                Decimal(22354.01))
+                                              '551100',
+                                              self.trading_pair,
+                                              Decimal(1.01),
+                                              OrderType.LIMIT,
+                                              Decimal(22354.01))
         except Exception as err:
             self.assertEqual('', err.args[0])
 
