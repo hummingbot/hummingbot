@@ -103,6 +103,7 @@ class CustomAPIDataFeed(NetworkBase):
                 coin_id_map = c_map.get("coin_id_overrides").value
 
                 if "api.coingecko.com" in price_source_custom_api:
+
                     data = await resp.json()
 
                     pair_parts = market.split("-")
@@ -118,8 +119,27 @@ class CustomAPIDataFeed(NetworkBase):
                     # {"native-decentralized-euro-protocol-share": {"usd": 0.379591}}
                     raw_price = Decimal(str(data[base_coin_id][quote_coin_id]))
 
+                elif "api.deuro.com" in price_source_custom_api:
+
+                    data = await resp.json()
+
+                    pair_parts = market.split("-")
+
+                    quote_token = pair_parts[1].lower()
+
+                    # Map tokens to CoinGecko IDs using coin_id_map
+                    quote_coin_id = coin_id_map.get(quote_token) or coin_id_map.get(quote_token.upper())
+
+                    if quote_coin_id not in data:
+                        raise KeyError(f"Token '{quote_token}' Key '{quote_coin_id}' not found in API response: {data}")
+
+                    # dEURO Response:
+                    # {"usd":0.3732,"eur":0.3215}
+                    raw_price = Decimal(str(data[quote_coin_id]))
+
                 else:
                     # Default Parser - simple decimal from response text
+
                     resp_text = await resp.text()
                     raw_price = Decimal(str(resp_text))
 
@@ -131,7 +151,6 @@ class CustomAPIDataFeed(NetworkBase):
                     self.logger().info(f"Price inverted: {raw_price} -> {price}")
                 else:
                     price = raw_price
-                    self.logger().info(f"Price used as-is: {price}")
 
                 self._price = price
                 self._ready_event.set()
