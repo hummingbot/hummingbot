@@ -12,7 +12,7 @@ The Hummingbot codebase is free and publicly available under the Apache 2.0 open
 
 ## Quick Links
 
-* [Website and Docs](https://hummingbot.org): Official Hummingbot website and documeniuntation
+* [Website and Docs](https://hummingbot.org): Official Hummingbot website and documentation
 * [Installation](https://hummingbot.org/installation/docker/): Install Hummingbot on various platforms
 * [Discord](https://discord.gg/hummingbot): The main gathering spot for the global Hummingbot community
 * [YouTube](https://www.youtube.com/c/hummingbot): Videos that teach you how to get the most of Hummingbot
