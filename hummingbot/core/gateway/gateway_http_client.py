@@ -623,12 +623,9 @@ class GatewayHttpClient:
         self,
         chain: str,
         network: str,
-        gas_limit: Optional[int] = None,
     ) -> Dict[str, Any]:
-        return await self.api_request("post", f"chains/{chain}/estimate-gas", {
-            "chain": chain,
-            "network": network,
-            "gasLimit": gas_limit
+        return await self.api_request("get", f"chains/{chain}/estimate-gas", {
+            "network": network
         })
 
     # ============================================
