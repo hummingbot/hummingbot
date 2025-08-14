@@ -21,6 +21,8 @@ class LpPositionManagerConfig(BaseClientModel):
         "prompt": "AMM or CLMM connector in format 'name/type' (e.g. raydium/clmm, uniswap/amm)", "prompt_on_new": True})
     trading_pair: str = Field("SOL-USDC", json_schema_extra={
         "prompt": "Trading pair (e.g. SOL-USDC)", "prompt_on_new": True})
+    pool_address: str = Field("", json_schema_extra={
+        "prompt": "Pool address (optional - will fetch automatically if not provided)", "prompt_on_new": False})
     target_price: Decimal = Field(150.0, json_schema_extra={
         "prompt": "Target price to trigger position opening", "prompt_on_new": True})
     trigger_above: bool = Field(True, json_schema_extra={
@@ -61,16 +63,8 @@ class LpPositionManager(ScriptStrategyBase):
         self.position_info: Union[CLMMPositionInfo, AMMPositionInfo, None] = None
         self.out_of_range_start_time = None
         self.position_closing = False
-        self.closing_order_id = None
         self.position_closed = False  # Track if position has been closed
-        self.initial_base_balance = None  # Track wallet balance before position
-        self.initial_quote_balance = None  # Track wallet balance before position
-        self.position_base_amount = None  # Track base token amount in position
-        self.position_quote_amount = None  # Track quote token amount in position
-        self.open_price = None  # Track the price when position was opened
-        self.close_price = None  # Track the price when position was closed
-        self.final_base_balance = None  # Track wallet balance after position
-        self.final_quote_balance = None  # Track wallet balance after position
+        self.amm_position_open_price = None  # Track AMM position open price for monitoring
 
         # Log startup information
         condition = "rises above" if self.config.trigger_above else "falls below"
@@ -98,7 +92,9 @@ class LpPositionManager(ScriptStrategyBase):
 
         if await self.check_existing_positions():
             self.position_opened = True
-            self.open_price = Decimal(str(self.pool_info.price)) if self.pool_info else Decimal("0")
+            # For AMM positions, store current price as reference for monitoring
+            if self.connector_type == ConnectorType.AMM and self.pool_info:
+                self.amm_position_open_price = float(self.pool_info.price)
             self.logger().info("Using existing position for monitoring")
 
     def on_tick(self):
@@ -116,8 +112,13 @@ class LpPositionManager(ScriptStrategyBase):
 
     async def fetch_pool_info(self):
         """Fetch pool information to get tokens and current price"""
-        self.logger().info(f"Fetching pool info for {self.config.trading_pair} on {self.config.connector}")
+        if self.config.pool_address:
+            self.logger().info(f"Fetching pool info for pool {self.config.pool_address} on {self.config.connector}")
+        else:
+            self.logger().info(f"Fetching pool info for {self.config.trading_pair} on {self.config.connector}")
         try:
+            # If pool address is provided, we can fetch pool info directly
+            # Otherwise, get_pool_info will fetch the pool address internally
             self.pool_info = await self.connectors[self.exchange].get_pool_info(
                 trading_pair=self.config.trading_pair
             )
@@ -126,11 +127,19 @@ class LpPositionManager(ScriptStrategyBase):
             self.logger().error(f"Error fetching pool info: {str(e)}")
             return None
 
+    async def get_pool_address(self):
+        """Get pool address from config or fetch from connector"""
+        if self.config.pool_address:
+            return self.config.pool_address
+        else:
+            connector = self.connectors[self.exchange]
+            return await connector.get_pool_address(self.config.trading_pair)
+
     async def check_existing_positions(self):
         """Check if user has existing positions in this pool"""
         try:
             connector = self.connectors[self.exchange]
-            pool_address = await connector.get_pool_address(self.config.trading_pair)
+            pool_address = await self.get_pool_address()
 
             if self.connector_type == ConnectorType.CLMM:
                 # For CLMM, fetch all user positions for this pool
@@ -171,9 +180,7 @@ class LpPositionManager(ScriptStrategyBase):
                 )
             else:  # AMM position
                 # For AMM, get the pool address
-                pool_address = await self.connectors[self.exchange].get_pool_address(
-                    trading_pair=self.config.trading_pair
-                )
+                pool_address = await self.get_pool_address()
                 if pool_address:
                     self.position_info = await self.connectors[self.exchange].get_position_info(
                         trading_pair=self.config.trading_pair,
@@ -204,7 +211,9 @@ class LpPositionManager(ScriptStrategyBase):
                 if self.position_info:
                     self.logger().info("Found existing position in pool, will monitor it instead of creating new one")
                     self.position_opened = True
-                    self.open_price = current_price
+                    # For AMM positions, store current price as reference for monitoring
+                    if self.connector_type == ConnectorType.AMM:
+                        self.amm_position_open_price = float(current_price)
                     return
 
             # Check if price condition is met
@@ -262,22 +271,7 @@ class LpPositionManager(ScriptStrategyBase):
 
             # The position details will be updated via order update events
             self.position_opened = True
-
-            # Store the open price
-            self.open_price = current_price
-
-            # Store initial balances - gateway connector updates them during status polling
-            connector = self.connectors[self.exchange]
-            self.initial_base_balance = float(connector.get_balance(self.base_token))
-            self.initial_quote_balance = float(connector.get_balance(self.quote_token))
-            self.logger().info(f"Wallet balances before position: {self.initial_base_balance:.6f} {self.base_token}, {self.initial_quote_balance:.6f} {self.quote_token}")
-
-            # Store the requested position amounts
-            self.position_base_amount = float(self.config.base_token_amount) if self.config.base_token_amount > 0 else 0
-            self.position_quote_amount = float(self.config.quote_token_amount) if self.config.quote_token_amount > 0 else 0
-
-            self.logger().info(f"Opening position with target amounts: {self.position_base_amount} {self.base_token} + {self.position_quote_amount} {self.quote_token}")
-            self.logger().info(f"Open price: {self.open_price}")
+            self.logger().info("Position opened successfully")
 
             # For AMM positions, we need to fetch the position info after opening
             # since there's no position address returned like in CLMM
@@ -289,9 +283,7 @@ class LpPositionManager(ScriptStrategyBase):
                 await asyncio.sleep(2)  # Give time for position to be created
                 try:
                     # Get pool address first
-                    pool_address = await self.connectors[self.exchange].get_pool_address(
-                        trading_pair=self.config.trading_pair
-                    )
+                    pool_address = await self.get_pool_address()
                     if pool_address:
                         # Fetch position info using pool address
                         self.position_info = await self.connectors[self.exchange].get_position_info(
@@ -429,99 +421,7 @@ class LpPositionManager(ScriptStrategyBase):
                     trading_pair=self.config.trading_pair
                 )
 
-            self.logger().info(f"Position closing order submitted with ID: {order_id}")
-
-            # Store the closing order ID to track it
-            self.closing_order_id = order_id
-
-            # Wait for the order to be confirmed
-            max_wait_time = 30  # seconds
-            start_time = time.time()
-
-            while time.time() - start_time < max_wait_time:
-                # Check if order is completed
-                in_flight_orders = self.connectors[self.exchange].in_flight_orders
-                if order_id not in in_flight_orders:
-                    # Order completed (either filled or failed)
-                    self.logger().info("Position close order completed")
-                    break
-
-                # Wait a bit before checking again
-                await asyncio.sleep(1)
-            else:
-                # Timeout reached
-                self.logger().warning(f"Position close order {order_id} did not complete within {max_wait_time} seconds")
-                self.logger().warning("Position may still be open. Please check manually.")
-                # Don't reset state if order didn't complete
-                self.position_closing = False
-                return
-
-            # Get current pool info to get the close price
-            await self.fetch_pool_info()
-            if self.pool_info:
-                self.close_price = float(self.pool_info.price)
-
-            # Wait a bit for final balances to settle
-            await asyncio.sleep(2)
-
-            # Get wallet balances to calculate final amounts
-            try:
-                connector = self.connectors[self.exchange]
-                balances = connector.get_all_balances()
-
-                # Get the final wallet balances
-                self.final_base_balance = float(balances.get(self.base_token, 0))
-                self.final_quote_balance = float(balances.get(self.quote_token, 0))
-
-                # Calculate the differences in wallet balances
-                base_diff = self.final_base_balance - self.initial_base_balance
-                quote_diff = self.final_quote_balance - self.initial_quote_balance
-
-                # Calculate price change
-                price_change_pct = ((self.close_price - self.open_price) / self.open_price * 100) if self.open_price else 0
-
-                # Create the final report
-                report_lines = []
-                report_lines.append("\n" + "=" * 50)
-                report_lines.append("POSITION CLOSED - FINAL REPORT")
-                report_lines.append("=" * 50)
-                report_lines.append(f"Open price: {self.open_price:.6f}")
-                report_lines.append(f"Close price: {self.close_price:.6f}")
-                report_lines.append(f"Price change: {price_change_pct:+.2f}%")
-                report_lines.append("-" * 50)
-                report_lines.append(f"Position size: {self.position_base_amount:.6f} {self.base_token} + {self.position_quote_amount:.6f} {self.quote_token}")
-                report_lines.append("-" * 50)
-                report_lines.append(f"Wallet balance before: {self.initial_base_balance:.6f} {self.base_token}, {self.initial_quote_balance:.6f} {self.quote_token}")
-                report_lines.append(f"Wallet balance after: {self.final_base_balance:.6f} {self.base_token}, {self.final_quote_balance:.6f} {self.quote_token}")
-                report_lines.append("-" * 50)
-                report_lines.append("Net changes:")
-                base_pct = (base_diff / self.initial_base_balance * 100) if self.initial_base_balance > 0 else 0
-                quote_pct = (quote_diff / self.initial_quote_balance * 100) if self.initial_quote_balance > 0 else 0
-                report_lines.append(f"  {self.base_token}: {base_diff:+.6f} ({base_pct:+.2f}%)")
-                report_lines.append(f"  {self.quote_token}: {quote_diff:+.6f} ({quote_pct:+.2f}%)")
-
-                # Calculate total portfolio value change in quote token
-                initial_portfolio_value = self.initial_base_balance * self.open_price + self.initial_quote_balance
-                final_portfolio_value = self.final_base_balance * self.close_price + self.final_quote_balance
-                portfolio_change = final_portfolio_value - initial_portfolio_value
-                portfolio_change_pct = (portfolio_change / initial_portfolio_value * 100) if initial_portfolio_value > 0 else 0
-
-                report_lines.append("-" * 50)
-                report_lines.append(f"Total portfolio value (in {self.quote_token}):")
-                report_lines.append(f"  Before: {initial_portfolio_value:.2f}")
-                report_lines.append(f"  After: {final_portfolio_value:.2f}")
-                report_lines.append(f"  Change: {portfolio_change:+.2f} ({portfolio_change_pct:+.2f}%)")
-                report_lines.append("=" * 50 + "\n")
-
-                # Log the report
-                for line in report_lines:
-                    self.logger().info(line)
-
-                # Also display in the main UI using notify
-                self.notify("\n".join(report_lines))
-
-            except Exception as e:
-                self.logger().error(f"Error calculating final amounts: {str(e)}")
+            self.logger().info(f"Position closing order submitted successfully with ID: {order_id}")
 
             # Mark position as closed
             self.position_closed = True
@@ -534,7 +434,7 @@ class LpPositionManager(ScriptStrategyBase):
                 self.amm_position_open_price = None
 
             # Log that the strategy has completed
-            self.logger().info("Strategy completed. Position has been closed and will not reopen.")
+            self.logger().info("Strategy completed. Position close initiated and will not reopen.")
 
         except Exception as e:
             self.logger().error(f"Error closing position: {str(e)}")
@@ -569,7 +469,7 @@ class LpPositionManager(ScriptStrategyBase):
             await asyncio.sleep(2)
 
             connector = self.connectors[self.exchange]
-            pool_address = await connector.get_pool_address(self.config.trading_pair)
+            pool_address = await self.get_pool_address()
 
             if self.connector_type == ConnectorType.CLMM:
                 # For CLMM, fetch all user positions for this pool and get the latest one
@@ -596,18 +496,14 @@ class LpPositionManager(ScriptStrategyBase):
         if hasattr(event, 'trade_type') and str(event.trade_type) == 'TradeType.RANGE':
             # This is a liquidity provision order
             if self.position_opened and not self.position_closed:
-                # Update the initial amounts with the actual filled amounts
+                # Log the fill event
                 if hasattr(event, 'amount'):
                     # For LP orders, the amount is typically the base token amount
                     actual_base = float(event.amount)
                     # Calculate the actual quote amount based on price
-                    actual_quote = actual_base * float(event.price) if hasattr(event, 'price') else self.initial_quote_amount
+                    actual_quote = actual_base * float(event.price) if hasattr(event, 'price') else 0
 
-                    self.logger().info(f"Position filled with actual amounts: {actual_base:.6f} {self.base_token} + {actual_quote:.6f} {self.quote_token}")
-
-                    # Update our tracking with actual amounts
-                    self.position_base_amount = actual_base
-                    self.position_quote_amount = actual_quote
+                    self.logger().info(f"Position filled with amounts: {actual_base:.6f} {self.base_token} + {actual_quote:.6f} {self.quote_token}")
 
                 # Fetch position info after the order is filled
                 safe_ensure_future(self.fetch_position_info_after_fill())
@@ -618,12 +514,6 @@ class LpPositionManager(ScriptStrategyBase):
 
         if self.position_closed:
             lines.append("Position has been closed. Strategy completed.")
-            if self.initial_base_balance is not None and self.final_base_balance is not None:
-                lines.append(f"Wallet before: {self.initial_base_balance:.6f} {self.base_token}, {self.initial_quote_balance:.6f} {self.quote_token}")
-                lines.append(f"Wallet after: {self.final_base_balance:.6f} {self.base_token}, {self.final_quote_balance:.6f} {self.quote_token}")
-                base_diff = self.final_base_balance - self.initial_base_balance
-                quote_diff = self.final_quote_balance - self.initial_quote_balance
-                lines.append(f"Net change: {base_diff:+.6f} {self.base_token}, {quote_diff:+.6f} {self.quote_token}")
         elif self.position_opened and self.position_info:
             if isinstance(self.position_info, CLMMPositionInfo):
                 lines.append(f"Position: {self.position_info.address} ({self.config.trading_pair}) on {self.exchange}")
