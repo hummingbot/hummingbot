@@ -99,7 +99,6 @@ class GatewayBase(ConnectorBase):
         self._network_transaction_fee = None
         self._poll_notifier = None
         self._native_currency = None
-        self._native_currency_decimals = None
         self._order_tracker: ClientOrderTracker = ClientOrderTracker(connector=self, lost_order_count_limit=10)
         self._amount_quantum_dict = {}
         self._token_data = {}  # Store complete token information
@@ -308,17 +307,16 @@ class GatewayBase(ConnectorBase):
             self._chain_info = await self._get_gateway_instance().get_network_status(
                 chain=self.chain, network=self.network
             )
-            # Set native currency from chain info
-            if self._chain_info and "nativeCurrency" in self._chain_info:
-                self._native_currency = self._chain_info["nativeCurrency"]
-                tokens_info = await self._get_gateway_instance().get_tokens(
-                    chain=self.chain, network=self.network
-                )
-                native_token_info = next(
-                    t for t in tokens_info["tokens"]
-                    if t["symbol"] == self._native_currency
-                )
-                self._native_currency_decimals = native_token_info["decimals"]
+            # Get native currency using the proper method from gateway_http_client
+            self.logger().debug(f"Getting native currency for chain={self.chain}, network={self.network}")
+            native_currency = await self._get_gateway_instance().get_native_currency_symbol(
+                chain=self.chain, network=self.network
+            )
+            if native_currency:
+                self._native_currency = native_currency
+                self.logger().info(f"Set native currency to: {self._native_currency} for {self.chain}-{self.network}")
+            else:
+                self.logger().error(f"Failed to get native currency for {self.chain}-{self.network}, got: {native_currency}")
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -336,18 +334,21 @@ class GatewayBase(ConnectorBase):
             response: Dict[Any] = await self._get_gateway_instance().estimate_gas(
                 chain=self.chain, network=self.network
             )
-            fee_amount = response.get("feePerComputeUnit", None)
-            denomination = response.get("denomination", None)
 
-            if fee_amount is not None and denomination is not None:
-                # Create a TokenAmount object for the network fee
+            # Use the new fee and feeAsset fields from the response
+            fee = response.get("fee", None)
+            fee_asset = response.get("feeAsset", None)
+
+            if fee is not None and fee_asset is not None:
+                # Create a TokenAmount object for the network fee using the provided fee asset
                 self.network_transaction_fee = TokenAmount(
-                    token=denomination,
-                    amount=Decimal(str(fee_amount))
+                    token=fee_asset,
+                    amount=Decimal(str(fee))
                 )
+                self.logger().debug(f"Set network transaction fee: {fee} {fee_asset}")
             else:
                 self.logger().warning(
-                    f"Incomplete gas estimate response: fee={fee_amount}, denomination={denomination}"
+                    f"Incomplete gas estimate response: fee={fee}, feeAsset={fee_asset}"
                 )
         except asyncio.CancelledError:
             raise
