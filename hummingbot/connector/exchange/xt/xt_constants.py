@@ -75,5 +75,5 @@ MANAGE_ORDER = "ManageOrder"
 GLOBAL_RATE_LIMIT = "GlobalRateLimit"
 
 RATE_LIMITS = [
-    RateLimit(limit_id=GLOBAL_RATE_LIMIT, limit=30, time_interval=ONE_SECOND),
+    RateLimit(limit_id=GLOBAL_RATE_LIMIT, limit=19, time_interval=ONE_SECOND),
 ]
