@@ -86,14 +86,28 @@ class LpPositionManager(ScriptStrategyBase):
                                 f"Will close position if price moves -{self.config.lower_range_width_pct}% or +{self.config.upper_range_width_pct}% from open price\n"
                                 f"Will close position if price is outside range for {self.config.out_of_range_secs} seconds")
 
+        # Check for existing positions on startup (delayed to allow connector initialization)
+        safe_ensure_future(self.check_and_use_existing_position())
+
+    async def check_and_use_existing_position(self):
+        """Check for existing positions on startup"""
+        await asyncio.sleep(3)  # Wait for connector to initialize
+
+        # Fetch pool info first
+        await self.fetch_pool_info()
+
+        if await self.check_existing_positions():
+            self.position_opened = True
+            self.open_price = Decimal(str(self.pool_info.price)) if self.pool_info else Decimal("0")
+            self.logger().info("Using existing position for monitoring")
+
     def on_tick(self):
         # Check price and position status on each tick
         if self.position_closed:
             # Position has been closed, do nothing more
             return
         elif not self.position_opened:
-            # If no position is open, fetch pool info and check price conditions
-            safe_ensure_future(self.fetch_pool_info())
+            # If no position is open, check price conditions (which includes fetching pool info)
             safe_ensure_future(self.check_price_and_open_position())
         else:
             # If position is open, monitor it
@@ -111,6 +125,37 @@ class LpPositionManager(ScriptStrategyBase):
         except Exception as e:
             self.logger().error(f"Error fetching pool info: {str(e)}")
             return None
+
+    async def check_existing_positions(self):
+        """Check if user has existing positions in this pool"""
+        try:
+            connector = self.connectors[self.exchange]
+            pool_address = await connector.get_pool_address(self.config.trading_pair)
+
+            if self.connector_type == ConnectorType.CLMM:
+                # For CLMM, fetch all user positions for this pool
+                positions = await connector.get_user_positions(pool_address=pool_address)
+                if positions and len(positions) > 0:
+                    # Use the first position found (could be enhanced to let user choose)
+                    self.position_info = positions[0]
+                    self.logger().info(f"Found existing CLMM position: {self.position_info.address}")
+                    return True
+            else:
+                # For AMM, check if user has position in this pool
+                if pool_address:
+                    position_info = await connector.get_position_info(
+                        trading_pair=self.config.trading_pair,
+                        position_address=pool_address
+                    )
+                    if position_info and position_info.lp_token_amount > 0:
+                        self.position_info = position_info
+                        self.logger().info(f"Found existing AMM position in pool {pool_address}")
+                        return True
+
+            return False
+        except Exception as e:
+            self.logger().debug(f"No existing positions found or error checking: {str(e)}")
+            return False
 
     async def update_position_info(self):
         """Fetch the latest position information if we have an open position"""
@@ -153,6 +198,15 @@ class LpPositionManager(ScriptStrategyBase):
 
             current_price = Decimal(str(self.pool_info.price))
 
+            # Check for existing positions in this pool
+            if not self.position_info:
+                await self.check_existing_positions()
+                if self.position_info:
+                    self.logger().info("Found existing position in pool, will monitor it instead of creating new one")
+                    self.position_opened = True
+                    self.open_price = current_price
+                    return
+
             # Check if price condition is met
             condition_met = False
             if self.config.trigger_above and current_price > self.config.target_price:
@@ -192,16 +246,16 @@ class LpPositionManager(ScriptStrategyBase):
                     price=current_price,
                     upper_width_pct=float(self.config.upper_range_width_pct),
                     lower_width_pct=float(self.config.lower_range_width_pct),
-                    base_token_amount=float(self.config.base_token_amount) if self.config.base_token_amount > 0 else None,
-                    quote_token_amount=float(self.config.quote_token_amount) if self.config.quote_token_amount > 0 else None,
+                    base_token_amount=float(self.config.base_token_amount),
+                    quote_token_amount=float(self.config.quote_token_amount),
                 )
             else:  # AMM
                 # AMM doesn't use spread_pct, just token amounts
                 order_id = self.connectors[self.exchange].add_liquidity(
                     trading_pair=self.config.trading_pair,
                     price=current_price,
-                    base_token_amount=float(self.config.base_token_amount) if self.config.base_token_amount > 0 else None,
-                    quote_token_amount=float(self.config.quote_token_amount) if self.config.quote_token_amount > 0 else None,
+                    base_token_amount=float(self.config.base_token_amount),
+                    quote_token_amount=float(self.config.quote_token_amount),
                 )
 
             self.logger().info(f"Position opening order submitted with ID: {order_id}")
@@ -212,15 +266,11 @@ class LpPositionManager(ScriptStrategyBase):
             # Store the open price
             self.open_price = current_price
 
-            # Get current wallet balances before opening position
-            try:
-                connector = self.connectors[self.exchange]
-                balances = connector.get_all_balances()
-                self.initial_base_balance = float(balances.get(self.base_token, 0))
-                self.initial_quote_balance = float(balances.get(self.quote_token, 0))
-                self.logger().info(f"Wallet balances before position: {self.initial_base_balance:.6f} {self.base_token}, {self.initial_quote_balance:.6f} {self.quote_token}")
-            except Exception as e:
-                self.logger().error(f"Error getting initial balances: {str(e)}")
+            # Store initial balances - gateway connector updates them during status polling
+            connector = self.connectors[self.exchange]
+            self.initial_base_balance = float(connector.get_balance(self.base_token))
+            self.initial_quote_balance = float(connector.get_balance(self.quote_token))
+            self.logger().info(f"Wallet balances before position: {self.initial_base_balance:.6f} {self.base_token}, {self.initial_quote_balance:.6f} {self.quote_token}")
 
             # Store the requested position amounts
             self.position_base_amount = float(self.config.base_token_amount) if self.config.base_token_amount > 0 else 0
@@ -512,6 +562,33 @@ class LpPositionManager(ScriptStrategyBase):
 
         return f"{lower_price:.2f} {''.join(bar)} {upper_price:.2f}"
 
+    async def fetch_position_info_after_fill(self):
+        """Fetch position info after LP order is filled"""
+        try:
+            # Wait a bit for the position to be fully created on-chain
+            await asyncio.sleep(2)
+
+            connector = self.connectors[self.exchange]
+            pool_address = await connector.get_pool_address(self.config.trading_pair)
+
+            if self.connector_type == ConnectorType.CLMM:
+                # For CLMM, fetch all user positions for this pool and get the latest one
+                positions = await connector.get_user_positions(pool_address=pool_address)
+                if positions:
+                    # Get the most recent position (last in the list)
+                    self.position_info = positions[-1]
+                    self.logger().info(f"CLMM position fetched: {self.position_info.address}")
+            else:
+                # For AMM, use the pool address to get position info
+                if pool_address:
+                    self.position_info = await connector.get_position_info(
+                        trading_pair=self.config.trading_pair,
+                        position_address=pool_address
+                    )
+                    self.logger().info(f"AMM position info fetched for pool {pool_address}")
+        except Exception as e:
+            self.logger().error(f"Error fetching position info after fill: {str(e)}")
+
     def did_fill_order(self, event):
         """
         Called when an order is filled. We use this to track the actual amounts deposited.
@@ -531,6 +608,9 @@ class LpPositionManager(ScriptStrategyBase):
                     # Update our tracking with actual amounts
                     self.position_base_amount = actual_base
                     self.position_quote_amount = actual_quote
+
+                # Fetch position info after the order is filled
+                safe_ensure_future(self.fetch_position_info_after_fill())
 
     def format_status(self) -> str:
         """Format status message for display in Hummingbot"""

@@ -613,6 +613,14 @@ class GatewayBase(ConnectorBase):
         """
         Helper to create and process an OrderUpdate from a transaction hash and result dict.
         """
+        # Extract fee from data field if present (new response format)
+        # Otherwise fall back to top-level fee field (legacy format)
+        fee = 0
+        if "data" in transaction_result and isinstance(transaction_result["data"], dict):
+            fee = transaction_result["data"].get("fee", 0)
+        else:
+            fee = transaction_result.get("fee", 0)
+
         order_update = OrderUpdate(
             client_order_id=order_id,
             exchange_order_id=transaction_hash,
@@ -620,7 +628,7 @@ class GatewayBase(ConnectorBase):
             update_timestamp=self.current_timestamp,
             new_state=OrderState.OPEN,
             misc_updates={
-                "gas_cost": Decimal(str(transaction_result.get("fee", 0) or 0)),
+                "gas_cost": Decimal(str(fee or 0)),
                 "gas_price_token": self._native_currency,
             }
         )
