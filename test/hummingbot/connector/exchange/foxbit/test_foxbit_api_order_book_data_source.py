@@ -351,7 +351,7 @@ class FoxbitAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         with self.assertRaises(asyncio.CancelledError):
-           await self.data_source.listen_for_trades(self.local_event_loop, msg_queue)
+            await self.data_source.listen_for_trades(self.local_event_loop, msg_queue)
 
     async def test_listen_for_trades_logs_exception(self):
         incomplete_resp = {
@@ -418,7 +418,7 @@ class FoxbitAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         with self.assertRaises(asyncio.CancelledError):
-           await self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue)
+            await self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue)
 
     async def test_listen_for_order_book_diffs_logs_exception(self):
         incomplete_resp = {

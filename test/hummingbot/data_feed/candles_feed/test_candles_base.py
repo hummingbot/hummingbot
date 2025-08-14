@@ -413,9 +413,6 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
                 start_time=1622505600,
                 end_time=1622505600  # Same as start_time
             )
-
             result = await self.data_feed.get_historical_candles(config)
-
-
             self.assertIsInstance(result, pd.DataFrame)
             mock_fetch_candles.assert_called_once()
