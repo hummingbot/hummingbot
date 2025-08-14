@@ -33,10 +33,14 @@ def validate_connector(value: str) -> Optional[str]:
     """
     Restrict valid derivatives to the connector file names
     """
-    from hummingbot.client.settings import AllConnectorSettings
-    if (value not in AllConnectorSettings.get_connector_settings()
-            and value not in AllConnectorSettings.paper_trade_connectors_names):
-        return f"Invalid connector, please choose value from {AllConnectorSettings.get_connector_settings().keys()}"
+    from hummingbot.client.settings import GATEWAY_CONNECTORS, AllConnectorSettings
+    valid_connectors = set(AllConnectorSettings.get_connector_settings().keys())
+    valid_connectors.update(AllConnectorSettings.paper_trade_connectors_names)
+    valid_connectors.update(GATEWAY_CONNECTORS)
+
+    if value not in valid_connectors:
+        all_options = sorted(valid_connectors)
+        return f"Invalid connector, please choose value from {all_options}"
 
 
 def validate_strategy(value: str) -> Optional[str]:
