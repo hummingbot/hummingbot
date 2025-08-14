@@ -13,7 +13,7 @@ from typing import Optional
 
 def validate_exchange(value: str) -> Optional[str]:
     """
-    Restrict valid exchanges to the exchange file names
+    Restrict valid connectors to spot connectors
     """
     from hummingbot.client.settings import AllConnectorSettings
     if value not in AllConnectorSettings.get_exchange_names():
@@ -22,7 +22,7 @@ def validate_exchange(value: str) -> Optional[str]:
 
 def validate_derivative(value: str) -> Optional[str]:
     """
-    restrict valid derivatives to the derivative file names
+    Restrict valid connectors to perpetual connectors
     """
     from hummingbot.client.settings import AllConnectorSettings
     if value not in AllConnectorSettings.get_derivative_names():
@@ -31,7 +31,7 @@ def validate_derivative(value: str) -> Optional[str]:
 
 def validate_connector(value: str) -> Optional[str]:
     """
-    Restrict valid derivatives to the connector file names
+    Restrict valid connectors to ALL spot connectors, including paper trade and Gateway
     """
     from hummingbot.client.settings import GATEWAY_CONNECTORS, AllConnectorSettings
     valid_connectors = set(AllConnectorSettings.get_connector_settings().keys())
