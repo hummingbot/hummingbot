@@ -27,7 +27,19 @@ class TokenBuySellPrice(BaseModel):
 
 class AmmGatewayDataFeed(NetworkBase):
     dex_logger: Optional[HummingbotLogger] = None
-    gateway_client = GatewayHttpClient.get_instance()
+    _gateway_client: Optional[GatewayHttpClient] = None
+
+    @classmethod
+    def get_gateway_client(cls) -> GatewayHttpClient:
+        """Class method for lazy initialization of gateway client to avoid duplicate initialization during import"""
+        if cls._gateway_client is None:
+            cls._gateway_client = GatewayHttpClient.get_instance()
+        return cls._gateway_client
+
+    @property
+    def gateway_client(self) -> GatewayHttpClient:
+        """Instance property to access the gateway client"""
+        return self.get_gateway_client()
 
     def __init__(
         self,
