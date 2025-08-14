@@ -15,13 +15,13 @@ market: DEPS-USDT
 # Spread of 1 = 1% away from mid price at that time.
 # Example if mid price is 100 and bid_spread is 1.
 # Your bid is placed at 99.
-bid_spread: 0.2
+bid_spread: 0.05
 
 # How far away from mid price to place the ask order.
 # Spread of 1 = 1% away from mid price at that time.
 # Example if mid price is 100 and ask_spread is 1.
 # Your bid is placed at 101.
-ask_spread: 0.2
+ask_spread: 0.05
 
 # Minimum Spread
 # How far away from the mid price to cancel active orders (-100 deactivated)
@@ -36,7 +36,7 @@ max_order_age: 86400.0
 
 # The spread (from mid price) to defer order refresh process to the next cycle.
 # (Enter 1 to indicate 1%), value below 0, e.g. -1, is to disable this feature - not recommended.
-order_refresh_tolerance_pct: 0.2
+order_refresh_tolerance_pct: 0.05
 
 # Size of your bid and ask order.
 order_amount: 62.5
