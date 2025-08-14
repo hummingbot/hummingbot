@@ -127,6 +127,10 @@ class GatewayStatusMonitor:
                         # Update AllConnectorSettings with gateway connectors
                         await self._register_gateway_connectors(connector_list)
 
+                        # Refresh UI completer to include gateway connectors
+                        if self._app and hasattr(self._app, 'app') and hasattr(self._app.app, 'completer'):
+                            self._app.app.completer._refresh_gateway_completers()
+
                         # Get chains using the dedicated endpoint
                         try:
                             chains_response = await gateway_http_client.get_chains(fail_silently=True)
