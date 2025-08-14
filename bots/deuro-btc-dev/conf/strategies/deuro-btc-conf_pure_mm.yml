@@ -9,7 +9,7 @@ strategy: pure_market_making
 exchange: xt
 
 # Token trading pair for the exchange
-market: DEPS-USDT
+market: DEURO-BTC
 
 # How far away from mid price to place the bid order.
 # Spread of 1 = 1% away from mid price at that time.
@@ -39,7 +39,7 @@ max_order_age: 86400.0
 order_refresh_tolerance_pct: 0.2
 
 # Size of your bid and ask order.
-order_amount: 62.5
+order_amount: 5
 
 # Price band ceiling.
 price_ceiling: -1.0
@@ -116,10 +116,10 @@ price_type:
 price_source_exchange:
 
 # A trading pair for the external exchange, e.g. BTC-USDT (for external exchange pricing source).
-price_source_market: DEPS-USD
+price_source_market: DEURO-BTC
 
 # An external api that returns price (for custom_api pricing source).
-price_source_custom_api: https://api.deuro.com/prices/deps
+price_source_custom_api: https://api.deuro.com/prices/eur
 
 # Invert custom api price
 invert_custom_api_price: false
@@ -161,9 +161,5 @@ coin_id_overrides:
   USDT: tether
   eur: eur
   EUR: eur
-  deps: native-decentralized-euro-protocol-share
-  DEPS: native-decentralized-euro-protocol-share
-  ndeps: native-decentralized-euro-protocol-share
-  NDEPS: native-decentralized-euro-protocol-share
-  USD: usd
-  usd: usd
+  BTC: btc
+  btc: btc

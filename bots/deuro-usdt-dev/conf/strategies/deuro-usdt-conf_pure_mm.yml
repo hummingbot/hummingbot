@@ -9,7 +9,7 @@ strategy: pure_market_making
 exchange: xt
 
 # Token trading pair for the exchange
-market: DEPS-USDT
+market: DEURO-USDT
 
 # How far away from mid price to place the bid order.
 # Spread of 1 = 1% away from mid price at that time.
@@ -24,7 +24,7 @@ bid_spread: 0.2
 ask_spread: 0.2
 
 # Minimum Spread
-# How far away from the mid price to cancel active orders (-100 deactivated)
+# How far away from the mid price to cancel active orders
 minimum_spread: -100.0
 
 # Time in seconds before cancelling and placing new orders.
@@ -39,7 +39,7 @@ max_order_age: 86400.0
 order_refresh_tolerance_pct: 0.2
 
 # Size of your bid and ask order.
-order_amount: 62.5
+order_amount: 5.0
 
 # Price band ceiling.
 price_ceiling: -1.0
@@ -76,7 +76,7 @@ inventory_range_multiplier: 1.0
 inventory_price: 1.0
 
 # Number of levels of orders to place on each side of the order book.
-order_levels: 60
+order_levels: 12
 
 # Increase or decrease size of consecutive orders after the first order (if order_levels > 1).
 order_level_amount: 0
@@ -116,10 +116,10 @@ price_type:
 price_source_exchange:
 
 # A trading pair for the external exchange, e.g. BTC-USDT (for external exchange pricing source).
-price_source_market: DEPS-USD
+price_source_market: DEURO-USD
 
 # An external api that returns price (for custom_api pricing source).
-price_source_custom_api: https://api.deuro.com/prices/deps
+price_source_custom_api: https://api.deuro.com/prices/eur
 
 # Invert custom api price
 invert_custom_api_price: false

@@ -15,13 +15,13 @@ market: DEURO-USDT
 # Spread of 1 = 1% away from mid price at that time.
 # Example if mid price is 100 and bid_spread is 1.
 # Your bid is placed at 99.
-bid_spread: 0.2
+bid_spread: 0.05
 
 # How far away from mid price to place the ask order.
 # Spread of 1 = 1% away from mid price at that time.
 # Example if mid price is 100 and ask_spread is 1.
 # Your bid is placed at 101.
-ask_spread: 0.2
+ask_spread: 0.05
 
 # Minimum Spread
 # How far away from the mid price to cancel active orders
@@ -36,10 +36,10 @@ max_order_age: 86400.0
 
 # The spread (from mid price) to defer order refresh process to the next cycle.
 # (Enter 1 to indicate 1%), value below 0, e.g. -1, is to disable this feature - not recommended.
-order_refresh_tolerance_pct: -1
+order_refresh_tolerance_pct: 0.05
 
 # Size of your bid and ask order.
-order_amount: 20.0
+order_amount: 200.0
 
 # Price band ceiling.
 price_ceiling: -1.0
@@ -107,22 +107,25 @@ bid_order_optimization_depth: 0
 add_transaction_costs: false
 
 # The price source (current_market/external_market/custom_api).
-price_source: external_market
+price_source: custom_api
 
 # The price type (mid_price/last_price/last_own_trade_price/best_bid/best_ask/inventory_cost).
-price_type: mid_price
+price_type:
 
 # An external exchange name (for external exchange pricing source).
-price_source_exchange: binance
+price_source_exchange:
 
 # A trading pair for the external exchange, e.g. BTC-USDT (for external exchange pricing source).
-price_source_market: EUR-USDT
+price_source_market: DEURO-USD
 
 # An external api that returns price (for custom_api pricing source).
-price_source_custom_api:
+price_source_custom_api: https://api.deuro.com/prices/eur
+
+# Invert custom api price
+invert_custom_api_price: false
 
 # An interval time in second to update the price from custom api (for custom_api pricing source).
-custom_api_update_interval: 5.0
+custom_api_update_interval: 15.0
 
 #Take order if they cross order book when external price source is enabled
 take_if_crossed: true
@@ -158,3 +161,9 @@ coin_id_overrides:
   USDT: tether
   eur: eur
   EUR: eur
+  deps: native-decentralized-euro-protocol-share
+  DEPS: native-decentralized-euro-protocol-share
+  ndeps: native-decentralized-euro-protocol-share
+  NDEPS: native-decentralized-euro-protocol-share
+  USD: usd
+  usd: usd

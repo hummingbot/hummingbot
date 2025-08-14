@@ -36,7 +36,7 @@ max_order_age: 86400.0
 
 # The spread (from mid price) to defer order refresh process to the next cycle.
 # (Enter 1 to indicate 1%), value below 0, e.g. -1, is to disable this feature - not recommended.
-order_refresh_tolerance_pct: -1
+order_refresh_tolerance_pct: 0.2
 
 # Size of your bid and ask order.
 order_amount: 20
@@ -76,7 +76,7 @@ inventory_range_multiplier: 1.0
 inventory_price: 1.0
 
 # Number of levels of orders to place on each side of the order book.
-order_levels: 1
+order_levels: 60
 
 # Increase or decrease size of consecutive orders after the first order (if order_levels > 1).
 order_level_amount: 0
@@ -116,20 +116,16 @@ price_type:
 price_source_exchange:
 
 # A trading pair for the external exchange, e.g. BTC-USDT (for external exchange pricing source).
-price_source_market: DEUR-BTC
+price_source_market: DEURO-BTC
 
 # An external api that returns price (for custom_api pricing source).
-price_source_custom_api: https://api.coingecko.com/api/v3/simple/price?ids=decentralized-euro&vs_currencies=btc
+price_source_custom_api: https://api.deuro.com/prices/eur
 
 # Invert custom api price
 invert_custom_api_price: false
 
-# custom api header
-header_custom_api:
-  x-cg-pro-api-key: CG-jvDE1kUKxXsJkDNrzBE2Nra4
-
 # An interval time in second to update the price from custom api (for custom_api pricing source).
-custom_api_update_interval: 30.0
+custom_api_update_interval: 15.0
 
 #Take order if they cross order book when external price source is enabled
 take_if_crossed: true
