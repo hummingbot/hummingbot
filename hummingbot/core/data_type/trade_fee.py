@@ -207,7 +207,7 @@ class TradeFeeBase(ABC):
         base, quote = split_hb_trading_pair(trading_pair)
         fee_amount: Decimal = S_DECIMAL_0
         if self.percent != S_DECIMAL_0:
-            amount_from_percentage: Decimal = (Decimal(str(price)) * Decimal(str(order_amount))) * self.percent
+            amount_from_percentage: Decimal = (price * order_amount) * self.percent
             if self._are_tokens_interchangeable(quote, token):
                 fee_amount += amount_from_percentage
             else:
@@ -220,7 +220,7 @@ class TradeFeeBase(ABC):
             elif (self._are_tokens_interchangeable(flat_fee.token, base)
                   and (self._are_tokens_interchangeable(quote, token))):
                 # In this case instead of looking for the rate we use directly the price in the parameters
-                fee_amount += flat_fee.amount * Decimal(str(price))
+                fee_amount += flat_fee.amount * price
             else:
                 conversion_pair: str = combine_to_hb_trading_pair(base=flat_fee.token, quote=token)
                 conversion_rate: Decimal = self._get_exchange_rate(conversion_pair, exchange, rate_source)

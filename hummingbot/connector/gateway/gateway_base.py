@@ -698,6 +698,45 @@ class GatewayBase(ConnectorBase):
         if attempts >= max_attempts:
             self.logger().warning(f"Transaction monitoring timed out for order {order_id}, transaction {transaction_hash}")
 
+    def get_balance(self, currency: str) -> Decimal:
+        """
+        Override the parent method to ensure we have fresh balances.
+        Forces a balance update if the balance is not available.
+
+        :param currency: The currency (token) name
+        :return: A balance for the given currency (token)
+        """
+        # If we don't have this currency in our balances, trigger an update
+        if currency not in self._account_balances:
+            # Schedule an async balance update
+            safe_ensure_future(self._update_single_balance(currency))
+            # Return 0 for now, will be updated async
+            return s_decimal_0
+
+        return self._account_balances.get(currency, s_decimal_0)
+
+    async def _update_single_balance(self, currency: str):
+        """
+        Update balance for a single currency.
+
+        :param currency: The currency (token) to update
+        """
+        try:
+            resp_json: Dict[str, Any] = await self._get_gateway_instance().get_balances(
+                chain=self.chain,
+                network=self.network,
+                address=self.address,
+                token_symbols=[currency]
+            )
+
+            if "balances" in resp_json and currency in resp_json["balances"]:
+                balance = Decimal(str(resp_json["balances"][currency]))
+                self._account_available_balances[currency] = balance
+                self._account_balances[currency] = balance
+                self.logger().debug(f"Updated balance for {currency}: {balance}")
+        except Exception as e:
+            self.logger().error(f"Error updating balance for {currency}: {str(e)}", exc_info=True)
+
     async def approve_token(self, token_symbol: str, spender: Optional[str] = None, amount: Optional[Decimal] = None) -> str:
         """
         Approve tokens for spending by the connector's spender contract.

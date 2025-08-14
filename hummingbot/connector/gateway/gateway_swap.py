@@ -46,7 +46,8 @@ class GatewaySwap(GatewayBase):
                 slippage_pct=slippage_pct,
                 pool_address=pool_address
             )
-            return resp.get("price", None)
+            price = resp.get("price", None)
+            return Decimal(price) if price is not None else None
         except asyncio.CancelledError:
             raise
         except Exception as e:
