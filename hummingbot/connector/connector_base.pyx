@@ -65,11 +65,6 @@ cdef class ConnectorBase(NetworkIterator):
         self._current_trade_fills = set()
         self._exchange_order_ids = dict()
         self._trade_fee_schema = None
-        self._trade_volume_metric_collector = client_config_map.anonymized_metrics_mode.get_collector(
-            connector=self,
-            rate_provider=RateOracle.get_instance(),
-            instance_id=client_config_map.instance_id,
-        )
         self._client_config: Union[ClientConfigAdapter, ClientConfigMap] = client_config_map  # for IDE autocomplete
 
     @property
@@ -218,18 +213,15 @@ cdef class ConnectorBase(NetworkIterator):
     cdef c_tick(self, double timestamp):
         NetworkIterator.c_tick(self, timestamp)
         self.tick(timestamp)
-        self._trade_volume_metric_collector.process_tick(timestamp)
 
     cdef c_start(self, Clock clock, double timestamp):
         self.start(clock=clock, timestamp=timestamp)
 
     def start(self, Clock clock, double timestamp):
         NetworkIterator.c_start(self, clock, timestamp)
-        self._trade_volume_metric_collector.start()
 
     cdef c_stop(self, Clock clock):
         NetworkIterator.c_stop(self, clock)
-        self._trade_volume_metric_collector.stop()
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         """
