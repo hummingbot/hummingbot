@@ -18,21 +18,21 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 class LpPositionManagerConfig(BaseClientModel):
     script_file_name: str = os.path.basename(__file__)
     connector: str = Field("raydium/clmm", json_schema_extra={
-        "prompt": "DEX connector in format 'name/type' (e.g., raydium/clmm, uniswap/amm)", "prompt_on_new": True})
+        "prompt": "AMM or CLMM connector in format 'name/type' (e.g. raydium/clmm, uniswap/amm)", "prompt_on_new": True})
     trading_pair: str = Field("SOL-USDC", json_schema_extra={
         "prompt": "Trading pair (e.g. SOL-USDC)", "prompt_on_new": True})
     target_price: Decimal = Field(150.0, json_schema_extra={
         "prompt": "Target price to trigger position opening", "prompt_on_new": True})
     trigger_above: bool = Field(True, json_schema_extra={
         "prompt": "Trigger when price rises above target? (True for above/False for below)", "prompt_on_new": True})
-    position_width_pct: Decimal = Field(10.0, json_schema_extra={
-        "prompt": "Position width per side in percentage (e.g. 10.0 for ±10% from center price, 20% total width)", "prompt_on_new": True})
+    upper_range_width_pct: Decimal = Field(10.0, json_schema_extra={
+        "prompt": "Upper range width in percentage from center price (e.g. 10.0 for +10%)", "prompt_on_new": True})
+    lower_range_width_pct: Decimal = Field(10.0, json_schema_extra={
+        "prompt": "Lower range width in percentage from center price (e.g. 10.0 for -10%)", "prompt_on_new": True})
     base_token_amount: Decimal = Field(0.01, json_schema_extra={
         "prompt": "Base token amount to add to position (0 for quote only)", "prompt_on_new": True})
     quote_token_amount: Decimal = Field(2.0, json_schema_extra={
         "prompt": "Quote token amount to add to position (0 for base only)", "prompt_on_new": True})
-    out_of_range_pct: Decimal = Field(1.0, json_schema_extra={
-        "prompt": "Percentage outside range that triggers closing (e.g. 1.0 for 1%)", "prompt_on_new": True})
     out_of_range_secs: int = Field(60, json_schema_extra={
         "prompt": "Seconds price must be out of range before closing (e.g. 60 for 1 min)", "prompt_on_new": True})
 
@@ -77,14 +77,14 @@ class LpPositionManager(ScriptStrategyBase):
         if self.connector_type == ConnectorType.CLMM:
             self.log_with_clock(logging.INFO,
                                 f"Will open CLMM position when price {condition} target price: {self.config.target_price}\n"
-                                f"Position width: ±{self.config.position_width_pct}% from center price\n"
-                                f"Will close position if price is outside range by {self.config.out_of_range_pct}% for {self.config.out_of_range_secs} seconds")
+                                f"Position range: -{self.config.lower_range_width_pct}% to +{self.config.upper_range_width_pct}% from center price\n"
+                                f"Will close position if price is outside range for {self.config.out_of_range_secs} seconds")
         else:
             self.log_with_clock(logging.INFO,
                                 f"Will open AMM position when price {condition} target price: {self.config.target_price}\n"
                                 f"Token amounts: {self.config.base_token_amount} {self.base_token} / {self.config.quote_token_amount} {self.quote_token}\n"
-                                f"Will close position if price moves ±{self.config.position_width_pct}% from open price\n"
-                                f"Will close position if price is outside range by {self.config.out_of_range_pct}% for {self.config.out_of_range_secs} seconds")
+                                f"Will close position if price moves -{self.config.lower_range_width_pct}% or +{self.config.upper_range_width_pct}% from open price\n"
+                                f"Will close position if price is outside range for {self.config.out_of_range_secs} seconds")
 
     def on_tick(self):
         # Check price and position status on each tick
@@ -180,17 +180,18 @@ class LpPositionManager(ScriptStrategyBase):
 
             # Log different messages based on connector type
             if self.connector_type == ConnectorType.CLMM:
-                self.logger().info(f"Opening CLMM position around current price {current_price} with ±{self.config.position_width_pct}% width")
+                self.logger().info(f"Opening CLMM position around current price {current_price} with range -{self.config.lower_range_width_pct}% to +{self.config.upper_range_width_pct}%")
             else:  # AMM
                 self.logger().info(f"Opening AMM position at current price {current_price}")
 
             # Use the connector's add_liquidity method
             if self.connector_type == ConnectorType.CLMM:
-                # CLMM uses spread_pct parameter
+                # CLMM uses upper_width_pct and lower_width_pct parameters
                 order_id = self.connectors[self.exchange].add_liquidity(
                     trading_pair=self.config.trading_pair,
                     price=current_price,
-                    spread_pct=float(self.config.position_width_pct),
+                    upper_width_pct=float(self.config.upper_range_width_pct),
+                    lower_width_pct=float(self.config.lower_range_width_pct),
                     base_token_amount=float(self.config.base_token_amount) if self.config.base_token_amount > 0 else None,
                     quote_token_amount=float(self.config.quote_token_amount) if self.config.quote_token_amount > 0 else None,
                 )
@@ -279,8 +280,6 @@ class LpPositionManager(ScriptStrategyBase):
 
             # Initialize variables that will be used later
             out_of_range = False
-            lower_bound_with_buffer = 0
-            upper_bound_with_buffer = 0
 
             # Handle different types of position info based on connector type
             if isinstance(self.position_info, CLMMPositionInfo):
@@ -288,20 +287,15 @@ class LpPositionManager(ScriptStrategyBase):
                 lower_price = Decimal(str(self.position_info.lower_price))
                 upper_price = Decimal(str(self.position_info.upper_price))
 
-                # Check if price is outside position range by more than out_of_range_pct
-                out_of_range_amount = 0
-
-                lower_bound_with_buffer = lower_price * (1 - float(self.config.out_of_range_pct) / 100.0)
-                upper_bound_with_buffer = upper_price * (1 + float(self.config.out_of_range_pct) / 100.0)
-
-                if float(current_price) < lower_bound_with_buffer:
+                # Check if price is outside position range
+                if float(current_price) < float(lower_price):
                     out_of_range = True
-                    out_of_range_amount = (lower_bound_with_buffer - float(current_price)) / float(lower_price) * 100
-                    self.logger().info(f"Price {current_price} is below position lower bound with buffer {lower_bound_with_buffer} by {out_of_range_amount:.2f}%")
-                elif float(current_price) > upper_bound_with_buffer:
+                    out_of_range_amount = (float(lower_price) - float(current_price)) / float(lower_price) * 100
+                    self.logger().info(f"Price {current_price} is below position lower bound {lower_price} by {out_of_range_amount:.2f}%")
+                elif float(current_price) > float(upper_price):
                     out_of_range = True
-                    out_of_range_amount = (float(current_price) - upper_bound_with_buffer) / float(upper_price) * 100
-                    self.logger().info(f"Price {current_price} is above position upper bound with buffer {upper_bound_with_buffer} by {out_of_range_amount:.2f}%")
+                    out_of_range_amount = (float(current_price) - float(upper_price)) / float(upper_price) * 100
+                    self.logger().info(f"Price {current_price} is above position upper bound {upper_price} by {out_of_range_amount:.2f}%")
 
             elif isinstance(self.position_info, AMMPositionInfo):
                 # For AMM positions, track deviation from the price when position was opened
@@ -311,24 +305,20 @@ class LpPositionManager(ScriptStrategyBase):
 
                 reference_price = self.amm_position_open_price
 
-                # Calculate acceptable range based on position_width_pct
-                width_pct = float(self.config.position_width_pct) / 100.0
-                lower_bound = reference_price * (1 - width_pct)
-                upper_bound = reference_price * (1 + width_pct)
+                # Calculate acceptable range based on separate upper and lower width percentages
+                lower_width_pct = float(self.config.lower_range_width_pct) / 100.0
+                upper_width_pct = float(self.config.upper_range_width_pct) / 100.0
+                lower_bound = reference_price * (1 - lower_width_pct)
+                upper_bound = reference_price * (1 + upper_width_pct)
 
-                # Add out_of_range buffer
-                out_of_range_buffer = float(self.config.out_of_range_pct) / 100.0
-                lower_bound_with_buffer = lower_bound * (1 - out_of_range_buffer)
-                upper_bound_with_buffer = upper_bound * (1 + out_of_range_buffer)
-
-                if float(current_price) < lower_bound_with_buffer:
+                if float(current_price) < lower_bound:
                     out_of_range = True
-                    out_of_range_amount = (lower_bound_with_buffer - float(current_price)) / lower_bound * 100
-                    self.logger().info(f"Price {current_price} is below lower bound with buffer {lower_bound_with_buffer:.6f} by {out_of_range_amount:.2f}%")
-                elif float(current_price) > upper_bound_with_buffer:
+                    out_of_range_amount = (lower_bound - float(current_price)) / lower_bound * 100
+                    self.logger().info(f"Price {current_price} is below lower bound {lower_bound:.6f} by {out_of_range_amount:.2f}%")
+                elif float(current_price) > upper_bound:
                     out_of_range = True
-                    out_of_range_amount = (float(current_price) - upper_bound_with_buffer) / upper_bound * 100
-                    self.logger().info(f"Price {current_price} is above upper bound with buffer {upper_bound_with_buffer:.6f} by {out_of_range_amount:.2f}%")
+                    out_of_range_amount = (float(current_price) - upper_bound) / upper_bound * 100
+                    self.logger().info(f"Price {current_price} is above upper bound {upper_bound:.6f} by {out_of_range_amount:.2f}%")
             else:
                 self.logger().warning("Unknown position info type")
                 return
@@ -338,7 +328,7 @@ class LpPositionManager(ScriptStrategyBase):
             if out_of_range:
                 if self.out_of_range_start_time is None:
                     self.out_of_range_start_time = current_time
-                    self.logger().info("Price moved out of range (with buffer). Starting timer...")
+                    self.logger().info("Price moved out of range. Starting timer...")
 
                 # Check if price has been out of range for sufficient time
                 elapsed_seconds = current_time - self.out_of_range_start_time
@@ -351,14 +341,14 @@ class LpPositionManager(ScriptStrategyBase):
             else:
                 # Reset timer if price moves back into range
                 if self.out_of_range_start_time is not None:
-                    self.logger().info("Price moved back into range (with buffer). Resetting timer.")
+                    self.logger().info("Price moved back into range. Resetting timer.")
                     self.out_of_range_start_time = None
 
                 # Add log statement when price is in range
                 if isinstance(self.position_info, AMMPositionInfo):
-                    self.logger().info(f"Price {current_price} is within monitoring range: {lower_bound:.6f} to {upper_bound:.6f} (buffer extends to {lower_bound_with_buffer:.6f} - {upper_bound_with_buffer:.6f})")
+                    self.logger().info(f"Price {current_price} is within monitoring range: {lower_bound:.6f} to {upper_bound:.6f}")
                 else:
-                    self.logger().info(f"Price {current_price} is within range: {lower_bound_with_buffer:.6f} to {upper_bound_with_buffer:.6f}")
+                    self.logger().info(f"Price {current_price} is within range: {lower_price:.6f} to {upper_price:.6f}")
 
         except Exception as e:
             self.logger().error(f"Error monitoring position: {str(e)}")
@@ -576,11 +566,12 @@ class LpPositionManager(ScriptStrategyBase):
             else:  # AMMPositionInfo
                 # For AMM, show the monitoring range based on open price
                 open_price = Decimal(str(self.amm_position_open_price))
-                width_pct = Decimal(str(self.config.position_width_pct)) / Decimal("100")
-                lower_price = open_price * (1 - width_pct)
-                upper_price = open_price * (1 + width_pct)
+                lower_width_pct = Decimal(str(self.config.lower_range_width_pct)) / Decimal("100")
+                upper_width_pct = Decimal(str(self.config.upper_range_width_pct)) / Decimal("100")
+                lower_price = open_price * (1 - lower_width_pct)
+                upper_price = open_price * (1 + upper_width_pct)
                 lines.append(f"Position Opened At: {open_price:.6f}")
-                lines.append(f"Monitoring Range: {lower_price:.6f} - {upper_price:.6f} (±{self.config.position_width_pct}% from open price)")
+                lines.append(f"Monitoring Range: {lower_price:.6f} - {upper_price:.6f} (-{self.config.lower_range_width_pct}% to +{self.config.upper_range_width_pct}% from open price)")
             if self.pool_info:
                 current_price = Decimal(str(self.pool_info.price))
                 price_visualization = self._get_price_range_visualization(current_price, lower_price, upper_price)

@@ -176,19 +176,23 @@ class GatewayLp(GatewaySwap):
         order_id: str,
         trading_pair: str,
         price: float,
-        spread_pct: float,
+        upper_width_pct: Optional[float] = None,
+        lower_width_pct: Optional[float] = None,
+        spread_pct: Optional[float] = None,  # Deprecated, kept for backward compatibility
         base_token_amount: Optional[float] = None,
         quote_token_amount: Optional[float] = None,
         slippage_pct: Optional[float] = None,
     ):
         """
-        Opens a concentrated liquidity position around the specified price with a percentage width.
+        Opens a concentrated liquidity position around the specified price with asymmetric width percentages.
 
         :param trade_type: The trade type (should be RANGE)
         :param order_id: Internal order id (also called client_order_id)
         :param trading_pair: The trading pair for the position
         :param price: The center price for the position
-        :param spread_pct: The width percentage to create range (e.g. 5.0 for 5%)
+        :param upper_width_pct: The upper range width percentage from center price (e.g. 10.0 for +10%)
+        :param lower_width_pct: The lower range width percentage from center price (e.g. 5.0 for -5%)
+        :param spread_pct: Deprecated - symmetric width percentage (kept for backward compatibility)
         :param base_token_amount: Amount of base token to add (optional)
         :param quote_token_amount: Amount of quote token to add (optional)
         :param slippage_pct: Maximum allowed slippage percentage
@@ -217,10 +221,21 @@ class GatewayLp(GatewaySwap):
                                   price=Decimal(str(price)),
                                   amount=Decimal(str(total_amount_in_base)))
 
-        # Calculate position price range based on center price and width percentage
-        spread_pct_decimal = spread_pct / 100.0
-        lower_price = price * (1 - spread_pct_decimal)
-        upper_price = price * (1 + spread_pct_decimal)
+        # Calculate position price range based on center price and width percentages
+        # Support both new asymmetric parameters and legacy spread_pct
+        if upper_width_pct is not None and lower_width_pct is not None:
+            # Use asymmetric widths
+            lower_width_decimal = lower_width_pct / 100.0
+            upper_width_decimal = upper_width_pct / 100.0
+            lower_price = price * (1 - lower_width_decimal)
+            upper_price = price * (1 + upper_width_decimal)
+        elif spread_pct is not None:
+            # Fallback to symmetric spread for backward compatibility
+            spread_pct_decimal = spread_pct / 100.0
+            lower_price = price * (1 - spread_pct_decimal)
+            upper_price = price * (1 + spread_pct_decimal)
+        else:
+            raise ValueError("Either upper_width_pct and lower_width_pct, or spread_pct must be provided")
 
         # Get pool address for the trading pair
         pool_address = await self.get_pool_address(trading_pair)
