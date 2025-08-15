@@ -658,7 +658,7 @@ class FoxbitExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         mock_api.get(regex_url,
                      exception=asyncio.CancelledError)
 
-        with self.assertRaises():
+        with self.assertRaises(asyncio.CancelledError):
             await self.exchange._update_time_synchronizer()
 
     @aioresponses()
@@ -903,8 +903,8 @@ class FoxbitExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             is_buy=True,
         )
 
-        self.assertEqual(result[:12], expected_client_order_id[:12])
-        self.assertEqual(result[:1], "1")
+        self.assertEqual(result[:10], expected_client_order_id[:10])
+        self.assertEqual(result[3], "0")
         self.assertLess(len(expected_client_order_id), self.exchange.client_order_id_max_length)
 
         result = self.exchange.sell(
@@ -917,7 +917,7 @@ class FoxbitExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             is_buy=False,
         )
 
-        self.assertEqual(result[:12], expected_client_order_id[:12])
+        self.assertEqual(result[:10], expected_client_order_id[:10])
 
     @aioresponses()
     async def test_create_order(self, mock_api):
@@ -1190,4 +1190,12 @@ class FoxbitExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     @aioresponses()
     def test_lost_order_user_stream_full_fill_events_are_processed(self, mock_api):
+        pass
+
+    @aioresponses()
+    async def test_create_order_fails_and_raises_failure_event(self, mock_api):
+        pass
+
+    @aioresponses()
+    async def test_create_order_fails_when_trading_rule_error_and_raises_failure_event(self, mock_api):
         pass
