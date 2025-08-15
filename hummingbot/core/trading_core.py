@@ -17,6 +17,7 @@ from hummingbot.client.config.config_helpers import ClientConfigAdapter, get_str
 from hummingbot.client.config.strategy_config_data_types import BaseStrategyConfigMap
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.client.settings import SCRIPT_STRATEGIES_MODULE, STRATEGIES
+from hummingbot.connector.connector_metrics_collector import DummyMetricsCollector, MetricsCollector
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.core.clock import Clock, ClockMode
@@ -105,6 +106,9 @@ class TradingCore:
         self.kill_switch: Optional[KillSwitch] = None
         self.markets_recorder: Optional[MarketsRecorder] = None
         self.trade_fill_db: Optional[SQLConnectionManager] = None
+
+        # Metrics collectors mapping (connector_name -> MetricsCollector)
+        self._metrics_collectors: Dict[str, MetricsCollector] = {}
 
         # Runtime state
         self.init_time: float = time.time()
@@ -244,6 +248,28 @@ class TradingCore:
 
         return connector
 
+    def _initialize_metrics_for_connector(self, connector: ExchangeBase, connector_name: str):
+        """Initialize metrics collector for a specific connector."""
+        try:
+            # Get the metrics collector from config
+            collector = self.client_config_map.anonymized_metrics_mode.get_collector(
+                connector=connector,
+                rate_provider=RateOracle.get_instance(),
+                instance_id=self.client_config_map.instance_id,
+            )
+
+            self.clock.add_iterator(collector)
+
+            # Store the collector
+            self._metrics_collectors[connector_name] = collector
+
+            self.logger().debug(f"Metrics collector initialized for {connector_name}")
+
+        except Exception as e:
+            self.logger().warning(f"Failed to initialize metrics collector for {connector_name}: {e}")
+            # Use dummy collector as fallback
+            self._metrics_collectors[connector_name] = DummyMetricsCollector()
+
     def remove_connector(self, connector_name: str) -> bool:
         """
         Remove a connector.
@@ -257,6 +283,19 @@ class TradingCore:
         connector = self.connector_manager.get_connector(connector_name)
 
         if connector:
+            # Stop and remove metrics collector first
+            if connector_name in self._metrics_collectors:
+                collector = self._metrics_collectors[connector_name]
+
+                # Remove from clock if it was added
+                if self.clock:
+                    self.clock.remove_iterator(collector)
+
+                # Remove from mapping
+                del self._metrics_collectors[connector_name]
+
+                self.logger().debug(f"Metrics collector stopped for {connector_name}")
+
             # Remove from clock if exists
             connector.stop(self.clock)
             if self.clock:
@@ -434,12 +473,10 @@ class TradingCore:
             # Initialize strategy based on type
             strategy_type = self.detect_strategy_type(strategy_name)
 
-            if strategy_type == StrategyType.SCRIPT or strategy_type == StrategyType.V2:
+            if strategy_type in [StrategyType.SCRIPT, StrategyType.V2]:
                 await self._initialize_script_strategy()
-            elif strategy_type == StrategyType.REGULAR:
-                await self._initialize_regular_strategy()
             else:
-                raise ValueError(f"Unknown strategy type: {strategy_type}")
+                await self._initialize_regular_strategy()
 
             # Initialize markets for backward compatibility
             self._initialize_markets_for_strategy()
@@ -503,6 +540,11 @@ class TradingCore:
                 if self.markets_recorder:
                     for market in self.markets.values():
                         self.markets_recorder.restore_market_states(self._strategy_file_name, market)
+
+                for connector_name, connector in self.connector_manager.connectors.items():
+                    if connector_name not in self._metrics_collectors:
+                        self.logger().debug(f"Initializing metrics collector for {connector_name} (created outside normal flow)")
+                        self._initialize_metrics_for_connector(connector, connector_name)
 
             # Initialize kill switch if enabled
             if (self._trading_required and
@@ -751,6 +793,17 @@ class TradingCore:
             # Cancel outstanding orders
             if not skip_order_cancellation:
                 await self.cancel_outstanding_orders()
+
+            # Stop all metrics collectors first
+            for connector_name, collector in list(self._metrics_collectors.items()):
+                try:
+                    if self.clock:
+                        self.clock.remove_iterator(collector)
+                    self.logger().debug(f"Stopped metrics collector for {connector_name}")
+                except Exception as e:
+                    self.logger().error(f"Error stopping metrics collector for {connector_name}: {e}")
+
+            self._metrics_collectors.clear()
 
             # Remove all connectors
             connector_names = list(self.connector_manager.connectors.keys())
