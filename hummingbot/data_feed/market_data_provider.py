@@ -111,29 +111,40 @@ class MarketDataProvider:
                         tasks = []
                         gateway_client = GatewayHttpClient.get_instance()
                         for connector_pair in connector_pairs:
-                            # Handle new connector format like "jupiter/router"
                             connector_name = connector_pair.connector_name
                             base, quote = connector_pair.trading_pair.split("-")
 
-                            # Parse connector to get chain and connector name
-                            # First try to get chain and network from gateway
-                            from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
-                            try:
-                                chain, network, error = await GatewayCommandUtils.get_connector_chain_network(
-                                    gateway_client, connector_name
-                                )
-                                if error:
-                                    self.logger().warning(f"Could not get chain/network for {connector_name}: {error}")
-                                    continue
-
+                            # Handle both old format (uniswap_ethereum_mainnet) and new format (jupiter/router)
+                            if "_" in connector_name and connector_name.count("_") >= 2:
+                                # Old format: connector_chain_network
+                                parts = connector_name.split("_")
+                                connector = parts[0]
+                                chain = parts[1]
+                                network = "_".join(parts[2:]) if len(parts) > 2 else parts[2]
                                 tasks.append(
                                     gateway_client.get_price(
-                                        chain=chain, network=network, connector=connector_name,
+                                        chain=chain, network=network, connector=connector,
                                         base_asset=base, quote_asset=quote, amount=Decimal("1"),
                                         side=TradeType.BUY))
-                            except Exception as e:
-                                self.logger().warning(f"Error getting chain info for {connector_name}: {e}")
-                                continue
+                            else:
+                                # New format: connector/type (e.g., jupiter/router)
+                                from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
+                                try:
+                                    chain, network, error = await GatewayCommandUtils.get_connector_chain_network(
+                                        gateway_client, connector_name
+                                    )
+                                    if error:
+                                        self.logger().warning(f"Could not get chain/network for {connector_name}: {error}")
+                                        continue
+
+                                    tasks.append(
+                                        gateway_client.get_price(
+                                            chain=chain, network=network, connector=connector_name,
+                                            base_asset=base, quote_asset=quote, amount=Decimal("1"),
+                                            side=TradeType.BUY))
+                                except Exception as e:
+                                    self.logger().warning(f"Error getting chain info for {connector_name}: {e}")
+                                    continue
                         try:
                             if tasks:
                                 results = await asyncio.gather(*tasks, return_exceptions=True)
