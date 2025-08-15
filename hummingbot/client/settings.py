@@ -153,7 +153,8 @@ class ConnectorSetting(NamedTuple):
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = False,
         api_keys: Optional[Dict[str, Any]] = None,
-        client_config_map: Optional["ClientConfigAdapter"] = None,
+        balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
+        rate_limits_share_pct: Decimal = Decimal("100")
     ) -> Dict[str, Any]:
         trading_pairs = trading_pairs or []
         api_keys = api_keys or {}
@@ -172,10 +173,11 @@ class ConnectorSetting(NamedTuple):
         else:
             params: Dict[str, Any] = {k.replace(self.name, self.parent_name): v for k, v in api_keys.items()}
             params["domain"] = self.domain_parameter
+            params["rate_limits_share_pct"] = rate_limits_share_pct
 
         params["trading_pairs"] = trading_pairs
         params["trading_required"] = trading_required
-        params["client_config_map"] = client_config_map
+        params["balance_asset_limit"] = balance_asset_limit
         if (self.config_keys is not None
                 and type(self.config_keys) is not dict
                 and "receive_connector_configuration" in self.config_keys.__class__.model_fields
@@ -200,9 +202,6 @@ class ConnectorSetting(NamedTuple):
     def non_trading_connector_instance_with_default_configuration(
             self,
             trading_pairs: Optional[List[str]] = None) -> 'ConnectorBase':
-        from hummingbot.client.config.config_helpers import ClientConfigAdapter
-        from hummingbot.client.hummingbot_application import HummingbotApplication
-
         trading_pairs = trading_pairs or []
         connector_class = getattr(importlib.import_module(self.module_path()), self.class_name())
         kwargs = {}
@@ -221,7 +220,8 @@ class ConnectorSetting(NamedTuple):
             trading_pairs=trading_pairs,
             trading_required=False,
             api_keys=kwargs,
-            client_config_map=HummingbotApplication.main_application().client_config_map,
+            rate_limits_share_pct=Decimal("100"),
+            balance_asset_limit={},
         )
         kwargs = self.add_domain_parameter(kwargs)
         connector = connector_class(**kwargs)
@@ -243,7 +243,6 @@ class AllConnectorSettings:
         """
         cls.all_connector_settings = {}  # reset
         connector_exceptions = ["mock_paper_exchange", "mock_pure_python_paper_exchange", "paper_trade"]
-        # connector_exceptions = ["mock_paper_exchange", "mock_pure_python_paper_exchange", "paper_trade", "injective_v2", "injective_v2_perpetual"]
 
         type_dirs: List[DirEntry] = [
             cast(DirEntry, f) for f in scandir(f"{root_path() / 'hummingbot' / 'connector'}")
