@@ -2,7 +2,7 @@ import asyncio
 import time
 from collections import defaultdict
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional, Tuple
+from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
 
 from bidict import bidict
 
@@ -32,9 +32,6 @@ from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
-if TYPE_CHECKING:
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
-
 bpm_logger = None
 
 
@@ -46,7 +43,8 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
 
     def __init__(
             self,
-            client_config_map: "ClientConfigAdapter",
+            balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
+            rate_limits_share_pct: Decimal = Decimal("100"),
             binance_perpetual_api_key: str = None,
             binance_perpetual_api_secret: str = None,
             trading_pairs: Optional[List[str]] = None,
@@ -60,7 +58,7 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         self._domain = domain
         self._position_mode = None
         self._last_trade_history_timestamp = None
-        super().__init__(client_config_map)
+        super().__init__(balance_asset_limit, rate_limits_share_pct)
 
     @property
     def name(self) -> str:
