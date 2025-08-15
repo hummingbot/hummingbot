@@ -2,7 +2,7 @@ import asyncio
 import json
 import unittest
 from typing import Any, Awaitable, Dict, Optional
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from bidict import bidict
 
