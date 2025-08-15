@@ -71,6 +71,12 @@ def start(self):
         coin_id_overrides = c_map.get("coin_id_overrides").value
         invert_custom_api_price = c_map.get("invert_custom_api_price").value
         header_custom_api = c_map.get("header_custom_api").value
+        
+        # Volume injection parameters
+        volume_injection_enabled = c_map.get("volume_injection_enabled").value
+        min_transaction_interval = c_map.get("min_transaction_interval").value
+        volume_injection_amount_pct = c_map.get("volume_injection_amount_pct").value
+        volume_injection_spread_pct = c_map.get("volume_injection_spread_pct").value
         if split_order_levels_enabled:
             buy_list = [['buy', spread, amount] for spread, amount in zip(bid_order_level_spreads, bid_order_level_amounts)]
             sell_list = [['sell', spread, amount] for spread, amount in zip(ask_order_level_spreads, ask_order_level_amounts)]
@@ -143,7 +149,11 @@ def start(self):
             moving_price_band=moving_price_band,
             coin_id_overrides=coin_id_overrides,
             invert_custom_api_price=invert_custom_api_price,
-            header_custom_api=header_custom_api
+            header_custom_api=header_custom_api,
+            volume_injection_enabled=volume_injection_enabled,
+            min_transaction_interval=min_transaction_interval,
+            volume_injection_amount_pct=volume_injection_amount_pct,
+            volume_injection_spread_pct=volume_injection_spread_pct
         )
     except Exception as e:
         self.notify(str(e))

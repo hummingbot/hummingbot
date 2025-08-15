@@ -88,7 +88,11 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     moving_price_band: Optional[MovingPriceBand] = None,
                     invert_custom_api_price: bool = False,
                     coin_id_overrides: Dict[str, str] = None,
-                    header_custom_api: Dict[str, str] = None
+                    header_custom_api: Dict[str, str] = None,
+                    volume_injection_enabled: bool = False,
+                    min_transaction_interval: float = 60.0,
+                    volume_injection_amount_pct: Decimal = Decimal("15"),
+                    volume_injection_spread_pct: Decimal = Decimal("20")
                     ):
         if order_override is None:
             order_override = {}
@@ -150,6 +154,15 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._invert_custom_api_price = invert_custom_api_price
         self._coin_id_overrides = coin_id_overrides
         self._header_custom_api = header_custom_api
+        
+        # Volume injection parameters
+        self._volume_injection_enabled = volume_injection_enabled
+        self._min_transaction_interval = min_transaction_interval
+        self._volume_injection_amount_pct = volume_injection_amount_pct
+        self._volume_injection_spread_pct = volume_injection_spread_pct
+        self._last_transaction_timestamp = 0
+        self._volume_injection_active = False
+        
         self.c_add_markets([market_info.market])
 
     def all_markets_ready(self):
@@ -773,6 +786,10 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
             self._hanging_orders_tracker.process_tick()
 
+            # Check volume injection conditions
+            if self._volume_injection_enabled:
+                self.c_check_volume_injection(timestamp)
+
             self.c_cancel_active_orders_on_max_age_limit()
             self.c_cancel_active_orders(proposal)
             self.c_cancel_orders_below_min_spread()
@@ -1099,6 +1116,11 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
             if self._inventory_cost_price_delegate is not None:
                 self._inventory_cost_price_delegate.process_order_fill_event(order_filled_event)
+            
+            # Update transaction timestamp for volume injection tracking
+            if self._volume_injection_enabled:
+                self._last_transaction_timestamp = self._current_timestamp
+                self._volume_injection_active = False
 
     cdef c_did_complete_buy_order(self, object order_completed_event):
         cdef:
@@ -1346,3 +1368,72 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             return PriceType.Custom
         else:
             raise ValueError(f"Unrecognized price type string {price_type_str}.")
+
+    # Volume injection methods for ensuring minimum transaction frequency
+    cdef c_check_volume_injection(self, double timestamp):
+        """Check if volume injection should be triggered and execute if needed."""
+        if (self._last_transaction_timestamp == 0):
+            self._last_transaction_timestamp = timestamp
+            return
+            
+        cdef double time_since_last_transaction = timestamp - self._last_transaction_timestamp
+        
+        # Trigger volume injection if we're approaching the deadline
+        if (time_since_last_transaction >= (self._min_transaction_interval * 0.85) and 
+            not self._volume_injection_active):
+            self._volume_injection_active = True
+            self.c_create_volume_injection_orders()
+            
+    cdef c_create_volume_injection_orders(self):
+        """Create small orders designed to generate transactions."""
+        cdef:
+            ExchangeBase market = self._market_info.market
+            object reference_price = self.get_price()
+            
+        if reference_price.is_nan():
+            return
+            
+        # Calculate volume injection parameters
+        cdef:
+            Decimal injection_amount = self._order_amount * (self._volume_injection_amount_pct / Decimal("100"))
+            Decimal spread_reduction = self._volume_injection_spread_pct / Decimal("100")
+            Decimal buy_spread = self._bid_spread * (Decimal("1") - spread_reduction)
+            Decimal sell_spread = self._ask_spread * (Decimal("1") - spread_reduction)
+            
+        # Create tighter buy order (more likely to fill)
+        cdef:
+            Decimal buy_price = reference_price * (Decimal("1") - buy_spread)
+            Decimal sell_price = reference_price * (Decimal("1") + sell_spread)
+            
+        buy_price = market.c_quantize_order_price(self.trading_pair, buy_price)
+        sell_price = market.c_quantize_order_price(self.trading_pair, sell_price)
+        injection_amount = market.c_quantize_order_amount(self.trading_pair, injection_amount)
+        
+        if injection_amount > 0:
+            # Alternate between buy and sell for volume injection
+            if (int(self._current_timestamp) % 2 == 0):
+                # Create buy order
+                if buy_price > 0:
+                    order_id = self.c_buy_with_specific_market(
+                        market,
+                        self.trading_pair,
+                        injection_amount,
+                        self._limit_order_type,
+                        buy_price
+                    )
+                    if order_id is not None:
+                        self.logger().info(f"Volume injection: Created buy order {order_id} "
+                                         f"for {injection_amount} at {buy_price}")
+            else:
+                # Create sell order  
+                if sell_price > 0:
+                    order_id = self.c_sell_with_specific_market(
+                        market,
+                        self.trading_pair,
+                        injection_amount,
+                        self._limit_order_type,
+                        sell_price
+                    )
+                    if order_id is not None:
+                        self.logger().info(f"Volume injection: Created sell order {order_id} "
+                                         f"for {injection_amount} at {sell_price}")

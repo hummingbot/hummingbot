@@ -167,3 +167,9 @@ coin_id_overrides:
   NDEPS: native-decentralized-euro-protocol-share
   USD: usd
   usd: usd
+
+# Volume injection parameters for guaranteed transaction frequency
+volume_injection_enabled: true
+min_transaction_interval: 60.0
+volume_injection_amount_pct: 15.0
+volume_injection_spread_pct: 20.0
