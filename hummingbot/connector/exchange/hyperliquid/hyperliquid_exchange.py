@@ -1,7 +1,7 @@
 import asyncio
 import hashlib
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional, Tuple
+from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
 
 from bidict import bidict
 
@@ -30,9 +30,6 @@ from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
-if TYPE_CHECKING:
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
-
 
 class HyperliquidExchange(ExchangePyBase):
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
@@ -44,7 +41,8 @@ class HyperliquidExchange(ExchangePyBase):
 
     def __init__(
             self,
-            client_config_map: "ClientConfigAdapter",
+            balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
+            rate_limits_share_pct: Decimal = Decimal("100"),
             hyperliquid_api_secret: str = None,
             use_vault: bool = False,
             hyperliquid_api_key: str = None,
@@ -62,7 +60,7 @@ class HyperliquidExchange(ExchangePyBase):
         self._last_trades_poll_timestamp = 1.0
         self.coin_to_asset: Dict[str, int] = {}
         self.name_to_coin: Dict[str, str] = {}
-        super().__init__(client_config_map)
+        super().__init__(balance_asset_limit, rate_limits_share_pct)
 
     @property
     def name(self) -> str:
