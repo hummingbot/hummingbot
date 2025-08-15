@@ -204,7 +204,7 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
     @patch.object(ConnectorPair, 'is_amm_connector', return_value=True)
     def test_remove_rate_sources_amm(self, mock_is_amm):
         # Test removing AMM connector rate sources
-        connector_pair = ConnectorPair(connector_name="uniswap_ethereum_mainnet", trading_pair="BTC-USDT")
+        connector_pair = ConnectorPair(connector_name="uniswap/amm", trading_pair="BTC-USDT")
         self.provider._rates_required.add_or_update("gateway", connector_pair)
         mock_task = MagicMock()
         self.provider._rates_update_task = mock_task
@@ -233,18 +233,22 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
         await self.provider.update_rates_task()
         self.assertIsNone(self.provider._rates_update_task)
 
+    @patch('hummingbot.connector.gateway.command_utils.GatewayCommandUtils.get_connector_chain_network')
     @patch('hummingbot.core.rate_oracle.rate_oracle.RateOracle.get_instance')
     @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_instance')
-    async def test_update_rates_task_gateway(self, mock_gateway_client, mock_rate_oracle):
+    async def test_update_rates_task_gateway(self, mock_gateway_client, mock_rate_oracle, mock_get_chain_network):
         # Test gateway connector path
         mock_gateway_instance = AsyncMock()
         mock_gateway_client.return_value = mock_gateway_instance
         mock_gateway_instance.get_price.return_value = {"price": "50000"}
 
+        # Mock the chain/network lookup for new format
+        mock_get_chain_network.return_value = ("ethereum", "mainnet", None)
+
         mock_oracle_instance = MagicMock()
         mock_rate_oracle.return_value = mock_oracle_instance
 
-        connector_pair = ConnectorPair(connector_name="uniswap_ethereum_mainnet", trading_pair="BTC-USDT")
+        connector_pair = ConnectorPair(connector_name="uniswap/amm", trading_pair="BTC-USDT")
         self.provider._rates_required.add_or_update("gateway", connector_pair)
 
         # Mock asyncio.sleep to avoid actual delay
@@ -273,14 +277,18 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
 
         mock_oracle_instance.set_price.assert_called_with("BTC-USDT", Decimal("50000"))
 
+    @patch('hummingbot.connector.gateway.command_utils.GatewayCommandUtils.get_connector_chain_network')
     @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_instance')
-    async def test_update_rates_task_gateway_error(self, mock_gateway_client):
+    async def test_update_rates_task_gateway_error(self, mock_gateway_client, mock_get_chain_network):
         # Test gateway connector with error
         mock_gateway_instance = AsyncMock()
         mock_gateway_client.return_value = mock_gateway_instance
         mock_gateway_instance.get_price.side_effect = Exception("Gateway error")
 
-        connector_pair = ConnectorPair(connector_name="uniswap_ethereum_mainnet", trading_pair="BTC-USDT")
+        # Mock the chain/network lookup for new format
+        mock_get_chain_network.return_value = ("ethereum", "mainnet", None)
+
+        connector_pair = ConnectorPair(connector_name="uniswap/amm", trading_pair="BTC-USDT")
         self.provider._rates_required.add_or_update("gateway", connector_pair)
 
         with patch('asyncio.sleep', side_effect=[None, asyncio.CancelledError()]):
