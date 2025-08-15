@@ -4,7 +4,7 @@ import time
 import uuid
 from asyncio import Lock
 from decimal import ROUND_DOWN, Decimal
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, Union
 
 from bidict import bidict
 
@@ -73,9 +73,6 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.tracking_nonce import NonceCreator
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
-if TYPE_CHECKING:
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
-
 
 class XRPLOrderTracker(ClientOrderTracker):
     TRADE_FILLS_WAIT_TIMEOUT = 20
@@ -87,10 +84,11 @@ class XrplExchange(ExchangePyBase):
 
     def __init__(
         self,
-        client_config_map: "ClientConfigAdapter",
         xrpl_secret_key: str,
         wss_node_urls: list[str],
         max_request_per_minute: int,
+        balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
+        rate_limits_share_pct: Decimal = Decimal("100"),
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = True,
         custom_markets: Optional[Dict[str, XRPLMarket]] = None,
@@ -125,7 +123,7 @@ class XrplExchange(ExchangePyBase):
         self._order_last_update_timestamps: Dict[str, float] = {}
         self._min_update_interval_seconds = 0.5  # Minimum time between status updates for same order
 
-        super().__init__(client_config_map)
+        super().__init__(balance_asset_limit, rate_limits_share_pct)
 
     def _create_order_tracker(self) -> ClientOrderTracker:
         return XRPLOrderTracker(connector=self)
