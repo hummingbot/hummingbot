@@ -2,7 +2,6 @@ from decimal import Decimal
 from typing import List, Optional
 
 import pandas as pd
-from pydantic import Field
 
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
@@ -21,7 +20,6 @@ class ArbitrageControllerConfig(ControllerConfigBase):
     candles_config: List[CandlesConfig] = []
     exchange_pair_1: ConnectorPair = ConnectorPair(connector_name="binance", trading_pair="SOL-USDT")
     exchange_pair_2: ConnectorPair = ConnectorPair(connector_name="jupiter/router", trading_pair="SOL-USDC")
-    total_amount_quote: Decimal = Field(default=Decimal("100"), json_schema_extra={"is_updatable": True})  # Total amount in quote currency for trades
     min_profitability: Decimal = Decimal("0.01")
     delay_between_executors: int = 10  # in seconds
     max_executors_imbalance: int = 1
