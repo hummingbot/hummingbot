@@ -4,7 +4,9 @@ from typing import List, Optional
 import pandas as pd
 
 from hummingbot.client.ui.interface_utils import format_df_for_printout
+from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
 from hummingbot.core.data_type.common import MarketDict
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.strategy_v2.controllers.controller_base import ControllerBase, ControllerConfigBase
 from hummingbot.strategy_v2.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig
@@ -29,15 +31,6 @@ class ArbitrageControllerConfig(ControllerConfigBase):
 
 
 class ArbitrageController(ControllerBase):
-    gas_token_by_network = {
-        "ethereum": "ETH",
-        "solana": "SOL",
-        "binance-smart-chain": "BNB",
-        "polygon": "POL",
-        "avalanche": "AVAX",
-        "dexalot": "AVAX"
-    }
-
     def __init__(self, config: ArbitrageControllerConfig, *args, **kwargs):
         self.config = config
         super().__init__(config, *args, **kwargs)
@@ -47,6 +40,8 @@ class ArbitrageController(ControllerBase):
         self._len_active_buy_arbitrages = 0
         self._len_active_sell_arbitrages = 0
         self.base_asset = self.config.exchange_pair_1.trading_pair.split("-")[0]
+        self._gas_token_cache = {}  # Cache for gas tokens by connector
+        self._initialize_gas_tokens()  # Fetch gas tokens during init
         self.initialize_rate_sources()
 
     def initialize_rate_sources(self):
@@ -72,18 +67,48 @@ class ArbitrageController(ControllerBase):
         if len(rates_required) > 0:
             self.market_data_provider.initialize_rate_sources(rates_required)
 
+    def _initialize_gas_tokens(self):
+        """Initialize gas tokens for AMM connectors during controller initialization."""
+        import asyncio
+
+        async def fetch_gas_tokens():
+            for connector_pair in [self.config.exchange_pair_1, self.config.exchange_pair_2]:
+                if connector_pair.is_amm_connector():
+                    connector_name = connector_pair.connector_name
+                    if connector_name not in self._gas_token_cache:
+                        try:
+                            gateway_client = GatewayHttpClient.get_instance()
+
+                            # Get chain and network for the connector
+                            chain, network, error = await GatewayCommandUtils.get_connector_chain_network(
+                                gateway_client, connector_name
+                            )
+
+                            if error:
+                                self.logger().warning(f"Failed to get chain info for {connector_name}: {error}")
+                                continue
+
+                            # Get native currency symbol
+                            native_currency = await gateway_client.get_native_currency_symbol(chain, network)
+
+                            if native_currency:
+                                self._gas_token_cache[connector_name] = native_currency
+                                self.logger().info(f"Gas token for {connector_name}: {native_currency}")
+                            else:
+                                self.logger().warning(f"Failed to get native currency for {connector_name}")
+                        except Exception as e:
+                            self.logger().error(f"Error getting gas token for {connector_name}: {e}")
+
+        # Run the async function to fetch gas tokens
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            asyncio.create_task(fetch_gas_tokens())
+        else:
+            loop.run_until_complete(fetch_gas_tokens())
+
     def get_gas_token(self, connector_name: str) -> Optional[str]:
-        """Get the gas token for a connector based on its network."""
-        # For now, return SOL for jupiter, ETH for uniswap, etc.
-        # This is a simplified approach
-        if "jupiter" in connector_name.lower():
-            return "SOL"
-        elif "uniswap" in connector_name.lower():
-            return "ETH"
-        elif "pancakeswap" in connector_name.lower():
-            return "BNB"
-        # Add more mappings as needed
-        return None
+        """Get the cached gas token for a connector."""
+        return self._gas_token_cache.get(connector_name)
 
     async def update_processed_data(self):
         pass
