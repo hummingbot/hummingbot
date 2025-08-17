@@ -493,10 +493,14 @@ class HyperliquidExchange(ExchangePyBase):
         tracked_order = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(exchange_order_id)
 
         if tracked_order is None:
+            # Instead of awaiting get_exchange_order_id for all orders, check the cached exchange_order_id
             all_orders = self._order_tracker.all_fillable_orders
-            for k, v in all_orders.items():
-                await v.get_exchange_order_id()
-            _cli_tracked_orders = [o for o in all_orders.values() if exchange_order_id == o.exchange_order_id]
+            _cli_tracked_orders = []
+            for order in all_orders.values():
+                # Only check orders that already have an exchange_order_id set
+                if order.exchange_order_id == exchange_order_id:
+                    _cli_tracked_orders.append(order)
+
             if not _cli_tracked_orders:
                 self.logger().debug(f"Ignoring trade message with id {client_order_id}: not in in_flight_orders.")
                 return
