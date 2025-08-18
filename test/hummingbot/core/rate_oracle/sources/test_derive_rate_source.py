@@ -8,8 +8,6 @@ from unittest.mock import AsyncMock, patch
 
 from aioresponses import aioresponses
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.derive import derive_constants as CONSTANTS, derive_web_utils as web_utils
 from hummingbot.connector.exchange.derive.derive_exchange import DeriveExchange
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
@@ -40,9 +38,7 @@ class DeriveRateSourceTest(unittest.TestCase):
         return ret
 
     def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         return DeriveExchange(
-            client_config_map=client_config_map,
             derive_api_key="testAPIKey",
             derive_api_secret="testSecret",
             sub_id="45465",
