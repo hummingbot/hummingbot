@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 
+from hummingbot.client.command.command_utils import GatewayCommandUtils
 from hummingbot.client.command.gateway_api_manager import GatewayChainApiManager, begin_placeholder_mode
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import get_connector_class  # noqa: F401
@@ -236,7 +237,6 @@ Use 'gateway <command> --help' for more information about a command.""")
                         self.notify(f"  • {address}")
 
                     # Check for placeholder wallet
-                    from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
                     if GatewayCommandUtils.is_placeholder_wallet(address):
                         self.notify("    ⚠️  This is a placeholder wallet - please replace it")
 
@@ -426,7 +426,6 @@ Use 'gateway <command> --help' for more information about a command.""")
                 continue
 
             # Check if wallet address is a placeholder
-            from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
             if GatewayCommandUtils.is_placeholder_wallet(default_wallet):
                 self.notify(f"\n⚠️  {chain} wallet not configured (found placeholder: {default_wallet})")
                 self.notify(f"Please add a real wallet with: gateway connect {chain}")
@@ -439,9 +438,8 @@ Use 'gateway <command> --help' for more information about a command.""")
                     tokens_to_check = [token.strip() for token in tokens_filter.split(",")]
 
                     # Validate tokens
-                    from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
-                    valid_tokens, invalid_tokens = await GatewayCommandUtils.validate_tokens(
-                        self._get_gateway_instance(), chain, default_network, tokens_to_check
+                    valid_tokens, invalid_tokens = await self._get_gateway_instance().validate_tokens(
+                        chain, default_network, tokens_to_check
                     )
 
                     if invalid_tokens:
@@ -535,8 +533,6 @@ Use 'gateway <command> --help' for more information about a command.""")
             Dict mapping token symbols to their balances
         """
         try:
-            from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
-
             # Parse exchange name to get connector format
             # Exchange names like "uniswap_ethereum_mainnet" need to be converted to "uniswap/amm" format
             parts = exchange.split("_")
@@ -554,8 +550,8 @@ Use 'gateway <command> --help' for more information about a command.""")
 
             # Get chain and network from the connector
             gateway = self._get_gateway_instance()
-            chain, network, error = await GatewayCommandUtils.get_connector_chain_network(
-                gateway, connector
+            chain, network, error = await self._get_gateway_instance().get_connector_chain_network(
+                connector
             )
 
             if error:
@@ -634,8 +630,6 @@ Use 'gateway <command> --help' for more information about a command.""")
 
     async def _get_allowances(self, connector: Optional[str] = None):
         """Get token allowances for Ethereum-based connectors"""
-        from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
-
         gateway_instance = self._get_gateway_instance()
         self.notify("Checking token allowances, please wait...")
 
@@ -648,8 +642,8 @@ Use 'gateway <command> --help' for more information about a command.""")
                     return
 
                 # Get chain and network from connector
-                chain, network, error = await GatewayCommandUtils.get_connector_chain_network(
-                    gateway_instance, connector
+                chain, network, error = await self._get_gateway_instance().get_connector_chain_network(
+                    connector
                 )
                 if error:
                     self.notify(error)
@@ -660,13 +654,13 @@ Use 'gateway <command> --help' for more information about a command.""")
                     return
 
                 # Get default wallet
-                wallet_address, error = await GatewayCommandUtils.get_default_wallet(gateway_instance, chain)
+                wallet_address, error = await gateway_instance.get_default_wallet(chain)
                 if error:
                     self.notify(error)
                     return
 
                 # Get all available tokens for this chain/network
-                token_list = await GatewayCommandUtils.get_available_tokens(gateway_instance, chain, network)
+                token_list = await self._get_gateway_instance().get_available_tokens(chain, network)
                 if not token_list:
                     self.notify(f"No tokens found for {chain}:{network}")
                     return

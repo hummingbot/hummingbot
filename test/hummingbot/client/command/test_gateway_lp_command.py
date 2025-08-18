@@ -267,8 +267,8 @@ class GatewayLPCommandTest(unittest.TestCase):
         )
         self.assertEqual(quote_amount, 0)  # All base token
 
-    @patch('hummingbot.connector.gateway.command_utils.GatewayCommandUtils.get_connector_chain_network')
-    @patch('hummingbot.connector.gateway.command_utils.GatewayCommandUtils.get_default_wallet')
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_connector_chain_network')
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_default_wallet')
     async def test_position_info_no_positions(self, mock_wallet, mock_chain_network):
         """Test position info when no positions exist"""
         mock_chain_network.return_value = ("ethereum", "mainnet", None)
@@ -284,8 +284,8 @@ class GatewayLPCommandTest(unittest.TestCase):
 
             self.app.notify.assert_any_call("\nNo liquidity positions found for this connector")
 
-    @patch('hummingbot.connector.gateway.command_utils.GatewayCommandUtils.get_connector_chain_network')
-    @patch('hummingbot.connector.gateway.command_utils.GatewayCommandUtils.get_default_wallet')
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_connector_chain_network')
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_default_wallet')
     @patch('hummingbot.connector.gateway.common_types.get_connector_type')
     async def test_position_info_with_positions(self, mock_connector_type, mock_wallet, mock_chain_network):
         """Test position info with existing positions"""
@@ -319,14 +319,14 @@ class GatewayLPCommandTest(unittest.TestCase):
             # Check that positions were displayed
             self.app.notify.assert_any_call("\nTotal Positions: 1")
 
-    @patch('hummingbot.connector.gateway.command_utils.GatewayCommandUtils.get_connector_chain_network')
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_connector_chain_network')
     async def test_add_liquidity_invalid_connector(self, mock_chain_network):
         """Test add liquidity with invalid connector format"""
         await self.command._add_liquidity("invalid-connector")
 
         self.app.notify.assert_any_call("Error: Invalid connector format 'invalid-connector'. Use format like 'uniswap/amm'")
 
-    @patch('hummingbot.connector.gateway.command_utils.GatewayCommandUtils.get_connector_chain_network')
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_connector_chain_network')
     @patch('hummingbot.connector.gateway.common_types.get_connector_type')
     async def test_collect_fees_wrong_connector_type(self, mock_connector_type, mock_chain_network):
         """Test collect fees with non-CLMM connector"""

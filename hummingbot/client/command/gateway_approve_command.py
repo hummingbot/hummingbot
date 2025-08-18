@@ -2,7 +2,7 @@
 import asyncio
 from typing import TYPE_CHECKING, Optional
 
-from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
+from hummingbot.client.command.command_utils import GatewayCommandUtils
 from hummingbot.connector.gateway.gateway_base import GatewayBase
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -37,16 +37,16 @@ class GatewayApproveCommand:
                 return
 
             # Get chain and network from connector
-            chain, network, error = await GatewayCommandUtils.get_connector_chain_network(
-                self._get_gateway_instance(), connector
+            chain, network, error = await self._get_gateway_instance().get_connector_chain_network(
+                connector
             )
             if error:
                 self.notify(error)
                 return
 
             # Get default wallet for the chain
-            wallet_address, error = await GatewayCommandUtils.get_default_wallet(
-                self._get_gateway_instance(), chain
+            wallet_address, error = await self._get_gateway_instance().get_default_wallet(
+                chain
             )
             if error:
                 self.notify(error)
@@ -117,8 +117,7 @@ class GatewayApproveCommand:
 
             # Get fee estimation from gateway
             self.notify(f"\nEstimating transaction fees for {chain} {network}...")
-            fee_info = await GatewayCommandUtils.estimate_transaction_fee(
-                self._get_gateway_instance(),
+            fee_info = await self._get_gateway_instance().estimate_transaction_fee(
                 chain,
                 network,
                 transaction_type="approve"
@@ -133,8 +132,7 @@ class GatewayApproveCommand:
                 tokens_to_check.append(native_token)
 
             # Get current balances
-            current_balances = await GatewayCommandUtils.get_wallet_balances(
-                gateway_client=self._get_gateway_instance(),
+            current_balances = await self._get_gateway_instance().get_wallet_balances(
                 chain=chain,
                 network=network,
                 wallet_address=wallet_address,

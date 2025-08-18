@@ -1,18 +1,15 @@
 """
-Shared utilities for gateway commands.
+Shared utilities for gateway commands - UI and display functions.
 """
 import asyncio
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
-from hummingbot.connector.gateway.common_types import Token
-
 if TYPE_CHECKING:
     from hummingbot.connector.gateway.gateway_base import GatewayBase
-    from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 
 
 class GatewayCommandUtils:
-    """Utility functions for gateway commands."""
+    """Utility functions for gateway commands - UI and display functions."""
 
     @staticmethod
     def parse_trading_pair(pair: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
@@ -54,184 +51,6 @@ class GatewayCommandUtils:
         if not wallet_address:
             return False
         return "wallet-address" in wallet_address.lower()
-
-    @staticmethod
-    async def get_default_wallet(
-        gateway_client: "GatewayHttpClient",
-        chain: str
-    ) -> Tuple[Optional[str], Optional[str]]:
-        """
-        Get default wallet for a chain.
-
-        :param gateway_client: Gateway client instance
-        :param chain: Chain name
-        :return: Tuple of (wallet_address, error_message)
-        """
-        wallet_address = await gateway_client.get_default_wallet_for_chain(chain)
-        if not wallet_address:
-            return None, f"No default wallet found for {chain}. Please add one with 'gateway connect {chain}'"
-
-        # Check if wallet address is a placeholder
-        if GatewayCommandUtils.is_placeholder_wallet(wallet_address):
-            return None, f"{chain} wallet not configured (found placeholder: {wallet_address}). Please add a real wallet with: gateway connect {chain}"
-
-        return wallet_address, None
-
-    @staticmethod
-    async def get_connector_config(
-        gateway_client: "GatewayHttpClient",
-        connector: str
-    ) -> Dict:
-        """
-        Get connector configuration.
-
-        :param gateway_client: Gateway client instance
-        :param connector: Connector name (with or without type suffix)
-        :return: Configuration dictionary
-        """
-        try:
-            # Use base connector name for config (strip type suffix)
-            base_connector = connector.split("/")[0] if "/" in connector else connector
-            return await gateway_client.get_configuration(namespace=base_connector)
-        except Exception:
-            return {}
-
-    @staticmethod
-    async def get_connector_chain_network(
-        gateway_client: "GatewayHttpClient",
-        connector: str
-    ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
-        """
-        Get chain and default network for a connector.
-
-        :param gateway_client: Gateway client instance
-        :param connector: Connector name in format 'name/type' (e.g., 'uniswap/amm')
-        :return: Tuple of (chain, network, error_message)
-        """
-        # Parse connector format
-        connector_parts = connector.split('/')
-        if len(connector_parts) != 2:
-            return None, None, "Invalid connector format. Use format like 'uniswap/amm' or 'jupiter/router'"
-
-        connector_name = connector_parts[0]
-
-        # Get all connectors to find chain info
-        try:
-            connectors_resp = await gateway_client.get_connectors()
-            if "error" in connectors_resp:
-                return None, None, f"Error getting connectors: {connectors_resp['error']}"
-
-            # Find the connector info
-            connector_info = None
-            for conn in connectors_resp.get("connectors", []):
-                if conn.get("name") == connector_name:
-                    connector_info = conn
-                    break
-
-            if not connector_info:
-                return None, None, f"Connector '{connector_name}' not found"
-
-            # Get chain from connector info
-            chain = connector_info.get("chain")
-            if not chain:
-                return None, None, f"Could not determine chain for connector '{connector_name}'"
-
-            # Get default network for the chain
-            network = await gateway_client.get_default_network_for_chain(chain)
-            if not network:
-                return None, None, f"Could not get default network for chain '{chain}'"
-
-            return chain, network, None
-
-        except Exception as e:
-            return None, None, f"Error getting connector info: {str(e)}"
-
-    @staticmethod
-    async def get_available_tokens(
-        gateway_client: "GatewayHttpClient",
-        chain: str,
-        network: str
-    ) -> List[Token]:
-        """
-        Get list of available tokens with full information.
-
-        :param gateway_client: Gateway client instance
-        :param chain: Chain name
-        :param network: Network name
-        :return: List of Token objects containing symbol, address, decimals, and name
-        """
-        try:
-            tokens_resp = await gateway_client.get_tokens(chain, network)
-            tokens = tokens_resp.get("tokens", [])
-            # Return the full token objects
-            return tokens
-        except Exception:
-            return []
-
-    @staticmethod
-    async def get_available_networks_for_chain(
-        gateway_client: "GatewayHttpClient",
-        chain: str
-    ) -> List[str]:
-        """
-        Get list of available networks for a specific chain.
-
-        :param gateway_client: Gateway client instance
-        :param chain: Chain name (e.g., "ethereum", "solana")
-        :return: List of network names available for the chain
-        """
-        try:
-            # Get chain configuration
-            chains_resp = await gateway_client.get_chains()
-            if not chains_resp or "chains" not in chains_resp:
-                return []
-
-            # Find the specific chain
-            for chain_info in chains_resp["chains"]:
-                if chain_info.get("chain", "").lower() == chain.lower():
-                    # Get networks from the chain config
-                    networks = chain_info.get("networks", [])
-                    return networks
-
-            return []
-        except Exception:
-            return []
-
-    @staticmethod
-    async def validate_tokens(
-        gateway_client: "GatewayHttpClient",
-        chain: str,
-        network: str,
-        token_symbols: List[str]
-    ) -> Tuple[List[str], List[str]]:
-        """
-        Validate that tokens exist in the available token list.
-
-        :param gateway_client: Gateway client instance
-        :param chain: Chain name
-        :param network: Network name
-        :param token_symbols: List of token symbols to validate
-        :return: Tuple of (valid_tokens, invalid_tokens)
-        """
-        if not token_symbols:
-            return [], []
-
-        # Get available tokens
-        available_tokens = await GatewayCommandUtils.get_available_tokens(gateway_client, chain, network)
-        available_symbols = {token["symbol"].upper() for token in available_tokens}
-
-        # Check which tokens are valid/invalid
-        valid_tokens = []
-        invalid_tokens = []
-
-        for token in token_symbols:
-            token_upper = token.upper()
-            if token_upper in available_symbols:
-                valid_tokens.append(token_upper)
-            else:
-                invalid_tokens.append(token)
-
-        return valid_tokens, invalid_tokens
 
     @staticmethod
     async def monitor_transaction_with_timeout(
@@ -344,7 +163,7 @@ class GatewayCommandUtils:
     @staticmethod
     def format_allowance_display(
         allowances: Dict[str, Any],
-        token_data: Dict[str, Token],
+        token_data: Dict[str, Any],
         connector_name: str = None
     ) -> List[Dict[str, str]]:
         """
@@ -389,48 +208,6 @@ class GatewayCommandUtils:
             rows.append(row)
 
         return rows
-
-    @staticmethod
-    async def get_wallet_balances(
-        gateway_client: "GatewayHttpClient",
-        chain: str,
-        network: str,
-        wallet_address: str,
-        tokens_to_check: List[str],
-        native_token: str
-    ) -> Dict[str, float]:
-        """
-        Get wallet balances for specified tokens.
-
-        :param gateway_client: Gateway client instance
-        :param chain: Chain name
-        :param network: Network name
-        :param wallet_address: Wallet address
-        :param tokens_to_check: List of tokens to check
-        :param native_token: Native token symbol (e.g., ETH, SOL)
-        :return: Dictionary of token balances
-        """
-        # Ensure native token is in the list
-        if native_token not in tokens_to_check:
-            tokens_to_check = tokens_to_check + [native_token]
-
-        # Fetch balances
-        try:
-            balances_resp = await gateway_client.get_balances(
-                chain, network, wallet_address, tokens_to_check
-            )
-            balances = balances_resp.get("balances", {})
-
-            # Convert to float
-            balance_dict = {}
-            for token in tokens_to_check:
-                balance = float(balances.get(token, 0))
-                balance_dict[token] = balance
-
-            return balance_dict
-
-        except Exception:
-            return {}
 
     @staticmethod
     def display_balance_impact_table(
@@ -485,53 +262,6 @@ class GatewayCommandUtils:
                     warnings.append(f"Insufficient {token} balance! You have {current:.6f} but need {abs(change):.6f}")
             else:
                 app.notify(f"  {token:<8} {current:>14.6f}")
-
-    @staticmethod
-    async def estimate_transaction_fee(
-        gateway_client: "GatewayHttpClient",
-        chain: str,
-        network: str,
-        transaction_type: str = "swap"
-    ) -> Dict[str, Any]:
-        """
-        Estimate transaction fee using gateway's estimate-gas endpoint.
-
-        :param gateway_client: Gateway client instance
-        :param chain: Chain name (e.g., "ethereum", "solana")
-        :param network: Network name
-        :param transaction_type: Type of transaction ("swap" or "approve")
-        :return: Dictionary with fee estimation details
-        """
-        try:
-            # Get gas estimation from gateway
-            gas_resp = await gateway_client.estimate_gas(chain, network)
-
-            # Extract fee info directly from response
-            fee_per_unit = gas_resp.get("feePerComputeUnit", 0)
-            denomination = gas_resp.get("denomination", "")
-            compute_units = gas_resp.get("computeUnits", 0)
-            fee_in_native = gas_resp.get("fee", 0)  # Use the fee directly from response
-            native_token = gas_resp.get("feeAsset", chain.upper())  # Use feeAsset from response
-
-            return {
-                "success": True,
-                "fee_per_unit": fee_per_unit,
-                "estimated_units": compute_units,
-                "denomination": denomination,
-                "fee_in_native": fee_in_native,
-                "native_token": native_token
-            }
-
-        except Exception as e:
-            return {
-                "success": False,
-                "error": str(e),
-                "fee_per_unit": 0,
-                "estimated_units": 0,
-                "denomination": "units",
-                "fee_in_native": 0,
-                "native_token": chain.upper()
-            }
 
     @staticmethod
     def display_transaction_fee_details(

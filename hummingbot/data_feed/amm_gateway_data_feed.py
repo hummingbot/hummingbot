@@ -155,12 +155,11 @@ class AmmGatewayDataFeed(NetworkBase):
 
         # Use gateway's quote_swap which handles chain/network internally
         try:
-            from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
 
             # Get chain and network from connector if not cached
             if not self._chain or not self._network:
-                chain, network, error = await GatewayCommandUtils.get_connector_chain_network(
-                    self.gateway_client, self.connector
+                chain, network, error = await self.gateway_client.get_connector_chain_network(
+                    self.connector
                 )
                 if not error:
                     self._chain = chain

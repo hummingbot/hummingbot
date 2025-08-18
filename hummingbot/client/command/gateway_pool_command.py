@@ -100,9 +100,8 @@ class GatewayPoolCommand:
             trading_pair = trading_pair.upper()
 
             # Get chain and network from connector
-            from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
-            chain, network, error = await GatewayCommandUtils.get_connector_chain_network(
-                self._get_gateway_instance(), connector
+            chain, network, error = await self._get_gateway_instance().get_connector_chain_network(
+                connector
             )
 
             if error:
@@ -165,9 +164,8 @@ class GatewayPoolCommand:
             quote_token = tokens[1]
 
             # Get chain and network from connector
-            from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
-            chain, network, error = await GatewayCommandUtils.get_connector_chain_network(
-                self._get_gateway_instance(), connector
+            chain, network, error = await self._get_gateway_instance().get_connector_chain_network(
+                connector
             )
 
             if error:
@@ -242,9 +240,8 @@ class GatewayPoolCommand:
             quote_token = tokens[1]
 
             # Get chain and network from connector
-            from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
-            chain, network, error = await GatewayCommandUtils.get_connector_chain_network(
-                self._get_gateway_instance(), connector
+            chain, network, error = await self._get_gateway_instance().get_connector_chain_network(
+                connector
             )
 
             if error:

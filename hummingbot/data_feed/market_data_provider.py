@@ -117,10 +117,9 @@ class MarketDataProvider:
 
                             # Parse connector to get chain and connector name
                             # First try to get chain and network from gateway
-                            from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
                             try:
-                                chain, network, error = await GatewayCommandUtils.get_connector_chain_network(
-                                    gateway_client, connector_name
+                                chain, network, error = await gateway_client.get_connector_chain_network(
+                                    connector_name
                                 )
                                 if error:
                                     self.logger().warning(f"Could not get chain/network for {connector_name}: {error}")
