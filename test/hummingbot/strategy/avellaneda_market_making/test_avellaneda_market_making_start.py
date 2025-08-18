@@ -4,7 +4,6 @@ import unittest.mock
 from decimal import Decimal
 
 import hummingbot.strategy.avellaneda_market_making.start as strategy_start
-from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.utils import combine_to_hb_trading_pair
@@ -23,7 +22,7 @@ class AvellanedaStartTest(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.strategy = None
-        self.markets = {"binance": ExchangeBase(client_config_map=ClientConfigAdapter(ClientConfigMap()))}
+        self.markets = {"binance": ExchangeBase()}
         self.notifications = []
         self.log_records = []
         self.base = "ETH"
