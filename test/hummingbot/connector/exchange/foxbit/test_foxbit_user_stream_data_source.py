@@ -131,6 +131,40 @@ class FoxbitUserStreamDataSourceUnitTests(unittest.TestCase):
     def test_user_stream_properties(self, mock_sleep):
         self.assertEqual(self.data_source.ready, self.data_source._user_stream_data_source_initialized)
 
+    @patch("hummingbot.connector.exchange.foxbit.foxbit_api_user_stream_data_source.web_utils.websocket_url", return_value="wss://test")
+    @patch("hummingbot.connector.exchange.foxbit.foxbit_api_user_stream_data_source.WSAssistant")
+    def test_connected_websocket_assistant_success(self, mock_ws_assistant_cls, mock_websocket_url, mock_sleep):
+        # Arrange
+        mock_ws = AsyncMock()
+        mock_ws.connect = AsyncMock()
+        mock_ws.send = AsyncMock()
+        # Simulate authenticated response
+        mock_ws.receive = AsyncMock(return_value=MagicMock(data={"o": '{"Authenticated": True}'}))
+        mock_ws_assistant_cls.return_value = mock_ws
+
+        mock_api_factory = MagicMock()
+        mock_api_factory.get_ws_assistant = AsyncMock(return_value=mock_ws)
+
+        auth = MagicMock()
+        auth.get_ws_authenticate_payload.return_value = {"test": "payload"}
+
+        data_source = FoxbitAPIUserStreamDataSource(
+            auth=auth,
+            trading_pairs=["COINALPHA-HBOT"],
+            connector=MagicMock(),
+            api_factory=mock_api_factory,
+            domain="com"
+        )
+
+        # Act
+        ws = self.async_run_with_timeout(data_source._connected_websocket_assistant())
+
+        # Assert
+        self.assertIs(ws, mock_ws)
+        mock_ws.connect.assert_awaited_once()
+        mock_ws.send.assert_awaited()
+        mock_ws.receive.assert_awaited()
+
     async def test_run_ws_assistant(self, mock_sleep):
         ws: WSAssistant = await self.data_source._connected_websocket_assistant()
         self.assertIsNotNone(ws)
