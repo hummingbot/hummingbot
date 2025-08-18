@@ -323,11 +323,9 @@ class GatewayConfigCommand:
                     return value
                 elif path.lower() == "defaultnetwork" and namespace:
                     # Special validation for defaultNetwork - must be a valid network for the chain
-                    from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
-
                     # Await the async validation
-                    available_networks = await GatewayCommandUtils.get_available_networks_for_chain(
-                        self._get_gateway_instance(),
+                    available_networks = await self._get_gateway_instance().get_available_networks_for_chain(
+
                         namespace  # namespace is the chain name
                     )
 

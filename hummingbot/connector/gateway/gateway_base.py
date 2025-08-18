@@ -211,9 +211,8 @@ class GatewayBase(ConnectorBase):
     async def start_network(self):
         # Auto-detect chain and network if not provided
         if not self._chain or not self._network:
-            from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
-            chain, network, error = await GatewayCommandUtils.get_connector_chain_network(
-                self._get_gateway_instance(), self._connector_name
+            chain, network, error = await self._get_gateway_instance().get_connector_chain_network(
+                self._connector_name
             )
             if error:
                 raise ValueError(f"Failed to get chain/network info: {error}")
@@ -224,9 +223,8 @@ class GatewayBase(ConnectorBase):
 
         # Get default wallet if not provided
         if not self._wallet_address:
-            from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
-            wallet_address, error = await GatewayCommandUtils.get_default_wallet(
-                self._get_gateway_instance(), self._chain
+            wallet_address, error = await self._get_gateway_instance().get_default_wallet(
+                self._chain
             )
             if error:
                 raise ValueError(f"Failed to get default wallet: {error}")

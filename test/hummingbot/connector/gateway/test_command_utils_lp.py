@@ -1,6 +1,6 @@
 import unittest
 
-from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
+from hummingbot.client.command.command_utils import GatewayCommandUtils
 from hummingbot.connector.gateway.gateway_lp import AMMPoolInfo, AMMPositionInfo, CLMMPoolInfo, CLMMPositionInfo
 from hummingbot.connector.gateway.lp_command_utils import LPCommandUtils
 

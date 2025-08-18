@@ -3,7 +3,7 @@ import asyncio
 import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
-from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
+from hummingbot.client.command.command_utils import GatewayCommandUtils
 from hummingbot.connector.gateway.common_types import ConnectorType, TransactionStatus, get_connector_type
 from hummingbot.connector.gateway.gateway_lp import (
     AMMPoolInfo,
@@ -253,16 +253,16 @@ class GatewayLPCommand:
                 self.notify(f"Error: Invalid connector format '{connector}'. Use format like 'uniswap/amm'")
                 return
 
-            chain, network, error = await GatewayCommandUtils.get_connector_chain_network(
-                self._get_gateway_instance(), connector
+            chain, network, error = await self._get_gateway_instance().get_connector_chain_network(
+                connector
             )
             if error:
                 self.notify(f"Error: {error}")
                 return
 
             # 2. Get wallet address
-            wallet_address, error = await GatewayCommandUtils.get_default_wallet(
-                self._get_gateway_instance(), chain
+            wallet_address, error = await self._get_gateway_instance().get_default_wallet(
+                chain
             )
             if error:
                 self.notify(f"Error: {error}")
@@ -376,16 +376,16 @@ class GatewayLPCommand:
                 self.notify(f"Error: Invalid connector format '{connector}'. Use format like 'uniswap/amm'")
                 return
 
-            chain, network, error = await GatewayCommandUtils.get_connector_chain_network(
-                self._get_gateway_instance(), connector
+            chain, network, error = await self._get_gateway_instance().get_connector_chain_network(
+                connector
             )
             if error:
                 self.notify(f"Error: {error}")
                 return
 
             # 2. Get wallet address
-            wallet_address, error = await GatewayCommandUtils.get_default_wallet(
-                self._get_gateway_instance(), chain
+            wallet_address, error = await self._get_gateway_instance().get_default_wallet(
+                chain
             )
             if error:
                 self.notify(f"Error: {error}")
@@ -529,8 +529,8 @@ class GatewayLPCommand:
                 self.notify("\nCalculating optimal token amounts...")
 
                 # Get slippage from connector config
-                connector_config = await GatewayCommandUtils.get_connector_config(
-                    self._get_gateway_instance(), connector
+                connector_config = await self._get_gateway_instance().get_connector_config(
+                    connector
                 )
                 slippage_pct = connector_config.get("slippagePct", 1.0)
 
@@ -596,8 +596,8 @@ class GatewayLPCommand:
                 tokens_to_check = [base_token, quote_token]
                 native_token = lp_connector.native_currency or chain.upper()
 
-                current_balances = await GatewayCommandUtils.get_wallet_balances(
-                    gateway_client=self._get_gateway_instance(),
+                current_balances = await self._get_gateway_instance().get_wallet_balances(
+
                     chain=chain,
                     network=network,
                     wallet_address=wallet_address,
@@ -607,8 +607,8 @@ class GatewayLPCommand:
 
                 # 12. Estimate transaction fee
                 self.notify("\nEstimating transaction fees...")
-                fee_info = await GatewayCommandUtils.estimate_transaction_fee(
-                    self._get_gateway_instance(),
+                fee_info = await self._get_gateway_instance().estimate_transaction_fee(
+
                     chain,
                     network,
                     transaction_type="add_liquidity"
@@ -726,16 +726,16 @@ class GatewayLPCommand:
                 self.notify(f"Error: Invalid connector format '{connector}'. Use format like 'uniswap/amm'")
                 return
 
-            chain, network, error = await GatewayCommandUtils.get_connector_chain_network(
-                self._get_gateway_instance(), connector
+            chain, network, error = await self._get_gateway_instance().get_connector_chain_network(
+                connector
             )
             if error:
                 self.notify(f"Error: {error}")
                 return
 
             # 2. Get wallet address
-            wallet_address, error = await GatewayCommandUtils.get_default_wallet(
-                self._get_gateway_instance(), chain
+            wallet_address, error = await self._get_gateway_instance().get_default_wallet(
+                chain
             )
             if error:
                 self.notify(f"Error: {error}")
@@ -856,8 +856,8 @@ class GatewayLPCommand:
                     tokens_to_check = [base_token, quote_token]
                     native_token = lp_connector.native_currency or chain.upper()
 
-                    current_balances = await GatewayCommandUtils.get_wallet_balances(
-                        gateway_client=self._get_gateway_instance(),
+                    current_balances = await self._get_gateway_instance().get_wallet_balances(
+
                         chain=chain,
                         network=network,
                         wallet_address=wallet_address,
@@ -868,8 +868,8 @@ class GatewayLPCommand:
                     # 13. Estimate transaction fee
                     self.notify("\nEstimating transaction fees...")
                     tx_type = "close_position" if close_position else "remove_liquidity"
-                    fee_info = await GatewayCommandUtils.estimate_transaction_fee(
-                        self._get_gateway_instance(),
+                    fee_info = await self._get_gateway_instance().estimate_transaction_fee(
+
                         chain,
                         network,
                         transaction_type=tx_type
@@ -976,8 +976,8 @@ class GatewayLPCommand:
                 self.notify(f"Error: Invalid connector format '{connector}'. Use format like 'uniswap/amm'")
                 return
 
-            chain, network, error = await GatewayCommandUtils.get_connector_chain_network(
-                self._get_gateway_instance(), connector
+            chain, network, error = await self._get_gateway_instance().get_connector_chain_network(
+                connector
             )
             if error:
                 self.notify(f"Error: {error}")
@@ -990,8 +990,8 @@ class GatewayLPCommand:
                 return
 
             # 3. Get wallet address
-            wallet_address, error = await GatewayCommandUtils.get_default_wallet(
-                self._get_gateway_instance(), chain
+            wallet_address, error = await self._get_gateway_instance().get_default_wallet(
+                chain
             )
             if error:
                 self.notify(f"Error: {error}")
@@ -1094,8 +1094,8 @@ class GatewayLPCommand:
 
                     # 11. Estimate transaction fee
                     self.notify("\nEstimating transaction fees...")
-                    fee_info = await GatewayCommandUtils.estimate_transaction_fee(
-                        self._get_gateway_instance(),
+                    fee_info = await self._get_gateway_instance().estimate_transaction_fee(
+
                         chain,
                         network,
                         transaction_type="collect_fees"
@@ -1108,8 +1108,8 @@ class GatewayLPCommand:
                     if native_token not in tokens_to_check:
                         tokens_to_check.append(native_token)
 
-                    current_balances = await GatewayCommandUtils.get_wallet_balances(
-                        gateway_client=self._get_gateway_instance(),
+                    current_balances = await self._get_gateway_instance().get_wallet_balances(
+
                         chain=chain,
                         network=network,
                         wallet_address=wallet_address,

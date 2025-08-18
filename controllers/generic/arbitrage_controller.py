@@ -4,7 +4,6 @@ from typing import List, Optional
 import pandas as pd
 
 from hummingbot.client.ui.interface_utils import format_df_for_printout
-from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
 from hummingbot.core.data_type.common import MarketDict
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
@@ -80,8 +79,8 @@ class ArbitrageController(ControllerBase):
                             gateway_client = GatewayHttpClient.get_instance()
 
                             # Get chain and network for the connector
-                            chain, network, error = await GatewayCommandUtils.get_connector_chain_network(
-                                gateway_client, connector_name
+                            chain, network, error = await gateway_client.get_connector_chain_network(
+                                connector_name
                             )
 
                             if error:

@@ -233,17 +233,16 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
         await self.provider.update_rates_task()
         self.assertIsNone(self.provider._rates_update_task)
 
-    @patch('hummingbot.connector.gateway.command_utils.GatewayCommandUtils.get_connector_chain_network')
     @patch('hummingbot.core.rate_oracle.rate_oracle.RateOracle.get_instance')
     @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_instance')
-    async def test_update_rates_task_gateway(self, mock_gateway_client, mock_rate_oracle, mock_get_chain_network):
+    async def test_update_rates_task_gateway(self, mock_gateway_client, mock_rate_oracle):
         # Test gateway connector path
         mock_gateway_instance = AsyncMock()
         mock_gateway_client.return_value = mock_gateway_instance
         mock_gateway_instance.get_price.return_value = {"price": "50000"}
 
-        # Mock the chain/network lookup for new format
-        mock_get_chain_network.return_value = ("ethereum", "mainnet", None)
+        # Mock the chain/network lookup on the instance
+        mock_gateway_instance.get_connector_chain_network.return_value = ("ethereum", "mainnet", None)
 
         mock_oracle_instance = MagicMock()
         mock_rate_oracle.return_value = mock_oracle_instance
@@ -277,16 +276,15 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
 
         mock_oracle_instance.set_price.assert_called_with("BTC-USDT", Decimal("50000"))
 
-    @patch('hummingbot.connector.gateway.command_utils.GatewayCommandUtils.get_connector_chain_network')
     @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_instance')
-    async def test_update_rates_task_gateway_error(self, mock_gateway_client, mock_get_chain_network):
+    async def test_update_rates_task_gateway_error(self, mock_gateway_client):
         # Test gateway connector with error
         mock_gateway_instance = AsyncMock()
         mock_gateway_client.return_value = mock_gateway_instance
         mock_gateway_instance.get_price.side_effect = Exception("Gateway error")
 
-        # Mock the chain/network lookup for new format
-        mock_get_chain_network.return_value = ("ethereum", "mainnet", None)
+        # Mock the chain/network lookup on the instance
+        mock_gateway_instance.get_connector_chain_network.return_value = ("ethereum", "mainnet", None)
 
         connector_pair = ConnectorPair(connector_name="uniswap/amm", trading_pair="BTC-USDT")
         self.provider._rates_required.add_or_update("gateway", connector_pair)

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 
-from hummingbot.connector.gateway.command_utils import GatewayCommandUtils
+from hummingbot.client.command.command_utils import GatewayCommandUtils
 
 if TYPE_CHECKING:
     from hummingbot.connector.gateway.gateway_lp import AMMPoolInfo, AMMPositionInfo, CLMMPoolInfo, CLMMPositionInfo
