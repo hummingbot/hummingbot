@@ -114,3 +114,78 @@ class TestAmmGatewayDataFeed(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest)
         gateway_client_mock.quote_swap.return_value = None
         result = await self.data_feed._request_token_price("HBOT-USDT", TradeType.BUY)
         self.assertIsNone(result)
+
+    def test_invalid_connector_format(self):
+        # Test line 63: Invalid connector format raises ValueError
+        with self.assertRaises(ValueError) as context:
+            AmmGatewayDataFeed(
+                connector="uniswap",  # Missing /type format
+                trading_pairs={"HBOT-USDT"},
+                order_amount_in_base=Decimal("1"),
+            )
+        self.assertIn("Invalid connector format", str(context.exception))
+
+    def test_gateway_client_lazy_initialization(self):
+        # Test lines 35-37: Gateway client lazy initialization
+        AmmGatewayDataFeed._gateway_client = None  # Reset class variable
+        feed = AmmGatewayDataFeed(
+            connector="uniswap/amm",
+            trading_pairs={"HBOT-USDT"},
+            order_amount_in_base=Decimal("1"),
+        )
+        # First access should initialize
+        client1 = feed.gateway_client
+        self.assertIsNotNone(client1)
+        # Second access should return same instance
+        client2 = feed.gateway_client
+        self.assertIs(client1, client2)
+
+    def test_chain_network_properties(self):
+        # Test lines 82, 87: chain and network properties
+        feed = AmmGatewayDataFeed(
+            connector="uniswap/amm",
+            trading_pairs={"HBOT-USDT"},
+            order_amount_in_base=Decimal("1"),
+        )
+        # Before any data fetch, should return empty string
+        self.assertEqual("", feed.chain)
+        self.assertEqual("", feed.network)
+
+        # After setting chain/network
+        feed._chain = "ethereum"
+        feed._network = "mainnet"
+        self.assertEqual("ethereum", feed.chain)
+        self.assertEqual("mainnet", feed.network)
+
+    @patch("hummingbot.data_feed.amm_gateway_data_feed.AmmGatewayDataFeed.gateway_client", new_callable=AsyncMock)
+    async def test_request_token_price_chain_network_error(self, gateway_client_mock: AsyncMock):
+        # Test lines 168-169: Chain/network lookup failure
+        from hummingbot.core.data_type.common import TradeType
+
+        # Create a fresh instance for this test
+        test_feed = AmmGatewayDataFeed(
+            connector="uniswap/amm",
+            trading_pairs={"HBOT-USDT"},
+            order_amount_in_base=Decimal("1"),
+        )
+        self.set_loggers(loggers=[test_feed.logger()])
+
+        gateway_client_mock.get_connector_chain_network.return_value = (None, None, "Network error")
+
+        result = await test_feed._request_token_price("HBOT-USDT", TradeType.BUY)
+        self.assertIsNone(result)
+        self.assertTrue(
+            self.is_logged(
+                log_level=LogLevel.WARNING,
+                message="Failed to get chain/network for uniswap/amm: Network error"
+            )
+        )
+
+    async def test_register_token_buy_sell_price_with_none_prices(self):
+        # Test when _request_token_price returns None for both buy and sell
+        # Clear any existing price dict
+        self.data_feed._price_dict.clear()
+        with patch.object(self.data_feed, '_request_token_price', return_value=None):
+            await self.data_feed._register_token_buy_sell_price("HBOT-USDT")
+            # Should not add to price dict
+            self.assertNotIn("HBOT-USDT", self.data_feed._price_dict)
