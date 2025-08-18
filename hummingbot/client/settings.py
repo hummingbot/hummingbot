@@ -13,7 +13,6 @@ from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 if TYPE_CHECKING:
     from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
     from hummingbot.connector.connector_base import ConnectorBase
 
 
@@ -202,6 +201,8 @@ class ConnectorSetting(NamedTuple):
     def non_trading_connector_instance_with_default_configuration(
             self,
             trading_pairs: Optional[List[str]] = None) -> 'ConnectorBase':
+        from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
         trading_pairs = trading_pairs or []
         connector_class = getattr(importlib.import_module(self.module_path()), self.class_name())
         kwargs = {}
