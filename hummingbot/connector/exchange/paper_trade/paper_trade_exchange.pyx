@@ -160,9 +160,9 @@ cdef class PaperTradeExchange(ExchangeBase):
         rate_limits_share_pct: Decimal = Decimal("100"),
     ):
         order_book_tracker.data_source.order_book_create_function = lambda: CompositeOrderBook()
+        super().__init__(balance_asset_limit, rate_limits_share_pct)
         self._set_order_book_tracker(order_book_tracker)
         self._budget_checker = BudgetChecker(exchange=self)
-        super(ExchangeBase, self).__init__(balance_asset_limit, rate_limits_share_pct)
         self._exchange_name = exchange_name
         self._account_balances = {}
         self._account_available_balances = {}
