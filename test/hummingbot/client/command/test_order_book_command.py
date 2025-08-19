@@ -27,7 +27,7 @@ class OrderBookCommandTest(IsolatedAsyncioWrapperTestCase):
         notify_mock.side_effect = lambda s: captures.append(s)
 
         exchange_name = "paper"
-        exchange = MockPaperExchange(client_config_map=ClientConfigAdapter(ClientConfigMap()))
+        exchange = MockPaperExchange()
         # Set the exchange in the new architecture location
         self.app.trading_core.connector_manager.connectors[exchange_name] = exchange
         trading_pair = "BTC-USDT"
