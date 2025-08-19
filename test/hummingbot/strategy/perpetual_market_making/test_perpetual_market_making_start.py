@@ -3,8 +3,6 @@ from decimal import Decimal
 from test.hummingbot.strategy import assign_config_default
 
 import hummingbot.strategy.perpetual_market_making.start as strategy_start
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.strategy.perpetual_market_making.perpetual_market_making_config_map import (
     perpetual_market_making_config_map as c_map,
@@ -16,7 +14,7 @@ class PerpetualMarketMakingStartTest(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.strategy = None
-        self.markets = {"binance": ExchangeBase(client_config_map=ClientConfigAdapter(ClientConfigMap()))}
+        self.markets = {"binance": ExchangeBase()}
         self.notifications = []
         self.log_errors = []
         assign_config_default(c_map)
