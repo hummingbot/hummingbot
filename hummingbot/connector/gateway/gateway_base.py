@@ -480,7 +480,7 @@ class GatewayBase(ConnectorBase):
                 client_order_id=order_id,
                 exchange_order_id=exchange_order_id,
                 trading_pair=trading_pair,
-                order_type=OrderType.LIMIT,
+                order_type=OrderType.AMM_SWAP,
                 trade_type=trade_type,
                 price=price,
                 amount=amount,
