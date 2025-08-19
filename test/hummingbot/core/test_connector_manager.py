@@ -72,7 +72,6 @@ class ConnectorManagerTest(IsolatedAsyncioWrapperTestCase):
         # Verify paper trade market was called with correct params
         mock_create_paper_trade.assert_called_once_with(
             "binance",
-            self.client_config_adapter,
             ["BTC-USDT", "ETH-USDT"]
         )
 
