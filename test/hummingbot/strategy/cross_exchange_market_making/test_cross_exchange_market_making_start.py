@@ -19,8 +19,8 @@ class XEMMStartTest(unittest.TestCase):
         self.client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.client_config_map.strategy_report_interval = 60.
         self.markets = {
-            "binance": ExchangeBase(client_config_map=self.client_config_map),
-            "kucoin": ExchangeBase(client_config_map=self.client_config_map)}
+            "binance": ExchangeBase(),
+            "kucoin": ExchangeBase()}
         self.notifications = []
         self.log_errors = []
 
