@@ -50,6 +50,7 @@ We are grateful for the following exchanges that support the development and mai
 | `okx` | [OKX](https://www.okx.com/join/1931920269) | CEX | CLOB Spot | [Docs](https://hummingbot.org/exchanges/okx/okx/) | [![Sign up for Kucoin using Hummingbot's referral link for a 20% discount!](https://img.shields.io/static/v1?label=Fee&message=%2d20%25&color=orange)](https://www.okx.com/join/1931920269) |
 | `okx_perpetual` | [OKX](https://www.okx.com/join/1931920269) | CEX | CLOB Perp | [Docs](https://hummingbot.org/exchanges/okx/okx/) | [![Sign up for Kucoin using Hummingbot's referral link for a 20% discount!](https://img.shields.io/static/v1?label=Fee&message=%2d20%25&color=orange)](https://www.okx.com/join/1931920269) |
 | `dydx_v4_perpetual` | [dYdX](https://www.dydx.exchange/) | DEX | CLOB Perp | [Docs](https://hummingbot.org/exchanges/dydx/) | - |
+| `hyperliquid` | [Hyperliquid](https://hyperliquid.io/) | DEX | CLOB Spot | [Docs](https://hummingbot.org/exchanges/hyperliquid/) | - |
 | `hyperliquid_perpetual` | [Hyperliquid](https://hyperliquid.io/) | DEX | CLOB Perp | [Docs](https://hummingbot.org/exchanges/hyperliquid/) | - |
 | `xrpl` | [XRP Ledger](https://xrpl.org/) | DEX | CLOB Spot | [Docs](https://hummingbot.org/exchanges/xrpl/) | - |
 
@@ -69,7 +70,6 @@ Currently, the master branch of Hummingbot also includes the following exchange 
 | `btc_markets` | BTC Markets | CEX | CLOB Spot | [Docs](https://hummingbot.org/exchanges/btc-markets/) | - |
 | `bybit` | Bybit | CEX | CLOB Spot | [Docs](https://hummingbot.org/exchanges/bybit/) | - |
 | `bybit_perpetual` | Bybit | CEX | CLOB Perp | [Docs](https://hummingbot.org/exchanges/bybit/) | - |
-| `carbon` | Carbon | DEX | AMM | [Docs](https://hummingbot.org/exchanges/carbon/) | - |
 | `coinbase_advanced_trade` | Coinbase | CEX | CLOB Spot | [Docs](https://hummingbot.org/exchanges/coinbase/) | - |
 | `cube` | Cube | CEX | CLOB Spot | [Docs](https://hummingbot.org/exchanges/cube/) | - |
 | `curve` | Curve | DEX | AMM | [Docs](https://hummingbot.org/exchanges/curve/) | - |
@@ -88,8 +88,6 @@ Currently, the master branch of Hummingbot also includes the following exchange 
 | `traderjoe` | Trader Joe | DEX | AMM | [Docs](https://hummingbot.org/exchanges/traderjoe/) | - |
 | `uniswap` | Uniswap | DEX | AMM | [Docs](https://hummingbot.org/exchanges/gateway/uniswap/) | - |
 | `vertex` | Vertex | DEX | CLOB Spot | [Docs](https://hummingbot.org/exchanges/vertex/) | - |
-| `vvs` | VVS | DEX | AMM | [Docs](https://hummingbot.org/exchanges/vvs/) | - |
-| `xsswap` | XSSwap | DEX | AMM | [Docs](https://hummingbot.org/exchanges/xswap/) | - |
 
 ## Other Hummingbot Repos
 
