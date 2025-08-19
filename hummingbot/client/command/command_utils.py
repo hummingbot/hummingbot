@@ -2,7 +2,7 @@
 Shared utilities for gateway commands - UI and display functions.
 """
 import asyncio
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
     from hummingbot.connector.gateway.gateway_base import GatewayBase
@@ -10,35 +10,6 @@ if TYPE_CHECKING:
 
 class GatewayCommandUtils:
     """Utility functions for gateway commands - UI and display functions."""
-
-    @staticmethod
-    def parse_trading_pair(pair: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
-        """
-        Parse trading pair string into base and quote tokens.
-
-        :param pair: Trading pair string (e.g., "ETH-USDC")
-        :return: Tuple of (base_token, quote_token)
-        """
-        if not pair:
-            return None, None
-
-        if "-" not in pair:
-            return None, None
-
-        parts = pair.split("-", 1)
-        if len(parts) != 2:
-            return None, None
-
-        base_token = parts[0].strip()
-        quote_token = parts[1].strip()
-
-        # Only uppercase if they're symbols (short strings), not addresses
-        if len(base_token) <= 10:
-            base_token = base_token.upper()
-        if len(quote_token) <= 10:
-            quote_token = quote_token.upper()
-
-        return base_token, quote_token
 
     @staticmethod
     def is_placeholder_wallet(wallet_address: str) -> bool:
