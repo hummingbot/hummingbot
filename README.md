@@ -24,9 +24,9 @@ The Hummingbot codebase is free and publicly available under the Apache 2.0 open
 
 The easiest way to get started with Hummingbot is using Docker:
 
-* If you want to install the web-based [Dashboard](https://github.com/hummingbot/dashboard), follow the instructions in the [Deploy] repo.
+* To install the web-based [Dashboard](https://github.com/hummingbot/dashboard), follow the instructions in the [Deploy](https://github.com/hummingbot/deploy) repo.
 
-* If you want to install the CLI-based Hummingbot client, follow the instructions below.
+* To install the CLI-based Hummingbot client, follow the instructions below.
 
 Alternatively, if you are building new connectors/strategies or adding custom code, see the [Install from Source](https://hummingbot.org/installation/source/) section in the documentation.
 
@@ -88,6 +88,16 @@ By default, Gateway will start in development mode with unencrypted HTTP endpoin
 ---
 
 For comprehensive installation instructions and troubleshooting, visit our [Installation](https://hummingbot.org/installation/) documentation.
+
+## Getting Help
+
+If you encounter issues or have questions, here's how you can get assistance:
+
+* Consult our [FAQ](https://hummingbot.org/faq/), [Troubleshooting Guide](https://hummingbot.org/troubleshooting/), or [Glossary](https://hummingbot.org/glossary/)
+* To report bugs or suggest features, submit a [Github issue](https://github.com/hummingbot/hummingbot/issues)
+* Join our [Discord community](https://discord.gg/hummingbot) and ask questions in the #support channel
+
+We pledge that we will not use the information/data you provide us for trading purposes nor share them with third parties.
 
 ## Exchange Connectors
 
