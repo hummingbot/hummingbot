@@ -27,7 +27,9 @@ cdef class ExchangeBase(ConnectorBase):
     interface.
     """
 
-    def __init__(self, balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None):
+    def __init__(self,
+                 balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
+                 rate_limits_share_pct: Decimal = Decimal("100")):
         super().__init__(balance_asset_limit)
         self._order_book_tracker = None
         self._budget_checker = BudgetChecker(exchange=self)

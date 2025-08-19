@@ -70,7 +70,6 @@ class ConnectorManager:
                 base_connector = base_connector_name
                 connector = create_paper_trade_market(
                     base_connector,
-                    self.client_config_map,
                     trading_pairs
                 )
 
