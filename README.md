@@ -52,9 +52,13 @@ docker attach hummingbot
 
 Gateway provides standardized connectors for interacting with automatic market maker (AMM) decentralized exchanges (DEXs) across different blockchain networks.
 
-To run Hummingbot with Gateway, uncomment the Gateway service lines in `docker-compose.yml`:
+To run Hummingbot with Gateway, clone the repo and uncomment the Gateway service lines in `docker-compose.yml`:
 
 ```yaml
+# Clone the repository
+git clone https://github.com/hummingbot/hummingbot.git
+cd hummingbot
+
 # Uncomment the following lines in docker-compose.yml:
   gateway:
    restart: always
@@ -124,50 +128,50 @@ We classify exchange connectors into three main categories:
 
 We are grateful for the following exchanges that support the development and maintenance of Hummingbot via broker partnerships and sponsorships.
 
-| Exchange | Type | Sub-Type(s) | Connector ID(s) | Docs | Discount |
-|------|------|------|-------|------|----------|
-| [Binance](https://accounts.binance.com/register?ref=CBWO4LU6) | CLOB CEX | Spot, Perpetual | `binance`, `binance_perpetual` | [Docs](https://hummingbot.org/exchanges/binance/) | [![Sign up for Binance using Hummingbot's referral link for a 10% discount!](https://img.shields.io/static/v1?label=Fee&message=%2d10%25&color=orange)](https://accounts.binance.com/register?ref=CBWO4LU6) |
-| [BitMart](https://www.bitmart.com/invite/Hummingbot/en) | CLOB CEX | Spot, Perpetual | `bitmart`, `bitmart_perpetual` | [Docs](https://hummingbot.org/exchanges/bitmart/) | [![Sign up for BitMart using Hummingbot's referral link!](https://img.shields.io/static/v1?label=Sponsor&message=Link&color=orange)](https://www.bitmart.com/invite/Hummingbot/en) |
-| [Derive](https://www.derive.xyz/invite/7SA0V) | CLOB DEX | Spot, Perpetual | `derive`, `derive_perpetual` | [Docs](https://hummingbot.org/exchanges/derive/) | [![Sign up for Derive using Hummingbot's referral link!](https://img.shields.io/static/v1?label=Sponsor&message=Link&color=orange)](https://www.derive.xyz/invite/7SA0V) |
-| [dYdX](https://www.dydx.exchange/) | CLOB DEX | Perpetual | `dydx_v4_perpetual` | [Docs](https://hummingbot.org/exchanges/dydx/) | - |
-| [Gate.io](https://www.gate.io/referral/invite/HBOTGATE_0_103) | CLOB CEX | Spot, Perpetual | `gate_io`, `gate_io_perpetual` | [Docs](https://hummingbot.org/exchanges/gate-io/) | [![Sign up for Gate.io using Hummingbot's referral link for a 20% discount!](https://img.shields.io/static/v1?label=Fee&message=%2d20%25&color=orange)](https://www.gate.io/referral/invite/HBOTGATE_0_103) |
-| [HTX (Huobi)](https://www.htx.com.pk/invite/en-us/1h?invite_code=re4w9223) | CLOB CEX | Spot | `htx` | [Docs](https://hummingbot.org/exchanges/htx/) | [![Sign up for HTX using Hummingbot's referral link for a 20% discount!](https://img.shields.io/static/v1?label=Fee&message=%2d20%25&color=orange)](https://www.htx.com.pk/invite/en-us/1h?invite_code=re4w9223) |
-| [Hyperliquid](https://hyperliquid.io/) | CLOB DEX | Spot, Perpetual | `hyperliquid`, `hyperliquid_perpetual` | [Docs](https://hummingbot.org/exchanges/hyperliquid/) | - |
-| [KuCoin](https://www.kucoin.com/r/af/hummingbot) | CLOB CEX | Spot, Perpetual | `kucoin`, `kucoin_perpetual` | [Docs](https://hummingbot.org/exchanges/kucoin/) | [![Sign up for Kucoin using Hummingbot's referral link for a 20% discount!](https://img.shields.io/static/v1?label=Fee&message=%2d20%25&color=orange)](https://www.kucoin.com/r/af/hummingbot) |
-| [OKX](https://www.okx.com/join/1931920269) | CLOB CEX | Spot, Perpetual | `okx`, `okx_perpetual` | [Docs](https://hummingbot.org/exchanges/okx/) | [![Sign up for OKX using Hummingbot's referral link for a 20% discount!](https://img.shields.io/static/v1?label=Fee&message=%2d20%25&color=orange)](https://www.okx.com/join/1931920269) |
-| [XRP Ledger](https://xrpl.org/) | CLOB DEX | Spot | `xrpl` | [Docs](https://hummingbot.org/exchanges/xrpl/) | - |
+| Exchange | Type | Sub-Type(s) | Connector ID(s) | Discount |
+|------|------|------|-------|----------|
+| [Binance](https://hummingbot.org/exchanges/binance/) | CLOB CEX | Spot, Perpetual | `binance`, `binance_perpetual` | [![Sign up for Binance using Hummingbot's referral link for a 10% discount!](https://img.shields.io/static/v1?label=Fee&message=%2d10%25&color=orange)](https://accounts.binance.com/register?ref=CBWO4LU6) |
+| [BitMart](https://hummingbot.org/exchanges/bitmart/) | CLOB CEX | Spot, Perpetual | `bitmart`, `bitmart_perpetual` | [![Sign up for BitMart using Hummingbot's referral link!](https://img.shields.io/static/v1?label=Sponsor&message=Link&color=orange)](https://www.bitmart.com/invite/Hummingbot/en) |
+| [Derive](https://hummingbot.org/exchanges/derive/) | CLOB DEX | Spot, Perpetual | `derive`, `derive_perpetual` | [![Sign up for Derive using Hummingbot's referral link!](https://img.shields.io/static/v1?label=Sponsor&message=Link&color=orange)](https://www.derive.xyz/invite/7SA0V) |
+| [dYdX](https://hummingbot.org/exchanges/dydx/) | CLOB DEX | Perpetual | `dydx_v4_perpetual` | - |
+| [Gate.io](https://hummingbot.org/exchanges/gate-io/) | CLOB CEX | Spot, Perpetual | `gate_io`, `gate_io_perpetual` | [![Sign up for Gate.io using Hummingbot's referral link for a 20% discount!](https://img.shields.io/static/v1?label=Fee&message=%2d20%25&color=orange)](https://www.gate.io/referral/invite/HBOTGATE_0_103) |
+| [HTX (Huobi)](https://hummingbot.org/exchanges/htx/) | CLOB CEX | Spot | `htx` | [![Sign up for HTX using Hummingbot's referral link for a 20% discount!](https://img.shields.io/static/v1?label=Fee&message=%2d20%25&color=orange)](https://www.htx.com.pk/invite/en-us/1h?invite_code=re4w9223) |
+| [Hyperliquid](https://hummingbot.org/exchanges/hyperliquid/) | CLOB DEX | Spot, Perpetual | `hyperliquid`, `hyperliquid_perpetual` | - |
+| [KuCoin](https://hummingbot.org/exchanges/kucoin/) | CLOB CEX | Spot, Perpetual | `kucoin`, `kucoin_perpetual` | [![Sign up for Kucoin using Hummingbot's referral link for a 20% discount!](https://img.shields.io/static/v1?label=Fee&message=%2d20%25&color=orange)](https://www.kucoin.com/r/af/hummingbot) |
+| [OKX](https://hummingbot.org/exchanges/okx/) | CLOB CEX | Spot, Perpetual | `okx`, `okx_perpetual` | [![Sign up for OKX using Hummingbot's referral link for a 20% discount!](https://img.shields.io/static/v1?label=Fee&message=%2d20%25&color=orange)](https://www.okx.com/join/1931920269) |
+| [XRP Ledger](https://hummingbot.org/exchanges/xrpl/) | CLOB DEX | Spot | `xrpl` | - |
 
 ### Other Exchange Connectors
 
 Currently, the master branch of Hummingbot also includes the following exchange connectors, which are maintained and updated through the Hummingbot Foundation governance process. See [Governance](https://hummingbot.org/governance/) for more information.
 
-| Exchange | Type | Sub-Type(s) | Connector ID(s) | Docs | Discount |
-|------|------|------|-------|------|----------|
-| 0x Protocol | AMM DEX | Router | `0x` | [Docs](https://hummingbot.org/exchanges/gateway/0x/) | - |
-| AscendEx | CLOB CEX | Spot | `ascend_ex` | [Docs](https://hummingbot.org/exchanges/ascendex/) | - |
-| Balancer | AMM DEX | AMM | `balancer` | [Docs](https://hummingbot.org/exchanges/gateway/balancer/) | - |
-| BingX | CLOB CEX | Spot | `bing_x` | [Docs](https://hummingbot.org/exchanges/bing_x/) | - |
-| Bitget | CLOB CEX | Perpetual | `bitget_perpetual` | [Docs](https://hummingbot.org/exchanges/bitget-perpetual/) | - |
-| Bitrue | CLOB CEX | Spot | `bitrue` | [Docs](https://hummingbot.org/exchanges/bitrue/) | - |
-| Bitstamp | CLOB CEX | Spot | `bitstamp` | [Docs](https://hummingbot.org/exchanges/bitstamp/) | - |
-| BTC Markets | CLOB CEX | Spot | `btc_markets` | [Docs](https://hummingbot.org/exchanges/btc-markets/) | - |
-| Bybit | CLOB CEX | Spot, Perpetual | `bybit`, `bybit_perpetual` | [Docs](https://hummingbot.org/exchanges/bybit/) | - |
-| Coinbase | CLOB CEX | Spot | `coinbase_advanced_trade` | [Docs](https://hummingbot.org/exchanges/coinbase/) | - |
-| Cube | CLOB CEX | Spot | `cube` | [Docs](https://hummingbot.org/exchanges/cube/) | - |
-| Curve | AMM DEX | AMM | `curve` | [Docs](https://hummingbot.org/exchanges/gateway/curve/) | - |
-| Dexalot | CLOB DEX | Spot | `dexalot` | [Docs](https://hummingbot.org/exchanges/dexalot/) | - |
-| Injective Helix | CLOB DEX | Spot, Perpetual | `injective_v2`, `injective_v2_perpetual` | [Docs](https://hummingbot.org/exchanges/injective/) | - |
-| Jupiter | AMM DEX | Router | `jupiter` | [Docs](https://hummingbot.org/exchanges/gateway/jupiter/) | - |
-| Kraken | CLOB CEX | Spot | `kraken` | [Docs](https://hummingbot.org/exchanges/kraken/) | - |
-| Meteora | AMM DEX | CLMM | `meteora` | [Docs](https://hummingbot.org/exchanges/gateway/meteora/) | - |
-| MEXC | CLOB CEX | Spot | `mexc` | [Docs](https://hummingbot.org/exchanges/mexc/) | - |
-| PancakeSwap | AMM DEX | AMM | `pancakeswap` | [Docs](https://hummingbot.org/exchanges/gateway/pancakeswap/) | - |
-| QuickSwap | AMM DEX | AMM | `quickswap` | [Docs](https://hummingbot.org/exchanges/gateway/quickswap/) | - |
-| Raydium | AMM DEX | AMM, CLMM | `raydium` | [Docs](https://hummingbot.org/exchanges/gateway/raydium/) | - |
-| SushiSwap | AMM DEX | AMM | `sushiswap` | [Docs](https://hummingbot.org/exchanges/gateway/sushiswap/) | - |
-| Trader Joe | AMM DEX | AMM | `traderjoe` | [Docs](https://hummingbot.org/exchanges/gateway/traderjoe/) | - |
-| Uniswap | AMM DEX | Router, AMM, CLMM | `uniswap` | [Docs](https://hummingbot.org/exchanges/gateway/uniswap/) | - |
-| Vertex | CLOB DEX | Spot | `vertex` | [Docs](https://hummingbot.org/exchanges/vertex/) | - |
+| Exchange | Type | Sub-Type(s) | Connector ID(s) | Discount |
+|------|------|------|-------|----------|
+| [0x Protocol](https://hummingbot.org/exchanges/gateway/0x/) | AMM DEX | Router | `0x` | - |
+| [AscendEx](https://hummingbot.org/exchanges/ascendex/) | CLOB CEX | Spot | `ascend_ex` | - |
+| [Balancer](https://hummingbot.org/exchanges/gateway/balancer/) | AMM DEX | AMM | `balancer` | - |
+| [BingX](https://hummingbot.org/exchanges/bing_x/) | CLOB CEX | Spot | `bing_x` | - |
+| [Bitget](https://hummingbot.org/exchanges/bitget-perpetual/) | CLOB CEX | Perpetual | `bitget_perpetual` | - |
+| [Bitrue](https://hummingbot.org/exchanges/bitrue/) | CLOB CEX | Spot | `bitrue` | - |
+| [Bitstamp](https://hummingbot.org/exchanges/bitstamp/) | CLOB CEX | Spot | `bitstamp` | - |
+| [BTC Markets](https://hummingbot.org/exchanges/btc-markets/) | CLOB CEX | Spot | `btc_markets` | - |
+| [Bybit](https://hummingbot.org/exchanges/bybit/) | CLOB CEX | Spot, Perpetual | `bybit`, `bybit_perpetual` | - |
+| [Coinbase](https://hummingbot.org/exchanges/coinbase/) | CLOB CEX | Spot | `coinbase_advanced_trade` | - |
+| [Cube](https://hummingbot.org/exchanges/cube/) | CLOB CEX | Spot | `cube` | - |
+| [Curve](https://hummingbot.org/exchanges/gateway/curve/) | AMM DEX | AMM | `curve` | - |
+| [Dexalot](https://hummingbot.org/exchanges/dexalot/) | CLOB DEX | Spot | `dexalot` | - |
+| [Injective Helix](https://hummingbot.org/exchanges/injective/) | CLOB DEX | Spot, Perpetual | `injective_v2`, `injective_v2_perpetual` | - |
+| [Jupiter](https://hummingbot.org/exchanges/gateway/jupiter/) | AMM DEX | Router | `jupiter` | - |
+| [Kraken](https://hummingbot.org/exchanges/kraken/) | CLOB CEX | Spot | `kraken` | - |
+| [Meteora](https://hummingbot.org/exchanges/gateway/meteora/) | AMM DEX | CLMM | `meteora` | - |
+| [MEXC](https://hummingbot.org/exchanges/mexc/) | CLOB CEX | Spot | `mexc` | - |
+| [PancakeSwap](https://hummingbot.org/exchanges/gateway/pancakeswap/) | AMM DEX | AMM | `pancakeswap` | - |
+| [QuickSwap](https://hummingbot.org/exchanges/gateway/quickswap/) | AMM DEX | AMM | `quickswap` | - |
+| [Raydium](https://hummingbot.org/exchanges/gateway/raydium/) | AMM DEX | AMM, CLMM | `raydium` | - |
+| [SushiSwap](https://hummingbot.org/exchanges/gateway/sushiswap/) | AMM DEX | AMM | `sushiswap` | - |
+| [Trader Joe](https://hummingbot.org/exchanges/gateway/traderjoe/) | AMM DEX | AMM | `traderjoe` | - |
+| [Uniswap](https://hummingbot.org/exchanges/gateway/uniswap/) | AMM DEX | Router, AMM, CLMM | `uniswap` | - |
+| [Vertex](https://hummingbot.org/exchanges/vertex/) | CLOB DEX | Spot | `vertex` | - |
 
 ## Other Hummingbot Repos
 
