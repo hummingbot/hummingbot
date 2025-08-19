@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, List, Optional
 
 from hummingbot.client.command.command_utils import GatewayCommandUtils
 from hummingbot.connector.gateway.gateway_swap import GatewaySwap
+from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -45,7 +46,10 @@ class GatewaySwapCommand:
                 return
 
             # Parse trading pair
-            base_token, quote_token = GatewayCommandUtils.parse_trading_pair(pair)
+            try:
+                base_token, quote_token = split_hb_trading_pair(pair)
+            except (ValueError, AttributeError):
+                base_token, quote_token = None, None
 
             # Only enter interactive mode if parameters are missing
             if not all([base_token, quote_token, side, amount]):

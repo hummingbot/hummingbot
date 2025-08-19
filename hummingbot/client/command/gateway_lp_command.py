@@ -4,6 +4,7 @@ import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 from hummingbot.client.command.command_utils import GatewayCommandUtils
+from hummingbot.client.command.lp_command_utils import LPCommandUtils
 from hummingbot.connector.gateway.common_types import ConnectorType, TransactionStatus, get_connector_type
 from hummingbot.connector.gateway.gateway_lp import (
     AMMPoolInfo,
@@ -12,7 +13,7 @@ from hummingbot.connector.gateway.gateway_lp import (
     CLMMPositionInfo,
     GatewayLp,
 )
-from hummingbot.connector.gateway.lp_command_utils import LPCommandUtils
+from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 if TYPE_CHECKING:
@@ -413,8 +414,9 @@ class GatewayLPCommand:
                     self.notify("Add liquidity cancelled")
                     return
 
-                base_token, quote_token = GatewayCommandUtils.parse_trading_pair(pair)
-                if not base_token or not quote_token:
+                try:
+                    base_token, quote_token = split_hb_trading_pair(pair)
+                except (ValueError, AttributeError):
                     self.notify("Error: Invalid trading pair format. Use format like 'SOL-USDC'")
                     return
 
