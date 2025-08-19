@@ -583,10 +583,16 @@ class GatewayBase(ConnectorBase):
             # Transaction failed
             elif tx_status == TransactionStatus.FAILED.value:
                 self.logger().network(
-                    f"Error fetching transaction status for the order {tracked_order.client_order_id}: {tx_details}.",
-                    app_warning_msg=f"Failed to fetch transaction status for the order {tracked_order.client_order_id}."
+                    f"Transaction failed for order {tracked_order.client_order_id}: {tx_details}.",
+                    app_warning_msg=f"Transaction failed for order {tracked_order.client_order_id}."
                 )
-                await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
+                order_update: OrderUpdate = OrderUpdate(
+                    client_order_id=tracked_order.client_order_id,
+                    trading_pair=tracked_order.trading_pair,
+                    update_timestamp=self.current_timestamp,
+                    new_state=OrderState.FAILED
+                )
+                self._order_tracker.process_order_update(order_update)
 
     def process_transaction_confirmation_update(self, tracked_order: GatewayInFlightOrder, fee: Decimal):
         fee_asset = tracked_order.fee_asset if tracked_order.fee_asset else self._native_currency
@@ -682,7 +688,13 @@ class GatewayBase(ConnectorBase):
                 # Transaction failed
                 elif tx_status == TransactionStatus.FAILED.value:
                     self.logger().error(f"Transaction {transaction_hash} failed for order {order_id}")
-                    await self._order_tracker.process_order_not_found(order_id)
+                    order_update = OrderUpdate(
+                        client_order_id=order_id,
+                        trading_pair=tracked_order.trading_pair,
+                        update_timestamp=self.current_timestamp,
+                        new_state=OrderState.FAILED
+                    )
+                    self._order_tracker.process_order_update(order_update)
                     break
 
                 # Still pending, wait and try again
