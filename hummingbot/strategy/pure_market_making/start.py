@@ -85,7 +85,7 @@ def start(self):
         asset_price_delegate = None
         if price_source == "external_market":
             asset_trading_pair: str = price_source_market
-            ext_market = create_paper_trade_market(price_source_exchange, self.client_config_map, [asset_trading_pair])
+            ext_market = create_paper_trade_market(price_source_exchange, [asset_trading_pair])
             self.connector_manager.connectors[price_source_exchange]: ExchangeBase = ext_market
             asset_price_delegate = OrderBookAssetPriceDelegate(ext_market, asset_trading_pair)
         elif price_source == "custom_api":
