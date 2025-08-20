@@ -15,12 +15,8 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 class AMMDataFeedConfig(BaseClientModel):
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
-    connector: str = Field("jupiter", json_schema_extra={
-        "prompt": "DEX connector name", "prompt_on_new": True})
-    chain: str = Field("solana", json_schema_extra={
-        "prompt": "Chain", "prompt_on_new": True})
-    network: str = Field("mainnet-beta", json_schema_extra={
-        "prompt": "Network", "prompt_on_new": True})
+    connector: str = Field("jupiter/router", json_schema_extra={
+        "prompt": "DEX connector in format 'name/type' (e.g., jupiter/router, uniswap/amm)", "prompt_on_new": True})
     order_amount_in_base: Decimal = Field(Decimal("1.0"), json_schema_extra={
         "prompt": "Order amount in base currency", "prompt_on_new": True})
     trading_pair_1: str = Field("SOL-USDC", json_schema_extra={
@@ -58,12 +54,9 @@ class AMMDataFeedExample(ScriptStrategyBase):
         if config.trading_pair_3:
             trading_pairs.add(config.trading_pair_3)
 
-        # Create connector chain network string
-        connector_chain_network = f"{config.connector}_{config.chain}_{config.network}"
-
-        # Initialize the AMM data feed
+        # Initialize the AMM data feed with new connector format
         self.amm_data_feed = AmmGatewayDataFeed(
-            connector_chain_network=connector_chain_network,
+            connector=config.connector,  # Now in format name/type
             trading_pairs=trading_pairs,
             order_amount_in_base=config.order_amount_in_base,
         )
@@ -79,7 +72,9 @@ class AMMDataFeedExample(ScriptStrategyBase):
             self.file_name = f"{config.file_name}.csv"
         else:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            self.file_name = f"{connector_chain_network}_{timestamp}.csv"
+            # Replace slash with underscore for filename
+            connector_filename = config.connector.replace("/", "_")
+            self.file_name = f"{connector_filename}_{timestamp}.csv"
 
         self.file_path = os.path.join(self.data_dir, self.file_name)
         self.logger().info(f"Data will be saved to: {self.file_path}")

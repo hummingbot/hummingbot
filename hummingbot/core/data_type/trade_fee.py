@@ -235,7 +235,10 @@ class TradeFeeBase(ABC):
             {"WAVAX", "AVAX"},
             {"WONE", "ONE"},
             {"USDC", "USDC.E"},
-            {"WBTC", "BTC"}
+            {"WBTC", "BTC"},
+            {"USOL", "SOL"},
+            {"UETH", "ETH"},
+            {"UBTC", "BTC"}
         ]
         return first_token == second_token or any(({first_token, second_token} <= interchangeable_pair
                                                    for interchangeable_pair
