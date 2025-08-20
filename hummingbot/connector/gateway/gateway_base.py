@@ -5,7 +5,7 @@ import logging
 import re
 import time
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union, cast
+from typing import Any, Dict, List, Optional, Set, Union, cast
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.connector_base import ConnectorBase
@@ -21,9 +21,6 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
-
-if TYPE_CHECKING:
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 s_logger = None
 s_decimal_0 = Decimal("0")
@@ -61,11 +58,11 @@ class GatewayBase(ConnectorBase):
     _amount_quantum_dict: Dict[str, Decimal]
 
     def __init__(self,
-                 client_config_map: "ClientConfigAdapter",
                  connector_name: str,
                  chain: Optional[str] = None,
                  network: Optional[str] = None,
                  address: Optional[str] = None,
+                 balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
                  trading_pairs: List[str] = [],
                  trading_required: bool = True
                  ):
@@ -78,13 +75,14 @@ class GatewayBase(ConnectorBase):
         :param trading_required: Whether actual trading is needed. Useful for some functionalities or commands like the balance command
         """
         self._connector_name = connector_name
+        self._name = f"{connector_name}_{chain}_{network}"
         # Temporarily set chain/network/address - will be populated in start_network if not provided
         self._chain = chain
         self._network = network
         self._wallet_address = address
         # Use connector name as temporary name until we have chain/network info
         self._name = connector_name
-        super().__init__(client_config_map)
+        super().__init__(balance_asset_limit)
         self._trading_pairs = trading_pairs
         self._tokens = set()
         [self._tokens.update(set(trading_pair.split("_")[0].split("-"))) for trading_pair in trading_pairs]
