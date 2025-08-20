@@ -64,9 +64,6 @@ cd hummingbot
    restart: always
    container_name: gateway
    image: hummingbot/gateway:latest
-  # build: # Uncomment this build section and comment image to build Gateway locally
-  #   context: .
-  #   dockerfile: Dockerfile
    ports:
      - "15888:15888"
    volumes:
