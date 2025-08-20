@@ -170,8 +170,8 @@ def create_live_field():
 
 def create_log_toggle(function):
     return Button(
-        text='> log pane',
-        width=13,
+        text='> Ctrl+T',
+        width=10,
         handler=function,
         left_symbol='',
         right_symbol='',
@@ -211,7 +211,18 @@ def get_gateway_status():
     hb = HummingbotApplication.main_application()
     gateway_status = hb._gateway_monitor.gateway_status.name
     style = "class:log_field"
-    return [(style, f"Gateway: {gateway_status}")]
+
+    # Check if SSL is enabled
+    use_ssl = getattr(hb.client_config_map.gateway, "gateway_use_ssl", False)
+    lock_icon = "🔒 " if use_ssl else ""
+
+    # Add visual indicator based on status
+    if gateway_status == "ONLINE":
+        status_display = f"🟢 {gateway_status}"
+    else:
+        status_display = f"🔴 {gateway_status}"
+
+    return [(style, f"{lock_icon}Gateway: {status_display}")]
 
 
 def generate_layout(input_field: TextArea,

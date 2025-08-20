@@ -182,12 +182,12 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
 
     async def test_safe_get_last_traded_prices(self):
         connector = AsyncMock()
-        connector.get_last_traded_prices.return_value = {"BTC-USDT": 100}
+        connector._get_last_traded_price.return_value = 100
         result = await self.provider._safe_get_last_traded_prices(connector, ["BTC-USDT"])
         self.assertEqual(result, {"BTC-USDT": 100})
-        connector.get_last_traded_prices.side_effect = Exception("Error")
+        connector._get_last_traded_price.side_effect = Exception("Error")
         result = await self.provider._safe_get_last_traded_prices(connector, ["BTC-USDT"])
-        self.assertEqual(result, {})
+        self.assertEqual(result, {"BTC-USDT": Decimal("0")})
 
     def test_remove_rate_sources(self):
         # Test removing regular connector rate sources
@@ -204,7 +204,7 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
     @patch.object(ConnectorPair, 'is_amm_connector', return_value=True)
     def test_remove_rate_sources_amm(self, mock_is_amm):
         # Test removing AMM connector rate sources
-        connector_pair = ConnectorPair(connector_name="uniswap_ethereum_mainnet", trading_pair="BTC-USDT")
+        connector_pair = ConnectorPair(connector_name="uniswap/amm", trading_pair="BTC-USDT")
         self.provider._rates_required.add_or_update("gateway", connector_pair)
         mock_task = MagicMock()
         self.provider._rates_update_task = mock_task
@@ -241,10 +241,13 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
         mock_gateway_client.return_value = mock_gateway_instance
         mock_gateway_instance.get_price.return_value = {"price": "50000"}
 
+        # Mock the chain/network lookup on the instance
+        mock_gateway_instance.get_connector_chain_network.return_value = ("ethereum", "mainnet", None)
+
         mock_oracle_instance = MagicMock()
         mock_rate_oracle.return_value = mock_oracle_instance
 
-        connector_pair = ConnectorPair(connector_name="uniswap_ethereum_mainnet", trading_pair="BTC-USDT")
+        connector_pair = ConnectorPair(connector_name="uniswap/amm", trading_pair="BTC-USDT")
         self.provider._rates_required.add_or_update("gateway", connector_pair)
 
         # Mock asyncio.sleep to avoid actual delay
@@ -280,7 +283,53 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
         mock_gateway_client.return_value = mock_gateway_instance
         mock_gateway_instance.get_price.side_effect = Exception("Gateway error")
 
-        connector_pair = ConnectorPair(connector_name="uniswap_ethereum_mainnet", trading_pair="BTC-USDT")
+        # Mock the chain/network lookup on the instance
+        mock_gateway_instance.get_connector_chain_network.return_value = ("ethereum", "mainnet", None)
+
+        connector_pair = ConnectorPair(connector_name="uniswap/amm", trading_pair="BTC-USDT")
+        self.provider._rates_required.add_or_update("gateway", connector_pair)
+
+        with patch('asyncio.sleep', side_effect=[None, asyncio.CancelledError()]):
+            with self.assertRaises(asyncio.CancelledError):
+                await self.provider.update_rates_task()
+
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_instance')
+    async def test_update_rates_task_gateway_chain_network_error(self, mock_gateway_client):
+        # Test lines 125-126: Chain/network lookup error handling
+        mock_gateway_instance = AsyncMock()
+        mock_gateway_client.return_value = mock_gateway_instance
+
+        # Mock the chain/network lookup to return an error
+        mock_gateway_instance.get_connector_chain_network.return_value = (None, None, "Chain lookup failed")
+
+        connector_pair = ConnectorPair(connector_name="uniswap/amm", trading_pair="BTC-USDT")
+        self.provider._rates_required.add_or_update("gateway", connector_pair)
+
+        with patch('asyncio.sleep', side_effect=[None, asyncio.CancelledError()]):
+            with self.assertRaises(asyncio.CancelledError):
+                await self.provider.update_rates_task()
+
+        # Verify the warning was logged
+        with self.assertLogs(level='WARNING'):
+            mock_gateway_instance.get_connector_chain_network.return_value = (None, None, "Chain lookup failed")
+            connector_pair = ConnectorPair(connector_name="uniswap/amm", trading_pair="ETH-USDT")
+            self.provider._rates_required.clear()
+            self.provider._rates_required.add_or_update("gateway", connector_pair)
+
+            with patch('asyncio.sleep', side_effect=[None, asyncio.CancelledError()]):
+                with self.assertRaises(asyncio.CancelledError):
+                    await self.provider.update_rates_task()
+
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_instance')
+    async def test_update_rates_task_chain_info_exception(self, mock_gateway_client):
+        # Test lines 133-135: Exception during chain info retrieval
+        mock_gateway_instance = AsyncMock()
+        mock_gateway_client.return_value = mock_gateway_instance
+
+        # Mock the chain/network lookup to raise an exception
+        mock_gateway_instance.get_connector_chain_network.side_effect = Exception("Network error")
+
+        connector_pair = ConnectorPair(connector_name="uniswap/amm", trading_pair="BTC-USDT")
         self.provider._rates_required.add_or_update("gateway", connector_pair)
 
         with patch('asyncio.sleep', side_effect=[None, asyncio.CancelledError()]):
