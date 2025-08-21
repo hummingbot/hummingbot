@@ -1371,15 +1371,12 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         self.is_logged("network", f"Error fetching status update for {self.trading_pair}: {resp}.")
 
     def test_supported_position_modes(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         linear_connector = BybitPerpetualDerivative(
-            client_config_map=client_config_map,
             bybit_perpetual_api_key=self.api_key,
             bybit_perpetual_secret_key=self.api_secret,
             trading_pairs=[self.trading_pair],
         )
         non_linear_connector = BybitPerpetualDerivative(
-            client_config_map=client_config_map,
             bybit_perpetual_api_key=self.api_key,
             bybit_perpetual_secret_key=self.api_secret,
             trading_pairs=[self.non_linear_trading_pair],
@@ -1392,9 +1389,7 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         self.assertEqual(expected_result, non_linear_connector.supported_position_modes())
 
     def test_set_position_mode_nonlinear(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         non_linear_connector = BybitPerpetualDerivative(
-            client_config_map=client_config_map,
             bybit_perpetual_api_key=self.api_key,
             bybit_perpetual_secret_key=self.api_secret,
             trading_pairs=[self.non_linear_trading_pair],

@@ -1208,9 +1208,7 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertTrue(order.is_open)
 
     def test_user_stream_balance_update(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         connector = GateIoPerpetualDerivative(
-            client_config_map=client_config_map,
             gate_io_perpetual_api_key=self.api_key,
             gate_io_perpetual_secret_key=self.api_secret,
             gate_io_perpetual_user_id=self.user_id,
@@ -1233,9 +1231,7 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(Decimal("15"), self.exchange.get_balance(self.quote_asset))
 
     def test_user_stream_position_update(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         connector = GateIoPerpetualDerivative(
-            client_config_map=client_config_map,
             gate_io_perpetual_api_key=self.api_key,
             gate_io_perpetual_secret_key=self.api_secret,
             gate_io_perpetual_user_id=self.user_id,
@@ -1269,9 +1265,7 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(pos.amount, 3 * amount_precision)
 
     def test_user_stream_remove_position_update(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         connector = GateIoPerpetualDerivative(
-            client_config_map=client_config_map,
             gate_io_perpetual_api_key=self.api_key,
             gate_io_perpetual_secret_key=self.api_secret,
             gate_io_perpetual_user_id=self.user_id,
@@ -1300,9 +1294,7 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(len(self.exchange.account_positions), 0)
 
     def test_supported_position_modes(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         linear_connector = GateIoPerpetualDerivative(
-            client_config_map=client_config_map,
             gate_io_perpetual_api_key=self.api_key,
             gate_io_perpetual_secret_key=self.api_secret,
             gate_io_perpetual_user_id=self.user_id,

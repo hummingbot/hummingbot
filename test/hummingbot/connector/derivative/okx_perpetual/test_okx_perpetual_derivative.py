@@ -1496,9 +1496,7 @@ class OkxPerpetualDerivativeTests(
         self.assertEqual(self.target_funding_payment_funding_rate, funding_event.funding_rate)
 
     def test_supported_position_modes(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         linear_connector = OkxPerpetualDerivative(
-            client_config_map=client_config_map,
             okx_perpetual_api_key=self.api_key,
             okx_perpetual_secret_key=self.api_secret,
             trading_pairs=[self.trading_pair],
