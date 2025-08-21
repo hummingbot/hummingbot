@@ -8,8 +8,6 @@ from unittest.mock import AsyncMock, patch
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.bitrue import bitrue_constants as CONSTANTS, bitrue_web_utils as web_utils
 from hummingbot.connector.exchange.bitrue.bitrue_exchange import BitrueExchange
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
@@ -384,9 +382,7 @@ class BitrueExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         return f"{base_token}{quote_token}"
 
     def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         return BitrueExchange(
-            client_config_map=client_config_map,
             bitrue_api_key="testAPIKey",
             bitrue_api_secret="testSecret",
             trading_pairs=[self.trading_pair],

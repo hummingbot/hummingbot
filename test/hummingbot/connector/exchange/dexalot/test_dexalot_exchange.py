@@ -10,8 +10,6 @@ from unittest.mock import AsyncMock, patch
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.dexalot import dexalot_constants as CONSTANTS, dexalot_web_utils as web_utils
 from hummingbot.connector.exchange.dexalot.dexalot_exchange import DexalotExchange
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
@@ -260,9 +258,7 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         return f"{base_token}/{quote_token}"
 
     def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         exchange = DexalotExchange(
-            client_config_map=client_config_map,
             dexalot_api_key=self.api_key,
             dexalot_api_secret=self.api_secret,
             trading_pairs=[self.trading_pair],
