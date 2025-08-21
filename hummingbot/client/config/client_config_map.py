@@ -28,7 +28,7 @@ from hummingbot.core.rate_oracle.sources.rate_source_base import RateSourceBase
 from hummingbot.core.utils.kill_switch import ActiveKillSwitch, KillSwitch, PassThroughKillSwitch
 
 if TYPE_CHECKING:
-    from hummingbot.client.hummingbot_application import HummingbotApplication
+    from hummingbot.core.trading_core import TradingCore
 
 
 def generate_client_id() -> str:
@@ -229,7 +229,7 @@ class PaperTradeConfigMap(BaseClientModel):
 
 class KillSwitchMode(BaseClientModel, ABC):
     @abstractmethod
-    def get_kill_switch(self, hb: "HummingbotApplication") -> KillSwitch:
+    def get_kill_switch(self, trading_core: "TradingCore") -> KillSwitch:
         ...
 
 
@@ -243,15 +243,15 @@ class KillSwitchEnabledMode(KillSwitchMode):
     )
     model_config = ConfigDict(title="kill_switch_enabled")
 
-    def get_kill_switch(self, hb: "HummingbotApplication") -> ActiveKillSwitch:
-        kill_switch = ActiveKillSwitch(kill_switch_rate=self.kill_switch_rate, hummingbot_application=hb)
+    def get_kill_switch(self, trading_core: "TradingCore") -> ActiveKillSwitch:
+        kill_switch = ActiveKillSwitch(kill_switch_rate=self.kill_switch_rate, trading_core=trading_core)
         return kill_switch
 
 
 class KillSwitchDisabledMode(KillSwitchMode):
     model_config = ConfigDict(title="kill_switch_disabled")
 
-    def get_kill_switch(self, hb: "HummingbotApplication") -> PassThroughKillSwitch:
+    def get_kill_switch(self, trading_core: "TradingCore") -> PassThroughKillSwitch:
         kill_switch = PassThroughKillSwitch()
         return kill_switch
 
@@ -341,6 +341,10 @@ class GatewayConfigMap(BaseClientModel):
     gateway_api_port: str = Field(
         default="15888",
         json_schema_extra={"prompt": lambda cm: "Please enter your Gateway API port"},
+    )
+    gateway_use_ssl: bool = Field(
+        default=False,
+        json_schema_extra={"prompt": lambda cm: "Enable SSL endpoints for secure Gateway connection? (True / False)"},
     )
     model_config = ConfigDict(title="gateway")
 
@@ -811,16 +815,28 @@ class ClientConfigMap(BaseClientModel):
     @classmethod
     def validate_kill_switch_mode(cls, v: Any):
         if isinstance(v, tuple(KILL_SWITCH_MODES.values())):
-            sub_model = v
-        elif v == {}:
-            sub_model = KillSwitchDisabledMode()
-        elif v not in KILL_SWITCH_MODES:
-            raise ValueError(
-                f"Invalid kill switch mode, please choose a value from {list(KILL_SWITCH_MODES.keys())}."
-            )
-        else:
-            sub_model = KILL_SWITCH_MODES[v].model_construct()
-        return sub_model
+            return v  # Already a valid model
+
+        if v == {}:
+            return KillSwitchDisabledMode()
+
+        if isinstance(v, dict):
+            # Try validating against known mode models
+            for mode_cls in KILL_SWITCH_MODES.values():
+                try:
+                    return mode_cls.model_validate(v)
+                except Exception:
+                    continue
+            raise ValueError(f"Could not match dict to any known kill switch mode: {v}")
+
+        if isinstance(v, str):
+            if v not in KILL_SWITCH_MODES:
+                raise ValueError(
+                    f"Invalid kill switch mode string. Choose from: {list(KILL_SWITCH_MODES.keys())}."
+                )
+            return KILL_SWITCH_MODES[v].model_construct()
+
+        raise ValueError(f"Unsupported type for kill switch mode: {type(v)}")
 
     @field_validator("autofill_import", mode="before")
     @classmethod
