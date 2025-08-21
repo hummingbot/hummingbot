@@ -3,7 +3,7 @@ import re
 import ssl
 from decimal import Decimal
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import aiohttp
 from aiohttp import ContentTypeError
@@ -50,6 +50,7 @@ class GatewayHttpClient:
     _ghc_logger: Optional[HummingbotLogger] = None
     _shared_client: Optional[aiohttp.ClientSession] = None
     _base_url: str
+    _use_ssl: bool
 
     __instance = None
 
@@ -65,8 +66,11 @@ class GatewayHttpClient:
             client_config_map = HummingbotApplication.main_application().client_config_map
         api_host = client_config_map.gateway.gateway_api_host
         api_port = client_config_map.gateway.gateway_api_port
+        use_ssl = client_config_map.gateway.gateway_use_ssl
         if GatewayHttpClient.__instance is None:
-            self._base_url = f"https://{api_host}:{api_port}"
+            protocol = "https" if use_ssl else "http"
+            self._base_url = f"{protocol}://{api_host}:{api_port}"
+            self._use_ssl = use_ssl
         self._client_config_map = client_config_map
         GatewayHttpClient.__instance = self
 
@@ -82,12 +86,18 @@ class GatewayHttpClient:
         :returns Shared client session instance
         """
         if cls._shared_client is None or re_init:
-            cert_path = client_config_map.certs_path
-            ssl_ctx = ssl.create_default_context(cafile=f"{cert_path}/ca_cert.pem")
-            ssl_ctx.load_cert_chain(certfile=f"{cert_path}/client_cert.pem",
-                                    keyfile=f"{cert_path}/client_key.pem",
-                                    password=Security.secrets_manager.password.get_secret_value())
-            conn = aiohttp.TCPConnector(ssl_context=ssl_ctx)
+            use_ssl = getattr(client_config_map.gateway, "gateway_use_ssl", False)
+            if use_ssl:
+                # SSL connection with client certs
+                cert_path = client_config_map.certs_path
+                ssl_ctx = ssl.create_default_context(cafile=f"{cert_path}/ca_cert.pem")
+                ssl_ctx.load_cert_chain(certfile=f"{cert_path}/client_cert.pem",
+                                        keyfile=f"{cert_path}/client_key.pem",
+                                        password=Security.secrets_manager.password.get_secret_value())
+                conn = aiohttp.TCPConnector(ssl_context=ssl_ctx)
+            else:
+                # Non-SSL connection for development
+                conn = aiohttp.TCPConnector(ssl=False)
             cls._shared_client = aiohttp.ClientSession(connector=conn)
         return cls._shared_client
 
@@ -168,12 +178,12 @@ class GatewayHttpClient:
         return False
 
     async def api_request(
-            self,
-            method: str,
-            path_url: str,
-            params: Dict[str, Any] = {},
-            fail_silently: bool = False,
-            use_body: bool = False,
+        self,
+        method: str,
+        path_url: str,
+        params: Dict[str, Any] = {},
+        fail_silently: bool = False,
+        use_body: bool = False,
     ) -> Optional[Union[Dict[str, Any], List[Dict[str, Any]]]]:
         """
         Sends an aiohttp request and waits for a response.
@@ -236,6 +246,10 @@ class GatewayHttpClient:
 
         return parsed_response
 
+    # ============================================
+    # Gateway Status and Restart Methods
+    # ============================================
+
     async def ping_gateway(self) -> bool:
         try:
             response: Dict[str, Any] = await self.api_request("get", "", fail_silently=True)
@@ -256,10 +270,21 @@ class GatewayHttpClient:
                 app_warning_msg=str(e)
             )
 
-    async def update_config(self, config_path: str, config_value: Any) -> Dict[str, Any]:
+    async def get_network_status(
+        self,
+        chain: str = None,
+        network: str = None,
+        fail_silently: bool = False
+    ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+        req_data: Dict[str, str] = {}
+        req_data["network"] = network
+        return await self.api_request("get", f"chains/{chain}/status", req_data, fail_silently=fail_silently)
+
+    async def update_config(self, namespace: str, path: str, value: Any) -> Dict[str, Any]:
         response = await self.api_request("post", "config/update", {
-            "configPath": config_path,
-            "configValue": config_value,
+            "namespace": namespace,
+            "path": path,
+            "value": value,
         })
         self.logger().info("Detected change to Gateway config - restarting Gateway...", exc_info=False)
         await self.post_restart()
@@ -268,34 +293,125 @@ class GatewayHttpClient:
     async def post_restart(self):
         await self.api_request("post", "restart", fail_silently=False)
 
+    # ============================================
+    # Configuration Methods
+    # ============================================
+
+    async def get_configuration(self, namespace: str = None, fail_silently: bool = False) -> Dict[str, Any]:
+        params = {"namespace": namespace} if namespace is not None else {}
+        return await self.api_request("get", "config", params=params, fail_silently=fail_silently)
+
     async def get_connectors(self, fail_silently: bool = False) -> Dict[str, Any]:
-        return await self.api_request("get", "connectors", fail_silently=fail_silently)
+        return await self.api_request("get", "config/connectors", fail_silently=fail_silently)
 
-    async def get_pools(self, connector: str) -> Dict[str, Any]:
-        self.logger().info(f"Getting pools for connector: {connector}")
-        return await self.api_request("get", f"config/pools?connector={connector}")
+    async def get_chains(self, fail_silently: bool = False) -> Dict[str, Any]:
+        return await self.api_request("get", "config/chains", fail_silently=fail_silently)
 
-    async def get_wallets(self, fail_silently: bool = False) -> List[Dict[str, Any]]:
-        return await self.api_request("get", "wallet", fail_silently=fail_silently)
+    async def get_namespaces(self, fail_silently: bool = False) -> Dict[str, Any]:
+        return await self.api_request("get", "config/namespaces", fail_silently=fail_silently)
+
+    # ============================================
+    # Fetch Defaults
+    # ============================================
+
+    async def get_native_currency_symbol(self, chain: str, network: str) -> Optional[str]:
+        """
+        Get the native currency symbol for a chain and network from gateway config.
+
+        :param chain: Blockchain chain (e.g., "ethereum", "bsc")
+        :param network: Network name (e.g., "mainnet", "testnet")
+        :return: Native currency symbol (e.g., "ETH", "BNB") or None if not found
+        """
+        try:
+            # Use namespace approach for more reliable config access
+            namespace = f"{chain}-{network}"
+            network_config = await self.get_configuration(namespace)
+            if network_config:
+                return network_config.get("nativeCurrencySymbol")
+        except Exception as e:
+            self.logger().warning(f"Failed to get native currency symbol for {chain}-{network}: {e}")
+        return None
+
+    async def get_default_network_for_chain(self, chain: str) -> Optional[str]:
+        """
+        Get the default network for a chain from its configuration.
+
+        :param chain: Chain name (e.g., "ethereum", "solana")
+        :return: Default network name or None if not found
+        """
+        try:
+            config = await self.get_configuration(chain)
+            return config.get("defaultNetwork")
+        except Exception as e:
+            self.logger().warning(f"Failed to get default network for {chain}: {e}")
+            return None
+
+    async def get_default_wallet_for_chain(self, chain: str) -> Optional[str]:
+        """
+        Get the default wallet for a chain from its configuration.
+
+        :param chain: Chain name (e.g., "ethereum", "solana")
+        :return: Default wallet address or None if not found
+        """
+        try:
+            # Get the configuration for the chain namespace (not chain-network)
+            config = await self.get_configuration(chain)
+            return config.get("defaultWallet")
+        except Exception as e:
+            self.logger().warning(f"Failed to get default wallet for {chain}: {e}")
+            return None
+
+    # ============================================
+    # Wallet Methods
+    # ============================================
+
+    async def get_wallets(self, show_hardware: bool = True, fail_silently: bool = False) -> List[Dict[str, Any]]:
+        params = {"showHardware": str(show_hardware).lower()}
+        return await self.api_request("get", "wallet", params=params, fail_silently=fail_silently)
 
     async def add_wallet(
-        self, chain: str, network: str, private_key: str, **kwargs
+        self, chain: str, network: str = None, private_key: str = None, set_default: bool = True, **kwargs
     ) -> Dict[str, Any]:
-        request = {"chain": chain, "network": network, "privateKey": private_key}
+        # Wallet only needs chain, privateKey, and setDefault
+        request = {"chain": chain, "setDefault": set_default}
+        if private_key:
+            request["privateKey"] = private_key
         request.update(kwargs)
         return await self.api_request(method="post", path_url="wallet/add", params=request)
 
-    async def get_configuration(self, chain: str = None, fail_silently: bool = False) -> Dict[str, Any]:
-        params = {"chainOrConnector": chain} if chain is not None else {}
-        return await self.api_request("get", "config", params=params, fail_silently=fail_silently)
+    async def add_hardware_wallet(
+        self, chain: str, network: str = None, address: str = None, set_default: bool = True, **kwargs
+    ) -> Dict[str, Any]:
+        # Hardware wallet only needs chain, address, and setDefault
+        request = {"chain": chain, "setDefault": set_default}
+        if address:
+            request["address"] = address
+        request.update(kwargs)
+        return await self.api_request(method="post", path_url="wallet/add-hardware", params=request)
+
+    async def remove_wallet(
+        self, chain: str, address: str
+    ) -> Dict[str, Any]:
+        return await self.api_request(method="delete", path_url="wallet/remove", params={"chain": chain, "address": address})
+
+    async def set_default_wallet(self, chain: str, address: str) -> Dict[str, Any]:
+        return await self.api_request(
+            method="post",
+            path_url="wallet/setDefault",
+            params={"chain": chain, "address": address}
+        )
+
+    # ============================================
+    # Balance and Allowance Methods
+    # ============================================
 
     async def get_balances(
-            self,
-            chain: str,
-            network: str,
-            address: str,
-            token_symbols: List[str],
-            fail_silently: bool = False,
+        self,
+        chain: str,
+        network: str,
+        address: str,
+        token_symbols: List[str],
+        fail_silently: bool = False,
     ) -> Dict[str, Any]:
         if isinstance(token_symbols, list):
             token_symbols = [x for x in token_symbols if isinstance(x, str) and x.strip() != '']
@@ -313,64 +429,14 @@ class GatewayHttpClient:
         else:
             return {}
 
-    async def get_tokens(
-            self,
-            chain: str,
-            network: str,
-            fail_silently: bool = True
-    ) -> Dict[str, Any]:
-        return await self.api_request("get", f"chains/{chain}/tokens", {
-            "network": network
-        }, fail_silently=fail_silently)
-
-    async def get_network_status(
-            self,
-            chain: str = None,
-            network: str = None,
-            fail_silently: bool = False
-    ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
-        req_data: Dict[str, str] = {}
-        if chain is not None and network is not None:
-            req_data["network"] = network
-            return await self.api_request("get", f"chains/{chain}/status", req_data, fail_silently=fail_silently)
-        return await self.api_request("get", "network/status", req_data, fail_silently=fail_silently)  # Default endpoint when chain is None
-
-    async def approve_token(
-            self,
-            network: str,
-            address: str,
-            token: str,
-            spender: str,
-            nonce: Optional[int] = None,
-            max_fee_per_gas: Optional[int] = None,
-            max_priority_fee_per_gas: Optional[int] = None
-    ) -> Dict[str, Any]:
-        request_payload: Dict[str, Any] = {
-            "network": network,
-            "address": address,
-            "token": token,
-            "spender": spender
-        }
-        if nonce is not None:
-            request_payload["nonce"] = nonce
-        if max_fee_per_gas is not None:
-            request_payload["maxFeePerGas"] = str(max_fee_per_gas)
-        if max_priority_fee_per_gas is not None:
-            request_payload["maxPriorityFeePerGas"] = str(max_priority_fee_per_gas)
-        return await self.api_request(
-            "post",
-            "chains/ethereum/approve",
-            request_payload
-        )
-
     async def get_allowances(
-            self,
-            chain: str,
-            network: str,
-            address: str,
-            token_symbols: List[str],
-            spender: str,
-            fail_silently: bool = False
+        self,
+        chain: str,
+        network: str,
+        address: str,
+        token_symbols: List[str],
+        spender: str,
+        fail_silently: bool = False
     ) -> Dict[str, Any]:
         return await self.api_request("post", "chains/ethereum/allowances", {
             "network": network,
@@ -379,12 +445,34 @@ class GatewayHttpClient:
             "spender": spender
         }, fail_silently=fail_silently)
 
+    async def approve_token(
+        self,
+        network: str,
+        address: str,
+        token: str,
+        spender: str,
+        amount: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        request_payload: Dict[str, Any] = {
+            "network": network,
+            "address": address,
+            "token": token,
+            "spender": spender
+        }
+        if amount is not None:
+            request_payload["amount"] = amount
+        return await self.api_request(
+            "post",
+            "chains/ethereum/approve",
+            request_payload
+        )
+
     async def get_transaction_status(
-            self,
-            chain: str,
-            network: str,
-            transaction_hash: str,
-            fail_silently: bool = False
+        self,
+        chain: str,
+        network: str,
+        transaction_hash: str,
+        fail_silently: bool = False
     ) -> Dict[str, Any]:
         request = {
             "network": network,
@@ -392,57 +480,21 @@ class GatewayHttpClient:
         }
         return await self.api_request("post", f"chains/{chain}/poll", request, fail_silently=fail_silently)
 
-    async def wallet_sign(
-        self,
-        chain: str,
-        network: str,
-        address: str,
-        message: str,
-    ) -> Dict[str, Any]:
-        request = {
-            "chain": chain,
-            "network": network,
-            "address": address,
-            "message": message,
-        }
-        return await self.api_request("get", "wallet/sign", request)
-
-    async def get_evm_nonce(
-            self,
-            chain: str,
-            network: str,
-            address: str,
-            fail_silently: bool = False
-    ) -> Dict[str, Any]:
-        return await self.api_request("post", "chains/ethereum/nextNonce", {
-            "network": network,
-            "address": address
-        }, fail_silently=fail_silently)
-
-    async def cancel_evm_transaction(
-            self,
-            chain: str,
-            network: str,
-            address: str,
-            nonce: int
-    ) -> Dict[str, Any]:
-        return await self.api_request("post", "chains/ethereum/cancel", {
-            "network": network,
-            "address": address,
-            "nonce": nonce
-        })
+    # ============================================
+    # AMM and CLMM Methods
+    # ============================================
 
     async def quote_swap(
-            self,
-            network: str,
-            connector: str,
-            base_asset: str,
-            quote_asset: str,
-            amount: Decimal,
-            side: TradeType,
-            slippage_pct: Optional[Decimal] = None,
-            pool_address: Optional[str] = None,
-            fail_silently: bool = False,
+        self,
+        network: str,
+        connector: str,
+        base_asset: str,
+        quote_asset: str,
+        amount: Decimal,
+        side: TradeType,
+        slippage_pct: Optional[Decimal] = None,
+        pool_address: Optional[str] = None,
+        fail_silently: bool = False,
     ) -> Dict[str, Any]:
         if side not in [TradeType.BUY, TradeType.SELL]:
             raise ValueError("Only BUY and SELL prices are supported.")
@@ -469,16 +521,16 @@ class GatewayHttpClient:
         )
 
     async def get_price(
-            self,
-            chain: str,
-            network: str,
-            connector: str,
-            base_asset: str,
-            quote_asset: str,
-            amount: Decimal,
-            side: TradeType,
-            fail_silently: bool = False,
-            pool_address: Optional[str] = None
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        base_asset: str,
+        quote_asset: str,
+        amount: Decimal,
+        side: TradeType,
+        fail_silently: bool = False,
+        pool_address: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Wrapper for quote_swap
@@ -504,26 +556,20 @@ class GatewayHttpClient:
 
     async def execute_swap(
         self,
-        network: str,
         connector: str,
-        address: str,
         base_asset: str,
         quote_asset: str,
         side: TradeType,
         amount: Decimal,
         slippage_pct: Optional[Decimal] = None,
         pool_address: Optional[str] = None,
-        # limit_price: Optional[Decimal] = None,
-        nonce: Optional[int] = None,
+        network: Optional[str] = None,
+        wallet_address: Optional[str] = None,
     ) -> Dict[str, Any]:
         if side not in [TradeType.BUY, TradeType.SELL]:
             raise ValueError("Only BUY and SELL prices are supported.")
 
-        connector_type = get_connector_type(connector)
-
         request_payload: Dict[str, Any] = {
-            "network": network,
-            "walletAddress": address,
             "baseToken": base_asset,
             "quoteToken": quote_asset,
             "amount": float(amount),
@@ -531,67 +577,95 @@ class GatewayHttpClient:
         }
         if slippage_pct is not None:
             request_payload["slippagePct"] = float(slippage_pct)
-        # if limit_price is not None:
-        #     request_payload["limitPrice"] = float(limit_price)
-        if nonce is not None:
-            request_payload["nonce"] = int(nonce)
-        if connector_type in (ConnectorType.CLMM, ConnectorType.AMM) and pool_address is not None:
+        if pool_address is not None:
             request_payload["poolAddress"] = pool_address
+        if network is not None:
+            request_payload["network"] = network
+        if wallet_address is not None:
+            request_payload["walletAddress"] = wallet_address
         return await self.api_request(
             "post",
             f"connectors/{connector}/execute-swap",
             request_payload
         )
 
-    async def estimate_gas(
-            self,
-            chain: str,
-            network: str,
-            gas_limit: Optional[int] = None,
+    async def execute_quote(
+        self,
+        connector: str,
+        quote_id: str,
+        network: Optional[str] = None,
+        wallet_address: Optional[str] = None,
     ) -> Dict[str, Any]:
-        return await self.api_request("post", f"chains/{chain}/estimate-gas", {
-            "chain": chain,
-            "network": network,
-            "gasLimit": gas_limit
+        """
+        Execute a previously obtained quote by its ID.
+
+        :param connector: Connector name (e.g., 'jupiter/router')
+        :param quote_id: ID of the quote to execute
+        :param network: Optional blockchain network to use
+        :param wallet_address: Optional wallet address that will execute the swap
+        :return: Transaction details
+        """
+        request_payload: Dict[str, Any] = {
+            "quoteId": quote_id,
+        }
+        if network is not None:
+            request_payload["network"] = network
+        if wallet_address is not None:
+            request_payload["walletAddress"] = wallet_address
+
+        return await self.api_request(
+            "post",
+            f"connectors/{connector}/execute-quote",
+            request_payload
+        )
+
+    async def estimate_gas(
+        self,
+        chain: str,
+        network: str,
+    ) -> Dict[str, Any]:
+        return await self.api_request("get", f"chains/{chain}/estimate-gas", {
+            "network": network
         })
 
+    # ============================================
+    # AMM and CLMM Methods
+    # ============================================
+
     async def pool_info(
-            self,
-            connector: str,
-            network: str,
-            pool_address: Optional[str] = None,
-            base_token: Optional[str] = None,
-            quote_token: Optional[str] = None,
-            fail_silently: bool = False
+        self,
+        connector: str,
+        network: str,
+        pool_address: str,
+        fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
         Gets information about a AMM or CLMM pool
-        Either pool_address or both base_token and quote_token must be provided
         """
         query_params = {
             "network": network,
+            "poolAddress": pool_address
         }
-        if pool_address is not None:
-            query_params["poolAddress"] = pool_address
-        if base_token is not None:
-            query_params["baseToken"] = base_token
-        if quote_token is not None:
-            query_params["quoteToken"] = quote_token
+
+        # Parse connector to get name and type
+        # Format is always "raydium/amm" with the "/" included
+        connector_name, connector_type = connector.split("/", 1)
+        path = f"connectors/{connector_name}/{connector_type}/pool-info"
 
         return await self.api_request(
             "get",
-            f"connectors/{connector}/pool-info",
+            path,
             params=query_params,
             fail_silently=fail_silently,
         )
 
     async def clmm_position_info(
-            self,
-            connector: str,
-            network: str,
-            position_address: str,
-            wallet_address: str,
-            fail_silently: bool = False
+        self,
+        connector: str,
+        network: str,
+        position_address: str,
+        wallet_address: str,
+        fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
         Gets information about a concentrated liquidity position
@@ -601,67 +675,68 @@ class GatewayHttpClient:
             "positionAddress": position_address,
             "walletAddress": wallet_address,
         }
+
+        # Parse connector to get name and type
+        # Format is always "raydium/clmm" with the "/" included
+        connector_name, connector_type = connector.split("/", 1)
+        path = f"connectors/{connector_name}/{connector_type}/position-info"
+
         return await self.api_request(
             "get",
-            f"connectors/{connector}/position-info",
+            path,
             params=query_params,
             fail_silently=fail_silently,
         )
 
     async def amm_position_info(
-            self,
-            connector: str,
-            network: str,
-            wallet_address: str,
-            pool_address: Optional[str] = None,
-            base_token: Optional[str] = None,
-            quote_token: Optional[str] = None,
-            fail_silently: bool = False
+        self,
+        connector: str,
+        network: str,
+        wallet_address: str,
+        pool_address: str,
+        fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
         Gets information about a AMM liquidity position
-        Either pool_address or both base_token and quote_token must be provided
         """
         query_params = {
             "network": network,
             "walletAddress": wallet_address,
+            "poolAddress": pool_address
         }
-        if pool_address is not None:
-            query_params["poolAddress"] = pool_address
-        if base_token is not None:
-            query_params["baseToken"] = base_token
-        if quote_token is not None:
-            query_params["quoteToken"] = quote_token
+
+        # Parse connector to get name and type
+        # Format is always "raydium/amm" with the "/" included
+        connector_name, connector_type = connector.split("/", 1)
+        path = f"connectors/{connector_name}/{connector_type}/position-info"
 
         return await self.api_request(
             "get",
-            f"connectors/{connector}/position-info",
+            path,
             params=query_params,
             fail_silently=fail_silently,
         )
 
     async def clmm_open_position(
-            self,
-            connector: str,
-            network: str,
-            wallet_address: str,
-            lower_price: float,
-            upper_price: float,
-            base_token_amount: Optional[float] = None,
-            quote_token_amount: Optional[float] = None,
-            slippage_pct: Optional[float] = None,
-            pool_address: Optional[str] = None,
-            base_token: Optional[str] = None,
-            quote_token: Optional[str] = None,
-            fail_silently: bool = False
+        self,
+        connector: str,
+        network: str,
+        wallet_address: str,
+        pool_address: str,
+        lower_price: float,
+        upper_price: float,
+        base_token_amount: Optional[float] = None,
+        quote_token_amount: Optional[float] = None,
+        slippage_pct: Optional[float] = None,
+        fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
         Opens a new concentrated liquidity position
-        Either pool_address or both base_token and quote_token must be provided
         """
         request_payload = {
             "network": network,
             "walletAddress": wallet_address,
+            "poolAddress": pool_address,
             "lowerPrice": lower_price,
             "upperPrice": upper_price,
         }
@@ -671,27 +746,25 @@ class GatewayHttpClient:
             request_payload["quoteTokenAmount"] = quote_token_amount
         if slippage_pct is not None:
             request_payload["slippagePct"] = slippage_pct
-        if pool_address is not None:
-            request_payload["poolAddress"] = pool_address
-        if base_token is not None:
-            request_payload["baseToken"] = base_token
-        if quote_token is not None:
-            request_payload["quoteToken"] = quote_token
+
+        # Parse connector to get name and type
+        connector_name, connector_type = connector.split("/", 1)
+        path = f"connectors/{connector_name}/{connector_type}/open-position"
 
         return await self.api_request(
             "post",
-            f"connectors/{connector}/open-position",
+            path,
             request_payload,
             fail_silently=fail_silently,
         )
 
     async def clmm_close_position(
-            self,
-            connector: str,
-            network: str,
-            wallet_address: str,
-            position_address: str,
-            fail_silently: bool = False
+        self,
+        connector: str,
+        network: str,
+        wallet_address: str,
+        position_address: str,
+        fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
         Closes an existing concentrated liquidity position
@@ -701,82 +774,678 @@ class GatewayHttpClient:
             "walletAddress": wallet_address,
             "positionAddress": position_address,
         }
+
+        # Parse connector to get name and type
+        connector_name, connector_type = connector.split("/", 1)
+        path = f"connectors/{connector_name}/{connector_type}/close-position"
+
         return await self.api_request(
             "post",
-            f"connectors/{connector}/close-position",
+            path,
             request_payload,
             fail_silently=fail_silently,
         )
 
-    async def amm_add_liquidity(
-            self,
-            connector: str,
-            network: str,
-            wallet_address: str,
-            base_token_amount: float,
-            quote_token_amount: float,
-            slippage_pct: Optional[float] = None,
-            pool_address: Optional[str] = None,
-            base_token: Optional[str] = None,
-            quote_token: Optional[str] = None,
-            fail_silently: bool = False
+    async def clmm_add_liquidity(
+        self,
+        connector: str,
+        network: str,
+        wallet_address: str,
+        position_address: str,
+        base_token_amount: Optional[float] = None,
+        quote_token_amount: Optional[float] = None,
+        slippage_pct: Optional[float] = None,
+        fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
-        Add liquidity to an AMM liquidity position
-        Either pool_address or both base_token and quote_token must be provided
+        Add liquidity to an existing concentrated liquidity position
         """
         request_payload = {
             "network": network,
             "walletAddress": wallet_address,
+            "positionAddress": position_address,
+        }
+        if base_token_amount is not None:
+            request_payload["baseTokenAmount"] = base_token_amount
+        if quote_token_amount is not None:
+            request_payload["quoteTokenAmount"] = quote_token_amount
+        if slippage_pct is not None:
+            request_payload["slippagePct"] = slippage_pct
+
+        # Parse connector to get name and type
+        connector_name, connector_type = connector.split("/", 1)
+        path = f"connectors/{connector_name}/{connector_type}/add-liquidity"
+
+        return await self.api_request(
+            "post",
+            path,
+            request_payload,
+            fail_silently=fail_silently,
+        )
+
+    async def clmm_remove_liquidity(
+        self,
+        connector: str,
+        network: str,
+        wallet_address: str,
+        position_address: str,
+        percentage: float,
+        fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Remove liquidity from a concentrated liquidity position
+        """
+        request_payload = {
+            "network": network,
+            "walletAddress": wallet_address,
+            "positionAddress": position_address,
+            "percentageToRemove": percentage,
+        }
+
+        # Parse connector to get name and type
+        connector_name, connector_type = connector.split("/", 1)
+        path = f"connectors/{connector_name}/{connector_type}/remove-liquidity"
+
+        return await self.api_request(
+            "post",
+            path,
+            request_payload,
+            fail_silently=fail_silently,
+        )
+
+    async def clmm_collect_fees(
+        self,
+        connector: str,
+        network: str,
+        wallet_address: str,
+        position_address: str,
+        fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Collect accumulated fees from a concentrated liquidity position
+        """
+        request_payload = {
+            "network": network,
+            "walletAddress": wallet_address,
+            "positionAddress": position_address,
+        }
+
+        # Parse connector to get name and type
+        connector_name, connector_type = connector.split("/", 1)
+        path = f"connectors/{connector_name}/{connector_type}/collect-fees"
+
+        return await self.api_request(
+            "post",
+            path,
+            request_payload,
+            fail_silently=fail_silently,
+        )
+
+    async def clmm_positions_owned(
+        self,
+        connector: str,
+        network: str,
+        wallet_address: str,
+        pool_address: Optional[str] = None,
+        fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Get all CLMM positions owned by a wallet, optionally filtered by pool
+        """
+        query_params = {
+            "network": network,
+            "walletAddress": wallet_address,
+        }
+        if pool_address:
+            query_params["poolAddress"] = pool_address
+
+        # Parse connector to get name and type
+        connector_name, connector_type = connector.split("/", 1)
+        path = f"connectors/{connector_name}/{connector_type}/positions-owned"
+
+        return await self.api_request(
+            "get",
+            path,
+            params=query_params,
+            fail_silently=fail_silently,
+        )
+
+    async def amm_quote_liquidity(
+        self,
+        connector: str,
+        network: str,
+        pool_address: str,
+        base_token_amount: float,
+        quote_token_amount: float,
+        slippage_pct: Optional[float] = None,
+        fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Quote the required token amounts for adding liquidity to an AMM pool
+        """
+        query_params = {
+            "network": network,
+            "poolAddress": pool_address,
+            "baseTokenAmount": base_token_amount,
+            "quoteTokenAmount": quote_token_amount,
+        }
+        if slippage_pct is not None:
+            query_params["slippagePct"] = slippage_pct
+
+        # Parse connector to get name and type
+        connector_name, connector_type = connector.split("/", 1)
+        path = f"connectors/{connector_name}/{connector_type}/quote-liquidity"
+
+        return await self.api_request(
+            "get",
+            path,
+            params=query_params,
+            fail_silently=fail_silently,
+        )
+
+    async def clmm_quote_position(
+        self,
+        connector: str,
+        network: str,
+        pool_address: str,
+        lower_price: float,
+        upper_price: float,
+        base_token_amount: Optional[float] = None,
+        quote_token_amount: Optional[float] = None,
+        slippage_pct: Optional[float] = None,
+        fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Quote the required token amounts for opening a CLMM position
+        """
+        query_params = {
+            "network": network,
+            "poolAddress": pool_address,
+            "lowerPrice": lower_price,
+            "upperPrice": upper_price,
+        }
+        if base_token_amount is not None:
+            query_params["baseTokenAmount"] = base_token_amount
+        if quote_token_amount is not None:
+            query_params["quoteTokenAmount"] = quote_token_amount
+        if slippage_pct is not None:
+            query_params["slippagePct"] = slippage_pct
+
+        # Parse connector to get name and type
+        connector_name, connector_type = connector.split("/", 1)
+        path = f"connectors/{connector_name}/{connector_type}/quote-position"
+
+        return await self.api_request(
+            "get",
+            path,
+            params=query_params,
+            fail_silently=fail_silently,
+        )
+
+    async def amm_add_liquidity(
+        self,
+        connector: str,
+        network: str,
+        wallet_address: str,
+        pool_address: str,
+        base_token_amount: float,
+        quote_token_amount: float,
+        slippage_pct: Optional[float] = None,
+        fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Add liquidity to an AMM liquidity position
+        """
+        request_payload = {
+            "network": network,
+            "walletAddress": wallet_address,
+            "poolAddress": pool_address,
             "baseTokenAmount": base_token_amount,
             "quoteTokenAmount": quote_token_amount,
         }
         if slippage_pct is not None:
             request_payload["slippagePct"] = slippage_pct
-        if pool_address is not None:
-            request_payload["poolAddress"] = pool_address
-        if base_token is not None:
-            request_payload["baseToken"] = base_token
-        if quote_token is not None:
-            request_payload["quoteToken"] = quote_token
+
+        # Parse connector to get name and type
+        connector_name, connector_type = connector.split("/", 1)
+        path = f"connectors/{connector_name}/{connector_type}/add-liquidity"
 
         return await self.api_request(
             "post",
-            f"connectors/{connector}/add-liquidity",
+            path,
             request_payload,
             fail_silently=fail_silently,
         )
 
     async def amm_remove_liquidity(
-            self,
-            connector: str,
-            network: str,
-            wallet_address: str,
-            percentage: float,
-            pool_address: Optional[str] = None,
-            base_token: Optional[str] = None,
-            quote_token: Optional[str] = None,
-            fail_silently: bool = False
+        self,
+        connector: str,
+        network: str,
+        wallet_address: str,
+        pool_address: str,
+        percentage: float,
+        fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
         Closes an existing AMM liquidity position
-        Either pool_address or both base_token and quote_token must be provided
         """
         request_payload = {
             "network": network,
             "walletAddress": wallet_address,
+            "poolAddress": pool_address,
             "percentageToRemove": percentage,
         }
-        if pool_address is not None:
-            request_payload["poolAddress"] = pool_address
-        if base_token is not None:
-            request_payload["baseToken"] = base_token
-        if quote_token is not None:
-            request_payload["quoteToken"] = quote_token
+
+        # Parse connector to get name and type
+        connector_name, connector_type = connector.split("/", 1)
+        path = f"connectors/{connector_name}/{connector_type}/remove-liquidity"
 
         return await self.api_request(
             "post",
-            f"connectors/{connector}/remove-liquidity",
+            path,
             request_payload,
             fail_silently=fail_silently,
         )
+
+    # ============================================
+    # Token Methods
+    # ============================================
+
+    async def get_tokens(
+        self,
+        chain: str,
+        network: str,
+        search: Optional[str] = None
+    ) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
+        """Get available tokens for a specific chain and network."""
+        params = {"chain": chain, "network": network}
+        if search:
+            params["search"] = search
+
+        response = await self.api_request(
+            "get",
+            "tokens",
+            params=params
+        )
+        return response
+
+    async def get_token(
+        self,
+        symbol_or_address: str,
+        chain: str,
+        network: str,
+        fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        """Get details for a specific token by symbol or address."""
+        params = {"chain": chain, "network": network}
+        try:
+            response = await self.api_request(
+                "get",
+                f"tokens/{symbol_or_address}",
+                params=params,
+                fail_silently=fail_silently
+            )
+            return response
+        except Exception as e:
+            return {"error": f"Token '{symbol_or_address}' not found on {chain}/{network}: {str(e)}"}
+
+    async def add_token(
+        self,
+        chain: str,
+        network: str,
+        token_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Add a new token to the gateway."""
+        return await self.api_request(
+            "post",
+            "tokens",
+            params={
+                "chain": chain,
+                "network": network,
+                "token": token_data
+            }
+        )
+
+    async def remove_token(
+        self,
+        address: str,
+        chain: str,
+        network: str
+    ) -> Dict[str, Any]:
+        """Remove a token from the gateway."""
+        return await self.api_request(
+            "delete",
+            f"tokens/{address}",
+            params={
+                "chain": chain,
+                "network": network
+            }
+        )
+
+    # ============================================
+    # Pool Methods
+    # ============================================
+
+    async def get_pool(
+        self,
+        trading_pair: str,
+        connector: str,
+        network: str,
+        type: str = "amm"
+    ) -> Dict[str, Any]:
+        """
+        Get pool information for a specific trading pair.
+
+        :param trading_pair: Trading pair (e.g., "SOL-USDC")
+        :param connector: Connector name (e.g., "raydium")
+        :param network: Network name (e.g., "mainnet-beta")
+        :param type: Pool type ("amm" or "clmm"), defaults to "amm"
+        :return: Pool information including address
+        """
+        params = {
+            "connector": connector,
+            "network": network,
+            "type": type
+        }
+
+        response = await self.api_request("get", f"pools/{trading_pair}", params=params)
+        return response
+
+    async def add_pool(
+        self,
+        connector: str,
+        network: str,
+        pool_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Add a new pool to tracking.
+
+        :param connector: Connector name
+        :param network: Network name
+        :param pool_data: Pool configuration data
+        :return: Response with status
+        """
+        params = {
+            "connector": connector,
+            "network": network,
+            **pool_data
+        }
+        return await self.api_request("post", "pools", params=params)
+
+    async def remove_pool(
+        self,
+        address: str,
+        connector: str,
+        network: str,
+        pool_type: str = "amm"
+    ) -> Dict[str, Any]:
+        """
+        Remove a pool from tracking.
+
+        :param address: Pool address to remove
+        :param connector: Connector name
+        :param network: Network name
+        :param pool_type: Pool type (amm or clmm)
+        :return: Response with status
+        """
+        params = {
+            "connector": connector,
+            "network": network,
+            "type": pool_type
+        }
+        return await self.api_request("delete", f"pools/{address}", params=params)
+
+    # ============================================
+    # Gateway Command Utils - API Functions
+    # ============================================
+
+    async def get_default_wallet(
+        self,
+        chain: str
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """
+        Get default wallet for a chain.
+
+        :param chain: Chain name
+        :return: Tuple of (wallet_address, error_message)
+        """
+        wallet_address = await self.get_default_wallet_for_chain(chain)
+        if not wallet_address:
+            return None, f"No default wallet found for {chain}. Please add one with 'gateway connect {chain}'"
+
+        # Check if wallet address is a placeholder
+        if "wallet-address" in wallet_address.lower():
+            return None, f"{chain} wallet not configured (found placeholder: {wallet_address}). Please add a real wallet with: gateway connect {chain}"
+
+        return wallet_address, None
+
+    async def get_connector_config(
+        self,
+        connector: str
+    ) -> Dict:
+        """
+        Get connector configuration.
+
+        :param connector: Connector name (with or without type suffix)
+        :return: Configuration dictionary
+        """
+        try:
+            # Use base connector name for config (strip type suffix)
+            base_connector = connector.split("/")[0] if "/" in connector else connector
+            return await self.get_configuration(namespace=base_connector)
+        except Exception:
+            return {}
+
+    async def get_connector_chain_network(
+        self,
+        connector: str
+    ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+        """
+        Get chain and default network for a connector.
+
+        :param connector: Connector name in format 'name/type' (e.g., 'uniswap/amm')
+        :return: Tuple of (chain, network, error_message)
+        """
+        # Parse connector format
+        connector_parts = connector.split('/')
+        if len(connector_parts) != 2:
+            return None, None, "Invalid connector format. Use format like 'uniswap/amm' or 'jupiter/router'"
+
+        connector_name = connector_parts[0]
+
+        # Get all connectors to find chain info
+        try:
+            connectors_resp = await self.get_connectors()
+            if "error" in connectors_resp:
+                return None, None, f"Error getting connectors: {connectors_resp['error']}"
+
+            # Find the connector info
+            connector_info = None
+            for conn in connectors_resp.get("connectors", []):
+                if conn.get("name") == connector_name:
+                    connector_info = conn
+                    break
+
+            if not connector_info:
+                return None, None, f"Connector '{connector_name}' not found"
+
+            # Get chain from connector info
+            chain = connector_info.get("chain")
+            if not chain:
+                return None, None, f"Could not determine chain for connector '{connector_name}'"
+
+            # Get default network for the chain
+            network = await self.get_default_network_for_chain(chain)
+            if not network:
+                return None, None, f"Could not get default network for chain '{chain}'"
+
+            return chain, network, None
+
+        except Exception as e:
+            return None, None, f"Error getting connector info: {str(e)}"
+
+    async def get_available_tokens(
+        self,
+        chain: str,
+        network: str
+    ) -> List[Dict[str, Any]]:
+        """
+        Get list of available tokens with full information.
+
+        :param chain: Chain name
+        :param network: Network name
+        :return: List of Token objects containing symbol, address, decimals, and name
+        """
+        try:
+            tokens_resp = await self.get_tokens(chain, network)
+            tokens = tokens_resp.get("tokens", [])
+            # Return the full token objects
+            return tokens
+        except Exception:
+            return []
+
+    async def get_available_networks_for_chain(
+        self,
+        chain: str
+    ) -> List[str]:
+        """
+        Get list of available networks for a specific chain.
+
+        :param chain: Chain name (e.g., "ethereum", "solana")
+        :return: List of network names available for the chain
+        """
+        try:
+            # Get chain configuration
+            chains_resp = await self.get_chains()
+            if not chains_resp or "chains" not in chains_resp:
+                return []
+
+            # Find the specific chain
+            for chain_info in chains_resp["chains"]:
+                if chain_info.get("chain", "").lower() == chain.lower():
+                    # Get networks from the chain config
+                    networks = chain_info.get("networks", [])
+                    return networks
+
+            return []
+        except Exception:
+            return []
+
+    async def validate_tokens(
+        self,
+        chain: str,
+        network: str,
+        token_symbols: List[str]
+    ) -> Tuple[List[str], List[str]]:
+        """
+        Validate that tokens exist in the available token list.
+
+        :param chain: Chain name
+        :param network: Network name
+        :param token_symbols: List of token symbols to validate
+        :return: Tuple of (valid_tokens, invalid_tokens)
+        """
+        if not token_symbols:
+            return [], []
+
+        # Get available tokens
+        available_tokens = await self.get_available_tokens(chain, network)
+        available_symbols = {token["symbol"].upper() for token in available_tokens}
+
+        # Check which tokens are valid/invalid
+        valid_tokens = []
+        invalid_tokens = []
+
+        for token in token_symbols:
+            token_upper = token.upper()
+            if token_upper in available_symbols:
+                valid_tokens.append(token_upper)
+            else:
+                invalid_tokens.append(token)
+
+        return valid_tokens, invalid_tokens
+
+    async def get_wallet_balances(
+        self,
+        chain: str,
+        network: str,
+        wallet_address: str,
+        tokens_to_check: List[str],
+        native_token: str
+    ) -> Dict[str, float]:
+        """
+        Get wallet balances for specified tokens.
+
+        :param chain: Chain name
+        :param network: Network name
+        :param wallet_address: Wallet address
+        :param tokens_to_check: List of tokens to check
+        :param native_token: Native token symbol (e.g., ETH, SOL)
+        :return: Dictionary of token balances
+        """
+        # Ensure native token is in the list
+        if native_token not in tokens_to_check:
+            tokens_to_check = tokens_to_check + [native_token]
+
+        # Fetch balances
+        try:
+            balances_resp = await self.get_balances(
+                chain, network, wallet_address, tokens_to_check
+            )
+            balances = balances_resp.get("balances", {})
+
+            # Convert to float
+            balance_dict = {}
+            for token in tokens_to_check:
+                balance = float(balances.get(token, 0))
+                balance_dict[token] = balance
+
+            return balance_dict
+
+        except Exception:
+            return {}
+
+    async def estimate_transaction_fee(
+        self,
+        chain: str,
+        network: str,
+        transaction_type: str = "swap"
+    ) -> Dict[str, Any]:
+        """
+        Estimate transaction fee using gateway's estimate-gas endpoint.
+
+        :param chain: Chain name (e.g., "ethereum", "solana")
+        :param network: Network name
+        :param transaction_type: Type of transaction ("swap" or "approve")
+        :return: Dictionary with fee estimation details
+        """
+        try:
+            # Get gas estimation from gateway
+            gas_resp = await self.estimate_gas(chain, network)
+
+            # Extract fee info directly from response
+            fee_per_unit = gas_resp.get("feePerComputeUnit", 0)
+            denomination = gas_resp.get("denomination", "")
+            compute_units = gas_resp.get("computeUnits", 0)
+            fee_in_native = gas_resp.get("fee", 0)  # Use the fee directly from response
+            native_token = gas_resp.get("feeAsset", chain.upper())  # Use feeAsset from response
+
+            return {
+                "success": True,
+                "fee_per_unit": fee_per_unit,
+                "estimated_units": compute_units,
+                "denomination": denomination,
+                "fee_in_native": fee_in_native,
+                "native_token": native_token
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "fee_per_unit": 0,
+                "estimated_units": 0,
+                "denomination": "units",
+                "fee_in_native": 0,
+                "native_token": chain.upper()
+            }
