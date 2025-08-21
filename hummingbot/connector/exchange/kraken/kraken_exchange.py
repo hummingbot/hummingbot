@@ -58,8 +58,8 @@ class KrakenExchange(ExchangePyBase):
         self._kraken_api_tier = KrakenAPITier(kraken_api_tier.upper() if kraken_api_tier else "STARTER")
         self._asset_pairs = {}
         self._client_order_id_nonce_provider = NonceCreator.for_microseconds()
-        self._throttler = self._build_async_throttler(api_tier=self._kraken_api_tier)
         self._rate_limits_share_pct = rate_limits_share_pct
+        self._throttler = self._build_async_throttler(api_tier=self._kraken_api_tier)
 
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
