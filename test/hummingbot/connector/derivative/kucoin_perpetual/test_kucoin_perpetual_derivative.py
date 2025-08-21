@@ -12,8 +12,6 @@ from aioresponses.core import RequestCall
 
 import hummingbot.connector.derivative.kucoin_perpetual.kucoin_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.kucoin_perpetual.kucoin_perpetual_web_utils as web_utils
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.kucoin_perpetual.kucoin_perpetual_derivative import KucoinPerpetualDerivative
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.test_support.perpetual_derivative_test import AbstractPerpetualDerivativeTests
@@ -587,12 +585,10 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return f"{base_token}{quote_token}"
 
     def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         exchange = KucoinPerpetualDerivative(
-            client_config_map,
-            self.api_key,
-            self.api_secret,
-            self.passphrase,
+            kucoin_perpetual_api_key=self.api_key,
+            kucoin_perpetual_secret_key=self.api_secret,
+            kucoin_perpetual_passphrase=self.passphrase,
             trading_pairs=[self.trading_pair],
         )
         exchange._last_trade_history_timestamp = self.latest_trade_hist_timestamp

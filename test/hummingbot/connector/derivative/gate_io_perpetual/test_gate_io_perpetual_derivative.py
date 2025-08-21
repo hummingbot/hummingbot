@@ -13,8 +13,6 @@ from aioresponses.core import RequestCall
 
 import hummingbot.connector.derivative.gate_io_perpetual.gate_io_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.gate_io_perpetual.gate_io_perpetual_web_utils as web_utils
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.gate_io_perpetual.gate_io_perpetual_derivative import GateIoPerpetualDerivative
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.test_support.perpetual_derivative_test import AbstractPerpetualDerivativeTests
@@ -584,12 +582,10 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return f"{base_token}_{quote_token}"
 
     def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         exchange = GateIoPerpetualDerivative(
-            client_config_map,
-            self.api_key,
-            self.api_secret,
-            self.user_id,
+            gate_io_perpetual_api_key=self.api_key,
+            gate_io_perpetual_secret_key=self.api_secret,
+            gate_io_perpetual_user_id=self.user_id,
             trading_pairs=[self.trading_pair],
         )
         # exchange._last_trade_history_timestamp = self.latest_trade_hist_timestamp
