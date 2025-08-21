@@ -8,8 +8,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from bidict import bidict
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.derive_perpetual import derive_perpetual_constants as CONSTANTS
 from hummingbot.connector.derivative.derive_perpetual.derive_perpetual_api_user_stream_data_source import (
     DerivePerpetualAPIUserStreamDataSource,
@@ -62,9 +60,7 @@ class TestDerivePerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
             self.time_synchronizer.add_time_offset_ms_sample(0)
 
             # Initialize connector and data source
-            client_config_map = ClientConfigAdapter(ClientConfigMap())
             self.connector = DerivePerpetualDerivative(
-                client_config_map=client_config_map,
                 derive_perpetual_api_key=self.api_key,
                 derive_perpetual_api_secret=self.api_secret_key,
                 sub_id=self.sub_id,

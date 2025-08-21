@@ -1548,9 +1548,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         ))
 
     def test_supported_position_modes(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         linear_connector = DerivePerpetualDerivative(
-            client_config_map=client_config_map,
             derive_perpetual_api_key=self.api_key,
             derive_perpetual_api_secret=self.api_secret,
             sub_id=self.sub_id,
