@@ -13,8 +13,6 @@ from aioresponses.core import RequestCall
 
 import hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_web_utils as web_utils
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_derivative import (
     HyperliquidPerpetualDerivative,
 )
@@ -386,15 +384,12 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         return f"{base_token}-{quote_token}"
 
     def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         exchange = HyperliquidPerpetualDerivative(
-            client_config_map,
-            self.api_secret,
-            self.use_vault,
-            self.api_key,
+            hyperliquid_perpetual_api_secret=self.api_secret,
+            use_vault=self.use_vault,
+            hyperliquid_perpetual_api_key=self.api_key,
             trading_pairs=[self.trading_pair],
         )
-        # exchange._last_trade_history_timestamp = self.latest_trade_hist_timestamp
         return exchange
 
     def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
