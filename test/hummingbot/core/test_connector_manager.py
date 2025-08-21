@@ -322,3 +322,35 @@ class ConnectorManagerTest(IsolatedAsyncioWrapperTestCase):
         self.assertIn("Settings error", str(context.exception))
         # Connector should not be added
         self.assertNotIn("binance", self.connector_manager.connectors)
+
+    @patch("hummingbot.core.connector_manager.AllConnectorSettings")
+    def test_is_gateway_market(self, mock_settings):
+        """Test is_gateway_market static method"""
+        # Test with gateway market
+        mock_settings.get_gateway_amm_connector_names.return_value = {"jupiter_solana_mainnet-beta"}
+        self.assertTrue(ConnectorManager.is_gateway_market("jupiter_solana_mainnet-beta"))
+
+        # Test with non-gateway market
+        self.assertFalse(ConnectorManager.is_gateway_market("binance"))
+        self.assertFalse(ConnectorManager.is_gateway_market("kucoin"))
+
+    async def test_update_connector_balances(self):
+        """Test update_connector_balances method"""
+        # Add mock connector with _update_balances method
+        mock_update_balances = AsyncMock()
+        self.mock_connector._update_balances = mock_update_balances
+        self.connector_manager.connectors["binance"] = self.mock_connector
+
+        # Update balances for existing connector
+        await self.connector_manager.update_connector_balances("binance")
+
+        # Verify _update_balances was called
+        mock_update_balances.assert_called_once()
+
+    async def test_update_connector_balances_nonexistent(self):
+        """Test update_connector_balances with nonexistent connector"""
+        # Try to update balances for nonexistent connector
+        with self.assertRaises(ValueError) as context:
+            await self.connector_manager.update_connector_balances("nonexistent")
+
+        self.assertIn("Connector nonexistent not found", str(context.exception))

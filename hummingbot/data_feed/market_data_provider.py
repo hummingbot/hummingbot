@@ -111,17 +111,36 @@ class MarketDataProvider:
                         tasks = []
                         gateway_client = GatewayHttpClient.get_instance()
                         for connector_pair in connector_pairs:
-                            connector, chain, network = connector_pair.connector_name.split("_")
+                            # Handle new connector format like "jupiter/router"
+                            connector_name = connector_pair.connector_name
                             base, quote = connector_pair.trading_pair.split("-")
-                            tasks.append(
-                                gateway_client.get_price(
-                                    chain=chain, network=network, connector=connector,
-                                    base_asset=base, quote_asset=quote, amount=Decimal("1"),
-                                    side=TradeType.BUY))
+
+                            # Parse connector to get chain and connector name
+                            # First try to get chain and network from gateway
+                            try:
+                                chain, network, error = await gateway_client.get_connector_chain_network(
+                                    connector_name
+                                )
+                                if error:
+                                    self.logger().warning(f"Could not get chain/network for {connector_name}: {error}")
+                                    continue
+
+                                tasks.append(
+                                    gateway_client.get_price(
+                                        chain=chain, network=network, connector=connector_name,
+                                        base_asset=base, quote_asset=quote, amount=Decimal("1"),
+                                        side=TradeType.BUY))
+                            except Exception as e:
+                                self.logger().warning(f"Error getting chain info for {connector_name}: {e}")
+                                continue
                         try:
-                            results = await asyncio.gather(*tasks)
-                            for connector_pair, rate in zip(connector_pairs, results):
-                                rate_oracle.set_price(connector_pair.trading_pair, Decimal(rate["price"]))
+                            if tasks:
+                                results = await asyncio.gather(*tasks, return_exceptions=True)
+                                for connector_pair, rate in zip(connector_pairs, results):
+                                    if isinstance(rate, Exception):
+                                        self.logger().error(f"Error fetching price for {connector_pair.trading_pair}: {rate}")
+                                    elif rate and "price" in rate:
+                                        rate_oracle.set_price(connector_pair.trading_pair, Decimal(rate["price"]))
                         except Exception as e:
                             self.logger().error(f"Error fetching prices from {connector_pairs}: {e}", exc_info=True)
                     else:
@@ -406,9 +425,17 @@ class MarketDataProvider:
 
     async def _safe_get_last_traded_prices(self, connector, trading_pairs, timeout=5):
         try:
-            last_traded = await connector.get_last_traded_prices(trading_pairs=trading_pairs)
-            return {pair: Decimal(rate) for pair, rate in last_traded.items()}
+            tasks = [self._safe_get_last_traded_price(connector, trading_pair) for trading_pair in trading_pairs]
+            prices = await asyncio.wait_for(asyncio.gather(*tasks), timeout=timeout)
+            return {pair: Decimal(rate) for pair, rate in zip(trading_pairs, prices)}
         except Exception as e:
-            logging.error(
-                f"Error getting last traded prices in connector {connector} for trading pairs {trading_pairs}: {e}")
+            logging.error(f"Error getting last traded prices in connector {connector} for trading pairs {trading_pairs}: {e}")
             return {}
+
+    async def _safe_get_last_traded_price(self, connector, trading_pair):
+        try:
+            last_traded = await connector._get_last_traded_price(trading_pair=trading_pair)
+            return Decimal(last_traded)
+        except Exception as e:
+            logging.error(f"Error getting last traded price in connector {connector} for trading pair {trading_pair}: {e}")
+            return Decimal(0)

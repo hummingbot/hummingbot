@@ -78,7 +78,7 @@ class InterfaceUtilsTest(unittest.TestCase):
         mock_app.trading_core.markets = {"a": MagicMock(ready=True)}
         mock_app.trading_core.trade_fill_db = MagicMock()
         mock_app._get_trades_from_session.return_value = [MagicMock(market="ExchangeA", symbol="HBOT-USDT")]
-        mock_app.get_current_balances = AsyncMock()
+        mock_app.trading_core.get_current_balances = AsyncMock()
         mock_perf.side_effect = [MagicMock(return_pct=Decimal("0.01"), total_pnl=Decimal("2")),
                                  MagicMock(return_pct=Decimal("0.02"), total_pnl=Decimal("2"))]
         mock_sleep.side_effect = [None, asyncio.CancelledError()]
@@ -103,7 +103,7 @@ class InterfaceUtilsTest(unittest.TestCase):
             MagicMock(market="ExchangeA", symbol="HBOT-USDT"),
             MagicMock(market="ExchangeA", symbol="HBOT-BTC")
         ]
-        mock_app.get_current_balances = AsyncMock()
+        mock_app.trading_core.get_current_balances = AsyncMock()
         mock_perf.side_effect = [MagicMock(return_pct=Decimal("0.01"), total_pnl=Decimal("2")),
                                  MagicMock(return_pct=Decimal("0.02"), total_pnl=Decimal("3"))]
         mock_sleep.side_effect = asyncio.CancelledError()
@@ -127,7 +127,7 @@ class InterfaceUtilsTest(unittest.TestCase):
             MagicMock(market="ExchangeA", symbol="HBOT-USDT"),
             MagicMock(market="ExchangeA", symbol="BTC-USDT")
         ]
-        mock_app.get_current_balances = AsyncMock()
+        mock_app.trading_core.get_current_balances = AsyncMock()
         mock_perf.side_effect = [MagicMock(return_pct=Decimal("0.01"), total_pnl=Decimal("2")),
                                  MagicMock(return_pct=Decimal("0.02"), total_pnl=Decimal("3"))]
         mock_sleep.side_effect = asyncio.CancelledError()
