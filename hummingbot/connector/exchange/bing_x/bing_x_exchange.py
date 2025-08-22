@@ -1,4 +1,5 @@
 import asyncio
+import math
 import time
 from decimal import ROUND_DOWN, Decimal
 from types import MethodType
@@ -203,7 +204,7 @@ class BingXExchange(ExchangePyBase):
                       "quantity": amount_str,
                       "type": type_str,
                       "newClientOrderId": order_id}
-        if order_type != OrderType.MARKET:
+        if order_type != OrderType.MARKET and price is not None and not math.isnan(price):
             api_params["price"] = f"{price:f}"
         if order_type == OrderType.LIMIT:
             # api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_GTC
@@ -216,6 +217,11 @@ class BingXExchange(ExchangePyBase):
             is_auth_required=True,
             trading_pair=trading_pair,
         )
+
+        if order_result.get("code") != 0 or "data" not in order_result:
+            error_message = order_result.get("msg") or str(order_result)
+            self.logger().error(f"Error placing order: {error_message}")
+            raise IOError(f"The order submission failed. Error: {error_message}")
 
         o_id = str(order_result["data"]["orderId"])
         transact_time = int(order_result["data"]["transactTime"]) * 1e-3
