@@ -40,7 +40,6 @@ class BitmartAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         self.connector = BitmartExchange(
-            client_config_map=self.client_config_map,
             bitmart_api_key="",
             bitmart_secret_key="",
             bitmart_memo="",

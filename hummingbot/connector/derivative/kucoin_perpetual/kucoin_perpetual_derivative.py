@@ -1,6 +1,6 @@
 import asyncio
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 from bidict import ValueDuplicationError, bidict
@@ -31,9 +31,6 @@ from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
-if TYPE_CHECKING:
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
-
 s_decimal_NaN = Decimal("nan")
 s_decimal_0 = Decimal(0)
 
@@ -43,7 +40,8 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
 
     def __init__(
             self,
-            client_config_map: "ClientConfigAdapter",
+            balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
+            rate_limits_share_pct: Decimal = Decimal("100"),
             kucoin_perpetual_api_key: str = None,
             kucoin_perpetual_secret_key: str = None,
             kucoin_perpetual_passphrase: str = None,
@@ -60,7 +58,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
         self._domain = domain
         self._last_trade_history_timestamp = None
 
-        super().__init__(client_config_map)
+        super().__init__(balance_asset_limit, rate_limits_share_pct)
 
     @property
     def name(self) -> str:

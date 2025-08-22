@@ -2,7 +2,7 @@ import asyncio
 import json
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from bidict import bidict
 
@@ -30,9 +30,6 @@ from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
-if TYPE_CHECKING:
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
-
 s_logger = None
 s_decimal_0 = Decimal(0)
 s_float_NaN = float("nan")
@@ -46,10 +43,11 @@ class FoxbitExchange(ExchangePyBase):
     web_utils = web_utils
 
     def __init__(self,
-                 client_config_map: "ClientConfigAdapter",
                  foxbit_api_key: str,
                  foxbit_api_secret: str,
                  foxbit_user_id: str,
+                 balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
+                 rate_limits_share_pct: Decimal = Decimal("100"),
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True,
                  domain: str = CONSTANTS.DEFAULT_DOMAIN,
@@ -63,7 +61,7 @@ class FoxbitExchange(ExchangePyBase):
         self._trading_pair_instrument_id_map: Optional[Mapping[str, str]] = None
         self._mapping_initialization_instrument_id_lock = asyncio.Lock()
 
-        super().__init__(client_config_map)
+        super().__init__(balance_asset_limit, rate_limits_share_pct)
         self._userstream_ds = self._create_user_stream_data_source()
 
     @property

@@ -12,8 +12,6 @@ from aioresponses.core import RequestCall
 
 import hummingbot.connector.derivative.okx_perpetual.okx_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.okx_perpetual.okx_perpetual_web_utils as web_utils
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.okx_perpetual.okx_perpetual_derivative import OkxPerpetualDerivative
 from hummingbot.connector.test_support.perpetual_derivative_test import AbstractPerpetualDerivativeTests
 from hummingbot.connector.trading_rule import TradingRule
@@ -555,12 +553,10 @@ class OkxPerpetualDerivativeTests(
         return f"{base_token}-{quote_token}-SWAP"
 
     def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         exchange = OkxPerpetualDerivative(
-            client_config_map,
-            self.api_key,
-            self.api_secret,
-            self.passphrase,
+            okx_perpetual_api_key=self.api_key,
+            okx_perpetual_secret_key=self.api_secret,
+            okx_perpetual_passphrase=self.passphrase,
             trading_pairs=[self.trading_pair],
         )
         exchange._last_trade_history_timestamp = self.latest_trade_hist_timestamp
@@ -1496,9 +1492,7 @@ class OkxPerpetualDerivativeTests(
         self.assertEqual(self.target_funding_payment_funding_rate, funding_event.funding_rate)
 
     def test_supported_position_modes(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         linear_connector = OkxPerpetualDerivative(
-            client_config_map=client_config_map,
             okx_perpetual_api_key=self.api_key,
             okx_perpetual_secret_key=self.api_secret,
             trading_pairs=[self.trading_pair],

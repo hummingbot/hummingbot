@@ -45,16 +45,11 @@ class DexalotRateSource(RateSourceBase):
 
     @staticmethod
     def _build_dexalot_connector_without_private_keys() -> 'DexalotExchange':
-        from hummingbot.client.hummingbot_application import HummingbotApplication
         from hummingbot.connector.exchange.dexalot.dexalot_exchange import DexalotExchange
 
-        app = HummingbotApplication.main_application()
-        client_config_map = app.client_config_map
-
         return DexalotExchange(
-            client_config_map=client_config_map,
             dexalot_api_key="",
-            dexalot_api_secret="13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930", # noqa: mock
+            dexalot_api_secret="13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930",  # noqa: mock
             trading_pairs=[],
             trading_required=False,
         )

@@ -71,14 +71,9 @@ class BinanceUSRateSource(RateSourceBase):
 
     @staticmethod
     def _build_binance_connector_without_private_keys(domain: str) -> 'BinanceExchange':
-        from hummingbot.client.hummingbot_application import HummingbotApplication
         from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
 
-        app = HummingbotApplication.main_application()
-        client_config_map = app.client_config_map
-
         return BinanceExchange(
-            client_config_map=client_config_map,
             binance_api_key="",
             binance_api_secret="",
             trading_pairs=[],

@@ -8,8 +8,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses import aioresponses
 from bidict import bidict
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.bitrue import bitrue_constants as CONSTANTS
 from hummingbot.connector.exchange.bitrue.bitrue_auth import BitrueAuth
 from hummingbot.connector.exchange.bitrue.bitrue_exchange import BitrueExchange
@@ -46,9 +44,7 @@ class BitrueUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = BitrueExchange(
-            client_config_map=client_config_map,
             bitrue_api_key="",
             bitrue_api_secret="",
             trading_pairs=[],

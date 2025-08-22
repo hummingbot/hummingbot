@@ -16,7 +16,7 @@ class PureMarketMakingStartTest(unittest.TestCase):
         super().setUp()
         self.strategy = None
         self.client_config_map = ClientConfigAdapter(ClientConfigMap())
-        self.markets = {"binance": ExchangeBase(client_config_map=self.client_config_map)}
+        self.markets = {"binance": ExchangeBase()}
         self.notifications = []
         self.log_errors = []
         # Add missing attributes needed by PMM start.py

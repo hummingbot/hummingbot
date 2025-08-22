@@ -66,7 +66,6 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
 
         self.exchange = DerivePerpetualDerivative(
-            client_config_map=self.client_config_map,
             derive_perpetual_api_key=self.api_key,
             derive_perpetual_api_secret=self.api_secret,
             sub_id=self.sub_id,
@@ -698,12 +697,10 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return f"{base_token}-PERP"
 
     def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         exchange = DerivePerpetualDerivative(
-            client_config_map,
-            self.api_secret,  # noqa: mock
-            self.sub_id,
-            self.api_key,  # noqa: mock
+            derive_perpetual_api_secret=self.api_secret,  # noqa: mock
+            derive_perpetual_api_key=self.api_key,  # noqa: mock
+            sub_id=self.sub_id,
             trading_pairs=[self.trading_pair],
         )
         # exchange._last_trade_history_timestamp = self.latest_trade_hist_timestamp
@@ -1548,9 +1545,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         ))
 
     def test_supported_position_modes(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         linear_connector = DerivePerpetualDerivative(
-            client_config_map=client_config_map,
             derive_perpetual_api_key=self.api_key,
             derive_perpetual_api_secret=self.api_secret,
             sub_id=self.sub_id,

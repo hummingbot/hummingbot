@@ -57,7 +57,6 @@ class TestGateIoExchange(IsolatedAsyncioWrapperTestCase):
         self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         self.exchange = GateIoExchange(
-            client_config_map=self.client_config_map,
             gate_io_api_key=self.api_key,
             gate_io_secret_key=self.api_secret,
             trading_pairs=[self.trading_pair])

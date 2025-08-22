@@ -16,7 +16,6 @@ class GatewayLpTest(unittest.TestCase):
     def setUp(self):
         self.client_config_map = MagicMock()
         self.connector = GatewayLp(
-            client_config_map=self.client_config_map,
             connector_name="uniswap/amm",
             chain="ethereum",
             network="mainnet",

@@ -9,8 +9,6 @@ from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 from bidict import bidict
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.foxbit import (
     foxbit_constants as CONSTANTS,
     foxbit_utils as utils,
@@ -342,9 +340,7 @@ class FoxbitExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         return f"{base_token}{quote_token}"
 
     def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         return FoxbitExchange(
-            client_config_map=client_config_map,
             foxbit_api_key="testAPIKey",
             foxbit_api_secret="testSecret",
             foxbit_user_id="testUserId",

@@ -7,8 +7,6 @@ from typing import Any, Callable, List, Optional, Tuple
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.bitmart import bitmart_constants as CONSTANTS, bitmart_web_utils as web_utils
 from hummingbot.connector.exchange.bitmart.bitmart_exchange import BitmartExchange
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
@@ -331,9 +329,7 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         return base_token + "_" + quote_token
 
     def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         return BitmartExchange(
-            client_config_map=client_config_map,
             bitmart_api_key="testAPIKey",
             bitmart_secret_key="testSecret",
             bitmart_memo="testMemo",

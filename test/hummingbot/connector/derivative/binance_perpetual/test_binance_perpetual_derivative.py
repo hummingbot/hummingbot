@@ -13,8 +13,6 @@ from bidict import bidict
 
 import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_web_utils as web_utils
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source import (
     BinancePerpetualAPIOrderBookDataSource,
 )
@@ -53,10 +51,8 @@ class BinancePerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         self.ws_sent_messages = []
         self.ws_incoming_messages = asyncio.Queue()
         self.resume_test_event = asyncio.Event()
-        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         self.exchange = BinancePerpetualDerivative(
-            client_config_map=self.client_config_map,
             binance_perpetual_api_key="testAPIKey",
             binance_perpetual_api_secret="testSecret",
             trading_pairs=[self.trading_pair],

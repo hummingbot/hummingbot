@@ -71,14 +71,9 @@ class MexcRateSource(RateSourceBase):
 
     @staticmethod
     def _build_mexc_connector_without_private_keys() -> 'MexcExchange':
-        from hummingbot.client.hummingbot_application import HummingbotApplication
         from hummingbot.connector.exchange.mexc.mexc_exchange import MexcExchange
 
-        app = HummingbotApplication.main_application()
-        client_config_map = app.client_config_map
-
         return MexcExchange(
-            client_config_map=client_config_map,
             mexc_api_key="",
             mexc_api_secret="",
             trading_pairs=[],

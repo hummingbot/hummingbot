@@ -2,8 +2,6 @@ import asyncio
 import unittest
 from decimal import Decimal
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.strategy.amm_arb import utils
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
@@ -42,12 +40,12 @@ class AmmArbUtilsUnitTest(unittest.TestCase):
 
     async def _test_create_arb_proposals(self):
         market_info1 = MarketTradingPairTuple(
-            MockConnector1(client_config_map=ClientConfigAdapter(ClientConfigMap())),
+            MockConnector1(),
             trading_pair,
             base,
             quote)
         market_info2 = MarketTradingPairTuple(
-            MockConnector2(client_config_map=ClientConfigAdapter(ClientConfigMap())),
+            MockConnector2(),
             trading_pair,
             base,
             quote)

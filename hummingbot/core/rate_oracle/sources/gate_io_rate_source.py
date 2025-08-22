@@ -54,14 +54,9 @@ class GateIoRateSource(RateSourceBase):
 
     @staticmethod
     def _build_gate_io_connector_without_private_keys() -> 'GateIoExchange':
-        from hummingbot.client.hummingbot_application import HummingbotApplication
         from hummingbot.connector.exchange.gate_io.gate_io_exchange import GateIoExchange
 
-        app = HummingbotApplication.main_application()
-        client_config_map = app.client_config_map
-
         return GateIoExchange(
-            client_config_map=client_config_map,
             gate_io_api_key="",
             gate_io_secret_key="",
             trading_pairs=[],

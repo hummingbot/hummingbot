@@ -1,7 +1,7 @@
 import asyncio
 import time
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from bidict import bidict
 
@@ -31,18 +31,16 @@ from hummingbot.core.utils.tracking_nonce import NonceCreator
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
-if TYPE_CHECKING:
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
-
 
 class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
     web_utils = web_utils
 
     def __init__(
             self,
-            client_config_map: "ClientConfigAdapter",
             dydx_v4_perpetual_secret_phrase: str,
             dydx_v4_perpetual_chain_address: str,
+            balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
+            rate_limits_share_pct: Decimal = Decimal("100"),
             trading_pairs: Optional[List[str]] = None,
             trading_required: bool = True,
             domain: str = CONSTANTS.DEFAULT_DOMAIN,
@@ -62,7 +60,7 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
         self._allocated_collateral = {}
         self.subaccount_id = 0
 
-        super().__init__(client_config_map=client_config_map)
+        super().__init__(balance_asset_limit, rate_limits_share_pct)
 
     @property
     def name(self) -> str:

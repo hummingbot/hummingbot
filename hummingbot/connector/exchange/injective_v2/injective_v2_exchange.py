@@ -2,7 +2,7 @@ import asyncio
 from collections import defaultdict
 from decimal import Decimal
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from async_timeout import timeout
 
@@ -39,17 +39,15 @@ from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
-if TYPE_CHECKING:
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
-
 
 class InjectiveV2Exchange(ExchangePyBase):
     web_utils = web_utils
 
     def __init__(
             self,
-            client_config_map: "ClientConfigAdapter",
             connector_configuration: InjectiveConfigMap,
+            balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
+            rate_limits_share_pct: Decimal = Decimal("100"),
             trading_pairs: Optional[List[str]] = None,
             trading_required: bool = True,
             **kwargs,
@@ -61,7 +59,7 @@ class InjectiveV2Exchange(ExchangePyBase):
         self._data_source = connector_configuration.create_data_source()
         self._rate_limits = connector_configuration.network.rate_limits()
 
-        super().__init__(client_config_map=client_config_map)
+        super().__init__(balance_asset_limit, rate_limits_share_pct)
         self._data_source.configure_throttler(throttler=self._throttler)
         self._forwarders = []
         self._configure_event_forwarders()

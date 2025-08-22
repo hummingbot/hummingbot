@@ -4,8 +4,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from xrpl.models import Response, Transaction
 from xrpl.models.response import ResponseStatus
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.xrpl.xrpl_exchange import XrplExchange
 
 
@@ -13,9 +11,7 @@ class TestXRPLSubmitTransaction(IsolatedAsyncioTestCase):
 
     def setUp(self) -> None:
         super().setUp()
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.exchange = XrplExchange(
-            client_config_map=client_config_map,
             xrpl_secret_key="",
             wss_node_urls=["wss://sample.com"],
             max_request_per_minute=100,

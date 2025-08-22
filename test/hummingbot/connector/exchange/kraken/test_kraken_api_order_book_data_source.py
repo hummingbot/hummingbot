@@ -7,8 +7,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses import aioresponses
 from bidict import bidict
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS, kraken_web_utils as web_utils
 from hummingbot.connector.exchange.kraken.kraken_api_order_book_data_source import KrakenAPIOrderBookDataSource
 from hummingbot.connector.exchange.kraken.kraken_constants import KrakenAPITier
@@ -39,9 +37,7 @@ class KrakenAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
         self.mocking_assistant = NetworkMockingAssistant(self.local_event_loop)
 
         self.throttler = AsyncThrottler(build_rate_limits_by_tier(self.api_tier))
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = KrakenExchange(
-            client_config_map=client_config_map,
             kraken_api_key="",
             kraken_secret_key="",
             trading_pairs=[],

@@ -8,8 +8,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses import aioresponses
 from bidict import bidict
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.utilities.oms_connector import oms_connector_constants as CONSTANTS
 from hummingbot.connector.utilities.oms_connector.oms_connector_api_order_book_data_source import (
@@ -71,10 +69,7 @@ class OMSConnectorAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
         self.listening_task = None
         self.mocking_assistant = NetworkMockingAssistant(self.local_event_loop)
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
-        connector = TestExchange(
-            client_config_map, self.api_key, self.secret, self.user_id, trading_pairs=[self.trading_pair]
-        )
+        connector = TestExchange(self.api_key, self.secret, self.user_id, trading_pairs=[self.trading_pair])
         self.auth = OMSConnectorAuth(api_key=self.api_key, secret_key=self.secret, user_id=self.user_id)
         self.initialize_auth()
         api_factory = build_api_factory(auth=self.auth)

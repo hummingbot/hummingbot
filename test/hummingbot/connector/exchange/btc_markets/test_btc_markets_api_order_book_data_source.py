@@ -46,7 +46,6 @@ class BtcMarketsAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
         self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         self.connector = BtcMarketsExchange(
-            client_config_map=self.client_config_map,
             btc_markets_api_key=self.api_key,
             btc_markets_api_secret=self.api_secret_key,
             trading_pairs=[self.trading_pair],

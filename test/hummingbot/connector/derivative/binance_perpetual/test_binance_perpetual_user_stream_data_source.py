@@ -8,8 +8,6 @@ import ujson
 from aioresponses.core import aioresponses
 
 import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_constants as CONSTANTS
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.binance_perpetual import binance_perpetual_web_utils as web_utils
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_auth import BinancePerpetualAuth
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative import BinancePerpetualDerivative
@@ -44,9 +42,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCa
         self.mocking_assistant = NetworkMockingAssistant(self.local_event_loop)
 
         self.emulated_time = 1640001112.223
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = BinancePerpetualDerivative(
-            client_config_map=client_config_map,
             binance_perpetual_api_key="",
             binance_perpetual_api_secret="",
             domain=self.domain,

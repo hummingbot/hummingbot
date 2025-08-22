@@ -6,8 +6,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from bidict import bidict
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.hyperliquid import hyperliquid_constants as CONSTANTS
 from hummingbot.connector.exchange.hyperliquid.hyperliquid_api_user_stream_data_source import (
     HyperliquidAPIUserStreamDataSource,
@@ -51,9 +49,7 @@ class TestHyperliquidAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = HyperliquidExchange(
-            client_config_map=client_config_map,
             hyperliquid_api_key=self.api_key,
             hyperliquid_api_secret=self.api_secret_key,
             use_vault=self.use_vault,

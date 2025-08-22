@@ -8,8 +8,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import aiohttp
 from aioresponses.core import aioresponses
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.cube import cube_constants as CONSTANTS, cube_web_utils as web_utils
 from hummingbot.connector.exchange.cube.cube_api_order_book_data_source import CubeAPIOrderBookDataSource
 from hummingbot.connector.exchange.cube.cube_exchange import CubeExchange
@@ -39,9 +37,7 @@ class CubeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.listening_task = None
         self.mocking_assistant = NetworkMockingAssistant(self.local_event_loop)
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = CubeExchange(
-            client_config_map=client_config_map,
             cube_api_key="",
             cube_api_secret="",
             cube_subaccount_id="1",

@@ -2,7 +2,7 @@ import asyncio
 import logging
 import math
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, AsyncGenerator, AsyncIterable, Dict, Iterable, List, Tuple
+from typing import Any, AsyncGenerator, AsyncIterable, Dict, Iterable, List, Optional, Tuple
 
 from async_timeout import timeout
 from bidict import bidict
@@ -42,9 +42,6 @@ from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.logger import HummingbotLogger
 
-if TYPE_CHECKING:
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
-
 
 class CoinbaseAdvancedTradeExchange(ExchangePyBase):
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 2.5
@@ -61,9 +58,10 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
         return cls._logger
 
     def __init__(self,
-                 client_config_map: "ClientConfigAdapter",
                  coinbase_advanced_trade_api_key: str,
                  coinbase_advanced_trade_api_secret: str,
+                 balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
+                 rate_limits_share_pct: Decimal = Decimal("100"),
                  use_auth_for_public_endpoints: bool = False,
                  trading_pairs: List[str] | None = None,
                  trading_required: bool = True,
@@ -76,7 +74,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._last_trades_poll_coinbase_advanced_trade_timestamp = -1
-        super().__init__(client_config_map)
+        super().__init__(balance_asset_limit, rate_limits_share_pct)
 
         self._asset_uuid_map: Dict[str, str] = {}
         self._pair_symbol_map_initialized = False

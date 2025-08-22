@@ -2,7 +2,7 @@ import asyncio
 import hashlib
 from copy import deepcopy
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional, Tuple
+from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
 
 from bidict import bidict
 
@@ -25,9 +25,6 @@ from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
-if TYPE_CHECKING:
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
-
 
 class DeriveExchange(ExchangePyBase):
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
@@ -39,7 +36,8 @@ class DeriveExchange(ExchangePyBase):
 
     def __init__(
             self,
-            client_config_map: "ClientConfigAdapter",
+            balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
+            rate_limits_share_pct: Decimal = Decimal("100"),
             derive_api_secret: str = None,
             sub_id: int = None,
             account_type: str = None,
@@ -58,13 +56,9 @@ class DeriveExchange(ExchangePyBase):
         self._last_trade_history_timestamp = None
         self._last_trades_poll_timestamp = 1.0
         self._instrument_ticker = []
-        super().__init__(client_config_map)
+        super().__init__(balance_asset_limit, rate_limits_share_pct)
         self.real_time_balance_update = False
         self.currencies = []
-
-    SHORT_POLL_INTERVAL = 5.0
-
-    LONG_POLL_INTERVAL = 12.0
 
     @property
     def name(self) -> str:

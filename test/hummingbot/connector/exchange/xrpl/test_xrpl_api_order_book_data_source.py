@@ -5,8 +5,6 @@ from unittest.mock import AsyncMock, Mock, patch
 
 from xrpl.models import XRP, IssuedCurrency
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS
 from hummingbot.connector.exchange.xrpl.xrpl_api_order_book_data_source import XRPLAPIOrderBookDataSource
 from hummingbot.connector.exchange.xrpl.xrpl_exchange import XrplExchange
@@ -31,9 +29,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.log_records = []
         self.listening_task = None
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = XrplExchange(
-            client_config_map=client_config_map,
             xrpl_secret_key="",
             wss_node_urls=["wss://sample.com"],
             max_request_per_minute=100,

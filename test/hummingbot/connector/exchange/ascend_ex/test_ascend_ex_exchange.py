@@ -8,8 +8,6 @@ from unittest.mock import AsyncMock, patch
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS, ascend_ex_web_utils as web_utils
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_exchange import AscendExExchange
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
@@ -330,9 +328,7 @@ class AscendExExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         return f"{base_token}/{quote_token}"
 
     def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         return AscendExExchange(
-            client_config_map=client_config_map,
             ascend_ex_api_key="testAPIKey",
             ascend_ex_secret_key="testSecret",
             ascend_ex_group_id="6",

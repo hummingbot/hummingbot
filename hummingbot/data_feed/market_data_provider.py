@@ -6,7 +6,6 @@ from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import (
     ClientConfigAdapter,
     api_keys_from_connector_config_map,
@@ -233,12 +232,10 @@ class MarketDataProvider:
             self.logger().error(f"Connector {connector_name} not found")
             raise ValueError(f"Connector {connector_name} not found")
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         init_params = conn_setting.conn_init_parameters(
             trading_pairs=[],
             trading_required=False,
             api_keys=self.get_connector_config_map(connector_name),
-            client_config_map=client_config_map,
         )
         connector_class = get_connector_class(connector_name)
         connector = connector_class(**init_params)

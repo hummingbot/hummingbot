@@ -1,7 +1,7 @@
 import asyncio
 import time
 from decimal import Decimal
-from typing import Dict, List, Set, Tuple, TYPE_CHECKING, Union
+from typing import Dict, List, Set, Tuple, TYPE_CHECKING, Union, Optional
 
 from hummingbot.client.config.trade_fee_schema_loader import TradeFeeSchemaLoader
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
@@ -15,12 +15,7 @@ from hummingbot.core.data_type.market_order import MarketOrder
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 from hummingbot.core.network_iterator import NetworkIterator
-from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.estimate_fee import estimate_fee
-
-if TYPE_CHECKING:
-    from hummingbot.client.config.client_config_map import ClientConfigMap
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 
 cdef class ConnectorBase(NetworkIterator):
@@ -44,7 +39,7 @@ cdef class ConnectorBase(NetworkIterator):
         MarketEvent.RangePositionFeeCollected,
     ]
 
-    def __init__(self, client_config_map: "ClientConfigAdapter"):
+    def __init__(self, balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None):
         super().__init__()
 
         self._event_reporter = EventReporter(event_source=self.display_name)
@@ -65,12 +60,7 @@ cdef class ConnectorBase(NetworkIterator):
         self._current_trade_fills = set()
         self._exchange_order_ids = dict()
         self._trade_fee_schema = None
-        self._trade_volume_metric_collector = client_config_map.anonymized_metrics_mode.get_collector(
-            connector=self,
-            rate_provider=RateOracle.get_instance(),
-            instance_id=client_config_map.instance_id,
-        )
-        self._client_config: Union[ClientConfigAdapter, ClientConfigMap] = client_config_map  # for IDE autocomplete
+        self._balance_asset_limit: Dict[str, Dict[str, object]] = balance_asset_limit or dict()
 
     @property
     def real_time_balance_update(self) -> bool:
@@ -165,7 +155,7 @@ cdef class ConnectorBase(NetworkIterator):
         """
         Retrieves the Balance Limits for the specified market.
         """
-        exchange_limits = self._client_config.balance_asset_limit.get(market, {})
+        exchange_limits = self._balance_asset_limit.get(market, {})
         return exchange_limits if exchange_limits is not None else {}
 
     @property
@@ -218,18 +208,15 @@ cdef class ConnectorBase(NetworkIterator):
     cdef c_tick(self, double timestamp):
         NetworkIterator.c_tick(self, timestamp)
         self.tick(timestamp)
-        self._trade_volume_metric_collector.process_tick(timestamp)
 
     cdef c_start(self, Clock clock, double timestamp):
         self.start(clock=clock, timestamp=timestamp)
 
     def start(self, Clock clock, double timestamp):
         NetworkIterator.c_start(self, clock, timestamp)
-        self._trade_volume_metric_collector.start()
 
     cdef c_stop(self, Clock clock):
         NetworkIterator.c_stop(self, clock)
-        self._trade_volume_metric_collector.stop()
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         """

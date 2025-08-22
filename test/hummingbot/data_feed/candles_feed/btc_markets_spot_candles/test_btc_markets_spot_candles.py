@@ -468,7 +468,8 @@ class TestBtcMarketsSpotCandles(TestCandlesBase):
                 # Should have attempted to fill gaps
                 mock_fill_gaps.assert_called()
 
-    async def test_fill_historical_candles_exception_handling(self):
+    @patch.object(BtcMarketsSpotCandles, "_sleep", new_callable=AsyncMock)
+    async def test_fill_historical_candles_exception_handling(self, _):
         """Test exception handling during historical fill"""
         self.data_feed._candles.append([1672988400.0, 100, 105, 95, 102, 10, 0, 0, 0, 0])
 
@@ -486,7 +487,8 @@ class TestBtcMarketsSpotCandles(TestCandlesBase):
             )
             self.assertTrue(error_logged, "Expected error log message not found")
 
-    async def test_fill_historical_candles_max_iterations(self):
+    @patch.object(BtcMarketsSpotCandles, "_sleep", new_callable=AsyncMock)
+    async def test_fill_historical_candles_max_iterations(self, _):
         """Test that historical fill stops after max iterations"""
         self.data_feed._candles.append([1672988400.0, 100, 105, 95, 102, 10, 0, 0, 0, 0])
 

@@ -5,8 +5,6 @@ from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCa
 from typing import Awaitable
 from unittest.mock import patch
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.dydx_v4_perpetual import dydx_v4_perpetual_constants as CONSTANTS
 from hummingbot.connector.derivative.dydx_v4_perpetual.data_sources.dydx_v4_data_source import DydxPerpetualV4Client
 from hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_derivative import DydxV4PerpetualDerivative
@@ -29,11 +27,9 @@ class DydxPerpetualV4ClientTests(IsolatedAsyncioWrapperTestCase):
         self.quote_asset = "USD"  # linear
         self.trading_pair = "TRX-USD"
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.exchange = DydxV4PerpetualDerivative(
-            client_config_map,
-            self.secret_phrase,
-            self._dydx_v4_chain_address,
+            dydx_v4_perpetual_secret_phrase=self.secret_phrase,
+            dydx_v4_perpetual_chain_address=self._dydx_v4_chain_address,
             trading_pairs=[self.trading_pair],
         )
         self.exchange._margin_fractions[self.trading_pair] = {

@@ -55,9 +55,8 @@ class TestBybitExchange(unittest.TestCase):
         self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         self.exchange = BybitExchange(
-            self.client_config_map,
-            self.api_key,
-            self.api_secret_key,
+            bybit_api_key=self.api_key,
+            bybit_api_secret=self.api_secret_key,
             trading_pairs=[self.trading_pair]
         )
 
