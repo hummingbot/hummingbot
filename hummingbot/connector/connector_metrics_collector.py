@@ -88,9 +88,8 @@ class TradeVolumeMetricCollector(MetricsCollector):
         return cls._logger
 
     def start(self):
+        self.register_listener()
         self._dispatcher.start()
-        for event_pair in self._event_pairs:
-            self._connector.add_listener(event_pair[0], event_pair[1])
 
     def stop(self):
         self.trigger_metrics_collection_process()
@@ -98,7 +97,13 @@ class TradeVolumeMetricCollector(MetricsCollector):
             self._connector.remove_listener(event_pair[0], event_pair[1])
         self._dispatcher.stop()
 
+    def register_listener(self):
+        for event_pair in self._event_pairs:
+            self._connector.add_listener(event_pair[0], event_pair[1])
+
     def tick(self, timestamp: float):
+        if self._fill_event_forwarder not in self._connector.get_listeners(MarketEvent.OrderFilled):
+            self.register_listener()
         inactivity_time = timestamp - self._last_process_tick_timestamp
         if inactivity_time >= self._activation_interval:
             self._last_process_tick_timestamp = timestamp
