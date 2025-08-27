@@ -26,8 +26,8 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.base_asset = "COINALPHA"
-        cls.quote_asset = "HBOT"
+        cls.base_asset = "BTC"
+        cls.quote_asset = "USDC"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = cls.base_asset + cls.quote_asset
         cls.domain = "com"
@@ -105,17 +105,19 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
     def _user_update_event(self):
         # Balance Update
         resp = {
-            "c": "spot@private.account.v3.api",
-            "d": {
-                "a": "BTC",
-                "c": 1678185928428,
-                "f": "302.185113007893322435",
-                "fd": "-4.990689704",
-                "l": "4.990689704",
-                "ld": "4.990689704",
-                "o": "ENTRUST_PLACE"
-            },
-            "t": 1678185928435
+            "channel": "spot@private.account.v3.api.pb",
+            "createTime": 1736417034305,
+            "sendTime": 1736417034307,
+            "privateAccount": {
+                "vcoinName": "USDC",
+                "coinId": "128f589271cb4951b03e71e6323eb7be",
+                "balanceAmount": "21.94210356004384",
+                "balanceAmountChange": "10",
+                "frozenAmount": "0",
+                "frozenAmountChange": "0",
+                "type": "CONTRACT_TRANSFER",
+                "time": 1736416910000
+            }
         }
         return json.dumps(resp)
 
