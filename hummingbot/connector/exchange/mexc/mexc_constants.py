@@ -8,7 +8,7 @@ MAX_ORDER_ID_LEN = 32
 
 # Base URL
 REST_URL = "https://api.mexc.{}/api/"
-WSS_URL = "wss://wbs.mexc.{}/ws"
+WSS_URL = "wss://wbs-api.mexc.{}/ws"
 
 PUBLIC_API_VERSION = "v3"
 PRIVATE_API_VERSION = "v3"
@@ -73,12 +73,15 @@ WS_ORDER_STATE = {
 }
 
 # Websocket event types
-DIFF_EVENT_TYPE = "increase.depth"
-TRADE_EVENT_TYPE = "public.deals"
+PUBLIC_TRADES_ENDPOINT_NAME = "spot@public.aggre.deals.v3.api.pb"
+PUBLIC_DIFF_ENDPOINT_NAME = "spot@public.aggre.depth.v3.api.pb"
 
-USER_TRADES_ENDPOINT_NAME = "spot@private.deals.v3.api"
-USER_ORDERS_ENDPOINT_NAME = "spot@private.orders.v3.api"
-USER_BALANCE_ENDPOINT_NAME = "spot@private.account.v3.api"
+TRADE_EVENT_TYPE = "public.aggre.deals"
+DIFF_EVENT_TYPE = "public.aggre.depth"
+
+USER_TRADES_ENDPOINT_NAME = "spot@private.deals.v3.api.pb"
+USER_ORDERS_ENDPOINT_NAME = "spot@private.orders.v3.api.pb"
+USER_BALANCE_ENDPOINT_NAME = "spot@private.account.v3.api.pb"
 WS_CONNECTION_TIME_INTERVAL = 20
 RATE_LIMITS = [
     RateLimit(limit_id=IP_REQUEST_WEIGHT, limit=20000, time_interval=ONE_MINUTE),
