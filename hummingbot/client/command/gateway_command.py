@@ -16,8 +16,7 @@ from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.client.settings import AllConnectorSettings, gateway_connector_trading_pairs  # noqa: F401
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.core.gateway import get_gateway_paths
-from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
-from hummingbot.core.gateway.gateway_status_monitor import GatewayStatus
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient, GatewayStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.ssl_cert import create_self_sign_certs
 
