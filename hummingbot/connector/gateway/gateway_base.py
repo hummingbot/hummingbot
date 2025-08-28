@@ -7,6 +7,7 @@ import time
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Set, Union, cast
 
+from hummingbot.client.config.client_config_map import GatewayConfigMap
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway.common_types import TransactionStatus
@@ -64,7 +65,8 @@ class GatewayBase(ConnectorBase):
                  address: Optional[str] = None,
                  balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
                  trading_pairs: List[str] = [],
-                 trading_required: bool = True
+                 trading_required: bool = True,
+                 gateway_config: Optional["GatewayConfigMap"] = None
                  ):
         """
         :param connector_name: name of connector on gateway (e.g., 'uniswap/amm', 'jupiter/router')
@@ -83,6 +85,7 @@ class GatewayBase(ConnectorBase):
         # Use connector name as temporary name until we have chain/network info
         self._name = connector_name
         super().__init__(balance_asset_limit)
+        self._gateway_config = gateway_config
         self._trading_pairs = trading_pairs
         self._tokens = set()
         [self._tokens.update(set(trading_pair.split("_")[0].split("-"))) for trading_pair in trading_pairs]
@@ -458,7 +461,7 @@ class GatewayBase(ConnectorBase):
         """
         Returns the Gateway HTTP instance.
         """
-        gateway_instance = GatewayHttpClient.get_instance(self._client_config)
+        gateway_instance = GatewayHttpClient.get_instance(self._gateway_config)
         return gateway_instance
 
     def start_tracking_order(self,
