@@ -125,7 +125,7 @@ class TradingCore:
         # Backward compatibility properties
         self.market_trading_pairs_map: Dict[str, List[str]] = {}
         self.market_trading_pair_tuples: List[MarketTradingPairTuple] = []
-        self._gateway_monitor = GatewayHttpClient.get_instance(self.client_config_map.gateway, self)
+        self._gateway_monitor = GatewayHttpClient.get_instance(self.client_config_map.hb_config.gateway)
         self._gateway_monitor.start_monitor()
 
     def _create_config_adapter_from_dict(self, config_dict: Dict[str, Any]) -> ClientConfigAdapter:
@@ -514,7 +514,7 @@ class TradingCore:
             markets_list.append((conn, list(pairs)))
 
         # Initialize markets using single method
-        self.initialize_markets(markets_list)
+        await self.initialize_markets(markets_list)
 
         # Create strategy instance
         if config:
@@ -669,7 +669,7 @@ class TradingCore:
         for notifier in self.notifiers:
             notifier.add_message_to_queue(msg)
 
-    def initialize_markets(self, market_names: List[Tuple[str, List[str]]]):
+    async def initialize_markets(self, market_names: List[Tuple[str, List[str]]]):
         """
         Initialize markets - single method that works for all strategy types.
 
@@ -680,6 +680,9 @@ class TradingCore:
         """
         # Create connectors for each market
         for connector_name, trading_pairs in market_names:
+            # for now we identify gateway connector that contain "/" in their name
+            if "/" in connector_name:
+                await self.gateway_monitor.wait_for_online_status()
             connector = self.connector_manager.create_connector(
                 connector_name, trading_pairs, self._trading_required
             )
