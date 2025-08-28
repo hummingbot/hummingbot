@@ -91,6 +91,7 @@ class ConnectorManager:
                     api_keys=keys,
                     balance_asset_limit=self.client_config_map.hb_config.balance_asset_limit,
                     rate_limits_share_pct=self.client_config_map.hb_config.rate_limits_share_pct,
+                    gateway_config=self.client_config_map.hb_config.gateway_config.hb_config,
                 )
 
                 connector_class = get_connector_class(connector_name)
