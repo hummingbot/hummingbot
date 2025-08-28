@@ -12,6 +12,7 @@ from hummingbot.connector.gateway.common_types import ConnectorType as GatewayCo
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 if TYPE_CHECKING:
+    from hummingbot.client.config.client_config_map import GatewayConfigMap
     from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
     from hummingbot.connector.connector_base import ConnectorBase
 
@@ -153,7 +154,8 @@ class ConnectorSetting(NamedTuple):
         trading_required: bool = False,
         api_keys: Optional[Dict[str, Any]] = None,
         balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
-        rate_limits_share_pct: Decimal = Decimal("100")
+        rate_limits_share_pct: Decimal = Decimal("100"),
+        gateway_config: Optional["GatewayConfigMap"] = None,
     ) -> Dict[str, Any]:
         trading_pairs = trading_pairs or []
         api_keys = api_keys or {}
@@ -164,9 +166,8 @@ class ConnectorSetting(NamedTuple):
 
             # Gateway connector format: connector/type (e.g., uniswap/amm)
             # Connector will handle chain, network, and wallet internally
-            params.update(
-                connector_name=self.name,  # Pass the full connector/type name
-            )
+            params.update(connector_name=self.name)
+            params.update(gateway_config=gateway_config)
         elif not self.is_sub_domain:
             params = api_keys
         else:
