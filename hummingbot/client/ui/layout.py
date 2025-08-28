@@ -209,7 +209,7 @@ def get_strategy_file():
 def get_gateway_status():
     from hummingbot.client.hummingbot_application import HummingbotApplication
     hb = HummingbotApplication.main_application()
-    gateway_status = hb._gateway_monitor.gateway_status.name
+    gateway_status = hb.trading_core.gateway_monitor.gateway_status.name
     style = "class:log_field"
 
     # Check if SSL is enabled
