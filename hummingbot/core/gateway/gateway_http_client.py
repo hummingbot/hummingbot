@@ -3,18 +3,16 @@ import re
 import ssl
 from decimal import Decimal
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import aiohttp
 from aiohttp import ContentTypeError
 
+from hummingbot.client.config.client_config_map import GatewayConfigMap
 from hummingbot.client.config.security import Security
 from hummingbot.connector.gateway.common_types import ConnectorType, get_connector_type
 from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
-
-if TYPE_CHECKING:
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 
 class GatewayError(Enum):
@@ -55,23 +53,22 @@ class GatewayHttpClient:
     __instance = None
 
     @staticmethod
-    def get_instance(client_config_map: Optional["ClientConfigAdapter"] = None) -> "GatewayHttpClient":
+    def get_instance(gateway_config: Optional["GatewayConfigMap"] = None) -> "GatewayHttpClient":
         if GatewayHttpClient.__instance is None:
-            GatewayHttpClient(client_config_map)
+            GatewayHttpClient(gateway_config)
         return GatewayHttpClient.__instance
 
-    def __init__(self, client_config_map: Optional["ClientConfigAdapter"] = None):
-        if client_config_map is None:
-            from hummingbot.client.hummingbot_application import HummingbotApplication
-            client_config_map = HummingbotApplication.main_application().client_config_map
-        api_host = client_config_map.gateway.gateway_api_host
-        api_port = client_config_map.gateway.gateway_api_port
-        use_ssl = client_config_map.gateway.gateway_use_ssl
+    def __init__(self, gateway_config: Optional["GatewayConfigMap"] = None):
+        if gateway_config is None:
+            gateway_config = GatewayConfigMap()
+        api_host = gateway_config.gateway_api_host
+        api_port = gateway_config.gateway_api_port
+        use_ssl = gateway_config.gateway_use_ssl
         if GatewayHttpClient.__instance is None:
             protocol = "https" if use_ssl else "http"
             self._base_url = f"{protocol}://{api_host}:{api_port}"
             self._use_ssl = use_ssl
-        self._client_config_map = client_config_map
+        self._gateway_config = gateway_config
         GatewayHttpClient.__instance = self
 
     @classmethod
@@ -81,15 +78,15 @@ class GatewayHttpClient:
         return cls._ghc_logger
 
     @classmethod
-    def _http_client(cls, client_config_map: "ClientConfigAdapter", re_init: bool = False) -> aiohttp.ClientSession:
+    def _http_client(cls, gateway_config: "GatewayConfigMap", re_init: bool = False) -> aiohttp.ClientSession:
         """
         :returns Shared client session instance
         """
         if cls._shared_client is None or re_init:
-            use_ssl = getattr(client_config_map.gateway, "gateway_use_ssl", False)
+            use_ssl = gateway_config.gateway_use_ssl
             if use_ssl:
                 # SSL connection with client certs
-                cert_path = client_config_map.certs_path
+                cert_path = gateway_config.certs_path
                 ssl_ctx = ssl.create_default_context(cafile=f"{cert_path}/ca_cert.pem")
                 ssl_ctx.load_cert_chain(certfile=f"{cert_path}/client_cert.pem",
                                         keyfile=f"{cert_path}/client_key.pem",
@@ -102,12 +99,12 @@ class GatewayHttpClient:
         return cls._shared_client
 
     @classmethod
-    def reload_certs(cls, client_config_map: "ClientConfigAdapter"):
+    def reload_certs(cls, gateway_config: "GatewayConfigMap"):
         """
         Re-initializes the aiohttp.ClientSession. This should be called whenever there is any updates to the
         Certificates used to secure a HTTPS connection to the Gateway service.
         """
-        cls._http_client(client_config_map, re_init=True)
+        cls._http_client(gateway_config, re_init=True)
 
     @property
     def base_url(self) -> str:
@@ -195,7 +192,7 @@ class GatewayHttpClient:
         :returns A response in json format.
         """
         url = f"{self.base_url}/{path_url}"
-        client = self._http_client(self._client_config_map)
+        client = self._http_client(self._gateway_config)
 
         parsed_response = {}
         try:
@@ -253,8 +250,9 @@ class GatewayHttpClient:
     async def ping_gateway(self) -> bool:
         try:
             response: Dict[str, Any] = await self.api_request("get", "", fail_silently=True)
-            return response["status"] == "ok"
-        except Exception:
+            return response.get("status") == "ok"
+        except Exception as e:
+            self.logger().error(f"Failed to ping gateway: {e}")
             return False
 
     async def get_gateway_status(self, fail_silently: bool = False) -> List[Dict[str, Any]]:

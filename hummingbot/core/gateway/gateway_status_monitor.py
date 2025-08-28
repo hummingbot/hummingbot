@@ -191,7 +191,7 @@ class GatewayStatusMonitor:
                                 exc_info=True)
 
     def _get_gateway_instance(self) -> GatewayHttpClient:
-        gateway_instance = GatewayHttpClient.get_instance(self._app.client_config_map)
+        gateway_instance = GatewayHttpClient.get_instance(self._app.client_config_map.gateway.hb_config)
         return gateway_instance
 
     async def _register_gateway_connectors(self, connector_list: List[str]):
