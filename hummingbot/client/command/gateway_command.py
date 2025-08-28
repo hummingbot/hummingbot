@@ -343,7 +343,7 @@ Use 'gateway <command> --help' for more information about a command.""")
         create_self_sign_certs(pass_phase, certs_path)
         self.notify(
             f"Gateway SSL certification files are created in {certs_path}.")
-        self._get_gateway_instance().reload_certs(self.client_config_map)
+        self._get_gateway_instance().reload_certs(self.client_config_map.gateway)
 
     async def ping_gateway_api(self, max_wait: int) -> bool:
         """
