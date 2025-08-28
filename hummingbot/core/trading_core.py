@@ -22,6 +22,7 @@ from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.connector_manager import ConnectorManager
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.kill_switch import KillSwitch
 from hummingbot.exceptions import InvalidScriptModule
@@ -124,6 +125,8 @@ class TradingCore:
         # Backward compatibility properties
         self.market_trading_pairs_map: Dict[str, List[str]] = {}
         self.market_trading_pair_tuples: List[MarketTradingPairTuple] = []
+        self._gateway_monitor = GatewayHttpClient.get_instance(self.client_config_map.gateway, self)
+        self._gateway_monitor.start_monitor()
 
     def _create_config_adapter_from_dict(self, config_dict: Dict[str, Any]) -> ClientConfigAdapter:
         """Create a ClientConfigAdapter from a dictionary."""
@@ -135,6 +138,11 @@ class TradingCore:
                 setattr(client_config, key, value)
 
         return ClientConfigAdapter(client_config)
+
+    @property
+    def gateway_monitor(self):
+        """Get the gateway monitor instance."""
+        return self._gateway_monitor
 
     @property
     def markets(self) -> Dict[str, ExchangeBase]:
@@ -821,6 +829,10 @@ class TradingCore:
             if self.markets_recorder:
                 self.markets_recorder.stop()
                 self.markets_recorder = None
+
+            # Stop gateway monitor
+            if self._gateway_monitor:
+                self._gateway_monitor.stop_monitor()
 
             # Clear strategy references
             self.strategy = None
