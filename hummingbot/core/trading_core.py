@@ -553,7 +553,7 @@ class TradingCore:
                         self.markets_recorder.restore_market_states(self._strategy_file_name, market)
 
                 for connector_name, connector in self.connector_manager.connectors.items():
-                    if connector_name not in self._metrics_collectors:
+                    if connector_name not in self._metrics_collectors and "_paper_trade" not in connector_name:
                         self.logger().debug(f"Initializing metrics collector for {connector_name} (created outside normal flow)")
                         self._initialize_metrics_for_connector(connector, connector_name)
 
