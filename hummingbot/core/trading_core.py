@@ -525,7 +525,10 @@ class TradingCore:
     async def _initialize_regular_strategy(self):
         """Initialize a regular strategy using starter file."""
         start_strategy_func: Callable = get_strategy_starter_file(self.strategy_name)
-        start_strategy_func(self)
+        if asyncio.iscoroutinefunction(start_strategy_func):
+            await start_strategy_func(self)
+        else:
+            start_strategy_func(self)
 
     async def _start_strategy_execution(self):
         """

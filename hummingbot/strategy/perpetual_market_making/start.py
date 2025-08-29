@@ -12,7 +12,7 @@ from hummingbot.strategy.perpetual_market_making.perpetual_market_making_config_
 )
 
 
-def start(self):
+async def start(self):
     try:
         leverage = c_map.get("leverage").value
         position_mode = c_map.get("position_mode").value
@@ -50,7 +50,7 @@ def start(self):
         base, quote = trading_pair.split("-")
         maker_assets: Tuple[str, str] = (base, quote)
         market_names: List[Tuple[str, List[str]]] = [(exchange, [trading_pair])]
-        self.initialize_markets(market_names)
+        await self.initialize_markets(market_names)
         maker_data = [self.markets[exchange], trading_pair] + list(maker_assets)
         self.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]
         asset_price_delegate = None
