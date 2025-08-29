@@ -2,6 +2,7 @@ import datetime
 import logging
 import unittest.mock
 from decimal import Decimal
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 
 import hummingbot.strategy.avellaneda_market_making.start as strategy_start
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -15,7 +16,7 @@ from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_confi
 )
 
 
-class AvellanedaStartTest(unittest.TestCase):
+class AvellanedaStartTest(IsolatedAsyncioWrapperTestCase):
     # the level is required to receive logs from the data source logger
     level = 0
 
@@ -56,7 +57,7 @@ class AvellanedaStartTest(unittest.TestCase):
     def _initialize_market_assets(self, market, trading_pairs):
         return [("ETH", "USDT")]
 
-    def initialize_markets(self, market_names):
+    async def initialize_markets(self, market_names):
         if self.raise_exception_for_market_initialization:
             raise Exception("Exception for testing")
 
@@ -73,9 +74,9 @@ class AvellanedaStartTest(unittest.TestCase):
         self.log_records.append(record)
 
     @unittest.mock.patch('hummingbot.strategy.avellaneda_market_making.start.HummingbotApplication')
-    def test_parameters_strategy_creation(self, mock_hbot):
+    async def test_parameters_strategy_creation(self, mock_hbot):
         mock_hbot.main_application().strategy_file_name = "test.yml"
-        strategy_start.start(self)
+        await strategy_start.start(self)
         self.assertEqual(self.strategy.execution_timeframe, "from_date_to_date")
         self.assertEqual(self.strategy.start_time, datetime.datetime(2021, 11, 18, 15, 0))
         self.assertEqual(self.strategy.end_time, datetime.datetime(2021, 11, 18, 16, 0))
@@ -88,9 +89,9 @@ class AvellanedaStartTest(unittest.TestCase):
         strategy_start.start(self)
         self.assertTrue(all(c is not None for c in (self.strategy.min_spread, self.strategy.gamma)))
 
-    def test_strategy_creation_when_something_fails(self):
+    async def test_strategy_creation_when_something_fails(self):
         self.raise_exception_for_market_initialization = True
-        strategy_start.start(self)
+        await strategy_start.start(self)
         self.assertEqual(len(self.notifications), 1)
         self.assertEqual(self.notifications[0], "Exception for testing")
         self.assertEqual(len(self.log_records), 1)

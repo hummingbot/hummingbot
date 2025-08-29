@@ -1,6 +1,6 @@
-import unittest.mock
 from decimal import Decimal
 from test.hummingbot.strategy import assign_config_default
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 
 import hummingbot.strategy.perpetual_market_making.start as strategy_start
 from hummingbot.connector.exchange_base import ExchangeBase
@@ -9,7 +9,7 @@ from hummingbot.strategy.perpetual_market_making.perpetual_market_making_config_
 )
 
 
-class PerpetualMarketMakingStartTest(unittest.TestCase):
+class PerpetualMarketMakingStartTest(IsolatedAsyncioWrapperTestCase):
 
     def setUp(self) -> None:
         super().setUp()
@@ -30,7 +30,7 @@ class PerpetualMarketMakingStartTest(unittest.TestCase):
     def _initialize_market_assets(self, market, trading_pairs):
         return [("ETH", "USDT")]
 
-    def initialize_markets(self, market_names):
+    async def initialize_markets(self, market_names):
         pass
 
     def _notify(self, message):
@@ -42,8 +42,8 @@ class PerpetualMarketMakingStartTest(unittest.TestCase):
     def error(self, message, exc_info):
         self.log_errors.append(message)
 
-    def test_strategy_creation(self):
-        strategy_start.start(self)
+    async def test_strategy_creation(self):
+        await strategy_start.start(self)
         self.assertEqual(self.strategy.order_amount, Decimal("1"))
         self.assertEqual(self.strategy.order_refresh_time, 60.)
         self.assertEqual(self.strategy.bid_spread, Decimal("0.01"))
