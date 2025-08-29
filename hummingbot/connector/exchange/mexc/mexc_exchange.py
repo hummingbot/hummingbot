@@ -186,7 +186,7 @@ class MexcExchange(ExchangePyBase):
         if order_type.is_limit_type():
             price_str = f"{price:f}"
             api_params["price"] = price_str
-            api_params["timeInForce "] = CONSTANTS.TIME_IN_FORCE_GTC
+            api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_GTC
         try:
             order_result = await self._api_post(
                 path_url=CONSTANTS.ORDER_PATH_URL,
