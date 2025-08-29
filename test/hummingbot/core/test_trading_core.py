@@ -388,14 +388,14 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
         mock_notifier.add_message_to_queue.assert_called_once_with("Test message")
 
     @patch.object(TradingCore, "initialize_markets_recorder")
-    def test_initialize_markets(self, mock_init_recorder):
+    async def test_initialize_markets(self, mock_init_recorder):
         """Test initializing markets"""
         # Set up mock connector creation
         with patch.object(self.trading_core.connector_manager, "create_connector") as mock_create:
             mock_create.return_value = self.mock_connector
 
             # Initialize markets
-            self.trading_core.initialize_markets([
+            await self.trading_core.initialize_markets([
                 ("binance", ["BTC-USDT", "ETH-USDT"]),
                 ("kucoin", ["ETH-BTC"])
             ])
