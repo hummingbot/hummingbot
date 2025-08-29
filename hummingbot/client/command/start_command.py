@@ -75,7 +75,7 @@ class StartCommand(GatewayChainApiManager):
         if self.strategy_file_name and self.trading_core.strategy_name and is_quickstart:
             if self._strategy_uses_gateway_connector(settings.required_exchanges):
                 try:
-                    await asyncio.wait_for(self._gateway_monitor.ready_event.wait(), timeout=GATEWAY_READY_TIMEOUT)
+                    await asyncio.wait_for(self.trading_core.gateway_monitor.ready_event.wait(), timeout=GATEWAY_READY_TIMEOUT)
                 except asyncio.TimeoutError:
                     self.notify(
                         f"TimeoutError waiting for gateway service to go online... Please ensure Gateway is configured correctly."

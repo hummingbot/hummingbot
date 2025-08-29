@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 def ensure_gateway_online(func):
     def wrapper(self, *args, **kwargs):
-        if self._gateway_monitor.gateway_status is GatewayStatus.OFFLINE:
+        if self.trading_core.gateway_monitor.gateway_status is GatewayStatus.OFFLINE:
             self.logger().error("Gateway is offline")
             return
         return func(self, *args, **kwargs)
