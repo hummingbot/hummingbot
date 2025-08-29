@@ -37,7 +37,8 @@ class MockScriptStrategy(ScriptStrategyBase):
 
 
 class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
-    def setUp(self):
+    @patch("hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.start_monitor")
+    def setUp(self, _):
         """Set up test fixtures"""
         super().setUp()
 
