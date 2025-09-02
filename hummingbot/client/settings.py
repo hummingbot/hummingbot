@@ -63,6 +63,7 @@ class ConnectorType(Enum):
     GATEWAY_DEX = "GATEWAY_DEX"
     CLOB_SPOT = "CLOB_SPOT"
     CLOB_PERP = "CLOB_PERP"
+    CLOB_EVENT = "CLOB_EVENT"
     Connector = "connector"
     Exchange = "exchange"
     Derivative = "derivative"
@@ -89,7 +90,14 @@ class ConnectorSetting(NamedTuple):
     """
 
     def uses_gateway_generic_connector(self) -> bool:
-        non_gateway_connectors_types = [ConnectorType.Exchange, ConnectorType.Derivative, ConnectorType.Connector]
+        non_gateway_connectors_types = [
+            ConnectorType.Exchange,
+            ConnectorType.Derivative,
+            ConnectorType.Connector,
+            ConnectorType.CLOB_SPOT,
+            ConnectorType.CLOB_PERP,
+            ConnectorType.CLOB_EVENT
+        ]
         return self.type not in non_gateway_connectors_types
 
     def connector_connected(self) -> str:
@@ -97,7 +105,7 @@ class ConnectorSetting(NamedTuple):
         return True if Security.connector_config_file_exists(self.name) else False
 
     def uses_clob_connector(self) -> bool:
-        return self.type in [ConnectorType.CLOB_SPOT, ConnectorType.CLOB_PERP]
+        return self.type in [ConnectorType.CLOB_SPOT, ConnectorType.CLOB_PERP, ConnectorType.CLOB_EVENT]
 
     def module_name(self) -> str:
         # returns connector module name, e.g. binance_exchange
@@ -135,7 +143,7 @@ class ConnectorSetting(NamedTuple):
         if self.uses_clob_connector():
             if self.type == ConnectorType.CLOB_PERP:
                 module_name = f"{self.name.rsplit(sep='_', maxsplit=2)[0]}_api_data_source"
-            else:
+            else:  # CLOB_SPOT or CLOB_EVENT
                 module_name = f"{self.name.split('_')[0]}_api_data_source"
         return module_name
 
@@ -144,7 +152,7 @@ class ConnectorSetting(NamedTuple):
         if self.uses_clob_connector():
             if self.type == ConnectorType.CLOB_PERP:
                 class_name = f"{self.name.split('_')[0].capitalize()}PerpetualAPIDataSource"
-            else:
+            else:  # CLOB_SPOT or CLOB_EVENT
                 class_name = f"{self.name.split('_')[0].capitalize()}APIDataSource"
         return class_name
 
@@ -231,6 +239,9 @@ class ConnectorSetting(NamedTuple):
         return connector
 
     def _get_module_package(self) -> str:
+        # Map CLOB_EVENT to "event" package to match directory structure
+        if self.type == ConnectorType.CLOB_EVENT:
+            return "event"
         return self.type.name.lower()
 
 
@@ -272,9 +283,15 @@ class AllConnectorSettings:
                 trade_fee_schema: TradeFeeSchema = cls._validate_trade_fee_schema(
                     connector_dir.name, trade_fee_settings
                 )
+                # Map connector type based on directory name
+                if type_dir.name == "event":
+                    connector_type = ConnectorType.CLOB_EVENT
+                else:
+                    connector_type = ConnectorType[type_dir.name.capitalize()]
+
                 cls.all_connector_settings[connector_dir.name] = ConnectorSetting(
                     name=connector_dir.name,
-                    type=ConnectorType[type_dir.name.capitalize()],
+                    type=connector_type,
                     centralised=getattr(util_module, "CENTRALIZED", True),
                     example_pair=getattr(util_module, "EXAMPLE_PAIR", ""),
                     use_ethereum_wallet=getattr(util_module, "USE_ETHEREUM_WALLET", False),
@@ -364,12 +381,17 @@ class AllConnectorSettings:
     def get_exchange_names(cls) -> Set[str]:
         return {
             cs.name for cs in cls.get_connector_settings().values()
-            if cs.type in [ConnectorType.Exchange, ConnectorType.CLOB_SPOT, ConnectorType.CLOB_PERP]
+            if cs.type in [ConnectorType.Exchange, ConnectorType.CLOB_SPOT, ConnectorType.CLOB_PERP, ConnectorType.CLOB_EVENT]
         }.union(set(cls.paper_trade_connectors_names))
 
     @classmethod
     def get_derivative_names(cls) -> Set[str]:
         return {cs.name for cs in cls.all_connector_settings.values() if cs.type in [ConnectorType.Derivative, ConnectorType.CLOB_PERP]}
+
+    @classmethod
+    def get_event_connector_names(cls) -> Set[str]:
+        """Get names of event/prediction market connectors."""
+        return {cs.name for cs in cls.all_connector_settings.values() if cs.type == ConnectorType.CLOB_EVENT}
 
     @classmethod
     def get_other_connector_names(cls) -> Set[str]:
