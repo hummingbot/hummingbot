@@ -12,8 +12,6 @@ from aioresponses.core import RequestCall
 
 import hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_web_utils as web_utils
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_derivative import DydxV4PerpetualDerivative
 from hummingbot.connector.test_support.perpetual_derivative_test import AbstractPerpetualDerivativeTests
 from hummingbot.connector.trading_rule import TradingRule
@@ -321,11 +319,9 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             return response
 
     def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         exchange = DydxV4PerpetualDerivative(
-            client_config_map,
-            self.dydx_v4_perpetual_secret_phrase,
-            self.dydx_v4_perpetual_chain_address,
+            dydx_v4_perpetual_secret_phrase=self.dydx_v4_perpetual_secret_phrase,
+            dydx_v4_perpetual_chain_address=self.dydx_v4_perpetual_chain_address,
             trading_pairs=[self.trading_pair],
         )
         exchange._tx_client = ProgrammableV4Client()
