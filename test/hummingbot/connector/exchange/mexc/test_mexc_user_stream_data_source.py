@@ -8,8 +8,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses import aioresponses
 from bidict import bidict
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.mexc import mexc_constants as CONSTANTS, mexc_web_utils as web_utils
 from hummingbot.connector.exchange.mexc.mexc_api_user_stream_data_source import MexcAPIUserStreamDataSource
 from hummingbot.connector.exchange.mexc.mexc_auth import MexcAuth
@@ -47,9 +45,7 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = MexcExchange(
-            client_config_map=client_config_map,
             mexc_api_key="",
             mexc_api_secret="",
             trading_pairs=[],

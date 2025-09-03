@@ -136,7 +136,7 @@ async def wait_for_gateway_ready(hb):
     if not uses_gateway:
         return
     try:
-        await asyncio.wait_for(hb._gateway_monitor.ready_event.wait(), timeout=GATEWAY_READY_TIMEOUT)
+        await asyncio.wait_for(hb.trading_core.gateway_monitor.ready_event.wait(), timeout=GATEWAY_READY_TIMEOUT)
     except asyncio.TimeoutError:
         logging.getLogger().error(
             f"TimeoutError waiting for gateway service to go online... Please ensure Gateway is configured correctly."

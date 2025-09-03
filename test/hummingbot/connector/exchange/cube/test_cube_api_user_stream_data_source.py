@@ -6,8 +6,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.cube import cube_constants as CONSTANTS
 from hummingbot.connector.exchange.cube.cube_api_user_stream_data_source import CubeAPIUserStreamDataSource
 from hummingbot.connector.exchange.cube.cube_auth import CubeAuth
@@ -45,9 +43,7 @@ class CubeUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = CubeExchange(
-            client_config_map=client_config_map,
             cube_api_key="1111111111-11111-11111-11111-1111111111",
             cube_api_secret="111111111111111111111111111111",
             cube_subaccount_id="1",

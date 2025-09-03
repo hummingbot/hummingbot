@@ -9,7 +9,7 @@ from hummingbot.strategy.maker_taker_market_pair import MakerTakerMarketPair
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 
-def start(self):
+async def start(self):
     c_map = self.strategy_config_map
     maker_market = c_map.maker_market.lower()
     taker_market = c_map.taker_market.lower()
@@ -50,7 +50,7 @@ def start(self):
         (taker_market, [taker_trading_pair]),
     ]
 
-    self.initialize_markets(market_names)
+    await self.initialize_markets(market_names)
     maker_data = [self.markets[maker_market], maker_trading_pair] + list(maker_assets)
     taker_data = [self.markets[taker_market], taker_trading_pair] + list(taker_assets)
     maker_market_trading_pair_tuple = MarketTradingPairTuple(*maker_data)

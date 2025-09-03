@@ -4,8 +4,7 @@ from typing import Dict, Optional
 
 import pandas as pd
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter, get_connector_class
+from hummingbot.client.config.config_helpers import get_connector_class
 from hummingbot.client.settings import AllConnectorSettings, ConnectorType
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import LazyDict, PriceType
@@ -48,12 +47,10 @@ class BacktestingDataProvider(MarketDataProvider):
             logger.error(f"Connector {connector_name} not found")
             raise ValueError(f"Connector {connector_name} not found")
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         init_params = conn_setting.conn_init_parameters(
             trading_pairs=[],
             trading_required=False,
             api_keys=MarketDataProvider.get_connector_config_map(connector_name),
-            client_config_map=client_config_map,
         )
         connector_class = get_connector_class(connector_name)
         connector = connector_class(**init_params)

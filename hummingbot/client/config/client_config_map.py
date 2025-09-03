@@ -346,6 +346,12 @@ class GatewayConfigMap(BaseClientModel):
         default=False,
         json_schema_extra={"prompt": lambda cm: "Enable SSL endpoints for secure Gateway connection? (True / False)"},
     )
+    certs_path: Path = Field(
+        default=DEFAULT_GATEWAY_CERTS_PATH,
+        json_schema_extra={"prompt": lambda cm: "Where would you like to save certificates that connect your bot to "
+                                                "Gateway? (default 'certs')"},
+    )
+
     model_config = ConfigDict(title="gateway")
 
 
@@ -752,10 +758,6 @@ class ClientConfigMap(BaseClientModel):
         description=("Gateway API Configurations"
                      "\ndefault host to only use localhost"
                      "\nPort need to match the final installation port for Gateway"),
-    )
-    certs_path: Path = Field(
-        default=DEFAULT_GATEWAY_CERTS_PATH,
-        json_schema_extra={"prompt": lambda cm: "Where would you like to save certificates that connect your bot to Gateway? (default 'certs')"},
     )
 
     anonymized_metrics_mode: Union[tuple(METRICS_MODES.values())] = Field(
