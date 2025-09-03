@@ -11,8 +11,6 @@ from xrpl.models.response import ResponseStatus, ResponseType
 from xrpl.models.transactions.types import TransactionType
 from xrpl.transaction import sign
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS
 from hummingbot.connector.exchange.xrpl.xrpl_api_order_book_data_source import XRPLAPIOrderBookDataSource
 from hummingbot.connector.exchange.xrpl.xrpl_api_user_stream_data_source import XRPLAPIUserStreamDataSource
@@ -44,9 +42,7 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         self.log_records = []
         self.listening_task = None
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = XrplExchange(
-            client_config_map=client_config_map,
             xrpl_secret_key="",
             wss_node_urls=["wss://sample.com"],
             max_request_per_minute=100,

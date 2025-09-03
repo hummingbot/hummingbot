@@ -12,8 +12,6 @@ from pyinjective.core.market_v2 import SpotMarket
 from pyinjective.core.token import Token
 from pyinjective.wallet import Address, PrivateKey
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.injective_v2.injective_v2_api_order_book_data_source import (
     InjectiveV2APIOrderBookDataSource,
 )
@@ -49,8 +47,6 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         self.async_tasks = []
         asyncio.set_event_loop(self.async_loop)
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
-
         _, grantee_private_key = PrivateKey.generate()
         _, granter_private_key = PrivateKey.generate()
 
@@ -70,7 +66,6 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         )
 
         self.connector = InjectiveV2Exchange(
-            client_config_map=client_config_map,
             connector_configuration=injective_config,
             trading_pairs=[self.trading_pair],
         )

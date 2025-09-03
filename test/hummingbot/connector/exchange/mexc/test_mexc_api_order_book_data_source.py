@@ -7,8 +7,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses.core import aioresponses
 from bidict import bidict
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.mexc import mexc_constants as CONSTANTS, mexc_web_utils as web_utils
 from hummingbot.connector.exchange.mexc.mexc_api_order_book_data_source import MexcAPIOrderBookDataSource
 from hummingbot.connector.exchange.mexc.mexc_exchange import MexcExchange
@@ -35,9 +33,7 @@ class MexcAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.listening_task = None
         self.mocking_assistant = NetworkMockingAssistant(self.local_event_loop)
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = MexcExchange(
-            client_config_map=client_config_map,
             mexc_api_key="",
             mexc_api_secret="",
             trading_pairs=[],

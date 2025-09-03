@@ -72,7 +72,6 @@ class ConnectorManagerTest(IsolatedAsyncioWrapperTestCase):
         # Verify paper trade market was called with correct params
         mock_create_paper_trade.assert_called_once_with(
             "binance",
-            self.client_config_adapter,
             ["BTC-USDT", "ETH-USDT"]
         )
 
@@ -83,8 +82,7 @@ class ConnectorManagerTest(IsolatedAsyncioWrapperTestCase):
     @patch("hummingbot.core.connector_manager.get_connector_class")
     @patch("hummingbot.core.connector_manager.Security")
     @patch("hummingbot.core.connector_manager.AllConnectorSettings")
-    @patch("hummingbot.core.connector_manager.ReadOnlyClientConfigAdapter")
-    def test_create_live_connector(self, mock_readonly_adapter, mock_settings, mock_security, mock_get_class):
+    def test_create_live_connector(self, mock_settings, mock_security, mock_get_class):
         """Test creating a live connector"""
         # Set up mocks
         mock_api_keys = {"api_key": "test_key", "api_secret": "test_secret"}
@@ -101,9 +99,6 @@ class ConnectorManagerTest(IsolatedAsyncioWrapperTestCase):
 
         mock_connector_class = Mock(return_value=self.mock_connector)
         mock_get_class.return_value = mock_connector_class
-
-        mock_readonly_config = Mock()
-        mock_readonly_adapter.lock_config.return_value = mock_readonly_config
 
         # Create live connector
         connector = self.connector_manager.create_connector(
