@@ -25,7 +25,6 @@ from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
 from hummingbot.client.ui.keybindings import load_key_bindings
 from hummingbot.client.ui.parser import ThrowingArgumentParser, load_parser
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.core.gateway.gateway_status_monitor import GatewayStatusMonitor
 from hummingbot.core.trading_core import TradingCore
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.exceptions import ArgumentParserError
@@ -79,8 +78,6 @@ class HummingbotApplication(*commands):
 
         # Script configuration support
         self.script_config: Optional[str] = None
-        self._gateway_monitor = GatewayStatusMonitor(self)
-        self._gateway_monitor.start()
 
         # Initialize UI components only if not in headless mode
         if not headless_mode:
@@ -117,7 +114,7 @@ class HummingbotApplication(*commands):
 
     @property
     def gateway_config_keys(self) -> List[str]:
-        return self._gateway_monitor.gateway_config_keys
+        return self.trading_core.gateway_monitor.gateway_config_keys
 
     @property
     def strategy_file_name(self) -> str:

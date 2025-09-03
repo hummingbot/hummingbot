@@ -5,8 +5,6 @@ from typing import Optional
 from unittest.mock import AsyncMock, patch
 
 import hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_constants as CONSTANTS
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.bitmart_perpetual import bitmart_perpetual_web_utils as web_utils
 from hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_auth import BitmartPerpetualAuth
 from hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_derivative import BitmartPerpetualDerivative
@@ -42,9 +40,7 @@ class BitmartPerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCa
         self.mocking_assistant = NetworkMockingAssistant()
 
         self.emulated_time = 1640001112.223
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = BitmartPerpetualDerivative(
-            client_config_map=client_config_map,
             bitmart_perpetual_api_key="",
             bitmart_perpetual_api_secret="",
             domain=self.domain,
