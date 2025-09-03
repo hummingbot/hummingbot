@@ -222,7 +222,7 @@ class MexcExchange(ExchangePyBase):
         retval = []
         for rule in filter(mexc_utils.is_exchange_information_valid, trading_pair_rules):
             try:
-                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule.get("symbol"))
+                trading_pair = f'{rule.get("baseAsset")}-{rule.get("quoteAsset")}'
                 min_order_size = Decimal(rule.get("baseSizePrecision"))
                 min_price_inc = Decimal(f"1e-{rule['quotePrecision']}")
                 min_amount_inc = Decimal(f"1e-{rule['baseAssetPrecision']}")
