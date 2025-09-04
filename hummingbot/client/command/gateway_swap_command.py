@@ -268,7 +268,6 @@ class GatewaySwapCommand:
                 # Create a new GatewaySwap instance for this swap
                 # (The temporary one was already stopped)
                 swap_connector = GatewaySwap(
-                    client_config_map=self.client_config_map,
                     connector_name=connector,  # DEX connector (e.g., 'uniswap/amm', 'raydium/clmm')
                     chain=chain,
                     network=network,

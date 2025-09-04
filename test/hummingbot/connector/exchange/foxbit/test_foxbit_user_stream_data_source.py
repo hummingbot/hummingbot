@@ -6,8 +6,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from bidict import bidict
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.foxbit import foxbit_constants as CONSTANTS
 from hummingbot.connector.exchange.foxbit.foxbit_api_user_stream_data_source import FoxbitAPIUserStreamDataSource
 from hummingbot.connector.exchange.foxbit.foxbit_auth import FoxbitAuth
@@ -51,9 +49,7 @@ class FoxbitUserStreamDataSourceUnitTests(unittest.TestCase):
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = FoxbitExchange(
-            client_config_map=client_config_map,
             foxbit_api_key="testAPIKey",
             foxbit_api_secret="testSecret",
             foxbit_user_id="testUserId",

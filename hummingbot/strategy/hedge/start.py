@@ -3,7 +3,7 @@ from hummingbot.strategy.hedge.hedge_config_map_pydantic import MAX_CONNECTOR, H
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 
-def start(self):
+async def start(self):
     c_map: HedgeConfigMap = self.strategy_config_map
     hedge_connector = c_map.hedge_connector.lower()
     hedge_markets = c_map.hedge_markets
@@ -19,7 +19,7 @@ def start(self):
         markets = connector_config.markets
         offsets_dict[connector] = connector_config.offsets
         initialize_markets.append((connector, markets))
-    self.initialize_markets(initialize_markets)
+    await self.initialize_markets(initialize_markets)
     self.market_trading_pair_tuples = []
     offsets_market_dict = {}
     for connector, markets in initialize_markets:

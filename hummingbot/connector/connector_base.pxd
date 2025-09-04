@@ -16,7 +16,7 @@ cdef class ConnectorBase(NetworkIterator):
         public dict _exchange_order_ids
         public object _trade_fee_schema
         public object _trade_volume_metric_collector
-        public object _client_config
+        public object _balance_asset_limit
 
     cdef str c_buy(self, str trading_pair, object amount, object order_type=*, object price=*, dict kwargs=*)
     cdef str c_sell(self, str trading_pair, object amount, object order_type=*, object price=*, dict kwargs=*)
