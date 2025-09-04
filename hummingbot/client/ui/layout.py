@@ -173,8 +173,8 @@ def create_live_field():
 
 def create_log_toggle(function):
     return Button(
-        text='> log pane',
-        width=13,
+        text='> Ctrl+T',
+        width=10,
         handler=function,
         left_symbol='',
         right_symbol='',
@@ -206,15 +206,26 @@ def get_strategy_file():
     from hummingbot.client.hummingbot_application import HummingbotApplication
     hb = HummingbotApplication.main_application()
     style = "class:log_field"
-    return [(style, f"Strategy File: {hb._strategy_file_name}")]
+    return [(style, f"Strategy File: {hb.strategy_file_name}")]
 
 
 def get_gateway_status():
     from hummingbot.client.hummingbot_application import HummingbotApplication
     hb = HummingbotApplication.main_application()
-    gateway_status = hb._gateway_monitor.gateway_status.name
+    gateway_status = hb.trading_core.gateway_monitor.gateway_status.name
     style = "class:log_field"
-    return [(style, f"Gateway: {gateway_status}")]
+
+    # Check if SSL is enabled
+    use_ssl = getattr(hb.client_config_map.gateway, "gateway_use_ssl", False)
+    lock_icon = "🔒 " if use_ssl else ""
+
+    # Add visual indicator based on status
+    if gateway_status == "ONLINE":
+        status_display = f"🟢 {gateway_status}"
+    else:
+        status_display = f"🔴 {gateway_status}"
+
+    return [(style, f"{lock_icon}Gateway: {status_display}")]
 
 
 def generate_layout(input_field: TextArea,
@@ -287,12 +298,15 @@ def generate_layout(input_field: TextArea,
 
 def _configure_history(client_config_map: ClientConfigAdapter):
     use_file_history = client_config_map.command_history.use_history_file
-    if not use_file_history:
-        return None
     history_file = os.path.expanduser(client_config_map.command_history.command_history_file_path)
     excluded_commands = [cmd.strip().lower() for cmd in client_config_map.command_history.command_history_exclusion_list]
+    if not use_file_history:
+        return None
     history_dir = os.path.dirname(history_file)
-    os.makedirs(history_dir, exist_ok=True)
+    try:
+        os.makedirs(history_dir, exist_ok=True)
+    except (OSError, FileNotFoundError) as e:
+        raise ValueError(f"Failed to create history directory for history file '{history_file}': {e}")
     if excluded_commands:
         class FilteredFileHistory(FileHistory):
             def append_string(self, string: str) -> None:
