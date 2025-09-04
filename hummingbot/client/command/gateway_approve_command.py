@@ -59,7 +59,6 @@ class GatewayApproveCommand:
 
             # Create a temporary GatewayBase instance for gas estimation and approval
             gateway_connector = GatewayBase(
-                client_config_map=self.client_config_map,
                 connector_name=connector,
                 chain=chain,
                 network=network,

@@ -12,8 +12,6 @@ from pyinjective.composer_v2 import Composer
 from pyinjective.core.market_v2 import DerivativeMarket, SpotMarket
 from pyinjective.core.token import Token
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.injective_v2_perpetual.injective_v2_perpetual_api_order_book_data_source import (
     InjectiveV2PerpetualAPIOrderBookDataSource,
 )
@@ -49,8 +47,6 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         super().setUp()
         self.async_tasks = []
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
-
         _, grantee_private_key = PrivateKey.generate()
         _, granter_private_key = PrivateKey.generate()
 
@@ -70,7 +66,6 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         )
 
         self.connector = InjectiveV2PerpetualDerivative(
-            client_config_map=client_config_map,
             connector_configuration=injective_config,
             trading_pairs=[self.trading_pair],
         )

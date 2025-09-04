@@ -64,7 +64,7 @@ def get_gateway_paths(client_config_map: "ClientConfigAdapter") -> GatewayPaths:
     external_certs_path: Optional[Path] = os.getenv("CERTS_FOLDER") and Path(os.getenv("CERTS_FOLDER"))
     external_conf_path: Optional[Path] = os.getenv("GATEWAY_CONF_FOLDER") and Path(os.getenv("GATEWAY_CONF_FOLDER"))
     external_logs_path: Optional[Path] = os.getenv("GATEWAY_LOGS_FOLDER") and Path(os.getenv("GATEWAY_LOGS_FOLDER"))
-    local_certs_path: Path = client_config_map.certs_path
+    local_certs_path: Path = client_config_map.gateway.certs_path
     local_conf_path: Path = root_path().joinpath("gateway/conf")
     local_logs_path: Path = root_path().joinpath("gateway/logs")
     mount_certs_path: Path = external_certs_path or local_certs_path
