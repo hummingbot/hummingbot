@@ -13,8 +13,6 @@ from bidict import bidict
 
 import hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_web_utils as web_utils
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_api_order_book_data_source import (
     BitmartPerpetualAPIOrderBookDataSource,
 )
@@ -55,10 +53,8 @@ class BitmartPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         self.ws_sent_messages = []
         self.ws_incoming_messages = asyncio.Queue()
         self.resume_test_event = asyncio.Event()
-        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         self.exchange = BitmartPerpetualDerivative(
-            client_config_map=self.client_config_map,
             bitmart_perpetual_api_key="testAPIKey",
             bitmart_perpetual_api_secret="testSecret",
             bitmart_perpetual_memo="testMemo",

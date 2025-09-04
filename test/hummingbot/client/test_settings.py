@@ -57,7 +57,7 @@ class SettingsTest(unittest.TestCase):
             "binance_api_secret": api_secret,
             "trading_pairs": [],
             "trading_required": False,
-            "client_config_map": None,
+            "balance_asset_limit": None,
         }
 
         self.assertEqual(expected_params, params)

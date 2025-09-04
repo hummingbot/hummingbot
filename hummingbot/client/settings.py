@@ -12,8 +12,8 @@ from hummingbot.connector.gateway.common_types import ConnectorType as GatewayCo
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 if TYPE_CHECKING:
+    from hummingbot.client.config.client_config_map import GatewayConfigMap
     from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
     from hummingbot.connector.connector_base import ConnectorBase
 
 
@@ -153,7 +153,9 @@ class ConnectorSetting(NamedTuple):
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = False,
         api_keys: Optional[Dict[str, Any]] = None,
-        client_config_map: Optional["ClientConfigAdapter"] = None,
+        balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
+        rate_limits_share_pct: Decimal = Decimal("100"),
+        gateway_config: Optional["GatewayConfigMap"] = None,
     ) -> Dict[str, Any]:
         trading_pairs = trading_pairs or []
         api_keys = api_keys or {}
@@ -164,18 +166,18 @@ class ConnectorSetting(NamedTuple):
 
             # Gateway connector format: connector/type (e.g., uniswap/amm)
             # Connector will handle chain, network, and wallet internally
-            params.update(
-                connector_name=self.name,  # Pass the full connector/type name
-            )
+            params.update(connector_name=self.name)
+            params.update(gateway_config=gateway_config)
         elif not self.is_sub_domain:
             params = api_keys
         else:
             params: Dict[str, Any] = {k.replace(self.name, self.parent_name): v for k, v in api_keys.items()}
             params["domain"] = self.domain_parameter
+            params["rate_limits_share_pct"] = rate_limits_share_pct
 
         params["trading_pairs"] = trading_pairs
         params["trading_required"] = trading_required
-        params["client_config_map"] = client_config_map
+        params["balance_asset_limit"] = balance_asset_limit
         if (self.config_keys is not None
                 and type(self.config_keys) is not dict
                 and "receive_connector_configuration" in self.config_keys.__class__.model_fields
@@ -201,7 +203,6 @@ class ConnectorSetting(NamedTuple):
             self,
             trading_pairs: Optional[List[str]] = None) -> 'ConnectorBase':
         from hummingbot.client.config.config_helpers import ClientConfigAdapter
-        from hummingbot.client.hummingbot_application import HummingbotApplication
 
         trading_pairs = trading_pairs or []
         connector_class = getattr(importlib.import_module(self.module_path()), self.class_name())
@@ -221,7 +222,8 @@ class ConnectorSetting(NamedTuple):
             trading_pairs=trading_pairs,
             trading_required=False,
             api_keys=kwargs,
-            client_config_map=HummingbotApplication.main_application().client_config_map,
+            rate_limits_share_pct=Decimal("100"),
+            balance_asset_limit={},
         )
         kwargs = self.add_domain_parameter(kwargs)
         connector = connector_class(**kwargs)
@@ -243,7 +245,6 @@ class AllConnectorSettings:
         """
         cls.all_connector_settings = {}  # reset
         connector_exceptions = ["mock_paper_exchange", "mock_pure_python_paper_exchange", "paper_trade"]
-        # connector_exceptions = ["mock_paper_exchange", "mock_pure_python_paper_exchange", "paper_trade", "injective_v2", "injective_v2_perpetual"]
 
         type_dirs: List[DirEntry] = [
             cast(DirEntry, f) for f in scandir(f"{root_path() / 'hummingbot' / 'connector'}")
@@ -306,7 +307,7 @@ class AllConnectorSettings:
 
         # add gateway connectors dynamically from Gateway API
         # Gateway connectors are now configured in Gateway, not in Hummingbot
-        # Gateway connectors will be added by GatewayStatusMonitor when it connects to Gateway
+        # Gateway connectors will be added by GatewayHttpClient when it connects to Gateway
 
         return cls.all_connector_settings
 
