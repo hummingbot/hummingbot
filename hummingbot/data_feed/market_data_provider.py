@@ -226,6 +226,22 @@ class MarketDataProvider:
             raise ValueError(f"Connector {connector_name} not found.")
         return connector
 
+    def get_connector_with_fallback(self, connector_name: str) -> ConnectorBase:
+        """
+        Retrieves a connector instance with fallback to non-trading connector.
+        Prefers existing connected connector with API keys if available,
+        otherwise creates a non-trading connector for public data access.
+        :param connector_name: str
+        :return: ConnectorBase
+        """
+        # Try to get existing connector first (has API keys)
+        connector = self.connectors.get(connector_name)
+        if connector:
+            return connector
+
+        # Fallback to non-trading connector for public data
+        return self.get_non_trading_connector(connector_name)
+
     def get_non_trading_connector(self, connector_name: str):
         conn_setting = self.conn_settings.get(connector_name)
         if conn_setting is None:
@@ -261,7 +277,7 @@ class MarketDataProvider:
         :param trading_pair: str
         :return: Order book instance.
         """
-        connector = self.get_connector(connector_name)
+        connector = self.get_connector_with_fallback(connector_name)
         return connector.get_order_book(trading_pair)
 
     def get_price_by_type(self, connector_name: str, trading_pair: str, price_type: PriceType):
@@ -272,7 +288,7 @@ class MarketDataProvider:
         :param price_type: str
         :return: Price instance.
         """
-        connector = self.get_connector(connector_name)
+        connector = self.get_connector_with_fallback(connector_name)
         return connector.get_price_by_type(trading_pair, price_type)
 
     def get_funding_info(self, connector_name: str, trading_pair: str):
@@ -282,7 +298,7 @@ class MarketDataProvider:
         :param trading_pair: str
         :return: Funding rate.
         """
-        connector = self.get_connector(connector_name)
+        connector = self.get_connector_with_fallback(connector_name)
         return connector.get_funding_info(trading_pair)
 
     def get_candles_df(self, connector_name: str, trading_pair: str, interval: str, max_records: int = 500):
@@ -308,7 +324,7 @@ class MarketDataProvider:
         :param connector_name: str
         :return: List of trading pairs.
         """
-        connector = self.get_connector(connector_name)
+        connector = self.get_connector_with_fallback(connector_name)
         return connector.trading_pairs
 
     def get_trading_rules(self, connector_name: str, trading_pair: str):
@@ -317,15 +333,15 @@ class MarketDataProvider:
         :param connector_name: str
         :return: Trading rules.
         """
-        connector = self.get_connector(connector_name)
+        connector = self.get_connector_with_fallback(connector_name)
         return connector.trading_rules[trading_pair]
 
     def quantize_order_price(self, connector_name: str, trading_pair: str, price: Decimal):
-        connector = self.get_connector(connector_name)
+        connector = self.get_connector_with_fallback(connector_name)
         return connector.quantize_order_price(trading_pair, price)
 
     def quantize_order_amount(self, connector_name: str, trading_pair: str, amount: Decimal):
-        connector = self.get_connector(connector_name)
+        connector = self.get_connector_with_fallback(connector_name)
         return connector.quantize_order_amount(trading_pair, amount)
 
     def get_price_for_volume(self, connector_name: str, trading_pair: str, volume: float,
@@ -339,8 +355,8 @@ class MarketDataProvider:
         :param is_buy: True if buying, False if selling.
         :return: OrderBookQueryResult containing the result of the query.
         """
-
-        order_book = self.get_order_book(connector_name, trading_pair)
+        connector = self.get_connector_with_fallback(connector_name)
+        order_book = connector.get_order_book(trading_pair)
         return order_book.get_price_for_volume(is_buy, volume)
 
     def get_order_book_snapshot(self, connector_name, trading_pair) -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -351,7 +367,8 @@ class MarketDataProvider:
         :param trading_pair: str
         :return: Tuple of bid and ask in DataFrame format.
         """
-        order_book = self.get_order_book(connector_name, trading_pair)
+        connector = self.get_connector_with_fallback(connector_name)
+        order_book = connector.get_order_book(trading_pair)
         return order_book.snapshot
 
     def get_price_for_quote_volume(self, connector_name: str, trading_pair: str, quote_volume: float,
@@ -365,7 +382,8 @@ class MarketDataProvider:
         :param is_buy: True if buying, False if selling.
         :return: OrderBookQueryResult containing the result of the query.
         """
-        order_book = self.get_order_book(connector_name, trading_pair)
+        connector = self.get_connector_with_fallback(connector_name)
+        order_book = connector.get_order_book(trading_pair)
         return order_book.get_price_for_quote_volume(is_buy, quote_volume)
 
     def get_volume_for_price(self, connector_name: str, trading_pair: str, price: float,
@@ -379,7 +397,8 @@ class MarketDataProvider:
         :param is_buy: True if buying, False if selling.
         :return: OrderBookQueryResult containing the result of the query.
         """
-        order_book = self.get_order_book(connector_name, trading_pair)
+        connector = self.get_connector_with_fallback(connector_name)
+        order_book = connector.get_order_book(trading_pair)
         return order_book.get_volume_for_price(is_buy, price)
 
     def get_quote_volume_for_price(self, connector_name: str, trading_pair: str, price: float,
@@ -393,7 +412,8 @@ class MarketDataProvider:
         :param is_buy: True if buying, False if selling.
         :return: OrderBookQueryResult containing the result of the query.
         """
-        order_book = self.get_order_book(connector_name, trading_pair)
+        connector = self.get_connector_with_fallback(connector_name)
+        order_book = connector.get_order_book(trading_pair)
         return order_book.get_quote_volume_for_price(is_buy, price)
 
     def get_vwap_for_volume(self, connector_name: str, trading_pair: str, volume: float,
@@ -407,7 +427,8 @@ class MarketDataProvider:
         :param is_buy: True if buying, False if selling.
         :return: OrderBookQueryResult containing the result of the query.
         """
-        order_book = self.get_order_book(connector_name, trading_pair)
+        connector = self.get_connector_with_fallback(connector_name)
+        order_book = connector.get_order_book(trading_pair)
         return order_book.get_vwap_for_volume(is_buy, volume)
 
     def get_rate(self, pair: str) -> Decimal:
