@@ -401,3 +401,21 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
         result = MarketDataProvider.get_connector_config_map("binance")
 
         self.assertEqual(result, {"api_key": "", "secret_key": ""})
+
+    def test_get_connector_with_fallback_existing_connector(self):
+        # Test when connector exists in self.connectors
+        result = self.provider.get_connector_with_fallback("mock_connector")
+        self.assertEqual(result, self.mock_connector)
+
+    @patch.object(MarketDataProvider, 'get_non_trading_connector')
+    def test_get_connector_with_fallback_non_existing_connector(self, mock_get_non_trading):
+        # Test when connector doesn't exist and falls back to non-trading connector
+        mock_non_trading_connector = MagicMock()
+        mock_get_non_trading.return_value = mock_non_trading_connector
+
+        result = self.provider.get_connector_with_fallback("binance")
+
+        # Verify it called get_non_trading_connector with the correct name
+        mock_get_non_trading.assert_called_once_with("binance")
+        # Verify it returned the non-trading connector
+        self.assertEqual(result, mock_non_trading_connector)
