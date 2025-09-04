@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.perpetual_trading import PerpetualTrading
@@ -8,21 +8,16 @@ from hummingbot.core.data_type.common import OrderType, PositionAction, Position
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeSchema
 from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
 
-if TYPE_CHECKING:
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
-
 
 class MockPerpConnector(MockPaperExchange, PerpetualTrading):
     def __init__(
         self,
-        client_config_map: "ClientConfigAdapter",
         trade_fee_schema: Optional[TradeFeeSchema] = None,
         buy_collateral_token: Optional[str] = None,
         sell_collateral_token: Optional[str] = None,
     ):
         MockPaperExchange.__init__(
             self,
-            client_config_map=client_config_map,
             trade_fee_schema=trade_fee_schema)
         PerpetualTrading.__init__(self, [self.trading_pair])
         self._budget_checker = PerpetualBudgetChecker(exchange=self)

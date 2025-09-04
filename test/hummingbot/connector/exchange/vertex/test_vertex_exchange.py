@@ -56,9 +56,8 @@ class TestVertexExchange(unittest.TestCase):
 
         # NOTE: RANDOM KEYS GENERATED JUST FOR UNIT TESTS
         self.exchange = VertexExchange(
-            self.client_config_map,
-            "0x2162Db26939B9EAF0C5404217774d166056d31B5",  # noqa: mock
-            "5500eb16bf3692840e04fb6a63547b9a80b75d9cbb36b43ca5662127d4c19c83",  # noqa: mock
+            vertex_arbitrum_address="0x2162Db26939B9EAF0C5404217774d166056d31B5",  # noqa: mock
+            vertex_arbitrum_private_key="5500eb16bf3692840e04fb6a63547b9a80b75d9cbb36b43ca5662127d4c19c83",  # noqa: mock
             trading_pairs=[self.trading_pair],
             domain=self.domain,
         )

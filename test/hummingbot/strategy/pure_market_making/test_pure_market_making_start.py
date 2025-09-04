@@ -1,6 +1,7 @@
 import unittest.mock
 from decimal import Decimal
 from test.hummingbot.strategy import assign_config_default
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 
 import hummingbot.strategy.pure_market_making.start as strategy_start
 from hummingbot.client.config.client_config_map import ClientConfigMap
@@ -10,13 +11,13 @@ from hummingbot.core.data_type.common import PriceType
 from hummingbot.strategy.pure_market_making.pure_market_making_config_map import pure_market_making_config_map as c_map
 
 
-class PureMarketMakingStartTest(unittest.TestCase):
+class PureMarketMakingStartTest(IsolatedAsyncioWrapperTestCase):
 
     def setUp(self) -> None:
         super().setUp()
         self.strategy = None
         self.client_config_map = ClientConfigAdapter(ClientConfigMap())
-        self.markets = {"binance": ExchangeBase(client_config_map=self.client_config_map)}
+        self.markets = {"binance": ExchangeBase()}
         self.notifications = []
         self.log_errors = []
         # Add missing attributes needed by PMM start.py
@@ -66,7 +67,7 @@ class PureMarketMakingStartTest(unittest.TestCase):
     def _initialize_market_assets(self, market, trading_pairs):
         return [("ETH", "USDT")]
 
-    def initialize_markets(self, market_names):
+    async def initialize_markets(self, market_names):
         pass
 
     def notify(self, message):
@@ -78,8 +79,9 @@ class PureMarketMakingStartTest(unittest.TestCase):
     def error(self, message, exc_info):
         self.log_errors.append(message)
 
-    def test_strategy_creation(self):
-        strategy_start.start(self)
+    # @patch.object(TradingCore, "initialize_markets")
+    async def test_strategy_creation(self):
+        await strategy_start.start(self)
         self.assertEqual(self.strategy.order_amount, Decimal("1"))
         self.assertEqual(self.strategy.order_refresh_time, 60.)
         self.assertEqual(self.strategy.max_order_age, 300.)
