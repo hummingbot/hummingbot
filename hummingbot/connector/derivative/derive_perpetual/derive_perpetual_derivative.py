@@ -410,14 +410,14 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
 
         if "error" in cancel_result:
             if 'Does not exist' in cancel_result['error']['message']:
-                self.logger().debug(f"The order {order_id} does not exist on DerivePerpetual. "
+                self.logger().debug(f"The order {order_id} does not exist on DerivePerpetual s. "
                                     f"No cancelation needed.")
                 await self._order_tracker.process_order_not_found(order_id)
-            raise IOError(f'{cancel_result["error"]["message"]} - {cancel_result["error"]["code"]}')
+            raise IOError(f'{cancel_result["error"]["message"]}')
         if "result" in cancel_result:
             if cancel_result["result"]["order_status"] == "cancelled":
                 return True
-            return False
+        return False
 
     # === Orders placing ===
 
