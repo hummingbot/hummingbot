@@ -8,8 +8,8 @@ class MexcUtilTestCases(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.base_asset = "COINALPHA"
-        cls.quote_asset = "HBOT"
+        cls.base_asset = "BTC"
+        cls.quote_asset = "USDC"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.hb_trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = f"{cls.base_asset}{cls.quote_asset}"
