@@ -43,7 +43,6 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._connector = connector
         self._domain = domain
         self._api_factory = api_factory
-        self._snapshot_messages = {}
         self._trading_pairs: List[str] = trading_pairs
         self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
         self._trade_messages_queue_key = CONSTANTS.TRADE_EVENT_TYPE
@@ -132,21 +131,38 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot_timestamp: float = self._time()
-        if trading_pair in self._snapshot_messages:
-            snapshot_msg = self._snapshot_messages[trading_pair]
-            return snapshot_msg
-        # If we don't have a snapshot message, create one
-        order_book_message_content = {
-            "trading_pair": trading_pair,
-            "update_id": snapshot_timestamp,
-            "bids": [],
-            "asks": [],
-        }
-        snapshot_msg: OrderBookMessage = OrderBookMessage(
-            OrderBookMessageType.SNAPSHOT,
-            order_book_message_content,
-            snapshot_timestamp)
-        return snapshot_msg
+        api_factory = self._connector._web_assistants_factory
+        ws = await api_factory.get_ws_assistant()
+        params = []
+
+        for trading_pair in self._trading_pairs:
+            # NB: DONT want exchange_symbol_associated_with_trading_pair, to avoid too much request
+            symbol = trading_pair.replace("USDC", "PERP")
+            params.append(f"orderbook.{symbol.upper()}.1.100")
+        async with api_factory.throttler.execute_task(limit_id=CONSTANTS.WSS_URL):
+            await ws.connect(ws_url=web_utils.wss_url(self._domain), ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+            payload = {
+                "method": "subscribe",
+                "params": {
+                    "channels": params
+                }
+            }
+            subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=payload)
+            await ws.send(subscribe_orderbook_request)
+        async for msg in ws.iter_messages():
+            data = msg.data
+            if data is not None and "params" in data:
+                trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(data["params"]["data"]["instrument_name"])
+                msg = data["params"]["data"]
+
+                # If we don't have a snapshot message, create one
+                snapshot_message: OrderBookMessage = OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
+                    "trading_pair": trading_pair,
+                    "update_id": int(msg['publish_id']),
+                    "bids": [[i[0], i[1]] for i in msg.get('bids', [])],
+                    "asks": [[i[0], i[1]] for i in msg.get('asks', [])],
+                }, timestamp=snapshot_timestamp)
+                return snapshot_message
 
     async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
@@ -159,7 +175,6 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             "bids": [[i[0], i[1]] for i in data.get('bids', [])],
             "asks": [[i[0], i[1]] for i in data.get('asks', [])],
         }, timestamp=timestamp)
-        self._snapshot_messages[trading_pair] = trade_message
         message_queue.put_nowait(trade_message)
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
