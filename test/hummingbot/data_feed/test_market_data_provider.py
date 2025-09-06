@@ -419,3 +419,80 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
         mock_get_non_trading.assert_called_once_with("binance")
         # Verify it returned the non-trading connector
         self.assertEqual(result, mock_non_trading_connector)
+
+    async def test_get_historical_candles_df_cache_hit(self):
+        # Test when requested data is completely in cache
+        with patch.object(self.provider, 'get_candles_feed') as mock_get_feed:
+            mock_feed = MagicMock()
+            mock_feed.interval_in_seconds = 60
+
+            # Mock cached data that covers the requested range
+            cached_data = pd.DataFrame({
+                'timestamp': [1640995200, 1640995260, 1640995320, 1640995380, 1640995440],
+                'open': [50000, 50100, 50200, 50300, 50400],
+                'high': [50050, 50150, 50250, 50350, 50450],
+                'low': [49950, 50050, 50150, 50250, 50350],
+                'close': [50100, 50200, 50300, 50400, 50500],
+                'volume': [100, 200, 300, 400, 500],
+                'quote_asset_volume': [5000000, 10000000, 15000000, 20000000, 25000000],
+                'n_trades': [10, 20, 30, 40, 50],
+                'taker_buy_base_volume': [50, 100, 150, 200, 250],
+                'taker_buy_quote_volume': [2500000, 5000000, 7500000, 10000000, 12500000]
+            })
+            mock_feed.candles_df = cached_data
+            mock_get_feed.return_value = mock_feed
+
+            # Request data that's within the cached range
+            result = await self.provider.get_historical_candles_df(
+                "binance", "BTC-USDT", "1m",
+                start_time=1640995200, end_time=1640995380, max_records=3
+            )
+
+            # Should return filtered data from cache without fetching new data
+            self.assertEqual(len(result), 3)
+            self.assertFalse(hasattr(mock_feed, 'get_historical_candles'))  # Should not call historical fetch
+
+    async def test_get_historical_candles_df_no_cache(self):
+        # Test when no cached data exists
+        with patch.object(self.provider, 'get_candles_feed') as mock_get_feed:
+            mock_feed = MagicMock()
+            mock_feed.interval_in_seconds = 60
+            mock_feed.candles_df = pd.DataFrame()  # Empty cache
+
+            # Mock historical data fetch
+            historical_data = pd.DataFrame({
+                'timestamp': [1640995200, 1640995260, 1640995320],
+                'open': [50000, 50100, 50200],
+                'high': [50050, 50150, 50250],
+                'low': [49950, 50050, 50150],
+                'close': [50100, 50200, 50300],
+                'volume': [100, 200, 300],
+                'quote_asset_volume': [5000000, 10000000, 15000000],
+                'n_trades': [10, 20, 30],
+                'taker_buy_base_volume': [50, 100, 150],
+                'taker_buy_quote_volume': [2500000, 5000000, 7500000]
+            })
+            mock_feed.get_historical_candles = AsyncMock(return_value=historical_data)
+            mock_feed._candles = MagicMock()
+            mock_get_feed.return_value = mock_feed
+
+            await self.provider.get_historical_candles_df(
+                "binance", "BTC-USDT", "1m",
+                start_time=1640995200, end_time=1640995320, max_records=3
+            )
+
+            # Should call historical fetch and update cache
+            mock_feed.get_historical_candles.assert_called_once()
+            mock_feed._candles.clear.assert_called()
+
+    async def test_get_historical_candles_df_fallback(self):
+        # Test fallback to regular method when no time range specified
+        with patch.object(self.provider, 'get_candles_df') as mock_get_candles:
+            mock_get_candles.return_value = pd.DataFrame({'timestamp': [123456]})
+
+            await self.provider.get_historical_candles_df(
+                "binance", "BTC-USDT", "1m", max_records=500
+            )
+
+            # Should call regular get_candles_df method
+            mock_get_candles.assert_called_once_with("binance", "BTC-USDT", "1m", 500)
