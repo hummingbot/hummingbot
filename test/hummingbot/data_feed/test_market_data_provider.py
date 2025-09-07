@@ -440,6 +440,11 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
                 'taker_buy_quote_volume': [2500000, 5000000, 7500000, 10000000, 12500000]
             })
             mock_feed.candles_df = cached_data
+
+            # Create a mock that will fail if called
+            mock_historical = AsyncMock(side_effect=AssertionError("get_historical_candles should not be called"))
+            mock_feed.get_historical_candles = mock_historical
+
             mock_get_feed.return_value = mock_feed
 
             # Request data that's within the cached range
@@ -450,7 +455,8 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
 
             # Should return filtered data from cache without fetching new data
             self.assertEqual(len(result), 3)
-            self.assertFalse(hasattr(mock_feed, 'get_historical_candles'))  # Should not call historical fetch
+            # Verify get_historical_candles was never called since data was in cache
+            mock_historical.assert_not_called()
 
     async def test_get_historical_candles_df_no_cache(self):
         # Test when no cached data exists
@@ -490,9 +496,11 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
         with patch.object(self.provider, 'get_candles_df') as mock_get_candles:
             mock_get_candles.return_value = pd.DataFrame({'timestamp': [123456]})
 
-            await self.provider.get_historical_candles_df(
-                "binance", "BTC-USDT", "1m", max_records=500
+            # Call without start_time and end_time to trigger fallback
+            # According to implementation, fallback occurs when start_time is None after calculations
+            self.provider.get_historical_candles_df(
+                "binance", "BTC-USDT", "1m"
             )
 
-            # Should call regular get_candles_df method
+            # Should call regular get_candles_df method with default max_records of 500
             mock_get_candles.assert_called_once_with("binance", "BTC-USDT", "1m", 500)
