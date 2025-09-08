@@ -498,7 +498,7 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
 
             # Call without start_time and end_time to trigger fallback
             # According to implementation, fallback occurs when start_time is None after calculations
-            self.provider.get_historical_candles_df(
+            await self.provider.get_historical_candles_df(
                 "binance", "BTC-USDT", "1m"
             )
 
