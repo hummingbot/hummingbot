@@ -6,6 +6,7 @@ EXCHANGE_NAME = "bitget"
 DEFAULT_DOMAIN = ""
 
 MAX_ORDER_ID_LEN = 20
+HBOT_ORDER_ID_PREFIX = ""
 DEFAULT_TIME_IN_FORCE = "GTC"
 
 REST_URL = "https://api.bitget.com"
