@@ -41,7 +41,7 @@ class MarketDataProvider:
         self._rates_update_task = None
         self._rates_update_interval = rates_update_interval
         self._rates = {}
-        self._rate_sources = LazyDict[str, ConnectorBase](self.get_non_trading_connector)
+        self._non_trading_connectors = LazyDict[str, ConnectorBase](self._create_non_trading_connector)
         self._rates_required = GroupedSetDict[str, ConnectorPair]()
         self.conn_settings = AllConnectorSettings.get_connector_settings()
 
@@ -143,7 +143,7 @@ class MarketDataProvider:
                         except Exception as e:
                             self.logger().error(f"Error fetching prices from {connector_pairs}: {e}", exc_info=True)
                     else:
-                        connector_instance = self._rate_sources[connector]
+                        connector_instance = self._non_trading_connectors[connector]
                         prices = await self._safe_get_last_traded_prices(connector_instance,
                                                                          [pair.trading_pair for pair in connector_pairs])
                         for pair, rate in prices.items():
@@ -243,6 +243,21 @@ class MarketDataProvider:
         return self.get_non_trading_connector(connector_name)
 
     def get_non_trading_connector(self, connector_name: str):
+        """
+        Retrieves a non-trading connector from cache or creates one if not exists.
+        Uses the _non_trading_connectors cache to avoid creating multiple instances.
+        :param connector_name: str
+        :return: ConnectorBase
+        """
+        return self._non_trading_connectors[connector_name]
+
+    def _create_non_trading_connector(self, connector_name: str):
+        """
+        Creates a new non-trading connector instance.
+        This is the factory method used by the LazyDict cache.
+        :param connector_name: str
+        :return: ConnectorBase
+        """
         conn_setting = self.conn_settings.get(connector_name)
         if conn_setting is None:
             self.logger().error(f"Connector {connector_name} not found")
