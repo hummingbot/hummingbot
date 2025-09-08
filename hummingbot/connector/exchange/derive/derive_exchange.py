@@ -248,7 +248,7 @@ class DeriveExchange(ExchangePyBase):
 
         if "error" in cancel_result:
             if 'Does not exist' in cancel_result['error']['message']:
-                self.logger().debug(f"The order {order_id} does not exist on Derive. "
+                self.logger().debug(f"The order {order_id} does not exist on Derive s. "
                                     f"No cancelation needed.")
                 await self._order_tracker.process_order_not_found(order_id)
             raise IOError(f'{cancel_result["error"]["message"]}')
