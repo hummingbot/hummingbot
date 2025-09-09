@@ -79,7 +79,7 @@ class FixedGrid(ScriptStrategyBase):
                         min_diff = abs(self.price_levels[i] - price)
                         self.current_level = i
 
-                msg = (f"Current price {price}, Initial level {self.current_level+1}")
+                msg = (f"Current price {price}, Initial level {self.current_level + 1}")
                 self.log_with_clock(logging.INFO, msg)
                 self.notify_hb_app_with_timestamp(msg)
 
