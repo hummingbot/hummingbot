@@ -401,7 +401,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         api_params = {
             "instrument_name": symbol,
             "order_id": oid,
-            "subaccount_id": self._sub_id
+            "subaccount_id": int(self._sub_id)
         }
         cancel_result = await self._api_post(
             path_url=CONSTANTS.CANCEL_ORDER_URL,
@@ -414,7 +414,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                                     f"No cancelation needed.")
                 await self._order_tracker.process_order_not_found(order_id)
             raise IOError(f'{cancel_result["error"]["message"]}')
-        else:
+        if "result" in cancel_result:
             if cancel_result["result"]["order_status"] == "cancelled":
                 return True
         return False
