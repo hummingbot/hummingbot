@@ -29,7 +29,7 @@ class MicropricePMM(ScriptStrategyBase):
     data_size_min = 10000  # ? Seems to be the ideal value to get microprice adjustment values for other spreads
     day_offset = 1  # ? How many days back to start looking for csv files to load data from
 
-    # ! Script variabes
+    # ! Script variables
     columns = ['date', 'time', 'bid', 'bs', 'ask', 'as']
     current_dataframe = pd.DataFrame(columns=columns)
     time_to_write = 0
