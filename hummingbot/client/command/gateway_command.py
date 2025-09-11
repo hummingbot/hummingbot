@@ -690,7 +690,14 @@ Use 'gateway <command> --help' for more information about a command.""")
                 else:
                     df = pd.DataFrame()
 
-                self.notify(f"\nConnector: {connector}")
+                # Display connector with spender address in parentheses
+                spender_display = ""
+                if allowance_resp.get("spender"):
+                    spender = allowance_resp["spender"]
+                    formatted_spender = f"{spender[:6]}...{spender[-4:]}" if len(spender) > 12 else spender
+                    spender_display = f" ({formatted_spender})"
+
+                self.notify(f"\nConnector: {connector}{spender_display}")
                 self.notify(f"Chain: {chain}")
                 self.notify(f"Network: {network}")
                 self.notify(f"Wallet: {wallet_address}")
