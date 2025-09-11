@@ -6,8 +6,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from bidict import bidict
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.hyperliquid import hyperliquid_constants as CONSTANTS
 from hummingbot.connector.exchange.hyperliquid.hyperliquid_api_user_stream_data_source import (
     HyperliquidAPIUserStreamDataSource,
@@ -51,9 +49,7 @@ class TestHyperliquidAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = HyperliquidExchange(
-            client_config_map=client_config_map,
             hyperliquid_api_key=self.api_key,
             hyperliquid_api_secret=self.api_secret_key,
             use_vault=self.use_vault,
@@ -89,18 +85,18 @@ class TestHyperliquidAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
     async def test_listen_for_user_stream_subscribes_to_orders_and_balances_events(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
-        result_subscribe_orders = {'channel': 'orderUpdates', 'data': [{'order': {'coin': 'ETH', 'side': 'A',
+        result_subscribe_orders = {'channel': 'orderUpdates', 'data': [{'order': {'coin': 'COINALPHA', 'side': 'A',
                                                                                   'limitPx': '2112.8', 'sz': '0.01',
                                                                                   'oid': 2260108845,
                                                                                   'timestamp': 1700688451563,
                                                                                   'origSz': '0.01',
-                                                                                  'cloid': '0x48424f54534548554436306163343632'}, # noqa: mock
+                                                                                  'cloid': '0x48424f54534548554436306163343632'},  # noqa: mock
                                                                         'status': 'canceled',
                                                                         'statusTimestamp': 1700688453173}]}
-        result_subscribe_trades = {'channel': 'user', 'data': {'fills': [
-            {'coin': 'ETH', 'px': '2091.3', 'sz': '0.01', 'side': 'B', 'time': 1700688460805, 'startPosition': '0.0',
+        result_subscribe_trades = {'channel': 'userFills', 'data': {'fills': [
+            {'coin': 'COINALPHA/USDC', 'px': '2091.3', 'sz': '0.01', 'side': 'B', 'time': 1700688460805, 'startPosition': '0.0',
              'dir': 'Open Long', 'closedPnl': '0.0',
-             'hash': '0x544c46b72e0efdada8cd04080bb32b010d005a7d0554c10c4d0287e9a2c237e7', 'oid': 2260113568, # noqa: mock
+             'hash': '0x544c46b72e0efdada8cd04080bb32b010d005a7d0554c10c4d0287e9a2c237e7', 'oid': 2260113568,  # noqa: mock
              # noqa: mock
              'crossed': True, 'fee': '0.005228', 'liquidationMarkPx': None}]}}
 
@@ -131,7 +127,7 @@ class TestHyperliquidAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
         expected_trades_subscription = {
             "method": "subscribe",
             "subscription": {
-                "type": "user",
+                "type": "userFills",
                 "user": self.api_key,
             }
         }

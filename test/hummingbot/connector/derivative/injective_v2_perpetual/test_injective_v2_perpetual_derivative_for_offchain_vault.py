@@ -12,12 +12,10 @@ from aioresponses.core import RequestCall
 from bidict import bidict
 from grpc import RpcError
 from pyinjective import Address, PrivateKey
-from pyinjective.composer import Composer
-from pyinjective.core.market import DerivativeMarket, SpotMarket
+from pyinjective.composer_v2 import Composer
+from pyinjective.core.market_v2 import DerivativeMarket, SpotMarket
 from pyinjective.core.token import Token
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.injective_v2_perpetual.injective_v2_perpetual_derivative import (
     InjectiveV2PerpetualDerivative,
 )
@@ -210,9 +208,9 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             maker_fee_rate=Decimal("-0.0003"),
             taker_fee_rate=Decimal("0.003"),
             service_provider_fee=Decimal("0.4"),
-            min_price_tick_size=Decimal("100"),
+            min_price_tick_size=Decimal("0.001"),
             min_quantity_tick_size=Decimal("0.0001"),
-            min_notional=Decimal("1000000"),
+            min_notional=Decimal("1"),
         )
 
         return ("INVALID_MARKET", response)
@@ -235,6 +233,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             decimals=self.quote_decimals,
             logo="https://static.alchemyapi.io/images/assets/825.png",
             updated=1687190809716,
+            unique_symbol="",
         )
 
         native_market = DerivativeMarket(
@@ -360,10 +359,9 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
     @property
     def expected_trading_rule(self):
         market = list(self.all_derivative_markets_mock_response.values())[0]
-        min_price_tick_size = (market.min_price_tick_size
-                               * Decimal(f"1e{-market.quote_token.decimals}"))
+        min_price_tick_size = market.min_price_tick_size
         min_quantity_tick_size = market.min_quantity_tick_size
-        min_notional = market.min_notional * Decimal(f"1e{-market.quote_token.decimals}")
+        min_notional = market.min_notional
         trading_rule = TradingRule(
             trading_pair=self.trading_pair,
             min_order_size=min_quantity_tick_size,
@@ -420,6 +418,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             decimals=self.base_decimals,
             logo="https://static.alchemyapi.io/images/assets/7226.png",
             updated=1687190809715,
+            unique_symbol="",
         )
         quote_native_token = Token(
             name="Base Asset",
@@ -429,6 +428,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             decimals=self.quote_decimals,
             logo="https://static.alchemyapi.io/images/assets/825.png",
             updated=1687190809716,
+            unique_symbol="",
         )
 
         native_market = SpotMarket(
@@ -440,9 +440,9 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             maker_fee_rate=Decimal("-0.0001"),
             taker_fee_rate=Decimal("0.001"),
             service_provider_fee=Decimal("0.4"),
-            min_price_tick_size=Decimal("0.000000000000001"),
-            min_quantity_tick_size=Decimal("1000000000000000"),
-            min_notional=Decimal("1000000"),
+            min_price_tick_size=Decimal("0.0001"),
+            min_quantity_tick_size=Decimal("0.001"),
+            min_notional=Decimal("0.000001"),
         )
 
         return {native_market.id: native_market}
@@ -457,6 +457,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             decimals=self.quote_decimals,
             logo="https://static.alchemyapi.io/images/assets/825.png",
             updated=1687190809716,
+            unique_symbol="",
         )
 
         native_market = DerivativeMarket(
@@ -473,9 +474,9 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             maker_fee_rate=Decimal("-0.0003"),
             taker_fee_rate=Decimal("0.003"),
             service_provider_fee=Decimal("0.4"),
-            min_price_tick_size=Decimal("100"),
+            min_price_tick_size=Decimal("0.001"),
             min_quantity_tick_size=Decimal("0.0001"),
-            min_notional=Decimal("1000000"),
+            min_notional=Decimal("0.000001"),
         )
 
         return {native_market.id: native_market}
@@ -518,7 +519,6 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         return self.market_id
 
     def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         network_config = InjectiveTestnetNetworkMode(testnet_node="sentry")
 
         account_config = InjectiveVaultAccountMode(
@@ -534,7 +534,6 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         )
 
         exchange = InjectiveV2PerpetualDerivative(
-            client_config_map=client_config_map,
             connector_configuration=injective_config,
             trading_pairs=[self.trading_pair],
         )
@@ -548,7 +547,6 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
 
         exchange._data_source._composer = Composer(
             network=exchange._data_source.network_name,
-            derivative_markets=self.all_derivative_markets_mock_response,
         )
 
         return exchange
@@ -784,8 +782,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                             "orderInfo": {
                                 "subaccountId": self.vault_contract_subaccount_id,
                                 "feeRecipient": self.vault_contract_address,
-                                "price": str(
-                                    int(order.price * Decimal(f"1e{self.quote_decimals + 18}"))),
+                                "price": str(int(order.price * Decimal("1e18"))),
                                 "quantity": str(int(order.amount * Decimal("1e18"))),
                                 "cid": order.client_order_id,
                             },
@@ -824,8 +821,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                             "orderInfo": {
                                 "subaccountId": self.vault_contract_subaccount_id,
                                 "feeRecipient": self.vault_contract_address,
-                                "price": str(
-                                    int(order.price * Decimal(f"1e{self.quote_decimals + 18}"))),
+                                "price": str(int(order.price * Decimal("1e18"))),
                                 "quantity": str(int(order.amount * Decimal("1e18"))),
                                 "cid": order.client_order_id,
                             },
@@ -864,8 +860,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                             "orderInfo": {
                                 "subaccountId": self.vault_contract_subaccount_id,
                                 "feeRecipient": self.vault_contract_address,
-                                "price": str(
-                                    int(order.price * Decimal(f"1e{self.quote_decimals + 18}"))),
+                                "price": str(int(order.price * Decimal("1e18"))),
                                 "quantity": str(int(order.amount * Decimal("1e18"))),
                                 "cid": order.client_order_id,
                             },
@@ -901,10 +896,10 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                         "isLong": True,
                         "executionQuantity": str(int(order.amount * Decimal("1e18"))),
                         "executionMargin": "186681600000000000000000000",
-                        "executionPrice": str(int(order.price * Decimal(f"1e{self.quote_decimals + 18}"))),
+                        "executionPrice": str(int(order.price * Decimal("1e18"))),
                     },
                     "payout": "207636617326923969135747808",
-                    "fee": str(self.expected_fill_fee.flat_fees[0].amount * Decimal(f"1e{self.quote_decimals + 18}")),
+                    "fee": str(self.expected_fill_fee.flat_fees[0].amount * Decimal("1e18")),
                     "orderHash": order.exchange_order_id,
                     "feeRecipientAddress": self.vault_contract_address,
                     "cid": order.client_order_id,
@@ -1175,6 +1170,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
 
     @aioresponses()
     async def test_create_order_fails_and_raises_failure_event(self, mock_api):
+        self.configure_all_symbols_response(mock_api=None)
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
@@ -1218,6 +1214,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
 
     @aioresponses()
     async def test_create_order_fails_when_trading_rule_error_and_raises_failure_event(self, mock_api):
+        self.configure_all_symbols_response(mock_api=None)
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
@@ -2254,42 +2251,44 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         self.exchange._data_source._query_executor._derivative_market_responses.put_nowait(
             {
                 "market": {
-                    "marketId": self.market_id,
-                    "marketStatus": "active",
-                    "ticker": f"{self.base_asset}/{self.quote_asset} PERP",
-                    "oracleBase": "0x2d9315a88f3019f8efa88dfe9c0f0843712da0bac814461e27733f6b83eb51b3",  # noqa: mock
-                    "oracleQuote": "0x1fc18861232290221461220bd4e2acd1dcdfbc89c84092c93c18bdc7756c1588",  # noqa: mock
-                    "oracleType": "pyth",
-                    "oracleScaleFactor": 6,
-                    "initialMarginRatio": "0.195",
-                    "maintenanceMarginRatio": "0.05",
-                    "quoteDenom": self.quote_asset_denom,
-                    "quoteTokenMeta": {
-                        "name": "Testnet Tether USDT",
-                        "address": "0x0000000000000000000000000000000000000000",  # noqa: mock
-                        "symbol": self.quote_asset,
-                        "logo": "https://static.alchemyapi.io/images/assets/825.png",
-                        "decimals": self.quote_decimals,
-                        "updatedAt": "1687190809716"
+                    "market": {
+                        "ticker": f"{self.base_asset}/{self.quote_asset} PERP",
+                        "oracleBase": "0x2d9315a88f3019f8efa88dfe9c0f0843712da0bac814461e27733f6b83eb51b3",  # noqa: mock
+                        "oracleQuote": "0x1fc18861232290221461220bd4e2acd1dcdfbc89c84092c93c18bdc7756c1588",  # noqa: mock
+                        "oracleType": "Pyth",
+                        "quoteDenom": self.quote_asset_denom,
+                        "marketId": self.market_id,
+                        "initialMarginRatio": "83333000000000000",
+                        "maintenanceMarginRatio": "60000000000000000",
+                        "makerFeeRate": "-100000000000000",
+                        "takerFeeRate": "500000000000000",
+                        "relayerFeeShareRate": "400000000000000000",
+                        "isPerpetual": True,
+                        "status": "Active",
+                        "minPriceTickSize": "100000000000000",
+                        "minQuantityTickSize": "100000000000000",
+                        "minNotional": "1000000",
+                        "quoteDecimals": self.quote_decimals,
+                        "reduceMarginRatio": "249999000000000000",
+                        "oracleScaleFactor": 0,
+                        "admin": "",
+                        "adminPermissions": 0
                     },
-                    "makerFeeRate": "-0.0003",
-                    "takerFeeRate": "0.003",
-                    "serviceProviderFee": "0.4",
-                    "isPerpetual": True,
-                    "minPriceTickSize": "100",
-                    "minQuantityTickSize": "0.0001",
-                    "perpetualMarketInfo": {
-                        "hourlyFundingRateCap": "0.000625",
-                        "hourlyInterestRate": "0.00000416666",
-                        "nextFundingTimestamp": str(self.target_funding_info_next_funding_utc_timestamp),
-                        "fundingInterval": "3600"
+                    "perpetualInfo": {
+                        "marketInfo": {
+                            "marketId": self.market_id,
+                            "hourlyFundingRateCap": "625000000000000",
+                            "hourlyInterestRate": "4166660000000",
+                            "nextFundingTimestamp": str(self.target_funding_info_next_funding_utc_timestamp),
+                            "fundingInterval": "3600"
+                        },
+                        "fundingInfo": {
+                            "cumulativeFunding": "334724096325598384",
+                            "cumulativePrice": "0",
+                            "lastTimestamp": "1751032800"
+                        }
                     },
-                    "perpetualMarketFunding": {
-                        "cumulativeFunding": "81363.592243119007273334",
-                        "cumulativePrice": "1.432536051546776736",
-                        "lastTimestamp": "1689423842"
-                    },
-                    "minNotional": "1000000",
+                    "markPrice": "10361671418280699651"
                 }
             }
         )
@@ -2379,42 +2378,44 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         self.exchange._data_source._query_executor._derivative_market_responses.put_nowait(
             {
                 "market": {
-                    "marketId": self.market_id,
-                    "marketStatus": "active",
-                    "ticker": f"{self.base_asset}/{self.quote_asset} PERP",
-                    "oracleBase": "0x2d9315a88f3019f8efa88dfe9c0f0843712da0bac814461e27733f6b83eb51b3",  # noqa: mock
-                    "oracleQuote": "0x1fc18861232290221461220bd4e2acd1dcdfbc89c84092c93c18bdc7756c1588",  # noqa: mock
-                    "oracleType": "pyth",
-                    "oracleScaleFactor": 6,
-                    "initialMarginRatio": "0.195",
-                    "maintenanceMarginRatio": "0.05",
-                    "quoteDenom": self.quote_asset_denom,
-                    "quoteTokenMeta": {
-                        "name": "Testnet Tether USDT",
-                        "address": "0x0000000000000000000000000000000000000000",  # noqa: mock
-                        "symbol": self.quote_asset,
-                        "logo": "https://static.alchemyapi.io/images/assets/825.png",
-                        "decimals": self.quote_decimals,
-                        "updatedAt": "1687190809716"
+                    "market": {
+                        "ticker": f"{self.base_asset}/{self.quote_asset} PERP",
+                        "oracleBase": "0x2d9315a88f3019f8efa88dfe9c0f0843712da0bac814461e27733f6b83eb51b3",  # noqa: mock
+                        "oracleQuote": "0x1fc18861232290221461220bd4e2acd1dcdfbc89c84092c93c18bdc7756c1588",  # noqa: mock
+                        "oracleType": "Pyth",
+                        "quoteDenom": self.quote_asset_denom,
+                        "marketId": self.market_id,
+                        "initialMarginRatio": "83333000000000000",
+                        "maintenanceMarginRatio": "60000000000000000",
+                        "makerFeeRate": "-100000000000000",
+                        "takerFeeRate": "500000000000000",
+                        "relayerFeeShareRate": "400000000000000000",
+                        "isPerpetual": True,
+                        "status": "Active",
+                        "minPriceTickSize": "100000000000000",
+                        "minQuantityTickSize": "100000000000000",
+                        "minNotional": "1000000",
+                        "quoteDecimals": self.quote_decimals,
+                        "reduceMarginRatio": "249999000000000000",
+                        "oracleScaleFactor": 0,
+                        "admin": "",
+                        "adminPermissions": 0
                     },
-                    "makerFeeRate": "-0.0003",
-                    "takerFeeRate": "0.003",
-                    "serviceProviderFee": "0.4",
-                    "isPerpetual": True,
-                    "minPriceTickSize": "100",
-                    "minQuantityTickSize": "0.0001",
-                    "perpetualMarketInfo": {
-                        "hourlyFundingRateCap": "0.000625",
-                        "hourlyInterestRate": "0.00000416666",
-                        "nextFundingTimestamp": str(self.target_funding_info_next_funding_utc_timestamp),
-                        "fundingInterval": "3600"
+                    "perpetualInfo": {
+                        "marketInfo": {
+                            "marketId": self.market_id,
+                            "hourlyFundingRateCap": "625000000000000",
+                            "hourlyInterestRate": "4166660000000",
+                            "nextFundingTimestamp": str(self.target_funding_info_next_funding_utc_timestamp),
+                            "fundingInterval": "3600"
+                        },
+                        "fundingInfo": {
+                            "cumulativeFunding": "334724096325598384",
+                            "cumulativePrice": "0",
+                            "lastTimestamp": "1751032800"
+                        }
                     },
-                    "perpetualMarketFunding": {
-                        "cumulativeFunding": "81363.592243119007273334",
-                        "cumulativePrice": "1.432536051546776736",
-                        "lastTimestamp": "1689423842"
-                    },
-                    "minNotional": "1000000",
+                    "markPrice": "10361671418280699651"
                 }
             }
         )
@@ -2599,8 +2600,8 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         self.assertEqual(PositionSide.LONG, pos.position_side)
         quantity = Decimal(position_data["positions"][0]["quantity"]) * Decimal("1e-18")
         self.assertEqual(quantity, pos.amount)
-        entry_price = Decimal(position_data["positions"][0]["entryPrice"]) * Decimal(f"1e{-self.quote_decimals - 18}")
-        margin = Decimal(position_data["positions"][0]["margin"]) * Decimal(f"1e{-self.quote_decimals - 18}")
+        entry_price = Decimal(position_data["positions"][0]["entryPrice"]) * Decimal("1e-18")
+        margin = Decimal(position_data["positions"][0]["margin"]) * Decimal("1e-18")
         expected_leverage = ((entry_price * quantity) / margin)
         self.assertEqual(expected_leverage, pos.leverage)
         mark_price = Decimal(oracle_price["price"])
@@ -2641,7 +2642,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                 },
                 "authInfo": {},
                 "signatures": [
-                    "/xSRaq4l5D6DZI5syfAOI5ITongbgJnN97sxCBLXsnFqXLbc4ztEOdQJeIZUuQM+EoqMxUjUyP1S5hg8lM+00w=="
+                    "/xSRaq4l5D6DZI5syfAOI5ITongbgJnN97sxCBLXsnFqXLbc4ztEOdQJeIZUuQM+EoqMxUjUyP1S5hg8lM+00w=="  # noqa: mock
                 ]
             },
             "txResponse": {
@@ -2744,9 +2745,9 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                     "messages": [
                         {
                             "@type": "/cosmwasm.wasm.v1.MsgExecuteContract",
-                            "sender": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa",
-                            "contract": "inj1ckmdhdz7r8glfurckgtg0rt7x9uvner4ygqhlv",
-                            "msg": "eyJhZG1pbl9leGVjdXRlX21lc3NhZ2UiOiB7ImluamVjdGl2ZV9tZXNzYWdlIjogeyJjdXN0b20iOiB7InJvdXRlIjogImV4Y2hhbmdlIiwgIm1zZ19kYXRhIjogeyJiYXRjaF91cGRhdGVfb3JkZXJzIjogeyJzZW5kZXIiOiAiaW5qMWNrbWRoZHo3cjhnbGZ1cmNrZ3RnMHJ0N3g5dXZuZXI0eWdxaGx2IiwgInNwb3Rfb3JkZXJzX3RvX2NyZWF0ZSI6IFt7Im1hcmtldF9pZCI6ICIweDA2MTE3ODBiYTY5NjU2OTQ5NTI1MDEzZDk0NzcxMzMwMGY1NmMzN2I2MTc1ZTAyZjI2YmZmYTQ5NWMzMjA4ZmUiLCAib3JkZXJfaW5mbyI6IHsic3ViYWNjb3VudF9pZCI6ICIxIiwgImZlZV9yZWNpcGllbnQiOiAiaW5qMWNrbWRoZHo3cjhnbGZ1cmNrZ3RnMHJ0N3g5dXZuZXI0eWdxaGx2IiwgInByaWNlIjogIjAuMDAwMDAwMDAwMDE2NTg2IiwgInF1YW50aXR5IjogIjEwMDAwMDAwMDAwMDAwMDAiLCAiY2lkIjogIkhCT1RTSUpVVDYwYjQ0NmI1OWVmNWVkN2JmNzAwMzEwZTdjZCJ9LCAib3JkZXJfdHlwZSI6IDIsICJ0cmlnZ2VyX3ByaWNlIjogIjAifV0sICJzcG90X21hcmtldF9pZHNfdG9fY2FuY2VsX2FsbCI6IFtdLCAiZGVyaXZhdGl2ZV9tYXJrZXRfaWRzX3RvX2NhbmNlbF9hbGwiOiBbXSwgInNwb3Rfb3JkZXJzX3RvX2NhbmNlbCI6IFtdLCAiZGVyaXZhdGl2ZV9vcmRlcnNfdG9fY2FuY2VsIjogW10sICJkZXJpdmF0aXZlX29yZGVyc190b19jcmVhdGUiOiBbXSwgImJpbmFyeV9vcHRpb25zX29yZGVyc190b19jYW5jZWwiOiBbXSwgImJpbmFyeV9vcHRpb25zX21hcmtldF9pZHNfdG9fY2FuY2VsX2FsbCI6IFtdLCAiYmluYXJ5X29wdGlvbnNfb3JkZXJzX3RvX2NyZWF0ZSI6IFtdfX19fX19",
+                            "sender": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa",  # noqa: mock
+                            "contract": "inj1ckmdhdz7r8glfurckgtg0rt7x9uvner4ygqhlv",  # noqa: mock
+                            "msg": "eyJhZG1pbl9leGVjdXRlX21lc3NhZ2UiOiB7ImluamVjdGl2ZV9tZXNzYWdlIjogeyJjdXN0b20iOiB7InJvdXRlIjogImV4Y2hhbmdlIiwgIm1zZ19kYXRhIjogeyJiYXRjaF91cGRhdGVfb3JkZXJzIjogeyJzZW5kZXIiOiAiaW5qMWNrbWRoZHo3cjhnbGZ1cmNrZ3RnMHJ0N3g5dXZuZXI0eWdxaGx2IiwgInNwb3Rfb3JkZXJzX3RvX2NyZWF0ZSI6IFt7Im1hcmtldF9pZCI6ICIweDA2MTE3ODBiYTY5NjU2OTQ5NTI1MDEzZDk0NzcxMzMwMGY1NmMzN2I2MTc1ZTAyZjI2YmZmYTQ5NWMzMjA4ZmUiLCAib3JkZXJfaW5mbyI6IHsic3ViYWNjb3VudF9pZCI6ICIxIiwgImZlZV9yZWNpcGllbnQiOiAiaW5qMWNrbWRoZHo3cjhnbGZ1cmNrZ3RnMHJ0N3g5dXZuZXI0eWdxaGx2IiwgInByaWNlIjogIjAuMDAwMDAwMDAwMDE2NTg2IiwgInF1YW50aXR5IjogIjEwMDAwMDAwMDAwMDAwMDAiLCAiY2lkIjogIkhCT1RTSUpVVDYwYjQ0NmI1OWVmNWVkN2JmNzAwMzEwZTdjZCJ9LCAib3JkZXJfdHlwZSI6IDIsICJ0cmlnZ2VyX3ByaWNlIjogIjAifV0sICJzcG90X21hcmtldF9pZHNfdG9fY2FuY2VsX2FsbCI6IFtdLCAiZGVyaXZhdGl2ZV9tYXJrZXRfaWRzX3RvX2NhbmNlbF9hbGwiOiBbXSwgInNwb3Rfb3JkZXJzX3RvX2NhbmNlbCI6IFtdLCAiZGVyaXZhdGl2ZV9vcmRlcnNfdG9fY2FuY2VsIjogW10sICJkZXJpdmF0aXZlX29yZGVyc190b19jcmVhdGUiOiBbXSwgImJpbmFyeV9vcHRpb25zX29yZGVyc190b19jYW5jZWwiOiBbXSwgImJpbmFyeV9vcHRpb25zX21hcmtldF9pZHNfdG9fY2FuY2VsX2FsbCI6IFtdLCAiYmluYXJ5X29wdGlvbnNfb3JkZXJzX3RvX2NyZWF0ZSI6IFtdfX19fX19",  # noqa: mock
                             "funds": [
 
                             ]
@@ -2766,7 +2767,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                         {
                             "publicKey": {
                                 "@type": "/injective.crypto.v1beta1.ethsecp256k1.PubKey",
-                                "key": "A4LgO/SwrXe+9fdWpxehpU08REslC0zgl6y1eKqA9Yqr"
+                                "key": "A4LgO/SwrXe+9fdWpxehpU08REslC0zgl6y1eKqA9Yqr"  # noqa: mock
                             },
                             "modeInfo": {
                                 "single": {
@@ -2789,7 +2790,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                     }
                 },
                 "signatures": [
-                    "6QpPAjh7xX2CWKMWIMwFKvCr5dzDFiagEgffEAwLUg8Lp0cxg7AMsnA3Eei8gZj29weHKSaxLKLjoMXBzjFBYw=="
+                    "6QpPAjh7xX2CWKMWIMwFKvCr5dzDFiagEgffEAwLUg8Lp0cxg7AMsnA3Eei8gZj29weHKSaxLKLjoMXBzjFBYw=="  # noqa: mock
                 ]
             },
             "txResponse": {
@@ -2809,7 +2810,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                                     },
                                     {
                                         "key": "sender",
-                                        "value": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa"
+                                        "value": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa"  # noqa: mock
                                     },
                                     {
                                         "key": "module",
@@ -2822,7 +2823,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                                 "attributes": [
                                     {
                                         "key": "_contract_address",
-                                        "value": "inj1ckmdhdz7r8glfurckgtg0rt7x9uvner4ygqhlv"
+                                        "value": "inj1ckmdhdz7r8glfurckgtg0rt7x9uvner4ygqhlv"  # noqa: mock
                                     }
                                 ]
                             },
@@ -2831,7 +2832,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                                 "attributes": [
                                     {
                                         "key": "_contract_address",
-                                        "value": "inj1ckmdhdz7r8glfurckgtg0rt7x9uvner4ygqhlv"
+                                        "value": "inj1ckmdhdz7r8glfurckgtg0rt7x9uvner4ygqhlv"  # noqa: mock
                                     }
                                 ]
                             },
@@ -2840,7 +2841,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                                 "attributes": [
                                     {
                                         "key": "_contract_address",
-                                        "value": "inj1ckmdhdz7r8glfurckgtg0rt7x9uvner4ygqhlv"
+                                        "value": "inj1ckmdhdz7r8glfurckgtg0rt7x9uvner4ygqhlv"  # noqa: mock
                                     },
                                     {
                                         "key": "method",
@@ -2869,9 +2870,9 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                         "messages": [
                             {
                                 "@type": "/cosmwasm.wasm.v1.MsgExecuteContract",
-                                "sender": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa",
-                                "contract": "inj1ckmdhdz7r8glfurckgtg0rt7x9uvner4ygqhlv",
-                                "msg": "eyJhZG1pbl9leGVjdXRlX21lc3NhZ2UiOiB7ImluamVjdGl2ZV9tZXNzYWdlIjogeyJjdXN0b20iOiB7InJvdXRlIjogImV4Y2hhbmdlIiwgIm1zZ19kYXRhIjogeyJiYXRjaF91cGRhdGVfb3JkZXJzIjogeyJzZW5kZXIiOiAiaW5qMWNrbWRoZHo3cjhnbGZ1cmNrZ3RnMHJ0N3g5dXZuZXI0eWdxaGx2IiwgInNwb3Rfb3JkZXJzX3RvX2NyZWF0ZSI6IFt7Im1hcmtldF9pZCI6ICIweDA2MTE3ODBiYTY5NjU2OTQ5NTI1MDEzZDk0NzcxMzMwMGY1NmMzN2I2MTc1ZTAyZjI2YmZmYTQ5NWMzMjA4ZmUiLCAib3JkZXJfaW5mbyI6IHsic3ViYWNjb3VudF9pZCI6ICIxIiwgImZlZV9yZWNpcGllbnQiOiAiaW5qMWNrbWRoZHo3cjhnbGZ1cmNrZ3RnMHJ0N3g5dXZuZXI0eWdxaGx2IiwgInByaWNlIjogIjAuMDAwMDAwMDAwMDE2NTg2IiwgInF1YW50aXR5IjogIjEwMDAwMDAwMDAwMDAwMDAiLCAiY2lkIjogIkhCT1RTSUpVVDYwYjQ0NmI1OWVmNWVkN2JmNzAwMzEwZTdjZCJ9LCAib3JkZXJfdHlwZSI6IDIsICJ0cmlnZ2VyX3ByaWNlIjogIjAifV0sICJzcG90X21hcmtldF9pZHNfdG9fY2FuY2VsX2FsbCI6IFtdLCAiZGVyaXZhdGl2ZV9tYXJrZXRfaWRzX3RvX2NhbmNlbF9hbGwiOiBbXSwgInNwb3Rfb3JkZXJzX3RvX2NhbmNlbCI6IFtdLCAiZGVyaXZhdGl2ZV9vcmRlcnNfdG9fY2FuY2VsIjogW10sICJkZXJpdmF0aXZlX29yZGVyc190b19jcmVhdGUiOiBbXSwgImJpbmFyeV9vcHRpb25zX29yZGVyc190b19jYW5jZWwiOiBbXSwgImJpbmFyeV9vcHRpb25zX21hcmtldF9pZHNfdG9fY2FuY2VsX2FsbCI6IFtdLCAiYmluYXJ5X29wdGlvbnNfb3JkZXJzX3RvX2NyZWF0ZSI6IFtdfX19fX19",
+                                "sender": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa",  # noqa: mock
+                                "contract": "inj1ckmdhdz7r8glfurckgtg0rt7x9uvner4ygqhlv",  # noqa: mock
+                                "msg": "eyJhZG1pbl9leGVjdXRlX21lc3NhZ2UiOiB7ImluamVjdGl2ZV9tZXNzYWdlIjogeyJjdXN0b20iOiB7InJvdXRlIjogImV4Y2hhbmdlIiwgIm1zZ19kYXRhIjogeyJiYXRjaF91cGRhdGVfb3JkZXJzIjogeyJzZW5kZXIiOiAiaW5qMWNrbWRoZHo3cjhnbGZ1cmNrZ3RnMHJ0N3g5dXZuZXI0eWdxaGx2IiwgInNwb3Rfb3JkZXJzX3RvX2NyZWF0ZSI6IFt7Im1hcmtldF9pZCI6ICIweDA2MTE3ODBiYTY5NjU2OTQ5NTI1MDEzZDk0NzcxMzMwMGY1NmMzN2I2MTc1ZTAyZjI2YmZmYTQ5NWMzMjA4ZmUiLCAib3JkZXJfaW5mbyI6IHsic3ViYWNjb3VudF9pZCI6ICIxIiwgImZlZV9yZWNpcGllbnQiOiAiaW5qMWNrbWRoZHo3cjhnbGZ1cmNrZ3RnMHJ0N3g5dXZuZXI0eWdxaGx2IiwgInByaWNlIjogIjAuMDAwMDAwMDAwMDE2NTg2IiwgInF1YW50aXR5IjogIjEwMDAwMDAwMDAwMDAwMDAiLCAiY2lkIjogIkhCT1RTSUpVVDYwYjQ0NmI1OWVmNWVkN2JmNzAwMzEwZTdjZCJ9LCAib3JkZXJfdHlwZSI6IDIsICJ0cmlnZ2VyX3ByaWNlIjogIjAifV0sICJzcG90X21hcmtldF9pZHNfdG9fY2FuY2VsX2FsbCI6IFtdLCAiZGVyaXZhdGl2ZV9tYXJrZXRfaWRzX3RvX2NhbmNlbF9hbGwiOiBbXSwgInNwb3Rfb3JkZXJzX3RvX2NhbmNlbCI6IFtdLCAiZGVyaXZhdGl2ZV9vcmRlcnNfdG9fY2FuY2VsIjogW10sICJkZXJpdmF0aXZlX29yZGVyc190b19jcmVhdGUiOiBbXSwgImJpbmFyeV9vcHRpb25zX29yZGVyc190b19jYW5jZWwiOiBbXSwgImJpbmFyeV9vcHRpb25zX21hcmtldF9pZHNfdG9fY2FuY2VsX2FsbCI6IFtdLCAiYmluYXJ5X29wdGlvbnNfb3JkZXJzX3RvX2NyZWF0ZSI6IFtdfX19fX19",  # noqa: mock
                                 "funds": [
 
                                 ]
@@ -2891,7 +2892,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                             {
                                 "publicKey": {
                                     "@type": "/injective.crypto.v1beta1.ethsecp256k1.PubKey",
-                                    "key": "A4LgO/SwrXe+9fdWpxehpU08REslC0zgl6y1eKqA9Yqr"
+                                    "key": "A4LgO/SwrXe+9fdWpxehpU08REslC0zgl6y1eKqA9Yqr"  # noqa: mock
                                 },
                                 "modeInfo": {
                                     "single": {
@@ -2914,7 +2915,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                         }
                     },
                     "signatures": [
-                        "6QpPAjh7xX2CWKMWIMwFKvCr5dzDFiagEgffEAwLUg8Lp0cxg7AMsnA3Eei8gZj29weHKSaxLKLjoMXBzjFBYw=="
+                        "6QpPAjh7xX2CWKMWIMwFKvCr5dzDFiagEgffEAwLUg8Lp0cxg7AMsnA3Eei8gZj29weHKSaxLKLjoMXBzjFBYw=="  # noqa: mock
                     ]
                 },
                 "timestamp": "2023-11-29T06:12:26Z",
@@ -2924,7 +2925,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                         "attributes": [
                             {
                                 "key": "spender",
-                                "value": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa",
+                                "value": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa",  # noqa: mock
                                 "index": True
                             },
                             {
@@ -2939,7 +2940,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                         "attributes": [
                             {
                                 "key": "receiver",
-                                "value": "inj17xpfvakm2amg962yls6f84z3kell8c5l6s5ye9",
+                                "value": "inj17xpfvakm2amg962yls6f84z3kell8c5l6s5ye9",  # noqa: mock
                                 "index": True
                             },
                             {
@@ -2954,12 +2955,12 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                         "attributes": [
                             {
                                 "key": "recipient",
-                                "value": "inj17xpfvakm2amg962yls6f84z3kell8c5l6s5ye9",
+                                "value": "inj17xpfvakm2amg962yls6f84z3kell8c5l6s5ye9",  # noqa: mock
                                 "index": True
                             },
                             {
                                 "key": "sender",
-                                "value": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa",
+                                "value": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa",  # noqa: mock
                                 "index": True
                             },
                             {
@@ -2974,7 +2975,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                         "attributes": [
                             {
                                 "key": "sender",
-                                "value": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa",
+                                "value": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa",  # noqa: mock
                                 "index": True
                             }
                         ]
@@ -2989,7 +2990,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                             },
                             {
                                 "key": "fee_payer",
-                                "value": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa",
+                                "value": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa",  # noqa: mock
                                 "index": True
                             }
                         ]
@@ -2999,7 +3000,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                         "attributes": [
                             {
                                 "key": "acc_seq",
-                                "value": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa/1021788",
+                                "value": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa/1021788",  # noqa: mock
                                 "index": True
                             }
                         ]
@@ -3009,7 +3010,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                         "attributes": [
                             {
                                 "key": "signature",
-                                "value": "6QpPAjh7xX2CWKMWIMwFKvCr5dzDFiagEgffEAwLUg8Lp0cxg7AMsnA3Eei8gZj29weHKSaxLKLjoMXBzjFBYw==",
+                                "value": "6QpPAjh7xX2CWKMWIMwFKvCr5dzDFiagEgffEAwLUg8Lp0cxg7AMsnA3Eei8gZj29weHKSaxLKLjoMXBzjFBYw==",  # noqa: mock
                                 "index": True
                             }
                         ]
@@ -3024,7 +3025,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                             },
                             {
                                 "key": "sender",
-                                "value": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa",
+                                "value": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa",  # noqa: mock
                                 "index": True
                             },
                             {
@@ -3039,7 +3040,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                         "attributes": [
                             {
                                 "key": "_contract_address",
-                                "value": "inj1ckmdhdz7r8glfurckgtg0rt7x9uvner4ygqhlv",
+                                "value": "inj1ckmdhdz7r8glfurckgtg0rt7x9uvner4ygqhlv",  # noqa: mock
                                 "index": True
                             }
                         ]
@@ -3049,7 +3050,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                         "attributes": [
                             {
                                 "key": "_contract_address",
-                                "value": "inj1ckmdhdz7r8glfurckgtg0rt7x9uvner4ygqhlv",
+                                "value": "inj1ckmdhdz7r8glfurckgtg0rt7x9uvner4ygqhlv",  # noqa: mock
                                 "index": True
                             }
                         ]
@@ -3059,7 +3060,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                         "attributes": [
                             {
                                 "key": "_contract_address",
-                                "value": "inj1ckmdhdz7r8glfurckgtg0rt7x9uvner4ygqhlv",
+                                "value": "inj1ckmdhdz7r8glfurckgtg0rt7x9uvner4ygqhlv",  # noqa: mock
                                 "index": True
                             },
                             {

@@ -4,30 +4,40 @@ import inspect
 import logging
 import sys
 import time
+from decimal import Decimal
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
+
+from sqlalchemy.orm import Query, Session
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.client.config.config_helpers import ClientConfigAdapter, get_strategy_starter_file
 from hummingbot.client.config.strategy_config_data_types import BaseStrategyConfigMap
+from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.client.settings import SCRIPT_STRATEGIES_MODULE, STRATEGIES
+from hummingbot.connector.connector_metrics_collector import DummyMetricsCollector, MetricsCollector
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.connector_manager import ConnectorManager
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.kill_switch import KillSwitch
 from hummingbot.exceptions import InvalidScriptModule
 from hummingbot.logger import HummingbotLogger
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
+from hummingbot.model.trade_fill import TradeFill
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.strategy.directional_strategy_base import DirectionalStrategyBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
+
+# Constants
+s_decimal_0 = Decimal("0")
 
 
 class StrategyType(Enum):
@@ -98,6 +108,9 @@ class TradingCore:
         self.markets_recorder: Optional[MarketsRecorder] = None
         self.trade_fill_db: Optional[SQLConnectionManager] = None
 
+        # Metrics collectors mapping (connector_name -> MetricsCollector)
+        self._metrics_collectors: Dict[str, MetricsCollector] = {}
+
         # Runtime state
         self.init_time: float = time.time()
         self.start_time: Optional[float] = None
@@ -112,6 +125,8 @@ class TradingCore:
         # Backward compatibility properties
         self.market_trading_pairs_map: Dict[str, List[str]] = {}
         self.market_trading_pair_tuples: List[MarketTradingPairTuple] = []
+        self._gateway_monitor = GatewayHttpClient.get_instance(self.client_config_map.hb_config.gateway)
+        self._gateway_monitor.start_monitor()
 
     def _create_config_adapter_from_dict(self, config_dict: Dict[str, Any]) -> ClientConfigAdapter:
         """Create a ClientConfigAdapter from a dictionary."""
@@ -123,6 +138,11 @@ class TradingCore:
                 setattr(client_config, key, value)
 
         return ClientConfigAdapter(client_config)
+
+    @property
+    def gateway_monitor(self):
+        """Get the gateway monitor instance."""
+        return self._gateway_monitor
 
     @property
     def markets(self) -> Dict[str, ExchangeBase]:
@@ -236,6 +256,28 @@ class TradingCore:
 
         return connector
 
+    def _initialize_metrics_for_connector(self, connector: ExchangeBase, connector_name: str):
+        """Initialize metrics collector for a specific connector."""
+        try:
+            # Get the metrics collector from config
+            collector = self.client_config_map.anonymized_metrics_mode.get_collector(
+                connector=connector,
+                rate_provider=RateOracle.get_instance(),
+                instance_id=self.client_config_map.instance_id,
+            )
+
+            self.clock.add_iterator(collector)
+
+            # Store the collector
+            self._metrics_collectors[connector_name] = collector
+
+            self.logger().debug(f"Metrics collector initialized for {connector_name}")
+
+        except Exception as e:
+            self.logger().warning(f"Failed to initialize metrics collector for {connector_name}: {e}")
+            # Use dummy collector as fallback
+            self._metrics_collectors[connector_name] = DummyMetricsCollector()
+
     def remove_connector(self, connector_name: str) -> bool:
         """
         Remove a connector.
@@ -249,6 +291,19 @@ class TradingCore:
         connector = self.connector_manager.get_connector(connector_name)
 
         if connector:
+            # Stop and remove metrics collector first
+            if connector_name in self._metrics_collectors:
+                collector = self._metrics_collectors[connector_name]
+
+                # Remove from clock if it was added
+                if self.clock:
+                    self.clock.remove_iterator(collector)
+
+                # Remove from mapping
+                del self._metrics_collectors[connector_name]
+
+                self.logger().debug(f"Metrics collector stopped for {connector_name}")
+
             # Remove from clock if exists
             connector.stop(self.clock)
             if self.clock:
@@ -422,18 +477,14 @@ class TradingCore:
                 self._config_source = strategy_config
             elif isinstance(strategy_config, dict):
                 self._config_data = strategy_config
-            else:
-                self.strategy_config_map = strategy_config
 
             # Initialize strategy based on type
             strategy_type = self.detect_strategy_type(strategy_name)
 
-            if strategy_type == StrategyType.SCRIPT or strategy_type == StrategyType.V2:
+            if strategy_type in [StrategyType.SCRIPT, StrategyType.V2]:
                 await self._initialize_script_strategy()
-            elif strategy_type == StrategyType.REGULAR:
-                await self._initialize_regular_strategy()
             else:
-                raise ValueError(f"Unknown strategy type: {strategy_type}")
+                await self._initialize_regular_strategy()
 
             # Initialize markets for backward compatibility
             self._initialize_markets_for_strategy()
@@ -445,10 +496,6 @@ class TradingCore:
             RateOracle.get_instance().start()
 
             self._strategy_running = True
-
-            # Start clock if not already running
-            if not self._is_running:
-                await self.start_clock()
 
             self.logger().info(f"Strategy {strategy_name} started successfully")
             return True
@@ -467,7 +514,7 @@ class TradingCore:
             markets_list.append((conn, list(pairs)))
 
         # Initialize markets using single method
-        self.initialize_markets(markets_list)
+        await self.initialize_markets(markets_list)
 
         # Create strategy instance
         if config:
@@ -478,7 +525,10 @@ class TradingCore:
     async def _initialize_regular_strategy(self):
         """Initialize a regular strategy using starter file."""
         start_strategy_func: Callable = get_strategy_starter_file(self.strategy_name)
-        start_strategy_func(self)
+        if asyncio.iscoroutinefunction(start_strategy_func):
+            await start_strategy_func(self)
+        else:
+            start_strategy_func(self)
 
     async def _start_strategy_execution(self):
         """
@@ -502,13 +552,16 @@ class TradingCore:
                     for market in self.markets.values():
                         self.markets_recorder.restore_market_states(self._strategy_file_name, market)
 
+                for connector_name, connector in self.connector_manager.connectors.items():
+                    if connector_name not in self._metrics_collectors and "_paper_trade" not in connector_name:
+                        self.logger().debug(f"Initializing metrics collector for {connector_name} (created outside normal flow)")
+                        self._initialize_metrics_for_connector(connector, connector_name)
+
             # Initialize kill switch if enabled
             if (self._trading_required and
                     self.client_config_map.kill_switch_mode.model_config.get("title") == "kill_switch_enabled"):
                 self.kill_switch = self.client_config_map.kill_switch_mode.get_kill_switch(self)
                 await self._wait_till_ready(self.kill_switch.start)
-                if self.clock:
-                    self.clock.add_iterator(self.kill_switch)
 
             self.logger().info(f"'{self.strategy_name}' strategy execution started.")
 
@@ -528,6 +581,8 @@ class TradingCore:
             if not all_ready:
                 await asyncio.sleep(0.5)
             else:
+                if inspect.iscoroutinefunction(func):
+                    return await func(*args, **kwargs)
                 return func(*args, **kwargs)
 
     async def stop_strategy(self) -> bool:
@@ -543,7 +598,6 @@ class TradingCore:
 
             # Remove kill switch from clock
             if self.clock is not None and self.kill_switch is not None:
-                self.clock.remove_iterator(self.kill_switch)
                 self.kill_switch.stop()
 
             # Stop rate oracle
@@ -618,7 +672,7 @@ class TradingCore:
         for notifier in self.notifiers:
             notifier.add_message_to_queue(msg)
 
-    def initialize_markets(self, market_names: List[Tuple[str, List[str]]]):
+    async def initialize_markets(self, market_names: List[Tuple[str, List[str]]]):
         """
         Initialize markets - single method that works for all strategy types.
 
@@ -629,6 +683,9 @@ class TradingCore:
         """
         # Create connectors for each market
         for connector_name, trading_pairs in market_names:
+            # for now we identify gateway connector that contain "/" in their name
+            if "/" in connector_name:
+                await self.gateway_monitor.wait_for_online_status()
             connector = self.connector_manager.create_connector(
                 connector_name, trading_pairs, self._trading_required
             )
@@ -654,6 +711,81 @@ class TradingCore:
         """Get order book from a connector."""
         return self.connector_manager.get_order_book(connector_name, trading_pair)
 
+    async def get_current_balances(self, connector_name: str):
+        if connector_name in self.connector_manager.connectors and self.connector_manager.connectors[connector_name].ready:
+            return self.connector_manager.connectors[connector_name].get_all_balances()
+        elif "Paper" in connector_name:
+            paper_balances = self.client_config_map.paper_trade.paper_trade_account_balance
+            if paper_balances is None:
+                return {}
+            return {token: Decimal(str(bal)) for token, bal in paper_balances.items()}
+        else:
+            await self.connector_manager.update_connector_balances(connector_name)
+            return self.connector_manager.get_all_balances(connector_name)
+
+    async def calculate_profitability(self) -> Decimal:
+        """
+        Determines the profitability of the trading bot.
+        This function is used by the KillSwitch class.
+        Must be updated if the method of performance report gets updated.
+        """
+        if not self.markets_recorder:
+            return s_decimal_0
+        if not self.trade_fill_db:
+            return s_decimal_0
+        if any(not market.ready for market in self.connector_manager.connectors.values()):
+            return s_decimal_0
+
+        start_time = self.init_time
+
+        with self.trade_fill_db.get_new_session() as session:
+            trades: List[TradeFill] = self._get_trades_from_session(
+                int(start_time * 1e3),
+                session=session,
+                config_file_path=self.strategy_file_name)
+            perf_metrics = await self.calculate_performance_metrics_by_connector_pair(trades)
+            returns_pct = [perf.return_pct for perf in perf_metrics]
+            return sum(returns_pct) / len(returns_pct) if len(returns_pct) > 0 else s_decimal_0
+
+    async def calculate_performance_metrics_by_connector_pair(self, trades: List[TradeFill]) -> List[PerformanceMetrics]:
+        """
+        Calculates performance metrics by connector and trading pair using the provided trades and the PerformanceMetrics class.
+        """
+        market_info: Set[Tuple[str, str]] = set((t.market, t.symbol) for t in trades)
+        performance_metrics: List[PerformanceMetrics] = []
+        for market, symbol in market_info:
+            cur_trades = [t for t in trades if t.market == market and t.symbol == symbol]
+            network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
+            try:
+                cur_balances = await asyncio.wait_for(self.get_current_balances(market), network_timeout)
+            except asyncio.TimeoutError:
+                self.logger().warning("\nA network error prevented the balances retrieval to complete. See logs for more details.")
+                raise
+            perf = await PerformanceMetrics.create(symbol, cur_trades, cur_balances)
+            performance_metrics.append(perf)
+        return performance_metrics
+
+    @staticmethod
+    def _get_trades_from_session(start_timestamp: int,
+                                 session: Session,
+                                 number_of_rows: Optional[int] = None,
+                                 config_file_path: str = None) -> List[TradeFill]:
+
+        filters = [TradeFill.timestamp >= start_timestamp]
+        if config_file_path is not None:
+            filters.append(TradeFill.config_file_path.like(f"%{config_file_path}%"))
+        query: Query = (session
+                        .query(TradeFill)
+                        .filter(*filters)
+                        .order_by(TradeFill.timestamp.desc()))
+        if number_of_rows is None:
+            result: List[TradeFill] = query.all() or []
+        else:
+            result: List[TradeFill] = query.limit(number_of_rows).all() or []
+
+        result.reverse()
+        return result
+
     async def shutdown(self, skip_order_cancellation: bool = False) -> bool:
         """
         Shutdown the trading core completely.
@@ -676,6 +808,17 @@ class TradingCore:
             if not skip_order_cancellation:
                 await self.cancel_outstanding_orders()
 
+            # Stop all metrics collectors first
+            for connector_name, collector in list(self._metrics_collectors.items()):
+                try:
+                    if self.clock:
+                        self.clock.remove_iterator(collector)
+                    self.logger().debug(f"Stopped metrics collector for {connector_name}")
+                except Exception as e:
+                    self.logger().error(f"Error stopping metrics collector for {connector_name}: {e}")
+
+            self._metrics_collectors.clear()
+
             # Remove all connectors
             connector_names = list(self.connector_manager.connectors.keys())
             for name in connector_names:
@@ -692,6 +835,10 @@ class TradingCore:
             if self.markets_recorder:
                 self.markets_recorder.stop()
                 self.markets_recorder = None
+
+            # Stop gateway monitor
+            if self._gateway_monitor:
+                self._gateway_monitor.stop_monitor()
 
             # Clear strategy references
             self.strategy = None

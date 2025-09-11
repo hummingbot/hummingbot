@@ -11,13 +11,11 @@ from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 from bidict import bidict
 from grpc import RpcError
-from pyinjective.composer import Composer
-from pyinjective.core.market import SpotMarket
+from pyinjective.composer_v2 import Composer
+from pyinjective.core.market_v2 import SpotMarket
 from pyinjective.core.token import Token
 from pyinjective.wallet import Address, PrivateKey
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.injective_v2.injective_v2_exchange import InjectiveV2Exchange
 from hummingbot.connector.exchange.injective_v2.injective_v2_utils import (
     InjectiveConfigMap,
@@ -175,9 +173,9 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
             maker_fee_rate=Decimal("-0.0001"),
             taker_fee_rate=Decimal("0.001"),
             service_provider_fee=Decimal("0.4"),
-            min_price_tick_size=Decimal("0.000000000000001"),
-            min_quantity_tick_size=Decimal("1000000000000000"),
-            min_notional=Decimal("1000000"),
+            min_price_tick_size=Decimal("0.0001"),
+            min_quantity_tick_size=Decimal("0.001"),
+            min_notional=Decimal("1"),
         )
 
         return ("INVALID_MARKET", response)
@@ -200,6 +198,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
             decimals=self.base_decimals,
             logo="https://static.alchemyapi.io/images/assets/7226.png",
             updated=1687190809715,
+            unique_symbol="",
         )
         quote_native_token = Token(
             name="Base Asset",
@@ -209,6 +208,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
             decimals=self.quote_decimals,
             logo="https://static.alchemyapi.io/images/assets/825.png",
             updated=1687190809716,
+            unique_symbol="",
         )
 
         native_market = SpotMarket(
@@ -327,11 +327,9 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
     @property
     def expected_trading_rule(self):
         market = list(self.all_markets_mock_response.values())[0]
-        min_price_tick_size = (market.min_price_tick_size
-                               * Decimal(f"1e{market.base_token.decimals - market.quote_token.decimals}"))
-        min_quantity_tick_size = market.min_quantity_tick_size * Decimal(
-            f"1e{-market.base_token.decimals}")
-        min_notional = market.min_notional * Decimal(f"1e{-market.quote_token.decimals}")
+        min_price_tick_size = market.min_price_tick_size
+        min_quantity_tick_size = market.min_quantity_tick_size
+        min_notional = market.min_notional
         trading_rule = TradingRule(
             trading_pair=self.trading_pair,
             min_order_size=min_quantity_tick_size,
@@ -388,6 +386,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
             decimals=self.base_decimals,
             logo="https://static.alchemyapi.io/images/assets/7226.png",
             updated=1687190809715,
+            unique_symbol="",
         )
         quote_native_token = Token(
             name="Base Asset",
@@ -397,6 +396,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
             decimals=self.quote_decimals,
             logo="https://static.alchemyapi.io/images/assets/825.png",
             updated=1687190809716,
+            unique_symbol="",
         )
 
         native_market = SpotMarket(
@@ -408,9 +408,9 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
             maker_fee_rate=Decimal("-0.0001"),
             taker_fee_rate=Decimal("0.001"),
             service_provider_fee=Decimal("0.4"),
-            min_price_tick_size=Decimal("0.000000000000001"),
-            min_quantity_tick_size=Decimal("1000000000000000"),
-            min_notional=Decimal("1000000"),
+            min_price_tick_size=Decimal("0.0001"),
+            min_quantity_tick_size=Decimal("0.001"),
+            min_notional=Decimal("0.000001"),
         )
 
         return {native_market.id: native_market}
@@ -419,7 +419,6 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
         return self.market_id
 
     def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         network_config = InjectiveTestnetNetworkMode(testnet_node="sentry")
 
         account_config = InjectiveVaultAccountMode(
@@ -435,7 +434,6 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
         )
 
         exchange = InjectiveV2Exchange(
-            client_config_map=client_config_map,
             connector_configuration=injective_config,
             trading_pairs=[self.trading_pair],
         )
@@ -449,7 +447,6 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
 
         exchange._data_source._composer = Composer(
             network=exchange._data_source.network_name,
-            spot_markets=self.all_markets_mock_response,
         )
 
         return exchange
@@ -672,13 +669,12 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
                             "orderInfo": {
                                 "subaccountId": self.vault_contract_subaccount_id,
                                 "feeRecipient": self.vault_contract_address,
-                                "price": str(
-                                    int(order.price * Decimal(f"1e{self.quote_decimals - self.base_decimals + 18}"))),
-                                "quantity": str(int(order.amount * Decimal(f"1e{self.base_decimals + 18}"))),
+                                "price": str(int(order.price * Decimal("1e18"))),
+                                "quantity": str(int(order.amount * Decimal("1e18"))),
                                 "cid": order.client_order_id,
                             },
                             "orderType": order.trade_type.name.lower(),
-                            "fillable": str(int(order.amount * Decimal(f"1e{self.base_decimals + 18}"))),
+                            "fillable": str(int(order.amount * Decimal("1e18"))),
                             "orderHash": base64.b64encode(
                                 bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
                             "triggerPrice": "",
@@ -712,13 +708,12 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
                             "orderInfo": {
                                 "subaccountId": self.vault_contract_subaccount_id,
                                 "feeRecipient": self.vault_contract_address,
-                                "price": str(
-                                    int(order.price * Decimal(f"1e{self.quote_decimals - self.base_decimals + 18}"))),
-                                "quantity": str(int(order.amount * Decimal(f"1e{self.base_decimals + 18}"))),
+                                "price": str(int(order.price * Decimal("1e18"))),
+                                "quantity": str(int(order.amount * Decimal("1e18"))),
                                 "cid": order.client_order_id,
                             },
                             "orderType": order.trade_type.name.lower(),
-                            "fillable": str(int(order.amount * Decimal(f"1e{self.base_decimals + 18}"))),
+                            "fillable": str(int(order.amount * Decimal("1e18"))),
                             "orderHash": base64.b64encode(
                                 bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
                             "triggerPrice": "",
@@ -752,13 +747,12 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
                             "orderInfo": {
                                 "subaccountId": self.vault_contract_subaccount_id,
                                 "feeRecipient": self.vault_contract_address,
-                                "price": str(
-                                    int(order.price * Decimal(f"1e{self.quote_decimals - self.base_decimals + 18}"))),
-                                "quantity": str(int(order.amount * Decimal(f"1e{self.base_decimals + 18}"))),
+                                "price": str(int(order.price * Decimal("1e18"))),
+                                "quantity": str(int(order.amount * Decimal("1e18"))),
                                 "cid": order.client_order_id,
                             },
                             "orderType": order.trade_type.name.lower(),
-                            "fillable": str(int(order.amount * Decimal(f"1e{self.base_decimals + 18}"))),
+                            "fillable": str(int(order.amount * Decimal("1e18"))),
                             "orderHash": base64.b64encode(
                                 bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
                             "triggerPrice": "",
@@ -784,12 +778,10 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
                     "marketId": self.market_id,
                     "isBuy": order.trade_type == TradeType.BUY,
                     "executionType": "LimitMatchRestingOrder",
-                    "quantity": str(int(order.amount * Decimal(f"1e{self.base_decimals + 18}"))),
-                    "price": str(int(order.price * Decimal(f"1e{self.quote_decimals - self.base_decimals + 18}"))),
+                    "quantity": str(int(order.amount * Decimal("1e18"))),
+                    "price": str(int(order.price * Decimal("1e18"))),
                     "subaccountId": self.vault_contract_subaccount_id,
-                    "fee": str(int(
-                        self.expected_fill_fee.flat_fees[0].amount * Decimal(f"1e{self.quote_decimals + 18}")
-                    )),
+                    "fee": str(int(self.expected_fill_fee.flat_fees[0].amount * Decimal("1e18"))),
                     "orderHash": order.exchange_order_id,
                     "feeRecipientAddress": self.vault_contract_address,
                     "cid": order.client_order_id,
@@ -1053,6 +1045,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
 
     @aioresponses()
     async def test_create_order_fails_and_raises_failure_event(self, mock_api):
+        self.configure_all_symbols_response(mock_api=None)
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
@@ -1096,6 +1089,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
 
     @aioresponses()
     async def test_create_order_fails_when_trading_rule_error_and_raises_failure_event(self, mock_api):
+        self.configure_all_symbols_response(mock_api=None)
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)

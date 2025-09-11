@@ -1,11 +1,7 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from hummingbot.client.config.config_helpers import (
-    ClientConfigAdapter,
-    ReadOnlyClientConfigAdapter,
-    get_connector_class,
-)
+from hummingbot.client.config.config_helpers import ClientConfigAdapter, get_connector_class
 from hummingbot.client.config.security import Security
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.exchange.paper_trade import create_paper_trade_market
@@ -74,7 +70,6 @@ class ConnectorManager:
                 base_connector = base_connector_name
                 connector = create_paper_trade_market(
                     base_connector,
-                    self.client_config_map,
                     trading_pairs
                 )
 
@@ -89,13 +84,14 @@ class ConnectorManager:
                 if not keys and not conn_setting.uses_gateway_generic_connector():
                     raise ValueError(f"API keys required for live trading connector '{connector_name}'. "
                                      f"Either provide API keys or use a paper trade connector.")
-                read_only_config = ReadOnlyClientConfigAdapter.lock_config(self.client_config_map)
 
                 init_params = conn_setting.conn_init_parameters(
                     trading_pairs=trading_pairs,
                     trading_required=trading_required,
                     api_keys=keys,
-                    client_config_map=read_only_config,
+                    balance_asset_limit=self.client_config_map.hb_config.balance_asset_limit,
+                    rate_limits_share_pct=self.client_config_map.hb_config.rate_limits_share_pct,
+                    gateway_config=self.client_config_map.hb_config.gateway,
                 )
 
                 connector_class = get_connector_class(connector_name)
@@ -157,6 +153,10 @@ class ConnectorManager:
 
         return True
 
+    @staticmethod
+    def is_gateway_market(connector_name: str) -> bool:
+        return connector_name in AllConnectorSettings.get_gateway_amm_connector_names()
+
     def get_connector(self, connector_name: str) -> Optional[ExchangeBase]:
         """Get a connector by name."""
         return self.connectors.get(connector_name)
@@ -188,6 +188,19 @@ class ConnectorManager:
             return {}
 
         return connector.get_all_balances()
+
+    async def update_connector_balances(self, connector_name: str):
+        """
+        Update balances for a specific connector.
+
+        Args:
+            connector_name: Name of the connector to update balances for
+        """
+        connector = self.get_connector(connector_name)
+        if connector:
+            await connector._update_balances()
+        else:
+            raise ValueError(f"Connector {connector_name} not found")
 
     def get_status(self) -> Dict[str, Any]:
         """Get status of all connectors."""

@@ -4,6 +4,8 @@ import time
 from collections import deque
 from typing import Deque, Dict, List, Optional, Union
 
+from sqlalchemy.orm import Session
+
 from hummingbot.client.command import __all__ as commands
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import (
@@ -23,12 +25,12 @@ from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
 from hummingbot.client.ui.keybindings import load_key_bindings
 from hummingbot.client.ui.parser import ThrowingArgumentParser, load_parser
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.core.gateway.gateway_status_monitor import GatewayStatusMonitor
 from hummingbot.core.trading_core import TradingCore
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.exceptions import ArgumentParserError
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
+from hummingbot.model.trade_fill import TradeFill
 from hummingbot.remote_iface.mqtt import MQTTGateway
 
 s_logger = None
@@ -76,8 +78,6 @@ class HummingbotApplication(*commands):
 
         # Script configuration support
         self.script_config: Optional[str] = None
-        self._gateway_monitor = GatewayStatusMonitor(self)
-        self._gateway_monitor.start()
 
         # Initialize UI components only if not in headless mode
         if not headless_mode:
@@ -114,7 +114,7 @@ class HummingbotApplication(*commands):
 
     @property
     def gateway_config_keys(self) -> List[str]:
-        return self._gateway_monitor.gateway_config_keys
+        return self.trading_core.gateway_monitor.gateway_config_keys
 
     @property
     def strategy_file_name(self) -> str:
@@ -270,6 +270,13 @@ class HummingbotApplication(*commands):
             name = tab_class.get_command_name()
             command_tabs[name] = CommandTab(name, None, None, None, tab_class)
         return command_tabs
+
+    def _get_trades_from_session(self,
+                                 start_timestamp: int,
+                                 session: Session,
+                                 number_of_rows: Optional[int] = None,
+                                 config_file_path: str = None) -> List[TradeFill]:
+        return self.trading_core._get_trades_from_session(start_timestamp, session, number_of_rows, config_file_path)
 
     def save_client_config(self):
         save_to_yml(CLIENT_CONFIG_PATH, self.client_config_map)

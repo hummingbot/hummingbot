@@ -13,8 +13,6 @@ from aioresponses.core import RequestCall
 
 import hummingbot.connector.exchange.hyperliquid.hyperliquid_constants as CONSTANTS
 import hummingbot.connector.exchange.hyperliquid.hyperliquid_web_utils as web_utils
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.hyperliquid.hyperliquid_exchange import HyperliquidExchange
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
 from hummingbot.connector.trading_rule import TradingRule
@@ -403,7 +401,7 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         return TradingRule(self.trading_pair,
                            min_base_amount_increment=step_size,
                            min_price_increment=price_size,
-                           )
+                           min_order_size=step_size)
 
     @property
     def expected_logged_error_for_erroneous_trading_rule(self):
@@ -453,12 +451,10 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         return f"{base_token}-{quote_token}"
 
     def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         exchange = HyperliquidExchange(
-            client_config_map,
-            self.api_secret,
-            self.use_vault,
-            self.api_key,
+            hyperliquid_api_secret=self.api_secret,
+            use_vault=self.use_vault,
+            hyperliquid_api_key=self.api_key,
             trading_pairs=[self.trading_pair],
         )
         # exchange._last_trade_history_timestamp = self.latest_trade_hist_timestamp
@@ -770,8 +766,8 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         self._simulate_trading_rules_initialized()
-        return {'channel': 'user', 'data': {'fills': [
-            {'coin': 'COINALPHA', 'px': order.price, 'sz': float(order.amount), 'side': 'B', 'time': 1700819083138,
+        return {'channel': 'userFills', 'data': {'fills': [
+            {'coin': 'COINALPHA/USDC', 'px': order.price, 'sz': float(order.amount), 'side': 'B', 'time': 1700819083138,
              'closedPnl': '0.0',
              'hash': '0x6065d86346c0ee0f5d9504081647930115005f95c201c3a6fb5ba2440507f2cf',  # noqa: mock
              'tid': '0x6065d86346c0ee0f5d9504081647930115005f95c201c3a6fb5ba2440507f2cf',  # noqa: mock

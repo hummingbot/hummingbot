@@ -2,13 +2,11 @@ import os
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Optional
 
 import aioprocessing
 
 from hummingbot import root_path
-from hummingbot.connector.gateway.common_types import Chain
-from hummingbot.core.event.events import TradeType
 
 if TYPE_CHECKING:
     from hummingbot import ClientConfigAdapter
@@ -66,7 +64,7 @@ def get_gateway_paths(client_config_map: "ClientConfigAdapter") -> GatewayPaths:
     external_certs_path: Optional[Path] = os.getenv("CERTS_FOLDER") and Path(os.getenv("CERTS_FOLDER"))
     external_conf_path: Optional[Path] = os.getenv("GATEWAY_CONF_FOLDER") and Path(os.getenv("GATEWAY_CONF_FOLDER"))
     external_logs_path: Optional[Path] = os.getenv("GATEWAY_LOGS_FOLDER") and Path(os.getenv("GATEWAY_LOGS_FOLDER"))
-    local_certs_path: Path = client_config_map.certs_path
+    local_certs_path: Path = client_config_map.gateway.certs_path
     local_conf_path: Path = root_path().joinpath("gateway/conf")
     local_logs_path: Path = root_path().joinpath("gateway/logs")
     mount_certs_path: Path = external_certs_path or local_certs_path
@@ -82,37 +80,3 @@ def get_gateway_paths(client_config_map: "ClientConfigAdapter") -> GatewayPaths:
         mount_logs_path=mount_logs_path
     )
     return _default_paths
-
-
-def check_transaction_exceptions(
-        balances: Dict[str, Decimal],
-        base_asset: str,
-        quote_asset: str,
-        amount: Decimal,
-        side: TradeType,
-        gas_limit: int,
-        gas_cost: Decimal,
-        gas_asset: str,
-        allowances: Optional[Dict[str, Decimal]] = None,
-        chain: Chain = Chain.SOLANA
-) -> List[str]:
-    """
-    Check trade data for Ethereum decentralized exchanges
-    """
-    exception_list = []
-    gas_asset_balance: Decimal = balances.get(gas_asset, S_DECIMAL_0)
-    allowances = allowances or {}
-
-    # check for sufficient gas
-    if gas_asset_balance < gas_cost:
-        exception_list.append(f"Insufficient {gas_asset} balance to cover gas:"
-                              f" Balance: {gas_asset_balance} vs estimated gas cost: {gas_cost}.")
-
-    asset_out: str = quote_asset if side is TradeType.BUY else base_asset
-    asset_out_allowance: Decimal = allowances.get(asset_out, S_DECIMAL_0)
-
-    # check for insufficient token allowance
-    if chain == Chain.ETHEREUM and asset_out in allowances and allowances[asset_out] < amount:
-        exception_list.append(f"Insufficient {asset_out} allowance {asset_out_allowance}. Amount to trade: {amount}")
-
-    return exception_list

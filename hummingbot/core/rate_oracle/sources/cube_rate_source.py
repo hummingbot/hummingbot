@@ -75,14 +75,9 @@ class CubeRateSource(RateSourceBase):
 
     @staticmethod
     def _build_cube_connector_without_private_keys(domain: str) -> 'CubeExchange':
-        from hummingbot.client.hummingbot_application import HummingbotApplication
         from hummingbot.connector.exchange.cube.cube_exchange import CubeExchange
 
-        app = HummingbotApplication.main_application()
-        client_config_map = app.client_config_map
-
         return CubeExchange(
-            client_config_map=client_config_map,
             cube_api_key="",
             cube_api_secret="",
             cube_subaccount_id="1",

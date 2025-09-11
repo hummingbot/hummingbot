@@ -6,7 +6,7 @@ from pathlib import Path
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from test.mock.mock_cli import CLIMockingAssistant
 from typing import List
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 from hummingbot.client.config.client_config_map import ClientConfigMap, DBSqliteMode
 from hummingbot.client.config.config_helpers import ClientConfigAdapter, read_system_configs_from_yml
@@ -20,7 +20,7 @@ from hummingbot.model.trade_fill import TradeFill
 
 class HistoryCommandTest(IsolatedAsyncioWrapperTestCase):
     @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher")
-    @patch("hummingbot.core.gateway.gateway_status_monitor.GatewayStatusMonitor.start")
+    @patch("hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.start_monitor")
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication.mqtt_start")
     async def asyncSetUp(self, mock_mqtt_start, mock_gateway_start, mock_trading_pair_fetcher):
         await read_system_configs_from_yml()
@@ -65,20 +65,6 @@ class HistoryCommandTest(IsolatedAsyncioWrapperTestCase):
             )
         ]
         return trades
-
-    @patch("hummingbot.client.command.history_command.HistoryCommand.get_current_balances")
-    async def test_history_report_raises_on_get_current_balances_network_timeout(self, get_current_balances_mock: AsyncMock):
-        get_current_balances_mock.side_effect = self.get_async_sleep_fn(delay=0.02)
-        self.client_config_map.commands_timeout.other_commands_timeout = 0.01
-        trades = self.get_trades()
-
-        with self.assertRaises(asyncio.TimeoutError):
-            await self.app.history_report(start_time=time.time(), trades=trades)
-        self.assertTrue(
-            self.cli_mock_assistant.check_log_called_with(
-                msg="\nA network error prevented the balances retrieval to complete. See logs for more details."
-            )
-        )
 
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication.notify")
     def test_list_trades(self, notify_mock):

@@ -7,8 +7,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses import aioresponses
 from bidict import bidict
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.vertex import vertex_constants as CONSTANTS
 from hummingbot.connector.exchange.vertex.vertex_api_order_book_data_source import VertexAPIOrderBookDataSource
 from hummingbot.connector.exchange.vertex.vertex_exchange import VertexExchange
@@ -42,13 +40,11 @@ class TestVertexAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
         self.log_records = []
         self.async_task = None
         self.mocking_assistant = NetworkMockingAssistant(self.local_event_loop)
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         # NOTE: RANDOM KEYS GENERATED JUST FOR UNIT TESTS
         self.connector = VertexExchange(
-            client_config_map,
-            "0x2162Db26939B9EAF0C5404217774d166056d31B5",
-            "5500eb16bf3692840e04fb6a63547b9a80b75d9cbb36b43ca5662127d4c19c83",  # noqa: mock
+            vertex_arbitrum_address="0x2162Db26939B9EAF0C5404217774d166056d31B5",
+            vertex_arbitrum_private_key="5500eb16bf3692840e04fb6a63547b9a80b75d9cbb36b43ca5662127d4c19c83",  # noqa: mock
             trading_pairs=[self.trading_pair],
             domain=self.domain,
         )

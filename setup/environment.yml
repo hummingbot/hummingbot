@@ -28,7 +28,7 @@ dependencies:
   - cachetools>=5.3.1
   - commlib-py>=0.11
   - cryptography>=41.0.2
-  - injective-py==1.10.*
+  - injective-py==1.11.*
   - eth-account>=0.13.0
   - msgpack-python
   - numba>=0.60.0

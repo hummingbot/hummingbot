@@ -74,8 +74,8 @@ class MexcAPIOrderBookDataSource(OrderBookTrackerDataSource):
             depth_params = []
             for trading_pair in self._trading_pairs:
                 symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                trade_params.append(f"spot@public.deals.v3.api@{symbol}")
-                depth_params.append(f"spot@public.increase.depth.v3.api@{symbol}")
+                trade_params.append(f"{CONSTANTS.PUBLIC_TRADES_ENDPOINT_NAME}@100ms@{symbol}")
+                depth_params.append(f"{CONSTANTS.PUBLIC_DIFF_ENDPOINT_NAME}@100ms@{symbol}")
             payload = {
                 "method": "SUBSCRIPTION",
                 "params": trade_params,
@@ -121,23 +121,23 @@ class MexcAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         if "code" not in raw_message:
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["s"])
-            for sinlge_msg in raw_message['d']['deals']:
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["symbol"])
+            for single_msg in raw_message['publicAggreDeals']['deals']:
                 trade_message = MexcOrderBook.trade_message_from_exchange(
-                    sinlge_msg, timestamp=raw_message['t'], metadata={"trading_pair": trading_pair})
+                    single_msg, timestamp=float(single_msg['time']), metadata={"trading_pair": trading_pair})
                 message_queue.put_nowait(trade_message)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         if "code" not in raw_message:
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["s"])
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["symbol"])
             order_book_message: OrderBookMessage = MexcOrderBook.diff_message_from_exchange(
-                raw_message, raw_message['t'], {"trading_pair": trading_pair})
+                raw_message, timestamp=float(raw_message['sendTime']), metadata={"trading_pair": trading_pair})
             message_queue.put_nowait(order_book_message)
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
         channel = ""
         if "code" not in event_message:
-            event_type = event_message.get("c", "")
+            event_type = event_message.get("channel", "")
             channel = (self._diff_messages_queue_key if CONSTANTS.DIFF_EVENT_TYPE in event_type
                        else self._trade_messages_queue_key)
         return channel
