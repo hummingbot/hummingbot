@@ -1,10 +1,11 @@
+import random
 from decimal import Decimal
 from typing import Any, Dict
 
 from pydantic import ConfigDict, Field, SecretStr
-import random
-from hummingbot.connector.exchange.bitget.bitget_constants import MAX_ORDER_ID_LEN
+
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
+from hummingbot.connector.exchange.bitget.bitget_constants import MAX_ORDER_ID_LEN
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 CENTRALIZED = True
@@ -57,4 +58,4 @@ class BitgetConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="bitget")
 
 
-KEYS = BitgetConfigMap.construct()
+KEYS = BitgetConfigMap.model_construct()
