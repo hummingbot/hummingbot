@@ -1,7 +1,5 @@
 import base64
 import hmac
-import time
-import json
 from typing import Any, Dict, List
 from urllib.parse import urlencode
 
@@ -16,7 +14,7 @@ class BitgetAuth(AuthBase):
         self._secret_key: str = secret_key
         self._passphrase: str = passphrase
         self._time_provider: TimeSynchronizer = time_provider
-        
+
     @staticmethod
     def _union_params(timestamp: str, method: str, request_path: str, body: str) -> str:
         if body in ["None", "null"]:
@@ -26,8 +24,8 @@ class BitgetAuth(AuthBase):
 
     def _generate_signature(self, request_params: str) -> str:
         digest: bytes = hmac.new(
-            bytes(self._secret_key, encoding='utf8'), 
-            bytes(request_params, encoding='utf-8'), 
+            bytes(self._secret_key, encoding='utf8'),
+            bytes(request_params, encoding='utf-8'),
             digestmod='sha256'
         ).digest()
         signature = base64.b64encode(digest).decode().strip()
@@ -39,18 +37,17 @@ class BitgetAuth(AuthBase):
         signature: str = self._generate_signature(
             self._union_params(timestamp, "GET", "/user/verify", "")
         )
-        auth_info = {
+
+        return {
             "apiKey": self._api_key,
             "passphrase": self._passphrase,
             "timestamp": timestamp,
             "sign": signature
         }
 
-        return [auth_info]
-
     async def ws_authenticate(self, request: WSRequest) -> WSRequest:
         return request
-    
+
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
         headers = {
             "Content-Type": "application/json",

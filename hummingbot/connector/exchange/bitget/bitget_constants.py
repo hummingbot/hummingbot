@@ -48,6 +48,8 @@ PLACE_ORDER_ENDPOINT = "/api/v2/spot/trade/place-order"
 USER_FILLS_ENDPOINT = "/api/v2/spot/trade/fills"
 
 PUBLIC_WS_BOOKS = "books"
+PUBLIC_WS_TRADE = "trade"
+PUBLIC_WS_MARKET = "market"
 PUBLIC_WS_PING = "ping"
 PUBLIC_WS_PONG = "pong"
 
@@ -71,7 +73,7 @@ RET_CODE_INVALID_SIGNATURE = "30015"
 RET_CODE_PARAM_ERROR = "30016"
 
 RET_CODES_ORDER_NOT_EXIST = [
-    "40768", "80011", "40819", 
+    "40768", "80011", "40819",
     "43020", "43025", "43001",
     "45057", "31007", "43033"
 ]

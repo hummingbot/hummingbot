@@ -50,7 +50,6 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     @property
     def all_symbols_request_mock_response(self):
-        print(">>> all_symbols_request_mock_response CALLED")
         return {
             "code": "00000",
             "msg": "success",
@@ -280,7 +279,7 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             "action": "snapshot",
             "arg": {
                 "instType": "SPOT",
-                "channel": "account",
+                "channel": CONSTANTS.WS_ACCOUNT_ENDPOINT,
                 "coin": "default"
             },
             "data": [
@@ -344,7 +343,7 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     @property
     def expected_partial_fill_price(self) -> Decimal:
-        return Decimal(10500)
+        return Decimal("10500.0")
 
     @property
     def expected_partial_fill_amount(self) -> Decimal:
@@ -358,16 +357,16 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     @property
     def expected_fill_trade_id(self) -> str:
-        return 30000
+        return "12345678"
 
     def exchange_symbol_for_tokens(self, base_token: str, quote_token: str) -> str:
         return base_token + quote_token
 
     def create_exchange_instance(self):
         return BitgetExchange(
-            bitget_api_key="testAPIKey",
-            bitget_secret_key="testSecret",
-            bitget_passphrase="testPassphrase",
+            bitget_api_key="test_api_key",
+            bitget_secret_key="test_secret_key",
+            bitget_passphrase="test_passphrase",
             trading_pairs=[self.trading_pair],
         )
 
@@ -378,7 +377,7 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         self.assertIn("ACCESS-TIMESTAMP", request_data)
         self.assertIn("ACCESS-KEY", request_data)
         self.assertIn("ACCESS-SIGN", request_data)
-        self.assertEqual("testAPIKey", request_data["ACCESS-KEY"])
+        self.assertEqual("test_api_key", request_data["ACCESS-KEY"])
 
     def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = json.loads(request_call.kwargs["data"])
@@ -456,21 +455,6 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         all_urls.append(url)
         return all_urls
 
-    def configure_order_not_found_error_order_status_response(
-            self, order: InFlightOrder, mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> List[str]:
-        url = web_utils.private_rest_url(CONSTANTS.ORDER_INFO_ENDPOINT)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        response = {
-            "code": "00000",
-            "msg": "success",
-            "requestTime": 1695808949356,
-            "data": []
-        }
-        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
-        return [url]
-
     def configure_order_not_found_error_cancelation_response(
             self, order: InFlightOrder, mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None
@@ -478,8 +462,8 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         url = web_utils.private_rest_url(CONSTANTS.CANCEL_ORDER_ENDPOINT)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = {
-            "code": "43001",
-            "msg": "订单不存在",  # "Order does not exist"
+            "code": "31007",
+            "msg": "Order does not exist",
             "requestTime": 1695808949356,
             "data": None
         }
@@ -490,12 +474,12 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             self,
             order: InFlightOrder,
             mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> List[str]:
         url = web_utils.private_rest_url(CONSTANTS.ORDER_INFO_ENDPOINT)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_status_request_completely_filled_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
-        return url
+        return [url]
 
     def configure_canceled_order_status_response(
         self,
@@ -515,15 +499,12 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         order: InFlightOrder,
         mock_api: aioresponses,
         callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> str:
-        """
-        :return: the URL configured
-        """
+    ) -> List[str]:
         url = web_utils.private_rest_url(CONSTANTS.ORDER_INFO_ENDPOINT)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_status_request_open_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
-        return url
+        return [url]
 
     def configure_http_error_order_status_response(
             self,
@@ -545,6 +526,21 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         response = self._order_status_request_partially_filled_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
         return url
+
+    def configure_order_not_found_error_order_status_response(
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> List[str]:
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_INFO_ENDPOINT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        response = {
+            "code": "00000",
+            "msg": "success",
+            "requestTime": 1695808949356,
+            "data": []
+        }
+        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
+        return [url]
 
     def configure_partial_fill_trade_response(
             self,
@@ -755,7 +751,7 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     def _order_cancelation_request_successful_mock_response(
         self, order: InFlightOrder
     ) -> Dict[str, Any]:
-        exchange_order_id = order.exchange_order_id or "1234567890"
+        exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
         return {
             "code": "00000",
             "msg": "success",
@@ -767,7 +763,7 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         }
 
     def _order_fills_request_full_fill_mock_response(self, order: InFlightOrder) -> Dict[str, Any]:
-        exchange_order_id = order.exchange_order_id or "1234567890"
+        exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
         return {
             "code": "00000",
             "msg": "success",
@@ -796,7 +792,7 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     def _order_fills_request_partial_fill_mock_response(
         self, order: InFlightOrder
     ) -> Dict[str, Any]:
-        exchange_order_id = order.exchange_order_id or "1234567890"
+        exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
         return {
             "code": "00000",
             "msg": "success",
@@ -825,7 +821,7 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         }
 
     def _order_status_request_canceled_mock_response(self, order: InFlightOrder) -> Dict[str, Any]:
-        exchange_order_id = order.exchange_order_id or "1234567890"
+        exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
         return {
             "code": "00000",
             "msg": "success",
@@ -857,7 +853,7 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     def _order_status_request_completely_filled_mock_response(
         self, order: InFlightOrder
     ) -> Dict[str, Any]:
-        exchange_order_id = order.exchange_order_id or "1234567890"
+        exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
         return {
             "code": "00000",
             "msg": "success",
@@ -887,7 +883,7 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         }
 
     def _order_status_request_open_mock_response(self, order: InFlightOrder) -> Dict[str, Any]:
-        exchange_order_id = order.exchange_order_id or "1234567890"
+        exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
         return {
             "code": "00000",
             "msg": "success",
@@ -919,7 +915,7 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     def _order_status_request_partially_filled_mock_response(
         self, order: InFlightOrder
     ) -> Dict[str, Any]:
-        exchange_order_id = order.exchange_order_id or "1234567890"
+        exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
         return {
             "code": "00000",
             "msg": "success",
@@ -954,146 +950,23 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         """
         Check the order status update is correctly parsed
         """
-        inflight_order = InFlightOrder(
-            client_order_id = "123456789",
-            trading_pair = self.trading_pair,
-            trade_type = TradeType.BUY,
-            order_type = OrderType.MARKET,
-            creation_timestamp = 123456789,
-            price = Decimal("1000.0"),
-            amount = Decimal("10.0"),
+        order_id = self.client_order_id_prefix + "1"
+        self.exchange.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id=self.expected_exchange_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.BUY,
+            price=Decimal("1000"),
+            amount=Decimal("1"),
             initial_state = OrderState.OPEN
         )
-
+        order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
         order_update_response = self._order_status_request_completely_filled_mock_response(
-            order=inflight_order
+            order=order
         )
-
-        order = self.exchange._create_order_update(
-            order=inflight_order,
+        order_update = self.exchange._create_order_update(
+            order=order,
             order_update_response=order_update_response
         )
-        self.assertEqual(order.new_state, OrderState.FILLED)
-
-    # @aioresponses()
-    # def test_create_market_buy_order_failure(self, mock_api):
-    #     self.exchange._set_current_timestamp(1640780000)
-    #     url = self.order_creation_url
-    #     regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-    #     response = {
-    #         "code": "40014",
-    #         "msg": "Insufficient balance",
-    #         "requestTime": 1695808949356,
-    #         "data": {}
-    #     }
-    #     mock_api.post(regex_url, body=json.dumps(response), status=400)
-
-    #     order_id = self.client_order_id_prefix + "1"
-    #     amount = Decimal("1")
-    #     with self.assertRaises(IOError) as cm:
-    #         self.async_run_with_timeout(
-    #             self.exchange._create_order(
-    #                 trade_type=TradeType.BUY,
-    #                 order_id=order_id,
-    #                 trading_pair=self.trading_pair,
-    #                 amount=amount,
-    #                 order_type=OrderType.MARKET
-    #             )
-    #         )
-    #     self.assertIn("Insufficient balance", str(cm.exception))
-
-    #     self.assertNotIn(order_id, self.exchange.in_flight_orders)
-
-    # @aioresponses()
-    # def test_websocket_trade_event_full_fill(self, mock_api):
-    #     self.exchange._set_current_timestamp(1640780000)
-    #     order_id = self.client_order_id_prefix + "1"
-    #     self.exchange.start_tracking_order(
-    #         order_id=order_id,
-    #         exchange_order_id=str(self.expected_exchange_order_id),
-    #         trading_pair=self.trading_pair,
-    #         order_type=OrderType.LIMIT,
-    #         trade_type=TradeType.BUY,
-    #         price=Decimal("10000"),
-    #         amount=Decimal("1"),
-    #     )
-    #     order = self.exchange.in_flight_orders[order_id]
-
-    #     trade_event = self.trade_event_for_full_fill_websocket_update(order)
-    #     self.exchange._process_fill_event_message(trade_event["data"][0])
-
-    #     self.assertTrue(order.is_filled)
-    #     self.assertTrue(order.is_done)
-    #     self.assertEqual(OrderState.FILLED, order.current_state)
-
-    # @aioresponses()
-    # def test_update_trading_rules_with_invalid_pair(self, mock_api):
-    #     self.exchange._set_current_timestamp(1640780000)
-    #     url = self.trading_rules_url
-    #     regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-    #     invalid_pair, response = self.all_symbols_including_invalid_pair_mock_response
-    #     # Trigger error by making invalid data (e.g., missing baseCoin)
-    #     response["data"][1].pop("baseCoin", None)
-    #     mock_api.get(regex_url, body=json.dumps(response))
-
-    #     self.async_run_with_timeout(self.exchange._update_trading_rules())
-
-    #     self.assertIn(self.trading_pair, self.exchange.trading_rules)
-    #     self.assertNotIn("INVALIDPAIR", self.exchange.trading_rules)  # Skipped due to error
-    #     self.assertTrue(self.log_has("Error parsing the trading pair rule", self.exchange.logger))
-
-    # @aioresponses()
-    # async def test_update_order_status_when_request_fails_marks_order_as_not_found(self, mock_api):
-    #     self.exchange._set_current_timestamp(1640780000)
-
-    #     self.exchange.start_tracking_order(
-    #         order_id=self.client_order_id_prefix + "1",
-    #         exchange_order_id=str(self.expected_exchange_order_id),
-    #         trading_pair=self.trading_pair,
-    #         order_type=OrderType.LIMIT,
-    #         trade_type=TradeType.BUY,
-    #         price=Decimal("10000"),
-    #         amount=Decimal("1"),
-    #     )
-    #     order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
-
-    #     url = self.configure_http_error_order_status_response(
-    #         order=order,
-    #         mock_api=mock_api)
-
-    #     self.async_run_with_timeout(self.exchange._update_order_status())
-
-    #     if url:
-    #         order_status_request = self._all_executed_requests(mock_api, url)[0]
-    #         self.validate_auth_credentials_present(order_status_request)
-    #         self.validate_order_status_request(
-    #             order=order,
-    #             request_call=order_status_request)
-
-    #     self.assertTrue(order.is_open)
-    #     self.assertFalse(order.is_filled)
-    #     self.assertFalse(order.is_done)
-
-    #     self.assertEqual(
-    #         1, self.exchange._order_tracker._order_not_found_records[order.client_order_id]
-    #     )
-        # def test_time_synchronizer_related_request_error_detection(self):
-    #     exception = IOError("Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
-    #                         'Error: {"code":30007,"msg":"Header X-BM-TIMESTAMP range. Within a minute"}')
-    #     self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
-
-    #     exception = IOError("Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
-    #                         'Error: {"code":30008,"msg":"Header X-BM-TIMESTAMP invalid format"}')
-    #     self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
-
-    #     exception = IOError("Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
-    #                         'Error: {"code":30000,"msg":"Header X-BM-TIMESTAMP range. Within a minute"}')
-    #     self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
-
-    #     exception = IOError("Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
-    #                         'Error: {"code":30007,"msg":"Other message"}')
-    #     self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
-
-    #     exception = IOError("Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
-    #                         'Error: {"code":30008,"msg":"Other message"}')
-    #     self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
+        self.assertEqual(order_update.new_state, OrderState.FILLED)

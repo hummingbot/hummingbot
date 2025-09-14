@@ -7,8 +7,8 @@ from bidict import bidict
 import hummingbot.connector.exchange.bitget.bitget_constants as CONSTANTS
 from hummingbot.connector.exchange.bitget import bitget_utils, bitget_web_utils as web_utils
 from hummingbot.connector.exchange.bitget.bitget_api_order_book_data_source import BitgetAPIOrderBookDataSource
+from hummingbot.connector.exchange.bitget.bitget_api_user_stream_data_source import BitgetAPIUserStreamDataSource
 from hummingbot.connector.exchange.bitget.bitget_auth import BitgetAuth
-from hummingbot.connector.exchange.bitget.bitget_user_stream_data_source import BitgetUserStreamDataSource
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
@@ -258,7 +258,7 @@ class BitgetExchange(ExchangePyBase):
         )
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
-        return BitgetUserStreamDataSource(
+        return BitgetAPIUserStreamDataSource(
             auth=self._auth,
             trading_pairs=self._trading_pairs,
             connector=self,
@@ -476,9 +476,11 @@ class BitgetExchange(ExchangePyBase):
         try:
             order_id = str(fill_msg.get("orderId", ""))
             trade_id = str(fill_msg.get("tradeId", ""))
-            tracked_order = self._order_tracker.fetch_order(exchange_order_id=order_id)
+            fillable_order = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(
+                order_id
+            )
 
-            if not tracked_order:
+            if not fillable_order:
                 self.logger().debug(
                     f"Ignoring fill message for order {order_id}: not in in_flight_orders."
                 )
@@ -486,14 +488,14 @@ class BitgetExchange(ExchangePyBase):
 
             trade_update = self._parse_trade_update(
                 trade_msg=fill_msg,
-                tracked_order=tracked_order,
+                tracked_order=fillable_order,
                 source_type='websocket'
             )
             if trade_update:
                 self._order_tracker.process_trade_update(trade_update)
 
                 self.logger().debug(
-                    f"Processed fill event for order {tracked_order.client_order_id}: "
+                    f"Processed fill event for order {fillable_order.client_order_id}: "
                     f"size={fill_msg.get('size')}, price={fill_msg.get('priceAvg')}, trade_id={trade_id}"
                 )
         except Exception as e:
