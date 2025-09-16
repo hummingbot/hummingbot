@@ -1722,6 +1722,8 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                          create_event.timestamp)
         self.assertEqual(self.trading_pair, create_event.trading_pair)
         self.assertEqual(OrderType.LIMIT, create_event.type)
+        self.assertEqual(Decimal("100"), create_event.amount)
+        self.assertEqual(Decimal("10000"), create_event.price)
         self.assertEqual(order_id, create_event.order_id)
         self.assertEqual(str(self.expected_exchange_order_id),
                          create_event.exchange_order_id)
