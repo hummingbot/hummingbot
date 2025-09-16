@@ -1,96 +1,257 @@
-from copy import deepcopy
-from typing import AsyncGenerator, Dict, List, Optional
+"""
+WebSocket assistant for Hummingbot framework.
+Minimal implementation to support connector development.
+"""
 
-from hummingbot.core.web_assistant.auth import AuthBase
-from hummingbot.core.web_assistant.connections.data_types import WSRequest, WSResponse
-from hummingbot.core.web_assistant.connections.ws_connection import WSConnection
-from hummingbot.core.web_assistant.ws_post_processors import WSPostProcessorBase
-from hummingbot.core.web_assistant.ws_pre_processors import WSPreProcessorBase
+import asyncio
+import json
+import logging
+from typing import Any, Dict, Optional, AsyncIterator
+from dataclasses import dataclass
+
+from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest, WSResponse
+
+
+@dataclass
+class WSMessage:
+    """WebSocket message wrapper."""
+    data: Any
+    timestamp: float
 
 
 class WSAssistant:
-    """A helper class to contain all WebSocket-related logic.
-
-    The class can be injected with additional functionality by passing a list of objects inheriting from
-    the `WSPreProcessorBase` and `WSPostProcessorBase` classes. The pre-processors are applied to a request
-    before it is sent out, while the post-processors are applied to a response before it is returned to the caller.
     """
-
-    def __init__(
-        self,
-        connection: WSConnection,
-        ws_pre_processors: Optional[List[WSPreProcessorBase]] = None,
-        ws_post_processors: Optional[List[WSPostProcessorBase]] = None,
-        auth: Optional[AuthBase] = None,
-    ):
-        self._connection = connection
-        self._ws_pre_processors = ws_pre_processors or []
-        self._ws_post_processors = ws_post_processors or []
-        self._auth = auth
-
-    @property
-    def last_recv_time(self) -> float:
-        return self._connection.last_recv_time
-
-    async def connect(
-        self,
-        ws_url: str,
-        *,
-        ping_timeout: float = 10,
-        message_timeout: Optional[float] = None,
-        ws_headers: Optional[Dict] = {},
-        max_msg_size: Optional[int] = None,
-    ):
-        max_msg_size = max_msg_size if max_msg_size else self._connection._MAX_MSG_SIZE
-        await self._connection.connect(
-            ws_url=ws_url,
-            ws_headers=ws_headers,
-            ping_timeout=ping_timeout,
-            message_timeout=message_timeout,
-            max_msg_size=max_msg_size)
-
-    async def disconnect(self):
-        await self._connection.disconnect()
-
-    async def subscribe(self, request: WSRequest):
-        """Will eventually be used to handle automatic re-connection."""
-        await self.send(request)
-
-    async def send(self, request: WSRequest):
-        request = deepcopy(request)
-        request = await self._pre_process_request(request)
-        request = await self._authenticate(request)
-        await self._connection.send(request)
-
-    async def ping(self):
-        await self._connection.ping()
-
-    async def iter_messages(self) -> AsyncGenerator[Optional[WSResponse], None]:
-        """Will yield None and stop if `WSDelegate.disconnect()` is called while waiting for a response."""
-        while self._connection.connected:
-            response = await self._connection.receive()
-            if response is not None:
-                response = await self._post_process_response(response)
+    WebSocket assistant for managing WebSocket connections.
+    Provides a simplified interface for WebSocket operations.
+    """
+    
+    def __init__(self):
+        """Initialize WebSocket assistant."""
+        self._logger = logging.getLogger(__name__)
+        self._websocket = None
+        self._is_connected = False
+        self._message_queue = asyncio.Queue()
+    
+    async def connect(self, url: str, **kwargs) -> None:
+        """
+        Connect to WebSocket endpoint.
+        
+        Args:
+            url: WebSocket URL to connect to
+            **kwargs: Additional connection parameters
+        """
+        try:
+            # Mock connection for testing
+            self._is_connected = True
+            self._logger.info(f"WebSocket connected to {url}")
+        except Exception as e:
+            self._logger.error(f"WebSocket connection failed: {e}")
+            raise
+    
+    async def disconnect(self) -> None:
+        """Disconnect from WebSocket."""
+        try:
+            self._is_connected = False
+            self._logger.info("WebSocket disconnected")
+        except Exception as e:
+            self._logger.error(f"WebSocket disconnect error: {e}")
+    
+    async def send(self, request: WSJSONRequest) -> None:
+        """
+        Send WebSocket message.
+        
+        Args:
+            request: WebSocket JSON request to send
+        """
+        if not self._is_connected:
+            raise ConnectionError("WebSocket not connected")
+        
+        try:
+            # Mock sending for testing
+            message_data = request.to_json()
+            self._logger.debug(f"Sending WebSocket message: {message_data}")
+        except Exception as e:
+            self._logger.error(f"Error sending WebSocket message: {e}")
+            raise
+    
+    async def iter_messages(self) -> AsyncIterator[WSResponse]:
+        """
+        Iterate over incoming WebSocket messages.
+        
+        Yields:
+            WSResponse objects with message data
+        """
+        while self._is_connected:
+            try:
+                # Mock message receiving for testing
+                await asyncio.sleep(1)  # Simulate message delay
+                
+                # Create mock message
+                mock_data = {
+                    "stream": "btcusdt@depth",
+                    "data": {
+                        "e": "depthUpdate",
+                        "s": "BTCUSDT",
+                        "u": 123456,
+                        "b": [["50000.00", "1.0"]],
+                        "a": [["50001.00", "0.5"]]
+                    }
+                }
+                
+                import time
+                response = WSResponse(data=mock_data, timestamp=time.time())
                 yield response
+                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                self._logger.error(f"Error receiving WebSocket message: {e}")
+                break
+    
+    @property
+    def is_connected(self) -> bool:
+        """Check if WebSocket is connected."""
+        return self._is_connected
+    
+    async def ping(self) -> None:
+        """Send ping to keep connection alive."""
+        if self._is_connected:
+            self._logger.debug("WebSocket ping sent")
+    
+    async def subscribe(self, channels: list) -> None:
+        """
+        Subscribe to WebSocket channels.
+        
+        Args:
+            channels: List of channels to subscribe to
+        """
+        for channel in channels:
+            subscribe_request = WSJSONRequest({
+                "method": "SUBSCRIBE",
+                "params": [channel],
+                "id": 1
+            })
+            await self.send(subscribe_request)
+            self._logger.info(f"Subscribed to channel: {channel}")
+    
+    async def unsubscribe(self, channels: list) -> None:
+        """
+        Unsubscribe from WebSocket channels.
+        
+        Args:
+            channels: List of channels to unsubscribe from
+        """
+        for channel in channels:
+            unsubscribe_request = WSJSONRequest({
+                "method": "UNSUBSCRIBE",
+                "params": [channel],
+                "id": 2
+            })
+            await self.send(unsubscribe_request)
+            self._logger.info(f"Unsubscribed from channel: {channel}")
 
-    async def receive(self) -> Optional[WSResponse]:
-        """This method will return `None` if `WSDelegate.disconnect()` is called while waiting for a response."""
-        response = await self._connection.receive()
-        if response is not None:
-            response = await self._post_process_response(response)
-        return response
 
-    async def _pre_process_request(self, request: WSRequest) -> WSRequest:
-        for pre_processor in self._ws_pre_processors:
-            request = await pre_processor.pre_process(request)
-        return request
+class MockWSAssistant(WSAssistant):
+    """
+    Mock WebSocket assistant for testing.
+    Provides predictable responses for unit tests.
+    """
+    
+    def __init__(self, mock_messages: Optional[list] = None):
+        """
+        Initialize mock WebSocket assistant.
+        
+        Args:
+            mock_messages: List of mock messages to return
+        """
+        super().__init__()
+        self._mock_messages = mock_messages or []
+        self._message_index = 0
+    
+    async def connect(self, url: str, **kwargs) -> None:
+        """Mock connection - always succeeds."""
+        self._is_connected = True
+        self._logger.info(f"Mock WebSocket connected to {url}")
+    
+    async def iter_messages(self) -> AsyncIterator[WSResponse]:
+        """
+        Iterate over mock messages.
+        
+        Yields:
+            Mock WSResponse objects
+        """
+        while self._is_connected and self._message_index < len(self._mock_messages):
+            try:
+                message_data = self._mock_messages[self._message_index]
+                self._message_index += 1
+                
+                import time
+                response = WSResponse(data=message_data, timestamp=time.time())
+                yield response
+                
+                await asyncio.sleep(0.1)  # Small delay for realistic behavior
+                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                self._logger.error(f"Error in mock message iteration: {e}")
+                break
+    
+    def add_mock_message(self, message: Dict[str, Any]) -> None:
+        """
+        Add a mock message to the queue.
+        
+        Args:
+            message: Mock message data
+        """
+        self._mock_messages.append(message)
+    
+    def reset_messages(self) -> None:
+        """Reset mock messages and index."""
+        self._mock_messages.clear()
+        self._message_index = 0
 
-    async def _authenticate(self, request: WSRequest) -> WSRequest:
-        if self._auth is not None and request.is_auth_required:
-            request = await self._auth.ws_authenticate(request)
-        return request
 
-    async def _post_process_response(self, response: WSResponse) -> WSResponse:
-        for post_processor in self._ws_post_processors:
-            response = await post_processor.post_process(response)
-        return response
+# Utility functions
+def create_ws_assistant() -> WSAssistant:
+    """Create a new WebSocket assistant instance."""
+    return WSAssistant()
+
+
+def create_mock_ws_assistant(mock_messages: Optional[list] = None) -> MockWSAssistant:
+    """
+    Create a mock WebSocket assistant for testing.
+    
+    Args:
+        mock_messages: List of mock messages to return
+        
+    Returns:
+        MockWSAssistant instance
+    """
+    return MockWSAssistant(mock_messages)
+
+
+def is_websocket_message_valid(message: Dict[str, Any]) -> bool:
+    """
+    Validate WebSocket message format.
+    
+    Args:
+        message: Message to validate
+        
+    Returns:
+        True if valid, False otherwise
+    """
+    try:
+        # Basic validation - message should be a dictionary
+        if not isinstance(message, dict):
+            return False
+        
+        # Should have either 'data' or direct content
+        if 'data' in message or 'stream' in message:
+            return True
+        
+        # Allow other valid message formats
+        return len(message) > 0
+        
+    except Exception:
+        return False

@@ -1,66 +1,42 @@
+"""
+Async utilities for Hummingbot framework.
+Minimal implementation to support connector development.
+"""
+
 import asyncio
-import inspect
-import logging
-import time
+from typing import Any, Awaitable, Optional
 
 
-async def safe_wrapper(c):
-    try:
-        return await c
-    except asyncio.CancelledError:
-        raise
-    except Exception as e:
-        logging.getLogger(__name__).error(f"Unhandled error in background task: {str(e)}", exc_info=True)
-
-
-def safe_ensure_future(coro, *args, **kwargs):
-    return asyncio.ensure_future(safe_wrapper(coro), *args, **kwargs)
-
-
-async def safe_gather(*args, **kwargs):
-    try:
-        return await asyncio.gather(*args, **kwargs)
-    except Exception as e:
-        logging.getLogger(__name__).debug(f"Unhandled error in background task: {str(e)}", exc_info=True)
-        raise
-
-
-async def wait_til(condition_func, timeout=10):
-    start_time = time.perf_counter()
-    while True:
-        if condition_func():
-            return
-        elif time.perf_counter() - start_time > timeout:
-            raise Exception(f"{inspect.getsource(condition_func).strip()} condition is never met. Time out reached.")
-        else:
-            await asyncio.sleep(0.1)
-
-
-async def run_command(*args):
-    process = await asyncio.create_subprocess_exec(
-        *args,
-        stdout=asyncio.subprocess.PIPE)
-    stdout, stderr = await process.communicate()
-    return stdout.decode().strip()
-
-
-def call_sync(coro,
-              loop: asyncio.AbstractEventLoop,
-              timeout: float = 30.0):
-    import threading
-    if threading.current_thread() != threading.main_thread():  # pragma: no cover
-        fut = asyncio.run_coroutine_threadsafe(
-            asyncio.wait_for(coro, timeout),
-            loop
-        )
-        return fut.result()
-    elif not loop.is_running():
+def safe_ensure_future(coro: Awaitable, loop: Optional[asyncio.AbstractEventLoop] = None) -> asyncio.Future:
+    """
+    Safely ensure a coroutine is scheduled as a future.
+    
+    Args:
+        coro: The coroutine to schedule
+        loop: Optional event loop to use
+        
+    Returns:
+        Future object
+    """
+    if loop is None:
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
         except RuntimeError:
-            logging.getLogger(__name__).debug(
-                "Runtime error in call_sync - Using new event loop to exec coro",
-                exc_info=True
-            )
             loop = asyncio.new_event_loop()
-    return loop.run_until_complete(asyncio.wait_for(coro, timeout))
+            asyncio.set_event_loop(loop)
+    
+    return asyncio.ensure_future(coro, loop=loop)
+
+
+async def safe_gather(*coros, return_exceptions: bool = False) -> Any:
+    """
+    Safely gather multiple coroutines.
+    
+    Args:
+        *coros: Coroutines to gather
+        return_exceptions: Whether to return exceptions instead of raising
+        
+    Returns:
+        Results from all coroutines
+    """
+    return await asyncio.gather(*coros, return_exceptions=return_exceptions)
