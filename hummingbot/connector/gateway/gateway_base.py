@@ -761,15 +761,12 @@ class GatewayBase(ConnectorBase):
             # Create approval order ID
             order_id = f"approve-{token_symbol.lower()}-{get_tracking_nonce()}"
 
-            # Extract base connector name if it's in format like "uniswap/amm"
-            base_connector = self._connector_name.split("/")[0] if "/" in self._connector_name else self._connector_name
-
             # Call gateway to approve token
             approve_result = await self._get_gateway_instance().approve_token(
                 network=self.network,
                 address=self.address,
                 token=token_symbol,
-                spender=spender or base_connector,
+                spender=spender or self._connector_name,
                 amount=str(amount) if amount else None
             )
 
