@@ -189,7 +189,6 @@ class GatewayLPCommand:
 
             # Create temporary connector to fetch pool info
             lp_connector = GatewayLp(
-                client_config_map=self.client_config_map,
                 connector_name=connector,
                 chain=chain,
                 network=network,
@@ -280,7 +279,6 @@ class GatewayLPCommand:
 
             # 4. Create LP connector instance to fetch positions
             lp_connector = GatewayLp(
-                client_config_map=self.client_config_map,
                 connector_name=connector,
                 chain=chain,
                 network=network,
@@ -424,7 +422,6 @@ class GatewayLPCommand:
 
                 # 6. Create LP connector instance and start network
                 lp_connector = GatewayLp(
-                    client_config_map=self.client_config_map,
                     connector_name=connector,
                     chain=chain,
                     network=network,
@@ -754,7 +751,6 @@ class GatewayLPCommand:
 
             # 4. Create LP connector instance (needed for getting positions)
             lp_connector = GatewayLp(
-                client_config_map=self.client_config_map,
                 connector_name=connector,
                 chain=chain,
                 network=network,
@@ -1006,7 +1002,6 @@ class GatewayLPCommand:
 
             # 4. Create LP connector instance to fetch positions
             lp_connector = GatewayLp(
-                client_config_map=self.client_config_map,
                 connector_name=connector,
                 chain=chain,
                 network=network,

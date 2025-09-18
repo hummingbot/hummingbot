@@ -1,6 +1,6 @@
 import asyncio
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from bidict import bidict
 
@@ -22,9 +22,6 @@ from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
-if TYPE_CHECKING:
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
-
 
 class MexcExchange(ExchangePyBase):
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
@@ -32,9 +29,10 @@ class MexcExchange(ExchangePyBase):
     web_utils = web_utils
 
     def __init__(self,
-                 client_config_map: "ClientConfigAdapter",
                  mexc_api_key: str,
                  mexc_api_secret: str,
+                 balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
+                 rate_limits_share_pct: Decimal = Decimal("100"),
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True,
                  domain: str = CONSTANTS.DEFAULT_DOMAIN,
@@ -45,7 +43,7 @@ class MexcExchange(ExchangePyBase):
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._last_trades_poll_mexc_timestamp = 1.0
-        super().__init__(client_config_map)
+        super().__init__(balance_asset_limit, rate_limits_share_pct)
 
     @staticmethod
     def mexc_order_type(order_type: OrderType) -> str:
@@ -193,7 +191,7 @@ class MexcExchange(ExchangePyBase):
                 data=api_params,
                 is_auth_required=True)
             o_id = str(order_result["orderId"])
-            transact_time = order_result["transactTime"] * 1e-3
+            transact_time = float(order_result["transactTime"]) * 1e-3
         except IOError as e:
             error_description = str(e)
             is_server_overloaded = ("status is 503" in error_description
@@ -224,7 +222,7 @@ class MexcExchange(ExchangePyBase):
         retval = []
         for rule in filter(mexc_utils.is_exchange_information_valid, trading_pair_rules):
             try:
-                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule.get("symbol"))
+                trading_pair = f'{rule.get("baseAsset")}-{rule.get("quoteAsset")}'
                 min_order_size = Decimal(rule.get("baseSizePrecision"))
                 min_price_inc = Decimal(f"1e-{rule['quotePrecision']}")
                 min_amount_inc = Decimal(f"1e-{rule['baseAssetPrecision']}")
@@ -262,17 +260,19 @@ class MexcExchange(ExchangePyBase):
         ]
         async for event_message in self._iter_user_event_queue():
             try:
-                channel: str = event_message.get("c", None)
-                results: Dict[str, Any] = event_message.get("d", {})
+                channel: str = event_message.get("channel", None)
                 if "code" not in event_message and channel not in user_channels:
                     self.logger().error(
                         f"Unexpected message in user stream: {event_message}.", exc_info=True)
                     continue
                 if channel == CONSTANTS.USER_TRADES_ENDPOINT_NAME:
+                    results: Dict[str, Any] = event_message.get("privateDeals", {})
                     self._process_trade_message(results)
                 elif channel == CONSTANTS.USER_ORDERS_ENDPOINT_NAME:
-                    self._process_order_message(event_message)
+                    results: Dict[str, Any] = event_message.get("privateOrders", {})
+                    self._process_order_message(results)
                 elif channel == CONSTANTS.USER_BALANCE_ENDPOINT_NAME:
+                    results: Dict[str, Any] = event_message.get("privateAccount", {})
                     self._process_balance_message_ws(results)
 
             except asyncio.CancelledError:
@@ -283,9 +283,9 @@ class MexcExchange(ExchangePyBase):
                 await self._sleep(5.0)
 
     def _process_balance_message_ws(self, account):
-        asset_name = account["a"]
-        self._account_available_balances[asset_name] = Decimal(str(account["f"]))
-        self._account_balances[asset_name] = Decimal(str(account["f"])) + Decimal(str(account["l"]))
+        asset_name = account["vcoinName"]
+        self._account_available_balances[asset_name] = Decimal(str(account["balanceAmount"]))
+        self._account_balances[asset_name] = Decimal(str(account["balanceAmount"])) + Decimal(str(account["frozenAmount"]))
 
     def _create_trade_update_with_order_fill_data(
             self,
@@ -295,27 +295,27 @@ class MexcExchange(ExchangePyBase):
         fee = TradeFeeBase.new_spot_fee(
             fee_schema=self.trade_fee_schema(),
             trade_type=order.trade_type,
-            percent_token=order_fill["N"],
+            percent_token=order_fill["feeCurrency"],
             flat_fees=[TokenAmount(
-                amount=Decimal(order_fill["n"]),
-                token=order_fill["N"]
+                amount=Decimal(order_fill["feeAmount"]),
+                token=order_fill["feeCurrency"]
             )]
         )
         trade_update = TradeUpdate(
-            trade_id=str(order_fill["t"]),
+            trade_id=str(order_fill["tradeId"]),
             client_order_id=order.client_order_id,
             exchange_order_id=order.exchange_order_id,
             trading_pair=order.trading_pair,
             fee=fee,
-            fill_base_amount=Decimal(order_fill["v"]),
-            fill_quote_amount=Decimal(order_fill["a"]),
-            fill_price=Decimal(order_fill["p"]),
-            fill_timestamp=order_fill["T"] * 1e-3,
+            fill_base_amount=Decimal(order_fill["quantity"]),
+            fill_quote_amount=Decimal(order_fill["amount"]),
+            fill_price=Decimal(order_fill["price"]),
+            fill_timestamp=float(order_fill["time"]) * 1e-3,
         )
         return trade_update
 
     def _process_trade_message(self, trade: Dict[str, Any], client_order_id: Optional[str] = None):
-        client_order_id = client_order_id or str(trade["c"])
+        client_order_id = client_order_id or str(trade["clientOrderId"])
         tracked_order = self._order_tracker.all_fillable_orders.get(client_order_id)
         if tracked_order is None:
             self.logger().debug(f"Ignoring trade message with id {client_order_id}: not in in_flight_orders.")
@@ -326,25 +326,24 @@ class MexcExchange(ExchangePyBase):
             self._order_tracker.process_trade_update(trade_update)
 
     def _create_order_update_with_order_status_data(self, order_status: Dict[str, Any], order: InFlightOrder):
-        client_order_id = str(order_status["d"].get("c", ""))
+        client_order_id = str(order_status.get("clientId", ""))
         order_update = OrderUpdate(
             trading_pair=order.trading_pair,
-            update_timestamp=int(order_status["t"] * 1e-3),
-            new_state=CONSTANTS.WS_ORDER_STATE[order_status["d"]["s"]],
+            update_timestamp=float(order_status["createTime"]) * 1e-3,
+            new_state=CONSTANTS.WS_ORDER_STATE[order_status["status"]],
             client_order_id=client_order_id,
-            exchange_order_id=str(order_status["d"]["i"]),
+            exchange_order_id=str(order_status["id"]),
         )
         return order_update
 
-    def _process_order_message(self, raw_msg: Dict[str, Any]):
-        order_msg = raw_msg.get("d", {})
-        client_order_id = str(order_msg.get("c", ""))
+    def _process_order_message(self, order: Dict[str, Any]):
+        client_order_id = str(order.get("clientId", ""))
         tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
         if not tracked_order:
             self.logger().debug(f"Ignoring order message with id {client_order_id}: not in in_flight_orders.")
             return
 
-        order_update = self._create_order_update_with_order_status_data(order_status=raw_msg, order=tracked_order)
+        order_update = self._create_order_update_with_order_status_data(order_status=order, order=tracked_order)
         self._order_tracker.process_order_update(order_update=order_update)
 
     async def _update_order_fills_from_trades(self):
@@ -414,7 +413,7 @@ class MexcExchange(ExchangePyBase):
                             fill_base_amount=Decimal(trade["qty"]),
                             fill_quote_amount=Decimal(trade["quoteQty"]),
                             fill_price=Decimal(trade["price"]),
-                            fill_timestamp=trade["time"] * 1e-3,
+                            fill_timestamp=float(trade["time"]) * 1e-3,
                         )
                         self._order_tracker.process_trade_update(trade_update)
                     elif self.is_confirmed_new_order_filled_event(str(trade["id"]), exchange_order_id, trading_pair):
@@ -478,7 +477,7 @@ class MexcExchange(ExchangePyBase):
                     fill_base_amount=Decimal(trade["qty"]),
                     fill_quote_amount=Decimal(trade["quoteQty"]),
                     fill_price=Decimal(trade["price"]),
-                    fill_timestamp=trade["time"] * 1e-3,
+                    fill_timestamp=float(trade["time"]) * 1e-3,
                 )
                 trade_updates.append(trade_update)
 
@@ -500,7 +499,7 @@ class MexcExchange(ExchangePyBase):
             client_order_id=tracked_order.client_order_id,
             exchange_order_id=str(updated_order_data["orderId"]),
             trading_pair=tracked_order.trading_pair,
-            update_timestamp=updated_order_data["updateTime"] * 1e-3,
+            update_timestamp=float(updated_order_data["updateTime"]) * 1e-3,
             new_state=new_state,
         )
 

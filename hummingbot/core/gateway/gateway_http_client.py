@@ -1,20 +1,39 @@
+import asyncio
 import logging
 import re
 import ssl
 from decimal import Decimal
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import aiohttp
 from aiohttp import ContentTypeError
 
+from hummingbot.client.config.client_config_map import GatewayConfigMap
 from hummingbot.client.config.security import Security
+from hummingbot.client.settings import (
+    GATEWAY_CHAINS,
+    GATEWAY_CONNECTORS,
+    GATEWAY_ETH_CONNECTORS,
+    GATEWAY_NAMESPACES,
+    AllConnectorSettings,
+    ConnectorSetting,
+    ConnectorType as ConnectorTypeSettings,
+)
 from hummingbot.connector.gateway.common_types import ConnectorType, get_connector_type
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.core.event.events import TradeType
+from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.utils.gateway_config_utils import build_config_namespace_keys
 from hummingbot.logger import HummingbotLogger
 
-if TYPE_CHECKING:
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
+POLL_INTERVAL = 2.0
+POLL_TIMEOUT = 1.0
+
+
+class GatewayStatus(Enum):
+    ONLINE = 1
+    OFFLINE = 2
 
 
 class GatewayError(Enum):
@@ -44,34 +63,37 @@ class GatewayError(Enum):
 
 class GatewayHttpClient:
     """
-    An HTTP client for making requests to the gateway API.
+    An HTTP client for making requests to the gateway API with built-in status monitoring.
     """
 
     _ghc_logger: Optional[HummingbotLogger] = None
     _shared_client: Optional[aiohttp.ClientSession] = None
     _base_url: str
     _use_ssl: bool
-
+    _monitor_task: Optional[asyncio.Task] = None
+    _gateway_status: GatewayStatus = GatewayStatus.OFFLINE
+    _gateway_config_keys: List[str] = []
+    _gateway_ready_event: Optional[asyncio.Event] = None
     __instance = None
 
     @staticmethod
-    def get_instance(client_config_map: Optional["ClientConfigAdapter"] = None) -> "GatewayHttpClient":
+    def get_instance(gateway_config: Optional["GatewayConfigMap"] = None) -> "GatewayHttpClient":
         if GatewayHttpClient.__instance is None:
-            GatewayHttpClient(client_config_map)
+            GatewayHttpClient(gateway_config)
         return GatewayHttpClient.__instance
 
-    def __init__(self, client_config_map: Optional["ClientConfigAdapter"] = None):
-        if client_config_map is None:
-            from hummingbot.client.hummingbot_application import HummingbotApplication
-            client_config_map = HummingbotApplication.main_application().client_config_map
-        api_host = client_config_map.gateway.gateway_api_host
-        api_port = client_config_map.gateway.gateway_api_port
-        use_ssl = client_config_map.gateway.gateway_use_ssl
+    def __init__(self, gateway_config: Optional["GatewayConfigMap"] = None):
+        if gateway_config is None:
+            gateway_config = GatewayConfigMap()
+        api_host = gateway_config.gateway_api_host
+        api_port = gateway_config.gateway_api_port
+        use_ssl = gateway_config.gateway_use_ssl
         if GatewayHttpClient.__instance is None:
             protocol = "https" if use_ssl else "http"
             self._base_url = f"{protocol}://{api_host}:{api_port}"
             self._use_ssl = use_ssl
-        self._client_config_map = client_config_map
+            self._gateway_ready_event = asyncio.Event()
+        self._gateway_config = gateway_config
         GatewayHttpClient.__instance = self
 
     @classmethod
@@ -81,15 +103,15 @@ class GatewayHttpClient:
         return cls._ghc_logger
 
     @classmethod
-    def _http_client(cls, client_config_map: "ClientConfigAdapter", re_init: bool = False) -> aiohttp.ClientSession:
+    def _http_client(cls, gateway_config: "GatewayConfigMap", re_init: bool = False) -> aiohttp.ClientSession:
         """
         :returns Shared client session instance
         """
         if cls._shared_client is None or re_init:
-            use_ssl = getattr(client_config_map.gateway, "gateway_use_ssl", False)
+            use_ssl = gateway_config.gateway_use_ssl
             if use_ssl:
                 # SSL connection with client certs
-                cert_path = client_config_map.certs_path
+                cert_path = gateway_config.certs_path
                 ssl_ctx = ssl.create_default_context(cafile=f"{cert_path}/ca_cert.pem")
                 ssl_ctx.load_cert_chain(certfile=f"{cert_path}/client_cert.pem",
                                         keyfile=f"{cert_path}/client_key.pem",
@@ -102,12 +124,12 @@ class GatewayHttpClient:
         return cls._shared_client
 
     @classmethod
-    def reload_certs(cls, client_config_map: "ClientConfigAdapter"):
+    def reload_certs(cls, gateway_config: "GatewayConfigMap"):
         """
         Re-initializes the aiohttp.ClientSession. This should be called whenever there is any updates to the
         Certificates used to secure a HTTPS connection to the Gateway service.
         """
-        cls._http_client(client_config_map, re_init=True)
+        cls._http_client(gateway_config, re_init=True)
 
     @property
     def base_url(self) -> str:
@@ -116,6 +138,196 @@ class GatewayHttpClient:
     @base_url.setter
     def base_url(self, url: str):
         self._base_url = url
+
+    @property
+    def ready(self) -> bool:
+        return self._gateway_status is GatewayStatus.ONLINE
+
+    @property
+    def ready_event(self) -> asyncio.Event:
+        return self._gateway_ready_event
+
+    @property
+    def gateway_status(self) -> GatewayStatus:
+        return self._gateway_status
+
+    @property
+    def gateway_config_keys(self) -> List[str]:
+        return self._gateway_config_keys
+
+    @gateway_config_keys.setter
+    def gateway_config_keys(self, new_config: List[str]):
+        self._gateway_config_keys = new_config
+
+    def start_monitor(self):
+        """Start the gateway status monitoring loop"""
+        if self._monitor_task is None:
+            self._monitor_task = safe_ensure_future(self._monitor_loop())
+
+    def stop_monitor(self):
+        """Stop the gateway status monitoring loop"""
+        if self._monitor_task is not None:
+            self._monitor_task.cancel()
+            self._monitor_task = None
+
+    async def wait_for_online_status(self, max_tries: int = 30) -> bool:
+        """
+        Wait for gateway status to go online with a max number of tries. If it
+        is online before time is up, it returns early, otherwise it returns the
+        current status after the max number of tries.
+
+        :param max_tries: maximum number of retries (default is 30)
+        """
+        while True:
+            if self.ready or max_tries <= 0:
+                return self.ready
+            await asyncio.sleep(POLL_INTERVAL)
+            max_tries = max_tries - 1
+
+    async def _monitor_loop(self):
+        """Monitor gateway status and update connector/chain lists when online"""
+        while True:
+            try:
+                if await asyncio.wait_for(self.ping_gateway(), timeout=POLL_TIMEOUT):
+                    if self.gateway_status is GatewayStatus.OFFLINE:
+                        # Clear all collections
+                        GATEWAY_CONNECTORS.clear()
+                        GATEWAY_ETH_CONNECTORS.clear()
+                        GATEWAY_CHAINS.clear()
+                        GATEWAY_NAMESPACES.clear()
+
+                        # Get connectors
+                        gateway_connectors = await self.get_connectors(fail_silently=True)
+
+                        # Build connector list with trading types appended
+                        connector_list = []
+                        eth_connector_list = []
+                        for connector in gateway_connectors.get("connectors", []):
+                            name = connector["name"]
+                            chain = connector.get("chain", "")
+                            trading_types = connector.get("trading_types", [])
+
+                            # Add each trading type as a separate entry
+                            for trading_type in trading_types:
+                                connector_full_name = f"{name}/{trading_type}"
+                                connector_list.append(connector_full_name)
+                                # Add to Ethereum connectors if chain is ethereum
+                                if chain.lower() == "ethereum":
+                                    eth_connector_list.append(connector_full_name)
+
+                        GATEWAY_CONNECTORS.extend(connector_list)
+                        GATEWAY_ETH_CONNECTORS.extend(eth_connector_list)
+
+                        # Update AllConnectorSettings with gateway connectors
+                        await self._register_gateway_connectors(connector_list)
+
+                        # Get chains using the dedicated endpoint
+                        try:
+                            chains_response = await self.get_chains(fail_silently=True)
+                            if chains_response and "chains" in chains_response:
+                                # Extract just the chain names from the response
+                                chain_names = [chain_info["chain"] for chain_info in chains_response["chains"]]
+                                GATEWAY_CHAINS.extend(chain_names)
+                        except Exception:
+                            pass
+
+                        # Get namespaces using the dedicated endpoint
+                        try:
+                            namespaces_response = await self.get_namespaces(fail_silently=True)
+                            if namespaces_response and "namespaces" in namespaces_response:
+                                GATEWAY_NAMESPACES.extend(sorted(namespaces_response["namespaces"]))
+                        except Exception:
+                            pass
+
+                        # Update config keys for backward compatibility
+                        await self.update_gateway_config_key_list()
+
+                    # If gateway was already online, ensure connectors are registered
+                    if self._gateway_status is GatewayStatus.ONLINE and not GATEWAY_CONNECTORS:
+                        # Gateway is online but connectors haven't been registered yet
+                        await self.ensure_gateway_connectors_registered()
+
+                    self._gateway_status = GatewayStatus.ONLINE
+                else:
+                    if self._gateway_status is GatewayStatus.ONLINE:
+                        self.logger().info("Connection to Gateway container lost...")
+                        self._gateway_status = GatewayStatus.OFFLINE
+
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                """
+                We wouldn't be changing any status here because whatever error happens here would have been a result of manipulation data from
+                the try block. They wouldn't be as a result of http related error because they're expected to fail silently.
+                """
+                pass
+            finally:
+                if self.gateway_status is GatewayStatus.ONLINE:
+                    if not self._gateway_ready_event.is_set():
+                        self.logger().info("Gateway Service is ONLINE.")
+                    self._gateway_ready_event.set()
+                else:
+                    self._gateway_ready_event.clear()
+                await asyncio.sleep(POLL_INTERVAL)
+
+    async def update_gateway_config_key_list(self):
+        """Update the list of gateway configuration keys"""
+        try:
+            config_list: List[str] = []
+            config_dict: Dict[str, Any] = await self.get_configuration(fail_silently=True)
+            build_config_namespace_keys(config_list, config_dict)
+            self.gateway_config_keys = config_list
+        except Exception:
+            self.logger().error("Error fetching gateway configs. Please check that Gateway service is online. ",
+                                exc_info=True)
+
+    async def _register_gateway_connectors(self, connector_list: List[str]):
+        """Register gateway connectors in AllConnectorSettings"""
+        all_settings = AllConnectorSettings.get_connector_settings()
+        for connector_name in connector_list:
+            if connector_name not in all_settings:
+                # Create connector setting for gateway connector
+                all_settings[connector_name] = ConnectorSetting(
+                    name=connector_name,
+                    type=ConnectorTypeSettings.GATEWAY_DEX,
+                    centralised=False,
+                    example_pair="ETH-USDC",
+                    use_ethereum_wallet=False,  # Gateway handles wallet internally
+                    trade_fee_schema=TradeFeeSchema(
+                        maker_percent_fee_decimal=Decimal("0.003"),
+                        taker_percent_fee_decimal=Decimal("0.003"),
+                    ),
+                    config_keys=None,
+                    is_sub_domain=False,
+                    parent_name=None,
+                    domain_parameter=None,
+                    use_eth_gas_lookup=False,
+                )
+
+    async def ensure_gateway_connectors_registered(self):
+        """Ensure gateway connectors are registered in AllConnectorSettings"""
+        if self.gateway_status is not GatewayStatus.ONLINE:
+            return
+
+        try:
+            gateway_connectors = await self.get_connectors(fail_silently=True)
+
+            # Build connector list with trading types appended
+            connector_list = []
+            for connector in gateway_connectors.get("connectors", []):
+                name = connector["name"]
+                trading_types = connector.get("trading_types", [])
+
+                # Add each trading type as a separate entry
+                for trading_type in trading_types:
+                    connector_full_name = f"{name}/{trading_type}"
+                    connector_list.append(connector_full_name)
+
+            # Register the connectors
+            await self._register_gateway_connectors(connector_list)
+
+        except Exception as e:
+            self.logger().error(f"Error ensuring gateway connectors are registered: {e}", exc_info=True)
 
     def log_error_codes(self, resp: Dict[str, Any]):
         """
@@ -195,7 +407,7 @@ class GatewayHttpClient:
         :returns A response in json format.
         """
         url = f"{self.base_url}/{path_url}"
-        client = self._http_client(self._client_config_map)
+        client = self._http_client(self._gateway_config)
 
         parsed_response = {}
         try:
@@ -253,8 +465,9 @@ class GatewayHttpClient:
     async def ping_gateway(self) -> bool:
         try:
             response: Dict[str, Any] = await self.api_request("get", "", fail_silently=True)
-            return response["status"] == "ok"
-        except Exception:
+            return response.get("status") == "ok"
+        except Exception as e:
+            self.logger().error(f"Failed to ping gateway: {e}")
             return False
 
     async def get_gateway_status(self, fail_silently: bool = False) -> List[Dict[str, Any]]:
@@ -1246,9 +1459,9 @@ class GatewayHttpClient:
         :param connector: Connector name in format 'name/type' (e.g., 'uniswap/amm')
         :return: Tuple of (chain, network, error_message)
         """
-        # Parse connector format
+        # Parse connector format - allow for more than 2 parts but only use first 2
         connector_parts = connector.split('/')
-        if len(connector_parts) != 2:
+        if len(connector_parts) < 2:
             return None, None, "Invalid connector format. Use format like 'uniswap/amm' or 'jupiter/router'"
 
         connector_name = connector_parts[0]

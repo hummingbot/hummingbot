@@ -13,8 +13,6 @@ from aioresponses.core import RequestCall
 
 import hummingbot.connector.exchange.hyperliquid.hyperliquid_constants as CONSTANTS
 import hummingbot.connector.exchange.hyperliquid.hyperliquid_web_utils as web_utils
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.hyperliquid.hyperliquid_exchange import HyperliquidExchange
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
 from hummingbot.connector.trading_rule import TradingRule
@@ -453,12 +451,10 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         return f"{base_token}-{quote_token}"
 
     def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         exchange = HyperliquidExchange(
-            client_config_map,
-            self.api_secret,
-            self.use_vault,
-            self.api_key,
+            hyperliquid_api_secret=self.api_secret,
+            use_vault=self.use_vault,
+            hyperliquid_api_key=self.api_key,
             trading_pairs=[self.trading_pair],
         )
         # exchange._last_trade_history_timestamp = self.latest_trade_hist_timestamp
@@ -1635,6 +1631,74 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                 f"{Decimal('100.000000')} {self.trading_pair} at {Decimal('10000')}."
             )
         )
+
+    @aioresponses()
+    def test_create_buy_market_order_successfully(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+
+        url = self.order_creation_url
+        creation_response = self.order_creation_request_successful_mock_response
+
+        mock_api.post(url,
+                      body=json.dumps(creation_response),
+                      callback=lambda *args, **kwargs: request_sent_event.set())
+
+        # Create a market buy order - this will trigger lines 286-287
+        order_id = self.place_buy_order(order_type=OrderType.MARKET)
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        order_request = self._all_executed_requests(mock_api, url)[0]
+        self.validate_auth_credentials_present(order_request)
+        self.assertIn(order_id, self.exchange.in_flight_orders)
+
+        order = self.exchange.in_flight_orders[order_id]
+        self.assertEqual(OrderType.MARKET, order.order_type)
+
+        self.validate_order_creation_request(
+            order=order,
+            request_call=order_request)
+
+        create_event: BuyOrderCreatedEvent = self.buy_order_created_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
+        self.assertEqual(self.trading_pair, create_event.trading_pair)
+        self.assertEqual(OrderType.MARKET, create_event.type)
+        self.assertEqual(order_id, create_event.order_id)
+
+    @aioresponses()
+    def test_create_sell_market_order_successfully(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+
+        url = self.order_creation_url
+        creation_response = self.order_creation_request_successful_mock_response
+
+        mock_api.post(url,
+                      body=json.dumps(creation_response),
+                      callback=lambda *args, **kwargs: request_sent_event.set())
+
+        # Create a market sell order - this will trigger lines 323-324
+        order_id = self.place_sell_order(order_type=OrderType.MARKET)
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        order_request = self._all_executed_requests(mock_api, url)[0]
+        self.validate_auth_credentials_present(order_request)
+        self.assertIn(order_id, self.exchange.in_flight_orders)
+
+        order = self.exchange.in_flight_orders[order_id]
+        self.assertEqual(OrderType.MARKET, order.order_type)
+
+        self.validate_order_creation_request(
+            order=order,
+            request_call=order_request)
+
+        create_event: SellOrderCreatedEvent = self.sell_order_created_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
+        self.assertEqual(self.trading_pair, create_event.trading_pair)
+        self.assertEqual(OrderType.MARKET, create_event.type)
+        self.assertEqual(order_id, create_event.order_id)
 
     @aioresponses()
     def test_update_order_fills_from_trades_triggers_filled_event(self, mock_api):

@@ -7,7 +7,7 @@ from hummingbot.strategy.spot_perpetual_arbitrage.spot_perpetual_arbitrage_confi
 )
 
 
-def start(self):
+async def start(self):
     spot_connector = spot_perpetual_arbitrage_config_map.get("spot_connector").value.lower()
     spot_market = spot_perpetual_arbitrage_config_map.get("spot_market").value
     perpetual_connector = spot_perpetual_arbitrage_config_map.get("perpetual_connector").value.lower()
@@ -20,7 +20,7 @@ def start(self):
     perpetual_market_slippage_buffer = spot_perpetual_arbitrage_config_map.get("perpetual_market_slippage_buffer").value / Decimal("100")
     next_arbitrage_opening_delay = spot_perpetual_arbitrage_config_map.get("next_arbitrage_opening_delay").value
 
-    self.initialize_markets([(spot_connector, [spot_market]), (perpetual_connector, [perpetual_market])])
+    await self.initialize_markets([(spot_connector, [spot_market]), (perpetual_connector, [perpetual_market])])
     base_1, quote_1 = spot_market.split("-")
     base_2, quote_2 = perpetual_market.split("-")
 
