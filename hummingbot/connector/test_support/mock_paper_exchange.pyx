@@ -25,10 +25,9 @@ s_decimal_0 = Decimal("0")
 
 cdef class MockPaperExchange(PaperTradeExchange):
 
-    def __init__(self, client_config_map: "ClientConfigAdapter", trade_fee_schema: Optional[TradeFeeSchema] = None):
+    def __init__(self, trade_fee_schema: Optional[TradeFeeSchema] = None):
         PaperTradeExchange.__init__(
             self,
-            client_config_map,
             MockOrderTracker(),
             MockPaperExchange,
             exchange_name="mock",

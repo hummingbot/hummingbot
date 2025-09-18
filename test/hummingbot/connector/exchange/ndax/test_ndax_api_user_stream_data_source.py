@@ -7,8 +7,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from bidict import bidict
 
 import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.ndax.ndax_api_user_stream_data_source import NdaxAPIUserStreamDataSource
 from hummingbot.connector.exchange.ndax.ndax_auth import NdaxAuth
 from hummingbot.connector.exchange.ndax.ndax_exchange import NdaxExchange
@@ -56,9 +54,7 @@ class NdaxAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = NdaxExchange(
-            client_config_map=client_config_map,
             ndax_uid=self.uid,
             ndax_api_key=self.api_key,
             ndax_secret_key=self.secret,

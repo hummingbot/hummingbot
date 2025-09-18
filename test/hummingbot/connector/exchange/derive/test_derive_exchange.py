@@ -14,8 +14,6 @@ from aioresponses.core import RequestCall
 
 import hummingbot.connector.exchange.derive.derive_constants as CONSTANTS
 import hummingbot.connector.exchange.derive.derive_web_utils as web_utils
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.derive.derive_exchange import DeriveExchange
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
 from hummingbot.connector.trading_rule import TradingRule
@@ -40,7 +38,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         super().setUpClass()
         cls.api_key = "0x79d7511382b5dFd1185F6AF268923D3F9FC31B53"  # noqa: mock
         cls.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
-        cls.sub_id = "45686"  # noqa: mock
+        cls.sub_id = 45686  # noqa: mock
         cls.domain = "derive_testnet"  # noqa: mock
         cls.base_asset = "BTC"
         cls.quote_asset = "USDC"
@@ -499,13 +497,11 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         return f"{base_token}-{quote_token}"
 
     def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         exchange = DeriveExchange(
-            client_config_map,
-            self.api_secret,  # noqa: mock
-            self.sub_id,
-            self.account_type,
-            self.api_key,  # noqa: mock
+            derive_api_secret=self.api_secret,  # noqa: mock
+            sub_id=self.sub_id,
+            account_type=self.account_type,
+            derive_api_key=self.api_key,  # noqa: mock
             trading_pairs=[self.trading_pair],
         )
         # exchange._last_trade_history_timestamp = self.latest_trade_hist_timestamp

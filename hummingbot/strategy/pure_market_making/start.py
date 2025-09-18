@@ -11,7 +11,7 @@ from hummingbot.strategy.pure_market_making.moving_price_band import MovingPrice
 from hummingbot.strategy.pure_market_making.pure_market_making_config_map import pure_market_making_config_map as c_map
 
 
-def start(self):
+async def start(self):
     def convert_decimal_string_to_list(string: Optional[str], divisor: Decimal = Decimal("1")) -> List[Decimal]:
         '''convert order level spread string into a list of decimal divided by divisor '''
         if string is None:
@@ -78,14 +78,14 @@ def start(self):
         trading_pair: str = raw_trading_pair
         maker_assets: Tuple[str, str] = trading_pair.split("-")
         market_names: List[Tuple[str, List[str]]] = [(exchange, [trading_pair])]
-        self.initialize_markets(market_names)
+        await self.initialize_markets(market_names)
         maker_data = [self.connector_manager.connectors[exchange], trading_pair] + list(maker_assets)
         self.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]
 
         asset_price_delegate = None
         if price_source == "external_market":
             asset_trading_pair: str = price_source_market
-            ext_market = create_paper_trade_market(price_source_exchange, self.client_config_map, [asset_trading_pair])
+            ext_market = create_paper_trade_market(price_source_exchange, [asset_trading_pair])
             self.connector_manager.connectors[price_source_exchange]: ExchangeBase = ext_market
             asset_price_delegate = OrderBookAssetPriceDelegate(ext_market, asset_trading_pair)
         elif price_source == "custom_api":

@@ -16,8 +16,7 @@ from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.client.settings import AllConnectorSettings, gateway_connector_trading_pairs  # noqa: F401
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.core.gateway import get_gateway_paths
-from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
-from hummingbot.core.gateway.gateway_status_monitor import GatewayStatus
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient, GatewayStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.ssl_cert import create_self_sign_certs
 
@@ -27,7 +26,7 @@ if TYPE_CHECKING:
 
 def ensure_gateway_online(func):
     def wrapper(self, *args, **kwargs):
-        if self._gateway_monitor.gateway_status is GatewayStatus.OFFLINE:
+        if self.trading_core.gateway_monitor.gateway_status is GatewayStatus.OFFLINE:
             self.logger().error("Gateway is offline")
             return
         return func(self, *args, **kwargs)
@@ -343,7 +342,7 @@ Use 'gateway <command> --help' for more information about a command.""")
         create_self_sign_certs(pass_phase, certs_path)
         self.notify(
             f"Gateway SSL certification files are created in {certs_path}.")
-        self._get_gateway_instance().reload_certs(self.client_config_map)
+        self._get_gateway_instance().reload_certs(self.client_config_map.gateway)
 
     async def ping_gateway_api(self, max_wait: int) -> bool:
         """
@@ -362,7 +361,7 @@ Use 'gateway <command> --help' for more information about a command.""")
         return True
 
     async def _gateway_status(self):
-        if self._gateway_monitor.gateway_status is GatewayStatus.ONLINE:
+        if self.trading_core.gateway_monitor.gateway_status is GatewayStatus.ONLINE:
             try:
                 status = await self._get_gateway_instance().get_gateway_status()
                 if status is None or status == []:
@@ -691,7 +690,14 @@ Use 'gateway <command> --help' for more information about a command.""")
                 else:
                     df = pd.DataFrame()
 
-                self.notify(f"\nConnector: {connector}")
+                # Display connector with spender address in parentheses
+                spender_display = ""
+                if allowance_resp.get("spender"):
+                    spender = allowance_resp["spender"]
+                    formatted_spender = f"{spender[:6]}...{spender[-4:]}" if len(spender) > 12 else spender
+                    spender_display = f" ({formatted_spender})"
+
+                self.notify(f"\nConnector: {connector}{spender_display}")
                 self.notify(f"Chain: {chain}")
                 self.notify(f"Network: {network}")
                 self.notify(f"Wallet: {wallet_address}")

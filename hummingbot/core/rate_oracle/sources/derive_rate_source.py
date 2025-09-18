@@ -47,14 +47,9 @@ class DeriveRateSource(RateSourceBase):
 
     @staticmethod
     def _build_derive_connector_without_private_keys() -> 'DeriveExchange':
-        from hummingbot.client.hummingbot_application import HummingbotApplication
         from hummingbot.connector.exchange.derive.derive_exchange import DeriveExchange
 
-        app = HummingbotApplication.main_application()
-        client_config_map = app.client_config_map
-
         return DeriveExchange(
-            client_config_map=client_config_map,
             derive_api_secret="",
             trading_pairs=[],
             sub_id = "",

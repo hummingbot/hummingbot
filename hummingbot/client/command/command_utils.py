@@ -62,10 +62,17 @@ class GatewayCommandUtils:
                     hasattr(order, 'current_state') and
                     str(order.current_state) == "OrderState.PENDING_CREATE"
                 )
+                # Special case: for approval transactions, PENDING_APPROVAL with confirmed tx is success
+                is_pending_approval = (
+                    order and
+                    hasattr(order, 'current_state') and
+                    str(order.current_state) == "OrderState.PENDING_APPROVAL" and
+                    order.exchange_order_id  # Transaction hash exists (confirmed on-chain)
+                )
 
                 result = {
                     "completed": True,
-                    "success": order.is_filled or is_pending_create if order else False,
+                    "success": order.is_filled or is_pending_create or is_pending_approval if order else False,
                     "failed": order.is_failure if order else False,
                     "cancelled": order.is_cancelled if order else False,
                     "order": order,
@@ -73,7 +80,7 @@ class GatewayCommandUtils:
                 }
 
                 # Show appropriate message
-                if order and (order.is_filled or is_pending_create):
+                if order and (order.is_filled or is_pending_create or is_pending_approval):
                     app.notify("\n✓ Transaction completed successfully!")
                     if order.exchange_order_id:
                         app.notify(f"Transaction hash: {order.exchange_order_id}")
