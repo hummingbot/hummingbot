@@ -1,5 +1,4 @@
 import asyncio
-import sys
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from hummingbot.connector.exchange.bitget import bitget_constants as CONSTANTS, bitget_web_utils as web_utils
@@ -47,8 +46,8 @@ class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
     ) -> None:
         if event_message == CONSTANTS.PUBLIC_WS_PONG:
             self._pong_received_event.set()
-
-        self.logger().info(f"Message for unknown channel received: {event_message}")
+        else:
+            self.logger().info(f"Message for unknown channel received: {event_message}")
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> Optional[str]:
         channel: Optional[str] = None
@@ -151,7 +150,7 @@ class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
         trading_pair: str = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
 
         for trade_data in data:
-            trade_type: float = float(TradeType.BUY.value) if trade_data['side'] == "buy" else float(TradeType.SELL.value)
+            trade_type: float = float(TradeType.BUY.value) if trade_data["side"] == "buy" else float(TradeType.SELL.value)
             message_content: Dict[str, Any] = {
                 "trade_id": int(trade_data["tradeId"]),
                 "trading_pair": trading_pair,
@@ -240,16 +239,11 @@ class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
             timestamp
         )
 
-    async def _on_user_stream_interruption(self, websocket_assistant: Optional[WSAssistant]) -> None:
-        if websocket_assistant and not websocket_assistant.done():
-            await websocket_assistant.disconnect()
-            sys.exit()
-
     async def _send_ping(self, websocket_assistant: WSAssistant) -> None:
         ping_request = WSPlainTextRequest(CONSTANTS.PUBLIC_WS_PING)
 
         await websocket_assistant.send(ping_request)
-        self.logger().info("Ping heartbeat Sent OB")
+        self.logger().info("Ping sent for orderbook")
 
     def _max_heartbeat_response_delay(self) -> int:
         return 30

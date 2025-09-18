@@ -959,9 +959,9 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             trade_type=TradeType.BUY,
             price=Decimal("1000"),
             amount=Decimal("1"),
-            initial_state = OrderState.OPEN
+            initial_state=OrderState.OPEN
         )
-        order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+        order: InFlightOrder = self.exchange.in_flight_orders[order_id]
         order_update_response = self._order_status_request_completely_filled_mock_response(
             order=order
         )

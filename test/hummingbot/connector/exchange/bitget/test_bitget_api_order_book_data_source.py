@@ -20,17 +20,14 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage, Order
 
 
 class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
-    """Unit tests for BitgetAPIOrderBookDataSource class."""
-    # logging.Level required to receive logs from the data source logger
+    """
+    Unit tests for BitgetAPIOrderBookDataSource class
+    """
+
     level: int = 0
 
     @classmethod
     def setUpClass(cls) -> None:
-        """
-        Set up the test class by initializing common test variables.
-
-        Initializes base and quote assets, trading pair, and exchange trading pair.
-        """
         super().setUpClass()
         cls.base_asset: str = "COINALPHA"
         cls.quote_asset: str = "USDT"
@@ -38,11 +35,6 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         cls.exchange_trading_pair: str = f"{cls.base_asset}{cls.quote_asset}"
 
     async def asyncSetUp(self) -> None:
-        """
-        Set up each test case by initializing mocks and test dependencies.
-
-        Initializes logging, network mocking, exchange connector, and data source.
-        """
         await super().asyncSetUp()
 
         self.log_records: List[Any] = []
@@ -74,8 +66,7 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         """
         Handle logging records by appending them to the log_records list.
 
-        Args:
-            record: The log record to be handled.
+        :param record: The log record to be handled.
         """
         self.log_records.append(record)
 
@@ -83,8 +74,7 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         """
         Create a mock WebSocket response for trade updates.
 
-        Returns:
-            Dict[str, Any]: Mock trade response data.
+        :return: Dict[str, Any]: Mock trade response data.
         """
         return {
             "arg": {
@@ -114,8 +104,7 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         """
         Create a mock REST response for last traded price.
 
-        Returns:
-            Dict[str, Any]: Mock last traded price response data.
+        :return: Dict[str, Any]: Mock last traded price response data.
         """
         return {
             "code": "00000",
@@ -145,8 +134,7 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         """
         Create a mock WebSocket response for order book snapshot.
 
-        Returns:
-            Dict[str, Any]: Mock order book snapshot response data.
+        :return: Dict[str, Any]: Mock order book snapshot response data.
         """
         return {
             "action": "snapshot",
@@ -177,20 +165,31 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         """
         Create a mock WebSocket response for order book diff updates.
 
-        Returns:
-            Dict[str, Any]: Mock order book diff response data.
+        :return: Dict[str, Any]: Mock order book diff response data.
         """
         snapshot: Dict[str, Any] = self._ws_order_book_snapshot_mock_response()
         snapshot["action"] = "update"
 
         return snapshot
 
+    def _ws_error_event_mock_response(self) -> Dict[str, Any]:
+        """
+        Create a mock WebSocket response for error events.
+
+        :return: Dict[str, Any]: Mock error event response data.
+        """
+
+        return {
+            "event": "error",
+            "code": "30005",
+            "msg": "Invalid request"
+        }
+
     def _rest_order_book_snapshot_mock_response(self) -> Dict[str, Any]:
         """
         Create a mock REST response for order book snapshot.
 
-        Returns:
-            Dict[str, Any]: Mock order book snapshot response data.
+        :return: Dict[str, Any]: Mock order book snapshot response data.
         """
         return {
             "code": "00000",
@@ -216,12 +215,10 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         """
         Check if a specific log message with the given level exists in the log records.
 
-        Args:
-            log_level (str): The log level to check (e.g., "INFO", "ERROR").
-            message (str): The log message to check for.
+        :param log_level: The log level to check (e.g., "INFO", "ERROR").
+        :param message: The log message to check for.
 
-        Returns:
-            bool: True if the log message exists with the specified level, False otherwise.
+        :return: True if the log message exists with the specified level, False otherwise.
         """
         return any(record.levelname == log_level and record.getMessage() == message
                    for record in self.log_records)
@@ -231,8 +228,7 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         """
         Test retrieval of last traded prices from the REST API.
 
-        Args:
-            mock_get (aioresponses): Mocked HTTP response object.
+        :param mock_get: Mocked HTTP response object.
         """
         mock_response: Dict[str, Any] = self._rest_last_traded_price_mock_response()
         url: str = web_utils.public_rest_url(CONSTANTS.PUBLIC_TICKERS_ENDPOINT)
@@ -252,8 +248,7 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         """
         Test successful retrieval of a new order book snapshot from the REST API.
 
-        Args:
-            mock_get (aioresponses): Mocked HTTP response object.
+        :param mock_get: Mocked HTTP response object.
         """
         mock_response: Dict[str, Any] = self._rest_order_book_snapshot_mock_response()
         url: str = web_utils.public_rest_url(CONSTANTS.PUBLIC_ORDERBOOK_ENDPOINT)
@@ -285,15 +280,14 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_subscriptions_subscribes_to_trades_and_order_diffs(
-        self, ws_connect_mock: AsyncMock
+        self, mock_ws: AsyncMock
     ) -> None:
         """
         Test subscription to WebSocket channels for trades and order book diffs.
 
-        Args:
-            ws_connect_mock (AsyncMock): Mocked WebSocket connection object.
+        :param mock_ws: Mocked WebSocket connection object.
         """
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         subscription_topics: List[Dict[str, str]] = []
 
         for channel in [CONSTANTS.PUBLIC_WS_BOOKS, CONSTANTS.PUBLIC_WS_TRADE]:
@@ -304,7 +298,7 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             })
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
+            websocket_mock=mock_ws.return_value,
             message=json.dumps({
                 "event": "subscribe",
                 "args": subscription_topics
@@ -316,11 +310,11 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         )
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(
-            ws_connect_mock.return_value
+            mock_ws.return_value
         )
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
-            websocket_mock=ws_connect_mock.return_value
+            websocket_mock=mock_ws.return_value
         )
         expected_ws_subscription: Dict[str, Any] = {
             "op": "subscribe",
@@ -352,9 +346,8 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         """
         Test that listen_for_subscriptions raises CancelledError when WebSocket connection is cancelled.
 
-        Args:
-            mock_ws (MagicMock): Mocked WebSocket connection object.
-            _ (MagicMock): Mocked sleep function (unused).
+        :param mock_ws: Mocked WebSocket connection object.
+        :param _: Mocked sleep function (unused).
         """
         mock_ws.side_effect = asyncio.CancelledError
 
@@ -369,9 +362,8 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         """
         Test that listen_for_subscriptions logs exception details when an error occurs.
 
-        Args:
-            mock_ws (AsyncMock): Mocked WebSocket connection object.
-            sleep_mock (MagicMock): Mocked sleep function.
+        :param mock_ws: Mocked WebSocket connection object.
+        :param sleep_mock: Mocked sleep function.
         """
         mock_ws.side_effect = Exception("TEST ERROR.")
         sleep_mock.side_effect = asyncio.CancelledError
@@ -386,21 +378,28 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
         ))
 
-    async def test_subscribe_channels_raises_cancel_exception(self) -> None:
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_subscribe_channels_raises_cancel_exception(self, mock_ws: AsyncMock) -> None:
         """
         Test that _subscribe_channels raises CancelledError when WebSocket send is cancelled.
+
+        :param mock_ws: Mocked WebSocket connection object.
         """
-        mock_ws = MagicMock()
         mock_ws.send.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
             await self.data_source._subscribe_channels(mock_ws)
 
-    async def test_subscribe_channels_raises_exception_and_logs_error(self) -> None:
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_subscribe_channels_raises_exception_and_logs_error(
+        self,
+        mock_ws: AsyncMock
+    ) -> None:
         """
         Test that _subscribe_channels logs an error when an unexpected exception occurs.
+
+        :param mock_ws: Mocked WebSocket connection object.
         """
-        mock_ws = MagicMock()
         mock_ws.send.side_effect = Exception("Test Error")
 
         with self.assertRaises(Exception):
@@ -413,16 +412,18 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             )
         )
 
-    async def test_listen_for_trades(self) -> None:
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_listen_for_trades(self, mock_ws: AsyncMock) -> None:
         """
         Test processing of trade updates from WebSocket messages.
+
+        :param mock_ws: Mocked WebSocket connection object.
         """
         msg_queue: asyncio.Queue = asyncio.Queue()
-        mock_queue = AsyncMock()
         mock_response: Dict[str, Any] = self._ws_trade_mock_response()
 
-        mock_queue.get.side_effect = [mock_response, asyncio.CancelledError]
-        self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
+        mock_ws.get.side_effect = [mock_response, asyncio.CancelledError]
+        self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_ws
 
         self.listening_task = self.local_event_loop.create_task(
             self.data_source.listen_for_trades(self.local_event_loop, msg_queue)
@@ -448,15 +449,17 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         with self.assertRaises(asyncio.CancelledError):
             await self.data_source.listen_for_trades(self.local_event_loop, msg_queue)
 
-    async def test_listen_for_order_book_diffs_successful(self) -> None:
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_listen_for_order_book_diffs_successful(self, mock_ws: AsyncMock) -> None:
         """
         Test successful processing of order book diff updates from WebSocket messages.
+
+        :param mock_ws: Mocked WebSocket connection object.
         """
-        mock_queue = AsyncMock()
         mock_response: Dict[str, Any] = self._ws_order_book_diff_mock_response()
 
-        mock_queue.get.side_effect = [mock_response, asyncio.CancelledError]
-        self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_queue
+        mock_ws.get.side_effect = [mock_response, asyncio.CancelledError]
+        self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_ws
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -485,15 +488,17 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(float(data["asks"][0][1]), asks[0].amount)
         self.assertEqual(expected_update_id, asks[0].update_id)
 
-    async def test_listen_for_order_book_snapshots_successful(self) -> None:
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_listen_for_order_book_snapshots_successful(self, mock_ws: AsyncMock) -> None:
         """
         Test successful processing of order book snapshot updates from WebSocket messages.
+
+        :param mock_ws: Mocked WebSocket connection object.
         """
-        mock_queue = AsyncMock()
         mock_response: Dict[str, Any] = self._ws_order_book_snapshot_mock_response()
 
-        mock_queue.get.side_effect = [mock_response, asyncio.CancelledError]
-        self.data_source._message_queue[self.data_source._snapshot_messages_queue_key] = mock_queue
+        mock_ws.get.side_effect = [mock_response, asyncio.CancelledError]
+        self.data_source._message_queue[self.data_source._snapshot_messages_queue_key] = mock_ws
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -522,22 +527,27 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(float(data["asks"][0][1]), asks[0].amount)
         self.assertEqual(expected_update_id, asks[0].update_id)
 
-    async def test_listen_for_order_book_snapshots_raises_cancelled_exception(self) -> None:
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_listen_for_order_book_snapshots_raises_cancelled_exception(self, mock_ws: AsyncMock) -> None:
         """
         Test that listen_for_order_book_snapshots raises CancelledError when the message queue is cancelled.
+
+        :param mock_ws: Mocked WebSocket connection object.
         """
-        mock_queue = AsyncMock()
-        mock_queue.get.side_effect = asyncio.CancelledError
-        self.data_source._message_queue[self.data_source._snapshot_messages_queue_key] = mock_queue
+        mock_ws.get.side_effect = asyncio.CancelledError
+        self.data_source._message_queue[self.data_source._snapshot_messages_queue_key] = mock_ws
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         with self.assertRaises(asyncio.CancelledError):
             await self.data_source.listen_for_order_book_snapshots(self.local_event_loop, msg_queue)
 
-    async def test_listen_for_order_book_snapshots_logs_exception(self) -> None:
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_listen_for_order_book_snapshots_logs_exception(self, mock_ws: AsyncMock) -> None:
         """
         Test that listen_for_order_book_snapshots logs an error when processing invalid snapshot data.
+
+        :param mock_ws: Mocked WebSocket connection object.
         """
         incomplete_mock_response: Dict[str, Any] = self._ws_order_book_snapshot_mock_response()
         incomplete_mock_response["data"] = [
@@ -547,9 +557,8 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             }
         ]
 
-        mock_queue = AsyncMock()
-        mock_queue.get.side_effect = [incomplete_mock_response, asyncio.CancelledError]
-        self.data_source._message_queue[self.data_source._snapshot_messages_queue_key] = mock_queue
+        mock_ws.get.side_effect = [incomplete_mock_response, asyncio.CancelledError]
+        self.data_source._message_queue[self.data_source._snapshot_messages_queue_key] = mock_ws
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -565,9 +574,12 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             )
         )
 
-    async def test_listen_for_trades_logs_exception(self) -> None:
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_listen_for_trades_logs_exception(self, mock_ws: AsyncMock) -> None:
         """
         Test that listen_for_trades logs an error when processing invalid trade data.
+
+        :param mock_ws: Mocked WebSocket connection object.
         """
         incomplete_mock_response: Dict[str, Any] = self._ws_trade_mock_response()
         incomplete_mock_response["data"] = [
@@ -577,9 +589,8 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             }
         ]
 
-        mock_queue = AsyncMock()
-        mock_queue.get.side_effect = [incomplete_mock_response, asyncio.CancelledError]
-        self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
+        mock_ws.get.side_effect = [incomplete_mock_response, asyncio.CancelledError]
+        self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_ws
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -599,14 +610,10 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         """
         Verify that an event message with 'event': 'error' raises IOError.
         """
-        event_message = {
-            "event": "error",
-            "code": "30005",
-            "msg": "Invalid request"
-        }
+        mock_response = self._ws_error_event_mock_response()
 
         with self.assertRaises(IOError) as context:
-            self.data_source._channel_originating_message(event_message)
+            self.data_source._channel_originating_message(mock_response)
 
         self.assertIn("Failed to subscribe to public channels", str(context.exception))
         self.assertIn("Invalid request", str(context.exception))
