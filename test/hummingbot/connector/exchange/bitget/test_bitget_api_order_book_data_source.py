@@ -195,19 +195,17 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             "code": "00000",
             "msg": "success",
             "requestTime": 1698303884579,
-            "data": [
-                {
-                    "asks": [
-                        ["26274.9", "0.0009"],
-                        ["26275.0", "0.0500"]
-                    ],
-                    "bids": [
-                        ["26274.8", "0.0009"],
-                        ["26274.7", "0.0027"]
-                    ],
-                    "ts": "1695710946294"
-                }
-            ],
+            "data": {
+                "asks": [
+                    ["26274.9", "0.0009"],
+                    ["26275.0", "0.0500"]
+                ],
+                "bids": [
+                    ["26274.8", "0.0009"],
+                    ["26274.7", "0.0027"]
+                ],
+                "ts": "1695710946294"
+            },
             "ts": 1695710946294
         }
 
@@ -260,7 +258,7 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             asyncio.gather(self.data_source.get_new_order_book(self.trading_pair))
         )
         order_book: OrderBook = results[0]
-        data: Dict[str, Any] = mock_response["data"][0]
+        data: Dict[str, Any] = mock_response["data"]
         update_id: int = int(data["ts"])
 
         self.assertTrue(isinstance(order_book, OrderBook))
@@ -606,14 +604,17 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             )
         )
 
-    def test_channel_originating_message_event_error_raises(self) -> None:
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_process_message_for_unknown_channel_event_error_raises(self, mock_ws: AsyncMock) -> None:
         """
-        Verify that an event message with 'event': 'error' raises IOError.
+        Verify that an event message with 'event': 'error' raises IOError in _process_message_for_unknown_channel.
         """
         mock_response = self._ws_error_event_mock_response()
 
         with self.assertRaises(IOError) as context:
-            self.data_source._channel_originating_message(mock_response)
+            asyncio.get_event_loop().run_until_complete(
+                self.data_source._process_message_for_unknown_channel(mock_response, mock_ws)
+            )
 
         self.assertIn("Failed to subscribe to public channels", str(context.exception))
         self.assertIn("Invalid request", str(context.exception))

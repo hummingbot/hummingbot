@@ -433,21 +433,18 @@ class BitgetExchange(ExchangePyBase):
     async def _user_stream_event_listener(self):
         async for event_message in self._iter_user_event_queue():
             try:
-                if event_message == "pong":
-                    pass
-                else:
-                    endpoint = event_message["arg"]["channel"]
-                    payload = event_message["data"]
+                channel = event_message["arg"]["channel"]
+                data = event_message["data"]
 
-                    if endpoint == CONSTANTS.WS_ORDERS_ENDPOINT:
-                        for order_msg in payload:
-                            self._process_order_event_message(order_msg)
-                    elif endpoint == CONSTANTS.WS_FILL_ENDPOINT:
-                        for fill_msg in payload:
-                            self._process_fill_event_message(fill_msg)
-                    elif endpoint == CONSTANTS.WS_ACCOUNT_ENDPOINT:
-                        for wallet_msg in payload:
-                            self._set_account_balances(wallet_msg)
+                if channel == CONSTANTS.WS_ORDERS_ENDPOINT:
+                    for order_msg in data:
+                        self._process_order_event_message(order_msg)
+                elif channel == CONSTANTS.WS_FILL_ENDPOINT:
+                    for fill_msg in data:
+                        self._process_fill_event_message(fill_msg)
+                elif channel == CONSTANTS.WS_ACCOUNT_ENDPOINT:
+                    for wallet_msg in data:
+                        self._set_account_balances(wallet_msg)
             except asyncio.CancelledError:
                 raise
             except Exception:

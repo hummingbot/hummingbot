@@ -30,7 +30,8 @@ STATE_TYPES = {
     "cancelled": OrderState.CANCELED,
 }
 
-SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE = 15
+SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE = 40
+WS_HEARTBEAT_TIME_INTERVAL = 30
 
 PUBLIC_CANDLES_ENDPOINT = "/api/v2/spot/market/candles"
 PUBLIC_COINS_ENDPOINT = "/api/v2/spot/public/coins"
@@ -50,8 +51,9 @@ USER_FILLS_ENDPOINT = "/api/v2/spot/trade/fills"
 PUBLIC_WS_BOOKS = "books"
 PUBLIC_WS_TRADE = "trade"
 PUBLIC_WS_MARKET = "market"
-PUBLIC_WS_PING = "ping"
-PUBLIC_WS_PONG = "pong"
+
+PUBLIC_WS_PING_REQUEST = "ping"
+PUBLIC_WS_PONG_RESPONSE = "pong"
 
 WS_ORDERS_ENDPOINT = "orders"
 WS_ACCOUNT_ENDPOINT = "account"

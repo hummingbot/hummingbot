@@ -1,5 +1,5 @@
 import asyncio
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, NoReturn, Optional
 
 from hummingbot.connector.exchange.bitget import bitget_constants as CONSTANTS
 from hummingbot.connector.exchange.bitget.bitget_auth import BitgetAuth
@@ -22,17 +22,15 @@ class BitgetAPIUserStreamDataSource(UserStreamTrackerDataSource):
         trading_pairs: List[str],
         connector: 'BitgetExchange',
         api_factory: WebAssistantsFactory,
-    ):
+    ) -> None:
         super().__init__()
         self._auth = auth
         self._trading_pairs = trading_pairs
         self._connector = connector
         self._api_factory = api_factory
-        self._pong_response_event = None
-        self._pong_received_event = asyncio.Event()
-        self._exchange_ping_task: Optional[asyncio.Task] = None
+        self._ping_task: Optional[asyncio.Task] = None
 
-    async def _authenticate(self, websocket_assistant: WSAssistant):
+    async def _authenticate(self, websocket_assistant: WSAssistant) -> None:
         """
         Authenticates user to websocket
         """
@@ -51,20 +49,38 @@ class BitgetAPIUserStreamDataSource(UserStreamTrackerDataSource):
             )
             raise IOError("Private websocket connection authentication failed")
 
-    async def _process_event_message(self, event_message: Dict[str, Any], queue: asyncio.Queue):
-        if len(event_message) > 0 and "event" not in event_message and "data" in event_message:
-            queue.put_nowait(event_message)
-        elif event_message == CONSTANTS.PUBLIC_WS_PONG:
-            self._pong_received_event.set()
+    async def _parse_pong_message(self) -> None:
+        self.logger().info("PING-PONG message for user stream completed")
+
+    async def _process_message_for_unknown_channel(
+        self,
+        event_message: Dict[str, Any]
+    ) -> None:
+        if event_message == CONSTANTS.PUBLIC_WS_PONG_RESPONSE:
+            await self._parse_pong_message()
         elif "event" in event_message:
             if event_message["event"] == "error":
-                self.logger().error(f"Private channel subscription failed ({event_message})")
-                raise IOError(f"Private channel subscription failed ({event_message})")
+                message = event_message.get("msg", "Unknown error")
+                error_code = event_message.get("code", "Unknown code")
+                self.logger().error(f"Failed to subscribe to private channels: {message} ({error_code})")
+
+            if event_message["event"] == "subscribe":
+                channel: str = event_message["arg"]["channel"]
+                self.logger().info(f"Subscribed to private channel: {channel.upper()}")
         else:
-            self.logger().error(f"Invalid event message ({event_message})")
+            self.logger().warning(f"Message for unknown channel received: {event_message}")
 
-    async def _subscribe_channels(self, websocket_assistant: WSAssistant):
+    async def _process_event_message(
+        self,
+        event_message: Dict[str, Any],
+        queue: asyncio.Queue
+    ) -> None:
+        if "arg" in event_message and "action" in event_message:
+            queue.put_nowait(event_message)
+        else:
+            await self._process_message_for_unknown_channel(event_message)
 
+    async def _subscribe_channels(self, websocket_assistant: WSAssistant) -> None:
         try:
             subscription_topics = []
 
@@ -106,10 +122,54 @@ class BitgetAPIUserStreamDataSource(UserStreamTrackerDataSource):
         return websocket_assistant
 
     async def _send_ping(self, websocket_assistant: WSAssistant) -> None:
-        ping_request = WSPlainTextRequest(CONSTANTS.PUBLIC_WS_PING)
+        ping_request = WSPlainTextRequest(CONSTANTS.PUBLIC_WS_PING_REQUEST)
 
         await websocket_assistant.send(ping_request)
-        self.logger().info("Ping sent for user stream")
 
-    def _max_heartbeat_response_delay(self):
-        return 30
+    async def send_interval_ping(self, websocket_assistant: WSAssistant) -> None:
+        """
+        Coroutine to send PING messages periodically.
+
+        :param websocket_assistant: The websocket assistant to use to send the PING message.
+        """
+        try:
+            while True:
+                await self._send_ping(websocket_assistant)
+                await asyncio.sleep(CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+        except asyncio.CancelledError:
+            self.logger().info("Interval PING task cancelled")
+            raise
+        except Exception:
+            self.logger().exception("Error sending interval PING")
+
+    async def listen_for_user_stream(self, output: asyncio.Queue) -> NoReturn:
+        """
+        Connects to the user private channel in the exchange using a websocket connection. With the established
+        connection listens to all balance events and order updates provided by the exchange, and stores them in the
+        output queue
+
+        :param output: the queue to use to store the received messages
+        """
+        while True:
+            try:
+                self._ws_assistant = await self._connected_websocket_assistant()
+                await self._subscribe_channels(websocket_assistant=self._ws_assistant)
+                self._ping_task = asyncio.create_task(self.send_interval_ping(self._ws_assistant))
+                await self._process_websocket_messages(websocket_assistant=self._ws_assistant, queue=output)
+            except asyncio.CancelledError:
+                raise
+            except ConnectionError as connection_exception:
+                self.logger().warning(f"The websocket connection was closed ({connection_exception})")
+            except Exception:
+                self.logger().exception("Unexpected error while listening to user stream. Retrying after 5 seconds...")
+                await self._sleep(1.0)
+            finally:
+                if self._ping_task is not None:
+                    self._ping_task.cancel()
+                    try:
+                        await self._ping_task
+                    except asyncio.CancelledError:
+                        pass
+                    self._ping_task = None
+                await self._on_user_stream_interruption(websocket_assistant=self._ws_assistant)
+                self._ws_assistant = None

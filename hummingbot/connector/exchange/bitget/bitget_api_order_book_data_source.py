@@ -1,5 +1,5 @@
 import asyncio
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, NoReturn, Optional
 
 from hummingbot.connector.exchange.bitget import bitget_constants as CONSTANTS, bitget_web_utils as web_utils
 from hummingbot.core.data_type.common import TradeType
@@ -27,9 +27,7 @@ class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
         super().__init__(trading_pairs)
         self._connector: 'BitgetExchange' = connector
         self._api_factory: WebAssistantsFactory = api_factory
-        self._pong_response_event: Optional[asyncio.Event] = None
-        self._pong_received_event: asyncio.Event = asyncio.Event()
-        self._exchange_ping_task: Optional[asyncio.Task] = None
+        self._ping_task: Optional[asyncio.Task] = None
         self.ready: bool = False
 
     async def get_last_traded_prices(
@@ -39,39 +37,42 @@ class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
     ) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
+    async def _parse_pong_message(self) -> None:
+        self.logger().info("PING-PONG message for order book completed")
+
     async def _process_message_for_unknown_channel(
         self,
         event_message: Dict[str, Any],
         websocket_assistant: WSAssistant,
     ) -> None:
-        if event_message == CONSTANTS.PUBLIC_WS_PONG:
-            self._pong_received_event.set()
+        if event_message == CONSTANTS.PUBLIC_WS_PONG_RESPONSE:
+            await self._parse_pong_message()
+        elif "event" in event_message:
+            if event_message["event"] == "error":
+                message = event_message.get("msg", "Unknown error")
+                error_code = event_message.get("code", "Unknown code")
+                raise IOError(f"Failed to subscribe to public channels: {message} ({error_code})")
+
+            if event_message["event"] == "subscribe":
+                channel: str = event_message["arg"]["channel"]
+                self.logger().info(f"Subscribed to public channel: {channel.upper()}")
         else:
             self.logger().info(f"Message for unknown channel received: {event_message}")
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> Optional[str]:
         channel: Optional[str] = None
 
-        if "event" in event_message:
-            if event_message["event"] == "error":
-                raise IOError(f"Failed to subscribe to public channels: {event_message}")
-
-        if "arg" in event_message:
+        if "arg" in event_message and "action" in event_message:
             arg: Dict[str, Any] = event_message["arg"]
             response_channel: Optional[str] = arg.get("channel")
 
-            if response_channel == CONSTANTS.PUBLIC_WS_PONG:
-                self.logger().info("PONG is received")
-                if self._pong_response_event:
-                    self.logger().info("PONG is set")
-                    self._pong_response_event.set()
-
             if response_channel == CONSTANTS.PUBLIC_WS_BOOKS:
                 action: Optional[str] = event_message.get("action")
-                if action == "snapshot":
-                    channel = self._snapshot_messages_queue_key
-                else:
-                    channel = self._diff_messages_queue_key
+                channels = {
+                    "snapshot": self._snapshot_messages_queue_key,
+                    "update": self._diff_messages_queue_key
+                }
+                channel = channels.get(action)
             elif response_channel == CONSTANTS.PUBLIC_WS_TRADE:
                 channel = self._trade_messages_queue_key
 
@@ -86,10 +87,10 @@ class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         Parse a WebSocket message into an OrderBookMessage for snapshots or diffs.
 
-        :param raw_message (Dict[str, Any]): The raw WebSocket message.
-        :param message_type (OrderBookMessageType): The type of order book message (SNAPSHOT or DIFF).
+        :param raw_message: The raw WebSocket message.
+        :param message_type: The type of order book message (SNAPSHOT or DIFF).
 
-        :return: OrderBookMessage: The parsed order book message.
+        :return: The parsed order book message.
         """
         trading_pair: str = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
         update_id: int = int(data["ts"])
@@ -114,11 +115,12 @@ class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
         message_queue: asyncio.Queue
     ) -> None:
         diffs_data: Dict[str, Any] = raw_message["data"]
+        symbol: str = raw_message["arg"]["instId"]
 
         for diff in diffs_data:
             diff_message: OrderBookMessage = await self._parse_any_order_book_message(
                 data=diff,
-                symbol=raw_message["arg"]["instId"],
+                symbol=symbol,
                 message_type=OrderBookMessageType.DIFF
             )
 
@@ -130,11 +132,12 @@ class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
         message_queue: asyncio.Queue
     ) -> None:
         snapshot_data: Dict[str, Any] = raw_message["data"]
+        symbol: str = raw_message["arg"]["instId"]
 
         for snapshot in snapshot_data:
             snapshot_message: OrderBookMessage = await self._parse_any_order_book_message(
                 data=snapshot,
-                symbol=raw_message["arg"]["instId"],
+                symbol=symbol,
                 message_type=OrderBookMessageType.SNAPSHOT
             )
 
@@ -145,12 +148,13 @@ class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
         raw_message: Dict[str, Any],
         message_queue: asyncio.Queue
     ) -> None:
-        data: List[Dict[str, Any]] = raw_message.get("data", [])
+        data: List[Dict[str, Any]] = raw_message["data"]
         symbol: str = raw_message["arg"]["instId"]
         trading_pair: str = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
 
         for trade_data in data:
-            trade_type: float = float(TradeType.BUY.value) if trade_data["side"] == "buy" else float(TradeType.SELL.value)
+            trade_type: float = float(TradeType.BUY.value) \
+                if trade_data["side"] == "buy" else float(TradeType.SELL.value)
             message_content: Dict[str, Any] = {
                 "trade_id": int(trade_data["tradeId"]),
                 "trading_pair": trading_pair,
@@ -222,15 +226,15 @@ class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot_response: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
-        snapshot_data: Dict[str, Any] = snapshot_response["data"][0]
+        snapshot_data: Dict[str, Any] = snapshot_response["data"]
         update_id: int = int(snapshot_data["ts"])
         timestamp: float = update_id * 1e-3
 
         order_book_message_content: Dict[str, Any] = {
             "trading_pair": trading_pair,
             "update_id": update_id,
-            "bids": snapshot_data.get("bids", []),
-            "asks": snapshot_data.get("asks", []),
+            "bids": snapshot_data["bids"],
+            "asks": snapshot_data["asks"],
         }
 
         return OrderBookMessage(
@@ -240,23 +244,56 @@ class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
         )
 
     async def _send_ping(self, websocket_assistant: WSAssistant) -> None:
-        ping_request = WSPlainTextRequest(CONSTANTS.PUBLIC_WS_PING)
+        ping_request = WSPlainTextRequest(CONSTANTS.PUBLIC_WS_PING_REQUEST)
 
         await websocket_assistant.send(ping_request)
-        self.logger().info("Ping sent for orderbook")
 
-    def _max_heartbeat_response_delay(self) -> int:
-        return 30
+    async def send_interval_ping(self, websocket_assistant: WSAssistant) -> None:
+        """
+        Coroutine to send PING messages periodically.
 
-    async def _process_websocket_messages(self, websocket_assistant: WSAssistant) -> None:
+        :param websocket_assistant: The websocket assistant to use to send the PING message.
+        """
+        try:
+            while True:
+                await self._send_ping(websocket_assistant)
+                await asyncio.sleep(CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+        except asyncio.CancelledError:
+            self.logger().info("Interval PING task cancelled")
+            raise
+        except Exception:
+            self.logger().exception("Error sending interval PING")
+
+    async def listen_for_subscriptions(self) -> NoReturn:
+        """
+        Connects to the trade events and order diffs websocket endpoints
+        and listens to the messages sent by the exchange.
+        Each message is stored in its own queue.
+        """
+        ws: Optional[WSAssistant] = None
         while True:
             try:
-                await asyncio.wait_for(
-                    super()._process_websocket_messages(websocket_assistant=websocket_assistant),
-                    timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE
+                ws: WSAssistant = await self._connected_websocket_assistant()
+                await self._subscribe_channels(ws)
+                self._ping_task = asyncio.create_task(self.send_interval_ping(ws))
+                await self._process_websocket_messages(websocket_assistant=ws)
+            except asyncio.CancelledError:
+                raise
+            except ConnectionError as connection_exception:
+                self.logger().warning(
+                    f"The websocket connection was closed ({connection_exception})"
                 )
-            except asyncio.TimeoutError:
-                if self._pong_response_event and not self._pong_response_event.is_set():
-                    raise IOError("The user stream channel is unresponsive (pong response not received)")
-                self._pong_response_event = asyncio.Event()
-                await self._send_ping(websocket_assistant=websocket_assistant)
+            except Exception:
+                self.logger().exception(
+                    "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds...",
+                )
+                await self._sleep(1.0)
+            finally:
+                if self._ping_task is not None:
+                    self._ping_task.cancel()
+                    try:
+                        await self._ping_task
+                    except asyncio.CancelledError:
+                        pass
+                    self._ping_task = None
+                await self._on_order_stream_interruption(websocket_assistant=ws)

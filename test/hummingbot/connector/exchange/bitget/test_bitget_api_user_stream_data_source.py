@@ -352,8 +352,8 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         self.assertEqual(0, msg_queue.qsize())
         self.assertTrue(self._is_logged(
-            "ERROR",
-            f"Invalid event message ({invalid_event})"
+            "WARNING",
+            f"Message for unknown channel received: {invalid_event}"
         ))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -545,5 +545,5 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(0, msg_queue.qsize())
         self.assertTrue(self._is_logged(
             "ERROR",
-            f"Private channel subscription failed ({error_mock_response})"
+            f"Failed to subscribe to private channels: {error_mock_response['msg']} ({error_mock_response['code']})"
         ))
