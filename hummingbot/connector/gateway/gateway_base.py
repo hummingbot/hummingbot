@@ -8,6 +8,7 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional, Set, Union, cast
 
 from hummingbot.client.config.client_config_map import GatewayConfigMap
+from hummingbot.connector.budget_checker import BudgetChecker
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway.common_types import TransactionStatus
@@ -85,6 +86,7 @@ class GatewayBase(ConnectorBase):
         # Use connector name as temporary name until we have chain/network info
         self._name = connector_name
         super().__init__(balance_asset_limit)
+        self._budget_checker = BudgetChecker(exchange=self)
         self._gateway_config = gateway_config
         self._trading_pairs = trading_pairs
         self._tokens = set()
@@ -111,6 +113,10 @@ class GatewayBase(ConnectorBase):
         if s_logger is None:
             s_logger = logging.getLogger(cls.__name__)
         return cast(HummingbotLogger, s_logger)
+
+    @property
+    def budget_checker(self) -> BudgetChecker:
+        return self._budget_checker
 
     @property
     def connector_name(self):
