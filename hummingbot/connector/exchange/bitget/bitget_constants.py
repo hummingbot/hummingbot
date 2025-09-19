@@ -3,15 +3,16 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState
 
 EXCHANGE_NAME = "bitget"
-DEFAULT_DOMAIN = ""
+DEFAULT_DOMAIN = "bitget.com"
+REST_SUBDOMAIN = "api"
+WSS_SUBDOMAIN = "ws"
+DEFAULT_TIME_IN_FORCE = "gtc"
 
-MAX_ORDER_ID_LEN = 20
+ORDER_ID_MAX_LEN = None
 HBOT_ORDER_ID_PREFIX = ""
-DEFAULT_TIME_IN_FORCE = "GTC"
 
-REST_URL = "https://api.bitget.com"
-WSS_PUBLIC_URL = "wss://ws.bitget.com/v2/ws/public"
-WSS_PRIVATE_URL = "wss://ws.bitget.com/v2/ws/private"
+WSS_PUBLIC_ENDPOINT = "/v2/ws/public"
+WSS_PRIVATE_ENDPOINT = "/v2/ws/private"
 
 TRADE_TYPES = {
     TradeType.BUY: "buy",
@@ -22,21 +23,15 @@ ORDER_TYPES = {
     OrderType.MARKET: "market",
 }
 STATE_TYPES = {
-    "init": OrderState.PENDING_CREATE,
     "live": OrderState.OPEN,
-    "new": OrderState.OPEN,
     "filled": OrderState.FILLED,
     "partially_filled": OrderState.PARTIALLY_FILLED,
     "cancelled": OrderState.CANCELED,
 }
 
-SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE = 40
+SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE = 20
 WS_HEARTBEAT_TIME_INTERVAL = 30
 
-PUBLIC_CANDLES_ENDPOINT = "/api/v2/spot/market/candles"
-PUBLIC_COINS_ENDPOINT = "/api/v2/spot/public/coins"
-PUBLIC_FILLS_ENDPOINT = "/api/v2/spot/market/fills"
-PUBLIC_FILLS_HISTORY_ENDPOINT = "/api/v2/spot/market/fills-history"
 PUBLIC_ORDERBOOK_ENDPOINT = "/api/v2/spot/market/orderbook"
 PUBLIC_SYMBOLS_ENDPOINT = "/api/v2/spot/public/symbols"
 PUBLIC_TICKERS_ENDPOINT = "/api/v2/spot/market/tickers"
@@ -50,7 +45,6 @@ USER_FILLS_ENDPOINT = "/api/v2/spot/trade/fills"
 
 PUBLIC_WS_BOOKS = "books"
 PUBLIC_WS_TRADE = "trade"
-PUBLIC_WS_MARKET = "market"
 
 PUBLIC_WS_PING_REQUEST = "ping"
 PUBLIC_WS_PONG_RESPONSE = "pong"
@@ -81,10 +75,6 @@ RET_CODES_ORDER_NOT_EXIST = [
 ]
 
 RATE_LIMITS = [
-    RateLimit(limit_id=PUBLIC_CANDLES_ENDPOINT, limit=20, time_interval=1),
-    RateLimit(limit_id=PUBLIC_COINS_ENDPOINT, limit=3, time_interval=1),
-    RateLimit(limit_id=PUBLIC_FILLS_ENDPOINT, limit=10, time_interval=1),
-    RateLimit(limit_id=PUBLIC_FILLS_HISTORY_ENDPOINT, limit=10, time_interval=1),
     RateLimit(limit_id=PUBLIC_ORDERBOOK_ENDPOINT, limit=20, time_interval=1),
     RateLimit(limit_id=PUBLIC_SYMBOLS_ENDPOINT, limit=20, time_interval=1),
     RateLimit(limit_id=PUBLIC_TICKERS_ENDPOINT, limit=20, time_interval=1),

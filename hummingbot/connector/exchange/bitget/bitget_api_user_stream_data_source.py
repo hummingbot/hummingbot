@@ -1,7 +1,7 @@
 import asyncio
 from typing import TYPE_CHECKING, Any, Dict, List, NoReturn, Optional
 
-from hummingbot.connector.exchange.bitget import bitget_constants as CONSTANTS
+from hummingbot.connector.exchange.bitget import bitget_constants as CONSTANTS, bitget_web_utils as web_utils
 from hummingbot.connector.exchange.bitget.bitget_auth import BitgetAuth
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest, WSPlainTextRequest, WSResponse
@@ -114,7 +114,7 @@ class BitgetAPIUserStreamDataSource(UserStreamTrackerDataSource):
         websocket_assistant: WSAssistant = await self._api_factory.get_ws_assistant()
 
         await websocket_assistant.connect(
-            ws_url=CONSTANTS.WSS_PRIVATE_URL,
+            ws_url=web_utils.private_ws_url(),
             message_timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE
         )
         await self._authenticate(websocket_assistant)

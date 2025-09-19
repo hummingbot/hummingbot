@@ -70,7 +70,7 @@ class BitgetExchange(ExchangePyBase):
 
     @property
     def client_order_id_max_length(self) -> int:
-        return CONSTANTS.MAX_ORDER_ID_LEN
+        return CONSTANTS.ORDER_ID_MAX_LEN
 
     @property
     def client_order_id_prefix(self) -> str:
@@ -174,7 +174,7 @@ class BitgetExchange(ExchangePyBase):
             "symbol": await self.exchange_symbol_associated_to_pair(trading_pair),
             "size": str(amount),
             "orderType": CONSTANTS.ORDER_TYPES[order_type],
-            "force": CONSTANTS.DEFAULT_TIME_IN_FORCE.lower(),
+            "force": CONSTANTS.DEFAULT_TIME_IN_FORCE,
             "clientOid": order_id,
         }
         if order_type.is_limit_type():

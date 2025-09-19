@@ -173,7 +173,7 @@ class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
         websocket_assistant: WSAssistant = await self._api_factory.get_ws_assistant()
 
         await websocket_assistant.connect(
-            ws_url=CONSTANTS.WSS_PUBLIC_URL,
+            ws_url=web_utils.public_ws_url(),
             message_timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE,
         )
 
