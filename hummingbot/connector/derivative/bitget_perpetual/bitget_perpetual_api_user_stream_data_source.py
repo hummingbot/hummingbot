@@ -1,8 +1,9 @@
 import asyncio
 from typing import TYPE_CHECKING, Any, Dict, List, NoReturn, Optional
 
-from hummingbot.connector.exchange.bitget import bitget_constants as CONSTANTS, bitget_web_utils as web_utils
-from hummingbot.connector.exchange.bitget.bitget_auth import BitgetAuth
+import hummingbot.connector.derivative.bitget_perpetual.bitget_perpetual_web_utils as web_utils
+from hummingbot.connector.derivative.bitget_perpetual import bitget_perpetual_constants as CONSTANTS
+from hummingbot.connector.derivative.bitget_perpetual.bitget_perpetual_auth import BitgetPerpetualAuth
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest, WSPlainTextRequest, WSResponse
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
@@ -10,28 +11,29 @@ from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
 if TYPE_CHECKING:
-    from hummingbot.connector.exchange.bitget.bitget_exchange import BitgetExchange
+    from hummingbot.connector.derivative.bitget_perpetual.bitget_perpetual_derivative import BitgetPerpetualDerivative
 
 
-class BitgetAPIUserStreamDataSource(UserStreamTrackerDataSource):
+class BitgetPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
     """
-    Data source for retrieving user stream data from the Bitget exchange via WebSocket APIs.
+    Data source for retrieving user stream data from
+    the Bitget Perpetual exchange via WebSocket APIs.
     """
 
     _logger: Optional[HummingbotLogger] = None
 
     def __init__(
         self,
-        auth: BitgetAuth,
+        auth: BitgetPerpetualAuth,
         trading_pairs: List[str],
-        connector: 'BitgetExchange',
+        connector: 'BitgetPerpetualDerivative',
         api_factory: WebAssistantsFactory,
     ) -> None:
         super().__init__()
+        self._api_factory = api_factory
         self._auth = auth
         self._trading_pairs = trading_pairs
         self._connector = connector
-        self._api_factory = api_factory
         self._ping_task: Optional[asyncio.Task] = None
 
     async def _authenticate(self, websocket_assistant: WSAssistant) -> None:
@@ -88,32 +90,40 @@ class BitgetAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _subscribe_channels(self, websocket_assistant: WSAssistant) -> None:
         try:
+            product_types: set[str] = {
+                await self._connector.product_type_associated_to_trading_pair(trading_pair)
+                for trading_pair in self._trading_pairs
+            }
             subscription_topics = []
 
-            for channel in [CONSTANTS.WS_ACCOUNT_ENDPOINT, CONSTANTS.WS_FILL_ENDPOINT]:
-                subscription_topics.append({
-                    "instType": "SPOT",
-                    "channel": channel,
-                    "coin": "default"
-                })
+            for product_type in product_types:
+                for channel in [
+                    CONSTANTS.WS_ACCOUNT_ENDPOINT,
+                    CONSTANTS.WS_POSITIONS_ENDPOINT,
+                    CONSTANTS.WS_ORDERS_ENDPOINT
+                ]:
+                    subscription_topics.append(
+                        {
+                            "instType": product_type,
+                            "channel": channel,
+                            "instId": "default"
+                        }
+                    )
 
-            for trading_pair in self._trading_pairs:
-                subscription_topics.append({
-                    "instType": "SPOT",
-                    "channel": CONSTANTS.WS_ORDERS_ENDPOINT,
-                    "instId": await self._connector.exchange_symbol_associated_to_pair(trading_pair)
-                })
             await websocket_assistant.send(
                 WSJSONRequest({
                     "op": "subscribe",
                     "args": subscription_topics
                 })
             )
+
             self.logger().info("Subscribed to private channels...")
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().exception("Unexpected error occurred subscribing to private channels...")
+            self.logger().exception(
+                "Unexpected error occurred subscribing to private channels..."
+            )
             raise
 
     async def _connected_websocket_assistant(self) -> WSAssistant:

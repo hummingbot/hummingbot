@@ -21,7 +21,7 @@ def private_ws_url(domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
     """
     Creates a full URL for provided private websocket endpoint
     """
-    return _create_rest_url(CONSTANTS.WSS_PRIVATE_ENDPOINT, domain)
+    return _create_ws_url(CONSTANTS.WSS_PRIVATE_ENDPOINT, domain)
 
 
 def public_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:

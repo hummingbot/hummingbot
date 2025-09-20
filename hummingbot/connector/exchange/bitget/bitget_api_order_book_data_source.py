@@ -6,6 +6,7 @@ from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest, WSPlainTextRequest
+from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
@@ -28,7 +29,6 @@ class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._connector: 'BitgetExchange' = connector
         self._api_factory: WebAssistantsFactory = api_factory
         self._ping_task: Optional[asyncio.Task] = None
-        self.ready: bool = False
 
     async def get_last_traded_prices(
         self,
@@ -210,7 +210,7 @@ class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         symbol: str = await self._connector.exchange_symbol_associated_to_pair(trading_pair)
-        rest_assistant = await self._api_factory.get_rest_assistant()
+        rest_assistant: RESTAssistant = await self._api_factory.get_rest_assistant()
 
         data: Dict[str, Any] = await rest_assistant.execute_request(
             url=web_utils.public_rest_url(path_url=CONSTANTS.PUBLIC_ORDERBOOK_ENDPOINT),
@@ -265,11 +265,6 @@ class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
             self.logger().exception("Error sending interval PING")
 
     async def listen_for_subscriptions(self) -> NoReturn:
-        """
-        Connects to the trade events and order diffs websocket endpoints
-        and listens to the messages sent by the exchange.
-        Each message is stored in its own queue.
-        """
         ws: Optional[WSAssistant] = None
         while True:
             try:
@@ -285,7 +280,8 @@ class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 )
             except Exception:
                 self.logger().exception(
-                    "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds...",
+                    "Unexpected error occurred when listening to order book streams."
+                    "Retrying in 5 seconds...",
                 )
                 await self._sleep(1.0)
             finally:

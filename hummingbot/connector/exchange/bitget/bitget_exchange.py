@@ -18,7 +18,6 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase, TradeFeeSchema
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
@@ -38,7 +37,7 @@ class BitgetExchange(ExchangePyBase):
         rate_limits_share_pct: Decimal = Decimal("100"),
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = True,
-    ):
+    ) -> None:
         self._api_key = bitget_api_key
         self._secret_key = bitget_secret_key
         self._passphrase = bitget_passphrase
@@ -89,7 +88,7 @@ class BitgetExchange(ExchangePyBase):
         return CONSTANTS.PUBLIC_TIME_ENDPOINT
 
     @property
-    def trading_pairs(self):
+    def trading_pairs(self) -> Optional[List[str]]:
         return self._trading_pairs
 
     @property
@@ -107,13 +106,14 @@ class BitgetExchange(ExchangePyBase):
     def supported_order_types(self) -> List[OrderType]:
         return [OrderType.LIMIT, OrderType.MARKET]
 
-    def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
+    def _is_request_exception_related_to_time_synchronizer(
+        self,
+        request_exception: Exception
+    ) -> bool:
         error_description = str(request_exception)
         ts_error_target_str = "Request timestamp expired"
-        is_time_synchronizer_related = (
-            ts_error_target_str in error_description
-        )
-        return is_time_synchronizer_related
+
+        return ts_error_target_str in error_description
 
     def _is_order_not_found_during_status_update_error(
         self, status_update_exception: Exception
@@ -125,7 +125,7 @@ class BitgetExchange(ExchangePyBase):
             return False
 
         if isinstance(status_update_exception, ValueError):
-            return False
+            return True
 
         return False
 
@@ -140,7 +140,7 @@ class BitgetExchange(ExchangePyBase):
 
         return False
 
-    async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
+    async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder) -> bool:
         cancel_order_response = await self._api_post(
             path_url=CONSTANTS.CANCEL_ORDER_ENDPOINT,
             data={
@@ -208,7 +208,8 @@ class BitgetExchange(ExchangePyBase):
 
         if trading_pair in self._trading_fees:
             fee_schema: TradeFeeSchema = self._trading_fees[trading_pair]
-            fee_rate = fee_schema.maker_percent_fee_decimal if is_maker else fee_schema.taker_percent_fee_decimal
+            fee_rate = fee_schema.maker_percent_fee_decimal \
+                if is_maker else fee_schema.taker_percent_fee_decimal
             fee = TradeFeeBase.new_spot_fee(
                 fee_schema=fee_schema,
                 trade_type=order_side,
@@ -227,7 +228,7 @@ class BitgetExchange(ExchangePyBase):
             )
         return fee
 
-    async def _update_trading_fees(self):
+    async def _update_trading_fees(self) -> None:
         exchange_info = await self._api_get(
             path_url=self.trading_rules_request_path
         )
@@ -265,7 +266,7 @@ class BitgetExchange(ExchangePyBase):
             api_factory=self._web_assistants_factory,
         )
 
-    async def _update_balances(self):
+    async def _update_balances(self) -> None:
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
@@ -303,7 +304,7 @@ class BitgetExchange(ExchangePyBase):
                     trade_update = self._parse_trade_update(
                         trade_msg=fill_data,
                         tracked_order=order,
-                        source_type='rest'
+                        source_type="rest"
                     )
                     trade_updates.append(trade_update)
             except IOError as ex:
@@ -408,7 +409,7 @@ class BitgetExchange(ExchangePyBase):
         trade_fee_data = fee_detail[0] if isinstance(fee_detail, list) else fee_detail
         fee_amount = Decimal(trade_fee_data["totalFee"])
         fee_coin = trade_fee_data["feeCoin"]
-        side = TradeType.BUY if trade_msg['side'] == 'buy' else TradeType.SELL
+        side = TradeType.BUY if trade_msg["side"] == "buy" else TradeType.SELL
 
         fee = TradeFeeBase.new_spot_fee(
             fee_schema=self.trade_fee_schema(),
@@ -430,7 +431,7 @@ class BitgetExchange(ExchangePyBase):
 
         return trade_update
 
-    async def _user_stream_event_listener(self):
+    async def _user_stream_event_listener(self) -> None:
         async for event_message in self._iter_user_event_queue():
             try:
                 channel = event_message["arg"]["channel"]
@@ -450,7 +451,7 @@ class BitgetExchange(ExchangePyBase):
             except Exception:
                 self.logger().exception("Unexpected error in user stream listener loop.")
 
-    def _process_order_event_message(self, order_msg: Dict[str, Any]):
+    def _process_order_event_message(self, order_msg: Dict[str, Any]) -> None:
         """
         Updates in-flight order and triggers cancellation or failure event if needed.
         :param order_msg: The order event message payload
@@ -469,7 +470,7 @@ class BitgetExchange(ExchangePyBase):
             )
             self._order_tracker.process_order_update(new_order_update)
 
-    def _process_fill_event_message(self, fill_msg: Dict[str, Any]):
+    def _process_fill_event_message(self, fill_msg: Dict[str, Any]) -> None:
         try:
             order_id = str(fill_msg.get("orderId", ""))
             trade_id = str(fill_msg.get("tradeId", ""))
@@ -486,7 +487,7 @@ class BitgetExchange(ExchangePyBase):
             trade_update = self._parse_trade_update(
                 trade_msg=fill_msg,
                 tracked_order=fillable_order,
-                source_type='websocket'
+                source_type="websocket"
             )
             if trade_update:
                 self._order_tracker.process_trade_update(trade_update)
@@ -498,7 +499,7 @@ class BitgetExchange(ExchangePyBase):
         except Exception as e:
             self.logger().error(f"Error processing fill event: {e}", exc_info=True)
 
-    def _set_account_balances(self, data: Dict[str, Any]):
+    def _set_account_balances(self, data: Dict[str, Any]) -> None:
         symbol = data["coin"]
         available = Decimal(str(data["available"]))
         frozen = Decimal(str(data["frozen"]))
@@ -506,10 +507,11 @@ class BitgetExchange(ExchangePyBase):
         self._account_available_balances[symbol] = available
 
     def _initialize_trading_pair_symbols_from_exchange_info(
-        self, exchange_info: Dict[str, List[Dict[str, Any]]]
-    ):
+        self,
+        exchange_info: Dict[str, List[Dict[str, Any]]]
+    ) -> None:
         mapping = bidict()
-        for symbol_data in exchange_info['data']:
+        for symbol_data in exchange_info["data"]:
             if bitget_utils.is_exchange_information_valid(exchange_info=symbol_data):
                 try:
                     exchange_symbol = symbol_data["symbol"]
@@ -524,10 +526,11 @@ class BitgetExchange(ExchangePyBase):
         self._set_trading_pair_symbol_map(mapping)
 
     async def _format_trading_rules(
-        self, exchange_info_dict: Dict[str, List[Dict[str, Any]]]
+        self,
+        exchange_info_dict: Dict[str, List[Dict[str, Any]]]
     ) -> List[TradingRule]:
         trading_rules = []
-        for rule in exchange_info_dict['data']:
+        for rule in exchange_info_dict["data"]:
             if bitget_utils.is_exchange_information_valid(exchange_info=rule):
                 try:
                     trading_pair = await self.trading_pair_associated_to_exchange_symbol(
@@ -549,37 +552,3 @@ class BitgetExchange(ExchangePyBase):
                         f"Error parsing the trading pair rule: {rule}. Skipping."
                     )
         return trading_rules
-
-    def buy(self,
-            trading_pair: str,
-            amount: Decimal,
-            order_type=OrderType.LIMIT,
-            price: Decimal = s_decimal_NaN,
-            **kwargs) -> str:
-        order_id = bitget_utils.generate_id()
-        safe_ensure_future(self._create_order(
-            trade_type=TradeType.BUY,
-            order_id=order_id,
-            trading_pair=trading_pair,
-            amount=amount,
-            order_type=order_type,
-            price=price,
-            **kwargs))
-        return order_id
-
-    def sell(self,
-             trading_pair: str,
-             amount: Decimal,
-             order_type: OrderType = OrderType.LIMIT,
-             price: Decimal = s_decimal_NaN,
-             **kwargs) -> str:
-        order_id = bitget_utils.generate_id()
-        safe_ensure_future(self._create_order(
-            trade_type=TradeType.SELL,
-            order_id=order_id,
-            trading_pair=trading_pair,
-            amount=amount,
-            order_type=order_type,
-            price=price,
-            **kwargs))
-        return order_id

@@ -1,11 +1,9 @@
-import random
 from decimal import Decimal
 from typing import Any, Dict
 
 from pydantic import ConfigDict, Field, SecretStr
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
-from hummingbot.connector.exchange.bitget.bitget_constants import MAX_ORDER_ID_LEN
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 # Bitget fees: https://www.bitget.com/en/rate?tab=1
@@ -28,10 +26,6 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     symbol = exchange_info.get("symbol")
 
     return symbol is not None and symbol.count("_") <= 1
-
-
-def generate_id() -> int:
-    return str(random.randint(0, 10 ** MAX_ORDER_ID_LEN))
 
 
 class BitgetConfigMap(BaseConnectorConfigMap):

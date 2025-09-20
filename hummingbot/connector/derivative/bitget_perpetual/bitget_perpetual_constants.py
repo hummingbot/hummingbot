@@ -59,6 +59,7 @@ ACCOUNT_BILLS_ENDPOINT = "/api/v2/mix/account/bill"
 
 PUBLIC_WS_BOOKS = "books"
 PUBLIC_WS_TRADE = "trade"
+PUBLIC_WS_TICKER = "ticker"
 
 PUBLIC_WS_PING_REQUEST = "ping"
 PUBLIC_WS_PONG_RESPONSE = "pong"
