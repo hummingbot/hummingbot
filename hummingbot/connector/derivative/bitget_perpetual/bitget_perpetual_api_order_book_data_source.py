@@ -302,7 +302,7 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot_response: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
         snapshot_data: Dict[str, Any] = snapshot_response["data"]
-        update_id: int = int(snapshot_data["timestamp"])
+        update_id: int = int(snapshot_data["ts"])
         timestamp: float = update_id * 1e-3
 
         order_book_message_content: Dict[str, Any] = {
@@ -355,7 +355,7 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 )
             except Exception:
                 self.logger().exception(
-                    "Unexpected error occurred when listening to order book streams."
+                    "Unexpected error occurred when listening to order book streams. "
                     "Retrying in 5 seconds...",
                 )
                 await self._sleep(1.0)

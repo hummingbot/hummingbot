@@ -280,7 +280,7 @@ class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 )
             except Exception:
                 self.logger().exception(
-                    "Unexpected error occurred when listening to order book streams."
+                    "Unexpected error occurred when listening to order book streams. "
                     "Retrying in 5 seconds...",
                 )
                 await self._sleep(1.0)

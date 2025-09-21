@@ -70,7 +70,7 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         """
         self.log_records.append(record)
 
-    def _ws_trade_mock_response(self) -> Dict[str, Any]:
+    def ws_trade_mock_response(self) -> Dict[str, Any]:
         """
         Create a mock WebSocket response for trade updates.
 
@@ -100,7 +100,7 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             ]
         }
 
-    def _rest_last_traded_price_mock_response(self) -> Dict[str, Any]:
+    def rest_last_traded_price_mock_response(self) -> Dict[str, Any]:
         """
         Create a mock REST response for last traded price.
 
@@ -130,7 +130,7 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             ]
         }
 
-    def _ws_order_book_snapshot_mock_response(self) -> Dict[str, Any]:
+    def ws_order_book_snapshot_mock_response(self) -> Dict[str, Any]:
         """
         Create a mock WebSocket response for order book snapshot.
 
@@ -161,18 +161,18 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             "ts": 1695710946294
         }
 
-    def _ws_order_book_diff_mock_response(self) -> Dict[str, Any]:
+    def ws_order_book_diff_mock_response(self) -> Dict[str, Any]:
         """
         Create a mock WebSocket response for order book diff updates.
 
         :return: Dict[str, Any]: Mock order book diff response data.
         """
-        snapshot: Dict[str, Any] = self._ws_order_book_snapshot_mock_response()
+        snapshot: Dict[str, Any] = self.ws_order_book_snapshot_mock_response()
         snapshot["action"] = "update"
 
         return snapshot
 
-    def _ws_error_event_mock_response(self) -> Dict[str, Any]:
+    def ws_error_event_mock_response(self) -> Dict[str, Any]:
         """
         Create a mock WebSocket response for error events.
 
@@ -185,7 +185,7 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             "msg": "Invalid request"
         }
 
-    def _rest_order_book_snapshot_mock_response(self) -> Dict[str, Any]:
+    def rest_order_book_snapshot_mock_response(self) -> Dict[str, Any]:
         """
         Create a mock REST response for order book snapshot.
 
@@ -228,7 +228,7 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         :param mock_get: Mocked HTTP response object.
         """
-        mock_response: Dict[str, Any] = self._rest_last_traded_price_mock_response()
+        mock_response: Dict[str, Any] = self.rest_last_traded_price_mock_response()
         url: str = web_utils.public_rest_url(CONSTANTS.PUBLIC_TICKERS_ENDPOINT)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -248,7 +248,7 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         :param mock_get: Mocked HTTP response object.
         """
-        mock_response: Dict[str, Any] = self._rest_order_book_snapshot_mock_response()
+        mock_response: Dict[str, Any] = self.rest_order_book_snapshot_mock_response()
         url: str = web_utils.public_rest_url(CONSTANTS.PUBLIC_ORDERBOOK_ENDPOINT)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -373,7 +373,8 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         self.assertTrue(self._is_logged(
             "ERROR",
-            "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
+            "Unexpected error occurred when listening to order book streams. "
+            "Retrying in 5 seconds..."
         ))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -418,7 +419,7 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         :param mock_ws: Mocked WebSocket connection object.
         """
         msg_queue: asyncio.Queue = asyncio.Queue()
-        mock_response: Dict[str, Any] = self._ws_trade_mock_response()
+        mock_response: Dict[str, Any] = self.ws_trade_mock_response()
 
         mock_ws.get.side_effect = [mock_response, asyncio.CancelledError]
         self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_ws
@@ -454,7 +455,7 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         :param mock_ws: Mocked WebSocket connection object.
         """
-        mock_response: Dict[str, Any] = self._ws_order_book_diff_mock_response()
+        mock_response: Dict[str, Any] = self.ws_order_book_diff_mock_response()
 
         mock_ws.get.side_effect = [mock_response, asyncio.CancelledError]
         self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_ws
@@ -493,7 +494,7 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         :param mock_ws: Mocked WebSocket connection object.
         """
-        mock_response: Dict[str, Any] = self._ws_order_book_snapshot_mock_response()
+        mock_response: Dict[str, Any] = self.ws_order_book_snapshot_mock_response()
 
         mock_ws.get.side_effect = [mock_response, asyncio.CancelledError]
         self.data_source._message_queue[self.data_source._snapshot_messages_queue_key] = mock_ws
@@ -526,7 +527,10 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(expected_update_id, asks[0].update_id)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    async def test_listen_for_order_book_snapshots_raises_cancelled_exception(self, mock_ws: AsyncMock) -> None:
+    async def test_listen_for_order_book_snapshots_raises_cancelled_exception(
+        self,
+        mock_ws: AsyncMock
+    ) -> None:
         """
         Test that listen_for_order_book_snapshots raises CancelledError when the message queue is cancelled.
 
@@ -543,11 +547,12 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_order_book_snapshots_logs_exception(self, mock_ws: AsyncMock) -> None:
         """
-        Test that listen_for_order_book_snapshots logs an error when processing invalid snapshot data.
+        Test that listen_for_order_book_snapshots logs an error
+        when processing invalid snapshot data.
 
         :param mock_ws: Mocked WebSocket connection object.
         """
-        incomplete_mock_response: Dict[str, Any] = self._ws_order_book_snapshot_mock_response()
+        incomplete_mock_response: Dict[str, Any] = self.ws_order_book_snapshot_mock_response()
         incomplete_mock_response["data"] = [
             {
                 "instId": self.exchange_trading_pair,
@@ -579,7 +584,7 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         :param mock_ws: Mocked WebSocket connection object.
         """
-        incomplete_mock_response: Dict[str, Any] = self._ws_trade_mock_response()
+        incomplete_mock_response: Dict[str, Any] = self.ws_trade_mock_response()
         incomplete_mock_response["data"] = [
             {
                 "instId": self.exchange_trading_pair,
@@ -605,11 +610,15 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_process_message_for_unknown_channel_event_error_raises(self, mock_ws: AsyncMock) -> None:
+    def test_process_message_for_unknown_channel_event_error_raises(
+        self,
+        mock_ws: AsyncMock
+    ) -> None:
         """
-        Verify that an event message with 'event': 'error' raises IOError in _process_message_for_unknown_channel.
+        Verify that an event message with 'event': 'error'
+        raises IOError in _process_message_for_unknown_channel.
         """
-        mock_response = self._ws_error_event_mock_response()
+        mock_response = self.ws_error_event_mock_response()
 
         with self.assertRaises(IOError) as context:
             asyncio.get_event_loop().run_until_complete(

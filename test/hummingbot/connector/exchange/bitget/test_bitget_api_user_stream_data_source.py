@@ -88,7 +88,7 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         """
         return "1234567890"
 
-    def _ws_login_event_mock_response(self) -> Dict[str, Any]:
+    def ws_login_event_mock_response(self) -> Dict[str, Any]:
         """
         Create a mock WebSocket response for login events.
 
@@ -100,7 +100,7 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
             "msg": ""
         }
 
-    def _ws_error_event_mock_response(self) -> Dict[str, Any]:
+    def ws_error_event_mock_response(self) -> Dict[str, Any]:
         """
         Create a mock WebSocket response for error events.
 
@@ -182,9 +182,6 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
                    for record in self.log_records)
 
     def tearDown(self) -> None:
-        """
-        Clean up after each test by cancelling the listening task if active.
-        """
         if self.listening_task and not self.listening_task.cancel():
             super().tearDown()
 
@@ -215,7 +212,7 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=mock_ws.return_value,
-            message=json.dumps(self._ws_login_event_mock_response())
+            message=json.dumps(self.ws_login_event_mock_response())
         )
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=mock_ws.return_value,
@@ -280,7 +277,7 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         :param mock_ws: Mocked WebSocket connection object.
         """
-        error_mock_response: Dict[str, Any] = self._ws_error_event_mock_response()
+        error_mock_response: Dict[str, Any] = self.ws_error_event_mock_response()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
 
         self.mocking_assistant.add_websocket_aiohttp_message(
@@ -333,7 +330,7 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=mock_ws.return_value,
-            message=json.dumps(self._ws_login_event_mock_response())
+            message=json.dumps(self.ws_login_event_mock_response())
         )
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=mock_ws.return_value,
@@ -446,7 +443,7 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=mock_ws.return_value,
-            message=json.dumps(self._ws_login_event_mock_response())
+            message=json.dumps(self.ws_login_event_mock_response())
         )
         self.connector.exchange_symbol_associated_to_pair = AsyncMock(
             side_effect=ValueError("Invalid trading pair")
@@ -495,7 +492,7 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=mock_ws.return_value,
-            message=json.dumps(self._ws_login_event_mock_response())
+            message=json.dumps(self.ws_login_event_mock_response())
         )
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=mock_ws.return_value,
@@ -523,12 +520,12 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         :param mock_ws: Mocked WebSocket connection object.
         """
-        error_mock_response: Dict[str, Any] = self._ws_error_event_mock_response()
+        error_mock_response: Dict[str, Any] = self.ws_error_event_mock_response()
 
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=mock_ws.return_value,
-            message=json.dumps(self._ws_login_event_mock_response())
+            message=json.dumps(self.ws_login_event_mock_response())
         )
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=mock_ws.return_value,
