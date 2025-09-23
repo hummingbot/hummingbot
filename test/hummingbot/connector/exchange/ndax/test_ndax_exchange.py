@@ -7,8 +7,6 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS, ndax_web_utils as web_utils
 from hummingbot.connector.exchange.ndax.ndax_exchange import NdaxExchange
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
@@ -225,9 +223,7 @@ class NdaxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return f"{base_token.lower()}{quote_token.lower()}"
 
     def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         return NdaxExchange(
-            client_config_map=client_config_map,
             ndax_uid="0001",
             ndax_api_key="testAPIKey",
             ndax_secret_key="testSecret",

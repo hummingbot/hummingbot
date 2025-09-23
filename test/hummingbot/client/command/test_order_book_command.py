@@ -10,7 +10,7 @@ from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExcha
 
 class OrderBookCommandTest(IsolatedAsyncioWrapperTestCase):
     @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher")
-    @patch("hummingbot.core.gateway.gateway_status_monitor.GatewayStatusMonitor.start")
+    @patch("hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.start_monitor")
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication.mqtt_start")
     async def asyncSetUp(self, mock_mqtt_start, mock_gateway_start, mock_trading_pair_fetcher):
         await read_system_configs_from_yml()
@@ -27,7 +27,7 @@ class OrderBookCommandTest(IsolatedAsyncioWrapperTestCase):
         notify_mock.side_effect = lambda s: captures.append(s)
 
         exchange_name = "paper"
-        exchange = MockPaperExchange(client_config_map=ClientConfigAdapter(ClientConfigMap()))
+        exchange = MockPaperExchange()
         # Set the exchange in the new architecture location
         self.app.trading_core.connector_manager.connectors[exchange_name] = exchange
         trading_pair = "BTC-USDT"

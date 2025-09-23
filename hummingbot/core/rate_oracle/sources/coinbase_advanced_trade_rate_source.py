@@ -67,14 +67,11 @@ class CoinbaseAdvancedTradeRateSource(RateSourceBase):
         return {token: Decimal(1.0) / Decimal(price) for token, price in token_price.items() if Decimal(price) != 0}
 
     def _build_coinbase_connector(self, domain: str = DEFAULT_DOMAIN) -> 'CoinbaseAdvancedTradeExchange':
-        from hummingbot.client.hummingbot_application import HummingbotApplication
         from hummingbot.client.settings import AllConnectorSettings
         from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_exchange import (
             CoinbaseAdvancedTradeExchange,
         )
 
-        app = HummingbotApplication.main_application()
-        client_config_map = app.client_config_map
         connector_config = AllConnectorSettings.get_connector_config_keys("coinbase_advanced_trade")
         api_key = ""
         api_secret = ""
@@ -83,7 +80,6 @@ class CoinbaseAdvancedTradeRateSource(RateSourceBase):
             api_secret = getattr(connector_config, "coinbase_advanced_trade_api_secret", SecretStr("")).get_secret_value()
 
         return CoinbaseAdvancedTradeExchange(
-            client_config_map=client_config_map,
             coinbase_advanced_trade_api_key=api_key,
             coinbase_advanced_trade_api_secret=api_secret,
             trading_pairs=[],

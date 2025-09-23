@@ -7,8 +7,6 @@ from typing import Any, Callable, List, Optional, Tuple
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.btc_markets import (
     btc_markets_constants as CONSTANTS,
     btc_markets_web_utils as web_utils,
@@ -309,9 +307,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
         return base_token + "-" + quote_token
 
     def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         return BtcMarketsExchange(
-            client_config_map=client_config_map,
             btc_markets_api_key="testAPIKey",
             btc_markets_api_secret="XXXX",
             trading_pairs=[self.trading_pair],

@@ -17,6 +17,7 @@ omit =
         hummingbot/connector/derivative/dydx_v4_perpetual/*
         hummingbot/connector/derivative/dydx_v4_perpetual/data_sources/*
         hummingbot/connector/exchange/injective_v2/account_delegation_script.py
+        hummingbot/connector/exchange/mexc/protobuf/*
         hummingbot/connector/exchange/paper_trade*
         hummingbot/connector/gateway/**
         hummingbot/connector/test_support/*

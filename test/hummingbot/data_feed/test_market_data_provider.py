@@ -1,7 +1,7 @@
 import asyncio
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pandas as pd
 
@@ -39,6 +39,13 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(connector._trading_required, False)
         with self.assertRaises(ValueError):
             self.provider.get_non_trading_connector("binance_invalid")
+
+    def test_non_trading_connector_caching(self):
+        # Test that non-trading connectors are cached and reused
+        connector1 = self.provider.get_non_trading_connector("binance")
+        connector2 = self.provider.get_non_trading_connector("binance")
+        # Should return the same instance due to caching
+        self.assertIs(connector1, connector2)
 
     def test_stop(self):
         mock_candles_feed = MagicMock()
@@ -401,3 +408,316 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
         result = MarketDataProvider.get_connector_config_map("binance")
 
         self.assertEqual(result, {"api_key": "", "secret_key": ""})
+
+    def test_get_connector_with_fallback_existing_connector(self):
+        # Test when connector exists in self.connectors
+        result = self.provider.get_connector_with_fallback("mock_connector")
+        self.assertEqual(result, self.mock_connector)
+
+    @patch.object(MarketDataProvider, 'get_non_trading_connector')
+    def test_get_connector_with_fallback_non_existing_connector(self, mock_get_non_trading):
+        # Test when connector doesn't exist and falls back to non-trading connector
+        mock_non_trading_connector = MagicMock()
+        mock_get_non_trading.return_value = mock_non_trading_connector
+
+        result = self.provider.get_connector_with_fallback("binance")
+
+        # Verify it called get_non_trading_connector with the correct name
+        mock_get_non_trading.assert_called_once_with("binance")
+        # Verify it returned the non-trading connector
+        self.assertEqual(result, mock_non_trading_connector)
+
+    async def test_get_historical_candles_df_cache_hit(self):
+        # Test when requested data is completely in cache
+        with patch.object(self.provider, 'get_candles_feed') as mock_get_feed:
+            mock_feed = MagicMock()
+            mock_feed.interval_in_seconds = 60
+
+            # Mock cached data that covers the requested range
+            cached_data = pd.DataFrame({
+                'timestamp': [1640995200, 1640995260, 1640995320, 1640995380, 1640995440],
+                'open': [50000, 50100, 50200, 50300, 50400],
+                'high': [50050, 50150, 50250, 50350, 50450],
+                'low': [49950, 50050, 50150, 50250, 50350],
+                'close': [50100, 50200, 50300, 50400, 50500],
+                'volume': [100, 200, 300, 400, 500],
+                'quote_asset_volume': [5000000, 10000000, 15000000, 20000000, 25000000],
+                'n_trades': [10, 20, 30, 40, 50],
+                'taker_buy_base_volume': [50, 100, 150, 200, 250],
+                'taker_buy_quote_volume': [2500000, 5000000, 7500000, 10000000, 12500000]
+            })
+            mock_feed.candles_df = cached_data
+
+            # Create a mock that will fail if called
+            mock_historical = AsyncMock(side_effect=AssertionError("get_historical_candles should not be called"))
+            mock_feed.get_historical_candles = mock_historical
+
+            mock_get_feed.return_value = mock_feed
+
+            # Request data that's within the cached range
+            result = await self.provider.get_historical_candles_df(
+                "binance", "BTC-USDT", "1m",
+                start_time=1640995200, end_time=1640995380, max_records=3
+            )
+
+            # Should return filtered data from cache without fetching new data
+            self.assertEqual(len(result), 3)
+            # Verify get_historical_candles was never called since data was in cache
+            mock_historical.assert_not_called()
+
+    async def test_get_historical_candles_df_no_cache(self):
+        # Test when no cached data exists
+        with patch.object(self.provider, 'get_candles_feed') as mock_get_feed:
+            mock_feed = MagicMock()
+            mock_feed.interval_in_seconds = 60
+            mock_feed.candles_df = pd.DataFrame()  # Empty cache
+
+            # Mock historical data fetch
+            historical_data = pd.DataFrame({
+                'timestamp': [1640995200, 1640995260, 1640995320],
+                'open': [50000, 50100, 50200],
+                'high': [50050, 50150, 50250],
+                'low': [49950, 50050, 50150],
+                'close': [50100, 50200, 50300],
+                'volume': [100, 200, 300],
+                'quote_asset_volume': [5000000, 10000000, 15000000],
+                'n_trades': [10, 20, 30],
+                'taker_buy_base_volume': [50, 100, 150],
+                'taker_buy_quote_volume': [2500000, 5000000, 7500000]
+            })
+            mock_feed.get_historical_candles = AsyncMock(return_value=historical_data)
+            mock_feed._candles = MagicMock()
+            mock_get_feed.return_value = mock_feed
+
+            await self.provider.get_historical_candles_df(
+                "binance", "BTC-USDT", "1m",
+                start_time=1640995200, end_time=1640995320, max_records=3
+            )
+
+            # Should call historical fetch and update cache
+            mock_feed.get_historical_candles.assert_called_once()
+            mock_feed._candles.clear.assert_called()
+
+    async def test_get_historical_candles_df_fallback(self):
+        # Test fallback to regular method when no time range specified
+        with patch.object(self.provider, 'get_candles_df') as mock_get_candles:
+            mock_get_candles.return_value = pd.DataFrame({'timestamp': [123456]})
+
+            # Call without start_time and end_time to trigger fallback
+            # According to implementation, fallback occurs when start_time is None after calculations
+            await self.provider.get_historical_candles_df(
+                "binance", "BTC-USDT", "1m"
+            )
+
+            # Should call regular get_candles_df method with default max_records of 500
+            mock_get_candles.assert_called_once_with("binance", "BTC-USDT", "1m", 500)
+
+    async def test_get_historical_candles_df_partial_cache(self):
+        # Test partial cache hit scenario - testing the code path for partial cache with fetch
+        with patch.object(self.provider, 'get_candles_feed') as mock_get_feed:
+            mock_feed = MagicMock(spec=CandlesBase)
+            mock_feed.interval_in_seconds = 60
+
+            # Set up initial cached data (limited range)
+            existing_df = pd.DataFrame({
+                'timestamp': [1640995260, 1640995320],  # 2 records in cache
+                'open': [101, 102],
+                'high': [102, 103],
+                'low': [100, 101],
+                'close': [102, 103],
+                'volume': [1100, 1200]
+            })
+
+            # New data from historical fetch that extends the range
+            new_data = pd.DataFrame({
+                'timestamp': [1640995080, 1640995140, 1640995200, 1640995260, 1640995320, 1640995380],
+                'open': [98, 99, 100, 101, 102, 103],
+                'high': [99, 100, 101, 102, 103, 104],
+                'low': [97, 98, 99, 100, 101, 102],
+                'close': [99, 100, 101, 102, 103, 104],
+                'volume': [900, 950, 1000, 1100, 1200, 1300]
+            })
+
+            # Create a list to track candles_df calls
+            df_calls = []
+
+            def track_candles_df():
+                if len(df_calls) < 2:
+                    df_calls.append('existing')
+                    return existing_df
+                else:
+                    # After updating cache, return the new data
+                    df_calls.append('updated')
+                    return new_data
+
+            # Use side_effect to track calls
+            type(mock_feed).candles_df = PropertyMock(side_effect=track_candles_df)
+
+            mock_feed.get_historical_candles = AsyncMock(return_value=new_data)
+            mock_feed._candles = MagicMock()
+            mock_get_feed.return_value = mock_feed
+
+            # Request range that requires fetching additional data
+            await self.provider.get_historical_candles_df(
+                "binance", "BTC-USDT", "1m",
+                start_time=1640995080, end_time=1640995380
+            )
+
+            # Should fetch historical data
+            mock_feed.get_historical_candles.assert_called_once()
+
+            # Verify that fetch was called with extended range
+            call_args = mock_feed.get_historical_candles.call_args[0][0]
+            self.assertLessEqual(call_args.start_time, 1640995080)
+            self.assertGreaterEqual(call_args.end_time, 1640995380)
+
+            # Should update cache
+            mock_feed._candles.clear.assert_called()
+
+    async def test_get_historical_candles_df_with_max_records(self):
+        # Test calculating start_time from max_records
+        with patch.object(self.provider, 'get_candles_feed') as mock_get_feed:
+            mock_feed = MagicMock(spec=CandlesBase)
+            mock_feed.interval_in_seconds = 60
+            mock_feed.candles_df = pd.DataFrame()  # Empty cache
+
+            historical_data = pd.DataFrame({
+                'timestamp': [1640995200 + i * 60 for i in range(10)],
+                'open': [100 + i for i in range(10)],
+                'high': [101 + i for i in range(10)],
+                'low': [99 + i for i in range(10)],
+                'close': [100 + i for i in range(10)],
+                'volume': [1000 + i * 100 for i in range(10)]
+            })
+            mock_feed.get_historical_candles = AsyncMock(return_value=historical_data)
+            mock_feed._candles = MagicMock()
+            mock_get_feed.return_value = mock_feed
+
+            # Call with only max_records (no start_time)
+            result = await self.provider.get_historical_candles_df(
+                "binance", "BTC-USDT", "1m",
+                max_records=5, end_time=1640995800
+            )
+
+            # Should calculate start_time and fetch data
+            mock_feed.get_historical_candles.assert_called_once()
+
+            # Result should be limited to max_records
+            self.assertLessEqual(len(result), 5)
+
+    async def test_get_historical_candles_df_large_range_limit(self):
+        # Test limiting fetch range when too large
+        with patch.object(self.provider, 'get_candles_feed') as mock_get_feed:
+            mock_feed = MagicMock(spec=CandlesBase)
+            mock_feed.interval_in_seconds = 60
+
+            # Set up cached data outside requested range
+            existing_df = pd.DataFrame({
+                'timestamp': [1641000000, 1641000060, 1641000120],
+                'open': [200, 201, 202],
+                'high': [201, 202, 203],
+                'low': [199, 200, 201],
+                'close': [201, 202, 203],
+                'volume': [2000, 2100, 2200]
+            })
+            mock_feed.candles_df = existing_df
+
+            historical_data = pd.DataFrame({
+                'timestamp': [1640990000 + i * 60 for i in range(100)],
+                'open': [100 + i for i in range(100)],
+                'high': [101 + i for i in range(100)],
+                'low': [99 + i for i in range(100)],
+                'close': [100 + i for i in range(100)],
+                'volume': [1000 + i * 100 for i in range(100)]
+            })
+            mock_feed.get_historical_candles = AsyncMock(return_value=historical_data)
+            mock_feed._candles = MagicMock()
+            mock_get_feed.return_value = mock_feed
+
+            # Request with very large range that needs limiting
+            await self.provider.get_historical_candles_df(
+                "binance", "BTC-USDT", "1m",
+                start_time=1640990000, end_time=1641010000,
+                max_cache_records=100
+            )
+
+            # Should limit the fetch range
+            mock_feed.get_historical_candles.assert_called_once()
+            call_args = mock_feed.get_historical_candles.call_args[0][0]
+            fetch_range = call_args.end_time - call_args.start_time
+            max_allowed_range = 100 * 60  # max_cache_records * interval_in_seconds
+            self.assertLessEqual(fetch_range, max_allowed_range)
+
+    async def test_get_historical_candles_df_error_handling(self):
+        # Test error handling and fallback
+        with patch.object(self.provider, 'get_candles_feed') as mock_get_feed:
+            with patch.object(self.provider, 'get_candles_df') as mock_get_candles:
+                mock_feed = MagicMock(spec=CandlesBase)
+                mock_feed.interval_in_seconds = 60
+                mock_feed.candles_df = pd.DataFrame()
+
+                # Simulate error in historical fetch
+                mock_feed.get_historical_candles = AsyncMock(side_effect=Exception("Fetch error"))
+                mock_feed._candles = MagicMock()
+                mock_get_feed.return_value = mock_feed
+
+                # Set up fallback return
+                mock_get_candles.return_value = pd.DataFrame({'timestamp': [123456]})
+
+                # Call with time range that triggers historical fetch
+                result = await self.provider.get_historical_candles_df(
+                    "binance", "BTC-USDT", "1m",
+                    start_time=1640995200, end_time=1640995800
+                )
+
+                # Should try historical fetch, fail, and fallback
+                mock_feed.get_historical_candles.assert_called_once()
+                mock_get_candles.assert_called_once_with("binance", "BTC-USDT", "1m", 500)
+
+                # Should return fallback result
+                self.assertEqual(result['timestamp'].iloc[0], 123456)
+
+    async def test_get_historical_candles_df_merge_with_cache_limit(self):
+        # Test merging with cache size limit
+        with patch.object(self.provider, 'get_candles_feed') as mock_get_feed:
+            mock_feed = MagicMock(spec=CandlesBase)
+            mock_feed.interval_in_seconds = 60
+
+            # Large existing cache
+            existing_df = pd.DataFrame({
+                'timestamp': [1640990000 + i * 60 for i in range(50)],
+                'open': [100 + i for i in range(50)],
+                'high': [101 + i for i in range(50)],
+                'low': [99 + i for i in range(50)],
+                'close': [100 + i for i in range(50)],
+                'volume': [1000 + i * 100 for i in range(50)]
+            })
+            mock_feed.candles_df = existing_df
+
+            # New data that would exceed cache limit
+            new_data = pd.DataFrame({
+                'timestamp': [1640993000 + i * 60 for i in range(60)],
+                'open': [150 + i for i in range(60)],
+                'high': [151 + i for i in range(60)],
+                'low': [149 + i for i in range(60)],
+                'close': [150 + i for i in range(60)],
+                'volume': [1500 + i * 100 for i in range(60)]
+            })
+            mock_feed.get_historical_candles = AsyncMock(return_value=new_data)
+            mock_feed._candles = MagicMock()
+            mock_get_feed.return_value = mock_feed
+
+            # Request with cache limit
+            await self.provider.get_historical_candles_df(
+                "binance", "BTC-USDT", "1m",
+                start_time=1640993000, end_time=1640996600,
+                max_cache_records=80  # Less than combined size
+            )
+
+            # Should merge and limit cache
+            mock_feed.get_historical_candles.assert_called_once()
+            mock_feed._candles.clear.assert_called()
+
+            # Verify cache update was called with limited size
+            append_calls = mock_feed._candles.append.call_count
+            self.assertLessEqual(append_calls, 80)

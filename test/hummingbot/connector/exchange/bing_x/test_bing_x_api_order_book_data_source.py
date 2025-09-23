@@ -9,8 +9,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses import aioresponses
 from bidict import bidict
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.bing_x import bing_x_constants as CONSTANTS, bing_x_web_utils as web_utils
 from hummingbot.connector.exchange.bing_x.bing_x_api_order_book_data_source import BingXAPIOrderBookDataSource
 from hummingbot.connector.exchange.bing_x.bing_x_exchange import BingXExchange
@@ -18,8 +16,6 @@ from hummingbot.connector.test_support.network_mocking_assistant import NetworkM
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
-
-# sys.path.insert(0, realpath(join(__file__, "../../../../../../")))
 
 
 class TestBingXAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
@@ -40,9 +36,7 @@ class TestBingXAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
         self.log_records = []
         self.async_task = None
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = BingXExchange(
-            client_config_map=client_config_map,
             bingx_api_key="",
             bingx_api_secret="",
             trading_pairs=[self.trading_pair])

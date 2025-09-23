@@ -12,8 +12,6 @@ from aioresponses.core import RequestCall
 
 import hummingbot.connector.derivative.kucoin_perpetual.kucoin_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.kucoin_perpetual.kucoin_perpetual_web_utils as web_utils
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.kucoin_perpetual.kucoin_perpetual_derivative import KucoinPerpetualDerivative
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.test_support.perpetual_derivative_test import AbstractPerpetualDerivativeTests
@@ -587,12 +585,10 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return f"{base_token}{quote_token}"
 
     def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         exchange = KucoinPerpetualDerivative(
-            client_config_map,
-            self.api_key,
-            self.api_secret,
-            self.passphrase,
+            kucoin_perpetual_api_key=self.api_key,
+            kucoin_perpetual_secret_key=self.api_secret,
+            kucoin_perpetual_passphrase=self.passphrase,
             trading_pairs=[self.trading_pair],
         )
         exchange._last_trade_history_timestamp = self.latest_trade_hist_timestamp
@@ -1104,9 +1100,7 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         )
 
     def test_user_stream_balance_update(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         non_linear_connector = KucoinPerpetualDerivative(
-            client_config_map=client_config_map,
             kucoin_perpetual_api_key=self.api_key,
             kucoin_perpetual_secret_key=self.api_secret,
             trading_pairs=[self.base_asset],
@@ -1128,15 +1122,12 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(Decimal("25"), self.exchange.get_balance(self.base_asset))
 
     def test_supported_position_modes(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         linear_connector = KucoinPerpetualDerivative(
-            client_config_map=client_config_map,
             kucoin_perpetual_api_key=self.api_key,
             kucoin_perpetual_secret_key=self.api_secret,
             trading_pairs=[self.trading_pair],
         )
         non_linear_connector = KucoinPerpetualDerivative(
-            client_config_map=client_config_map,
             kucoin_perpetual_api_key=self.api_key,
             kucoin_perpetual_secret_key=self.api_secret,
             trading_pairs=[self.non_linear_trading_pair],
@@ -1149,9 +1140,7 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(expected_result, non_linear_connector.supported_position_modes())
 
     def test_set_position_mode_nonlinear(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         non_linear_connector = KucoinPerpetualDerivative(
-            client_config_map=client_config_map,
             kucoin_perpetual_api_key=self.api_key,
             kucoin_perpetual_secret_key=self.api_secret,
             trading_pairs=[self.non_linear_trading_pair],
