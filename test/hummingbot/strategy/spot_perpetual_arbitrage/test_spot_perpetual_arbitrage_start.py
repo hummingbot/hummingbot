@@ -19,8 +19,8 @@ class SpotPerpetualArbitrageStartTest(unittest.TestCase):
         self.strategy = None
         self.client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.markets = {
-            "binance": ExchangeBase(client_config_map=self.client_config_map),
-            "kucoin": MockPerpConnector(client_config_map=self.client_config_map)}
+            "binance": ExchangeBase(),
+            "kucoin": MockPerpConnector()}
         self.notifications = []
         self.log_errors = []
         assign_config_default(strategy_cmap)
@@ -37,7 +37,7 @@ class SpotPerpetualArbitrageStartTest(unittest.TestCase):
     def _initialize_market_assets(self, market, trading_pairs):
         return [("ETH", "USDT")]
 
-    def initialize_markets(self, market_names):
+    async def initialize_markets(self, market_names):
         pass
 
     def _notify(self, message):
@@ -49,8 +49,8 @@ class SpotPerpetualArbitrageStartTest(unittest.TestCase):
     def error(self, message, exc_info):
         self.log_errors.append(message)
 
-    def test_strategy_creation(self):
-        strategy_start.start(self)
+    async def test_strategy_creation(self):
+        await strategy_start.start(self)
         self.assertEqual(self.strategy._order_amount, Decimal("1"))
         self.assertEqual(self.strategy._perp_leverage, Decimal("2"))
         self.assertEqual(self.strategy._min_opening_arbitrage_pct, Decimal("0.1"))

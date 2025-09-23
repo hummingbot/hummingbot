@@ -4,8 +4,6 @@ import unittest.mock
 from decimal import Decimal
 from typing import Dict, List
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.connector_base import ConnectorBase, OrderFilledEvent
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -29,8 +27,8 @@ class InFightOrderTest(InFlightOrderBase):
 
 class MockTestConnector(ConnectorBase):
 
-    def __init__(self, client_config_map: "ClientConfigAdapter"):
-        super().__init__(client_config_map)
+    def __init__(self):
+        super().__init__()
         self._in_flight_orders = {}
         self._event_logs = []
 
@@ -55,7 +53,7 @@ class ConnectorBaseUnitTest(unittest.TestCase):
         cls._patcher.stop()
 
     def test_in_flight_asset_balances(self):
-        connector = ConnectorBase(client_config_map=ClientConfigAdapter(ClientConfigMap()))
+        connector = ConnectorBase()
         connector.real_time_balance_update = True
         orders = {
             "1": InFightOrderTest("1", "A", "HBOT-USDT", OrderType.LIMIT, TradeType.BUY, 100, 1, 1640001112.0, "live"),
@@ -68,7 +66,7 @@ class ConnectorBaseUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("1.5"), bals["HBOT"])
 
     def test_estimated_available_balance_with_no_order_during_snapshot_is_the_registered_available_balance(self):
-        connector = MockTestConnector(client_config_map=ClientConfigAdapter(ClientConfigMap()))
+        connector = MockTestConnector()
         connector.real_time_balance_update = True
         connector.in_flight_orders_snapshot = {}
 
@@ -84,7 +82,7 @@ class ConnectorBaseUnitTest(unittest.TestCase):
         # The orders were then cancelled and the available balance is calculated after the cancellation
         # but before the new balance update
 
-        connector = MockTestConnector(client_config_map=ClientConfigAdapter(ClientConfigMap()))
+        connector = MockTestConnector()
         connector.real_time_balance_update = True
         connector.in_flight_orders_snapshot = {}
 
@@ -131,7 +129,7 @@ class ConnectorBaseUnitTest(unittest.TestCase):
         # Considers the case where the balance update was done when no orders were alive
         # At the moment of calculating the available balance there are two live orders
 
-        connector = MockTestConnector(client_config_map=ClientConfigAdapter(ClientConfigMap()))
+        connector = MockTestConnector()
         connector.real_time_balance_update = True
         connector.in_flight_orders_snapshot = {}
 
@@ -178,7 +176,7 @@ class ConnectorBaseUnitTest(unittest.TestCase):
         # Considers the case where the balance update was done when two orders were alive
         # The orders are still alive when calculating the available balance
 
-        connector = MockTestConnector(client_config_map=ClientConfigAdapter(ClientConfigMap()))
+        connector = MockTestConnector()
         connector.real_time_balance_update = True
         connector.in_flight_orders_snapshot = {}
 
@@ -223,7 +221,7 @@ class ConnectorBaseUnitTest(unittest.TestCase):
         self.assertEqual(initial_hbot_balance, estimated_hbot_balance)
 
     def test_estimated_available_balance_with_no_orders_during_snapshot_no_alive_orders_and_a_fill_event(self):
-        connector = MockTestConnector(client_config_map=ClientConfigAdapter(ClientConfigMap()))
+        connector = MockTestConnector()
         connector.real_time_balance_update = True
         connector.in_flight_orders_snapshot = {}
 
@@ -258,7 +256,7 @@ class ConnectorBaseUnitTest(unittest.TestCase):
                          estimated_hbot_balance)
 
     def test_fill_event_previous_to_balance_updated_is_ignored_for_estimated_available_balance(self):
-        connector = MockTestConnector(client_config_map=ClientConfigAdapter(ClientConfigMap()))
+        connector = MockTestConnector()
         connector.real_time_balance_update = True
         connector.in_flight_orders_snapshot = {}
 
@@ -296,7 +294,7 @@ class ConnectorBaseUnitTest(unittest.TestCase):
         # The orders were then cancelled and the available balance is calculated after the cancellation
         # but before the new balance update
 
-        connector = MockTestConnector(client_config_map=ClientConfigAdapter(ClientConfigMap()))
+        connector = MockTestConnector()
         connector.real_time_balance_update = True
         connector.in_flight_orders_snapshot = {}
 
@@ -375,7 +373,7 @@ class ConnectorBaseUnitTest(unittest.TestCase):
         # Considers the case where the balance update was done when two orders were alive and partially filled
         # The orders are still alive with no more fills
 
-        connector = MockTestConnector(client_config_map=ClientConfigAdapter(ClientConfigMap()))
+        connector = MockTestConnector()
         connector.real_time_balance_update = True
         connector.in_flight_orders_snapshot = {}
 
@@ -454,7 +452,7 @@ class ConnectorBaseUnitTest(unittest.TestCase):
         # Currently those initial orders are gone, and there are two new partially filled orders
         # There is an extra fill event for an order no longer present
 
-        connector = MockTestConnector(client_config_map=ClientConfigAdapter(ClientConfigMap()))
+        connector = MockTestConnector()
         connector.real_time_balance_update = True
         connector.in_flight_orders_snapshot = {}
 

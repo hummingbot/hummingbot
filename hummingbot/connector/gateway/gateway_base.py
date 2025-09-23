@@ -5,8 +5,10 @@ import logging
 import re
 import time
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union, cast
+from typing import Any, Dict, List, Optional, Set, Union, cast
 
+from hummingbot.client.config.client_config_map import GatewayConfigMap
+from hummingbot.connector.budget_checker import BudgetChecker
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway.common_types import TransactionStatus
@@ -21,9 +23,6 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
-
-if TYPE_CHECKING:
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 s_logger = None
 s_decimal_0 = Decimal("0")
@@ -61,13 +60,14 @@ class GatewayBase(ConnectorBase):
     _amount_quantum_dict: Dict[str, Decimal]
 
     def __init__(self,
-                 client_config_map: "ClientConfigAdapter",
                  connector_name: str,
                  chain: Optional[str] = None,
                  network: Optional[str] = None,
                  address: Optional[str] = None,
+                 balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
                  trading_pairs: List[str] = [],
-                 trading_required: bool = True
+                 trading_required: bool = True,
+                 gateway_config: Optional["GatewayConfigMap"] = None
                  ):
         """
         :param connector_name: name of connector on gateway (e.g., 'uniswap/amm', 'jupiter/router')
@@ -78,13 +78,16 @@ class GatewayBase(ConnectorBase):
         :param trading_required: Whether actual trading is needed. Useful for some functionalities or commands like the balance command
         """
         self._connector_name = connector_name
+        self._name = f"{connector_name}_{chain}_{network}"
         # Temporarily set chain/network/address - will be populated in start_network if not provided
         self._chain = chain
         self._network = network
         self._wallet_address = address
         # Use connector name as temporary name until we have chain/network info
         self._name = connector_name
-        super().__init__(client_config_map)
+        super().__init__(balance_asset_limit)
+        self._budget_checker = BudgetChecker(exchange=self)
+        self._gateway_config = gateway_config
         self._trading_pairs = trading_pairs
         self._tokens = set()
         [self._tokens.update(set(trading_pair.split("_")[0].split("-"))) for trading_pair in trading_pairs]
@@ -110,6 +113,10 @@ class GatewayBase(ConnectorBase):
         if s_logger is None:
             s_logger = logging.getLogger(cls.__name__)
         return cast(HummingbotLogger, s_logger)
+
+    @property
+    def budget_checker(self) -> BudgetChecker:
+        return self._budget_checker
 
     @property
     def connector_name(self):
@@ -460,7 +467,7 @@ class GatewayBase(ConnectorBase):
         """
         Returns the Gateway HTTP instance.
         """
-        gateway_instance = GatewayHttpClient.get_instance(self._client_config)
+        gateway_instance = GatewayHttpClient.get_instance(self._gateway_config)
         return gateway_instance
 
     def start_tracking_order(self,
@@ -760,15 +767,12 @@ class GatewayBase(ConnectorBase):
             # Create approval order ID
             order_id = f"approve-{token_symbol.lower()}-{get_tracking_nonce()}"
 
-            # Extract base connector name if it's in format like "uniswap/amm"
-            base_connector = self._connector_name.split("/")[0] if "/" in self._connector_name else self._connector_name
-
             # Call gateway to approve token
             approve_result = await self._get_gateway_instance().approve_token(
                 network=self.network,
                 address=self.address,
                 token=token_symbol,
-                spender=spender or base_connector,
+                spender=spender or self._connector_name,
                 amount=str(amount) if amount else None
             )
 

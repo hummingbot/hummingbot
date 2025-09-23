@@ -1,4 +1,5 @@
 import json
+import threading
 import time
 from collections import OrderedDict
 
@@ -15,7 +16,7 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RES
 
 class HyperliquidAuth(AuthBase):
     """
-    Auth class required by Hyperliquid API
+    Auth class required by Hyperliquid API with centralized, collision-free nonce generation.
     """
 
     def __init__(self, api_key: str, api_secret: str, use_vault: bool):
@@ -23,6 +24,8 @@ class HyperliquidAuth(AuthBase):
         self._api_secret: str = api_secret
         self._use_vault: bool = use_vault
         self.wallet = eth_account.Account.from_key(api_secret)
+        # one nonce manager per connector instance (shared by orders/cancels/updates)
+        self._nonce = _NonceManager()
 
     @classmethod
     def address_to_bytes(cls, address):
@@ -31,7 +34,7 @@ class HyperliquidAuth(AuthBase):
     @classmethod
     def action_hash(cls, action, vault_address, nonce):
         data = msgpack.packb(action)
-        data += nonce.to_bytes(8, "big")
+        data += int(nonce).to_bytes(8, "big")  # ensure int, 8-byte big-endian
         if vault_address is None:
             data += b"\x00"
         else:
@@ -84,23 +87,24 @@ class HyperliquidAuth(AuthBase):
     async def ws_authenticate(self, request: WSRequest) -> WSRequest:
         return request  # pass-through
 
-    def _sign_update_leverage_params(self, params, base_url, timestamp):
+    # ---------- signing helpers (all use centralized nonce) ----------
+
+    def _sign_update_leverage_params(self, params, base_url, nonce_ms: int):
         signature = self.sign_l1_action(
             self.wallet,
             params,
             None if not self._use_vault else self._api_key,
-            timestamp,
+            nonce_ms,
             CONSTANTS.BASE_URL in base_url,
         )
-        payload = {
+        return {
             "action": params,
-            "nonce": timestamp,
+            "nonce": nonce_ms,
             "signature": signature,
             "vaultAddress": self._api_key if self._use_vault else None,
         }
-        return payload
 
-    def _sign_cancel_params(self, params, base_url, timestamp):
+    def _sign_cancel_params(self, params, base_url, nonce_ms: int):
         order_action = {
             "type": "cancelByCloid",
             "cancels": [params["cancels"]],
@@ -109,20 +113,17 @@ class HyperliquidAuth(AuthBase):
             self.wallet,
             order_action,
             None if not self._use_vault else self._api_key,
-            timestamp,
+            nonce_ms,
             CONSTANTS.BASE_URL in base_url,
         )
-        payload = {
+        return {
             "action": order_action,
-            "nonce": timestamp,
+            "nonce": nonce_ms,
             "signature": signature,
             "vaultAddress": self._api_key if self._use_vault else None,
-
         }
-        return payload
 
-    def _sign_order_params(self, params, base_url, timestamp):
-
+    def _sign_order_params(self, params, base_url, nonce_ms: int):
         order = params["orders"]
         grouping = params["grouping"]
         order_action = {
@@ -134,36 +135,52 @@ class HyperliquidAuth(AuthBase):
             self.wallet,
             order_action,
             None if not self._use_vault else self._api_key,
-            timestamp,
+            nonce_ms,
             CONSTANTS.BASE_URL in base_url,
         )
-
-        payload = {
+        return {
             "action": order_action,
-            "nonce": timestamp,
+            "nonce": nonce_ms,
             "signature": signature,
             "vaultAddress": self._api_key if self._use_vault else None,
-
         }
-        return payload
 
     def add_auth_to_params_post(self, params: str, base_url):
-        timestamp = int(self._get_timestamp() * 1e3)
-        payload = {}
+        nonce_ms = self._nonce.next_ms()
         data = json.loads(params) if params is not None else {}
 
         request_params = OrderedDict(data or {})
 
         request_type = request_params.get("type")
         if request_type == "order":
-            payload = self._sign_order_params(request_params, base_url, timestamp)
+            payload = self._sign_order_params(request_params, base_url, nonce_ms)
         elif request_type == "cancel":
-            payload = self._sign_cancel_params(request_params, base_url, timestamp)
+            payload = self._sign_cancel_params(request_params, base_url, nonce_ms)
         elif request_type == "updateLeverage":
-            payload = self._sign_update_leverage_params(request_params, base_url, timestamp)
-        payload = json.dumps(payload)
-        return payload
+            payload = self._sign_update_leverage_params(request_params, base_url, nonce_ms)
+        else:
+            # default: still include a nonce to be safe
+            payload = {"action": request_params, "nonce": nonce_ms}
 
-    @staticmethod
-    def _get_timestamp():
-        return time.time()
+        return json.dumps(payload)
+
+
+class _NonceManager:
+    """
+    Generates strictly increasing epoch-millisecond nonces, safe for concurrent use.
+    Prevents collisions when multiple coroutines/threads sign in the same millisecond.
+    """
+
+    def __init__(self):
+        # start at current ms
+        self._last = int(time.time() * 1000)
+        self._lock = threading.Lock()
+
+    def next_ms(self) -> int:
+        now = int(time.time() * 1000)
+        with self._lock:
+            if now <= self._last:
+                # bump by 1 to ensure strict monotonicity
+                now = self._last + 1
+            self._last = now
+            return now
