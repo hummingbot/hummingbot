@@ -35,7 +35,7 @@ dependencies:
   - numpy>=2.2.6
   - objgraph
   - pandas>=2.3.2
-  - pandas-ta>=0.4.67b
+  - pandas-ta>=0.4.71b
   - prompt_toolkit>=3.0.39
   - protobuf>=4.23.3
   - psutil>=5.9.5
