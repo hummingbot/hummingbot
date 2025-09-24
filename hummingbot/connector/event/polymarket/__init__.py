@@ -1,0 +1,1 @@
+# Polymarket event connector package

@@ -39,6 +39,7 @@ dependencies:
   - protobuf>=4.23.3
   - psutil>=5.9.5
   - ptpython>3.0.25
+  - py-clob-client>=0.20.0
   - pydantic>=2
   - pyjwt>=2.3.0
   - pyperclip>=1.8.2
