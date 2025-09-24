@@ -21,7 +21,6 @@ from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativ
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair
 from hummingbot.core.api_throttler.data_types import RateLimit
-from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -124,14 +123,6 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
 
     def supported_position_modes(self) -> List[PositionMode]:
         return [PositionMode.ONEWAY, PositionMode.HEDGE]
-
-    def start(self, clock: Clock, timestamp: float) -> None:
-        """
-        Start the connector with set position mode
-        """
-        super().start(clock, timestamp)
-        if self.is_trading_required:
-            self.set_position_mode(PositionMode.HEDGE)
 
     def _is_request_exception_related_to_time_synchronizer(
         self,
@@ -371,7 +362,7 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         product_types: set[str] = {
             await self.product_type_associated_to_trading_pair(trading_pair)
             for trading_pair in self._trading_pairs
-        }
+        } or CONSTANTS.ALL_PRODUCT_TYPES
 
         for product_type in product_types:
             accounts_info_response: Dict[str, Any] = await self._api_get(
@@ -426,18 +417,17 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
 
         # Initial parsing of responses.
         for position in position_data:
-            data = position
-            symbol = data.get("symbol")
+            symbol = position.get("symbol")
             trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol)
             position_side = (
                 PositionSide.LONG
-                if data["holdSide"] == "long"
+                if position["holdSide"] == "long"
                 else PositionSide.SHORT
             )
-            unrealized_pnl = Decimal(str(data["unrealizedPL"]))
-            entry_price = Decimal(str(data["openPriceAvg"]))
-            amount = Decimal(str(data["total"]))
-            leverage = Decimal(str(data["leverage"]))
+            unrealized_pnl = Decimal(str(position["unrealizedPL"]))
+            entry_price = Decimal(str(position["openPriceAvg"]))
+            amount = Decimal(str(position["total"]))
+            leverage = Decimal(str(position["leverage"]))
             pos_key = self._perpetual_trading.position_key(trading_pair, position_side)
             if amount != s_decimal_0:
                 position_amount = (
@@ -629,15 +619,16 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
     async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[float, Decimal, Decimal]:
         product_type = await self.product_type_associated_to_trading_pair(trading_pair)
         now = self._time_synchronizer.time()
-        start_time = self._last_funding_fee_payment_ts.get(
-            trading_pair,
-            now - (2 * self.funding_fee_poll_interval)
+        fee_payment_ts = self._last_funding_fee_payment_ts.get(trading_pair, 0)
+        start_time = (
+            fee_payment_ts
+            if fee_payment_ts
+            else now - (2 * self.funding_fee_poll_interval)
         )
         raw_response: Dict[str, Any] = await self._api_get(
             path_url=CONSTANTS.ACCOUNT_BILLS_ENDPOINT,
             params={
                 "productType": product_type,
-                "coin": self.get_buy_collateral_token(trading_pair),
                 "startTime": str(int(start_time * 1e3)),
                 "endTime": str(int(now * 1e3)),
             },
@@ -741,7 +732,7 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         :param order_msg: The order event message payload
         """
         order_status = CONSTANTS.STATE_TYPES[order_msg["status"]]
-        client_order_id = str(order_msg["clientOId"])
+        client_order_id = str(order_msg["clientOid"])
         updatable_order = self._order_tracker.all_updatable_orders.get(client_order_id)
 
         if updatable_order is not None:
@@ -783,7 +774,7 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         :param trade_msg: The trade event message payload
         """
 
-        client_order_id = str(trade_msg["clientOId"])
+        client_order_id = str(trade_msg["clientOid"])
         fillable_order = self._order_tracker.all_fillable_orders.get(client_order_id)
 
         if fillable_order is not None and "tradeId" in trade_msg:
@@ -936,7 +927,7 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
                     mapping[symbol] = trading_pair
                 except Exception as exception:
                     self.logger().error(
-                        f"There was an error parsing a trading pair information ({exception})"
+                        f"There was an error parsing a trading pair information ({exception}). Symbol: {symbol}. Trading pair: {trading_pair}"
                     )
         self._set_trading_pair_symbol_map(mapping)
 
@@ -959,12 +950,13 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
                         symbol=rule["symbol"]
                     )
                     collateral_token = rule["supportMarginCoins"][0]
+                    max_order_size = Decimal(rule["maxOrderQty"]) if rule["maxOrderQty"] else None
 
                     trading_rules.append(
                         TradingRule(
                             trading_pair=trading_pair,
                             min_order_value=Decimal(rule.get("minTradeUSDT", "0")),
-                            max_order_size=Decimal(rule.get("maxOrderQty", "0")),
+                            max_order_size=max_order_size,
                             min_order_size=Decimal(rule["minTradeNum"]),
                             min_price_increment=Decimal(f"1e-{int(rule['pricePlace'])}"),
                             min_base_amount_increment=Decimal(rule["sizeMultiplier"]),
@@ -976,4 +968,5 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
                     self.logger().exception(
                         f"Error parsing the trading pair rule: {rule}. Skipping."
                     )
+
         return trading_rules

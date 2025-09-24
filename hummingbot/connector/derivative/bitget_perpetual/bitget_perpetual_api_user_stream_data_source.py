@@ -93,7 +93,7 @@ class BitgetPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             product_types: set[str] = {
                 await self._connector.product_type_associated_to_trading_pair(trading_pair)
                 for trading_pair in self._trading_pairs
-            }
+            } or CONSTANTS.ALL_PRODUCT_TYPES
             subscription_topics = []
 
             for product_type in product_types:
@@ -106,7 +106,7 @@ class BitgetPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                         {
                             "instType": product_type,
                             "channel": channel,
-                            "instId": "default"
+                            "coin": "default"
                         }
                     )
 

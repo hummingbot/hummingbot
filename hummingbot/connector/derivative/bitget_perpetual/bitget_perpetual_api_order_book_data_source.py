@@ -91,11 +91,12 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         funding_info_response = await self._request_complete_funding_info(trading_pair)
         funding_info = FundingInfo(
             trading_pair=trading_pair,
-            index_price=Decimal(funding_info_response["amount"]),
+            index_price=Decimal(funding_info_response["indexPrice"]),
             mark_price=Decimal(funding_info_response["markPrice"]),
-            next_funding_utc_timestamp=int(int(funding_info_response["fundingTime"]) * 1e-3),
+            next_funding_utc_timestamp=int(int(funding_info_response["nextUpdate"]) * 1e-3),
             rate=Decimal(funding_info_response["fundingRate"]),
         )
+
         return funding_info
 
     async def _parse_any_order_book_message(
@@ -173,8 +174,11 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         trading_pair: str = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
 
         for trade_data in data:
-            trade_type: float = float(TradeType.BUY.value) \
-                if trade_data["side"] == "buy" else float(TradeType.SELL.value)
+            trade_type: float = (
+                float(TradeType.BUY.value)
+                if trade_data["side"] == "buy"
+                else float(TradeType.SELL.value)
+            )
             message_content: Dict[str, Any] = {
                 "trade_id": int(trade_data["tradeId"]),
                 "trading_pair": trading_pair,
@@ -195,15 +199,16 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         message_queue: asyncio.Queue
     ) -> None:
         data: List[Dict[str, Any]] = raw_message["data"]
-        symbol: str = raw_message["arg"]["instId"]
-        trading_pair: str = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
 
         for entry in data:
+            trading_pair: str = await self._connector.trading_pair_associated_to_exchange_symbol(
+                entry["symbol"]
+            )
             funding_update = FundingInfoUpdate(
                 trading_pair=trading_pair,
                 index_price=Decimal(entry["indexPrice"]),
                 mark_price=Decimal(entry["markPrice"]),
-                next_funding_utc_timestamp=int(entry["nextFundingTime"]) * 1e-3,
+                next_funding_utc_timestamp=int(int(entry["nextFundingTime"]) * 1e-3),
                 rate=Decimal(entry["fundingRate"])
             )
             message_queue.put_nowait(funding_update)
@@ -212,21 +217,21 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         rest_assistant: RESTAssistant = await self._api_factory.get_rest_assistant()
         endpoints = [
             CONSTANTS.PUBLIC_FUNDING_RATE_ENDPOINT,
-            CONSTANTS.PUBLIC_OPEN_INTEREST_ENDPOINT,
-            CONSTANTS.PUBLIC_SYMBOL_PRICE_ENDPOINT,
-            CONSTANTS.PUBLIC_FUNDING_TIME_ENDPOINT
+            CONSTANTS.PUBLIC_SYMBOL_PRICE_ENDPOINT
         ]
         tasks: List[asyncio.Task] = []
         funding_info: Dict[str, Any] = {}
+
+        symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair)
+        product_type = await self._connector.product_type_associated_to_trading_pair(trading_pair)
 
         for endpoint in endpoints:
             tasks.append(rest_assistant.execute_request(
                 url=web_utils.public_rest_url(path_url=endpoint),
                 throttler_limit_id=endpoint,
                 params={
-                    "symbol": await self._connector.exchange_symbol_associated_to_pair(
-                        trading_pair
-                    ),
+                    "symbol": symbol,
+                    "productType": product_type,
                 },
                 method=RESTMethod.GET,
             ))
@@ -234,7 +239,7 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         results = await safe_gather(*tasks)
 
         for result in results:
-            funding_info.update(result["data"])
+            funding_info.update(result["data"][0])
 
         return funding_info
 
@@ -285,12 +290,14 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         symbol: str = await self._connector.exchange_symbol_associated_to_pair(trading_pair)
+        product_type: str = await self._connector.product_type_associated_to_trading_pair(trading_pair)
         rest_assistant: RESTAssistant = await self._api_factory.get_rest_assistant()
 
         data: Dict[str, Any] = await rest_assistant.execute_request(
             url=web_utils.public_rest_url(path_url=CONSTANTS.PUBLIC_ORDERBOOK_ENDPOINT),
             params={
                 "symbol": symbol,
+                "productType": product_type,
                 "limit": "100",
             },
             method=RESTMethod.GET,

@@ -1,3 +1,4 @@
+import re
 from decimal import Decimal
 from typing import Any, Dict
 
@@ -24,8 +25,9 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     :return: True if the trading pair is enabled, False otherwise
     """
     symbol = exchange_info.get("symbol")
+    not_number = bool(re.match(r'^\D*$', symbol))
 
-    return symbol is not None
+    return symbol is not None and not_number
 
 
 class BitgetPerpetualConfigMap(BaseConnectorConfigMap):

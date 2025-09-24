@@ -531,12 +531,12 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     @property
     def funding_info_mock_response(self):
         return {
-            "data": {
-                "amount": self.target_funding_info_index_price,
+            "data": [{
+                "indexPrice": self.target_funding_info_index_price,
                 "markPrice": self.target_funding_info_mark_price,
-                "fundingTime": self.target_funding_info_next_funding_utc_str,
+                "nextUpdate": self.target_funding_info_next_funding_utc_str,
                 "fundingRate": self.target_funding_info_rate,
-            }
+            }]
         }
 
     @property
@@ -624,7 +624,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 {
                     "accBaseVolume": "0.01",
                     "cTime": "1695718781129",
-                    "clientOId": order.client_order_id or "",
+                    "clientOid": order.client_order_id or "",
                     "feeDetail": [
                         {
                             "feeCoin": self.quote_asset,
@@ -681,7 +681,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 {
                     "accBaseVolume": "0.01",
                     "cTime": "1695718781129",
-                    "clientOId": order.client_order_id,
+                    "clientOid": order.client_order_id,
                     "feeDetail": [
                         {
                             "feeCoin": self.quote_asset,
@@ -741,7 +741,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 {
                     "accBaseVolume": str(self.expected_partial_fill_amount),
                     "cTime": "1695718781129",
-                    "clientOId": order.client_order_id,
+                    "clientOid": order.client_order_id,
                     "feeDetail": [
                         {
                             "feeCoin": self.quote_asset,
@@ -798,7 +798,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 {
                     "accBaseVolume": str(order.amount),
                     "cTime": "1695718781129",
-                    "clientOId": order.client_order_id or "",
+                    "clientOid": order.client_order_id or "",
                     "feeDetail": [
                         {
                             "feeCoin": self.quote_asset,
@@ -1412,19 +1412,13 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     @patch("asyncio.Queue.get")
     def test_listen_for_funding_info_update_updates_funding_info(self, mock_api, mock_queue_get):
         rate_url = web_utils.public_rest_url(CONSTANTS.PUBLIC_FUNDING_RATE_ENDPOINT)
-        interest_url = web_utils.public_rest_url(CONSTANTS.PUBLIC_OPEN_INTEREST_ENDPOINT)
         mark_url = web_utils.public_rest_url(CONSTANTS.PUBLIC_SYMBOL_PRICE_ENDPOINT)
-        funding_time_url = web_utils.public_rest_url(CONSTANTS.PUBLIC_FUNDING_TIME_ENDPOINT)
         rate_regex_url = re.compile(f"^{rate_url}".replace(".", r"\.").replace("?", r"\?"))
-        interest_regex_url = re.compile(f"^{interest_url}".replace(".", r"\.").replace("?", r"\?"))
         mark_regex_url = re.compile(f"^{mark_url}".replace(".", r"\.").replace("?", r"\?"))
-        funding_time_regex_url = re.compile(f"^{funding_time_url}".replace(".", r"\.").replace("?", r"\?"))
 
         resp = self.funding_info_mock_response
         mock_api.get(rate_regex_url, body=json.dumps(resp))
-        mock_api.get(interest_regex_url, body=json.dumps(resp))
         mock_api.get(mark_regex_url, body=json.dumps(resp))
-        mock_api.get(funding_time_regex_url, body=json.dumps(resp))
 
         funding_info_event = self.funding_info_event_for_websocket_update()
 
@@ -1450,19 +1444,13 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         mock_queue_get
     ):
         rate_url = web_utils.public_rest_url(CONSTANTS.PUBLIC_FUNDING_RATE_ENDPOINT)
-        interest_url = web_utils.public_rest_url(CONSTANTS.PUBLIC_OPEN_INTEREST_ENDPOINT)
         mark_url = web_utils.public_rest_url(CONSTANTS.PUBLIC_SYMBOL_PRICE_ENDPOINT)
-        funding_time_url = web_utils.public_rest_url(CONSTANTS.PUBLIC_FUNDING_TIME_ENDPOINT)
         rate_regex_url = re.compile(f"^{rate_url}".replace(".", r"\.").replace("?", r"\?"))
-        interest_regex_url = re.compile(f"^{interest_url}".replace(".", r"\.").replace("?", r"\?"))
         mark_regex_url = re.compile(f"^{mark_url}".replace(".", r"\.").replace("?", r"\?"))
-        funding_time_regex_url = re.compile(f"^{funding_time_url}".replace(".", r"\.").replace("?", r"\?"))
 
         resp = self.funding_info_mock_response
         mock_api.get(rate_regex_url, body=json.dumps(resp))
-        mock_api.get(interest_regex_url, body=json.dumps(resp))
         mock_api.get(mark_regex_url, body=json.dumps(resp))
-        mock_api.get(funding_time_regex_url, body=json.dumps(resp))
 
         event_messages = [asyncio.CancelledError]
         mock_queue_get.side_effect = event_messages

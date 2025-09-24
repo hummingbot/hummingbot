@@ -27,6 +27,7 @@ STATE_TYPES = {
     "filled": OrderState.FILLED,
     "partially_filled": OrderState.PARTIALLY_FILLED,
     "cancelled": OrderState.CANCELED,
+    "canceled": OrderState.CANCELED,
 }
 
 SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE = 20
