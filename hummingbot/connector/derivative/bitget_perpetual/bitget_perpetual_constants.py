@@ -19,8 +19,8 @@ ORDER_TYPES = {
     OrderType.MARKET: "market",
 }
 POSITION_MODE_TYPES = {
-    PositionMode.ONEWAY: "isolated",
-    PositionMode.HEDGE: "crossed",
+    PositionMode.ONEWAY: "one_way_mode",
+    PositionMode.HEDGE: "hedge_mode",
 }
 STATE_TYPES = {
     "live": OrderState.OPEN,
@@ -32,13 +32,12 @@ STATE_TYPES = {
 SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE = 20
 WS_HEARTBEAT_TIME_INTERVAL = 30
 
-SYMBOL_AND_PRODUCT_TYPE_SEPARATOR = "_"
 USDT_PRODUCT_TYPE = "USDT-FUTURES"
 USDC_PRODUCT_TYPE = "USDC-FUTURES"
 USD_PRODUCT_TYPE = "COIN-FUTURES"
 ALL_PRODUCT_TYPES = [USDT_PRODUCT_TYPE, USDC_PRODUCT_TYPE, USD_PRODUCT_TYPE]
 
-PUBLIC_TICKERS_ENDPOINT = "/api/v2/mix/market/tickers"
+PUBLIC_TICKER_ENDPOINT = "/api/v2/mix/market/ticker"
 PUBLIC_CONTRACTS_ENDPOINT = "/api/v2/mix/market/contracts"
 PUBLIC_ORDERBOOK_ENDPOINT = "/api/v2/mix/market/merge-depth"
 PUBLIC_FUNDING_RATE_ENDPOINT = "/api/v2/mix/market/current-fund-rate"
@@ -54,7 +53,7 @@ CANCEL_ORDER_ENDPOINT = "/api/v2/mix/order/cancel-order"
 ORDER_DETAIL_ENDPOINT = "/api/v2/mix/order/detail"
 ORDER_FILLS_ENDPOINT = "/api/v2/mix/order/fills"
 ACCOUNTS_INFO_ENDPOINT = "/api/v2/mix/account/accounts"
-SET_POSITION_MODE_ENDPOINT = "/api/v2/mix/account/set-margin-mode"
+SET_POSITION_MODE_ENDPOINT = "/api/v2/mix/account/set-position-mode"
 ACCOUNT_BILLS_ENDPOINT = "/api/v2/mix/account/bill"
 
 PUBLIC_WS_BOOKS = "books"
@@ -77,7 +76,7 @@ RET_CODE_API_KEY_EXPIRED = "40014"
 
 
 RATE_LIMITS = [
-    RateLimit(limit_id=PUBLIC_TICKERS_ENDPOINT, limit=20, time_interval=1),
+    RateLimit(limit_id=PUBLIC_TICKER_ENDPOINT, limit=20, time_interval=1),
     RateLimit(limit_id=PUBLIC_CONTRACTS_ENDPOINT, limit=20, time_interval=1),
     RateLimit(limit_id=PUBLIC_ORDERBOOK_ENDPOINT, limit=20, time_interval=1),
     RateLimit(limit_id=PUBLIC_TIME_ENDPOINT, limit=20, time_interval=1),

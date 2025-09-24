@@ -25,7 +25,7 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     """
     symbol = exchange_info.get("symbol")
 
-    return symbol is not None and symbol.count("_") <= 1
+    return symbol is not None
 
 
 class BitgetPerpetualConfigMap(BaseConnectorConfigMap):

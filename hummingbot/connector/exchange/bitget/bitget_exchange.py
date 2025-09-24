@@ -116,13 +116,17 @@ class BitgetExchange(ExchangePyBase):
         return ts_error_target_str in error_description
 
     def _is_order_not_found_during_status_update_error(
-        self, status_update_exception: Exception
+        self,
+        status_update_exception: Exception
     ) -> bool:
         # Error example:
         # { "code": "00000", "msg": "success", "requestTime": 1710327684832, "data": [] }
 
         if isinstance(status_update_exception, IOError):
-            return False
+            return any(
+                value in str(status_update_exception)
+                for value in CONSTANTS.RET_CODES_ORDER_NOT_EXISTS
+            )
 
         if isinstance(status_update_exception, ValueError):
             return True
@@ -130,13 +134,17 @@ class BitgetExchange(ExchangePyBase):
         return False
 
     def _is_order_not_found_during_cancelation_error(
-        self, cancelation_exception: Exception
+        self,
+        cancelation_exception: Exception
     ) -> bool:
         # Error example:
         # { "code": "43001", "msg": "订单不存在", "requestTime": 1710327684832, "data": null }
 
         if isinstance(cancelation_exception, IOError):
-            return False
+            return any(
+                value in str(cancelation_exception)
+                for value in CONSTANTS.RET_CODES_ORDER_NOT_EXISTS
+            )
 
         return False
 
@@ -336,15 +344,6 @@ class BitgetExchange(ExchangePyBase):
             order_update_response=order_info_response
         )
 
-        # updated_order_data = order_info_response["data"]
-
-        # if len(updated_order_data) > 0:
-        #     status = updated_order_data[0]["status"]
-        #     if status in ["partially_filled", "filled"]:
-        #         trade_updates = await self._all_trade_updates_for_order(tracked_order)
-        #         for trade_update in trade_updates:
-        #             self._order_tracker.process_trade_update(trade_update)
-
         return order_update
 
     def _create_order_update(
@@ -494,7 +493,7 @@ class BitgetExchange(ExchangePyBase):
 
                 self.logger().debug(
                     f"Processed fill event for order {fillable_order.client_order_id}: "
-                    f"size={fill_msg.get('size')}, price={fill_msg.get('priceAvg')}, trade_id={trade_id}"
+                    f"Trade {trade_id}: {fill_msg.get('size')} at {fill_msg.get('priceAvg')}."
                 )
         except Exception as e:
             self.logger().error(f"Error processing fill event: {e}", exc_info=True)
