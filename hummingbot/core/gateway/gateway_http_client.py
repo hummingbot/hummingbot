@@ -1459,9 +1459,9 @@ class GatewayHttpClient:
         :param connector: Connector name in format 'name/type' (e.g., 'uniswap/amm')
         :return: Tuple of (chain, network, error_message)
         """
-        # Parse connector format
+        # Parse connector format - allow for more than 2 parts but only use first 2
         connector_parts = connector.split('/')
-        if len(connector_parts) != 2:
+        if len(connector_parts) < 2:
             return None, None, "Invalid connector format. Use format like 'uniswap/amm' or 'jupiter/router'"
 
         connector_name = connector_parts[0]
