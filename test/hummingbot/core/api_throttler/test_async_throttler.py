@@ -11,7 +11,7 @@ from unittest.mock import patch
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.core.api_throttler.async_throttler import AsyncRequestContext, AsyncThrottler
-from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit, TaskLog
+from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit, RateLimitType, TaskLog
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 
 TEST_PATH_URL = "/hummingbot"
@@ -275,3 +275,163 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
         time_mock.return_value = 1640000000.2100
         result = context.within_capacity()
         self.assertTrue(result)
+
+    @patch("hummingbot.core.api_throttler.async_throttler.AsyncRequestContext._time")
+    def test_decay_limit_with_multiple_bursts(self, time_mock):
+        """Test decay handling with multiple bursts of API calls over time"""
+        decay_limit_id = "TEST_MULTIPLE_BURSTS"
+        decay_rate_limit = RateLimit(
+            limit_id=decay_limit_id,
+            limit=20.0,
+            time_interval=60.0,
+            weight=1.0,
+            limit_type=RateLimitType.DECAY,
+            decay_rate=2.0  # 2 units per second
+        )
+
+        throttler = AsyncThrottler(rate_limits=[decay_rate_limit])
+        initial_time = 1640000000.0
+        time_mock.return_value = initial_time
+
+        # Initialize context
+        context = AsyncRequestContext(
+            task_logs=throttler._task_logs,
+            rate_limit=decay_rate_limit,
+            related_limits=[],
+            lock=asyncio.Lock(),
+            safety_margin_pct=throttler._safety_margin_pct,
+            retry_interval=throttler._retry_interval,
+            decay_usage=throttler._decay_usage
+        )
+        context._decay_usage = {decay_limit_id: (0.0, initial_time - 1)}
+
+        # First burst: 15 tasks at t=0
+        for _ in range(15):
+            throttler._task_logs.append(
+                TaskLog(timestamp=initial_time, rate_limit=decay_rate_limit, weight=1.0)
+            )
+
+        # Check capacity - should have 15/20 used
+        self.assertTrue(context.within_capacity())
+
+        # Jump ahead 2 seconds - decay should reduce usage by 4.0
+        time_mock.return_value = initial_time + 2.0
+
+        # Second burst: 8 more tasks at t=2s
+        for _ in range(8):
+            throttler._task_logs.append(
+                TaskLog(timestamp=initial_time + 2.0, rate_limit=decay_rate_limit, weight=1.0)
+            )
+
+        # Check capacity - should have 15 - 4 + 8 = 19/20 used
+        self.assertTrue(context.within_capacity())
+
+        time_mock.return_value = initial_time + 3.0
+
+        # Try to add a task, should exceed capacity
+        throttler._task_logs.append(
+            TaskLog(timestamp=initial_time + 3.0, rate_limit=decay_rate_limit, weight=1.0)
+        )
+
+        # Should be 19 - 2 + 1 = 18/20 used
+        self.assertTrue(context.within_capacity())
+
+        # Jump ahead 2 more seconds - decay should reduce by 4.0 more
+        time_mock.return_value = initial_time + 5.0
+
+        # Should now be at 20 - 4 = 14/20
+        self.assertTrue(context.within_capacity())
+
+    @patch("hummingbot.core.api_throttler.async_throttler.AsyncRequestContext._time")
+    def test_decay_based_rate_limit_partial_decay(self, time_mock):
+        """Test that decay-based rate limits correctly handle partial decay"""
+        # Create a decay-based rate limit with weight 2.0
+        decay_limit_id = "TEST_DECAY_LIMIT_WEIGHT_2"
+        decay_rate_limit = RateLimit(
+            limit_id=decay_limit_id,
+            limit=6.0,
+            time_interval=60.0,
+            weight=2.0,
+            limit_type=RateLimitType.DECAY,
+            decay_rate=1.0  # 1 unit per second
+        )
+
+        # Create throttler
+        throttler = AsyncThrottler(rate_limits=[decay_rate_limit])
+
+        # Set initial time
+        initial_time = 1640000000.0
+        time_mock.return_value = initial_time
+
+        # Manually add 4 tasks to the task logs (total weight 8.0)
+        for _ in range(4):
+            throttler._task_logs.append(
+                TaskLog(timestamp=initial_time, rate_limit=decay_rate_limit, weight=2.0)
+            )
+
+        # Check capacity - should be at limit
+        context = AsyncRequestContext(
+            task_logs=throttler._task_logs,
+            rate_limit=decay_rate_limit,
+            related_limits=[],
+            lock=asyncio.Lock(),
+            safety_margin_pct=throttler._safety_margin_pct,
+            retry_interval=throttler._retry_interval,
+            decay_usage=throttler._decay_usage
+        )
+
+        # Initialize the decay usage cache
+        context._decay_usage = {decay_limit_id: (0.0, initial_time - 1)}
+
+        # Since we have 4 tasks with weight 2.0 each (total 8.0), we're over the limit of 6.0
+        self.assertFalse(context.within_capacity())
+
+        # Advance time by 5 seconds - should have decayed by 5.0 units (total 3.0)
+        time_mock.return_value = initial_time + 5.0
+        self.assertTrue(context.within_capacity())
+
+        time_mock.return_value = initial_time + 6.0
+        context._last_max_cap_warning_ts = initial_time - 100
+        # Add two more tasks with weight 2.0 each
+        for _ in range(2):
+            throttler._task_logs.append(
+                TaskLog(timestamp=initial_time + 6.0, rate_limit=decay_rate_limit, weight=2.0)
+            )
+
+        # Should be at capacity again (7.0)
+        self.assertFalse(context.within_capacity())
+
+        # Advance time by 2 more seconds - should have decayed by another 2.0 units (total 5.0)
+        time_mock.return_value = initial_time + 8.0
+        self.assertTrue(context.within_capacity())
+
+    def test_acquire_appends_to_task_logs_with_decay_limit(self):
+        decay_rate_limit = RateLimit(
+            limit_id="TEST_DECAY_LIMIT",
+            limit=6.0,
+            time_interval=60.0,
+            weight=2.0,
+            limit_type=RateLimitType.DECAY,
+            decay_rate=1.0
+        )
+
+        throttler = AsyncThrottler(rate_limits=[decay_rate_limit])
+
+        throttler._task_logs.append(
+            TaskLog(timestamp=1, rate_limit=decay_rate_limit, weight=2.0)
+        )
+
+        context = AsyncRequestContext(
+            task_logs=throttler._task_logs,
+            rate_limit=decay_rate_limit,
+            related_limits=[
+                (decay_rate_limit, decay_rate_limit.weight)
+            ],
+            lock=asyncio.Lock(),
+            safety_margin_pct=throttler._safety_margin_pct,
+            retry_interval=throttler._retry_interval,
+            decay_usage=throttler._decay_usage
+        )
+        self.ev_loop.run_until_complete(context.acquire())
+
+        self.assertEqual(2, len(throttler._task_logs))
