@@ -320,7 +320,11 @@ class BitgetExchange(ExchangePyBase):
                     request_exception=ex
                 ):
                     raise
-        self.logger().info(f"{len(trade_updates)} trades updated for order {order.client_order_id}")
+        if len(trade_updates) > 0:
+            self.logger().info(
+                f"{len(trade_updates)} trades updated for order {order.client_order_id}"
+            )
+
         return trade_updates
 
     async def _request_order_fills(self, order: InFlightOrder) -> Dict[str, Any]:
