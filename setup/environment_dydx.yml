@@ -16,7 +16,7 @@ dependencies:
   - python>=3.10.12
   - pytest>=7.4.0
   - pytest-asyncio>=0.16.0
-  - setuptools>=68.0.0
+  - setuptools>=75.7.0
   ### Packages used within HB and helping reduce the footprint of pip-installed packages
   - aiohttp>=3.8.5
   - asyncssh>=2.13.2
@@ -33,10 +33,11 @@ dependencies:
   - eth-account >=0.13.0
   - gql-with-aiohttp>=3.4.1
   - msgpack-python
-  - numpy>=1.25.0,<2
+  - numba>=0.60.0
+  - numpy>=2.1.0
   - objgraph
-  - pandas>=2.0.3
-  - pandas-ta>=0.3.14b
+  - pandas>=2.2.3
+  - pandas-ta>=0.4.26b
   - prompt_toolkit>=3.0.39
   - protobuf>=4.23.3
   - psutil>=5.9.5
@@ -53,6 +54,7 @@ dependencies:
   - six>=1.16.0
   - sqlalchemy>=1.4.49
   - tabulate>=0.9.0
+  - tqdm>=4.67.1
   - ujson>=5.7.0
   # This needs to be restricted to <2.0 - tests fail otherwise
   - urllib3>=1.26.15,<2.0

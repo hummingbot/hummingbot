@@ -70,8 +70,8 @@ class BollingerV1Controller(DirectionalTradingControllerBase):
                                                       interval=self.config.interval,
                                                       max_records=self.max_records)
         # Add indicators
-        df.ta.bbands(length=self.config.bb_length, std=self.config.bb_std, append=True)
-        bbp = df[f"BBP_{self.config.bb_length}_{self.config.bb_std}"]
+        df.ta.bbands(length=self.config.bb_length, lower_std=self.config.bb_std, upper_std=self.config.bb_std, append=True)
+        bbp = df[f"BBP_{self.config.bb_length}_{self.config.bb_std}_{self.config.bb_std}"]
 
         # Generate signal
         long_condition = bbp < self.config.bb_long_threshold
