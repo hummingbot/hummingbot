@@ -469,6 +469,11 @@ class AscendExRateSourceMode(ExchangeRateSourceModeBase):
     model_config = ConfigDict(title="ascend_ex")
 
 
+class AsterdexRateSourceMode(ExchangeRateSourceModeBase):
+    name: str = Field(default="asterdex")
+    model_config = ConfigDict(title="asterdex")
+
+
 class BinanceRateSourceMode(ExchangeRateSourceModeBase):
     name: str = Field(default="binance")
     model_config = ConfigDict(title="binance")
@@ -670,6 +675,7 @@ class DeriveRateSourceMode(ExchangeRateSourceModeBase):
 
 RATE_SOURCE_MODES = {
     AscendExRateSourceMode.model_config["title"]: AscendExRateSourceMode,
+    AsterdexRateSourceMode.model_config["title"]: AsterdexRateSourceMode,
     BinanceRateSourceMode.model_config["title"]: BinanceRateSourceMode,
     BinanceUSRateSourceMode.model_config["title"]: BinanceUSRateSourceMode,
     CoinGeckoRateSourceMode.model_config["title"]: CoinGeckoRateSourceMode,
