@@ -246,15 +246,13 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         :return: A dictionary containing the mock REST funding info message.
         """
         return {
-            "data": {
+            "data": [{
                 "symbol": self.exchange_trading_pair,
-                "index": "35000",
-                "fundingTime": "1627311600000",
-                "timestamp": "1627291836179",
+                "indexPrice": "35000",
+                "nextUpdate": "1627311600000",
                 "fundingRate": "0.0002",
-                "amount": "757.8338",
                 "markPrice": "35000",
-            },
+            }],
         }
 
     def ws_trade_mock_response(self) -> Dict[str, Any]:
@@ -896,27 +894,21 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         """
         rate_url = web_utils.public_rest_url(path_url=CONSTANTS.PUBLIC_FUNDING_RATE_ENDPOINT)
         rate_regex_url = re.compile(rate_url.replace(".", r"\.").replace("?", r"\?"))
-        interest_url = web_utils.public_rest_url(path_url=CONSTANTS.PUBLIC_OPEN_INTEREST_ENDPOINT)
-        interest_regex_url = re.compile(interest_url.replace(".", r"\.").replace("?", r"\?"))
         mark_url = web_utils.public_rest_url(path_url=CONSTANTS.PUBLIC_SYMBOL_PRICE_ENDPOINT)
         mark_regex_url = re.compile(mark_url.replace(".", r"\.").replace("?", r"\?"))
-        time_url = web_utils.public_rest_url(path_url=CONSTANTS.PUBLIC_FUNDING_TIME_ENDPOINT)
-        time_regex_url = re.compile(time_url.replace(".", r"\.").replace("?", r"\?"))
 
         resp: Dict[str, Any] = self.expected_funding_info_data()
         mock_api.get(rate_regex_url, body=json.dumps(resp))
-        mock_api.get(interest_regex_url, body=json.dumps(resp))
         mock_api.get(mark_regex_url, body=json.dumps(resp))
-        mock_api.get(time_regex_url, body=json.dumps(resp))
 
         funding_info: FundingInfo = await self.data_source.get_funding_info(self.trading_pair)
-        msg_result: Dict[str, Any] = resp["data"]
+        msg_result: Dict[str, Any] = resp["data"][0]
 
         self.assertEqual(self.trading_pair, funding_info.trading_pair)
-        self.assertEqual(Decimal(str(msg_result["amount"])), funding_info.index_price)
+        self.assertEqual(Decimal(str(msg_result["indexPrice"])), funding_info.index_price)
         self.assertEqual(Decimal(str(msg_result["markPrice"])), funding_info.mark_price)
         self.assertEqual(
-            int(msg_result["fundingTime"]) * 1e-3,
+            int(msg_result["nextUpdate"]) * 1e-3,
             funding_info.next_funding_utc_timestamp
         )
         self.assertEqual(Decimal(str(msg_result["fundingRate"])), funding_info.rate)

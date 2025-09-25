@@ -1349,7 +1349,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
         exception = self.exchange._formatted_error(
-            CONSTANTS.RET_CODE_ORDER_NOT_EXISTS,
+            CONSTANTS.RET_CODES_ORDER_NOT_EXISTS[0],
             "Failed to cancel order because it was not found."
         )
         self.assertFalse(

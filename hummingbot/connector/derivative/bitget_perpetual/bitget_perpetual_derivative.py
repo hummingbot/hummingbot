@@ -118,6 +118,10 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
     def _formatted_error(code: int, message: str) -> str:
         return f"Error: {code} - {message}"
 
+    async def start_network(self):
+        await super().start_network()
+        await self._trading_pair_position_mode_set(self.position_mode, self.trading_pairs[0])
+
     def supported_order_types(self) -> List[OrderType]:
         return [OrderType.LIMIT, OrderType.MARKET]
 
@@ -186,7 +190,10 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         # { "code": "00000", "msg": "success", "requestTime": 1710327684832, "data": [] }
 
         if isinstance(status_update_exception, IOError):
-            return str(CONSTANTS.RET_CODE_ORDER_NOT_EXISTS) in str(status_update_exception)
+            return any(
+                value in str(status_update_exception)
+                for value in CONSTANTS.RET_CODES_ORDER_NOT_EXISTS
+            )
 
         if isinstance(status_update_exception, ValueError):
             return True
@@ -198,7 +205,10 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         cancelation_exception: Exception
     ) -> bool:
         if isinstance(cancelation_exception, IOError):
-            return str(CONSTANTS.RET_CODE_ORDER_NOT_EXISTS) in str(cancelation_exception)
+            return any(
+                value in str(cancelation_exception)
+                for value in CONSTANTS.RET_CODES_ORDER_NOT_EXISTS
+            )
 
         return False
 
