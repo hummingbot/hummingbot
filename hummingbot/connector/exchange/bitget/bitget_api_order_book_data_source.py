@@ -1,40 +1,33 @@
 import asyncio
-from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, NoReturn, Optional
 
-from hummingbot.connector.derivative.bitget_perpetual import (
-    bitget_perpetual_constants as CONSTANTS,
-    bitget_perpetual_web_utils as web_utils,
-)
+from hummingbot.connector.exchange.bitget import bitget_constants as CONSTANTS, bitget_web_utils as web_utils
 from hummingbot.core.data_type.common import TradeType
-from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
-from hummingbot.core.data_type.perpetual_api_order_book_data_source import PerpetualAPIOrderBookDataSource
-from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest, WSPlainTextRequest
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
 if TYPE_CHECKING:
-    from hummingbot.connector.derivative.bitget_perpetual.bitget_perpetual_derivative import BitgetPerpetualDerivative
+    from hummingbot.connector.exchange.bitget.bitget_exchange import BitgetExchange
 
 
-class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
+class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
     """
-    Data source for retrieving order book data from
-    the Bitget Perpetual exchange via REST and WebSocket APIs.
+    Data source for retrieving order book data from the Bitget exchange via REST and WebSocket APIs.
     """
 
     def __init__(
         self,
         trading_pairs: List[str],
-        connector: 'BitgetPerpetualDerivative',
+        connector: 'BitgetExchange',
         api_factory: WebAssistantsFactory,
     ) -> None:
         super().__init__(trading_pairs)
-        self._connector = connector
-        self._api_factory = api_factory
+        self._connector: 'BitgetExchange' = connector
+        self._api_factory: WebAssistantsFactory = api_factory
         self._ping_task: Optional[asyncio.Task] = None
 
     async def get_last_traded_prices(
@@ -82,22 +75,8 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 channel = channels.get(action)
             elif response_channel == CONSTANTS.PUBLIC_WS_TRADE:
                 channel = self._trade_messages_queue_key
-            elif response_channel == CONSTANTS.PUBLIC_WS_TICKER:
-                channel = self._funding_info_messages_queue_key
 
         return channel
-
-    async def get_funding_info(self, trading_pair: str) -> FundingInfo:
-        funding_info_response = await self._request_complete_funding_info(trading_pair)
-        funding_info = FundingInfo(
-            trading_pair=trading_pair,
-            index_price=Decimal(funding_info_response["indexPrice"]),
-            mark_price=Decimal(funding_info_response["markPrice"]),
-            next_funding_utc_timestamp=int(int(funding_info_response["nextUpdate"]) * 1e-3),
-            rate=Decimal(funding_info_response["fundingRate"]),
-        )
-
-        return funding_info
 
     async def _parse_any_order_book_message(
         self,
@@ -174,11 +153,8 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         trading_pair: str = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
 
         for trade_data in data:
-            trade_type: float = (
-                float(TradeType.BUY.value)
-                if trade_data["side"] == "buy"
-                else float(TradeType.SELL.value)
-            )
+            trade_type: float = float(TradeType.BUY.value) \
+                if trade_data["side"] == "buy" else float(TradeType.SELL.value)
             message_content: Dict[str, Any] = {
                 "trade_id": int(trade_data["tradeId"]),
                 "trading_pair": trading_pair,
@@ -192,56 +168,6 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 timestamp=int(trade_data["ts"]) * 1e-3,
             )
             message_queue.put_nowait(trade_message)
-
-    async def _parse_funding_info_message(
-        self,
-        raw_message: Dict[str, Any],
-        message_queue: asyncio.Queue
-    ) -> None:
-        data: List[Dict[str, Any]] = raw_message["data"]
-
-        for entry in data:
-            trading_pair: str = await self._connector.trading_pair_associated_to_exchange_symbol(
-                entry["symbol"]
-            )
-            funding_update = FundingInfoUpdate(
-                trading_pair=trading_pair,
-                index_price=Decimal(entry["indexPrice"]),
-                mark_price=Decimal(entry["markPrice"]),
-                next_funding_utc_timestamp=int(int(entry["nextFundingTime"]) * 1e-3),
-                rate=Decimal(entry["fundingRate"])
-            )
-            message_queue.put_nowait(funding_update)
-
-    async def _request_complete_funding_info(self, trading_pair: str) -> Dict[str, Any]:
-        rest_assistant: RESTAssistant = await self._api_factory.get_rest_assistant()
-        endpoints = [
-            CONSTANTS.PUBLIC_FUNDING_RATE_ENDPOINT,
-            CONSTANTS.PUBLIC_SYMBOL_PRICE_ENDPOINT
-        ]
-        tasks: List[asyncio.Task] = []
-        funding_info: Dict[str, Any] = {}
-
-        symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair)
-        product_type = await self._connector.product_type_associated_to_trading_pair(trading_pair)
-
-        for endpoint in endpoints:
-            tasks.append(rest_assistant.execute_request(
-                url=web_utils.public_rest_url(path_url=endpoint),
-                throttler_limit_id=endpoint,
-                params={
-                    "symbol": symbol,
-                    "productType": product_type,
-                },
-                method=RESTMethod.GET,
-            ))
-
-        results = await safe_gather(*tasks)
-
-        for result in results:
-            funding_info.update(result["data"][0])
-
-        return funding_info
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         websocket_assistant: WSAssistant = await self._api_factory.get_ws_assistant()
@@ -258,18 +184,12 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             subscription_topics: List[Dict[str, str]] = []
 
             for trading_pair in self._trading_pairs:
-                symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair)
-                product_type = await self._connector.product_type_associated_to_trading_pair(
+                symbol: str = await self._connector.exchange_symbol_associated_to_pair(
                     trading_pair
                 )
-
-                for channel in [
-                    CONSTANTS.PUBLIC_WS_BOOKS,
-                    CONSTANTS.PUBLIC_WS_TRADE,
-                    CONSTANTS.PUBLIC_WS_TICKER,
-                ]:
+                for channel in [CONSTANTS.PUBLIC_WS_BOOKS, CONSTANTS.PUBLIC_WS_TRADE]:
                     subscription_topics.append({
-                        "instType": product_type,
+                        "instType": "SPOT",
                         "channel": channel,
                         "instId": symbol
                     })
@@ -290,14 +210,12 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         symbol: str = await self._connector.exchange_symbol_associated_to_pair(trading_pair)
-        product_type: str = await self._connector.product_type_associated_to_trading_pair(trading_pair)
         rest_assistant: RESTAssistant = await self._api_factory.get_rest_assistant()
 
         data: Dict[str, Any] = await rest_assistant.execute_request(
             url=web_utils.public_rest_url(path_url=CONSTANTS.PUBLIC_ORDERBOOK_ENDPOINT),
             params={
                 "symbol": symbol,
-                "productType": product_type,
                 "limit": "100",
             },
             method=RESTMethod.GET,

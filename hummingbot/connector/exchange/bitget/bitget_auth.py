@@ -8,9 +8,9 @@ from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
 
 
-class BitgetPerpetualAuth(AuthBase):
+class BitgetAuth(AuthBase):
     """
-    Auth class required by Bitget Perpetual API
+    Auth class required by Bitget API
     """
 
     def __init__(
