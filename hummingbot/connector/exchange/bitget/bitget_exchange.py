@@ -381,13 +381,11 @@ class BitgetExchange(ExchangePyBase):
         return order_info_response
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
-        params = {
-            "symbol": await self.exchange_symbol_associated_to_pair(trading_pair)
-        }
-
         resp_json = await self._api_get(
             path_url=CONSTANTS.PUBLIC_TICKERS_ENDPOINT,
-            params=params,
+            params={
+                "symbol": await self.exchange_symbol_associated_to_pair(trading_pair)
+            },
         )
 
         return float(resp_json["data"][0]["lastPr"])
@@ -420,15 +418,18 @@ class BitgetExchange(ExchangePyBase):
             flat_fees=[TokenAmount(amount=fee_amount, token=fee_coin)],
         )
 
+        avg_price = Decimal(trade_msg["priceAvg"])
+        fill_size = Decimal(trade_msg["size"])
+
         trade_update: TradeUpdate = TradeUpdate(
             trade_id=trade_id,
             client_order_id=tracked_order.client_order_id,
             exchange_order_id=str(trade_msg["orderId"]),
             trading_pair=tracked_order.trading_pair,
             fill_timestamp=int(trade_msg["uTime"]) * 1e-3,
-            fill_price=Decimal(trade_msg["priceAvg"]),
-            fill_base_amount=Decimal(trade_msg["size"]),
-            fill_quote_amount=Decimal(trade_msg["amount"]),
+            fill_price=avg_price,
+            fill_base_amount=fill_size,
+            fill_quote_amount=fill_size * avg_price,
             fee=fee
         )
 
@@ -542,8 +543,7 @@ class BitgetExchange(ExchangePyBase):
                     trading_rules.append(
                         TradingRule(
                             trading_pair=trading_pair,
-                            min_order_size=Decimal(rule["minTradeAmount"]),
-                            max_order_size=Decimal(rule["maxTradeAmount"]),
+                            min_order_size=Decimal(f"1e-{rule['quantityPrecision']}"),
                             min_price_increment=Decimal(f"1e-{rule['pricePrecision']}"),
                             min_base_amount_increment=Decimal(f"1e-{rule['quantityPrecision']}"),
                             min_quote_amount_increment=Decimal(f"1e-{rule['quotePrecision']}"),

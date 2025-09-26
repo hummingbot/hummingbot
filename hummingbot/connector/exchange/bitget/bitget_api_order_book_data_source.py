@@ -38,7 +38,7 @@ class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def _parse_pong_message(self) -> None:
-        self.logger().info("PING-PONG message for order book completed")
+        self.logger().debug("PING-PONG message for order book completed")
 
     async def _process_message_for_unknown_channel(
         self,

@@ -56,7 +56,7 @@ class BitgetPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             raise IOError("Private websocket connection authentication failed")
 
     async def _parse_pong_message(self) -> None:
-        self.logger().info("PING-PONG message for user stream completed")
+        self.logger().debug("PING-PONG message for user stream completed")
 
     async def _process_message_for_unknown_channel(
         self,

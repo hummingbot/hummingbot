@@ -316,8 +316,7 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         rule = self.trading_rules_request_mock_response["data"][0]
         return TradingRule(
             trading_pair=self.trading_pair,
-            min_order_size=Decimal(rule["minTradeAmount"]),
-            max_order_size=Decimal(rule["maxTradeAmount"]),
+            min_order_size=Decimal(f"1e-{rule['quantityPrecision']}"),
             min_price_increment=Decimal(f"1e-{rule['pricePrecision']}"),
             min_base_amount_increment=Decimal(f"1e-{rule['quantityPrecision']}"),
             min_quote_amount_increment=Decimal(f"1e-{rule['quotePrecision']}"),
