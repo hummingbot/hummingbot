@@ -28,13 +28,15 @@ dependencies:
   - cachetools>=5.3.1
   - commlib-py>=0.11
   - cryptography>=41.0.2
-  - injective-py==1.11.*
   - eth-account>=0.13.0
+  - injective-py==1.11.*
+  - libta-lib>=0.6.4
   - msgpack-python
-  - numpy>=1.25.0,<2
+  - numba>=0.61.2
+  - numpy>=2.2.6
   - objgraph
-  - pandas>=2.0.3
-  - pandas-ta>=0.3.14b
+  - pandas>=2.3.2
+  - pandas-ta>=0.4.71b
   - prompt_toolkit>=3.0.39
   - protobuf>=4.23.3
   - psutil>=5.9.5
@@ -50,7 +52,9 @@ dependencies:
   - scipy>=1.11.1
   - six>=1.16.0
   - sqlalchemy>=1.4.49
+  - ta-lib>=0.6.4
   - tabulate>=0.9.0
+  - tqdm>=4.67.1
   - ujson>=5.7.0
   # This needs to be restricted to <2.0 - tests fail otherwise
   - urllib3>=1.26.15,<2.0
