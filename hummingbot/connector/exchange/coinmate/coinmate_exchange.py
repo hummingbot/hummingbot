@@ -794,6 +794,29 @@ class CoinmateExchange(ExchangePyBase):
         except Exception as e:
             self.logger().error(f"Error fetching trade history for order fills: {e}", exc_info=True)
 
+    async def _get_last_traded_price(self, trading_pair: str) -> float:
+        try:
+            coinmate_symbol = web_utils.convert_to_exchange_trading_pair(trading_pair)
+            rest_assistant = await self._web_assistants_factory.get_rest_assistant()
+            url = web_utils.public_rest_url(CONSTANTS.TICKER_PATH_URL, domain=self._domain)
+            
+            response = await rest_assistant.execute_request(
+                url=url,
+                method=RESTMethod.GET,
+                params={"currencyPair": coinmate_symbol},
+                throttler_limit_id=CONSTANTS.GLOBAL_RATE_LIMIT_ID,
+            )
+            
+            if response.get("error"):
+                raise IOError(f"Error fetching ticker: {response.get('errorMessage', 'Unknown error')}")
+            
+            data = response.get("data", {})
+            last_price = float(data.get("last", 0))
+            return last_price
+            
+        except Exception as e:
+            self.logger().error(f"Error getting last traded price for {trading_pair}: {e}", exc_info=True)
+            return 0.0
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         try:
