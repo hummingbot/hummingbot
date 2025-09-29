@@ -248,9 +248,6 @@ class CoinmateExchange(ExchangePyBase):
         **kwargs,
     ) -> Tuple[str, float]:
         coinmate_symbol = web_utils.convert_to_exchange_trading_pair(trading_pair)
-        base, quote = utils.web_utils.get_exchange_base_quote_from_market_name(
-            coinmate_symbol
-        )
         
         if order_type == OrderType.LIMIT:
             if trade_type == TradeType.BUY:
@@ -620,18 +617,15 @@ class CoinmateExchange(ExchangePyBase):
             balances_data = response.get("data", {})
             self.logger().info(f"Received balance data: {balances_data}")
             
-            # Clear existing balances
             self._account_balances.clear()
             self._account_available_balances.clear()
             
             for currency, balance_info in balances_data.items():
                 if isinstance(balance_info, dict):
-                    # Use the correct field names from Coinmate API
                     total_balance = Decimal(str(balance_info.get("balance", "0")))
                     available_balance = Decimal(str(balance_info.get("available", "0")))
                     reserved_balance = Decimal(str(balance_info.get("reserved", "0")))
                     
-                    # Only set balances if they are greater than zero
                     if total_balance > 0:
                         self._account_balances[currency] = total_balance
                         self._account_available_balances[currency] = available_balance
@@ -641,11 +635,9 @@ class CoinmateExchange(ExchangePyBase):
                             f"total={total_balance}, available={available_balance}, reserved={reserved_balance}"
                         )
                     else:
-                        # Still track zero balances for completeness
                         self._account_balances[currency] = total_balance
                         self._account_available_balances[currency] = available_balance
                 else:
-                    # Fallback: if balance_info is just a number
                     balance = Decimal(str(balance_info))
                     if balance > 0:
                         self._account_balances[currency] = balance
@@ -662,7 +654,6 @@ class CoinmateExchange(ExchangePyBase):
         Update order statuses from Coinmate with retry logic
         """
         try:
-            # Get open orders with retry
             response = await self._api_request_with_retry(
                 method=RESTMethod.POST,
                 path_url=CONSTANTS.OPEN_ORDERS_PATH_URL,
@@ -685,7 +676,6 @@ class CoinmateExchange(ExchangePyBase):
                 exchange_order_id = str(order_info.get("id"))
                 client_order_id = None
                 
-                # Find the corresponding tracked order
                 tracked_order = None
                 for order in self._order_tracker.all_orders.values():
                     if order.exchange_order_id == exchange_order_id:
@@ -696,11 +686,9 @@ class CoinmateExchange(ExchangePyBase):
                 if tracked_order is None:
                     continue
                     
-                # Parse order status
                 order_status = order_info.get("status", "").lower()
                 new_state = CONSTANTS.ORDER_STATE.get(order_status, OrderState.OPEN)
                 
-                # Create order update
                 order_update = OrderUpdate(
                     trading_pair=tracked_order.trading_pair,
                     update_timestamp=self.current_timestamp,
@@ -733,15 +721,12 @@ class CoinmateExchange(ExchangePyBase):
             rest_assistant = await self._web_assistants_factory.get_rest_assistant()
             url = web_utils.private_rest_url(CONSTANTS.MY_TRADES_PATH_URL, domain=self._domain)
             
-            # Get trades from the last 24 hours with reasonable limit
             data = {
                 "limit": 100,
                 "sort": "DESC",  
                 "timestampFrom": int((self.current_timestamp - 24 * 60 * 60) * 1000)
             }
             
-            # Convert data dict to URL-encoded string for Coinmate API
-            from urllib.parse import urlencode
             data_string = urlencode(data)
             
             response = await rest_assistant.execute_request(
@@ -773,18 +758,14 @@ class CoinmateExchange(ExchangePyBase):
                         fill_timestamp = float(trade.get("createdTimestamp", 
                                                self.current_timestamp * 1000)) / 1000
                         
-                        # Calculate quote amount  
                         fill_quote_amount = fill_amount * fill_price
                         
-                        # Parse fee information
                         fee_amount = Decimal(str(trade.get("fee", "0")))
                         
-                        # Determine fee currency
                         trading_pair = tracked_order.trading_pair
                         base, quote = trading_pair.split("-")
                         fee_currency = quote if tracked_order.trade_type == TradeType.BUY else base
                         
-                        # Create fee object
                         fee = TradeFeeBase.new_spot_fee(
                             fee_schema=self.trade_fee_schema(),
                             trade_type=tracked_order.trade_type,
@@ -792,7 +773,6 @@ class CoinmateExchange(ExchangePyBase):
                             flat_fees=[TokenAmount(amount=fee_amount, token=fee_currency)]
                         )
                         
-                        # Create trade update
                         trade_update = TradeUpdate(
                             trade_id=str(trade.get("transactionId", "")),
                             client_order_id=tracked_order.client_order_id,
@@ -822,8 +802,6 @@ class CoinmateExchange(ExchangePyBase):
             
             data = {"orderId": tracked_order.exchange_order_id}
             
-            # Convert data dict to URL-encoded string for Coinmate API
-            from urllib.parse import urlencode
             data_string = urlencode(data)
             
             response = await rest_assistant.execute_request(
@@ -869,7 +847,6 @@ class CoinmateExchange(ExchangePyBase):
                     "limit": 1000
                 }
                 
-                # Convert data dict to URL-encoded string for Coinmate API
                 data_string = urlencode(data)
                 
                 response = await rest_assistant.execute_request(
