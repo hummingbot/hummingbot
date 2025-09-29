@@ -21,6 +21,7 @@ class HyperliquidPerpetualCandles(CandlesBase):
         self._tokens = None
         self._base_asset = trading_pair.split("-")[0]
         super().__init__(trading_pair, interval, max_records)
+        self._ping_timeout = CONSTANTS.PING_TIMEOUT
 
     @property
     def name(self):
@@ -138,3 +139,7 @@ class HyperliquidPerpetualCandles(CandlesBase):
             candles_row_dict["taker_buy_base_volume"] = 0.
             candles_row_dict["taker_buy_quote_volume"] = 0.
             return candles_row_dict
+
+    @property
+    def _ping_payload(self):
+        return CONSTANTS.PING_PAYLOAD
