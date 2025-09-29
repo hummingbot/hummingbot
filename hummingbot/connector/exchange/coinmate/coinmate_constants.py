@@ -38,7 +38,7 @@ ONE_MINUTE = 60
 ONE_SECOND = 1
 
 REQUESTS_PER_MINUTE = 100
-MAX_REQUEST = 5000
+MAX_REQUEST = 100  # Should match global limit since endpoints are linked
 
 GLOBAL_RATE_LIMIT_ID = "coinmate_global"
 
@@ -47,6 +47,10 @@ TRADE_EVENT_TYPE = "trades"
 
 WS_HEARTBEAT_TIME_INTERVAL = 30.0
 
+# Coinmate rate limiting:
+# - Global limit: 100 requests per minute across all endpoints
+# - Individual endpoints are linked to the global limit (each counts toward global)
+# - WebSocket connections also count toward the global limit
 RATE_LIMITS = [
     RateLimit(
         limit_id=GLOBAL_RATE_LIMIT_ID,
@@ -59,13 +63,13 @@ RATE_LIMITS = [
         time_interval=ONE_MINUTE,
         linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT_ID, 1)]
     ) for path_id in [
-        TICKER_PATH_URL, ORDERBOOK_PATH_URL, TRANSACTIONS_PATH_URL, TRADING_PAIRS_PATH_URL,
+        TICKER_PATH_URL, ORDERBOOK_PATH_URL, TRANSACTIONS_PATH_URL,
+        TRADING_PAIRS_PATH_URL,
         SERVER_TIME_PATH_URL, ACCOUNTS_PATH_URL, BUY_LIMIT_PATH_URL,
         SELL_LIMIT_PATH_URL, BUY_INSTANT_PATH_URL, SELL_INSTANT_PATH_URL,
         CANCEL_ORDER_PATH_URL, OPEN_ORDERS_PATH_URL, MY_TRADES_PATH_URL,
         TRADER_FEES_PATH_URL, ORDER_BY_ID_PATH_URL
     ]],
-    RateLimit(limit_id=WSS_URL, limit=5, time_interval=ONE_SECOND),
 ]
 
 ORDER_STATE = {
