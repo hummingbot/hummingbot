@@ -1,10 +1,11 @@
 services:
   hummingbot:
     container_name: hummingbot
-    image: hummingbot/hummingbot:latest
-    # build: # Uncomment this build section and comment image to build Hummingbot locally
-    #   context: .
-    #   dockerfile: Dockerfile
+    # image: hummingbot/hummingbot:latest
+    build: # Uncomment this build section and comment image to build Hummingbot locally
+      context: .
+      dockerfile: Dockerfile
+    command: ["/bin/bash", "-lc", "conda activate hummingbot && ./bin/hummingbot_quickstart.py"]
     volumes:
       - ./conf:/home/hummingbot/conf
       - ./conf/connectors:/home/hummingbot/conf/connectors

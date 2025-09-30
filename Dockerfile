@@ -76,6 +76,8 @@ COPY --from=builder /home/ /home/
 # Setting bash as default shell because we have .bashrc with customized PATH (setting SHELL affects RUN, CMD and ENTRYPOINT, but not manual commands e.g. `docker run image COMMAND`!)
 SHELL [ "/bin/bash", "-lc" ]
 
-# Set the default command to run when starting the container
+# Ensure conda is initialized and hummingbot environment is activated by default
+RUN echo "conda activate hummingbot" >> ~/.bashrc
 
-CMD conda activate hummingbot && ./bin/hummingbot_quickstart.py 2>> ./logs/errors.log
+# Set the default command to run when starting the container
+CMD [ "/bin/bash", "-lc", "conda activate hummingbot && ./bin/hummingbot_quickstart.py 2>> ./logs/errors.log" ]
