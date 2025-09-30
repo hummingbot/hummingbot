@@ -8,6 +8,12 @@ from hummingbot.connector.exchange.coinmate.coinmate_auth import CoinmateAuth
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 
 
+def async_run_with_timeout(coroutine, timeout: float = 1):
+        return asyncio.get_event_loop().run_until_complete(
+            asyncio.wait_for(coroutine, timeout)
+        )
+
+
 class CoinmateAuthTests(TestCase):
 
     def setUp(self) -> None:
@@ -20,18 +26,13 @@ class CoinmateAuthTests(TestCase):
             client_id=self.client_id
         )
 
-    def async_run_with_timeout(self, coroutine, timeout: float = 1):
-        return asyncio.get_event_loop().run_until_complete(
-            asyncio.wait_for(coroutine, timeout)
-        )
-
     def test_rest_authenticate_get_request(self):
         params = {"currencyPair": "BTC_EUR", "limit": "100"}
         request = RESTRequest(
             method=RESTMethod.GET, params=params, is_auth_required=True
         )
         
-        configured_request = self.async_run_with_timeout(
+        configured_request = async_run_with_timeout(
             self.auth.rest_authenticate(request)
         )
         
@@ -48,7 +49,7 @@ class CoinmateAuthTests(TestCase):
             method=RESTMethod.POST, data=data, is_auth_required=True
         )
         
-        configured_request = self.async_run_with_timeout(
+        configured_request = async_run_with_timeout(
             self.auth.rest_authenticate(request)
         )
         
@@ -87,9 +88,8 @@ class CoinmateAuthTests(TestCase):
         
         self.assertGreater(nonce2, nonce1)
         
-        # Verify nonce is in milliseconds (roughly current time)
         current_ms = int(time.time() * 1000)
-        self.assertLess(abs(nonce1 - current_ms), 60000)  # Within 1 minute
+        self.assertLess(abs(nonce1 - current_ms), 60000)
 
     def test_ws_auth_data(self):
         """Test WebSocket authentication data generation"""

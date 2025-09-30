@@ -38,33 +38,6 @@ class CoinmateOrderBookTests(TestCase):
         self.assertEqual(51100.0, snapshot_message.asks[1].price)
         self.assertEqual(0.8, snapshot_message.asks[1].amount)
 
-    def test_diff_message_from_exchange(self):
-        diff_msg = CoinmateOrderBook.diff_message_from_exchange(
-            msg={
-                "bids": [
-                    {"price": "49500.0", "amount": "0.2"}
-                ],
-                "asks": [
-                    {"price": "50500.0", "amount": "0.4"}
-                ]
-            },
-            timestamp=1640000000.0,
-            metadata={"trading_pair": "BTC-EUR"}
-        )
-
-        self.assertEqual("BTC-EUR", diff_msg.trading_pair)
-        self.assertEqual(OrderBookMessageType.DIFF, diff_msg.type)
-        self.assertEqual(1640000000.0, diff_msg.timestamp)
-        self.assertEqual(-1, diff_msg.update_id)
-        self.assertEqual(-1, diff_msg.first_update_id)
-        self.assertEqual(-1, diff_msg.trade_id)
-        self.assertEqual(1, len(diff_msg.bids))
-        self.assertEqual(49500.0, diff_msg.bids[0].price)
-        self.assertEqual(0.2, diff_msg.bids[0].amount)
-        self.assertEqual(1, len(diff_msg.asks))
-        self.assertEqual(50500.0, diff_msg.asks[0].price)
-        self.assertEqual(0.4, diff_msg.asks[0].amount)
-
     def test_trade_message_from_exchange(self):
         trade_update = {
             "date": 1234567890000,

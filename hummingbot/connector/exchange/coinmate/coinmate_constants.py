@@ -25,6 +25,7 @@ BUY_INSTANT_PATH_URL = "/buyInstant"
 SELL_INSTANT_PATH_URL = "/sellInstant"
 ORDER_BY_ID_PATH_URL = "/orderById"
 MY_TRADES_PATH_URL = "/tradeHistory"
+TRADE_HISTORY_PATH_URL = "/tradeHistory"  # Alias for compatibility
 
 SERVER_TIME_PATH_URL = "/system/time"
 

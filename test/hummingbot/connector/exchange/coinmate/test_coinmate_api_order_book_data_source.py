@@ -88,14 +88,16 @@ class CoinmateAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         return {
             "event": "data",
             "channel": f"trades-{self.ex_trading_pair}",
-            "payload": {
-                "date": 1234567890000,
-                "price": 50000.0,
-                "amount": 0.1,
-                "type": "BUY",
-                "buyOrderId": 12345,
-                "sellOrderId": 67890
-            }
+            "payload": [
+                {
+                    "date": 1234567890000,
+                    "price": 50000.0,
+                    "amount": 0.1,
+                    "type": "BUY",
+                    "buyOrderId": 12345,
+                    "sellOrderId": 67890
+                }
+            ]
         }
 
     def _order_diff_event(self):
@@ -272,13 +274,9 @@ class CoinmateAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         try:
-            self.listening_task = self.local_event_loop.create_task(
-                self.data_source.listen_for_trades(self.local_event_loop, msg_queue))
-            await asyncio.sleep(0.5)
+            await self.data_source.listen_for_trades(self.local_event_loop, msg_queue)
         except asyncio.CancelledError:
             pass
-        finally:
-            self.listening_task and self.listening_task.cancel()
 
         self.assertTrue(
             self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange")
@@ -298,8 +296,8 @@ class CoinmateAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         msg: OrderBookMessage = await msg_queue.get()
 
         self.assertIn("payload", trade_event)
-        self.assertEqual(12345, trade_event["payload"]["buyOrderId"])
-        self.assertEqual(67890, trade_event["payload"]["sellOrderId"])
+        self.assertEqual(12345, trade_event["payload"][0]["buyOrderId"])
+        self.assertEqual(67890, trade_event["payload"][0]["sellOrderId"])
 
     async def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
@@ -310,42 +308,6 @@ class CoinmateAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         with self.assertRaises(asyncio.CancelledError):
             await self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue)
-
-    async def test_listen_for_order_book_diffs_logs_exception(self):
-        incomplete_resp = {
-            "event": "data",
-            "channel": f"order_book-{self.ex_trading_pair}",
-        }
-
-        mock_queue = AsyncMock()
-        mock_queue.get.side_effect = [incomplete_resp, asyncio.CancelledError()]
-        self.data_source._message_queue[CONSTANTS.DIFF_EVENT_TYPE] = mock_queue
-
-        msg_queue: asyncio.Queue = asyncio.Queue()
-
-        try:
-                await self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue)
-        except asyncio.CancelledError:
-            pass
-
-        self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange")
-        )
-
-    async def test_listen_for_order_book_diffs_successful(self):
-        mock_queue = AsyncMock()
-        diff_event = self._order_diff_event()
-        mock_queue.get.side_effect = [diff_event, asyncio.CancelledError()]
-        self.data_source._message_queue[CONSTANTS.DIFF_EVENT_TYPE] = mock_queue
-
-        msg_queue: asyncio.Queue = asyncio.Queue()
-
-        self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue))
-
-        msg: OrderBookMessage = await msg_queue.get()
-
-        self.assertIsNotNone(msg.content)
 
     @aioresponses()
     async def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):

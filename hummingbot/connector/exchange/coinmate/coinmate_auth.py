@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import threading
 import time
 from collections import OrderedDict
 from typing import Any, Dict
@@ -17,6 +18,7 @@ class CoinmateAuth(AuthBase):
         self.api_key = api_key
         self.secret_key = secret_key
         self.client_id = client_id
+        self._nonce_manager = _NonceManager()
 
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
         if request.method == RESTMethod.POST:
@@ -64,4 +66,23 @@ class CoinmateAuth(AuthBase):
         }
 
     def _generate_nonce(self) -> str:
-        return str(int(time.time() * 1000))
+        return str(self._nonce_manager.next_ms())
+
+
+class _NonceManager:
+    """
+    Prevents nonce collisions
+    Copied from HyperliquidAuth
+    """
+
+    def __init__(self):
+        self._last = int(time.time() * 1000)
+        self._lock = threading.Lock()
+
+    def next_ms(self) -> int:
+        now = int(time.time() * 1000)
+        with self._lock:
+            if now <= self._last:
+                now = self._last + 1
+            self._last = now
+            return now

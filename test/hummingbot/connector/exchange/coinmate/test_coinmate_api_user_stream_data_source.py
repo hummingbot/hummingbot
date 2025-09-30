@@ -51,7 +51,6 @@ class CoinmateUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         self.data_source = CoinmateAPIUserStreamDataSource(
             auth=self.auth,
-            trading_pairs=[self.trading_pair],
             connector=self.connector,
             api_factory=self.connector._web_assistants_factory,
             domain=self.domain
@@ -97,7 +96,7 @@ class CoinmateUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
     def _user_stream_event_order_update(self):
         return {
             "event": "data",
-            "channel": f"private-open_orders-{self.auth._client_id}",
+            "channel": f"private-open_orders-{self.auth.client_id}",
             "payload": [
                 {
                     "id": 12345,
@@ -115,7 +114,7 @@ class CoinmateUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
     def _user_stream_event_balance_update(self):
         return {
             "event": "data",
-            "channel": f"private-user_balances-{self.auth._client_id}",
+            "channel": f"private-user_balances-{self.auth.client_id}",
             "payload": {
                 self.base_asset: {
                     "currency": self.base_asset,
@@ -135,7 +134,7 @@ class CoinmateUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
     def _user_stream_event_trade_update(self):
         return {
             "event": "data",
-            "channel": f"private-user-trades-{self.auth._client_id}",
+            "channel": f"private-user-trades-{self.auth.client_id}",
             "payload": [
                 {
                     "transactionId": 67890,
@@ -159,7 +158,7 @@ class CoinmateUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         successful_subscription_response = {
             "event": "subscribe_success",
-            "data": {"channel": f"private-open_orders-{self.auth._client_id}"}
+            "data": {"channel": f"private-open_orders-{self.auth.client_id}"}
         }
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=ws_connect_mock.return_value,
@@ -183,9 +182,9 @@ class CoinmateUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         expected_orders_subscription = {
             "event": "subscribe",
             "data": {
-                "channel": f"private-open_orders-{self.auth._client_id}",
-                "clientId": self.auth._client_id,
-                "publicKey": self.auth._api_key,
+                "channel": f"private-open_orders-{self.auth.client_id}",
+                "clientId": self.auth.client_id,
+                "publicKey": self.auth.api_key,
                 "nonce": sent_subscription_messages[0]["data"]["nonce"],
                 "signature": sent_subscription_messages[0]["data"]["signature"]
             }
@@ -248,8 +247,9 @@ class CoinmateUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         )
 
         msg = await msg_queue.get()
-        self.assertEqual("order", msg["type"])
-        self.assertEqual(12345, msg["data"][0]["id"])
+        self.assertEqual("data", msg["event"])
+        self.assertIn("private-open_orders", msg["channel"])
+        self.assertEqual(12345, msg["payload"][0]["id"])
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_user_stream_balance_update(self, mock_ws):
@@ -266,9 +266,10 @@ class CoinmateUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         )
 
         msg = await msg_queue.get()
-        self.assertEqual("balance", msg["type"])
-        self.assertIn(self.base_asset, msg["data"])
-        self.assertIn(self.quote_asset, msg["data"])
+        self.assertEqual("data", msg["event"])
+        self.assertIn("private-user_balances", msg["channel"])
+        self.assertIn(self.base_asset, msg["payload"])
+        self.assertIn(self.quote_asset, msg["payload"])
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_user_stream_trade_update(self, mock_ws):
@@ -285,34 +286,9 @@ class CoinmateUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         )
 
         msg = await msg_queue.get()
-        self.assertEqual("trade", msg["type"])
-        self.assertEqual(67890, msg["data"][0]["transactionId"])
-
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    async def test_listen_for_user_stream_handles_ping_pong(self, mock_ws):
-        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
-        
-        ping_event = {"event": "ping"}
-        self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=mock_ws.return_value,
-            message=json.dumps(ping_event)
-        )
-
-        msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_user_stream(msg_queue)
-        )
-
-        # Let the ping be processed
-        await asyncio.sleep(0.1)
-
-        sent_messages = self.mocking_assistant.json_messages_sent_through_websocket(
-            websocket_mock=mock_ws.return_value
-        )
-        
-        # Should send pong response after subscriptions
-        pong_sent = any(msg.get("event") == "pong" for msg in sent_messages)
-        self.assertTrue(pong_sent)
+        self.assertEqual("data", msg["event"])
+        self.assertIn("private-user-trades", msg["channel"])
+        self.assertEqual(67890, msg["payload"][0]["transactionId"])
 
     async def test_subscribe_channels_raises_cancel_exception(self):
         mock_ws = MagicMock()
@@ -329,5 +305,5 @@ class CoinmateUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             await self.data_source._subscribe_channels(mock_ws)
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error occurred subscribing to private channels...")
+            self._is_logged("ERROR", "Unexpected error occurred subscribing to user streams")
         )

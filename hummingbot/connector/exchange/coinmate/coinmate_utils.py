@@ -69,12 +69,5 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     trading_pairs = exchange_info.get("data", [])
     return isinstance(trading_pairs, list) and len(trading_pairs) > 0
 
-
-def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
-    import uuid
-    side = "B" if is_buy else "S"
-    return f"{CONSTANTS.HBOT_ORDER_ID_PREFIX}-{side}-{uuid.uuid4().hex[:8]}"
-
-
 def calculate_backoff_time(retry_attempt: int) -> float:
     return CONSTANTS.INITIAL_BACKOFF_TIME * (2 ** retry_attempt)

@@ -1,4 +1,5 @@
 import json
+from turtle import pu
 from typing import Optional
 
 import hummingbot.connector.exchange.coinmate.coinmate_constants as CONSTANTS
@@ -32,9 +33,8 @@ class CoinmateRESTPreProcessor(RESTPreProcessorBase):
 def public_rest_url(path_url: str, domain: str = None) -> str:
     return CONSTANTS.REST_URL + path_url
 
-
 def private_rest_url(path_url: str, domain: str = None) -> str:
-    return CONSTANTS.REST_URL + path_url
+    return public_rest_url(path_url, domain)
 
 
 def build_api_factory(

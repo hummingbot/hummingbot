@@ -145,25 +145,27 @@ class CoinmateAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any],
                                    message_queue: asyncio.Queue):
-            channel, payload = raw_message.get("channel"), raw_message.get("payload")
-            trading_pair = _extract_trading_pair(channel)
+        channel, payload = raw_message.get("channel"), raw_message.get("payload")
+        trading_pair = _extract_trading_pair(channel)
+        
+        for trade_data in payload:
             trade_message = CoinmateOrderBook.trade_message_from_exchange(
-                payload,
-                timestamp=float(time.time()),
+                trade_data,
+                timestamp=float(trade_data["date"]),
                 metadata={"trading_pair": trading_pair}
             )
             message_queue.put_nowait(trade_message)
 
     async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any],
                                                  message_queue: asyncio.Queue):
-            channel, payload = raw_message.get("channel"), raw_message.get("payload")
-            trading_pair = _extract_trading_pair(channel)
-            order_book_message = CoinmateOrderBook.snapshot_message_from_exchange(
-                payload,
-                timestamp=float(time.time()),
-                metadata={"trading_pair": trading_pair}
-            )
-            message_queue.put_nowait(order_book_message)
+        channel, payload = raw_message.get("channel"), raw_message.get("payload")
+        trading_pair = _extract_trading_pair(channel)
+        order_book_message = CoinmateOrderBook.snapshot_message_from_exchange(
+            payload,
+            timestamp=float(time.time()),
+            metadata={"trading_pair": trading_pair}
+        )
+        message_queue.put_nowait(order_book_message)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any],
                                              message_queue: asyncio.Queue):

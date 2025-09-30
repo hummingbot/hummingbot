@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import time
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from hummingbot.connector.exchange.coinmate import coinmate_constants as CONSTANTS
@@ -54,8 +53,8 @@ class CoinmateAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
             # Subscribe to user data channels
             channels = [
-                "private-user_balances",
                 "private-open_orders",
+                "private-user_balances",
                 "private-user-trades",
             ]
 
@@ -88,87 +87,57 @@ class CoinmateAPIUserStreamDataSource(UserStreamTrackerDataSource):
             try:
                 message = ws_response.data
                 if isinstance(message, dict):
-                    # Route message to appropriate handler
-                    await self._route_message(message, queue, websocket_assistant)
+                    await self._process_event_message(
+                        message, queue
+                    )
                 else:
                     self.logger().debug(
-                        f"Received non-dict WebSocket message: {type(message)} - {message}"
+                        f"Received non-dict message: {type(message)}"
                     )
             except Exception as e:
                 self.logger().error(
                     f"Error processing WebSocket message: {e}", exc_info=True
                 )
 
-    async def _route_message(
+    async def _process_event_message(
         self,
-        message: Dict[str, Any],
+        event_message: Dict[str, Any],
         queue: asyncio.Queue,
-        websocket_assistant: WSAssistant,
     ):
+        """Process incoming websocket messages and handle different event types."""
         try:
-            event_type = message.get("event")
+            event_type = event_message.get("event")
+            
             if event_type == "data":
-                channel = message.get("channel", "")
-                data = message.get("payload", message.get("data", {}))
-
-                if "private-open_orders" in channel:
-                    await self._process_order_message(data, queue)
-                elif "private-user_balances" in channel:
-                    await self._process_balance_message(data, queue)
-                elif "private-user-trades" in channel:
-                    await self._process_trade_message(data, queue)
+                # Pass the raw message to the exchange for processing
+                channel = event_message.get("channel", "")
+                private_channels = [
+                    "private-open_orders",
+                    "private-user_balances",
+                    "private-user-trades"
+                ]
+                if any(ch in channel for ch in private_channels):
+                    queue.put_nowait(event_message)
                 else:
                     self.logger().debug(f"Unknown channel type: {channel}")
+                    
             elif event_type == "subscribe_success":
-                channel = message.get("data", {}).get("channel", "unknown")
+                channel = event_message.get("data", {}).get("channel", "unknown")
                 self.logger().info(f"Successfully subscribed to: {channel}")
+                
             elif event_type == "unsubscribe_success":
-                channel = message.get("data", {}).get("channel", "unknown")
-                self.logger().info(f"Successfully unsubscribed from channel: {channel}")
-            elif event_type == "ping":
-                try:
-                    pong_payload = {"event": "pong"}
-                    pong_request = WSJSONRequest(payload=pong_payload)
-                    await websocket_assistant.send(pong_request)
-                except Exception as e:
-                    self.logger().error(f"Failed to send pong: {e}")
-            elif event_type == "pong":
-                self.logger().debug("Received pong from server")
+                channel = event_message.get("data", {}).get("channel", "unknown")
+                self.logger().info(f"Successfully unsubscribed from: {channel}")
+
             elif event_type == "error":
-                error_msg = message.get("message", "Unknown error")
+                error_msg = event_message.get("message", "Unknown error")
                 self.logger().error(f"WebSocket error: {error_msg}")
+                
             else:
-                self.logger().debug(f"Unhandled message type: {event_type}")
+                self.logger().debug(f"Unhandled event type: {event_type}")
 
         except Exception as e:
-            self.logger().error(f"Error routing message: {e}", exc_info=True)
-
-    async def _process_order_message(self, data: Dict[str, Any], queue: asyncio.Queue):
-        try:
-            order_message = {"type": "order", "data": data, "timestamp": time.time()}
-            queue.put_nowait(order_message)
-        except Exception as e:
-            self.logger().error(f"Error processing order message: {e}", exc_info=True)
-
-    async def _process_balance_message(
-        self, data: Dict[str, Any], queue: asyncio.Queue
-    ):
-        try:
-            balance_message = {
-                "type": "balance",
-                "data": data,
-                "timestamp": time.time(),
-            }
-            queue.put_nowait(balance_message)
-        except Exception as e:
-            self.logger().error(f"Error processing balance message: {e}", exc_info=True)
-
-    async def _process_trade_message(self, data: Dict[str, Any], queue: asyncio.Queue):
-        try:
-            trade_message = {"type": "trade", "data": data, "timestamp": time.time()}
-            queue.put_nowait(trade_message)
-        except Exception as e:
-            self.logger().error(f"Error processing trade message: {e}", exc_info=True)
+            self.logger().error(f"Error processing event message: {e}", exc_info=True)
 
     async def _on_user_stream_interruption(
         self, websocket_assistant: Optional[WSAssistant]
@@ -180,9 +149,3 @@ class CoinmateAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _send_ping(self, websocket_assistant: WSAssistant):
         pass
-
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        if cls._logger is None:
-            cls._logger = logging.getLogger(HummingbotLogger.logger_name_for_class(cls))
-        return cls._logger

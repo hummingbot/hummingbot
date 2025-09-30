@@ -41,19 +41,6 @@ class CoinmateUtilTestCases(unittest.TestCase):
         self.assertFalse(utils.is_exchange_information_valid("not_a_dict"))
         self.assertFalse(utils.is_exchange_information_valid(None))
 
-    def test_get_new_client_order_id(self):
-        """Test client order ID generation"""
-        buy_order_id = utils.get_new_client_order_id(True, self.trading_pair)
-        sell_order_id = utils.get_new_client_order_id(False, self.trading_pair)
-
-        # Test format
-        self.assertTrue(buy_order_id.startswith("HBOT-B-"))
-        self.assertTrue(sell_order_id.startswith("HBOT-S-"))
-
-        # Test uniqueness
-        another_buy_id = utils.get_new_client_order_id(True, self.trading_pair)
-        self.assertNotEqual(buy_order_id, another_buy_id)
-
     def test_calculate_backoff_time(self):
         """Test exponential backoff calculation"""
         self.assertEqual(utils.calculate_backoff_time(0), 1.0)
