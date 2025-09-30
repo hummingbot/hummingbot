@@ -28,6 +28,10 @@ if TYPE_CHECKING:
         CoinmateExchange
     )
 
+def _extract_trading_pair(channel: str) -> str:
+        coinmate_symbol = channel.split("-", 1)[1]
+        return web_utils.convert_from_exchange_trading_pair(coinmate_symbol)
+
 
 class CoinmateAPIOrderBookDataSource(OrderBookTrackerDataSource):
     HEARTBEAT_TIME_INTERVAL = 30.0
@@ -63,10 +67,10 @@ class CoinmateAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "currencyPair": coinmate_symbol,
             "groupByPriceLimit": "False"
         }
-            
+
         rest_assistant = await self._api_factory.get_rest_assistant()
         url = web_utils.public_rest_url(
-            path_url=CONSTANTS.ORDERBOOK_PATH_URL, 
+            path_url=CONSTANTS.ORDERBOOK_PATH_URL,
             domain=self._domain
         )
         data = await rest_assistant.execute_request(
@@ -85,7 +89,7 @@ class CoinmateAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 coinmate_symbol = web_utils.convert_to_exchange_trading_pair(
                     trading_pair
                 )
-                
+
                 orderbook_payload = {
                     "event": "subscribe",
                     "data": {
@@ -93,25 +97,24 @@ class CoinmateAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     }
                 }
                 subscribe_orderbook_request = WSJSONRequest(payload=orderbook_payload)
-                
+
                 trades_payload = {
-                    "event": "subscribe", 
+                    "event": "subscribe",
                     "data": {
                         "channel": f"trades-{coinmate_symbol}"
                     }
                 }
                 subscribe_trades_request = WSJSONRequest(payload=trades_payload)
-                
+
                 await ws.send(subscribe_orderbook_request)
                 await ws.send(subscribe_trades_request)
-            
+
             self.logger().info("Subscribed to public order book and trade channels...")
         except asyncio.CancelledError:
             raise
         except Exception:
             self.logger().error(
-                "Unexpected error occurred subscribing to order book trading and "
-                "delta streams...",
+                "Unexpected error occurred subscribing to order book trading and delta streams...",
                 exc_info=True
             )
             raise
@@ -124,12 +127,12 @@ class CoinmateAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         response: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
-        
+
         if response.get("error") is False and "data" in response:
             snapshot_data = response["data"]
         else:
             raise ValueError(f"Invalid order book response: {response}")
-        
+
         snapshot_timestamp: float = time.time()
         snapshot_msg: OrderBookMessage = (
             CoinmateOrderBook.snapshot_message_from_exchange(
@@ -140,86 +143,45 @@ class CoinmateAPIOrderBookDataSource(OrderBookTrackerDataSource):
         )
         return snapshot_msg
 
-    async def _parse_trade_message(self, raw_message: Dict[str, Any], 
+    async def _parse_trade_message(self, raw_message: Dict[str, Any],
                                    message_queue: asyncio.Queue):
-        if (raw_message.get("event") == "data" and 
-            "trades" in raw_message.get("channel", "")):
-            channel = raw_message.get("channel", "")
-            if "-" in channel:
-                coinmate_symbol = channel.split("-", 1)[1]
-                trading_pair = web_utils.convert_from_exchange_trading_pair(
-                    coinmate_symbol
-                )
-                
-                data = raw_message.get("payload", raw_message.get("data", []))
-                self.logger().debug(
-                    f"Processing trade message for {trading_pair}: {data}"
-                )
-                
-                for trade_data in data:
-                    trade_message = CoinmateOrderBook.trade_message_from_exchange(
-                        trade_data, 
-                        timestamp=float(trade_data.get("date", time.time())), 
-                        metadata={"trading_pair": trading_pair}
-                    )
-                    message_queue.put_nowait(trade_message)
+            channel, payload = raw_message.get("channel"), raw_message.get("payload")
+            trading_pair = _extract_trading_pair(channel)
+            trade_message = CoinmateOrderBook.trade_message_from_exchange(
+                payload,
+                timestamp=float(time.time()),
+                metadata={"trading_pair": trading_pair}
+            )
+            message_queue.put_nowait(trade_message)
 
-    async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], 
+    async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any],
                                                  message_queue: asyncio.Queue):
-        if (raw_message.get("event") == "data" and 
-            "order_book" in raw_message.get("channel", "")):
-            channel = raw_message.get("channel", "")
-            if "-" in channel:
-                coinmate_symbol = channel.split("-", 1)[1]
-                trading_pair = web_utils.convert_from_exchange_trading_pair(
-                    coinmate_symbol
-                )
-                
-                data = raw_message.get("payload", raw_message.get("data", {}))
-                self.logger().debug(
-                    f"Processing order book snapshot for {trading_pair}: {data}"
-                )
-                order_book_message: OrderBookMessage = (
-                    CoinmateOrderBook.snapshot_message_from_exchange(
-                        data, 
-                        timestamp=time.time(), 
-                        metadata={"trading_pair": trading_pair}
-                    )
-                )
-                message_queue.put_nowait(order_book_message)
+            channel, payload = raw_message.get("channel"), raw_message.get("payload")
+            trading_pair = _extract_trading_pair(channel)
+            order_book_message = CoinmateOrderBook.snapshot_message_from_exchange(
+                payload,
+                timestamp=float(time.time()),
+                metadata={"trading_pair": trading_pair}
+            )
+            message_queue.put_nowait(order_book_message)
 
-    async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], 
+    async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any],
                                              message_queue: asyncio.Queue):
-        if (raw_message.get("event") == "data" and 
-            "order_book" in raw_message.get("channel", "")):
-            channel = raw_message.get("channel", "")
-            if "-" in channel:
-                coinmate_symbol = channel.split("-", 1)[1]
-                trading_pair = web_utils.convert_from_exchange_trading_pair(
-                    coinmate_symbol
-                )
-                
-                data = raw_message.get("payload", raw_message.get("data", {}))
-                self.logger().debug(
-                    f"Processing order book diff for {trading_pair}: {data}"
-                )
-                order_book_message: OrderBookMessage = (
-                    CoinmateOrderBook.diff_message_from_exchange(
-                        data, 
-                        timestamp=time.time(), 
-                        metadata={"trading_pair": trading_pair}
-                    )
-                )
-                message_queue.put_nowait(order_book_message)
+            channel, payload = raw_message.get("channel"), raw_message.get("payload")
+            trading_pair = _extract_trading_pair(channel)
+            order_book_message = CoinmateOrderBook.diff_message_from_exchange(
+                payload,
+                timestamp=float(time.time()),
+                metadata={"trading_pair": trading_pair}
+            )
+            message_queue.put_nowait(order_book_message)
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
-        self.logger().debug(f"Received WebSocket message: {event_message}")
-        
         channel = ""
-        event = event_message.get("event", "")
-        
+        event = event_message.get("event")
+
         if event == "data":
-            event_type = event_message.get("channel", "")
+            event_type = event_message.get("channel")
             if "order_book" in event_type:
                 channel = self._snapshot_messages_queue_key
             elif "trades" in event_type:
@@ -235,5 +197,6 @@ class CoinmateAPIOrderBookDataSource(OrderBookTrackerDataSource):
             self.logger().error(
                 f"WebSocket error: {event_message.get('message', 'Unknown error')}"
             )
-        
+
         return channel
+
