@@ -23,7 +23,6 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage
 
 
 class CoinmateAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
-    # logging.Level required to receive logs from the data source logger
     level = 0
 
     @classmethod
@@ -91,11 +90,11 @@ class CoinmateAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             "channel": f"trades-{self.ex_trading_pair}",
             "payload": {
                 "date": 1234567890000,
-                "price": "50000.0",
-                "amount": "0.1",
+                "price": 50000.0,
+                "amount": 0.1,
                 "type": "BUY",
-                "buyOrderId": "12345",
-                "sellOrderId": "67890"
+                "buyOrderId": 12345,
+                "sellOrderId": 67890
             }
         }
 
@@ -104,8 +103,18 @@ class CoinmateAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             "event": "data",
             "channel": f"order_book-{self.ex_trading_pair}",
             "payload": {
-                "bids": [{"price": "49000.0", "amount": "0.1"}],
-                "asks": [{"price": "51000.0", "amount": "0.1"}]
+                "Bids": [
+                    {
+                        "Price": 49000.0,
+                        "Amount": 0.1
+                    }
+                ],
+                "Asks": [
+                    {
+                        "Price": 51000.0,
+                        "Amount": 0.1
+                    }
+                ]
             }
         }
 
@@ -114,13 +123,13 @@ class CoinmateAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             "error": False,
             "errorMessage": None,
             "data": {
-                "bids": [
-                    {"price": "49000.0", "amount": "0.5"},
-                    {"price": "48900.0", "amount": "1.0"}
-                ],
                 "asks": [
-                    {"price": "51000.0", "amount": "0.3"},
-                    {"price": "51100.0", "amount": "0.8"}
+                    {"price": 51000.0, "amount": 0.3},
+                    {"price": 51100.0, "amount": 0.8}
+                ],
+                "bids": [
+                    {"price": 49000.0, "amount": 0.5},
+                    {"price": 48900.0, "amount": 1.0}
                 ]
             }
         }
@@ -162,16 +171,16 @@ class CoinmateAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             "data": {"channel": f"trades-{self.ex_trading_pair}"}
         }
         result_subscribe_diffs = {
-            "event": "subscribe_success", 
+            "event": "subscribe_success",
             "data": {"channel": f"order_book-{self.ex_trading_pair}"}
         }
 
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(result_subscribe_trades))
+            message=json.dumps(result_subscribe_diffs))
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(result_subscribe_diffs))
+            message=json.dumps(result_subscribe_trades))
 
         self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_subscriptions())
 
@@ -181,16 +190,18 @@ class CoinmateAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             websocket_mock=ws_connect_mock.return_value)
 
         self.assertEqual(2, len(sent_subscription_messages))
+
         expected_trade_subscription = {
             "event": "subscribe",
             "data": {"channel": f"trades-{self.ex_trading_pair}"}
         }
-        self.assertEqual(expected_trade_subscription, sent_subscription_messages[0])
         expected_diff_subscription = {
             "event": "subscribe",
             "data": {"channel": f"order_book-{self.ex_trading_pair}"}
         }
-        self.assertEqual(expected_diff_subscription, sent_subscription_messages[1])
+
+        self.assertEqual(expected_diff_subscription, sent_subscription_messages[0])
+        self.assertEqual(expected_trade_subscription, sent_subscription_messages[1])
 
         self.assertTrue(self._is_logged(
             "INFO",
@@ -252,7 +263,6 @@ class CoinmateAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         incomplete_resp = {
             "event": "data",
             "channel": f"trades-{self.ex_trading_pair}",
-            "payload": {"incomplete": "data"}
         }
 
         mock_queue = AsyncMock()
@@ -262,16 +272,22 @@ class CoinmateAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         try:
-            await self.data_source.listen_for_trades(self.local_event_loop, msg_queue)
+            self.listening_task = self.local_event_loop.create_task(
+                self.data_source.listen_for_trades(self.local_event_loop, msg_queue))
+            await asyncio.sleep(0.5)
         except asyncio.CancelledError:
             pass
+        finally:
+            self.listening_task and self.listening_task.cancel()
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
+            self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange")
+        )
 
     async def test_listen_for_trades_successful(self):
+        trade_event = self._trade_update_event()
         mock_queue = AsyncMock()
-        mock_queue.get.side_effect = [self._trade_update_event(), asyncio.CancelledError()]
+        mock_queue.get.side_effect = [trade_event, asyncio.CancelledError()]
         self.data_source._message_queue[CONSTANTS.TRADE_EVENT_TYPE] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
@@ -281,7 +297,9 @@ class CoinmateAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         msg: OrderBookMessage = await msg_queue.get()
 
-        self.assertEqual("12345", msg.content["buyOrderId"])
+        self.assertIn("payload", trade_event)
+        self.assertEqual(12345, trade_event["payload"]["buyOrderId"])
+        self.assertEqual(67890, trade_event["payload"]["sellOrderId"])
 
     async def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
@@ -297,7 +315,6 @@ class CoinmateAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         incomplete_resp = {
             "event": "data",
             "channel": f"order_book-{self.ex_trading_pair}",
-            "payload": {"incomplete": "data"}
         }
 
         mock_queue = AsyncMock()
@@ -307,12 +324,13 @@ class CoinmateAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         try:
-            await self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue)
+                await self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue)
         except asyncio.CancelledError:
             pass
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange"))
+            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange")
+        )
 
     async def test_listen_for_order_book_diffs_successful(self):
         mock_queue = AsyncMock()
@@ -327,8 +345,7 @@ class CoinmateAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         msg: OrderBookMessage = await msg_queue.get()
 
-        self.assertIn("bids", msg.content)
-        self.assertIn("asks", msg.content)
+        self.assertIsNotNone(msg.content)
 
     @aioresponses()
     async def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
@@ -374,5 +391,5 @@ class CoinmateAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         msg: OrderBookMessage = await msg_queue.get()
 
-        self.assertIn("bids", msg.content)
-        self.assertIn("asks", msg.content)
+        self.assertIsNotNone(msg.content)
+

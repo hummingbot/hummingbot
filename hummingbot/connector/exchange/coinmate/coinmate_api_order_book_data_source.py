@@ -167,14 +167,10 @@ class CoinmateAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any],
                                              message_queue: asyncio.Queue):
-            channel, payload = raw_message.get("channel"), raw_message.get("payload")
-            trading_pair = _extract_trading_pair(channel)
-            order_book_message = CoinmateOrderBook.diff_message_from_exchange(
-                payload,
-                timestamp=float(time.time()),
-                metadata={"trading_pair": trading_pair}
-            )
-            message_queue.put_nowait(order_book_message)
+        """
+        Coinmate does not provide order book diff messages, only full snapshots.
+        """
+        pass
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
         channel = ""
