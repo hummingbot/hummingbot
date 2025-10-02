@@ -1,5 +1,5 @@
 import asyncio
-from decimal import Decimal
+from decimal import ROUND_UP, Decimal
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 from bidict import bidict
@@ -14,7 +14,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase, TradeFeeSchema
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -43,6 +43,8 @@ class BitgetExchange(ExchangePyBase):
         self._passphrase = bitget_passphrase
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
+
+        self._expected_market_amounts: Dict[str, Decimal] = {}
 
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
@@ -165,6 +167,8 @@ class BitgetExchange(ExchangePyBase):
                 f"Can't cancel order {order_id}: {cancel_order_response}"
             ))
 
+        self._expected_market_amounts.pop(tracked_order.client_order_id, None)
+
         return True
 
     async def _place_order(
@@ -177,6 +181,11 @@ class BitgetExchange(ExchangePyBase):
         price: Decimal,
         **kwargs,
     ) -> Tuple[str, float]:
+        if order_type is OrderType.MARKET and trade_type is TradeType.BUY:
+            current_price: Decimal = self.get_price(trading_pair, True)
+            step_size = Decimal(self.trading_rules[trading_pair].min_base_amount_increment)
+            amount = (amount * current_price).quantize(step_size, rounding=ROUND_UP)
+            self._expected_market_amounts[order_id] = amount
         data = {
             "side": CONSTANTS.TRADE_TYPES[trade_type],
             "symbol": await self.exchange_symbol_associated_to_pair(trading_pair),
@@ -216,8 +225,11 @@ class BitgetExchange(ExchangePyBase):
 
         if trading_pair in self._trading_fees:
             fee_schema: TradeFeeSchema = self._trading_fees[trading_pair]
-            fee_rate = fee_schema.maker_percent_fee_decimal \
-                if is_maker else fee_schema.taker_percent_fee_decimal
+            fee_rate = (
+                fee_schema.maker_percent_fee_decimal
+                if is_maker
+                else fee_schema.taker_percent_fee_decimal
+            )
             fee = TradeFeeBase.new_spot_fee(
                 fee_schema=fee_schema,
                 trade_type=order_side,
@@ -301,7 +313,6 @@ class BitgetExchange(ExchangePyBase):
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         trade_updates = []
-        fills_data = []
 
         if order.exchange_order_id is not None:
             try:
@@ -328,12 +339,10 @@ class BitgetExchange(ExchangePyBase):
         return trade_updates
 
     async def _request_order_fills(self, order: InFlightOrder) -> Dict[str, Any]:
-        exchange_symbol = await self.exchange_symbol_associated_to_pair(order.trading_pair)
         order_fills_response = await self._api_get(
             path_url=CONSTANTS.USER_FILLS_ENDPOINT,
             params={
-                "orderId": order.exchange_order_id,
-                "symbol": exchange_symbol,
+                "orderId": order.exchange_order_id
             },
             is_auth_required=True,
         )
@@ -355,10 +364,19 @@ class BitgetExchange(ExchangePyBase):
     ) -> OrderUpdate:
         updated_order_data = order_update_response["data"]
 
-        if len(updated_order_data) == 0:
+        if not updated_order_data:
             raise ValueError(f"Can't parse order status data. Data: {updated_order_data}")
 
-        new_state = CONSTANTS.STATE_TYPES[updated_order_data[0]["status"]]
+        updated_info = updated_order_data[0]
+
+        if (
+            order.trade_type is TradeType.BUY
+            and order.order_type is OrderType.MARKET
+            and order.client_order_id not in self._expected_market_amounts
+        ):
+            self._expected_market_amounts[order.client_order_id] = Decimal(updated_info["size"])
+
+        new_state = CONSTANTS.STATE_TYPES[updated_info["status"]]
         order_update = OrderUpdate(
             trading_pair=order.trading_pair,
             update_timestamp=self.current_timestamp,
@@ -396,19 +414,11 @@ class BitgetExchange(ExchangePyBase):
         tracked_order: InFlightOrder,
         source_type: Literal["websocket", "rest"]
     ) -> Optional[TradeUpdate]:
-        trade_id: str = trade_msg["tradeId"]
-
         self.logger().debug(f"Data for {source_type} trade update: {trade_msg}")
-
-        if not trade_id:
-            self.logger().debug(
-                f"Ignoring trade update for order {tracked_order.client_order_id}: No data."
-            )
-            return None
 
         fee_detail = trade_msg["feeDetail"]
         trade_fee_data = fee_detail[0] if isinstance(fee_detail, list) else fee_detail
-        fee_amount = Decimal(trade_fee_data["totalFee"])
+        fee_amount = abs(Decimal(trade_fee_data["totalFee"]))
         fee_coin = trade_fee_data["feeCoin"]
         side = TradeType.BUY if trade_msg["side"] == "buy" else TradeType.SELL
 
@@ -418,18 +428,33 @@ class BitgetExchange(ExchangePyBase):
             flat_fees=[TokenAmount(amount=fee_amount, token=fee_coin)],
         )
 
-        avg_price = Decimal(trade_msg["priceAvg"])
-        fill_size = Decimal(trade_msg["size"])
+        trade_id: str = trade_msg["tradeId"]
+        trading_pair = tracked_order.trading_pair
+        fill_price = Decimal(trade_msg["priceAvg"])
+        base_amount = Decimal(trade_msg["size"])
+        quote_amount = Decimal(trade_msg["amount"])
+
+        if (
+            tracked_order.trade_type is TradeType.BUY
+            and tracked_order.order_type is OrderType.MARKET
+        ):
+            expected_price = (
+                self._expected_market_amounts[tracked_order.client_order_id] / tracked_order.amount
+            )
+            base_amount = (quote_amount / expected_price).quantize(
+                Decimal(self.trading_rules[trading_pair].min_base_amount_increment),
+                rounding=ROUND_UP
+            )
 
         trade_update: TradeUpdate = TradeUpdate(
             trade_id=trade_id,
             client_order_id=tracked_order.client_order_id,
             exchange_order_id=str(trade_msg["orderId"]),
-            trading_pair=tracked_order.trading_pair,
+            trading_pair=trading_pair,
             fill_timestamp=int(trade_msg["uTime"]) * 1e-3,
-            fill_price=avg_price,
-            fill_base_amount=fill_size,
-            fill_quote_amount=fill_size * avg_price,
+            fill_price=fill_price,
+            fill_base_amount=base_amount,
+            fill_quote_amount=quote_amount,
             fee=fee
         )
 
@@ -440,6 +465,8 @@ class BitgetExchange(ExchangePyBase):
             try:
                 channel = event_message["arg"]["channel"]
                 data = event_message["data"]
+
+                self.logger().debug(f"Channel: {channel} - Data: {data}")
 
                 if channel == CONSTANTS.WS_ORDERS_ENDPOINT:
                     for order_msg in data:
@@ -465,9 +492,54 @@ class BitgetExchange(ExchangePyBase):
         updatable_order = self._order_tracker.all_updatable_orders.get(client_order_id)
 
         if updatable_order is not None:
+            if (
+                updatable_order.trade_type is TradeType.BUY
+                and updatable_order.order_type is OrderType.MARKET
+                and client_order_id not in self._expected_market_amounts
+            ):
+                self._expected_market_amounts[client_order_id] = Decimal(order_msg["notional"])
+
+            if order_status is OrderState.PARTIALLY_FILLED:
+                side = TradeType.BUY if order_msg["side"] == "buy" else TradeType.SELL
+                fee_amount = abs(Decimal(order_msg["fillFee"]))
+                fee_coin = order_msg["fillFeeCoin"]
+
+                fee = TradeFeeBase.new_spot_fee(
+                    fee_schema=self.trade_fee_schema(),
+                    trade_type=side,
+                    flat_fees=[TokenAmount(amount=fee_amount, token=fee_coin)],
+                )
+                trading_pair = updatable_order.trading_pair
+                fill_price = Decimal(order_msg["fillPrice"])
+                base_amount = Decimal(order_msg["baseVolume"])
+                quote_amount = base_amount * fill_price
+
+                if (
+                    updatable_order.trade_type is TradeType.BUY
+                    and updatable_order.order_type is OrderType.MARKET
+                ):
+                    expected_price = Decimal(order_msg["notional"]) / updatable_order.amount
+                    base_amount = (quote_amount / expected_price).quantize(
+                        Decimal(self.trading_rules[trading_pair].min_base_amount_increment),
+                        rounding=ROUND_UP
+                    )
+
+                new_trade_update: TradeUpdate = TradeUpdate(
+                    trade_id=order_msg["tradeId"],
+                    client_order_id=client_order_id,
+                    exchange_order_id=updatable_order.exchange_order_id,
+                    trading_pair=updatable_order.trading_pair,
+                    fill_timestamp=int(order_msg["fillTime"]) * 1e-3,
+                    fill_price=fill_price,
+                    fill_base_amount=base_amount,
+                    fill_quote_amount=quote_amount,
+                    fee=fee
+                )
+                self._order_tracker.process_trade_update(new_trade_update)
+
             new_order_update: OrderUpdate = OrderUpdate(
                 trading_pair=updatable_order.trading_pair,
-                update_timestamp=self.current_timestamp,
+                update_timestamp=int(order_msg["uTime"]) * 1e-3,
                 new_state=order_status,
                 client_order_id=client_order_id,
                 exchange_order_id=order_msg["orderId"],
