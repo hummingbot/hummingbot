@@ -371,34 +371,11 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "unionMm": "111",
                     "assetList": [
                         {
-                            "coin": "BTC",
-                            "balance": "1.2",
-                            "available": "1.2"
+                            "coin": self.base_asset,
+                            "balance": "15",
+                            "available": "10"
                         }
                     ],
-                    "isolatedMargin": "23.43",
-                    "crossedMargin": "34.34",
-                    "crossedUnrealizedPL": "23",
-                    "isolatedUnrealizedPL": "0",
-                    "assetMode": "union"
-                },
-                {
-                    "marginCoin": self.base_asset,
-                    "locked": "5",
-                    "available": "10",
-                    "crossedMaxAvailable": "10",
-                    "isolatedMaxAvailable": "10",
-                    "maxTransferOut": "10572.92904289",
-                    "accountEquity": "15",
-                    "usdtEquity": "10582.902657719473",
-                    "btcEquity": "0.204885807029",
-                    "crossedRiskRate": "0",
-                    "unrealizedPL": "",
-                    "coupon": "0",
-                    "unionTotalMagin": "111,1",
-                    "unionAvailable": "1111.1",
-                    "unionMm": "111",
-                    "assetList": [],
                     "isolatedMargin": "23.43",
                     "crossedMargin": "34.34",
                     "crossedUnrealizedPL": "23",
@@ -694,7 +671,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "fillPrice": "0",
                     "baseVolume": "0.01",
                     "fillTime": "1695718781146",
-                    "force": "gtc",
+                    "force": CONSTANTS.DEFAULT_TIME_IN_FORCE,
                     "instId": self.exchange_trading_pair,
                     "leverage": "20",
                     "marginCoin": self.quote_asset,
@@ -754,7 +731,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "fillPrice": str(self.expected_partial_fill_price),
                     "baseVolume": str(self.expected_partial_fill_amount),
                     "fillTime": "1695718781146",
-                    "force": "gtc",
+                    "force": CONSTANTS.DEFAULT_TIME_IN_FORCE,
                     "instId": self.exchange_trading_pair,
                     "leverage": "20",
                     "marginCoin": self.quote_asset,
@@ -811,7 +788,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "fillPrice": str(order.price),
                     "baseVolume": str(order.amount),
                     "fillTime": "1695718781146",
-                    "force": "gtc",
+                    "force": CONSTANTS.DEFAULT_TIME_IN_FORCE,
                     "instId": self.exchange_trading_pair,
                     "leverage": "20",
                     "marginCoin": self.quote_asset,
@@ -863,7 +840,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             },
             "data": [
                 {
-                    "posId": order.exchange_order_id or "960836851453296640",
+                    "posId": "1",
                     "instId": self.exchange_trading_pair,
                     "marginCoin": self.quote_asset,
                     "marginSize": str(order.amount),
@@ -1481,21 +1458,20 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
         product_type = self.async_run_with_timeout(
             self.exchange.product_type_associated_to_trading_pair(self.trading_pair))
+
         self.assertEqual(CONSTANTS.USDT_PRODUCT_TYPE, product_type)
 
         product_type = self.async_run_with_timeout(
             self.exchange.product_type_associated_to_trading_pair("ETH-USDC")
         )
+
         self.assertEqual(CONSTANTS.USDC_PRODUCT_TYPE, product_type)
 
-        with self.assertRaises(ValueError) as context:
-            self.async_run_with_timeout(
-                self.exchange.product_type_associated_to_trading_pair("XMR-ETH")
-            )
-        self.assertEqual(
-            "No product type associated to XMR-ETH tranding pair",
-            str(context.exception)
+        product_type = self.async_run_with_timeout(
+            self.exchange.product_type_associated_to_trading_pair("XMR-ETH")
         )
+
+        self.assertEqual(CONSTANTS.USD_PRODUCT_TYPE, product_type)
 
     @aioresponses()
     def test_update_trading_fees(self, mock_api):

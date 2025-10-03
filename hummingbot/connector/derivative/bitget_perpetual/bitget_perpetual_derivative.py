@@ -440,10 +440,6 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
             await self.product_type_associated_to_trading_pair(trading_pair)
             for trading_pair in self._trading_pairs
         }
-        position_modes = {
-            "one_way_mode": PositionMode.ONEWAY,
-            "hedge_mode": PositionMode.HEDGE
-        }
         position_sides = {
             "long": PositionSide.LONG,
             "short": PositionSide.SHORT
@@ -462,7 +458,6 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
             for position in all_positions_data:
                 symbol = position["symbol"]
                 trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol)
-                position_mode = position_modes[position["posMode"]]
                 position_side = position_sides[position["holdSide"]]
                 unrealized_pnl = Decimal(position["unrealizedPL"])
                 entry_price = Decimal(position["openPriceAvg"])
@@ -471,8 +466,7 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
 
                 pos_key = self._perpetual_trading.position_key(
                     trading_pair,
-                    position_side,
-                    position_mode
+                    position_side
                 )
 
                 if amount != s_decimal_0:
@@ -744,10 +738,6 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         :param position_msg: The position event message payload
         """
         all_position_keys = []
-        position_modes = {
-            "one_way_mode": PositionMode.ONEWAY,
-            "hedge_mode": PositionMode.HEDGE
-        }
         position_sides = {
             "long": PositionSide.LONG,
             "short": PositionSide.SHORT
@@ -756,14 +746,13 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         for position in position_entries:
             symbol = position["instId"]
             trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol)
-            position_mode = position_modes[position["posMode"]]
             position_side = position_sides[position["holdSide"]]
             entry_price = Decimal(position["openPriceAvg"])
             amount = Decimal(position["total"])
             leverage = Decimal(position["leverage"])
             unrealized_pnl = Decimal(position["unrealizedPL"])
 
-            pos_key = self._perpetual_trading.position_key(trading_pair, position_side, position_mode)
+            pos_key = self._perpetual_trading.position_key(trading_pair, position_side)
             all_position_keys.append(pos_key)
 
             if amount != s_decimal_0:
@@ -789,8 +778,11 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         # Bitget sends position events as snapshots.
         # If a position is closed it is just not included in the snapshot
         position_keys = list(self.account_positions.keys())
-        positions_to_remove = (position_key for position_key in position_keys
-                               if position_key not in all_position_keys)
+        positions_to_remove = (
+            position_key
+            for position_key in position_keys
+            if position_key not in all_position_keys
+        )
         for position_key in positions_to_remove:
             self._perpetual_trading.remove_position(position_key)
 
@@ -869,7 +861,7 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
                 "open": PositionAction.OPEN,
                 "close": PositionAction.CLOSE,
             }
-            position_action = position_actions[trade_msg["tradeSide"]]
+            position_action = position_actions.get(trade_msg["tradeSide"], PositionAction.NIL)
             flat_fees = (
                 [] if fee_amount == Decimal("0")
                 else [TokenAmount(amount=fee_amount, token=fee_asset)]
@@ -915,7 +907,7 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
             "open": PositionAction.OPEN,
             "close": PositionAction.CLOSE,
         }
-        position_action = position_actions[trade_msg["tradeSide"]]
+        position_action = position_actions.get(trade_msg["tradeSide"], PositionAction.NIL)
         flat_fees = (
             [] if fee_amount == Decimal("0")
             else [TokenAmount(amount=fee_amount, token=fee_asset)]
