@@ -1,6 +1,14 @@
+from enum import Enum
+
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, PositionMode
 from hummingbot.core.data_type.in_flight_order import OrderState
+
+
+class MarginMode(Enum):
+    CROSS = "CROSS"
+    ISOLATED = "ISOLATED"
+
 
 EXCHANGE_NAME = "bitget_perpetual"
 DEFAULT_DOMAIN = "bitget.com"
@@ -14,6 +22,10 @@ HBOT_ORDER_ID_PREFIX = ""
 WSS_PUBLIC_ENDPOINT = "/v2/ws/public"
 WSS_PRIVATE_ENDPOINT = "/v2/ws/private"
 
+MARGIN_MODE_TYPES = {
+    MarginMode.CROSS: "crossed",
+    MarginMode.ISOLATED: "isolated",
+}
 ORDER_TYPES = {
     OrderType.LIMIT: "limit",
     OrderType.MARKET: "market",
@@ -55,6 +67,7 @@ ORDER_DETAIL_ENDPOINT = "/api/v2/mix/order/detail"
 ORDER_FILLS_ENDPOINT = "/api/v2/mix/order/fills"
 ACCOUNTS_INFO_ENDPOINT = "/api/v2/mix/account/accounts"
 SET_POSITION_MODE_ENDPOINT = "/api/v2/mix/account/set-position-mode"
+SET_MARGIN_MODE_ENDPOINT = "/api/v2/mix/account/set-margin-mode"
 ACCOUNT_BILLS_ENDPOINT = "/api/v2/mix/account/bill"
 
 PUBLIC_WS_BOOKS = "books"
@@ -99,4 +112,5 @@ RATE_LIMITS = [
     RateLimit(limit_id=ACCOUNTS_INFO_ENDPOINT, limit=10, time_interval=1),
     RateLimit(limit_id=ACCOUNT_BILLS_ENDPOINT, limit=10, time_interval=1),
     RateLimit(limit_id=SET_POSITION_MODE_ENDPOINT, limit=5, time_interval=1),
+    RateLimit(limit_id=SET_MARGIN_MODE_ENDPOINT, limit=5, time_interval=1),
 ]
