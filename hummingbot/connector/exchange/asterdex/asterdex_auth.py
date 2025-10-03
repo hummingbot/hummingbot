@@ -20,20 +20,34 @@ class AsterdexAuth(AuthBase):
 
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
         """
-        Adds the server time and the signature to the request, required for authenticated interactions. It also adds
-        the required parameter in the request header.
+        Adds the server time and the signature to the request, required for authenticated interactions.
+        Uses AsterDex format: X-MBX-APIKEY header and query parameters for signature.
         :param request: the request to be configured for authenticated interaction
         """
-        # Generates auth headers
-        path = request.throttler_limit_id
-        if path != CONSTANTS.BALANCE_HISTORY_PATH_URL:
-            path = path.replace("cash/", "").replace("spot/", "")
-        headers_auth = self.get_auth_headers(path)
-
+        # Generate timestamp and signature
+        timestamp = str(int(self._time() * 1000))
+        
+        # For AsterDex, we need to add timestamp and signature as query parameters
+        # and use X-MBX-APIKEY header
+        if request.params is None:
+            request.params = {}
+        elif isinstance(request.params, list):
+            # Convert list to dict if needed
+            request.params = {}
+        
+        # Add timestamp to query parameters
+        request.params["timestamp"] = timestamp
+        
+        # Generate signature using the query string
+        query_string = self._build_query_string(request.params)
+        signature = hmac.new(self.secret_key.encode("utf-8"), query_string.encode("utf-8"), hashlib.sha256).hexdigest()
+        request.params["signature"] = signature
+        
+        # Set the API key header (AsterDex format)
         headers = {}
         if request.headers is not None:
             headers.update(request.headers)
-        headers.update(headers_auth)
+        headers["X-MBX-APIKEY"] = self.api_key
         request.headers = headers
 
         return request
@@ -47,21 +61,23 @@ class AsterdexAuth(AuthBase):
 
     def get_auth_headers(self, path_url: str, data: Dict[str, Any] = None):
         """
-        Generates authentication signature and return it in a dictionary along with other inputs
+        Generates authentication headers for AsterDex API format
         :param path_url: URL of the auth API endpoint
         :param data: data to be included in the headers
-        :return: a dictionary of request info including the request signature
+        :return: a dictionary of request headers
         """
-
-        timestamp = str(int(self._time() * 1e3))
-        message = timestamp + path_url
-        signature = hmac.new(self.secret_key.encode("utf-8"), message.encode("utf-8"), hashlib.sha256).hexdigest()
-
         return {
-            "x-auth-key": self.api_key,
-            "x-auth-signature": signature,
-            "x-auth-timestamp": timestamp,
+            "X-MBX-APIKEY": self.api_key,
         }
+    
+    def _build_query_string(self, params: Dict[str, Any]) -> str:
+        """
+        Build query string from parameters for signature generation
+        :param params: dictionary of parameters
+        :return: URL-encoded query string
+        """
+        import urllib.parse
+        return urllib.parse.urlencode(params)
 
     def _time(self) -> float:
         return time.time()

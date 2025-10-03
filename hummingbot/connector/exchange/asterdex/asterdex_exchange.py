@@ -11,7 +11,7 @@ from hummingbot.connector.exchange.asterdex import (
     asterdex_web_utils as web_utils,
 )
 from hummingbot.connector.exchange.asterdex.asterdex_api_order_book_data_source import AsterdexAPIOrderBookDataSource
-from hummingbot.connector.exchange.asterdex.ascend_ex_api_user_stream_data_source import (
+from hummingbot.connector.exchange.asterdex.asterdex_api_user_stream_data_source import (
     AsterdexAPIUserStreamDataSource,
 )
 from hummingbot.connector.exchange.asterdex.asterdex_auth import AsterdexAuth
@@ -30,8 +30,8 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 
 class AsterdexExchange(ExchangePyBase):
     """
-    AsterdexExchange connects with Asterdex exchange and provides order book pricing, user account tracking and
-    trading functionality.
+    AsterdexExchange connects with AsterDex exchange and provides order book pricing, user account tracking and
+    trading functionality for perpetual contracts.
     """
 
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
@@ -40,29 +40,34 @@ class AsterdexExchange(ExchangePyBase):
 
     def __init__(
         self,
-        ascend_ex_api_key: str,
-        ascend_ex_secret_key: str,
-        ascend_ex_group_id: str,
+        asterdex_api_key: str,
+        asterdex_secret_key: str,
         balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
         rate_limits_share_pct: Decimal = Decimal("100"),
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = True,
     ):
         """
-        :param ascend_ex_api_key: The API key to connect to private AsterDex APIs.
-        :param ascend_ex_secret_key: The API secret.
-        :param ascend_ex_group_id: The group ID for AsterDex API.
+        :param asterdex_api_key: The API key to connect to private AsterDex APIs.
+        :param asterdex_secret_key: The API secret.
         :param balance_asset_limit: Optional balance limits for assets.
         :param rate_limits_share_pct: Percentage of rate limits to use.
         :param trading_pairs: The market trading pairs which to track order book data.
         :param trading_required: Whether actual trading is needed.
         """
-        self.asterdex_api_key = ascend_ex_api_key
-        self.asterdex_secret_key = ascend_ex_secret_key
-        self.asterdex_group_id = ascend_ex_group_id
+        self.asterdex_api_key = asterdex_api_key
+        self.asterdex_secret_key = asterdex_secret_key
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
+        
+        print(f"🚨 ASTERDEX EXCHANGE INITIALIZING 🚨")
+        print(f"🚨 Trading pairs: {trading_pairs} 🚨")
+        self.logger().critical(f"🚨 ASTERDEX EXCHANGE INITIALIZING WITH PAIRS: {trading_pairs} 🚨")
+        
         super().__init__(balance_asset_limit, rate_limits_share_pct)
+
+        print(f"🚨 ASTERDEX EXCHANGE INITIALIZED 🚨")
+        self.logger().critical(f"🚨 ASTERDEX EXCHANGE INITIALIZED 🚨")
 
         self._last_known_sequence_number = 0
 
@@ -92,10 +97,12 @@ class AsterdexExchange(ExchangePyBase):
 
     @property
     def trading_rules_request_path(self):
+        self.logger().info(f"trading_rules_request_path called, returning: {CONSTANTS.PRODUCTS_PATH_URL}")
         return CONSTANTS.PRODUCTS_PATH_URL
 
     @property
     def trading_pairs_request_path(self):
+        self.logger().info(f"trading_pairs_request_path called, returning: {CONSTANTS.PRODUCTS_PATH_URL}")
         return CONSTANTS.PRODUCTS_PATH_URL
 
     @property
@@ -150,18 +157,14 @@ class AsterdexExchange(ExchangePyBase):
         # dummy implementation
         return False
 
-    async def _api_request_url(self, path_url: str, is_auth_required: bool = False) -> str:
-        url = await super()._api_request_url(path_url, is_auth_required)
-
-        if is_auth_required:
-            url = url.format(group_id=self.asterdex_group_id)
-
-        return url
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(throttler=self._throttler, auth=self._auth)
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
+        print(f"🚨 CREATING ORDER BOOK DATA SOURCE 🚨")
+        print(f"🚨 Trading pairs: {self._trading_pairs} 🚨")
+        self.logger().critical(f"🚨 CREATING ORDER BOOK DATA SOURCE WITH PAIRS: {self._trading_pairs} 🚨")
         return AsterdexAPIOrderBookDataSource(
             trading_pairs=self._trading_pairs,
             connector=self,
@@ -208,10 +211,116 @@ class AsterdexExchange(ExchangePyBase):
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
-        for symbol_data in filter(utils.is_pair_information_valid, exchange_info.get("data", [])):
-            if len(symbol_data["symbol"].split("/")) == 2:
-                base, quote = symbol_data["symbol"].split("/")
-                mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(base, quote)
+        self.logger().info("=" * 50)
+        self.logger().info("STARTING TRADING PAIR INITIALIZATION")
+        self.logger().info("=" * 50)
+        self.logger().info(f"Exchange info received: {exchange_info}")
+        self.logger().info(f"Exchange info type: {type(exchange_info)}")
+        self.logger().info(f"Exchange info length: {len(exchange_info) if hasattr(exchange_info, '__len__') else 'N/A'}")
+        
+        # Prefer Binance-style schema: dict with symbols: []
+        if isinstance(exchange_info, dict):
+            data = exchange_info.get("symbols")
+            if not isinstance(data, list):
+                # Some exchanges nest under data or result
+                candidate = exchange_info.get("data") or exchange_info.get("result")
+                data = candidate if isinstance(candidate, list) else []
+            self.logger().info(f"Exchange info dict; symbols extracted: {len(data)}")
+        elif isinstance(exchange_info, list):
+            # Fallback: raw list
+            data = exchange_info
+            self.logger().info(f"Exchange info list; count: {len(data)}")
+        else:
+            self.logger().error(f"Unexpected exchange_info type: {type(exchange_info)} - {exchange_info}")
+            return
+            
+        self.logger().info(f"Processing {len(data)} trading pairs from exchange info")
+        
+        # Debug: Show first few items to understand the structure
+        if data:
+            self.logger().info(f"First few items: {data[:3]}")
+        
+        valid_pairs = 0
+        for symbol_data in data:
+            # Check if symbol_data is a dictionary before accessing keys
+            if not isinstance(symbol_data, dict):
+                self.logger().warning(f"Skipping non-dict symbol_data: {symbol_data}")
+                continue
+                
+            # Log the symbol data for debugging
+            self.logger().info(f"Processing symbol data: {symbol_data}")
+            
+            # Check if it's a valid pair (status == TRADING preferred)
+            if not utils.is_pair_information_valid(symbol_data):
+                self.logger().warning(f"Invalid pair data: {symbol_data}")
+                continue
+                
+            # Handle AsterDex trading pair format - check for standard formats
+            symbol = symbol_data.get("symbol")
+            if not symbol:
+                self.logger().warning(f"No symbol in data: {symbol_data}")
+                continue
+                
+            self.logger().info(f"Processing AsterDex symbol: {symbol}")
+            
+            # AsterDex uses no-separator format like BNBUSDT, BTCUSDT, ETHUSDT, etc.
+            # We need to parse these into base-quote pairs for Hummingbot
+            base = None
+            quote = None
+            
+            # Common quote currencies in order of preference (longer first to avoid conflicts)
+            quote_currencies = [
+                "USDT", "USDC", "BUSD", "TUSD", "DAI", "FRAX",  # USD-pegged
+                "BTC", "ETH", "BNB", "ADA", "DOT", "LINK", "UNI", "LTC", "XRP", "SOL", "AVAX", "MATIC", "ATOM", "NEAR", "FTM", "ALGO", "VET", "TRX", "XLM", "EOS", "XTZ", "ZEC", "DASH", "NEO", "ONT", "ICX", "WAVES", "QTUM", "IOTA", "NANO", "BAT", "ZRX", "REP", "KNC", "LRC", "OMG", "STORJ", "GNT", "FUN", "SNT", "MCO", "WTC", "LUN", "YOYO", "WABI", "POWR", "LEND", "FUN", "REQ", "VIB", "HSR", "TRX", "VEN", "BNT", "HOT", "ZIL", "IOST", "CVC", "THETA", "IOTX", "ONT", "ZRX", "BAT", "ADX", "DNT", "MDA"
+            ]
+            
+            # Try to find a matching quote currency
+            for quote_currency in quote_currencies:
+                if symbol.endswith(quote_currency):
+                    base = symbol[:-len(quote_currency)]
+                    quote = quote_currency
+                    break
+            
+            # If no quote currency found, try generic parsing
+            if not base or not quote:
+                if len(symbol) >= 8:  # Like BTCUSDT (4+4)
+                    base = symbol[:-4]  # Remove last 4 chars
+                    quote = symbol[-4:]  # Last 4 chars
+                elif len(symbol) >= 6:  # Like BTCUSD (3+3)
+                    base = symbol[:-3]  # Remove last 3 chars
+                    quote = symbol[-3:]  # Last 3 chars
+                elif len(symbol) >= 4:  # Like BTC (3+1) or ETH (3+1)
+                    base = symbol[:-1]  # Remove last 1 char
+                    quote = symbol[-1:]  # Last 1 char
+                else:
+                    self.logger().warning(f"Symbol too short to process: {symbol}")
+                    continue
+            
+            if base and quote:
+                hb_pair = combine_to_hb_trading_pair(base, quote)
+                mapping[symbol] = hb_pair
+                valid_pairs += 1
+                self.logger().info(f"Mapped AsterDex {symbol} -> {hb_pair} (base: {base}, quote: {quote})")
+            else:
+                self.logger().warning(f"Could not parse symbol: {symbol}")
+                
+        self.logger().info(f"Successfully mapped {valid_pairs} trading pairs")
+        self.logger().info(f"Final trading pair mapping: {mapping}")
+        
+        self.logger().info("=" * 50)
+        self.logger().info("TRADING PAIR INITIALIZATION RESULTS")
+        self.logger().info("=" * 50)
+        self.logger().info(f"Successfully mapped {valid_pairs} trading pairs")
+        self.logger().info(f"Final mapping: {dict(mapping)}")
+        
+        if not mapping:
+            self.logger().error("❌ NO TRADING PAIRS MAPPED! This will cause 'Markets are not ready' error.")
+            self.logger().error("❌ Check the exchange info response format and symbol parsing logic.")
+        else:
+            self.logger().info(f"✅ Trading pair mapping completed with {len(mapping)} pairs")
+            self.logger().info("✅ Markets should now be ready!")
+            
+        self.logger().info("=" * 50)
         self._set_trading_pair_symbol_map(mapping)
 
     async def _place_order(
@@ -248,6 +357,10 @@ class AsterdexExchange(ExchangePyBase):
             is_auth_required=True,
         )
 
+        # Check if exchange_order is a dictionary before calling .get()
+        if not isinstance(exchange_order, dict):
+            raise IOError(f"Error placing order: {exchange_order}")
+            
         if exchange_order.get("code") == 0:
             return (
                 str(exchange_order["data"]["info"]["orderId"]),
@@ -273,6 +386,11 @@ class AsterdexExchange(ExchangePyBase):
             data=data,
             is_auth_required=True,
         )
+        
+        # Check if cancel_result is a dictionary before calling .get()
+        if not isinstance(cancel_result, dict):
+            return False
+            
         if cancel_result.get("code") == 0:
             return True
         return False
@@ -285,6 +403,10 @@ class AsterdexExchange(ExchangePyBase):
         """
         async for event_message in self._iter_user_event_queue():
             try:
+                # Check if event_message is a dictionary before calling .get()
+                if not isinstance(event_message, dict):
+                    continue
+                    
                 acct_type = event_message.get("ac")
                 event_subject = event_message.get("m")
                 execution_data = event_message.get("data")
@@ -384,26 +506,52 @@ class AsterdexExchange(ExchangePyBase):
 
         response = await self._api_get(path_url=CONSTANTS.BALANCE_PATH_URL, is_auth_required=True)
 
-        if response.get("code") == 0:
-            for balance_entry in response["data"]:
-                asset_name = balance_entry["asset"]
-                self._account_available_balances[asset_name] = Decimal(balance_entry["availableBalance"])
-                self._account_balances[asset_name] = Decimal(balance_entry["totalBalance"])
-                remote_asset_names.add(asset_name)
+        # Debug: Log the response type and content
+        self.logger().info(f"Balance API response type: {type(response)}, content: {response}")
 
-            asset_names_to_remove = local_asset_names.difference(remote_asset_names)
-            for asset_name in asset_names_to_remove:
-                del self._account_available_balances[asset_name]
-                del self._account_balances[asset_name]
+        # Check if response is a list (AsterDex balance format)
+        if isinstance(response, list):
+            if len(response) == 0:
+                # Empty list response - no balances
+                self.logger().warning("AsterDex returned empty balance list. No balances found.")
+                return
+            else:
+                # Process balance list directly (AsterDex format)
+                for balance_entry in response:
+                    asset_name = balance_entry["asset"]
+                    self._account_available_balances[asset_name] = Decimal(balance_entry["free"])
+                    self._account_balances[asset_name] = Decimal(balance_entry["free"])
+                    remote_asset_names.add(asset_name)
+        elif isinstance(response, dict):
+            # Handle dictionary format (AsterDex API response with balances array)
+            if "balances" in response:
+                for balance_entry in response["balances"]:
+                    asset_name = balance_entry["asset"]
+                    self._account_available_balances[asset_name] = Decimal(balance_entry["free"])
+                    self._account_balances[asset_name] = Decimal(balance_entry["free"])
+                    remote_asset_names.add(asset_name)
+            elif response.get("code") == 0:
+                for balance_entry in response["data"]:
+                    asset_name = balance_entry["asset"]
+                    self._account_available_balances[asset_name] = Decimal(balance_entry["availableBalance"])
+                    self._account_balances[asset_name] = Decimal(balance_entry["totalBalance"])
+                    remote_asset_names.add(asset_name)
         else:
-            self.logger().error(f"There was an error during the balance request to AsterDex ({response})")
-            raise IOError(f"Error requesting balances from AsterDex ({response})")
+            raise IOError(f"Error requesting balances from AsterDex. Unexpected response format: {type(response)}: {response}")
+
+        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+        for asset_name in asset_names_to_remove:
+            del self._account_available_balances[asset_name]
+            del self._account_balances[asset_name]
 
     async def _format_trading_rules(self, raw_trading_pair_info: Dict[str, Any]) -> List[TradingRule]:
         trading_rules = []
 
         for info in filter(utils.is_pair_information_valid, raw_trading_pair_info.get("data", [])):
             try:
+                # Check if info is a dictionary before calling .get()
+                if not isinstance(info, dict):
+                    continue
                 trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=info.get("symbol"))
                 trading_rules.append(
                     TradingRule(
@@ -549,6 +697,10 @@ class AsterdexExchange(ExchangePyBase):
             path_url=CONSTANTS.ORDER_STATUS_PATH_URL, params=params, is_auth_required=True
         )
 
+        # Check if updated_order_data is a dictionary before calling .get()
+        if not isinstance(updated_order_data, dict):
+            return None
+            
         if updated_order_data.get("code") == 0:
             order_update_data = updated_order_data["data"]
             ordered_state = order_update_data["status"]

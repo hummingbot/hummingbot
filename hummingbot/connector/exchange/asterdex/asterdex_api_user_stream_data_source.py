@@ -32,9 +32,8 @@ class AsterdexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._last_ws_message_sent_timestamp = 0
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
-        group_id = self._connector.asterdex_group_id
         headers = self._asterdex_auth.get_auth_headers(CONSTANTS.STREAM_PATH_URL)
-        ws_url = f"{CONSTANTS.PRIVATE_WS_URL.format(group_id=group_id)}/{CONSTANTS.STREAM_PATH_URL}"
+        ws_url = f"{CONSTANTS.PRIVATE_WS_URL}/{CONSTANTS.STREAM_PATH_URL}"
 
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
         await ws.connect(ws_url=ws_url, ws_headers=headers)
@@ -71,6 +70,10 @@ class AsterdexAPIUserStreamDataSource(UserStreamTrackerDataSource):
     async def _process_event_message(
         self, event_message: Dict[str, Any], queue: asyncio.Queue, websocket_assistant: WSAssistant
     ):
+        # Check if event_message is a dictionary before calling .get()
+        if not isinstance(event_message, dict):
+            return
+            
         if len(event_message) > 0:
             message_type = event_message.get("m")
             if message_type == "ping":

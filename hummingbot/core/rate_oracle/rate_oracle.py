@@ -129,9 +129,16 @@ class RateOracle(NetworkBase):
 
     async def check_network(self) -> NetworkStatus:
         try:
-            prices = await self._source.get_prices(quote_token=self._quote_token)
+            # Add timeout to prevent hanging during network check
+            prices = await asyncio.wait_for(
+                self._source.get_prices(quote_token=self._quote_token),
+                timeout=10.0
+            )
             if not prices:
                 raise Exception(f"Error fetching new prices from {self._source.name}.")
+        except asyncio.TimeoutError:
+            self.logger().warning(f"Timeout checking network for {self._source.name} (10s)")
+            return NetworkStatus.NOT_CONNECTED
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -206,14 +213,28 @@ class RateOracle(NetworkBase):
     async def _fetch_price_loop(self):
         while True:
             try:
-                new_prices = await self._source.get_prices(quote_token=self._quote_token)
+                self.logger().info(f"🔄 Rate Oracle: Fetching prices from {self.source.name}")
+                # Add timeout to prevent hanging indefinitely
+                new_prices = await asyncio.wait_for(
+                    self._source.get_prices(quote_token=self._quote_token),
+                    timeout=30.0
+                )
+                self.logger().info(f"✅ Rate Oracle: Received {len(new_prices)} prices from {self.source.name}")
                 self._prices.update(new_prices)
 
                 if self._prices:
                     self._ready_event.set()
+                    self.logger().info(f"✅ Rate Oracle: Ready event set with {len(self._prices)} prices")
+            except asyncio.TimeoutError:
+                self.logger().warning(f"⏰ Rate Oracle: Timeout fetching prices from {self.source.name} (30s). Will retry...")
+                # Set ready event anyway to unblock the system
+                self._ready_event.set()
             except asyncio.CancelledError:
                 raise
-            except Exception:
+            except Exception as e:
+                self.logger().error(f"❌ Rate Oracle: Error fetching prices from {self.source.name}: {e}", exc_info=True)
                 self.logger().network(f"Error fetching new prices from {self.source.name}.", exc_info=True,
                                       app_warning_msg=f"Couldn't fetch newest prices from {self.source.name}.")
+                # Set ready event anyway to unblock the system
+                self._ready_event.set()
             await asyncio.sleep(1)

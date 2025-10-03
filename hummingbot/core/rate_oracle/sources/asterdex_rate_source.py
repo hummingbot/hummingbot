@@ -24,12 +24,20 @@ class AsterdexRateSource(RateSourceBase):
         try:
             records = await self._exchange.get_all_pairs_prices()
             for record in records["data"]:
-                pair = await self._exchange.trading_pair_associated_to_exchange_symbol(record["symbol"])
-                if Decimal(record["ask"][0]) > 0 and Decimal(record["bid"][0]) > 0:
-                    results[pair] = (Decimal(str(record["ask"][0])) + Decimal(str(record["bid"][0]))) / Decimal("2")
-        except Exception:
+                symbol = record["symbol"]
+                price = record["price"]
+                if price and Decimal(price) > 0:
+                    # Convert AsterDex symbol (e.g., "BTCUSDT") to Hummingbot pair (e.g., "BTC-USDT")
+                    try:
+                        pair = await self._exchange.trading_pair_associated_to_exchange_symbol(symbol)
+                        results[pair] = Decimal(str(price))
+                    except Exception as e:
+                        # Skip symbols that can't be converted to trading pairs
+                        self.logger().debug(f"Skipping symbol {symbol}: {e}")
+                        continue
+        except Exception as e:
             self.logger().exception(
-                msg="Unexpected error while retrieving rates from AsterDex. Check the log file for more info.",
+                msg=f"Unexpected error while retrieving rates from AsterDex: {e}. Check the log file for more info.",
             )
         return results
 
@@ -42,9 +50,8 @@ class AsterdexRateSource(RateSourceBase):
         from hummingbot.connector.exchange.asterdex.asterdex_exchange import AsterdexExchange
 
         return AsterdexExchange(
-            ascend_ex_api_key="",
-            ascend_ex_secret_key="",
-            ascend_ex_group_id="",
+            asterdex_api_key="",
+            asterdex_secret_key="",
             trading_pairs=[],
             trading_required=False,
         )

@@ -10,29 +10,31 @@ from hummingbot.core.data_type.in_flight_order import OrderState
 MAX_ORDER_ID_LEN = 22
 
 PING_TIMEOUT = 15.0
+WS_CONNECTION_TIMEOUT = 30.0
 DEFAULT_DOMAIN = ""
 HBOT_ORDER_ID_PREFIX = "HMBot"
 
 EXCHANGE_NAME = "asterdex"
-PUBLIC_REST_URL = "https://asterdex.com/api/pro/v1/"
-PRIVATE_REST_URL = "https://asterdex.com/{group_id}/api/pro/v1/"
-WS_URL = "wss://asterdex.com:443/api/pro/v1/websocket-for-hummingbot-liq-mining"
-PRIVATE_WS_URL = "wss://asterdex.com:443/{group_id}/api/pro/v1/websocket-for-hummingbot-liq-mining"
+# AsterDex Spot API endpoints - based on official documentation
+PUBLIC_REST_URL = "https://sapi.asterdex.com/api/v1/"
+PRIVATE_REST_URL = "https://sapi.asterdex.com/api/v1/"
+WS_URL = "wss://stream.asterdex.com"
+PRIVATE_WS_URL = "wss://stream.asterdex.com"
 
-# REST API ENDPOINTS
-ORDER_PATH_URL = "cash/order"
-ORDER_BATCH_PATH_URL = "cash/order/batch"
-ORDER_OPEN_PATH_URL = "cash/order/open"
-ORDER_STATUS_PATH_URL = "cash/order/status"
-BALANCE_PATH_URL = "cash/balance"
-BALANCE_HISTORY_PATH_URL = "data/v1/cash/balance/history"
-HIST_PATH_URL = "cash/order/hist/current"
-FEE_PATH_URL = "spot/fee"
-TICKER_PATH_URL = "spot/ticker"
-PRODUCTS_PATH_URL = "cash/products"
+# REST API ENDPOINTS - Updated for AsterDex API
+ORDER_PATH_URL = "order"
+ORDER_BATCH_PATH_URL = "batchOrders"
+ORDER_OPEN_PATH_URL = "openOrders"
+ORDER_STATUS_PATH_URL = "order"
+BALANCE_PATH_URL = "account"
+BALANCE_HISTORY_PATH_URL = "wallet/balance"
+HIST_PATH_URL = "allOrders"
+FEE_PATH_URL = "tradeFee"
+TICKER_PATH_URL = "ticker/price"
+PRODUCTS_PATH_URL = "exchangeInfo"
 TRADES_PATH_URL = "trades"
 DEPTH_PATH_URL = "depth"
-INFO_PATH_URL = "info"
+INFO_PATH_URL = "exchangeInfo"
 STREAM_PATH_URL = "stream"
 
 SERVER_LIMIT_INFO = "risk-limit-info"
