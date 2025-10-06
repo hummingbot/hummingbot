@@ -5,7 +5,7 @@ import re
 
 # from copy import deepcopy
 from decimal import Decimal
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, List, Optional, Dict
 from unittest.mock import AsyncMock
 
 from aioresponses import aioresponses
@@ -460,6 +460,16 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         # exchange._last_trade_history_timestamp = self.latest_trade_hist_timestamp
         return exchange
 
+    def create_exchange_instance_with_wallet_keys(self):
+        exchange = HyperliquidExchange(
+            wallet_private_key=self.api_secret,
+            use_vault=self.use_vault,
+            wallet_address=self.api_key,
+            trading_pairs=[self.trading_pair],
+        )
+        # exchange._last_trade_history_timestamp = self.latest_trade_hist_timestamp
+        return exchange
+
     def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = json.loads(request_call.kwargs["data"])
         self.assertEqual(True if order.trade_type is TradeType.BUY else False,
@@ -813,7 +823,47 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         pass
 
     def validate_auth_credentials_present(self, request_call: RequestCall):
+        # For Hyperliquid, API key or wallet address is in the data payload, not params or headers
+        # So we assert the `user` field in the request data for balance and trade requests.
         pass
+
+    @aioresponses()
+    def test_update_balances_with_wallet_keys(self, mock_api):
+        self.exchange = self.create_exchange_instance_with_wallet_keys()
+        response = self.balance_request_mock_response_for_base_and_quote
+        self._configure_balance_response(response=response, mock_api=mock_api)
+
+        self.async_run_with_timeout(self.exchange._update_balances())
+
+        available_balances = self.exchange.available_balances
+        total_balances = self.exchange.get_all_balances()
+
+        self.assertEqual(Decimal("2000"), available_balances[self.quote_asset])
+        self.assertEqual(Decimal("2000"), total_balances[self.quote_asset])
+
+        # Validate that the correct user is in the request data
+        latest_request = self._get_last_request_by_url(mock_api, self.balance_url)
+        request_data = json.loads(latest_request.kwargs["data"])
+        self.assertEqual(self.api_key, request_data["user"])
+
+    @aioresponses()
+    def test_update_balances_with_api_keys(self, mock_api):
+        self.exchange = self.create_exchange_instance()
+        response = self.balance_request_mock_response_for_base_and_quote
+        self._configure_balance_response(response=response, mock_api=mock_api)
+
+        self.async_run_with_timeout(self.exchange._update_balances())
+
+        available_balances = self.exchange.available_balances
+        total_balances = self.exchange.get_all_balances()
+
+        self.assertEqual(Decimal("2000"), available_balances[self.quote_asset])
+        self.assertEqual(Decimal("2000"), total_balances[self.quote_asset])
+
+        # Validate that the correct user is in the request data
+        latest_request = self._get_last_request_by_url(mock_api, self.balance_url)
+        request_data = json.loads(latest_request.kwargs["data"])
+        self.assertEqual(self.api_key, request_data["user"])
 
     @aioresponses()
     def test_cancel_lost_order_raises_failure_event_when_request_fails(self, mock_api):
@@ -1939,3 +1989,10 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         )
 
         self.assertTrue(self.is_logged("INFO", expected_log))
+
+    def _get_last_request_by_url(self, mock_api: aioresponses, url: str) -> RequestCall:
+        return mock_api.requests_history[url.replace(".", r"\.").replace("?", r"\?")].pop()
+
+    def create_exchange_instance_with_init_params(self, params: Dict[str, Any]):
+        exchange = HyperliquidExchange(**params)
+        return exchange

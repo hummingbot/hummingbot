@@ -2,11 +2,14 @@ import json
 import threading
 import time
 from collections import OrderedDict
+from typing import Dict, Any
 
 import eth_account
 import msgpack
 from eth_account.messages import encode_typed_data
 from eth_utils import keccak, to_hex
+from nacl.signing import SigningKey
+from nacl.encoding import HexEncoder
 
 from hummingbot.connector.exchange.hyperliquid import hyperliquid_constants as CONSTANTS
 from hummingbot.connector.exchange.hyperliquid.hyperliquid_web_utils import order_spec_to_order_wire
@@ -19,11 +22,19 @@ class HyperliquidAuth(AuthBase):
     Auth class required by Hyperliquid API with centralized, collision-free nonce generation.
     """
 
-    def __init__(self, api_key: str, api_secret: str, use_vault: bool):
+    def __init__(self, api_key: str, api_secret: str, use_vault: bool, wallet_address: str = None, wallet_private_key: str = None):
         self._api_key: str = api_key
         self._api_secret: str = api_secret
         self._use_vault: bool = use_vault
-        self.wallet = eth_account.Account.from_key(api_secret)
+        self._wallet_address = wallet_address
+        self._wallet_private_key = wallet_private_key
+        self._is_api_key_auth = False
+
+        if self._api_key is not None and self._api_secret is not None:
+            self._is_api_key_auth = True
+            self.signing_key = SigningKey(bytes.fromhex(self._api_secret))
+        elif self._wallet_private_key is not None:
+            self.wallet = eth_account.Account.from_key(self._wallet_private_key)
         # one nonce manager per connector instance (shared by orders/cancels/updates)
         self._nonce = _NonceManager()
 
@@ -42,6 +53,11 @@ class HyperliquidAuth(AuthBase):
             data += cls.address_to_bytes(vault_address)
         return keccak(data)
 
+    def _api_key_sign(self, payload: Dict[str, Any]) -> str:
+        message = json.dumps(payload).encode()
+        signed = self.signing_key.sign(message, encoder=HexEncoder)
+        return "0x" + signed.signature.decode()
+
     def sign_inner(self, wallet, data):
         structured_data = encode_typed_data(full_message=data)
         signed = wallet.sign_message(structured_data)
@@ -51,7 +67,13 @@ class HyperliquidAuth(AuthBase):
         return {"source": "a" if is_mainnet else "b", "connectionId": hash}
 
     def sign_l1_action(self, wallet, action, active_pool, nonce, is_mainnet):
-        _hash = self.action_hash(action, active_pool, nonce)
+        if self._is_api_key_auth:
+            # API key authentication, use API key as active_pool
+            _hash = self.action_hash(action, self._api_key, nonce)  # Use API key as vault address
+        else:
+            # Wallet private key authentication
+            _hash = self.action_hash(action, active_pool, nonce)
+
         phantom_agent = self.construct_phantom_agent(_hash, is_mainnet)
 
         data = {
@@ -76,7 +98,12 @@ class HyperliquidAuth(AuthBase):
             "primaryType": "Agent",
             "message": phantom_agent,
         }
-        return self.sign_inner(wallet, data)
+        if self._is_api_key_auth:
+            # For API key auth, the signature is a simple Ed25519 signature of the hash
+            # The `sign_inner` method is not suitable here as it's for Ethereum typed data
+            return self._api_key_sign(data)  # Pass the data to be signed directly
+        else:
+            return self.sign_inner(wallet, data)
 
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
         base_url = request.url
@@ -90,38 +117,56 @@ class HyperliquidAuth(AuthBase):
     # ---------- signing helpers (all use centralized nonce) ----------
 
     def _sign_update_leverage_params(self, params, base_url, nonce_ms: int):
-        signature = self.sign_l1_action(
-            self.wallet,
-            params,
-            None if not self._use_vault else self._api_key,
-            nonce_ms,
-            CONSTANTS.BASE_URL in base_url,
-        )
-        return {
-            "action": params,
-            "nonce": nonce_ms,
-            "signature": signature,
-            "vaultAddress": self._api_key if self._use_vault else None,
-        }
+        if self._is_api_key_auth:
+            signature = self._api_key_sign(params)
+            return {
+                "action": params,
+                "nonce": nonce_ms,
+                "signature": signature,
+                "vaultAddress": self._api_key,
+            }
+        else:
+            signature = self.sign_l1_action(
+                self.wallet,
+                params,
+                None if not self._use_vault else self._api_key,
+                nonce_ms,
+                CONSTANTS.BASE_URL in base_url,
+            )
+            return {
+                "action": params,
+                "nonce": nonce_ms,
+                "signature": signature,
+                "vaultAddress": self._api_key if self._use_vault else None,
+            }
 
     def _sign_cancel_params(self, params, base_url, nonce_ms: int):
         order_action = {
             "type": "cancelByCloid",
             "cancels": [params["cancels"]],
         }
-        signature = self.sign_l1_action(
-            self.wallet,
-            order_action,
-            None if not self._use_vault else self._api_key,
-            nonce_ms,
-            CONSTANTS.BASE_URL in base_url,
-        )
-        return {
-            "action": order_action,
-            "nonce": nonce_ms,
-            "signature": signature,
-            "vaultAddress": self._api_key if self._use_vault else None,
-        }
+        if self._is_api_key_auth:
+            signature = self._api_key_sign(order_action)
+            return {
+                "action": order_action,
+                "nonce": nonce_ms,
+                "signature": signature,
+                "vaultAddress": self._api_key,
+            }
+        else:
+            signature = self.sign_l1_action(
+                self.wallet,
+                order_action,
+                None if not self._use_vault else self._api_key,
+                nonce_ms,
+                CONSTANTS.BASE_URL in base_url,
+            )
+            return {
+                "action": order_action,
+                "nonce": nonce_ms,
+                "signature": signature,
+                "vaultAddress": self._api_key if self._use_vault else None,
+            }
 
     def _sign_order_params(self, params, base_url, nonce_ms: int):
         order = params["orders"]
@@ -131,19 +176,28 @@ class HyperliquidAuth(AuthBase):
             "orders": [order_spec_to_order_wire(order)],
             "grouping": grouping,
         }
-        signature = self.sign_l1_action(
-            self.wallet,
-            order_action,
-            None if not self._use_vault else self._api_key,
-            nonce_ms,
-            CONSTANTS.BASE_URL in base_url,
-        )
-        return {
-            "action": order_action,
-            "nonce": nonce_ms,
-            "signature": signature,
-            "vaultAddress": self._api_key if self._use_vault else None,
-        }
+        if self._is_api_key_auth:
+            signature = self._api_key_sign(order_action)
+            return {
+                "action": order_action,
+                "nonce": nonce_ms,
+                "signature": signature,
+                "vaultAddress": self._api_key,
+            }
+        else:
+            signature = self.sign_l1_action(
+                self.wallet,
+                order_action,
+                None if not self._use_vault else self._api_key,
+                nonce_ms,
+                CONSTANTS.BASE_URL in base_url,
+            )
+            return {
+                "action": order_action,
+                "nonce": nonce_ms,
+                "signature": signature,
+                "vaultAddress": self._api_key if self._use_vault else None,
+            }
 
     def add_auth_to_params_post(self, params: str, base_url):
         nonce_ms = self._nonce.next_ms()
@@ -158,6 +212,15 @@ class HyperliquidAuth(AuthBase):
             payload = self._sign_cancel_params(request_params, base_url, nonce_ms)
         elif request_type == "updateLeverage":
             payload = self._sign_update_leverage_params(request_params, base_url, nonce_ms)
+        elif self._is_api_key_auth:
+            # If API key auth is enabled, always sign the request body.
+            # For other request types (e.g., balance requests), directly sign the data.
+            payload = {
+                "action": request_params,
+                "nonce": nonce_ms,
+                "signature": self._api_key_sign(request_params),
+                "vaultAddress": self._api_key,
+            }
         else:
             # default: still include a nonce to be safe
             payload = {"action": request_params, "nonce": nonce_ms}

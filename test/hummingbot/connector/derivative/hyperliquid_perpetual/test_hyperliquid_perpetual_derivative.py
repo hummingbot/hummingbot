@@ -4,7 +4,7 @@ import logging
 import re
 from copy import deepcopy
 from decimal import Decimal
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple, Dict
 from unittest.mock import AsyncMock, patch
 
 import pandas as pd
@@ -23,7 +23,7 @@ from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
-from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketOrderFailureEvent, SellOrderCreatedEvent
+from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketOrderFailureEvent, SellOrderCreatedEvent, OrderFilledEvent
 from hummingbot.core.network_iterator import NetworkStatus
 
 
@@ -388,6 +388,15 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             hyperliquid_perpetual_api_secret=self.api_secret,
             use_vault=self.use_vault,
             hyperliquid_perpetual_api_key=self.api_key,
+            trading_pairs=[self.trading_pair],
+        )
+        return exchange
+
+    def create_exchange_instance_with_wallet_keys(self):
+        exchange = HyperliquidPerpetualDerivative(
+            wallet_private_key=self.api_secret,
+            use_vault=self.use_vault,
+            wallet_address=self.api_key,
             trading_pairs=[self.trading_pair],
         )
         return exchange
@@ -1947,3 +1956,48 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         )
 
         self.assertTrue(self.is_logged("INFO", expected_log))
+
+    def _get_last_request_by_url(self, mock_api: aioresponses, url: str) -> RequestCall:
+        return mock_api.requests_history[url.replace(".", r"\.").replace("?", r"\?")].pop()
+
+    def create_exchange_instance_with_init_params(self, params: Dict[str, Any]):
+        exchange = HyperliquidPerpetualDerivative(**params)
+        return exchange
+
+    @aioresponses()
+    def test_update_balances_with_wallet_keys(self, mock_api):
+        self.exchange = self.create_exchange_instance_with_wallet_keys()
+        response = self.balance_request_mock_response_for_base_and_quote
+        self._configure_balance_response(response=response, mock_api=mock_api)
+
+        self.async_run_with_timeout(self.exchange._update_balances())
+
+        available_balances = self.exchange.available_balances
+        total_balances = self.exchange.get_all_balances()
+
+        self.assertEqual(Decimal("2000"), available_balances[self.quote_asset])
+        self.assertEqual(Decimal("2000"), total_balances[self.quote_asset])
+
+       
+        latest_request = self._get_last_request_by_url(mock_api, self.balance_url)
+        request_data = json.loads(latest_request.kwargs["data"])
+        self.assertEqual(self.api_key, request_data["user"])
+
+    @aioresponses()
+    def test_update_balances_with_api_keys(self, mock_api):
+        self.exchange = self.create_exchange_instance()
+        response = self.balance_request_mock_response_for_base_and_quote
+        self._configure_balance_response(response=response, mock_api=mock_api)
+
+        self.async_run_with_timeout(self.exchange._update_balances())
+
+        available_balances = self.exchange.available_balances
+        total_balances = self.exchange.get_all_balances()
+
+        self.assertEqual(Decimal("2000"), available_balances[self.quote_asset])
+        self.assertEqual(Decimal("2000"), total_balances[self.quote_asset])
+
+       
+        latest_request = self._get_last_request_by_url(mock_api, self.balance_url)
+        request_data = json.loads(latest_request.kwargs["data"])
+        self.assertEqual(self.api_key, request_data["user"])

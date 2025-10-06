@@ -32,9 +32,9 @@ def validate_bool(value: str) -> Optional[str]:
 class HyperliquidConfigMap(BaseConnectorConfigMap):
     connector: str = "hyperliquid"
     hyperliquid_api_secret: SecretStr = Field(
-        default=...,
+        default=None,
         json_schema_extra={
-            "prompt": "Enter your Arbitrum wallet private key",
+            "prompt": "Enter your Hyperliquid API secret or wallet private key",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
@@ -50,9 +50,9 @@ class HyperliquidConfigMap(BaseConnectorConfigMap):
         }
     )
     hyperliquid_api_key: SecretStr = Field(
-        default=...,
+        default=None,
         json_schema_extra={
-            "prompt": "Enter your Arbitrum or vault address",
+            "prompt": "Enter your Hyperliquid API key or wallet address",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
@@ -81,9 +81,9 @@ OTHER_DOMAINS_DEFAULT_FEES = {"hyperliquid_testnet": [0, 0.025]}
 class HyperliquidTestnetConfigMap(BaseConnectorConfigMap):
     connector: str = "hyperliquid_testnet"
     hyperliquid_testnet_api_secret: SecretStr = Field(
-        default=...,
+        default=None,
         json_schema_extra={
-            "prompt": "Enter your Arbitrum wallet private key",
+            "prompt": "Enter your Hyperliquid testnet API secret or wallet private key",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
@@ -99,9 +99,9 @@ class HyperliquidTestnetConfigMap(BaseConnectorConfigMap):
         }
     )
     hyperliquid_testnet_api_key: SecretStr = Field(
-        default=...,
+        default=None,
         json_schema_extra={
-            "prompt": "Enter your Arbitrum or vault address",
+            "prompt": "Enter your Hyperliquid testnet API key or wallet address",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,

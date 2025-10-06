@@ -1,11 +1,14 @@
 import json
 import time
 from collections import OrderedDict
+from typing import Dict, Any
 
 import eth_account
 import msgpack
 from eth_account.messages import encode_typed_data
 from eth_utils import keccak, to_hex
+from nacl.signing import SigningKey
+from nacl.encoding import HexEncoder
 
 from hummingbot.connector.derivative.hyperliquid_perpetual import hyperliquid_perpetual_constants as CONSTANTS
 from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_web_utils import (
@@ -20,11 +23,19 @@ class HyperliquidPerpetualAuth(AuthBase):
     Auth class required by Hyperliquid Perpetual API
     """
 
-    def __init__(self, api_key: str, api_secret: str, use_vault: bool):
+    def __init__(self, api_key: str, api_secret: str, use_vault: bool, wallet_address: str = None, wallet_private_key: str = None):
         self._api_key: str = api_key
         self._api_secret: str = api_secret
         self._use_vault: bool = use_vault
-        self.wallet = eth_account.Account.from_key(api_secret)
+        self._wallet_address = wallet_address
+        self._wallet_private_key = wallet_private_key
+        self._is_api_key_auth = False
+
+        if self._api_key is not None and self._api_secret is not None:
+            self._is_api_key_auth = True
+            self.signing_key = SigningKey(bytes.fromhex(self._api_secret))
+        elif self._wallet_private_key is not None:
+            self.wallet = eth_account.Account.from_key(self._wallet_private_key)
 
     @classmethod
     def address_to_bytes(cls, address):
@@ -41,6 +52,11 @@ class HyperliquidPerpetualAuth(AuthBase):
             data += cls.address_to_bytes(vault_address)
         return keccak(data)
 
+    def _api_key_sign(self, payload: Dict[str, Any]) -> str:
+        message = json.dumps(payload).encode()
+        signed = self.signing_key.sign(message, encoder=HexEncoder)
+        return "0x" + signed.signature.decode()
+
     def sign_inner(self, wallet, data):
         structured_data = encode_typed_data(full_message=data)
         signed = wallet.sign_message(structured_data)
@@ -50,7 +66,11 @@ class HyperliquidPerpetualAuth(AuthBase):
         return {"source": "a" if is_mainnet else "b", "connectionId": hash}
 
     def sign_l1_action(self, wallet, action, active_pool, nonce, is_mainnet):
-        _hash = self.action_hash(action, active_pool, nonce)
+        if self._is_api_key_auth:
+            _hash = self.action_hash(action, self._api_key, nonce)  # Use API key as vault address
+        else:
+            _hash = self.action_hash(action, active_pool, nonce)
+
         phantom_agent = self.construct_phantom_agent(_hash, is_mainnet)
 
         data = {
@@ -75,7 +95,10 @@ class HyperliquidPerpetualAuth(AuthBase):
             "primaryType": "Agent",
             "message": phantom_agent,
         }
-        return self.sign_inner(wallet, data)
+        if self._is_api_key_auth:
+            return self._api_key_sign(data)
+        else:
+            return self.sign_inner(wallet, data)
 
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
         base_url = request.url
@@ -87,44 +110,61 @@ class HyperliquidPerpetualAuth(AuthBase):
         return request  # pass-through
 
     def _sign_update_leverage_params(self, params, base_url, timestamp):
-        signature = self.sign_l1_action(
-            self.wallet,
-            params,
-            None if not self._use_vault else self._api_key,
-            timestamp,
-            CONSTANTS.PERPETUAL_BASE_URL in base_url,
-        )
-        payload = {
-            "action": params,
-            "nonce": timestamp,
-            "signature": signature,
-            "vaultAddress": self._api_key if self._use_vault else None,
-        }
-        return payload
+        if self._is_api_key_auth:
+            signature = self._api_key_sign(params)
+            return {
+                "action": params,
+                "nonce": timestamp,
+                "signature": signature,
+                "vaultAddress": self._api_key,
+            }
+        else:
+            signature = self.sign_l1_action(
+                self.wallet,
+                params,
+                None if not self._use_vault else self._api_key,
+                timestamp,
+                CONSTANTS.PERPETUAL_BASE_URL in base_url,
+            )
+            payload = {
+                "action": params,
+                "nonce": timestamp,
+                "signature": signature,
+                "vaultAddress": self._api_key if self._use_vault else None,
+            }
+            return payload
 
     def _sign_cancel_params(self, params, base_url, timestamp):
         order_action = {
             "type": "cancelByCloid",
             "cancels": [params["cancels"]],
         }
-        signature = self.sign_l1_action(
-            self.wallet,
-            order_action,
-            None if not self._use_vault else self._api_key,
-            timestamp,
-            CONSTANTS.PERPETUAL_BASE_URL in base_url,
-        )
-        payload = {
-            "action": order_action,
-            "nonce": timestamp,
-            "signature": signature,
-            "vaultAddress": self._api_key if self._use_vault else None,
+        if self._is_api_key_auth:
+            signature = self._api_key_sign(order_action)
+            return {
+                "action": order_action,
+                "nonce": timestamp,
+                "signature": signature,
+                "vaultAddress": self._api_key,
+            }
+        else:
+            signature = self.sign_l1_action(
+                self.wallet,
+                order_action,
+                None if not self._use_vault else self._api_key,
+                timestamp,
+                CONSTANTS.PERPETUAL_BASE_URL in base_url,
+            )
+            payload = {
+                "action": order_action,
+                "nonce": timestamp,
+                "signature": signature,
+                "vaultAddress": self._api_key if self._use_vault else None,
 
-        }
-        return payload
+            }
+            return payload
 
     def _sign_order_params(self, params, base_url, timestamp):
-
         order = params["orders"]
         grouping = params["grouping"]
         order_action = {
@@ -132,22 +172,30 @@ class HyperliquidPerpetualAuth(AuthBase):
             "orders": [order_spec_to_order_wire(order)],
             "grouping": grouping,
         }
-        signature = self.sign_l1_action(
-            self.wallet,
-            order_action,
-            None if not self._use_vault else self._api_key,
-            timestamp,
-            CONSTANTS.PERPETUAL_BASE_URL in base_url,
-        )
+        if self._is_api_key_auth:
+            signature = self._api_key_sign(order_action)
+            return {
+                "action": order_action,
+                "nonce": timestamp,
+                "signature": signature,
+                "vaultAddress": self._api_key,
+            }
+        else:
+            signature = self.sign_l1_action(
+                self.wallet,
+                order_action,
+                None if not self._use_vault else self._api_key,
+                timestamp,
+                CONSTANTS.PERPETUAL_BASE_URL in base_url,
+            )
+            payload = {
+                "action": order_action,
+                "nonce": timestamp,
+                "signature": signature,
+                "vaultAddress": self._api_key if self._use_vault else None,
 
-        payload = {
-            "action": order_action,
-            "nonce": timestamp,
-            "signature": signature,
-            "vaultAddress": self._api_key if self._use_vault else None,
-
-        }
-        return payload
+            }
+            return payload
 
     def add_auth_to_params_post(self, params: str, base_url):
         timestamp = int(self._get_timestamp() * 1e3)
@@ -163,6 +211,16 @@ class HyperliquidPerpetualAuth(AuthBase):
             payload = self._sign_cancel_params(request_params, base_url, timestamp)
         elif request_type == "updateLeverage":
             payload = self._sign_update_leverage_params(request_params, base_url, timestamp)
+        elif self._is_api_key_auth:
+            payload = {
+                "action": request_params,
+                "nonce": timestamp,
+                "signature": self._api_key_sign(request_params),
+                "vaultAddress": self._api_key,
+            }
+        else:
+            payload = {"action": request_params, "nonce": timestamp}
+
         payload = json.dumps(payload)
         return payload
 

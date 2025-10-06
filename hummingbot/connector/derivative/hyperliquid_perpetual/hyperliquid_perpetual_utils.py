@@ -32,9 +32,9 @@ def validate_bool(value: str) -> Optional[str]:
 class HyperliquidPerpetualConfigMap(BaseConnectorConfigMap):
     connector: str = "hyperliquid_perpetual"
     hyperliquid_perpetual_api_secret: SecretStr = Field(
-        default=...,
+        default=None,
         json_schema_extra={
-            "prompt": "Enter your Arbitrum wallet private key",
+            "prompt": "Enter your Hyperliquid Perpetual API secret or wallet private key",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
@@ -50,9 +50,9 @@ class HyperliquidPerpetualConfigMap(BaseConnectorConfigMap):
         }
     )
     hyperliquid_perpetual_api_key: SecretStr = Field(
-        default=...,
+        default=None,
         json_schema_extra={
-            "prompt": "Enter your Arbitrum or vault address",
+            "prompt": "Enter your Hyperliquid Perpetual API key or wallet address",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
@@ -81,9 +81,9 @@ OTHER_DOMAINS_DEFAULT_FEES = {"hyperliquid_perpetual_testnet": [0, 0.025]}
 class HyperliquidPerpetualTestnetConfigMap(BaseConnectorConfigMap):
     connector: str = "hyperliquid_perpetual_testnet"
     hyperliquid_perpetual_testnet_api_secret: SecretStr = Field(
-        default=...,
+        default=None,
         json_schema_extra={
-            "prompt": "Enter your Arbitrum wallet private key",
+            "prompt": "Enter your Hyperliquid testnet Perpetual API secret or wallet private key",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
@@ -99,9 +99,9 @@ class HyperliquidPerpetualTestnetConfigMap(BaseConnectorConfigMap):
         }
     )
     hyperliquid_perpetual_testnet_api_key: SecretStr = Field(
-        default=...,
+        default=None,
         json_schema_extra={
-            "prompt": "Enter your Arbitrum or vault address",
+            "prompt": "Enter your Hyperliquid testnet Perpetual API key or wallet address",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,

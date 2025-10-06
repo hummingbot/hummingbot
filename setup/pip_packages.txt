@@ -1,1 +1,2 @@
 eip712-structs
+Pynacl==1.5.0

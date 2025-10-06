@@ -48,12 +48,16 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             hyperliquid_perpetual_api_secret: str = None,
             use_vault: bool = False,
             hyperliquid_perpetual_api_key: str = None,
+            wallet_private_key: str = None,
+            wallet_address: str = None,
             trading_pairs: Optional[List[str]] = None,
             trading_required: bool = True,
             domain: str = CONSTANTS.DOMAIN,
     ):
-        self.hyperliquid_perpetual_api_key = hyperliquid_perpetual_api_key
-        self.hyperliquid_perpetual_secret_key = hyperliquid_perpetual_api_secret
+        self._hyperliquid_perpetual_api_key = hyperliquid_perpetual_api_key
+        self._hyperliquid_perpetual_secret_key = hyperliquid_perpetual_api_secret
+        self._wallet_private_key = wallet_private_key
+        self._wallet_address = wallet_address
         self._use_vault = use_vault
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
@@ -71,8 +75,12 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
     @property
     def authenticator(self) -> Optional[HyperliquidPerpetualAuth]:
         if self._trading_required:
-            return HyperliquidPerpetualAuth(self.hyperliquid_perpetual_api_key, self.hyperliquid_perpetual_secret_key,
-                                            self._use_vault)
+            if self._hyperliquid_perpetual_api_key and self._hyperliquid_perpetual_secret_key:
+                return HyperliquidPerpetualAuth(api_key=self._hyperliquid_perpetual_api_key,
+                                              api_secret=self._hyperliquid_perpetual_secret_key,
+                                              use_vault=self._use_vault)
+            elif self._wallet_address and self._wallet_private_key:
+                return HyperliquidPerpetualAuth(api_key=self._wallet_address, api_secret=self._wallet_private_key, use_vault=self._use_vault)
         return None
 
     @property
