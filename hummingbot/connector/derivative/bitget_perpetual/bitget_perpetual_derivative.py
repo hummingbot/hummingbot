@@ -123,8 +123,10 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def start_network(self):
         await super().start_network()
-        await self._trading_pair_position_mode_set(self.position_mode, self.trading_pairs[0])
-        await self._margin_mode_set(self._margin_mode, self.trading_pairs[0])
+        await self.set_margin_mode(self._margin_mode)
+
+        if self.is_trading_required:
+            self.set_position_mode(PositionMode.HEDGE)
 
     def supported_order_types(self) -> List[OrderType]:
         return [OrderType.LIMIT, OrderType.MARKET]
@@ -156,6 +158,36 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
             collateral_token = quote
 
         return collateral_token
+
+    async def get_exchange_position_mode(self, trading_pair: str) -> None:
+        """
+        Returns the current exchange position mode.
+        """
+        product_type = await self.product_type_associated_to_trading_pair(trading_pair)
+        account_info_response: Dict[str, Any] = await self._api_get(
+            path_url=CONSTANTS.ACCOUNT_INFO_ENDPOINT,
+            params={
+                "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
+                "productType": product_type,
+                "marginCoin": self.get_buy_collateral_token(trading_pair),
+            },
+            is_auth_required=True,
+        )
+        if account_info_response["code"] != CONSTANTS.RET_CODE_OK:
+            self.logger().error(self._formatted_error(
+                account_info_response["code"],
+                f"Error getting position mode for {trading_pair}: {account_info_response['msg']}"
+            ))
+            return
+
+        position_modes = {
+            "one_way_mode": PositionMode.ONEWAY,
+            "hedge_mode": PositionMode.HEDGE,
+        }
+
+        position_mode = position_modes[account_info_response["data"]["posMode"]]
+
+        self.logger().info(f"Position mode for {trading_pair}: {position_mode}")
 
     def get_buy_collateral_token(self, trading_pair: str) -> str:
         trading_rule: TradingRule = self._trading_rules.get(trading_pair, None)
@@ -591,35 +623,39 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
 
         return float(ticker_response["data"][0]["lastPr"])
 
-    async def _margin_mode_set(
+    async def set_margin_mode(
         self,
-        mode: MarginMode,
-        trading_pair: str
+        mode: MarginMode
     ) -> None:
+        """
+        Change the margin mode of the exchange (cross/isolated)
+        """
         margin_mode = CONSTANTS.MARGIN_MODE_TYPES[mode]
-        product_type = await self.product_type_associated_to_trading_pair(trading_pair)
 
-        response = await self._api_post(
-            path_url=CONSTANTS.SET_MARGIN_MODE_ENDPOINT,
-            data={
-                "symbol": await self.exchange_symbol_associated_to_pair(trading_pair),
-                "productType": product_type,
-                "marginMode": margin_mode,
-                "marginCoin": self.get_buy_collateral_token(trading_pair),
-            },
-            is_auth_required=True,
-        )
+        for trading_pair in self.trading_pairs:
+            product_type = await self.product_type_associated_to_trading_pair(trading_pair)
 
-        if response["code"] != CONSTANTS.RET_CODE_OK:
-            self.logger().error(
-                self._formatted_error(
-                    response["code"],
-                    f"There was an error changing the margin mode ({response['msg']})"
-                )
+            response = await self._api_post(
+                path_url=CONSTANTS.SET_MARGIN_MODE_ENDPOINT,
+                data={
+                    "symbol": await self.exchange_symbol_associated_to_pair(trading_pair),
+                    "productType": product_type,
+                    "marginMode": margin_mode,
+                    "marginCoin": self.get_buy_collateral_token(trading_pair),
+                },
+                is_auth_required=True,
             )
-            return
 
-        self.logger().info(f"Margin mode set to {margin_mode}")
+            if response["code"] != CONSTANTS.RET_CODE_OK:
+                self.logger().error(
+                    self._formatted_error(
+                        response["code"],
+                        f"There was an error changing the margin mode ({response['msg']})"
+                    )
+                )
+                return
+
+            self.logger().info(f"Margin mode set to {margin_mode}")
 
     async def _trading_pair_position_mode_set(
         self,

@@ -66,6 +66,7 @@ CANCEL_ORDER_ENDPOINT = "/api/v2/mix/order/cancel-order"
 ORDER_DETAIL_ENDPOINT = "/api/v2/mix/order/detail"
 ORDER_FILLS_ENDPOINT = "/api/v2/mix/order/fills"
 ACCOUNTS_INFO_ENDPOINT = "/api/v2/mix/account/accounts"
+ACCOUNT_INFO_ENDPOINT = "/api/v2/mix/account/account"
 SET_POSITION_MODE_ENDPOINT = "/api/v2/mix/account/set-position-mode"
 SET_MARGIN_MODE_ENDPOINT = "/api/v2/mix/account/set-margin-mode"
 ACCOUNT_BILLS_ENDPOINT = "/api/v2/mix/account/bill"
@@ -110,6 +111,7 @@ RATE_LIMITS = [
     RateLimit(limit_id=ORDER_DETAIL_ENDPOINT, limit=10, time_interval=1),
     RateLimit(limit_id=ORDER_FILLS_ENDPOINT, limit=10, time_interval=1),
     RateLimit(limit_id=ACCOUNTS_INFO_ENDPOINT, limit=10, time_interval=1),
+    RateLimit(limit_id=ACCOUNT_INFO_ENDPOINT, limit=10, time_interval=1),
     RateLimit(limit_id=ACCOUNT_BILLS_ENDPOINT, limit=10, time_interval=1),
     RateLimit(limit_id=SET_POSITION_MODE_ENDPOINT, limit=5, time_interval=1),
     RateLimit(limit_id=SET_MARGIN_MODE_ENDPOINT, limit=5, time_interval=1),
