@@ -66,7 +66,7 @@ def main():
         "numpy>=2.1.0",
         "objgraph",
         "pandas>=2.2.3",
-        "pandas-ta>=0.4.26b",
+        "pandas-ta>=0.4.71b",
         "prompt_toolkit>=3.0.39",
         "protobuf>=4.23.3",
         "psutil>=5.9.5",
