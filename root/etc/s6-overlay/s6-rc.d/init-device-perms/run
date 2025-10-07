@@ -1,0 +1,37 @@
+#!/usr/bin/with-contenv bash
+# shellcheck shell=bash
+
+if [[ -z ${LSIO_NON_ROOT_USER} ]] && [[ -n ${ATTACHED_DEVICES_PERMS} ]]; then
+    FILES=$(find ${ATTACHED_DEVICES_PERMS} -print 2>/dev/null)
+
+    for i in ${FILES}; do
+        FILE_GID=$(stat -c '%g' "${i}")
+        FILE_UID=$(stat -c '%u' "${i}")
+        # check if user matches device
+        if id -u abc | grep -qw "${FILE_UID}"; then
+            echo "**** permissions for ${i} are good ****"
+        else
+            # check if group matches and that device has group rw
+            if id -G abc | grep -qw "${FILE_GID}" && [[ $(stat -c '%A' "${i}" | cut -b 5,6) == "rw" ]]; then
+                echo "**** permissions for ${i} are good ****"
+            # check if device needs to be added to group
+            elif ! id -G abc | grep -qw "${FILE_GID}"; then
+                # check if group needs to be created
+                GROUP_NAME=$(getent group "${FILE_GID}" | awk -F: '{print $1}')
+                if [[ -z "${GROUP_NAME}" ]]; then
+                    GROUP_NAME="group$(head /dev/urandom | tr -dc 'a-z0-9' | head -c4)"
+                    groupadd "${GROUP_NAME}"
+                    groupmod -g "${FILE_GID}" "${GROUP_NAME}"
+                    echo "**** creating group ${GROUP_NAME} with id ${FILE_GID} ****"
+                fi
+                echo "**** adding ${i} to group ${GROUP_NAME} with id ${FILE_GID} ****"
+                usermod -a -G "${GROUP_NAME}" abc
+            fi
+            # check if device has group rw
+            if [[ $(stat -c '%A' "${i}" | cut -b 5,6) != "rw" ]]; then
+                echo -e "**** The device ${i} does not have group read/write permissions, attempting to fix inside the container. ****"
+                chmod g+rw "${i}"
+            fi
+        fi
+    done
+fi

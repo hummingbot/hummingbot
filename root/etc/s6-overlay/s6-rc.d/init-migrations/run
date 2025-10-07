@@ -1,0 +1,33 @@
+#!/usr/bin/with-contenv bash
+# shellcheck shell=bash
+
+MIGRATIONS_DIR="/migrations"
+MIGRATIONS_HISTORY="/config/.migrations"
+
+echo "[migrations] started"
+
+if [[ ! -d ${MIGRATIONS_DIR} ]]; then
+    echo "[migrations] no migrations found"
+    exit
+fi
+
+for MIGRATION in $(find ${MIGRATIONS_DIR}/* | sort -n); do
+    NAME="$(basename "${MIGRATION}")"
+    if [[ -f ${MIGRATIONS_HISTORY} ]] && grep -Fxq "${NAME}" ${MIGRATIONS_HISTORY}; then
+        echo "[migrations] ${NAME}: skipped"
+        continue
+    fi
+    echo "[migrations] ${NAME}: executing..."
+    chmod +x "${MIGRATION}"
+    # Execute migration script in a subshell to prevent it from modifying the current environment
+    ("${MIGRATION}")
+    EXIT_CODE=$?
+    if [[ ${EXIT_CODE} -ne 0 ]]; then
+        echo "[migrations] ${NAME}: failed with exit code ${EXIT_CODE}, contact support"
+        exit "${EXIT_CODE}"
+    fi
+    echo "${NAME}" >>${MIGRATIONS_HISTORY}
+    echo "[migrations] ${NAME}: succeeded"
+done
+
+echo "[migrations] done"

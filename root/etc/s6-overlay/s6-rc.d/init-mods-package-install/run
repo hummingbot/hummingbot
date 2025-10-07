@@ -1,0 +1,12 @@
+#!/usr/bin/with-contenv bash
+# shellcheck shell=bash
+
+source $HOME/.bashrc
+
+if [[ -z ${LSIO_READ_ONLY_FS} ]] && [[ -n ${CONDA_INSTALL} ]]; then
+    conda activate hummingbot && conda install -qy "${CONDA_INSTALL}"
+fi
+
+if [[ -z ${LSIO_READ_ONLY_FS} ]] && [[ -n ${PIP_INSTALL} ]]; then
+    conda activate hummingbot && pip install -U "${PIP_INSTALL}"
+fi
