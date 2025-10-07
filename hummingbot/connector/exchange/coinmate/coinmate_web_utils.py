@@ -1,5 +1,4 @@
 import json
-from turtle import pu
 from typing import Optional
 
 import hummingbot.connector.exchange.coinmate.coinmate_constants as CONSTANTS
@@ -15,6 +14,9 @@ from hummingbot.core.web_assistant.web_assistants_factory import (
 class CoinmateRESTPreProcessor(RESTPreProcessorBase):
     
     async def pre_process(self, request: RESTRequest) -> RESTRequest:
+        headers = request.headers or {}
+        headers["User-Agent"] = CONSTANTS.USER_AGENT
+        
         if request.method == RESTMethod.POST and request.is_auth_required:
             if request.data:
                 try:
@@ -23,10 +25,9 @@ class CoinmateRESTPreProcessor(RESTPreProcessorBase):
                 except (json.JSONDecodeError, TypeError):
                     pass
             
-            headers = request.headers or {}
             headers["Content-Type"] = "application/x-www-form-urlencoded"
-            request.headers = headers
         
+        request.headers = headers
         return request
 
 

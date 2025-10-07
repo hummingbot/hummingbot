@@ -1,3 +1,5 @@
+from os.path import dirname, join, realpath
+
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.data_type.in_flight_order import OrderState
 
@@ -6,6 +8,11 @@ DEFAULT_DOMAIN = ""
 EXCHANGE_NAME = "coinmate"
 HBOT_ORDER_ID_PREFIX = "HBOT"
 MAX_ORDER_ID_LEN = 64
+
+with open(realpath(join(dirname(__file__), '../../../VERSION'))) as version_file:
+    _version = version_file.read().strip()
+
+USER_AGENT = f"Hummingbot/{_version}"
 
 REST_URL = "https://coinmate.io/api"
 WSS_URL = "wss://coinmate.io/api/websocket"
