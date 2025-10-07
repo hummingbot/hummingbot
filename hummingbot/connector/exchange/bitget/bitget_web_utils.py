@@ -1,7 +1,7 @@
 from typing import Callable, Optional
 from urllib.parse import urljoin
 
-from hummingbot.connector.derivative.bitget_perpetual import bitget_perpetual_constants as CONSTANTS
+from hummingbot.connector.exchange.bitget import bitget_constants as CONSTANTS
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.utils import TimeSynchronizerRESTPreProcessor
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
