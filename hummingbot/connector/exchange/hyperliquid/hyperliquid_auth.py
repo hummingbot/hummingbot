@@ -19,10 +19,11 @@ class HyperliquidAuth(AuthBase):
     Auth class required by Hyperliquid API with centralized, collision-free nonce generation.
     """
 
-    def __init__(self, api_key: str, api_secret: str, use_vault: bool):
+    def __init__(self, api_key: str, api_secret: str, use_vault: bool, use_api_wallet: bool = False):
         self._api_key: str = api_key
         self._api_secret: str = api_secret
         self._use_vault: bool = use_vault
+        self._use_api_wallet: bool = use_api_wallet
         self.wallet = eth_account.Account.from_key(api_secret)
         # one nonce manager per connector instance (shared by orders/cancels/updates)
         self._nonce = _NonceManager()
@@ -90,10 +91,17 @@ class HyperliquidAuth(AuthBase):
     # ---------- signing helpers (all use centralized nonce) ----------
 
     def _sign_update_leverage_params(self, params, base_url, nonce_ms: int):
+        # For API wallets, use the main wallet address as vault_address
+        vault_address = None
+        if self._use_vault:
+            vault_address = self._api_key
+        elif self._use_api_wallet:
+            vault_address = self._api_key
+        
         signature = self.sign_l1_action(
             self.wallet,
             params,
-            None if not self._use_vault else self._api_key,
+            vault_address,
             nonce_ms,
             CONSTANTS.BASE_URL in base_url,
         )
@@ -101,7 +109,7 @@ class HyperliquidAuth(AuthBase):
             "action": params,
             "nonce": nonce_ms,
             "signature": signature,
-            "vaultAddress": self._api_key if self._use_vault else None,
+            "vaultAddress": vault_address,
         }
 
     def _sign_cancel_params(self, params, base_url, nonce_ms: int):
@@ -109,10 +117,18 @@ class HyperliquidAuth(AuthBase):
             "type": "cancelByCloid",
             "cancels": [params["cancels"]],
         }
+        
+        # For API wallets, use the main wallet address as vault_address
+        vault_address = None
+        if self._use_vault:
+            vault_address = self._api_key
+        elif self._use_api_wallet:
+            vault_address = self._api_key
+        
         signature = self.sign_l1_action(
             self.wallet,
             order_action,
-            None if not self._use_vault else self._api_key,
+            vault_address,
             nonce_ms,
             CONSTANTS.BASE_URL in base_url,
         )
@@ -120,7 +136,7 @@ class HyperliquidAuth(AuthBase):
             "action": order_action,
             "nonce": nonce_ms,
             "signature": signature,
-            "vaultAddress": self._api_key if self._use_vault else None,
+            "vaultAddress": vault_address,
         }
 
     def _sign_order_params(self, params, base_url, nonce_ms: int):
@@ -131,10 +147,18 @@ class HyperliquidAuth(AuthBase):
             "orders": [order_spec_to_order_wire(order)],
             "grouping": grouping,
         }
+        
+        # For API wallets, use the main wallet address as vault_address
+        vault_address = None
+        if self._use_vault:
+            vault_address = self._api_key
+        elif self._use_api_wallet:
+            vault_address = self._api_key
+        
         signature = self.sign_l1_action(
             self.wallet,
             order_action,
-            None if not self._use_vault else self._api_key,
+            vault_address,
             nonce_ms,
             CONSTANTS.BASE_URL in base_url,
         )
@@ -142,7 +166,7 @@ class HyperliquidAuth(AuthBase):
             "action": order_action,
             "nonce": nonce_ms,
             "signature": signature,
-            "vaultAddress": self._api_key if self._use_vault else None,
+            "vaultAddress": vault_address,
         }
 
     def add_auth_to_params_post(self, params: str, base_url):

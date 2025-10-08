@@ -45,6 +45,7 @@ class HyperliquidExchange(ExchangePyBase):
             rate_limits_share_pct: Decimal = Decimal("100"),
             hyperliquid_api_secret: str = None,
             use_vault: bool = False,
+            use_api_wallet: bool = False,
             hyperliquid_api_key: str = None,
             trading_pairs: Optional[List[str]] = None,
             trading_required: bool = True,
@@ -53,6 +54,7 @@ class HyperliquidExchange(ExchangePyBase):
         self.hyperliquid_api_key = hyperliquid_api_key
         self.hyperliquid_secret_key = hyperliquid_api_secret
         self._use_vault = use_vault
+        self._use_api_wallet = use_api_wallet
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._domain = domain
@@ -71,7 +73,7 @@ class HyperliquidExchange(ExchangePyBase):
     def authenticator(self) -> Optional[HyperliquidAuth]:
         if self._trading_required:
             return HyperliquidAuth(self.hyperliquid_api_key, self.hyperliquid_secret_key,
-                                   self._use_vault)
+                                   self._use_vault, self._use_api_wallet)
         return None
 
     @property

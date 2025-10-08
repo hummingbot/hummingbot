@@ -20,10 +20,11 @@ class HyperliquidPerpetualAuth(AuthBase):
     Auth class required by Hyperliquid Perpetual API
     """
 
-    def __init__(self, api_key: str, api_secret: str, use_vault: bool):
+    def __init__(self, api_key: str, api_secret: str, use_vault: bool, use_api_wallet: bool = False):
         self._api_key: str = api_key
         self._api_secret: str = api_secret
         self._use_vault: bool = use_vault
+        self._use_api_wallet: bool = use_api_wallet
         self.wallet = eth_account.Account.from_key(api_secret)
 
     @classmethod
@@ -87,10 +88,17 @@ class HyperliquidPerpetualAuth(AuthBase):
         return request  # pass-through
 
     def _sign_update_leverage_params(self, params, base_url, timestamp):
+        # For API wallets, use the main wallet address as vault_address
+        vault_address = None
+        if self._use_vault:
+            vault_address = self._api_key
+        elif self._use_api_wallet:
+            vault_address = self._api_key
+        
         signature = self.sign_l1_action(
             self.wallet,
             params,
-            None if not self._use_vault else self._api_key,
+            vault_address,
             timestamp,
             CONSTANTS.PERPETUAL_BASE_URL in base_url,
         )
@@ -98,7 +106,7 @@ class HyperliquidPerpetualAuth(AuthBase):
             "action": params,
             "nonce": timestamp,
             "signature": signature,
-            "vaultAddress": self._api_key if self._use_vault else None,
+            "vaultAddress": vault_address,
         }
         return payload
 
@@ -107,10 +115,18 @@ class HyperliquidPerpetualAuth(AuthBase):
             "type": "cancelByCloid",
             "cancels": [params["cancels"]],
         }
+        
+        # For API wallets, use the main wallet address as vault_address
+        vault_address = None
+        if self._use_vault:
+            vault_address = self._api_key
+        elif self._use_api_wallet:
+            vault_address = self._api_key
+        
         signature = self.sign_l1_action(
             self.wallet,
             order_action,
-            None if not self._use_vault else self._api_key,
+            vault_address,
             timestamp,
             CONSTANTS.PERPETUAL_BASE_URL in base_url,
         )
@@ -118,7 +134,7 @@ class HyperliquidPerpetualAuth(AuthBase):
             "action": order_action,
             "nonce": timestamp,
             "signature": signature,
-            "vaultAddress": self._api_key if self._use_vault else None,
+            "vaultAddress": vault_address,
 
         }
         return payload
@@ -132,10 +148,18 @@ class HyperliquidPerpetualAuth(AuthBase):
             "orders": [order_spec_to_order_wire(order)],
             "grouping": grouping,
         }
+        
+        # For API wallets, use the main wallet address as vault_address
+        vault_address = None
+        if self._use_vault:
+            vault_address = self._api_key
+        elif self._use_api_wallet:
+            vault_address = self._api_key
+        
         signature = self.sign_l1_action(
             self.wallet,
             order_action,
-            None if not self._use_vault else self._api_key,
+            vault_address,
             timestamp,
             CONSTANTS.PERPETUAL_BASE_URL in base_url,
         )
@@ -144,7 +168,7 @@ class HyperliquidPerpetualAuth(AuthBase):
             "action": order_action,
             "nonce": timestamp,
             "signature": signature,
-            "vaultAddress": self._api_key if self._use_vault else None,
+            "vaultAddress": vault_address,
 
         }
         return payload

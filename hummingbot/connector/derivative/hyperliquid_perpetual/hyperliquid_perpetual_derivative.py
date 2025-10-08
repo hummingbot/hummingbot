@@ -72,7 +72,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
     def authenticator(self) -> Optional[HyperliquidPerpetualAuth]:
         if self._trading_required:
             return HyperliquidPerpetualAuth(self.hyperliquid_perpetual_api_key, self.hyperliquid_perpetual_secret_key,
-                                            self._use_vault)
+                                            self._use_vault, self._use_api_wallet)
         return None
 
     @property

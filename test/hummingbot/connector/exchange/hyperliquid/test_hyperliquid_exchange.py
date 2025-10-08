@@ -39,6 +39,7 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         cls.api_key = "someKey"
         cls.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
         cls.use_vault = False  # noqa: mock
+        cls.use_api_wallet = False  # noqa: mock
         cls.user_id = "someUserId"
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "USDC"  # linear
@@ -454,6 +455,7 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         exchange = HyperliquidExchange(
             hyperliquid_api_secret=self.api_secret,
             use_vault=self.use_vault,
+            use_api_wallet=self.use_api_wallet,
             hyperliquid_api_key=self.api_key,
             trading_pairs=[self.trading_pair],
         )
