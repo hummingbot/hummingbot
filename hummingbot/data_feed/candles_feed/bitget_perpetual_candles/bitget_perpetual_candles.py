@@ -1,8 +1,11 @@
+import asyncio
 import logging
 from typing import Any, Dict, List, Optional
 
 from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.web_assistant.connections.data_types import WSPlainTextRequest
+from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.data_feed.candles_feed.bitget_perpetual_candles import constants as CONSTANTS
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
 from hummingbot.logger import HummingbotLogger
@@ -19,6 +22,8 @@ class BitgetPerpetualCandles(CandlesBase):
 
     def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 150):
         super().__init__(trading_pair, interval, max_records)
+
+        self._ping_task: Optional[asyncio.Task] = None
 
     @property
     def name(self):
@@ -132,7 +137,7 @@ class BitgetPerpetualCandles(CandlesBase):
             ]
         }
         """
-        if data is not None and data.get("data") is not None:
+        if data and data.get("data"):
             candles = data["data"]
 
             return [
@@ -144,6 +149,8 @@ class BitgetPerpetualCandles(CandlesBase):
                 ]
                 for row in candles
             ]
+
+        return []
 
     def ws_subscription_payload(self):
         interval = CONSTANTS.INTERVALS[self.interval]
@@ -186,9 +193,12 @@ class BitgetPerpetualCandles(CandlesBase):
             "ts": 1695702747821
             }
         """
+        if data == "pong":
+            return
+
         candles_row_dict: Dict[str, Any] = {}
 
-        if data is not None and data.get("data") is not None:
+        if data and data.get("data"):
             candle = data["data"][0]
             candles_row_dict["timestamp"] = self.ensure_timestamp_in_seconds(int(candle[0]))
             candles_row_dict["open"] = float(candle[1])
@@ -202,3 +212,55 @@ class BitgetPerpetualCandles(CandlesBase):
             candles_row_dict["taker_buy_quote_volume"] = 0.
 
             return candles_row_dict
+
+    async def _send_ping(self, websocket_assistant: WSAssistant) -> None:
+        ping_request = WSPlainTextRequest(CONSTANTS.PUBLIC_WS_PING_REQUEST)
+
+        await websocket_assistant.send(ping_request)
+
+    async def send_interval_ping(self, websocket_assistant: WSAssistant) -> None:
+        """
+        Coroutine to send PING messages periodically.
+
+        :param websocket_assistant: The websocket assistant to use to send the PING message.
+        """
+        try:
+            while True:
+                await self._send_ping(websocket_assistant)
+                await asyncio.sleep(CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+        except asyncio.CancelledError:
+            self.logger().info("Interval PING task cancelled")
+            raise
+        except Exception:
+            self.logger().exception("Error sending interval PING")
+
+    async def listen_for_subscriptions(self):
+        """
+        Connects to the candlestick websocket endpoint and listens to the messages sent by the
+        exchange.
+        """
+        ws: Optional[WSAssistant] = None
+        while True:
+            try:
+                ws: WSAssistant = await self._connected_websocket_assistant()
+                await self._subscribe_channels(ws)
+                self._ping_task = asyncio.create_task(self.send_interval_ping(ws))
+                await self._process_websocket_messages(websocket_assistant=ws)
+            except asyncio.CancelledError:
+                raise
+            except ConnectionError as connection_exception:
+                self.logger().warning(f"The websocket connection was closed ({connection_exception})")
+            except Exception:
+                self.logger().exception(
+                    "Unexpected error occurred when listening to public klines. Retrying in 1 seconds...",
+                )
+                await self._sleep(1.0)
+            finally:
+                if self._ping_task is not None:
+                    self._ping_task.cancel()
+                    try:
+                        await self._ping_task
+                    except asyncio.CancelledError:
+                        pass
+                    self._ping_task = None
+                await self._on_order_stream_interruption(websocket_assistant=ws)

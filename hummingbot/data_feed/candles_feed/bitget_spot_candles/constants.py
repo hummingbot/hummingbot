@@ -8,6 +8,9 @@ WSS_URL = "wss://ws.bitget.com/v2/ws/public"
 HEALTH_CHECK_ENDPOINT = "/api/v2/public/time"
 CANDLES_ENDPOINT = "/api/v2/spot/market/candles"
 WS_CANDLES_ENDPOINT = "candle"
+PUBLIC_WS_PING_REQUEST = "ping"
+
+WS_HEARTBEAT_TIME_INTERVAL = 30
 
 MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST = 1000
 
@@ -29,6 +32,7 @@ INTERVALS = bidict({
 
 WS_INTERVALS = bidict({
     "1m": "1m",
+    "3m": "3m",
     "5m": "5m",
     "15m": "15m",
     "30m": "30m",
