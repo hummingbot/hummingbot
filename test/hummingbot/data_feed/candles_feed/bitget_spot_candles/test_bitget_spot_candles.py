@@ -108,7 +108,7 @@ class TestBitgetSpotCandles(TestCandlesBase):
     @staticmethod
     def get_candles_ws_data_mock_1():
         return {
-            "action": "snapshot",
+            "action": "update",
             "arg": {
                 "instType": "SPOT",
                 "channel": "candle1m",
@@ -132,7 +132,7 @@ class TestBitgetSpotCandles(TestCandlesBase):
     @staticmethod
     def get_candles_ws_data_mock_2():
         return {
-            "action": "snapshot",
+            "action": "update",
             "arg": {
                 "instType": "SPOT",
                 "channel": "candle1m",

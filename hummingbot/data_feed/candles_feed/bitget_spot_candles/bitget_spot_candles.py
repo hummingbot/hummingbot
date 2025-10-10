@@ -60,6 +60,14 @@ class BitgetSpotCandles(CandlesBase):
     def intervals(self):
         return CONSTANTS.INTERVALS
 
+    @property
+    def _is_last_candle_not_included_in_rest_request(self):
+        return True
+
+    @property
+    def _is_first_candle_not_included_in_rest_request(self):
+        return False
+
     async def check_network(self) -> NetworkStatus:
         rest_assistant = await self._api_factory.get_rest_assistant()
         await rest_assistant.execute_request(
@@ -71,14 +79,6 @@ class BitgetSpotCandles(CandlesBase):
 
     def get_exchange_trading_pair(self, trading_pair):
         return trading_pair.replace("-", "")
-
-    @property
-    def _is_first_candle_not_included_in_rest_request(self):
-        return False
-
-    @property
-    def _is_last_candle_not_in_rest_request(self):
-        return False
 
     def _get_rest_candles_params(
         self,
@@ -181,7 +181,7 @@ class BitgetSpotCandles(CandlesBase):
 
         candles_row_dict: Dict[str, Any] = {}
 
-        if data and data.get("data"):
+        if data and data.get("data") and data["action"] == "update":
             candle = data["data"][0]
             candles_row_dict["timestamp"] = self.ensure_timestamp_in_seconds(int(candle[0]))
             candles_row_dict["open"] = float(candle[1])
