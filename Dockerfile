@@ -3,7 +3,7 @@ FROM continuumio/miniconda3:latest AS builder
 
 # Install system dependencies
 RUN apt-get update && \
-    apt-get install -y sudo libusb-1.0 gcc g++ python3-dev && \
+    apt-get install -y sudo libusb-1.0 gcc g++ python3-dev git && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /home/hummingbot
