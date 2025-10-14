@@ -353,4 +353,7 @@ class GatewayPoolCommand:
         self.notify(f"Network: {pool_info.get('network', 'N/A')}")
         self.notify(f"Base Token: {pool_info.get('baseSymbol', 'N/A')}")
         self.notify(f"Quote Token: {pool_info.get('quoteSymbol', 'N/A')}")
+        self.notify(f"Base Token Address: {pool_info.get('baseTokenAddress', 'N/A')}")
+        self.notify(f"Quote Token Address: {pool_info.get('quoteTokenAddress', 'N/A')}")
+        self.notify(f"Fee: {pool_info.get('feePct', 'N/A')}%")
         self.notify(f"Pool Address: {pool_info.get('address', 'N/A')}")

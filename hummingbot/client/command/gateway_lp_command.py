@@ -306,20 +306,43 @@ class GatewayLPCommand:
                         self.notify("Error: Trading pair is required")
                         return
 
-                    trading_pair = pair_input.strip().upper()
+                    user_trading_pair = pair_input.strip().upper()
 
                     # Validate trading pair format
-                    if "-" not in trading_pair:
+                    if "-" not in user_trading_pair:
                         self.notify("Error: Invalid trading pair format. Use format like 'SOL-USDC'")
                         return
 
-                    self.notify(f"\nFetching positions for {trading_pair}...")
+                    self.notify(f"\nFetching positions for {user_trading_pair}...")
 
                     # Get pool address for the trading pair
-                    pool_address = await lp_connector.get_pool_address(trading_pair)
+                    pool_address = await lp_connector.get_pool_address(user_trading_pair)
                     if not pool_address:
-                        self.notify(f"No pool found for {trading_pair}")
+                        self.notify(f"No pool found for {user_trading_pair}")
                         return
+
+                    # Fetch pool info to get authoritative token order
+                    pool_info = await lp_connector.get_pool_info(user_trading_pair)
+                    if not pool_info:
+                        self.notify(f"Error: Could not get pool info for {user_trading_pair}")
+                        return
+
+                    # Extract authoritative token order from pool
+                    base_token = pool_info.get('baseSymbol')
+                    quote_token = pool_info.get('quoteSymbol')
+
+                    if not base_token or not quote_token:
+                        self.notify("Error: Pool info missing token symbols")
+                        return
+
+                    # Use pool's authoritative trading pair
+                    trading_pair = f"{base_token}-{quote_token}"
+
+                    # Update connector with correct trading pair if different
+                    if trading_pair != user_trading_pair:
+                        self.notify(f"Note: Using pool's token order: {trading_pair}")
+                        lp_connector._trading_pairs = [trading_pair]
+                        await lp_connector.load_token_data()
 
                     # Get positions for this pool
                     positions = await lp_connector.get_user_positions(pool_address=pool_address)
@@ -330,9 +353,6 @@ class GatewayLPCommand:
                 if not positions:
                     self.notify("\nNo liquidity positions found")
                     return
-
-                # Extract base and quote tokens from trading pair
-                base_token, quote_token = trading_pair.split("-")
 
                 # 5. Display positions
                 for i, position in enumerate(positions):
@@ -413,12 +433,12 @@ class GatewayLPCommand:
                     return
 
                 try:
-                    base_token, quote_token = split_hb_trading_pair(pair)
+                    user_base_token, user_quote_token = split_hb_trading_pair(pair)
                 except (ValueError, AttributeError):
                     self.notify("Error: Invalid trading pair format. Use format like 'SOL-USDC'")
                     return
 
-                trading_pair = f"{base_token}-{quote_token}"
+                user_trading_pair = f"{user_base_token}-{user_quote_token}"
 
                 # 6. Create LP connector instance and start network
                 lp_connector = GatewayLp(
@@ -426,18 +446,36 @@ class GatewayLPCommand:
                     chain=chain,
                     network=network,
                     address=wallet_address,
-                    trading_pairs=[trading_pair]
+                    trading_pairs=[user_trading_pair]
                 )
                 await lp_connector.start_network()
 
                 # 7. Get and display pool info
-                self.notify(f"\nFetching pool information for {trading_pair}...")
-                pool_info = await lp_connector.get_pool_info(trading_pair)
+                self.notify(f"\nFetching pool information for {user_trading_pair}...")
+                pool_info = await lp_connector.get_pool_info(user_trading_pair)
 
                 if not pool_info:
-                    self.notify(f"Error: Could not find pool for {trading_pair}")
+                    self.notify(f"Error: Could not find pool for {user_trading_pair}")
                     await lp_connector.stop_network()
                     return
+
+                # 8. Extract authoritative token order from pool
+                base_token = pool_info.get('baseSymbol')
+                quote_token = pool_info.get('quoteSymbol')
+
+                if not base_token or not quote_token:
+                    self.notify("Error: Pool info missing token symbols")
+                    await lp_connector.stop_network()
+                    return
+
+                # Use pool's authoritative trading pair
+                trading_pair = f"{base_token}-{quote_token}"
+
+                # Update connector with correct trading pair if different
+                if trading_pair != user_trading_pair:
+                    self.notify(f"Note: Using pool's token order: {trading_pair}")
+                    lp_connector._trading_pairs = [trading_pair]
+                    await lp_connector.load_token_data()
 
                 # Display pool information
                 self._display_pool_info(pool_info, is_clmm, base_token, quote_token)
@@ -776,20 +814,43 @@ class GatewayLPCommand:
                         self.notify("Error: Trading pair is required")
                         return
 
-                    trading_pair = pair_input.strip().upper()
+                    user_trading_pair = pair_input.strip().upper()
 
                     # Validate trading pair format
-                    if "-" not in trading_pair:
+                    if "-" not in user_trading_pair:
                         self.notify("Error: Invalid trading pair format. Use format like 'SOL-USDC'")
                         return
 
-                    self.notify(f"\nFetching positions for {trading_pair}...")
+                    self.notify(f"\nFetching positions for {user_trading_pair}...")
 
                     # Get pool address for the trading pair
-                    pool_address = await lp_connector.get_pool_address(trading_pair)
+                    pool_address = await lp_connector.get_pool_address(user_trading_pair)
                     if not pool_address:
-                        self.notify(f"No pool found for {trading_pair}")
+                        self.notify(f"No pool found for {user_trading_pair}")
                         return
+
+                    # Fetch pool info to get authoritative token order
+                    pool_info = await lp_connector.get_pool_info(user_trading_pair)
+                    if not pool_info:
+                        self.notify(f"Error: Could not get pool info for {user_trading_pair}")
+                        return
+
+                    # Extract authoritative token order from pool
+                    base_token = pool_info.get('baseSymbol')
+                    quote_token = pool_info.get('quoteSymbol')
+
+                    if not base_token or not quote_token:
+                        self.notify("Error: Pool info missing token symbols")
+                        return
+
+                    # Use pool's authoritative trading pair
+                    trading_pair = f"{base_token}-{quote_token}"
+
+                    # Update connector with correct trading pair if different
+                    if trading_pair != user_trading_pair:
+                        self.notify(f"Note: Using pool's token order: {trading_pair}")
+                        lp_connector._trading_pairs = [trading_pair]
+                        await lp_connector.load_token_data()
 
                     # Get positions for this pool
                     positions = await lp_connector.get_user_positions(pool_address=pool_address)
@@ -797,9 +858,6 @@ class GatewayLPCommand:
                     if not positions:
                         self.notify(f"\nNo liquidity positions found for {trading_pair}")
                         return
-
-                    # Extract base and quote tokens
-                    base_token, quote_token = trading_pair.split("-")
 
                     # Display positions
                     for i, position in enumerate(positions):
@@ -1026,20 +1084,43 @@ class GatewayLPCommand:
                         self.notify("Error: Trading pair is required")
                         return
 
-                    trading_pair = pair_input.strip().upper()
+                    user_trading_pair = pair_input.strip().upper()
 
                     # Validate trading pair format
-                    if "-" not in trading_pair:
+                    if "-" not in user_trading_pair:
                         self.notify("Error: Invalid trading pair format. Use format like 'SOL-USDC'")
                         return
 
-                    self.notify(f"\nFetching positions for {trading_pair}...")
+                    self.notify(f"\nFetching positions for {user_trading_pair}...")
 
                     # Get pool address for the trading pair
-                    pool_address = await lp_connector.get_pool_address(trading_pair)
+                    pool_address = await lp_connector.get_pool_address(user_trading_pair)
                     if not pool_address:
-                        self.notify(f"No pool found for {trading_pair}")
+                        self.notify(f"No pool found for {user_trading_pair}")
                         return
+
+                    # Fetch pool info to get authoritative token order
+                    pool_info = await lp_connector.get_pool_info(user_trading_pair)
+                    if not pool_info:
+                        self.notify(f"Error: Could not get pool info for {user_trading_pair}")
+                        return
+
+                    # Extract authoritative token order from pool
+                    base_token = pool_info.get('baseSymbol')
+                    quote_token = pool_info.get('quoteSymbol')
+
+                    if not base_token or not quote_token:
+                        self.notify("Error: Pool info missing token symbols")
+                        return
+
+                    # Use pool's authoritative trading pair
+                    trading_pair = f"{base_token}-{quote_token}"
+
+                    # Update connector with correct trading pair if different
+                    if trading_pair != user_trading_pair:
+                        self.notify(f"Note: Using pool's token order: {trading_pair}")
+                        lp_connector._trading_pairs = [trading_pair]
+                        await lp_connector.load_token_data()
 
                     # Get positions for this pool
                     all_positions = await lp_connector.get_user_positions(pool_address=pool_address)
