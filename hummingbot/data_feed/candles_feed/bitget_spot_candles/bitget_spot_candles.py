@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 from typing import Any, Dict, List, Optional
 
 from hummingbot.core.network_iterator import NetworkStatus
@@ -92,6 +93,23 @@ class BitgetSpotCandles(CandlesBase):
             "granularity": CONSTANTS.INTERVALS[self.interval],
             "limit": limit
         }
+
+        if start_time is not None and end_time is not None:
+            now = int(time.time())
+            max_days = CONSTANTS.INTERVAL_LIMITS_DAYS.get(self.interval)
+
+            if max_days is not None:
+                allowed_seconds = max_days * 24 * 60 * 60
+                earliest_allowed = now - allowed_seconds
+
+                if start_time < earliest_allowed:
+                    self.logger().error(
+                        f"[Bitget API] Invalid start time for interval '{self.interval}': "
+                        f"the earliest allowed start time is {earliest_allowed} "
+                        f"({max_days} days before now), but requested {start_time}."
+                    )
+                    raise ValueError('Invalid start time for current interval. See logs for more details.')
+
         if start_time is not None:
             params["startTime"] = start_time * 1000
         if end_time is not None:

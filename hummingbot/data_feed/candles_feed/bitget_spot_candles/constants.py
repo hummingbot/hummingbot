@@ -14,6 +14,18 @@ WS_HEARTBEAT_TIME_INTERVAL = 30
 
 MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST = 1000
 
+INTERVAL_LIMITS_DAYS = {
+    "1m": 30,
+    "3m": 30,
+    "5m": 30,
+    "15m": 52,
+    "30m": 62,
+    "1h": 83,
+    "2h": 120,
+    "4h": 240,
+    "6h": 360
+}
+
 INTERVALS = bidict({
     "1m": "1min",
     "3m": "3min",
