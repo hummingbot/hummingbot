@@ -20,7 +20,7 @@ from hummingbot.logger import HummingbotLogger
 class CoinsxyzOrderUtils:
     """
     Order parsing and conversion utilities for Coins.xyz exchange.
-    
+
     Provides comprehensive utilities for:
     - Order data parsing from various API response formats
     - Conversion to Hummingbot standard format
@@ -28,24 +28,24 @@ class CoinsxyzOrderUtils:
     - Trade data parsing and conversion
     - Order and trade data validation
     """
-    
+
     def __init__(self):
         """Initialize order utilities."""
         self._logger = None
-    
+
     def logger(self) -> HummingbotLogger:
         """Get logger instance."""
         if self._logger is None:
             self._logger = logging.getLogger(__name__)
         return self._logger
-    
+
     def parse_order_response(self, response_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Parse order response from Coins.xyz API into standardized format.
-        
+
         Args:
             response_data: Raw order response from API
-            
+
         Returns:
             Standardized order dictionary
         """
@@ -57,26 +57,26 @@ class CoinsxyzOrderUtils:
                 orders = response_data
             else:
                 orders = [response_data]
-            
+
             parsed_orders = []
             for order_data in orders:
                 parsed_order = self._parse_single_order(order_data)
                 if parsed_order:
                     parsed_orders.append(parsed_order)
-            
+
             return {"orders": parsed_orders}
-            
+
         except Exception as e:
             self.logger().error(f"Error parsing order response: {e}")
             return {"orders": []}
-    
+
     def _parse_single_order(self, order_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
         Parse a single order entry.
-        
+
         Args:
             order_data: Single order entry from API
-            
+
         Returns:
             Standardized order dictionary or None if parsing fails
         """
@@ -85,36 +85,36 @@ class CoinsxyzOrderUtils:
             client_order_id = str(order_data.get("clientOrderId", order_data.get("origClientOrderId", "")))
             exchange_order_id = str(order_data.get("orderId", ""))
             symbol = order_data.get("symbol", "")
-            
+
             # Convert symbol to trading pair
             trading_pair = utils.parse_exchange_trading_pair(symbol)
-            
+
             # Parse order type and side
             order_type = self._parse_order_type(order_data.get("type", "LIMIT"))
             trade_type = self._parse_trade_type(order_data.get("side", "BUY"))
-            
+
             # Parse quantities and prices
             original_amount = Decimal(str(order_data.get("origQty", "0")))
             executed_amount = Decimal(str(order_data.get("executedQty", "0")))
             remaining_amount = original_amount - executed_amount
-            
+
             price = Decimal(str(order_data.get("price", "0")))
             stop_price = Decimal(str(order_data.get("stopPrice", "0")))
-            
+
             # Parse timestamps
             creation_time = self._parse_timestamp(order_data.get("time", 0))
             update_time = self._parse_timestamp(order_data.get("updateTime", order_data.get("time", 0)))
-            
+
             # Parse order status
             status = order_data.get("status", "UNKNOWN").upper()
             hummingbot_status = self._map_order_status(status)
-            
+
             # Parse time in force
             time_in_force = order_data.get("timeInForce", "GTC")
-            
+
             # Parse fees
             fees = self._parse_order_fees(order_data)
-            
+
             return {
                 "client_order_id": client_order_id,
                 "exchange_order_id": exchange_order_id,
@@ -134,18 +134,18 @@ class CoinsxyzOrderUtils:
                 "update_timestamp": update_time,
                 "fees": fees
             }
-            
+
         except Exception as e:
             self.logger().warning(f"Error parsing order data {order_data}: {e}")
             return None
-    
+
     def parse_trade_response(self, response_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Parse trade response from Coins.xyz API into standardized format.
-        
+
         Args:
             response_data: Raw trade response from API
-            
+
         Returns:
             Standardized trade dictionary
         """
@@ -157,26 +157,26 @@ class CoinsxyzOrderUtils:
                 trades = response_data
             else:
                 trades = [response_data]
-            
+
             parsed_trades = []
             for trade_data in trades:
                 parsed_trade = self._parse_single_trade(trade_data)
                 if parsed_trade:
                     parsed_trades.append(parsed_trade)
-            
+
             return {"trades": parsed_trades}
-            
+
         except Exception as e:
             self.logger().error(f"Error parsing trade response: {e}")
             return {"trades": []}
-    
+
     def _parse_single_trade(self, trade_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
         Parse a single trade entry.
-        
+
         Args:
             trade_data: Single trade entry from API
-            
+
         Returns:
             Standardized trade dictionary or None if parsing fails
         """
@@ -186,26 +186,26 @@ class CoinsxyzOrderUtils:
             order_id = str(trade_data.get("orderId", ""))
             client_order_id = str(trade_data.get("clientOrderId", ""))
             symbol = trade_data.get("symbol", "")
-            
+
             # Convert symbol to trading pair
             trading_pair = utils.parse_exchange_trading_pair(symbol)
-            
+
             # Parse trade side
             is_buyer = trade_data.get("isBuyer", True)
             trade_type = TradeType.BUY if is_buyer else TradeType.SELL
-            
+
             # Parse quantities and prices
             quantity = Decimal(str(trade_data.get("qty", "0")))
             price = Decimal(str(trade_data.get("price", "0")))
             quote_quantity = quantity * price
-            
+
             # Parse fees
             commission = Decimal(str(trade_data.get("commission", "0")))
             commission_asset = trade_data.get("commissionAsset", "")
-            
+
             # Parse timestamp
             timestamp = self._parse_timestamp(trade_data.get("time", 0))
-            
+
             return {
                 "trade_id": trade_id,
                 "order_id": order_id,
@@ -221,18 +221,18 @@ class CoinsxyzOrderUtils:
                 "commission_asset": commission_asset,
                 "timestamp": timestamp
             }
-            
+
         except Exception as e:
             self.logger().warning(f"Error parsing trade data {trade_data}: {e}")
             return None
-    
+
     def _parse_order_type(self, order_type_str: str) -> OrderType:
         """
         Parse order type from string.
-        
+
         Args:
             order_type_str: Order type string from API
-            
+
         Returns:
             OrderType enum value
         """
@@ -245,28 +245,28 @@ class CoinsxyzOrderUtils:
             "TAKE_PROFIT_LIMIT": OrderType.LIMIT,
             "LIMIT_MAKER": OrderType.LIMIT_MAKER
         }
-        
+
         return order_type_map.get(order_type_str.upper(), OrderType.LIMIT)
-    
+
     def _parse_trade_type(self, side_str: str) -> TradeType:
         """
         Parse trade type from side string.
-        
+
         Args:
             side_str: Side string from API (BUY/SELL)
-            
+
         Returns:
             TradeType enum value
         """
         return TradeType.BUY if side_str.upper() == "BUY" else TradeType.SELL
-    
+
     def _parse_timestamp(self, timestamp_value: Union[int, float, str]) -> float:
         """
         Parse timestamp from various formats.
-        
+
         Args:
             timestamp_value: Timestamp in various formats
-            
+
         Returns:
             Timestamp as float (seconds since epoch)
         """
@@ -279,78 +279,78 @@ class CoinsxyzOrderUtils:
                 except ValueError:
                     # Fall back to numeric parsing
                     timestamp_value = float(timestamp_value)
-            
+
             timestamp_float = float(timestamp_value)
-            
+
             # Convert milliseconds to seconds if needed
             if timestamp_float > 1e10:  # Likely milliseconds
                 timestamp_float /= 1000
-            
+
             return timestamp_float
-            
+
         except (ValueError, TypeError):
             return 0.0
-    
+
     def _map_order_status(self, exchange_status: str) -> OrderState:
         """
         Map exchange order status to Hummingbot OrderState.
-        
+
         Args:
             exchange_status: Order status from exchange
-            
+
         Returns:
             Hummingbot OrderState
         """
         return CONSTANTS.ORDER_STATE.get(exchange_status.upper(), OrderState.OPEN)
-    
+
     def _parse_order_fees(self, order_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
         Parse order fees from order data.
-        
+
         Args:
             order_data: Order data from API
-            
+
         Returns:
             List of fee dictionaries
         """
         fees = []
-        
+
         try:
             # Check for fills array (common in order responses)
             if "fills" in order_data and isinstance(order_data["fills"], list):
                 for fill in order_data["fills"]:
                     commission = Decimal(str(fill.get("commission", "0")))
                     commission_asset = fill.get("commissionAsset", "")
-                    
+
                     if commission > 0:
                         fees.append({
                             "asset": commission_asset,
                             "amount": commission
                         })
-            
+
             # Check for direct commission fields
             elif "commission" in order_data:
                 commission = Decimal(str(order_data.get("commission", "0")))
                 commission_asset = order_data.get("commissionAsset", "")
-                
+
                 if commission > 0:
                     fees.append({
                         "asset": commission_asset,
                         "amount": commission
                     })
-        
+
         except Exception as e:
             self.logger().warning(f"Error parsing order fees: {e}")
-        
+
         return fees
-    
+
     def create_order_update(self, order_data: Dict[str, Any]) -> OrderUpdate:
         """
         Create OrderUpdate from parsed order data.
-        
+
         Args:
             order_data: Parsed order data
-            
+
         Returns:
             OrderUpdate object for Hummingbot
         """
@@ -361,14 +361,14 @@ class CoinsxyzOrderUtils:
             client_order_id=order_data["client_order_id"],
             exchange_order_id=order_data["exchange_order_id"]
         )
-    
+
     def create_trade_update(self, trade_data: Dict[str, Any]) -> TradeUpdate:
         """
         Create TradeUpdate from parsed trade data.
-        
+
         Args:
             trade_data: Parsed trade data
-            
+
         Returns:
             TradeUpdate object for Hummingbot
         """
@@ -384,26 +384,26 @@ class CoinsxyzOrderUtils:
             fee=trade_data["commission"],
             fee_asset=trade_data["commission_asset"]
         )
-    
+
     def validate_order_data(self, order_data: Dict[str, Any]) -> List[str]:
         """
         Validate order data and return list of issues.
-        
+
         Args:
             order_data: Order data to validate
-            
+
         Returns:
             List of validation error messages
         """
         issues = []
-        
+
         try:
             # Check required fields
             required_fields = ["client_order_id", "exchange_order_id", "trading_pair", "status"]
             for field in required_fields:
                 if not order_data.get(field):
                     issues.append(f"Missing required field: {field}")
-            
+
             # Check numeric fields
             numeric_fields = ["original_amount", "executed_amount", "price"]
             for field in numeric_fields:
@@ -414,48 +414,48 @@ class CoinsxyzOrderUtils:
                             issues.append(f"Negative value for {field}: {value}")
                     except (ValueError, TypeError):
                         issues.append(f"Invalid numeric value for {field}: {value}")
-            
+
             # Check timestamp fields
             timestamp_fields = ["creation_timestamp", "update_timestamp"]
             for field in timestamp_fields:
                 value = order_data.get(field)
                 if value is not None and (not isinstance(value, (int, float)) or value <= 0):
                     issues.append(f"Invalid timestamp for {field}: {value}")
-            
+
             # Check order consistency
             original_amount = order_data.get("original_amount", Decimal("0"))
             executed_amount = order_data.get("executed_amount", Decimal("0"))
             remaining_amount = order_data.get("remaining_amount", Decimal("0"))
-            
+
             if isinstance(original_amount, Decimal) and isinstance(executed_amount, Decimal):
                 expected_remaining = original_amount - executed_amount
                 if isinstance(remaining_amount, Decimal) and abs(remaining_amount - expected_remaining) > Decimal("0.00000001"):
                     issues.append(f"Inconsistent amounts: original={original_amount}, executed={executed_amount}, remaining={remaining_amount}")
-        
+
         except Exception as e:
             issues.append(f"Error validating order data: {e}")
-        
+
         return issues
-    
+
     def validate_trade_data(self, trade_data: Dict[str, Any]) -> List[str]:
         """
         Validate trade data and return list of issues.
-        
+
         Args:
             trade_data: Trade data to validate
-            
+
         Returns:
             List of validation error messages
         """
         issues = []
-        
+
         try:
             # Check required fields
             required_fields = ["trade_id", "trading_pair", "quantity", "price"]
             for field in required_fields:
                 if not trade_data.get(field):
                     issues.append(f"Missing required field: {field}")
-            
+
             # Check numeric fields
             numeric_fields = ["quantity", "price", "quote_quantity", "commission"]
             for field in numeric_fields:
@@ -466,34 +466,34 @@ class CoinsxyzOrderUtils:
                             issues.append(f"Negative value for {field}: {value}")
                     except (ValueError, TypeError):
                         issues.append(f"Invalid numeric value for {field}: {value}")
-            
+
             # Check timestamp
             timestamp = trade_data.get("timestamp")
             if timestamp is not None and (not isinstance(timestamp, (int, float)) or timestamp <= 0):
                 issues.append(f"Invalid timestamp: {timestamp}")
-            
+
             # Check quote quantity consistency
             quantity = trade_data.get("quantity")
             price = trade_data.get("price")
             quote_quantity = trade_data.get("quote_quantity")
-            
+
             if all(isinstance(x, Decimal) for x in [quantity, price, quote_quantity]):
                 expected_quote = quantity * price
                 if abs(quote_quantity - expected_quote) > Decimal("0.00000001"):
                     issues.append(f"Inconsistent quote quantity: expected={expected_quote}, actual={quote_quantity}")
-        
+
         except Exception as e:
             issues.append(f"Error validating trade data: {e}")
-        
+
         return issues
-    
+
     def format_order_for_display(self, order_data: Dict[str, Any]) -> str:
         """
         Format order data for display purposes.
-        
+
         Args:
             order_data: Order data dictionary
-            
+
         Returns:
             Formatted order string
         """
@@ -508,14 +508,14 @@ class CoinsxyzOrderUtils:
             )
         except Exception:
             return f"Order {order_data.get('client_order_id', 'N/A')}"
-    
+
     def format_trade_for_display(self, trade_data: Dict[str, Any]) -> str:
         """
         Format trade data for display purposes.
-        
+
         Args:
             trade_data: Trade data dictionary
-            
+
         Returns:
             Formatted trade string
         """

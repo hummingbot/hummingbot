@@ -40,7 +40,7 @@ class SubscriptionType(Enum):
 class CoinsxyzWebSocketConnectionManager:
     """
     WebSocket connection manager for Coins.xyz exchange.
-    
+
     Provides comprehensive connection lifecycle management including:
     - Automatic reconnection with exponential backoff
     - Subscription management for multiple data streams
@@ -48,13 +48,13 @@ class CoinsxyzWebSocketConnectionManager:
     - Connection health monitoring
     - Graceful shutdown handling
     """
-    
+
     def __init__(self,
                  api_factory: WebAssistantsFactory = None,
                  domain: str = CONSTANTS.DEFAULT_DOMAIN):
         """
         Initialize WebSocket connection manager.
-        
+
         Args:
             api_factory: Web assistants factory for creating connections
             domain: API domain (default or testnet)
@@ -62,85 +62,85 @@ class CoinsxyzWebSocketConnectionManager:
         self._api_factory = api_factory or WebAssistantsFactory()
         self._domain = domain
         self._logger = None
-        
+
         # Connection management
         self._ws_assistant: Optional[WSAssistant] = None
         self._connection_state = ConnectionState.DISCONNECTED
         self._connection_lock = asyncio.Lock()
-        
+
         # Subscription management
         self._subscriptions: Dict[str, Dict[str, Any]] = {}
         self._subscription_callbacks: Dict[str, List[Callable[[Dict[str, Any]], Awaitable[None]]]] = {}
         self._subscription_id_counter = 1
-        
+
         # Reconnection management
         self._reconnect_task: Optional[asyncio.Task] = None
         self._max_reconnect_attempts = 10
         self._reconnect_delay = 1.0  # Initial delay in seconds
         self._max_reconnect_delay = 60.0  # Maximum delay in seconds
         self._reconnect_attempts = 0
-        
+
         # Health monitoring
         self._last_message_time = 0.0
         self._ping_task: Optional[asyncio.Task] = None
         self._ping_interval = CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL
-        
+
         # Message processing
         self._message_listener_task: Optional[asyncio.Task] = None
         self._shutdown_event = asyncio.Event()
-        
+
         # Weak references to prevent circular references
         self._subscribers: Set[weakref.ReferenceType] = set()
-    
+
     def logger(self) -> HummingbotLogger:
         """Get logger instance."""
         if self._logger is None:
             self._logger = logging.getLogger(__name__)
         return self._logger
-    
+
     @property
     def is_connected(self) -> bool:
         """Check if WebSocket is connected."""
         return self._connection_state == ConnectionState.CONNECTED
-    
+
     @property
     def connection_state(self) -> ConnectionState:
         """Get current connection state."""
         return self._connection_state
-    
+
     async def start(self) -> None:
         """
         Start the WebSocket connection manager.
-        
+
         Initiates connection and starts background tasks for message processing
         and health monitoring.
         """
         if self._connection_state != ConnectionState.DISCONNECTED:
             self.logger().warning("Connection manager already started")
             return
-        
+
         self.logger().info("Starting WebSocket connection manager")
-        
+
         # Start connection
         await self._connect()
-        
+
         # Start background tasks
         self._message_listener_task = asyncio.create_task(self._message_listener())
         self._ping_task = asyncio.create_task(self._ping_loop())
-        
+
         self.logger().info("WebSocket connection manager started successfully")
-    
+
     async def stop(self) -> None:
         """
         Stop the WebSocket connection manager.
-        
+
         Gracefully shuts down all connections and background tasks.
         """
         self.logger().info("Stopping WebSocket connection manager")
-        
+
         # Signal shutdown
         self._shutdown_event.set()
-        
+
         # Cancel background tasks
         if self._message_listener_task:
             self._message_listener_task.cancel()
@@ -148,47 +148,47 @@ class CoinsxyzWebSocketConnectionManager:
                 await self._message_listener_task
             except asyncio.CancelledError:
                 pass
-        
+
         if self._ping_task:
             self._ping_task.cancel()
             try:
                 await self._ping_task
             except asyncio.CancelledError:
                 pass
-        
+
         if self._reconnect_task:
             self._reconnect_task.cancel()
             try:
                 await self._reconnect_task
             except asyncio.CancelledError:
                 pass
-        
+
         # Disconnect WebSocket
         await self._disconnect()
-        
+
         # Clear subscriptions
         self._subscriptions.clear()
         self._subscription_callbacks.clear()
-        
+
         self.logger().info("WebSocket connection manager stopped")
-    
+
     async def _connect(self) -> None:
         """
         Establish WebSocket connection.
-        
+
         Creates new WebSocket assistant and connects to the exchange.
         """
         async with self._connection_lock:
             if self._connection_state in [ConnectionState.CONNECTING, ConnectionState.CONNECTED]:
                 return
-            
+
             self._connection_state = ConnectionState.CONNECTING
             self.logger().info("Connecting to WebSocket...")
-            
+
             try:
                 # Create new WebSocket assistant
                 self._ws_assistant = await self._api_factory.get_ws_assistant()
-                
+
                 # Connect to WebSocket
                 ws_url = web_utils.websocket_url(self._domain)
                 await self._ws_assistant.connect(
@@ -196,30 +196,30 @@ class CoinsxyzWebSocketConnectionManager:
                     ping_timeout=self._ping_interval,
                     message_timeout=self._ping_interval * 2
                 )
-                
+
                 self._connection_state = ConnectionState.CONNECTED
                 self._last_message_time = time.time()
                 self._reconnect_attempts = 0
-                
+
                 self.logger().info(f"WebSocket connected successfully to {ws_url}")
-                
+
                 # Resubscribe to all active subscriptions
                 await self._resubscribe_all()
-                
+
             except Exception as e:
                 self._connection_state = ConnectionState.FAILED
                 self.logger().error(f"WebSocket connection failed: {e}")
-                
+
                 # Schedule reconnection
                 if not self._shutdown_event.is_set():
                     await self._schedule_reconnect()
-                
+
                 raise
-    
+
     async def _disconnect(self) -> None:
         """
         Disconnect WebSocket connection.
-        
+
         Cleanly closes the WebSocket connection and resets state.
         """
         async with self._connection_lock:
@@ -230,71 +230,71 @@ class CoinsxyzWebSocketConnectionManager:
                     self.logger().warning(f"Error during WebSocket disconnect: {e}")
                 finally:
                     self._ws_assistant = None
-            
+
             self._connection_state = ConnectionState.DISCONNECTED
             self.logger().info("WebSocket disconnected")
-    
+
     async def _schedule_reconnect(self) -> None:
         """
         Schedule reconnection with exponential backoff.
-        
+
         Implements exponential backoff strategy for reconnection attempts.
         """
         if self._reconnect_task and not self._reconnect_task.done():
             return
-        
+
         self._reconnect_attempts += 1
-        
+
         if self._reconnect_attempts > self._max_reconnect_attempts:
             self.logger().error("Maximum reconnection attempts reached, giving up")
             self._connection_state = ConnectionState.FAILED
             return
-        
+
         # Calculate delay with exponential backoff
         delay = min(
             self._reconnect_delay * (2 ** (self._reconnect_attempts - 1)),
             self._max_reconnect_delay
         )
-        
+
         self.logger().info(f"Scheduling reconnection attempt {self._reconnect_attempts} in {delay:.1f}s")
-        
+
         self._reconnect_task = asyncio.create_task(self._reconnect_after_delay(delay))
-    
+
     async def _reconnect_after_delay(self, delay: float) -> None:
         """
         Reconnect after specified delay.
-        
+
         Args:
             delay: Delay in seconds before reconnection attempt
         """
         try:
             await asyncio.sleep(delay)
-            
+
             if self._shutdown_event.is_set():
                 return
-            
+
             self._connection_state = ConnectionState.RECONNECTING
             self.logger().info("Attempting to reconnect...")
-            
+
             await self._connect()
-            
+
         except Exception as e:
             self.logger().error(f"Reconnection attempt failed: {e}")
-            
+
             if not self._shutdown_event.is_set():
                 await self._schedule_reconnect()
-    
+
     async def _resubscribe_all(self) -> None:
         """
         Resubscribe to all active subscriptions.
-        
+
         Called after successful reconnection to restore all subscriptions.
         """
         if not self._subscriptions:
             return
-        
+
         self.logger().info(f"Resubscribing to {len(self._subscriptions)} subscriptions")
-        
+
         for subscription_key, subscription_data in self._subscriptions.items():
             try:
                 await self._send_subscription_request(
@@ -305,11 +305,11 @@ class CoinsxyzWebSocketConnectionManager:
                 self.logger().debug(f"Resubscribed to {subscription_key}")
             except Exception as e:
                 self.logger().error(f"Failed to resubscribe to {subscription_key}: {e}")
-    
+
     async def _send_subscription_request(self, method: str, params: List[str], request_id: int) -> None:
         """
         Send subscription request to WebSocket.
-        
+
         Args:
             method: Subscription method (SUBSCRIBE/UNSUBSCRIBE)
             params: Subscription parameters
@@ -317,67 +317,67 @@ class CoinsxyzWebSocketConnectionManager:
         """
         if not self._ws_assistant or self._connection_state != ConnectionState.CONNECTED:
             raise RuntimeError("WebSocket not connected")
-        
+
         request = WSJSONRequest({
             "method": method,
             "params": params,
             "id": request_id
         })
-        
+
         await self._ws_assistant.send(request)
         self.logger().debug(f"Sent {method} request: {params}")
-    
+
     async def _message_listener(self) -> None:
         """
         Listen for incoming WebSocket messages.
-        
+
         Processes all incoming messages and routes them to appropriate handlers.
         """
         self.logger().info("Starting WebSocket message listener")
-        
+
         while not self._shutdown_event.is_set():
             try:
                 if not self._ws_assistant or self._connection_state != ConnectionState.CONNECTED:
                     await asyncio.sleep(1)
                     continue
-                
+
                 # Receive message with timeout
                 try:
                     async for ws_response in self._ws_assistant.iter_messages():
                         if self._shutdown_event.is_set():
                             break
-                        
+
                         self._last_message_time = time.time()
                         await self._process_message(ws_response)
-                        
+
                 except asyncio.TimeoutError:
                     self.logger().warning("WebSocket message timeout")
                     continue
-                
+
             except Exception as e:
                 self.logger().error(f"Error in message listener: {e}")
-                
+
                 if not self._shutdown_event.is_set():
                     await self._schedule_reconnect()
-                
+
                 await asyncio.sleep(1)
-        
+
         self.logger().info("WebSocket message listener stopped")
-    
+
     async def _process_message(self, ws_response: WSResponse) -> None:
         """
         Process incoming WebSocket message.
-        
+
         Args:
             ws_response: WebSocket response containing message data
         """
         try:
             message_data = ws_response.data
-            
+
             if not isinstance(message_data, dict):
                 self.logger().warning(f"Received non-dict message: {message_data}")
                 return
-            
+
             # Route message to appropriate handlers
             stream = message_data.get("stream", "")
             if stream:
@@ -385,81 +385,81 @@ class CoinsxyzWebSocketConnectionManager:
             else:
                 # Handle subscription responses and other control messages
                 await self._handle_control_message(message_data)
-            
+
         except Exception as e:
             self.logger().error(f"Error processing WebSocket message: {e}")
-    
+
     async def _route_stream_message(self, stream: str, message_data: Dict[str, Any]) -> None:
         """
         Route stream message to registered callbacks.
-        
+
         Args:
             stream: Stream identifier
             message_data: Message data
         """
         callbacks = self._subscription_callbacks.get(stream, [])
-        
+
         if not callbacks:
             self.logger().debug(f"No callbacks registered for stream: {stream}")
             return
-        
+
         # Execute all callbacks for this stream
         for callback in callbacks:
             try:
                 await callback(message_data)
             except Exception as e:
                 self.logger().error(f"Error in stream callback for {stream}: {e}")
-    
+
     async def _handle_control_message(self, message_data: Dict[str, Any]) -> None:
         """
         Handle control messages (subscription responses, errors, etc.).
-        
+
         Args:
             message_data: Control message data
         """
         message_id = message_data.get("id")
         result = message_data.get("result")
         error = message_data.get("error")
-        
+
         if error:
             self.logger().error(f"WebSocket error (ID: {message_id}): {error}")
         elif result is not None:
             self.logger().debug(f"WebSocket response (ID: {message_id}): {result}")
         else:
             self.logger().debug(f"Unhandled control message: {message_data}")
-    
+
     async def _ping_loop(self) -> None:
         """
         Ping loop for connection health monitoring.
-        
+
         Monitors connection health and triggers reconnection if needed.
         """
         self.logger().info("Starting WebSocket ping loop")
-        
+
         while not self._shutdown_event.is_set():
             try:
                 await asyncio.sleep(self._ping_interval)
-                
+
                 if self._shutdown_event.is_set():
                     break
-                
+
                 # Check if we've received messages recently
                 time_since_last_message = time.time() - self._last_message_time
-                
+
                 if time_since_last_message > self._ping_interval * 2:
                     self.logger().warning(f"No messages received for {time_since_last_message:.1f}s, reconnecting")
                     await self._schedule_reconnect()
-                
+
             except Exception as e:
                 self.logger().error(f"Error in ping loop: {e}")
-        
+
         self.logger().info("WebSocket ping loop stopped")
 
     # Subscription Management Methods
 
     async def subscribe_to_order_book(self,
-                                     trading_pair: str,
-                                     callback: Callable[[Dict[str, Any]], Awaitable[None]]) -> str:
+                                      trading_pair: str,
+                                      callback: Callable[[Dict[str, Any]], Awaitable[None]]) -> str:
         """
         Subscribe to order book updates for a trading pair.
 
@@ -482,8 +482,8 @@ class CoinsxyzWebSocketConnectionManager:
         )
 
     async def subscribe_to_trades(self,
-                                 trading_pair: str,
-                                 callback: Callable[[Dict[str, Any]], Awaitable[None]]) -> str:
+                                  trading_pair: str,
+                                  callback: Callable[[Dict[str, Any]], Awaitable[None]]) -> str:
         """
         Subscribe to trade updates for a trading pair.
 
@@ -506,8 +506,8 @@ class CoinsxyzWebSocketConnectionManager:
         )
 
     async def subscribe_to_ticker(self,
-                                 trading_pair: str,
-                                 callback: Callable[[Dict[str, Any]], Awaitable[None]]) -> str:
+                                  trading_pair: str,
+                                  callback: Callable[[Dict[str, Any]], Awaitable[None]]) -> str:
         """
         Subscribe to ticker updates for a trading pair.
 
@@ -530,9 +530,9 @@ class CoinsxyzWebSocketConnectionManager:
         )
 
     async def subscribe_to_klines(self,
-                                 trading_pair: str,
-                                 interval: str,
-                                 callback: Callable[[Dict[str, Any]], Awaitable[None]]) -> str:
+                                  trading_pair: str,
+                                  interval: str,
+                                  callback: Callable[[Dict[str, Any]], Awaitable[None]]) -> str:
         """
         Subscribe to klines/candlestick updates for a trading pair.
 
@@ -556,9 +556,9 @@ class CoinsxyzWebSocketConnectionManager:
         )
 
     async def _subscribe_to_stream(self,
-                                  stream: str,
-                                  subscription_type: SubscriptionType,
-                                  callback: Callable[[Dict[str, Any]], Awaitable[None]]) -> str:
+                                   stream: str,
+                                   subscription_type: SubscriptionType,
+                                   callback: Callable[[Dict[str, Any]], Awaitable[None]]) -> str:
         """
         Subscribe to a WebSocket stream.
 

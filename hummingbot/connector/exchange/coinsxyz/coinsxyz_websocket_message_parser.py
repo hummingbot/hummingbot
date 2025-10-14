@@ -31,28 +31,28 @@ class MessageType(Enum):
 class CoinsxyzWebSocketMessageParser:
     """
     WebSocket message parser and validation framework.
-    
+
     Provides comprehensive parsing and validation for all Coins.xyz WebSocket
     message types with proper error handling and data normalization.
     """
-    
+
     def __init__(self):
         """Initialize message parser."""
         self._logger = None
-    
+
     def logger(self) -> HummingbotLogger:
         """Get logger instance."""
         if self._logger is None:
             self._logger = logging.getLogger(__name__)
         return self._logger
-    
+
     def parse_message(self, raw_message: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
         Parse raw WebSocket message and determine its type.
-        
+
         Args:
             raw_message: Raw WebSocket message data
-            
+
         Returns:
             Parsed message with type information or None if invalid
         """
@@ -60,10 +60,10 @@ class CoinsxyzWebSocketMessageParser:
             if not isinstance(raw_message, dict):
                 self.logger().warning(f"Invalid message format: {type(raw_message)}")
                 return None
-            
+
             # Determine message type
             message_type = self._determine_message_type(raw_message)
-            
+
             # Parse based on message type
             if message_type == MessageType.ORDER_BOOK_DIFF:
                 return self._parse_order_book_diff(raw_message)
@@ -80,19 +80,19 @@ class CoinsxyzWebSocketMessageParser:
             else:
                 self.logger().debug(f"Unknown message type: {raw_message}")
                 return None
-                
+
         except Exception as e:
             self.logger().error(f"Error parsing WebSocket message: {e}")
             self.logger().debug(f"Raw message: {raw_message}")
             return None
-    
+
     def _determine_message_type(self, message: Dict[str, Any]) -> MessageType:
         """
         Determine the type of WebSocket message.
-        
+
         Args:
             message: WebSocket message data
-            
+
         Returns:
             Message type enum
         """
@@ -107,7 +107,7 @@ class CoinsxyzWebSocketMessageParser:
                 return MessageType.TICKER
             elif "@kline" in stream:
                 return MessageType.KLINE
-        
+
         # Check for data-based message identification
         data = message.get("data", {})
         if isinstance(data, dict):
@@ -120,21 +120,21 @@ class CoinsxyzWebSocketMessageParser:
                 return MessageType.TICKER
             elif event_type == "kline":
                 return MessageType.KLINE
-        
+
         # Check for subscription responses
         if "result" in message or "id" in message:
             return MessageType.SUBSCRIPTION_RESPONSE
-        
+
         # Check for error messages
         if "error" in message and message.get("error") is not None:
             return MessageType.ERROR
-        
+
         return MessageType.UNKNOWN
-    
+
     def _parse_order_book_diff(self, message: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
         Parse order book diff message.
-        
+
         Expected format:
         {
             "stream": "btcusdt@depth",
@@ -152,27 +152,27 @@ class CoinsxyzWebSocketMessageParser:
         try:
             data = message.get("data", {})
             stream = message.get("stream", "")
-            
+
             # Extract trading pair from stream
             if "@depth" in stream:
                 symbol = stream.split("@")[0].upper()
             else:
                 symbol = data.get("s", "")
-            
+
             if not symbol:
                 self.logger().warning("No symbol found in order book diff message")
                 return None
-            
+
             # Validate required fields
             bids = data.get("b", [])
             asks = data.get("a", [])
             update_id = data.get("u", data.get("U", 0))
             timestamp = data.get("E", int(time.time() * 1000))
-            
+
             # Validate bid/ask data
             validated_bids = self._validate_order_book_entries(bids, "bids")
             validated_asks = self._validate_order_book_entries(asks, "asks")
-            
+
             return {
                 "type": MessageType.ORDER_BOOK_DIFF,
                 "symbol": symbol,
@@ -182,15 +182,15 @@ class CoinsxyzWebSocketMessageParser:
                 "asks": validated_asks,
                 "raw_message": message
             }
-            
+
         except Exception as e:
             self.logger().error(f"Error parsing order book diff: {e}")
             return None
-    
+
     def _parse_trade_message(self, message: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
         Parse trade message.
-        
+
         Expected format:
         {
             "stream": "btcusdt@trade",
@@ -209,35 +209,35 @@ class CoinsxyzWebSocketMessageParser:
         try:
             data = message.get("data", {})
             stream = message.get("stream", "")
-            
+
             # Extract trading pair from stream
             if "@trade" in stream:
                 symbol = stream.split("@")[0].upper()
             else:
                 symbol = data.get("s", "")
-            
+
             if not symbol:
                 self.logger().warning("No symbol found in trade message")
                 return None
-            
+
             # Extract trade data
             trade_id = str(data.get("t", data.get("id", 0)))
             price = str(data.get("p", data.get("price", "0")))
             quantity = str(data.get("q", data.get("qty", "0")))
             timestamp = float(data.get("T", data.get("time", data.get("E", 0))))
             is_buyer_maker = data.get("m", data.get("isBuyerMaker", False))
-            
+
             # Convert timestamp from milliseconds to seconds if needed
             if timestamp > 1e12:
                 timestamp = timestamp / 1000.0
-            
+
             # Validate trade data
             if not self._validate_trade_data(price, quantity, trade_id):
                 return None
-            
+
             # Determine trade type (from taker perspective)
             trade_type = float(TradeType.SELL.value) if is_buyer_maker else float(TradeType.BUY.value)
-            
+
             return {
                 "type": MessageType.TRADE,
                 "symbol": symbol,
@@ -249,15 +249,15 @@ class CoinsxyzWebSocketMessageParser:
                 "is_buyer_maker": is_buyer_maker,
                 "raw_message": message
             }
-            
+
         except Exception as e:
             self.logger().error(f"Error parsing trade message: {e}")
             return None
-    
+
     def _parse_ticker_message(self, message: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
         Parse ticker message.
-        
+
         Expected format:
         {
             "stream": "btcusdt@ticker",
@@ -277,17 +277,17 @@ class CoinsxyzWebSocketMessageParser:
         try:
             data = message.get("data", {})
             stream = message.get("stream", "")
-            
+
             # Extract trading pair from stream
             if "@ticker" in stream:
                 symbol = stream.split("@")[0].upper()
             else:
                 symbol = data.get("s", "")
-            
+
             if not symbol:
                 self.logger().warning("No symbol found in ticker message")
                 return None
-            
+
             # Extract ticker data
             price_change = str(data.get("p", "0"))
             price_change_percent = str(data.get("P", "0"))
@@ -296,11 +296,11 @@ class CoinsxyzWebSocketMessageParser:
             high_price = str(data.get("h", "0"))
             low_price = str(data.get("l", "0"))
             timestamp = float(data.get("E", int(time.time() * 1000)))
-            
+
             # Convert timestamp from milliseconds to seconds if needed
             if timestamp > 1e12:
                 timestamp = timestamp / 1000.0
-            
+
             return {
                 "type": MessageType.TICKER,
                 "symbol": symbol,
@@ -313,15 +313,15 @@ class CoinsxyzWebSocketMessageParser:
                 "timestamp": timestamp,
                 "raw_message": message
             }
-            
+
         except Exception as e:
             self.logger().error(f"Error parsing ticker message: {e}")
             return None
-    
+
     def _parse_kline_message(self, message: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
         Parse kline/candlestick message.
-        
+
         Expected format:
         {
             "stream": "btcusdt@kline_1m",
@@ -348,7 +348,7 @@ class CoinsxyzWebSocketMessageParser:
             data = message.get("data", {})
             stream = message.get("stream", "")
             kline_data = data.get("k", {})
-            
+
             # Extract trading pair from stream
             if "@kline" in stream:
                 symbol = stream.split("@")[0].upper()
@@ -356,11 +356,11 @@ class CoinsxyzWebSocketMessageParser:
             else:
                 symbol = kline_data.get("s", "")
                 interval = kline_data.get("i", "1m")
-            
+
             if not symbol:
                 self.logger().warning("No symbol found in kline message")
                 return None
-            
+
             # Extract kline data
             open_time = int(kline_data.get("t", 0))
             close_time = int(kline_data.get("T", 0))
@@ -370,7 +370,7 @@ class CoinsxyzWebSocketMessageParser:
             low_price = str(kline_data.get("l", "0"))
             volume = str(kline_data.get("v", "0"))
             trade_count = int(kline_data.get("n", 0))
-            
+
             return {
                 "type": MessageType.KLINE,
                 "symbol": symbol,
@@ -386,15 +386,15 @@ class CoinsxyzWebSocketMessageParser:
                 "timestamp": close_time / 1000.0,
                 "raw_message": message
             }
-            
+
         except Exception as e:
             self.logger().error(f"Error parsing kline message: {e}")
             return None
-    
+
     def _parse_subscription_response(self, message: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
         Parse subscription response message.
-        
+
         Expected format:
         {
             "result": null,
@@ -411,11 +411,11 @@ class CoinsxyzWebSocketMessageParser:
         except Exception as e:
             self.logger().error(f"Error parsing subscription response: {e}")
             return None
-    
+
     def _parse_error_message(self, message: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
         Parse error message.
-        
+
         Expected format:
         {
             "error": {
@@ -437,67 +437,67 @@ class CoinsxyzWebSocketMessageParser:
         except Exception as e:
             self.logger().error(f"Error parsing error message: {e}")
             return None
-    
+
     def _validate_order_book_entries(self, entries: List[List[str]], entry_type: str) -> List[List[str]]:
         """
         Validate order book entries (bids/asks).
-        
+
         Args:
             entries: List of [price, quantity] pairs
             entry_type: "bids" or "asks" for logging
-            
+
         Returns:
             Validated entries list
         """
         validated_entries = []
-        
+
         for entry in entries:
             try:
                 if not isinstance(entry, list) or len(entry) < 2:
                     continue
-                
+
                 price = str(entry[0])
                 quantity = str(entry[1])
-                
+
                 # Validate price and quantity
                 if float(price) <= 0:
                     continue
-                
+
                 if float(quantity) < 0:
                     continue
-                
+
                 validated_entries.append([price, quantity])
-                
+
             except (ValueError, IndexError) as e:
                 self.logger().warning(f"Invalid {entry_type} entry: {entry}, error: {e}")
                 continue
-        
+
         return validated_entries
-    
+
     def _validate_trade_data(self, price: str, quantity: str, trade_id: str) -> bool:
         """
         Validate trade data.
-        
+
         Args:
             price: Trade price
             quantity: Trade quantity
             trade_id: Trade ID
-            
+
         Returns:
             True if valid, False otherwise
         """
         try:
             if not trade_id or trade_id == "0":
                 return False
-            
+
             if float(price) <= 0:
                 return False
-            
+
             if float(quantity) <= 0:
                 return False
-            
+
             return True
-            
+
         except ValueError:
             return False
 

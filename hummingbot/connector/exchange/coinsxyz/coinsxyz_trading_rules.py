@@ -83,7 +83,7 @@ class OrderValidationResult:
 class CoinsxyzTradingRules:
     """
     Trading rules and fee integration for Coins.xyz exchange.
-    
+
     Provides comprehensive trading rules management with:
     - Fee structure implementation and calculation
     - Trading rules validation and enforcement
@@ -91,13 +91,13 @@ class CoinsxyzTradingRules:
     - Order parameter validation and adjustment
     - Fee calculation for different order types
     """
-    
-    def __init__(self, 
+
+    def __init__(self,
                  api_factory: WebAssistantsFactory,
                  domain: str = CONSTANTS.DEFAULT_DOMAIN):
         """
         Initialize trading rules and fee integration.
-        
+
         Args:
             api_factory: Web assistants factory for API requests
             domain: API domain (default or testnet)
@@ -105,13 +105,13 @@ class CoinsxyzTradingRules:
         self._api_factory = api_factory
         self._domain = domain
         self._logger = None
-        
+
         # Trading rules and fees cache
         self._trading_rules: Dict[str, CoinsxyzTradingRule] = {}
         self._fee_structures: Dict[str, CoinsxyzFeeStructure] = {}
         self._last_update_time = 0
         self._update_interval = 1800  # 30 minutes
-        
+
         # Default fee structure (will be updated from API)
         self._default_fees = CoinsxyzFeeStructure(
             trading_pair="DEFAULT",
@@ -120,102 +120,102 @@ class CoinsxyzTradingRules:
             min_fee_amount=Decimal("0.00001"),
             fee_currency="USDT"
         )
-        
+
         # Update lock
         self._update_lock = asyncio.Lock()
-    
+
     def logger(self) -> HummingbotLogger:
         """Get logger instance."""
         if self._logger is None:
             self._logger = logging.getLogger(__name__)
         return self._logger
-    
+
     async def initialize_trading_rules(self) -> bool:
         """
         Initialize trading rules and fee structures from exchange.
-        
+
         Returns:
             Boolean indicating success
         """
         try:
             # Fetch exchange info
             exchange_info = await self._fetch_exchange_info()
-            
+
             # Parse trading rules
             trading_rules = await self._parse_trading_rules(exchange_info)
-            
+
             # Parse fee structures
             fee_structures = await self._parse_fee_structures(exchange_info)
-            
+
             # Update cache
             self._trading_rules.update(trading_rules)
             self._fee_structures.update(fee_structures)
             self._last_update_time = time.time()
-            
+
             self.logger().info(
                 f"Initialized {len(trading_rules)} trading rules and "
                 f"{len(fee_structures)} fee structures"
             )
-            
+
             return True
-            
+
         except Exception as e:
             self.logger().error(f"Error initializing trading rules: {e}")
             return False
-    
+
     async def update_trading_rules(self) -> bool:
         """
         Update trading rules and fee structures if needed.
-        
+
         Returns:
             Boolean indicating if update was performed
         """
         current_time = time.time()
-        
+
         if current_time - self._last_update_time < self._update_interval:
             return False
-        
+
         async with self._update_lock:
             try:
                 return await self.initialize_trading_rules()
             except Exception as e:
                 self.logger().error(f"Error updating trading rules: {e}")
                 return False
-    
+
     def get_trading_rule(self, trading_pair: str) -> Optional[CoinsxyzTradingRule]:
         """
         Get trading rule for a specific trading pair.
-        
+
         Args:
             trading_pair: Trading pair (e.g., "BTC-USDT")
-            
+
         Returns:
             CoinsxyzTradingRule or None if not found
         """
         return self._trading_rules.get(trading_pair)
-    
+
     def get_fee_structure(self, trading_pair: str) -> CoinsxyzFeeStructure:
         """
         Get fee structure for a trading pair.
-        
+
         Args:
             trading_pair: Trading pair
-            
+
         Returns:
             CoinsxyzFeeStructure (default if not found)
         """
         return self._fee_structures.get(trading_pair, self._default_fees)
-    
+
     def calculate_fee(self,
-                     trading_pair: str,
-                     order_type: OrderType,
-                     trade_type: TradeType,
-                     amount: Decimal,
-                     price: Decimal,
-                     is_maker: Optional[bool] = None) -> Dict[str, Any]:
+                      trading_pair: str,
+                      order_type: OrderType,
+                      trade_type: TradeType,
+                      amount: Decimal,
+                      price: Decimal,
+                      is_maker: Optional[bool] = None) -> Dict[str, Any]:
         """
         Calculate fee for an order.
-        
+
         Args:
             trading_pair: Trading pair
             order_type: Order type
@@ -223,38 +223,38 @@ class CoinsxyzTradingRules:
             amount: Order amount
             price: Order price
             is_maker: Whether order is maker (None for auto-detection)
-            
+
         Returns:
             Dictionary with fee information
         """
         try:
             # Get fee structure
             fee_structure = self.get_fee_structure(trading_pair)
-            
+
             # Determine if maker or taker
             if is_maker is None:
                 is_maker = order_type == OrderType.LIMIT_MAKER or order_type == OrderType.LIMIT
-            
+
             # Calculate fee rate
             fee_rate = fee_structure.maker_fee_rate if is_maker else fee_structure.taker_fee_rate
-            
+
             # Calculate notional value
             notional_value = amount * price
-            
+
             # Calculate fee amount
             fee_amount = notional_value * fee_rate
-            
+
             # Apply minimum fee
             if fee_amount < fee_structure.min_fee_amount:
                 fee_amount = fee_structure.min_fee_amount
-            
+
             # Determine fee currency
             base_asset, quote_asset = trading_pair.split("-")
             if trade_type == TradeType.BUY:
                 fee_currency = base_asset  # Fee paid in base asset for buy orders
             else:
                 fee_currency = quote_asset  # Fee paid in quote asset for sell orders
-            
+
             return {
                 "fee_rate": fee_rate,
                 "fee_amount": fee_amount,
@@ -264,7 +264,7 @@ class CoinsxyzTradingRules:
                 "min_fee_applied": fee_amount == fee_structure.min_fee_amount,
                 "volume_tier": fee_structure.volume_tier
             }
-            
+
         except Exception as e:
             self.logger().error(f"Error calculating fee for {trading_pair}: {e}")
             return {
@@ -275,29 +275,29 @@ class CoinsxyzTradingRules:
                 "is_maker": False,
                 "error": str(e)
             }
-    
+
     def validate_order_parameters(self,
-                                trading_pair: str,
-                                order_type: OrderType,
-                                trade_type: TradeType,
-                                amount: Decimal,
-                                price: Optional[Decimal] = None) -> OrderValidationResult:
+                                  trading_pair: str,
+                                  order_type: OrderType,
+                                  trade_type: TradeType,
+                                  amount: Decimal,
+                                  price: Optional[Decimal] = None) -> OrderValidationResult:
         """
         Validate order parameters against trading rules.
-        
+
         Args:
             trading_pair: Trading pair
             order_type: Order type
             trade_type: Trade type
             amount: Order amount
             price: Order price (required for LIMIT orders)
-            
+
         Returns:
             OrderValidationResult with validation outcome
         """
         try:
             warnings = []
-            
+
             # Get trading rule
             trading_rule = self.get_trading_rule(trading_pair)
             if not trading_rule:
@@ -305,40 +305,40 @@ class CoinsxyzTradingRules:
                     is_valid=False,
                     error_message=f"Trading pair {trading_pair} not supported"
                 )
-            
+
             # Check trading status
             if trading_rule.trading_status != "TRADING":
                 return OrderValidationResult(
                     is_valid=False,
                     error_message=f"Trading is currently {trading_rule.trading_status} for {trading_pair}"
                 )
-            
+
             # Check order type support
             if order_type == OrderType.LIMIT and not trading_rule.supports_limit_orders:
                 return OrderValidationResult(
                     is_valid=False,
                     error_message=f"LIMIT orders not supported for {trading_pair}"
                 )
-            
+
             if order_type == OrderType.MARKET and not trading_rule.supports_market_orders:
                 return OrderValidationResult(
                     is_valid=False,
                     error_message=f"MARKET orders not supported for {trading_pair}"
                 )
-            
+
             # Validate amount
             if amount < trading_rule.min_order_size:
                 return OrderValidationResult(
                     is_valid=False,
                     error_message=f"Order amount {amount} below minimum {trading_rule.min_order_size}"
                 )
-            
+
             if amount > trading_rule.max_order_size:
                 return OrderValidationResult(
                     is_valid=False,
                     error_message=f"Order amount {amount} exceeds maximum {trading_rule.max_order_size}"
                 )
-            
+
             # Validate price for LIMIT orders
             if order_type == OrderType.LIMIT:
                 if price is None:
@@ -346,13 +346,13 @@ class CoinsxyzTradingRules:
                         is_valid=False,
                         error_message="Price is required for LIMIT orders"
                     )
-                
+
                 if price <= 0:
                     return OrderValidationResult(
                         is_valid=False,
                         error_message="Order price must be positive"
                     )
-                
+
                 # Check minimum notional value
                 notional_value = amount * price
                 if notional_value < trading_rule.min_notional_size:
@@ -360,17 +360,17 @@ class CoinsxyzTradingRules:
                         is_valid=False,
                         error_message=f"Order notional value {notional_value} below minimum {trading_rule.min_notional_size}"
                     )
-            
+
             # Adjust precision
             adjusted_amount = self._adjust_amount_precision(amount, trading_rule)
             adjusted_price = self._adjust_price_precision(price, trading_rule) if price else None
-            
+
             if adjusted_amount != amount:
                 warnings.append(f"Amount adjusted from {amount} to {adjusted_amount} for precision")
-            
+
             if adjusted_price and adjusted_price != price:
                 warnings.append(f"Price adjusted from {price} to {adjusted_price} for precision")
-            
+
             # Calculate estimated fee
             estimated_fee = None
             fee_currency = None
@@ -378,7 +378,7 @@ class CoinsxyzTradingRules:
                 fee_info = self.calculate_fee(trading_pair, order_type, trade_type, adjusted_amount, adjusted_price)
                 estimated_fee = fee_info.get("fee_amount")
                 fee_currency = fee_info.get("fee_currency")
-            
+
             return OrderValidationResult(
                 is_valid=True,
                 warnings=warnings if warnings else None,
@@ -387,22 +387,22 @@ class CoinsxyzTradingRules:
                 estimated_fee=estimated_fee,
                 fee_currency=fee_currency
             )
-            
+
         except Exception as e:
             self.logger().error(f"Error validating order parameters: {e}")
             return OrderValidationResult(
                 is_valid=False,
                 error_message=f"Validation error: {e}"
             )
-    
+
     def _adjust_amount_precision(self, amount: Decimal, trading_rule: CoinsxyzTradingRule) -> Decimal:
         """
         Adjust amount precision according to trading rules.
-        
+
         Args:
             amount: Original amount
             trading_rule: Trading rule
-            
+
         Returns:
             Adjusted amount
         """
@@ -410,15 +410,15 @@ class CoinsxyzTradingRules:
         if increment > 0:
             return (amount / increment).quantize(Decimal("1")) * increment
         return amount
-    
+
     def _adjust_price_precision(self, price: Decimal, trading_rule: CoinsxyzTradingRule) -> Decimal:
         """
         Adjust price precision according to trading rules.
-        
+
         Args:
             price: Original price
             trading_rule: Trading rule
-            
+
         Returns:
             Adjusted price
         """
@@ -426,57 +426,57 @@ class CoinsxyzTradingRules:
         if increment > 0:
             return (price / increment).quantize(Decimal("1")) * increment
         return price
-    
+
     async def _fetch_exchange_info(self) -> Dict[str, Any]:
         """
         Fetch exchange information from API.
-        
+
         Returns:
             Exchange information dictionary
         """
         rest_assistant = await self._api_factory.get_rest_assistant()
-        
+
         url = web_utils.public_rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL, domain=self._domain)
-        
+
         response = await rest_assistant.execute_request(
             url=url,
             method=RESTMethod.GET,
             throttler_limit_id=CONSTANTS.EXCHANGE_INFO_PATH_URL
         )
-        
+
         return response
-    
+
     async def _parse_trading_rules(self, exchange_info: Dict[str, Any]) -> Dict[str, CoinsxyzTradingRule]:
         """
         Parse trading rules from exchange info.
-        
+
         Args:
             exchange_info: Exchange information
-            
+
         Returns:
             Dictionary of trading rules
         """
         trading_rules = {}
-        
+
         try:
             symbols = exchange_info.get("symbols", [])
-            
+
             for symbol_info in symbols:
                 try:
                     symbol = symbol_info.get("symbol", "")
                     trading_pair = utils.parse_exchange_trading_pair(symbol)
-                    
+
                     if not trading_pair:
                         continue
-                    
+
                     # Parse filters
                     filters = {f["filterType"]: f for f in symbol_info.get("filters", [])}
-                    
+
                     # Extract trading rule parameters
                     lot_size_filter = filters.get("LOT_SIZE", {})
                     price_filter = filters.get("PRICE_FILTER", {})
                     notional_filter = filters.get("MIN_NOTIONAL", {})
-                    
+
                     trading_rule = CoinsxyzTradingRule(
                         trading_pair=trading_pair,
                         min_order_size=Decimal(lot_size_filter.get("minQty", "0.001")),
@@ -493,54 +493,54 @@ class CoinsxyzTradingRules:
                         base_asset_precision=int(symbol_info.get("baseAssetPrecision", 8)),
                         quote_asset_precision=int(symbol_info.get("quotePrecision", 8))
                     )
-                    
+
                     trading_rules[trading_pair] = trading_rule
-                    
+
                 except Exception as e:
                     self.logger().error(f"Error parsing trading rule for {symbol_info}: {e}")
                     continue
-            
+
             return trading_rules
-            
+
         except Exception as e:
             self.logger().error(f"Error parsing trading rules: {e}")
             return {}
-    
+
     async def _parse_fee_structures(self, exchange_info: Dict[str, Any]) -> Dict[str, CoinsxyzFeeStructure]:
         """
         Parse fee structures from exchange info.
-        
+
         Args:
             exchange_info: Exchange information
-            
+
         Returns:
             Dictionary of fee structures
         """
         fee_structures = {}
-        
+
         try:
             # Default fee structure for all pairs
             default_maker_fee = Decimal("0.001")  # 0.1%
             default_taker_fee = Decimal("0.002")  # 0.2%
-            
+
             symbols = exchange_info.get("symbols", [])
-            
+
             for symbol_info in symbols:
                 try:
                     symbol = symbol_info.get("symbol", "")
                     trading_pair = utils.parse_exchange_trading_pair(symbol)
-                    
+
                     if not trading_pair:
                         continue
-                    
+
                     # Extract fee information (if available in symbol info)
                     maker_fee = Decimal(str(symbol_info.get("makerCommission", default_maker_fee)))
                     taker_fee = Decimal(str(symbol_info.get("takerCommission", default_taker_fee)))
-                    
+
                     # Determine fee currency (usually quote asset)
                     base_asset, quote_asset = trading_pair.split("-")
                     fee_currency = quote_asset
-                    
+
                     fee_structure = CoinsxyzFeeStructure(
                         trading_pair=trading_pair,
                         maker_fee_rate=maker_fee,
@@ -549,27 +549,27 @@ class CoinsxyzTradingRules:
                         fee_currency=fee_currency,
                         volume_tier="DEFAULT"
                     )
-                    
+
                     fee_structures[trading_pair] = fee_structure
-                    
+
                 except Exception as e:
                     self.logger().error(f"Error parsing fee structure for {symbol_info}: {e}")
                     continue
-            
+
             return fee_structures
-            
+
         except Exception as e:
             self.logger().error(f"Error parsing fee structures: {e}")
             return {}
-    
+
     def get_all_trading_pairs(self) -> List[str]:
         """Get all available trading pairs."""
         return list(self._trading_rules.keys())
-    
+
     def get_trading_rules_summary(self) -> Dict[str, Any]:
         """
         Get summary of trading rules.
-        
+
         Returns:
             Dictionary with trading rules summary
         """
@@ -581,21 +581,21 @@ class CoinsxyzTradingRules:
             "default_taker_fee": str(self._default_fees.taker_fee_rate),
             "trading_pairs": list(self._trading_rules.keys())
         }
-    
+
     def create_hummingbot_trading_rule(self, trading_pair: str) -> Optional[TradingRule]:
         """
         Create Hummingbot TradingRule from CoinsxyzTradingRule.
-        
+
         Args:
             trading_pair: Trading pair
-            
+
         Returns:
             TradingRule object or None if not found
         """
         coinsxyz_rule = self.get_trading_rule(trading_pair)
         if not coinsxyz_rule:
             return None
-        
+
         return TradingRule(
             trading_pair=trading_pair,
             min_order_size=coinsxyz_rule.min_order_size,
@@ -605,14 +605,14 @@ class CoinsxyzTradingRules:
             min_quote_amount_increment=coinsxyz_rule.min_quote_amount_increment,
             min_notional_size=coinsxyz_rule.min_notional_size
         )
-    
+
     def create_trade_fee(self,
-                        trading_pair: str,
-                        order_type: OrderType,
-                        trade_type: TradeType,
-                        amount: Decimal,
-                        price: Decimal,
-                        is_maker: Optional[bool] = None) -> TradeFee:
+                         trading_pair: str,
+                         order_type: OrderType,
+                         trade_type: TradeType,
+                         amount: Decimal,
+                         price: Decimal,
+                         is_maker: Optional[bool] = None) -> TradeFee:
         """
         Create TradeFee object for Hummingbot integration.
 
@@ -801,13 +801,13 @@ class CoinsxyzTradingRules:
         }
 
     def calculate_discounted_fee(self,
-                                trading_pair: str,
-                                order_type: OrderType,
-                                trade_type: TradeType,
-                                amount: Decimal,
-                                price: Decimal,
-                                user_tier: str = "DEFAULT",
-                                is_maker: Optional[bool] = None) -> Dict[str, Any]:
+                                 trading_pair: str,
+                                 order_type: OrderType,
+                                 trade_type: TradeType,
+                                 amount: Decimal,
+                                 price: Decimal,
+                                 user_tier: str = "DEFAULT",
+                                 is_maker: Optional[bool] = None) -> Dict[str, Any]:
         """
         Calculate fee with user tier discount applied.
 

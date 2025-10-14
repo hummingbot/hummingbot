@@ -425,7 +425,7 @@ class CoinsxyzAPIUserStreamDataSource:
                     error_count=0
                 )
 
-                self.logger().info(f"Successfully created listenKey: {listen_key[:8]}... (expires in {self.LISTEN_KEY_LIFETIME/3600:.1f}h)")
+                self.logger().info(f"Successfully created listenKey: {listen_key[:8]}... (expires in {self.LISTEN_KEY_LIFETIME / 3600:.1f}h)")
                 return listen_key_info
 
             except Exception as e:
@@ -549,7 +549,7 @@ class CoinsxyzAPIUserStreamDataSource:
 
         # Renew if within renewal buffer or already expired
         if time_until_expiry <= self.LISTEN_KEY_RENEWAL_BUFFER:
-            self.logger().info(f"ListenKey expires in {time_until_expiry/3600:.1f}h, renewal needed")
+            self.logger().info(f"ListenKey expires in {time_until_expiry / 3600:.1f}h, renewal needed")
             return True
 
         return False
@@ -596,7 +596,7 @@ class CoinsxyzAPIUserStreamDataSource:
                     time_until_expiry = self._listen_key_info.expires_at - time.time()
                     self.logger().debug(
                         f"ListenKey keepalive: ping #{self._listen_key_info.ping_count}, "
-                        f"expires in {time_until_expiry/3600:.1f}h"
+                        f"expires in {time_until_expiry / 3600:.1f}h"
                     )
 
             except asyncio.CancelledError:
@@ -1634,15 +1634,15 @@ class CoinsxyzAPIUserStreamDataSource:
                         pass
                     finally:
                         self._ws_assistant = None
-                
+
                 self._ws_assistant = await self._api_factory.get_ws_assistant()
-                
+
                 if not self._listen_key_info or self._listen_key_info.state != ListenKeyState.ACTIVE:
                     self._listen_key_info = await self._create_listen_key()
                     self._listen_key_initialized_event.set()
-                
+
                 ws_url = f"{web_utils.websocket_url(self._domain)}/{self._listen_key_info.key}"
-                
+
                 await asyncio.wait_for(
                     self._ws_assistant.connect(
                         ws_url=ws_url,
@@ -1650,12 +1650,12 @@ class CoinsxyzAPIUserStreamDataSource:
                     ),
                     timeout=30.0
                 )
-                
+
                 self._connection_start_time = time.time()
                 self._reconnect_attempts = 0
-                
+
                 return self._ws_assistant
-                
+
             except Exception as e:
                 self.logger().error(f"Error connecting to user data stream: {e}")
                 self._ws_assistant = None
@@ -1668,13 +1668,13 @@ class CoinsxyzAPIUserStreamDataSource:
         try:
             if not ws:
                 raise Exception("WebSocket assistant is None")
-            
+
             # Check if WebSocket connection is still active
             if hasattr(ws, '_websocket') and ws._websocket.closed:
                 raise Exception("WebSocket connection is closed")
-            
+
             self.logger().info("Successfully connected to user data stream")
-            
+
         except Exception as e:
             self.logger().error(f"Error subscribing to user stream: {e}")
             raise
@@ -1723,7 +1723,7 @@ class CoinsxyzAPIUserStreamDataSource:
                 try:
                     data = ws_response.data
                     await self._process_user_stream_message(data, message_queue)
-                    
+
                 except Exception as e:
                     self.logger().error(f"Error processing user stream WebSocket message: {e}")
                     continue
@@ -1758,15 +1758,15 @@ class CoinsxyzAPIUserStreamDataSource:
                 # Connect to WebSocket with timeout
                 try:
                     ws = await asyncio.wait_for(
-                        self._connected_websocket_assistant(), 
+                        self._connected_websocket_assistant(),
                         timeout=30.0
                     )
                     await self._subscribe_to_user_stream(ws)
                     self._reconnect_attempts = 0
-                    
+
                     # Process messages
                     await self._process_websocket_messages(ws, output)
-                    
+
                 except asyncio.TimeoutError:
                     self.logger().error("WebSocket connection timeout")
                     raise Exception("Connection timeout")
@@ -1778,7 +1778,7 @@ class CoinsxyzAPIUserStreamDataSource:
             except Exception as e:
                 self._reconnect_attempts += 1
                 error_msg = str(e)
-                
+
                 # Log different error types appropriately
                 if "1006" in error_msg:
                     self.logger().warning(f"WebSocket closed unexpectedly (attempt {self._reconnect_attempts}): {e}")
@@ -1804,7 +1804,7 @@ class CoinsxyzAPIUserStreamDataSource:
                 base_delay = min(self.RECONNECT_DELAY * (2 ** (self._reconnect_attempts - 1)), 60.0)
                 jitter = base_delay * 0.1  # 10% jitter
                 delay = base_delay + (jitter * (0.5 - asyncio.get_event_loop().time() % 1))
-                
+
                 self.logger().info(f"Waiting {delay:.1f}s before reconnection attempt")
 
                 try:
@@ -2104,11 +2104,11 @@ class CoinsxyzAPIUserStreamDataSource:
         }
 
     def configure_error_handling(self,
-                                backoff_strategy: BackoffStrategy = None,
-                                max_backoff_delay: float = None,
-                                rate_limit_multiplier: float = None,
-                                timestamp_drift_threshold: int = None,
-                                network_retry_attempts: int = None):
+                                 backoff_strategy: BackoffStrategy = None,
+                                 max_backoff_delay: float = None,
+                                 rate_limit_multiplier: float = None,
+                                 timestamp_drift_threshold: int = None,
+                                 network_retry_attempts: int = None):
         """
         Configure error handling parameters - Day 18 Implementation.
 

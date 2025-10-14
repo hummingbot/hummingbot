@@ -44,9 +44,9 @@ class CoinsxyzExchange(ExchangePyBase):
     This class provides the main interface for trading on Coins.xyz exchange
     through the Hummingbot framework.
     """
-    
+
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
-    
+
     web_utils = web_utils
 
     def __init__(self,
@@ -259,9 +259,9 @@ class CoinsxyzExchange(ExchangePyBase):
                            **kwargs) -> Tuple[str, float]:
         """Place an order on the exchange."""
         self.logger().info(f"DEBUG ORDER: _place_order called - {trade_type} {amount} {trading_pair} @ {price}")
-        
+
         exchange_symbol = utils.convert_to_exchange_trading_pair(trading_pair)
-        
+
         order_params = {
             "symbol": exchange_symbol,
             "side": CONSTANTS.SIDE_BUY if trade_type == TradeType.BUY else CONSTANTS.SIDE_SELL,
@@ -269,35 +269,35 @@ class CoinsxyzExchange(ExchangePyBase):
             "quantity": str(amount),
             "newClientOrderId": order_id,
         }
-        
+
         if order_type == OrderType.LIMIT:
             order_params["price"] = str(price)
             order_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_GTC
-        
+
         self.logger().info(f"DEBUG ORDER: Sending order to exchange - params={order_params}")
-        
+
         response = await self._api_post(
             path_url=CONSTANTS.ORDER_PATH_URL,
             data=order_params,
             is_auth_required=True
         )
-        
+
         self.logger().info(f"DEBUG ORDER: Order response received - {response}")
-        
+
         exchange_order_id = str(response.get("orderId"))
         timestamp = response.get("transactTime", self.current_timestamp * 1000) / 1000
-        
+
         return exchange_order_id, timestamp
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         """Cancel an order on the exchange."""
         exchange_symbol = utils.convert_to_exchange_trading_pair(tracked_order.trading_pair)
-        
+
         cancel_params = {
             "symbol": exchange_symbol,
             "origClientOrderId": order_id,
         }
-        
+
         await self._api_delete(
             path_url=CONSTANTS.ORDER_PATH_URL,
             params=cancel_params,
@@ -351,7 +351,7 @@ class CoinsxyzExchange(ExchangePyBase):
 
             # Handle different possible response formats
             balances = account_info.get("balances", [])
-            
+
             # If balances is empty or not a list, try alternative formats
             if not balances or not isinstance(balances, list):
                 # Some exchanges return balances directly in the root
@@ -360,19 +360,19 @@ class CoinsxyzExchange(ExchangePyBase):
                 else:
                     self.logger().warning(f"No balances found in account info response")
                     return
-            
+
             for balance_entry in balances:
                 if not isinstance(balance_entry, dict):
                     continue
-                    
+
                 asset_name = balance_entry.get("asset")
                 if not asset_name:
                     continue
-                    
+
                 free_balance = Decimal(str(balance_entry.get("free", "0")))
                 locked_balance = Decimal(str(balance_entry.get("locked", "0")))
                 total_balance = free_balance + locked_balance
-                
+
                 self._account_available_balances[asset_name] = free_balance
                 self._account_balances[asset_name] = total_balance
                 remote_asset_names.add(asset_name)
@@ -381,7 +381,7 @@ class CoinsxyzExchange(ExchangePyBase):
             for asset_name in asset_names_to_remove:
                 del self._account_available_balances[asset_name]
                 del self._account_balances[asset_name]
-                
+
         except Exception as e:
             self.logger().error(f"Error updating balances: {e}", exc_info=True)
 
@@ -389,21 +389,21 @@ class CoinsxyzExchange(ExchangePyBase):
         """Get all trade updates for a specific order."""
         if not order.exchange_order_id:
             return []
-            
+
         exchange_symbol = utils.convert_to_exchange_trading_pair(order.trading_pair)
-        
+
         params = {
             "symbol": exchange_symbol,
             "limit": 500,
         }
-        
+
         try:
             trades = await self._api_get(
                 path_url=CONSTANTS.MY_TRADES_PATH_URL,
                 params=params,
                 is_auth_required=True
             )
-            
+
             trade_updates = []
             for trade in trades:
                 if str(trade.get("orderId")) == str(order.exchange_order_id):
@@ -419,7 +419,7 @@ class CoinsxyzExchange(ExchangePyBase):
                         fee=TokenAmount(token=trade["commissionAsset"], amount=Decimal(str(trade["commission"]))),
                     )
                     trade_updates.append(trade_update)
-            
+
             return trade_updates
         except Exception as e:
             self.logger().error(f"Error fetching trade updates for order {order.client_order_id}: {e}")
@@ -428,21 +428,21 @@ class CoinsxyzExchange(ExchangePyBase):
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         """Request order status from the exchange."""
         exchange_symbol = utils.convert_to_exchange_trading_pair(tracked_order.trading_pair)
-        
+
         params = {
             "symbol": exchange_symbol,
             "origClientOrderId": tracked_order.client_order_id,
         }
-        
+
         try:
             response = await self._api_get(
                 path_url=CONSTANTS.ORDER_PATH_URL,
                 params=params,
                 is_auth_required=True
             )
-            
+
             order_state = CONSTANTS.ORDER_STATE.get(response.get("status", "OPEN"), OrderState.OPEN)
-            
+
             order_update = OrderUpdate(
                 client_order_id=tracked_order.client_order_id,
                 exchange_order_id=str(response.get("orderId", "")),
@@ -450,7 +450,7 @@ class CoinsxyzExchange(ExchangePyBase):
                 update_timestamp=response.get("updateTime", response.get("time", self.current_timestamp * 1000)) / 1000,
                 new_state=order_state,
             )
-            
+
             return order_update
         except Exception as e:
             self.logger().error(f"Error requesting order status for {tracked_order.client_order_id}: {e}")
@@ -475,7 +475,7 @@ class CoinsxyzExchange(ExchangePyBase):
 
             # Set the trading pair symbol map
             self._set_trading_pair_symbol_map(bidict(mapping_dict))
-            
+
             self.logger().info(f"Initialized symbol mappings for {len(mapping_dict)} trading pairs")
 
         except Exception as e:
@@ -486,17 +486,17 @@ class CoinsxyzExchange(ExchangePyBase):
         try:
             # Convert trading pair to exchange format
             exchange_symbol = utils.convert_to_exchange_trading_pair(trading_pair)
-            
+
             # Get ticker data from exchange
             ticker_data = await self._api_get(
                 path_url=f"{CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL}?symbol={exchange_symbol}",
                 is_auth_required=False
             )
-            
+
             # Extract last price
             last_price = float(ticker_data.get("lastPrice", 0))
             return last_price
-            
+
         except Exception as e:
             self.logger().error(f"Error getting last traded price for {trading_pair}: {e}")
             return 0.0
@@ -504,10 +504,10 @@ class CoinsxyzExchange(ExchangePyBase):
     async def trading_pair_associated_to_exchange_symbol(self, symbol: str) -> str:
         """
         Map exchange symbol to Hummingbot trading pair format.
-        
+
         Args:
             symbol: Exchange symbol (e.g., 'BTCUSDT')
-            
+
         Returns:
             Trading pair in Hummingbot format (e.g., 'BTC-USDT')
         """
@@ -520,25 +520,25 @@ class CoinsxyzExchange(ExchangePyBase):
     async def all_trading_pairs(self) -> List[str]:
         """
         Get all available trading pairs from the exchange.
-        
+
         Returns:
             List of trading pairs in Hummingbot format
         """
         try:
             print(f"DEBUG HEDGE: all_trading_pairs() called for coinsxyz")
-            
+
             # Get exchange info
             exchange_info = await self._api_get(
                 path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL,
                 is_auth_required=False
             )
-            
+
             # Parse trading pairs from exchange info
             trading_pairs, _ = self._exchange_info_handler.parse_exchange_info(exchange_info)
-            
+
             print(f"DEBUG HEDGE: all_trading_pairs() returning {len(trading_pairs)} pairs: {trading_pairs[:10]}...")
             return trading_pairs
-            
+
         except Exception as e:
             self.logger().error(f"Error fetching all trading pairs: {e}")
             print(f"DEBUG HEDGE: all_trading_pairs() error: {e}")

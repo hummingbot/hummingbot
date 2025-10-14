@@ -1,5 +1,5 @@
 # Coins.xyz Exchange Connector for Hummingbot
-# 
+#
 # This package contains the implementation of the Coins.xyz exchange connector
 # for the Hummingbot trading framework.
 #

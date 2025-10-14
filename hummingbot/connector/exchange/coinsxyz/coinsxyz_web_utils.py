@@ -40,11 +40,11 @@ class CoinsxyzRESTPreProcessor(RESTPreProcessorBase):
         # Add any common headers or preprocessing logic here
         if request.headers is None:
             request.headers = {}
-        
+
         # Add User-Agent header if not present
         if "User-Agent" not in request.headers:
             request.headers["User-Agent"] = "Hummingbot/CoinsxyzConnector"
-        
+
         return request
 
 
@@ -75,7 +75,7 @@ def wss_url(path_url: str = "", domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
 def public_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
     """
     Construct URL for public REST API endpoints.
-    
+
     :param path_url: The API endpoint path
     :param domain: The domain to use (default: "com")
     :return: Complete URL for the public API endpoint
@@ -88,7 +88,7 @@ def public_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> st
 def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
     """
     Construct URL for private REST API endpoints.
-    
+
     :param path_url: The API endpoint path
     :param domain: The domain to use (default: "com")
     :return: Complete URL for the private API endpoint
@@ -101,7 +101,7 @@ def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> s
 def websocket_url(domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
     """
     Construct WebSocket URL for real-time data streams.
-    
+
     :param domain: The domain to use (default: "com")
     :return: WebSocket URL
     """
@@ -206,9 +206,9 @@ def build_api_factory_without_time_synchronizer_pre_processor(
 ) -> WebAssistantsFactory:
     """
     Build web assistants factory without time synchronizer pre-processor.
-    
+
     This is useful for initial setup or when time synchronization is not needed.
-    
+
     :param throttler: Rate limiter for API requests
     :param domain: The domain to use
     :param auth: Authentication handler
@@ -267,10 +267,10 @@ async def api_request(
                 "params": params,
                 "headers": headers,
             }
-            
+
             if method in [RESTMethod.POST, RESTMethod.PUT]:
                 request_kwargs["json"] = data
-            
+
             async with session.request(method.value, url, **request_kwargs) as response:
                 response.raise_for_status()
                 return await response.json()
@@ -284,7 +284,7 @@ def get_rest_url_for_endpoint(
 ) -> str:
     """
     Get the complete REST URL for a specific endpoint.
-    
+
     :param endpoint: The API endpoint
     :param trading_pair: Trading pair if needed for the endpoint
     :param domain: The domain to use
@@ -295,19 +295,19 @@ def get_rest_url_for_endpoint(
         base_url = private_rest_url(endpoint, domain)
     else:
         base_url = public_rest_url(endpoint, domain)
-    
+
     if trading_pair:
         # Add trading pair to URL if needed
         symbol = trading_pair.replace("-", "")
         base_url = base_url.replace("{symbol}", symbol)
-    
+
     return base_url
 
 
 def format_trading_pair_for_url(trading_pair: str) -> str:
     """
     Format trading pair for use in URLs.
-    
+
     :param trading_pair: Trading pair in Hummingbot format (BASE-QUOTE)
     :return: Trading pair formatted for Coins.ph URLs
     """

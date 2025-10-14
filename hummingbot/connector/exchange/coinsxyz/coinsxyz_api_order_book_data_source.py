@@ -37,9 +37,9 @@ class CoinsxyzAPIOrderBookDataSource(OrderBookTrackerDataSource):
     - Trade data streaming
     - Proper error handling and reconnection logic
     """
-    
+
     _logger: Optional[HummingbotLogger] = None
-    
+
     # Message queue topics
     DIFF_TOPIC = "order_book_diff"
     TRADE_TOPIC = "trade"
@@ -68,7 +68,7 @@ class CoinsxyzAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._message_queue = {}
         self._diff_messages_queue = {}
         self._trade_messages_queue = {}
-        
+
         # Initialize queues for trading pairs
         for trading_pair in self._trading_pairs:
             self._diff_messages_queue[trading_pair] = asyncio.Queue()
@@ -89,8 +89,8 @@ class CoinsxyzAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return 0
 
     async def get_last_traded_prices(self,
-                                   trading_pairs: List[str],
-                                   domain: Optional[str] = None) -> Dict[str, float]:
+                                     trading_pairs: List[str],
+                                     domain: Optional[str] = None) -> Dict[str, float]:
         """
         Get the last traded prices for the specified trading pairs.
 
@@ -241,7 +241,7 @@ class CoinsxyzAPIOrderBookDataSource(OrderBookTrackerDataSource):
             )
 
             self.logger().info(f"Order book snapshot retrieved for {trading_pair}: "
-                             f"{len(bids)} bids, {len(asks)} asks, update_id: {last_update_id}")
+                               f"{len(bids)} bids, {len(asks)} asks, update_id: {last_update_id}")
 
             return snapshot_msg
 
@@ -273,7 +273,7 @@ class CoinsxyzAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         try:
             self.logger().debug(f"DEBUG: Parsing trade message: {raw_message}")
-            
+
             # Extract data from WebSocket message
             data = raw_message.get("data", raw_message)
             stream = raw_message.get("stream", "")
@@ -365,12 +365,12 @@ class CoinsxyzAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """Parse order book diff message from WebSocket and add to queue."""
         try:
             self.logger().debug(f"DEBUG: Parsing order book diff message: {raw_message}")
-            
+
             # Formato Coins.xyz: {'e': 'depthUpdate', 'E': timestamp, 's': 'BTCUSDT', 'U': first_id, 'u': final_id, 'b': bids, 'a': asks}
             if "e" in raw_message and raw_message["e"] == "depthUpdate":
                 symbol = raw_message.get("s", "")
                 self.logger().debug(f"DEBUG: Processing depthUpdate for symbol: {symbol}")
-                
+
                 try:
                     # Try connector method first
                     trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
@@ -384,16 +384,16 @@ class CoinsxyzAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     except Exception as fallback_error:
                         self.logger().error(f"DEBUG: Fallback mapping failed for {symbol}: {fallback_error}")
                         trading_pair = None
-                
+
                 if trading_pair:
                     # Converter para formato OrderBookMessage
                     bids_raw = raw_message.get("b", [])
                     asks_raw = raw_message.get("a", [])
                     self.logger().debug(f"DEBUG: Raw bids count: {len(bids_raw)}, asks count: {len(asks_raw)}")
-                    
+
                     bids = [[Decimal(str(price)), Decimal(str(qty))] for price, qty in bids_raw]
                     asks = [[Decimal(str(price)), Decimal(str(qty))] for price, qty in asks_raw]
-                    
+
                     message_content = {
                         "trading_pair": trading_pair,
                         "update_id": raw_message.get("u", 0),
@@ -401,15 +401,15 @@ class CoinsxyzAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         "asks": asks,
                         "first_update_id": raw_message.get("U", 0)
                     }
-                    
+
                     timestamp = raw_message.get("E", time.time() * 1000) / 1000.0
-                    
+
                     diff_message = OrderBookMessage(
                         OrderBookMessageType.DIFF,
                         message_content,
                         timestamp
                     )
-                    
+
                     await message_queue.put(diff_message)
                     self.logger().debug(f"Successfully parsed order book diff for {trading_pair}: {len(bids)} bids, {len(asks)} asks")
                 else:
@@ -418,7 +418,7 @@ class CoinsxyzAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 # Formato com stream (fallback)
                 self.logger().debug(f"DEBUG: Message not depthUpdate format, using fallback: {raw_message}")
                 await message_queue.put(raw_message)
-                
+
         except Exception as e:
             self.logger().error(f"Error parsing order book diff message: {e}")
             self.logger().error(f"DEBUG: Full raw message that caused error: {raw_message}")
@@ -440,14 +440,14 @@ class CoinsxyzAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _connected_websocket_assistant(self) -> WSAssistant:
         """
         Create and return a connected WebSocket assistant.
-        
+
         :return: Connected WebSocket assistant
         """
         try:
             # Always create a new WebSocket connection to avoid concurrent access
             ws_assistant = await self._api_factory.get_ws_assistant()
             ws_url = web_utils.websocket_url(self._domain)
-            
+
             await asyncio.wait_for(
                 ws_assistant.connect(
                     ws_url=ws_url,
@@ -455,10 +455,10 @@ class CoinsxyzAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 ),
                 timeout=30.0
             )
-            
+
             self.logger().info(f"WebSocket connected to {ws_url}")
             return ws_assistant
-            
+
         except Exception as e:
             self.logger().error(f"Failed to connect WebSocket: {e}")
             raise
@@ -466,26 +466,22 @@ class CoinsxyzAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _subscribe_channels(self, ws: WSAssistant):
         """
         Subscribe to WebSocket channels for market data.
-        
+
         :param ws: WebSocket assistant to use for subscriptions
         """
         try:
             if not self._trading_pairs:
                 self.logger().warning("No trading pairs available for subscription")
                 return
-            
+
             if not ws:
                 raise Exception("WebSocket is not connected")
-                
 
-                
-
-                
             for trading_pair in self._trading_pairs:
                 try:
-                    
+
                     symbol = trading_pair.replace("-", "").lower()
-                    
+
                     # Subscrição combinada para evitar desconexão
                     combined_request = WSJSONRequest({
                         "method": "SUBSCRIBE",
@@ -497,21 +493,19 @@ class CoinsxyzAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     })
 
                     await asyncio.wait_for(ws.send(combined_request), timeout=10.0)
-                    
+
                     self.logger().info(f"Subscribed to {trading_pair} market data streams")
-                    
+
                 except Exception as pair_error:
                     self.logger().error(f"Error subscribing to {trading_pair}: {pair_error}")
                     continue
-                
+
         except Exception as e:
             self.logger().error(f"Error subscribing to channels: {e}")
             raise
 
-
-
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.AbstractEventLoop,
-                                        output: asyncio.Queue) -> None:
+                                          output: asyncio.Queue) -> None:
         """
         Listen for order book difference messages (required abstract method).
 
@@ -522,21 +516,21 @@ class CoinsxyzAPIOrderBookDataSource(OrderBookTrackerDataSource):
         ws = None
         retry_count = 0
         max_retries = 10
-        
+
         while retry_count < max_retries:
             try:
                 ws = await self._connected_websocket_assistant()
                 if ws:
                     await self._subscribe_channels(ws)
                     retry_count = 0
-                    
+
                     async for ws_response in ws.iter_messages():
                         try:
                             data = ws_response.data
-                            
+
                             if data is None:
                                 continue
-                            
+
                             if isinstance(data, str):
                                 if not data.strip():
                                     continue
@@ -545,7 +539,7 @@ class CoinsxyzAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                     data = json.loads(data)
                                 except json.JSONDecodeError:
                                     continue
-                            
+
                             if isinstance(data, dict):
                                 # Only process order book diff messages
                                 self.logger().debug(f"DEBUG: Processing message for order book diffs: {data}")
@@ -557,7 +551,7 @@ class CoinsxyzAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                     await self._parse_order_book_diff_message(data, output)
                                 else:
                                     self.logger().debug(f"DEBUG: Message not recognized as order book diff: {data}")
-                                    
+
                         except Exception as msg_error:
                             self.logger().error(f"Error processing diff message: {msg_error}")
                             self.logger().error(f"DEBUG: Message that caused diff error: {ws_response.data if hasattr(ws_response, 'data') else 'no data'}")
@@ -565,13 +559,13 @@ class CoinsxyzAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 else:
                     await asyncio.sleep(5)
                     continue
-                
+
             except asyncio.CancelledError:
                 raise
             except Exception as e:
                 retry_count += 1
                 self.logger().error(f"Error in order book diffs listener (retry {retry_count}/{max_retries}): {e}")
-                
+
                 if ws:
                     try:
                         await asyncio.wait_for(ws.disconnect(), timeout=5.0)
@@ -580,12 +574,12 @@ class CoinsxyzAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     finally:
                         self._ws_assistant = None
                         ws = None
-                
+
                 delay = min(5 * retry_count, 30)
                 await asyncio.sleep(delay)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.AbstractEventLoop,
-                                            output: asyncio.Queue) -> None:
+                                              output: asyncio.Queue) -> None:
         """
         Listen for order book snapshot messages (required abstract method).
 
@@ -616,7 +610,7 @@ class CoinsxyzAPIOrderBookDataSource(OrderBookTrackerDataSource):
             self.logger().error(f"Error in order book snapshot listener: {e}")
 
     async def listen_for_trades(self, ev_loop: asyncio.AbstractEventLoop,
-                              output: asyncio.Queue) -> None:
+                                output: asyncio.Queue) -> None:
         """
         Listen for trade messages (required abstract method).
 
@@ -627,21 +621,21 @@ class CoinsxyzAPIOrderBookDataSource(OrderBookTrackerDataSource):
         ws = None
         retry_count = 0
         max_retries = 10
-        
+
         while retry_count < max_retries:
             try:
                 ws = await self._connected_websocket_assistant()
                 if ws:
                     await self._subscribe_channels(ws)
                     retry_count = 0
-                    
+
                     async for ws_response in ws.iter_messages():
                         try:
                             data = ws_response.data
-                            
+
                             if data is None:
                                 continue
-                            
+
                             if isinstance(data, str):
                                 if not data.strip():
                                     continue
@@ -650,7 +644,7 @@ class CoinsxyzAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                     data = json.loads(data)
                                 except json.JSONDecodeError:
                                     continue
-                            
+
                             if isinstance(data, dict):
                                 # Only process trade messages
                                 self.logger().debug(f"DEBUG: Processing message for trades: {data}")
@@ -662,7 +656,7 @@ class CoinsxyzAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                     await self._parse_trade_message(data, output)
                                 else:
                                     self.logger().debug(f"DEBUG: Message not recognized as trade: {data}")
-                                    
+
                         except Exception as msg_error:
                             self.logger().error(f"Error processing trade message: {msg_error}")
                             self.logger().error(f"DEBUG: Message that caused trade error: {ws_response.data if hasattr(ws_response, 'data') else 'no data'}")
@@ -670,13 +664,13 @@ class CoinsxyzAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 else:
                     await asyncio.sleep(5)
                     continue
-                
+
             except asyncio.CancelledError:
                 raise
             except Exception as e:
                 retry_count += 1
                 self.logger().error(f"Error in trades listener (retry {retry_count}/{max_retries}): {e}")
-                
+
                 if ws:
                     try:
                         await asyncio.wait_for(ws.disconnect(), timeout=5.0)
@@ -685,17 +679,17 @@ class CoinsxyzAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     finally:
                         self._ws_assistant = None
                         ws = None
-                
+
                 delay = min(5 * retry_count, 30)
                 await asyncio.sleep(delay)
 
     # Klines/Candlestick Data Methods
     async def get_klines(self,
-                        trading_pair: str,
-                        interval: str = "1h",
-                        limit: int = 500,
-                        start_time: Optional[int] = None,
-                        end_time: Optional[int] = None) -> List[List[Union[int, str]]]:
+                         trading_pair: str,
+                         interval: str = "1h",
+                         limit: int = 500,
+                         start_time: Optional[int] = None,
+                         end_time: Optional[int] = None) -> List[List[Union[int, str]]]:
         """
         Get klines/candlestick data for a trading pair.
 
@@ -714,8 +708,8 @@ class CoinsxyzAPIOrderBookDataSource(OrderBookTrackerDataSource):
         )
 
     async def get_latest_kline(self,
-                              trading_pair: str,
-                              interval: str = "1h") -> Optional[List[Union[int, str]]]:
+                               trading_pair: str,
+                               interval: str = "1h") -> Optional[List[Union[int, str]]]:
         """Get the latest kline for a trading pair."""
         return await self._klines_data_source.get_latest_kline(trading_pair, interval)
 
@@ -750,24 +744,24 @@ class CoinsxyzAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     # Recent Trades Methods
     async def get_recent_trades(self,
-                               trading_pair: str,
-                               limit: int = 100) -> List[Dict[str, Any]]:
+                                trading_pair: str,
+                                limit: int = 100) -> List[Dict[str, Any]]:
         """Get recent trades for a trading pair."""
         return await self._trades_data_source.get_recent_trades(trading_pair, limit)
 
     async def get_recent_trades_messages(self,
-                                       trading_pair: str,
-                                       limit: int = 100) -> List[OrderBookMessage]:
+                                         trading_pair: str,
+                                         limit: int = 100) -> List[OrderBookMessage]:
         """Get recent trades as OrderBookMessage objects."""
         return await self._trades_data_source.get_recent_trades_messages(trading_pair, limit)
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
         """
         Determine the channel that originated the message (required by base class).
-        
+
         Args:
             event_message: WebSocket message
-            
+
         Returns:
             Channel identifier string
         """
@@ -775,22 +769,22 @@ class CoinsxyzAPIOrderBookDataSource(OrderBookTrackerDataSource):
             # Check for stream format
             if "stream" in event_message:
                 return event_message["stream"]
-            
+
             # Check for direct format with symbol
             if "s" in event_message:
                 symbol = event_message["s"].lower()
                 event_type = event_message.get("e", "")
-                
+
                 if event_type == "depthUpdate":
                     return f"{symbol}@depth"
                 elif event_type == "trade":
                     return f"{symbol}@trade"
                 elif event_type == "aggTrade":
                     return f"{symbol}@aggTrade"
-            
+
             # Default fallback
             return "unknown"
-            
+
         except Exception as e:
             self.logger().error(f"Error determining channel for message: {e}")
             return "unknown"
@@ -798,10 +792,10 @@ class CoinsxyzAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def _trade_messages_queue_key(self, trading_pair: str) -> str:
         """
         Get the queue key for trade messages (required by base class).
-        
+
         Args:
             trading_pair: Trading pair
-            
+
         Returns:
             Queue key string
         """
@@ -810,13 +804,11 @@ class CoinsxyzAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def _diff_messages_queue_key(self, trading_pair: str) -> str:
         """
         Get the queue key for diff messages (required by base class).
-        
+
         Args:
             trading_pair: Trading pair
-            
+
         Returns:
             Queue key string
         """
         return f"{trading_pair}.diff"
-
-

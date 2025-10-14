@@ -25,11 +25,11 @@ class CoinsxyzAuth(AuthBase):
     Implements HMAC-SHA256 signature generation and request authentication
     following Coins.xyz API specifications.
     """
-    
+
     def __init__(self, api_key: str, secret_key: str, time_provider: TimeSynchronizer = None):
         """
         Initialize the authentication handler.
-        
+
         :param api_key: The API key provided by Coins.xyz
         :param secret_key: The secret key provided by Coins.xyz
         :param time_provider: Time synchronizer for accurate timestamps
@@ -56,10 +56,10 @@ class CoinsxyzAuth(AuthBase):
                 params = request.data
         else:
             params = request.params or {}
-        
+
         # Add auth params (timestamp + signature)
         request.params = self.add_auth_to_params(params=params)
-        
+
         # Clear data for POST requests since params go in query string
         if request.method == RESTMethod.POST:
             request.data = None
@@ -76,10 +76,10 @@ class CoinsxyzAuth(AuthBase):
     async def ws_authenticate(self, request: WSRequest) -> WSRequest:
         """
         Authenticate WebSocket requests.
-        
+
         Note: Coins.xyz may not require WebSocket authentication for public streams.
         This method can be extended if private WebSocket streams require authentication.
-        
+
         :param request: The WebSocket request to authenticate
         :return: The authenticated WebSocket request
         """
@@ -88,7 +88,7 @@ class CoinsxyzAuth(AuthBase):
     def add_auth_to_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         Add authentication parameters to the request.
-        
+
         :param params: Original request parameters
         :return: Parameters with authentication data added
         """
@@ -109,7 +109,7 @@ class CoinsxyzAuth(AuthBase):
     def header_for_authentication(self) -> Dict[str, str]:
         """
         Generate authentication headers for API requests.
-        
+
         :return: Dictionary containing authentication headers
         """
         return {
@@ -121,31 +121,31 @@ class CoinsxyzAuth(AuthBase):
     def _generate_signature(self, params: Dict[str, Any]) -> str:
         """
         Generate HMAC-SHA256 signature for API request authentication.
-        
+
         The signature is created by:
         1. Converting parameters to URL-encoded query string
         2. Creating HMAC-SHA256 hash using the secret key
         3. Converting to hexadecimal string
-        
+
         :param params: Request parameters to sign
         :return: HMAC-SHA256 signature as hexadecimal string
         """
         # Convert parameters to URL-encoded query string
         encoded_params_str = urlencode(params)
-        
+
         # Generate HMAC-SHA256 signature
         signature = hmac.new(
             self.secret_key.encode("utf8"),
             encoded_params_str.encode("utf8"),
             hashlib.sha256
         ).hexdigest()
-        
+
         return signature
 
     def get_headers_for_public_request(self) -> Dict[str, str]:
         """
         Get headers for public API requests (no authentication required).
-        
+
         :return: Dictionary containing public request headers
         """
         return {
@@ -156,7 +156,7 @@ class CoinsxyzAuth(AuthBase):
     def validate_credentials(self) -> bool:
         """
         Validate that API credentials are properly configured.
-        
+
         :return: True if credentials are valid, False otherwise
         """
         return (

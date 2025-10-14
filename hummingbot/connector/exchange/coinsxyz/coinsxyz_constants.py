@@ -113,7 +113,7 @@ RATE_LIMITS = [
     # Order rate limits (tracked per IP and UID)
     RateLimit(limit_id=ORDERS, limit=100, time_interval=10 * ONE_SECOND),
     RateLimit(limit_id=ORDERS_24HR, limit=200000, time_interval=ONE_DAY),
-    
+
     # Endpoint Specific Limits - Based on Coins.xyz API weights
     # General endpoints (Weight: 1)
     RateLimit(limit_id=PING_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
@@ -128,7 +128,7 @@ RATE_LIMITS = [
     RateLimit(limit_id=EXCHANGE_INFO_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1),
                              LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
-    
+
     # Market data endpoints - Variable weights based on parameters
     # 24hr ticker: Weight 1 for single symbol, 40 for all symbols
     RateLimit(limit_id=TICKER_PRICE_CHANGE_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
@@ -159,7 +159,7 @@ RATE_LIMITS = [
     RateLimit(limit_id=PRICES_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1),
                              LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
-    
+
     # Private endpoints
     # Account info (Weight: 10)
     RateLimit(limit_id=ACCOUNTS_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
@@ -185,10 +185,12 @@ RATE_LIMITS = [
 ]
 
 # Trading Pair Validation
+
+
 def is_exchange_information_valid(exchange_info: dict) -> bool:
     """
     Verifies if a trading pair is valid and active on Coins.ph
-    
+
     :param exchange_info: Trading pair information from exchange
     :return: True if valid and tradeable, False otherwise
     """
