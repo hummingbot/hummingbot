@@ -321,42 +321,24 @@ class GatewayLPCommand:
                         self.notify(f"No pool found for {user_trading_pair}")
                         return
 
-                    # Fetch pool info to get authoritative token order
-                    pool_info = await lp_connector.get_pool_info(user_trading_pair)
-                    if not pool_info:
-                        self.notify(f"Error: Could not get pool info for {user_trading_pair}")
+                    # Get positions for this pool - they already have token info
+                    positions = await lp_connector.get_user_positions(pool_address=pool_address)
+
+                    if not positions:
+                        self.notify(f"\nNo liquidity positions found for {user_trading_pair}")
                         return
 
-                    # Extract authoritative token order from pool
-                    # Get token symbols from addresses
-                    base_token_info = lp_connector.get_token_by_address(pool_info.base_token_address)
-                    quote_token_info = lp_connector.get_token_by_address(pool_info.quote_token_address)
-
-                    base_token = base_token_info.get("symbol") if base_token_info else None
-                    quote_token = quote_token_info.get("symbol") if quote_token_info else None
-
-                    if not base_token or not quote_token:
-                        self.notify("Error: Could not determine token symbols from pool")
-                        return
-
-                    # Use pool's authoritative trading pair
+                    # Get token symbols from the first position
+                    base_token = positions[0].base_token
+                    quote_token = positions[0].quote_token
                     trading_pair = f"{base_token}-{quote_token}"
 
-                    # Update connector with correct trading pair if different
+                    # Notify if token order differs from user input
                     if trading_pair != user_trading_pair:
-                        self.notify(f"Note: Using pool's token order: {trading_pair}")
-                        lp_connector._trading_pairs = [trading_pair]
-                        await lp_connector.load_token_data()
-
-                    # Get positions for this pool
-                    positions = await lp_connector.get_user_positions(pool_address=pool_address)
+                        self.notify(f"Note: Pool uses token order: {trading_pair}")
 
                 finally:
                     await GatewayCommandUtils.exit_interactive_mode(self)
-
-                if not positions:
-                    self.notify("\nNo liquidity positions found")
-                    return
 
                 # 5. Display positions
                 for i, position in enumerate(positions):
@@ -837,39 +819,21 @@ class GatewayLPCommand:
                         self.notify(f"No pool found for {user_trading_pair}")
                         return
 
-                    # Fetch pool info to get authoritative token order
-                    pool_info = await lp_connector.get_pool_info(user_trading_pair)
-                    if not pool_info:
-                        self.notify(f"Error: Could not get pool info for {user_trading_pair}")
-                        return
-
-                    # Extract authoritative token order from pool
-                    # Get token symbols from addresses
-                    base_token_info = lp_connector.get_token_by_address(pool_info.base_token_address)
-                    quote_token_info = lp_connector.get_token_by_address(pool_info.quote_token_address)
-
-                    base_token = base_token_info.get("symbol") if base_token_info else None
-                    quote_token = quote_token_info.get("symbol") if quote_token_info else None
-
-                    if not base_token or not quote_token:
-                        self.notify("Error: Could not determine token symbols from pool")
-                        return
-
-                    # Use pool's authoritative trading pair
-                    trading_pair = f"{base_token}-{quote_token}"
-
-                    # Update connector with correct trading pair if different
-                    if trading_pair != user_trading_pair:
-                        self.notify(f"Note: Using pool's token order: {trading_pair}")
-                        lp_connector._trading_pairs = [trading_pair]
-                        await lp_connector.load_token_data()
-
-                    # Get positions for this pool
+                    # Get positions for this pool - they already have token info
                     positions = await lp_connector.get_user_positions(pool_address=pool_address)
 
                     if not positions:
-                        self.notify(f"\nNo liquidity positions found for {trading_pair}")
+                        self.notify(f"\nNo liquidity positions found for {user_trading_pair}")
                         return
+
+                    # Get token symbols from the first position
+                    base_token = positions[0].base_token
+                    quote_token = positions[0].quote_token
+                    trading_pair = f"{base_token}-{quote_token}"
+
+                    # Notify if token order differs from user input
+                    if trading_pair != user_trading_pair:
+                        self.notify(f"Note: Pool uses token order: {trading_pair}")
 
                     # Display positions
                     for i, position in enumerate(positions):
@@ -915,12 +879,7 @@ class GatewayLPCommand:
                         base_token, quote_token
                     )
 
-                    # 11. Update LP connector with the selected trading pair
-                    lp_connector._trading_pairs = [trading_pair]
-                    # Reload token data for the selected pair if needed
-                    await lp_connector.load_token_data()
-
-                    # 12. Check balances and estimate fees
+                    # 11. Check balances and estimate fees
                     tokens_to_check = [base_token, quote_token]
                     native_token = lp_connector.native_currency or chain.upper()
 
@@ -1111,34 +1070,7 @@ class GatewayLPCommand:
                         self.notify(f"No pool found for {user_trading_pair}")
                         return
 
-                    # Fetch pool info to get authoritative token order
-                    pool_info = await lp_connector.get_pool_info(user_trading_pair)
-                    if not pool_info:
-                        self.notify(f"Error: Could not get pool info for {user_trading_pair}")
-                        return
-
-                    # Extract authoritative token order from pool
-                    # Get token symbols from addresses
-                    base_token_info = lp_connector.get_token_by_address(pool_info.base_token_address)
-                    quote_token_info = lp_connector.get_token_by_address(pool_info.quote_token_address)
-
-                    base_token = base_token_info.get("symbol") if base_token_info else None
-                    quote_token = quote_token_info.get("symbol") if quote_token_info else None
-
-                    if not base_token or not quote_token:
-                        self.notify("Error: Could not determine token symbols from pool")
-                        return
-
-                    # Use pool's authoritative trading pair
-                    trading_pair = f"{base_token}-{quote_token}"
-
-                    # Update connector with correct trading pair if different
-                    if trading_pair != user_trading_pair:
-                        self.notify(f"Note: Using pool's token order: {trading_pair}")
-                        lp_connector._trading_pairs = [trading_pair]
-                        await lp_connector.load_token_data()
-
-                    # Get positions for this pool
+                    # Get positions for this pool - they already have token info
                     all_positions = await lp_connector.get_user_positions(pool_address=pool_address)
 
                     # Filter positions with fees > 0
@@ -1149,7 +1081,7 @@ class GatewayLPCommand:
                     ]
 
                     if not positions_with_fees:
-                        self.notify(f"\nNo uncollected fees found in your {trading_pair} positions")
+                        self.notify(f"\nNo uncollected fees found in your {user_trading_pair} positions")
                         return
 
                     # 5. Display positions with fees
