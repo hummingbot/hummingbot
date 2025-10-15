@@ -328,11 +328,15 @@ class GatewayLPCommand:
                         return
 
                     # Extract authoritative token order from pool
-                    base_token = pool_info.get('baseSymbol')
-                    quote_token = pool_info.get('quoteSymbol')
+                    # Get token symbols from addresses
+                    base_token_info = lp_connector.get_token_by_address(pool_info.base_token_address)
+                    quote_token_info = lp_connector.get_token_by_address(pool_info.quote_token_address)
+
+                    base_token = base_token_info.get("symbol") if base_token_info else None
+                    quote_token = quote_token_info.get("symbol") if quote_token_info else None
 
                     if not base_token or not quote_token:
-                        self.notify("Error: Pool info missing token symbols")
+                        self.notify("Error: Could not determine token symbols from pool")
                         return
 
                     # Use pool's authoritative trading pair
@@ -460,11 +464,15 @@ class GatewayLPCommand:
                     return
 
                 # 8. Extract authoritative token order from pool
-                base_token = pool_info.get('baseSymbol')
-                quote_token = pool_info.get('quoteSymbol')
+                # Get token symbols from addresses
+                base_token_info = lp_connector.get_token_by_address(pool_info.base_token_address)
+                quote_token_info = lp_connector.get_token_by_address(pool_info.quote_token_address)
+
+                base_token = base_token_info.get("symbol") if base_token_info else None
+                quote_token = quote_token_info.get("symbol") if quote_token_info else None
 
                 if not base_token or not quote_token:
-                    self.notify("Error: Pool info missing token symbols")
+                    self.notify("Error: Could not determine token symbols from pool")
                     await lp_connector.stop_network()
                     return
 
@@ -836,11 +844,15 @@ class GatewayLPCommand:
                         return
 
                     # Extract authoritative token order from pool
-                    base_token = pool_info.get('baseSymbol')
-                    quote_token = pool_info.get('quoteSymbol')
+                    # Get token symbols from addresses
+                    base_token_info = lp_connector.get_token_by_address(pool_info.base_token_address)
+                    quote_token_info = lp_connector.get_token_by_address(pool_info.quote_token_address)
+
+                    base_token = base_token_info.get("symbol") if base_token_info else None
+                    quote_token = quote_token_info.get("symbol") if quote_token_info else None
 
                     if not base_token or not quote_token:
-                        self.notify("Error: Pool info missing token symbols")
+                        self.notify("Error: Could not determine token symbols from pool")
                         return
 
                     # Use pool's authoritative trading pair
@@ -1106,11 +1118,15 @@ class GatewayLPCommand:
                         return
 
                     # Extract authoritative token order from pool
-                    base_token = pool_info.get('baseSymbol')
-                    quote_token = pool_info.get('quoteSymbol')
+                    # Get token symbols from addresses
+                    base_token_info = lp_connector.get_token_by_address(pool_info.base_token_address)
+                    quote_token_info = lp_connector.get_token_by_address(pool_info.quote_token_address)
+
+                    base_token = base_token_info.get("symbol") if base_token_info else None
+                    quote_token = quote_token_info.get("symbol") if quote_token_info else None
 
                     if not base_token or not quote_token:
-                        self.notify("Error: Pool info missing token symbols")
+                        self.notify("Error: Could not determine token symbols from pool")
                         return
 
                     # Use pool's authoritative trading pair
