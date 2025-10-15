@@ -497,17 +497,17 @@ class GatewayLPCommand:
                     # For CLMM, get price range
                     current_price = pool_info.price
 
-                    self.notify(f"\nCurrent pool price: {current_price:.6f} {quote_token} per {base_token}")
+                    self.notify(f"\nCurrent pool price: {current_price:.6f}")
                     self.notify("Enter your price range for liquidity provision:")
 
                     # Get lower price bound
                     lower_price_str = await self.app.prompt(
-                        prompt=f"Lower price bound ({quote_token} per {base_token}): "
+                        prompt="Lower price bound: "
                     )
 
                     # Get upper price bound
                     upper_price_str = await self.app.prompt(
-                        prompt=f"Upper price bound ({quote_token} per {base_token}): "
+                        prompt="Upper price bound: "
                     )
 
                     try:
@@ -523,7 +523,7 @@ class GatewayLPCommand:
                             self.notify("You will only earn fees when price is within your range.")
 
                         # Display selected range
-                        self.notify(f"\nSelected price range ({quote_token} per {base_token}):")
+                        self.notify("\nSelected price range:")
                         self.notify(f"  Lower: {lower_price:.6f}")
                         self.notify(f"  Current: {current_price:.6f}")
                         self.notify(f"  Upper: {upper_price:.6f}")

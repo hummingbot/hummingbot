@@ -210,11 +210,7 @@ class LPCommandUtils:
         """Display pool information in a user-friendly format"""
         app.notify("\n=== Pool Information ===")
         app.notify(f"Pool Address: {pool_info.address}")
-        # Display price with token denomination if available
-        if base_token and quote_token:
-            app.notify(f"Current Price: {pool_info.price:.6f} {quote_token} per {base_token}")
-        else:
-            app.notify(f"Current Price: {pool_info.price:.6f}")
+        app.notify(f"Current Price: {pool_info.price:.6f}")
         app.notify(f"Fee: {pool_info.fee_pct}%")
 
         if is_clmm and hasattr(pool_info, 'active_bin_id'):
@@ -314,7 +310,7 @@ class LPCommandUtils:
         lines.append(f"Current Price: {position.price:.6f} {quote}/{base}")
 
         # Price range
-        lines.append(f"\nPrice Range ({quote} per {base}):")
+        lines.append("\nPrice Range:")
         lines.append(f"  Lower: {position.lower_price:.6f}")
         lines.append(f"  Upper: {position.upper_price:.6f}")
 
