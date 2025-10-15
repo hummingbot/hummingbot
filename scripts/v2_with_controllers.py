@@ -151,7 +151,7 @@ class V2WithControllers(StrategyV2Base):
         """
         Handle order failure events by logging the error and stopping the strategy if necessary.
         """
-        if "position side" in order_failed_event.error_message.lower():
+        if order_failed_event.error_message and "position side" in order_failed_event.error_message.lower():
             connectors_position_mode = {}
             for controller_id, controller in self.controllers.items():
                 config_dict = controller.config.model_dump()
