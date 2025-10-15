@@ -1,12 +1,13 @@
 import time
 from decimal import Decimal
-from typing import Dict, List, Set
+from typing import Dict, List, Optional, Set
 
 import pandas as pd
 from pydantic import Field, field_validator
 
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.core.data_type.common import PriceType, TradeType
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.strategy_v2.controllers.controller_base import ControllerBase, ControllerConfigBase
 from hummingbot.strategy_v2.executors.data_types import ConnectorPair
@@ -73,6 +74,73 @@ class XEMMMultipleLevels(ControllerBase):
         self.buy_levels_targets_amount = config.buy_levels_targets_amount
         self.sell_levels_targets_amount = config.sell_levels_targets_amount
         super().__init__(config, *args, **kwargs)
+        self._gas_token_cache = {}
+        self._initialize_gas_tokens()
+        self.initialize_rate_sources()
+
+    def initialize_rate_sources(self):
+        rates_required = []
+        for connector_pair in [
+            ConnectorPair(connector_name=self.config.maker_connector, trading_pair=self.config.maker_trading_pair),
+            ConnectorPair(connector_name=self.config.taker_connector, trading_pair=self.config.taker_trading_pair)
+        ]:
+            base, quote = connector_pair.trading_pair.split("-")
+
+            # Add rate source for gas token if it's an AMM connector
+            if connector_pair.is_amm_connector():
+                gas_token = self.get_gas_token(connector_pair.connector_name)
+                if gas_token and gas_token != base and gas_token != quote:
+                    rates_required.append(ConnectorPair(connector_name=self.config.maker_connector,
+                                                        trading_pair=f"{base}-{gas_token}"))
+
+            # Add rate source for trading pairs
+            rates_required.append(connector_pair)
+
+        if len(rates_required) > 0:
+            self.market_data_provider.initialize_rate_sources(rates_required)
+
+    def _initialize_gas_tokens(self):
+        """Initialize gas tokens for AMM connectors during controller initialization."""
+        import asyncio
+
+        async def fetch_gas_tokens():
+            for connector_name in [self.config.maker_connector, self.config.taker_connector]:
+                connector_pair = ConnectorPair(connector_name=connector_name, trading_pair="")
+                if connector_pair.is_amm_connector():
+                    if connector_name not in self._gas_token_cache:
+                        try:
+                            gateway_client = GatewayHttpClient.get_instance()
+
+                            # Get chain and network for the connector
+                            chain, network, error = await gateway_client.get_connector_chain_network(
+                                connector_name
+                            )
+
+                            if error:
+                                self.logger().warning(f"Failed to get chain info for {connector_name}: {error}")
+                                continue
+
+                            # Get native currency symbol
+                            native_currency = await gateway_client.get_native_currency_symbol(chain, network)
+
+                            if native_currency:
+                                self._gas_token_cache[connector_name] = native_currency
+                                self.logger().info(f"Gas token for {connector_name}: {native_currency}")
+                            else:
+                                self.logger().warning(f"Failed to get native currency for {connector_name}")
+                        except Exception as e:
+                            self.logger().error(f"Error getting gas token for {connector_name}: {e}")
+
+        # Run the async function to fetch gas tokens
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            asyncio.create_task(fetch_gas_tokens())
+        else:
+            loop.run_until_complete(fetch_gas_tokens())
+
+    def get_gas_token(self, connector_name: str) -> Optional[str]:
+        """Get the cached gas token for a connector."""
+        return self._gas_token_cache.get(connector_name)
 
     async def update_processed_data(self):
         pass
