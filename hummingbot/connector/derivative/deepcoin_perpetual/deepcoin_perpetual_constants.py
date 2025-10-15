@@ -1,0 +1,169 @@
+from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
+from hummingbot.core.data_type.common import OrderType, PositionMode
+from hummingbot.core.data_type.in_flight_order import OrderState
+
+# Exchange Info
+EXCHANGE_NAME = "deepcoin_perpetual"
+DEFAULT_DOMAIN = "deepcoin_perpetual_main"
+
+# Broker ID
+HBOT_BROKER_ID = "Hummingbot"
+
+# Order ID Configuration
+MAX_ORDER_ID_LEN = 32
+
+# REST URLs
+REST_URLS = {
+    "deepcoin_perpetual_main": "https://api.deepcoin.com",
+    "deepcoin_perpetual_testnet": "https://test-api.goodtest.cc"
+}
+
+# WebSocket URLs
+WSS_PUBLIC_URLS = {
+    "deepcoin_perpetual_main": "wss://stream.deepcoin.com/streamlet/trade/public/swap?platform=api",
+    "deepcoin_perpetual_testnet": "wss://test-wss.goodtest.cc/streamlet/trade/public/swap?platform=api"
+}
+WSS_PRIVATE_URLS = {
+    "deepcoin_perpetual_main": "wss://stream.deepcoin.com/v1/private",
+    "deepcoin_perpetual_testnet": "wss://test-wss.goodtest.cc/v1/private"
+}
+
+# WebSocket Configuration
+WS_HEARTBEAT_TIME_INTERVAL = 10.0
+
+# Time in Force
+DEFAULT_TIME_IN_FORCE = "GTC"
+TIME_IN_FORCE_GTC = "GTC"  # Good till cancelled
+TIME_IN_FORCE_IOC = "IOC"  # Immediate or cancel
+TIME_IN_FORCE_FOK = "FOK"  # Fill or kill
+
+# Order Type Mapping
+ORDER_TYPE_MAP = {
+    OrderType.LIMIT: "limit",
+    OrderType.MARKET: "market",
+}
+
+# Position Mode Mapping
+POSITION_MODE_API_ONEWAY = 0
+POSITION_MODE_API_HEDGE = 1
+POSITION_MODE_MAP = {
+    PositionMode.ONEWAY: POSITION_MODE_API_ONEWAY,
+    PositionMode.HEDGE: POSITION_MODE_API_HEDGE,
+}
+
+# Public API Endpoints
+SNAPSHOT_REST_URL = "/deepcoin/market/books"
+TICKER_PRICE_URL = "/deepcoin/market/tickers"
+TICKER_PRICE_CHANGE_URL = "/deepcoin/market/tickers"
+EXCHANGE_INFO_URL = "/deepcoin/market/instruments"
+RECENT_TRADES_URL = "/deepcoin/market/trades"
+PING_URL = "/deepcoin/market/ping"
+#MARK_PRICE_URL = "/deepcoin/market/markPrice"
+#SERVER_TIME_PATH_URL = "/deepcoin/market/time"
+
+# Private API Endpoints
+ORDER_URL = "/deepcoin/trade/order"
+CANCEL_ALL_OPEN_ORDERS_URL = "/deepcoin/trade/swap/cancel-all"
+CANCEL_OPEN_ORDERS_URL="/deepcoin/trade/cancel-order"
+ACCOUNT_TRADE_LIST_URL = "/deepcoin/trade/fills"
+SET_LEVERAGE_URL = "/deepcoin/trade/leverage"
+GET_INCOME_HISTORY_URL = "/deepcoin/trade/income"
+CHANGE_POSITION_MODE_URL = "/deepcoin/trade/positionMode"
+
+# Account and Position Endpoints
+ACCOUNT_INFO_URL = "/deepcoin/account/balances"
+POSITION_INFORMATION_URL = "/deepcoin/account/positions"
+
+# WebSocket Event Types
+DIFF_EVENT_TYPE = "depthUpdate"
+TRADE_EVENT_TYPE = "trade"
+ORDER_UPDATE_EVENT_TYPE = "orderUpdate"
+POSITION_UPDATE_EVENT_TYPE = "positionUpdate"
+BALANCE_UPDATE_EVENT_TYPE = "balanceUpdate"
+
+# Order States
+ORDER_STATE = {
+    "pending": OrderState.PENDING_CREATE,
+    "new": OrderState.OPEN,
+    "filled": OrderState.FILLED,
+    "partially_filled": OrderState.PARTIALLY_FILLED,
+    "pending_cancel": OrderState.OPEN,
+    "canceled": OrderState.CANCELED,
+    "rejected": OrderState.FAILED,
+    "expired": OrderState.FAILED,
+    "expired_in_match": OrderState.FAILED,
+}
+
+# Position Side
+POSITION_SIDE_LONG = "long"
+POSITION_SIDE_SHORT = "short"
+POSITION_SIDE_BOTH = "both"
+
+# Position Mode
+POSITION_MODE_ONE_WAY = "one_way"
+POSITION_MODE_HEDGE = "hedge"
+
+# Rate Limit Types
+REQUEST_WEIGHT = "REQUEST_WEIGHT"
+ORDERS = "ORDERS"
+ORDERS_24HR = "ORDERS_24HR"
+RAW_REQUESTS = "RAW_REQUESTS"
+
+# Rate Limit time intervals
+ONE_MINUTE = 60
+ONE_SECOND = 1
+ONE_DAY = 86400
+
+MAX_REQUEST = 1000
+
+# Rate Limits
+RATE_LIMITS = [
+    # Pools
+    RateLimit(limit_id=REQUEST_WEIGHT, limit=1200, time_interval=ONE_MINUTE),
+    RateLimit(limit_id=ORDERS, limit=100, time_interval=10 * ONE_SECOND),
+    RateLimit(limit_id=ORDERS_24HR, limit=100000, time_interval=ONE_DAY),
+    RateLimit(limit_id=RAW_REQUESTS, limit=10000, time_interval=5 * ONE_MINUTE),
+    # Weighted Limits
+    RateLimit(limit_id=TICKER_PRICE_CHANGE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1),
+                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
+    RateLimit(limit_id=TICKER_PRICE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1),
+                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
+    RateLimit(limit_id=EXCHANGE_INFO_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 5),
+                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
+    RateLimit(limit_id=SNAPSHOT_REST_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 10),
+                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
+    RateLimit(limit_id=ACCOUNT_INFO_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 5),
+                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
+    RateLimit(limit_id=POSITION_INFORMATION_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 5),
+                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
+    RateLimit(limit_id=ACCOUNT_TRADE_LIST_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 5),
+                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
+    RateLimit(limit_id=ORDER_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 2),
+                             LinkedLimitWeightPair(ORDERS, 1),
+                             LinkedLimitWeightPair(ORDERS_24HR, 1),
+                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
+    RateLimit(limit_id=SET_LEVERAGE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1),
+                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
+    RateLimit(limit_id=CHANGE_POSITION_MODE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1),
+                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
+]
+
+# Error codes
+ORDER_NOT_EXIST_ERROR_CODE = 40001
+ORDER_NOT_EXIST_MESSAGE = "Order does not exist"
+UNKNOWN_ORDER_ERROR_CODE = 40002
+UNKNOWN_ORDER_MESSAGE = "Unknown order sent"
+INSUFFICIENT_BALANCE_ERROR_CODE = 40003
+INSUFFICIENT_BALANCE_MESSAGE = "Insufficient balance"
+INVALID_LEVERAGE_ERROR_CODE = 40004
+INVALID_LEVERAGE_MESSAGE = "Invalid leverage"
