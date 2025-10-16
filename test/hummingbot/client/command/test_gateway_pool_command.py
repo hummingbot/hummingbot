@@ -193,13 +193,31 @@ class GatewayPoolCommandTest(unittest.TestCase):
             'quoteTokenAddress': 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
             'feePct': 0.05
         }
-        # Mock get_token responses to return symbols
+        # Mock get_token responses to return symbols with correct nested structure
 
         def get_token_side_effect(symbol_or_address, chain, network):
             if symbol_or_address == '27G8MtK7VtTcCHkpASjSDdkWWYfoqT6ggEuKidVJidD4':
-                return {'symbol': 'JUP'}
+                return {
+                    'token': {
+                        'symbol': 'JUP',
+                        'name': 'Jupiter',
+                        'address': symbol_or_address,
+                        'decimals': 6
+                    },
+                    'chain': chain,
+                    'network': network
+                }
             elif symbol_or_address == 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v':
-                return {'symbol': 'USDC'}
+                return {
+                    'token': {
+                        'symbol': 'USDC',
+                        'name': 'USD Coin',
+                        'address': symbol_or_address,
+                        'decimals': 6
+                    },
+                    'chain': chain,
+                    'network': network
+                }
             return {}
 
         mock_get_token.side_effect = get_token_side_effect

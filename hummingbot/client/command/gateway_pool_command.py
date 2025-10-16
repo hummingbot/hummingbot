@@ -201,8 +201,8 @@ class GatewayPoolCommand:
                             chain=chain,
                             network=network
                         )
-                        if "symbol" in base_token_info:
-                            fetched_base_symbol = base_token_info["symbol"]
+                        if "token" in base_token_info and "symbol" in base_token_info["token"]:
+                            fetched_base_symbol = base_token_info["token"]["symbol"]
                     except Exception:
                         # Silently skip - symbols are optional
                         pass
@@ -214,8 +214,8 @@ class GatewayPoolCommand:
                             chain=chain,
                             network=network
                         )
-                        if "symbol" in quote_token_info:
-                            fetched_quote_symbol = quote_token_info["symbol"]
+                        if "token" in quote_token_info and "symbol" in quote_token_info["token"]:
+                            fetched_quote_symbol = quote_token_info["token"]["symbol"]
                     except Exception:
                         # Silently skip - symbols are optional
                         pass
@@ -395,8 +395,8 @@ class GatewayPoolCommand:
                                 chain=chain,
                                 network=network
                             )
-                            if "symbol" in base_token_info:
-                                fetched_base_symbol = base_token_info["symbol"]
+                            if "token" in base_token_info and "symbol" in base_token_info["token"]:
+                                fetched_base_symbol = base_token_info["token"]["symbol"]
                         except Exception:
                             # Silently skip - symbols are optional
                             pass
@@ -408,8 +408,8 @@ class GatewayPoolCommand:
                                 chain=chain,
                                 network=network
                             )
-                            if "symbol" in quote_token_info:
-                                fetched_quote_symbol = quote_token_info["symbol"]
+                            if "token" in quote_token_info and "symbol" in quote_token_info["token"]:
+                                fetched_quote_symbol = quote_token_info["token"]["symbol"]
                         except Exception:
                             # Silently skip - symbols are optional
                             pass
