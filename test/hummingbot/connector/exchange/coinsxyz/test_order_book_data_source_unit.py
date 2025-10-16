@@ -3,9 +3,9 @@
 Unit Tests for Coins.xyz Order Book Data Source
 """
 
-import unittest
 import asyncio
-from unittest.mock import MagicMock, patch, AsyncMock
+import unittest
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from hummingbot.connector.exchange.coinsxyz.coinsxyz_api_order_book_data_source import CoinsxyzAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType

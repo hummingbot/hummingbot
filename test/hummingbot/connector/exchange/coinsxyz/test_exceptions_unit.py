@@ -7,10 +7,10 @@ import unittest
 
 from hummingbot.connector.exchange.coinsxyz.coinsxyz_exceptions import (
     CoinsxyzAPIError,
+    CoinsxyzAuthError,
     CoinsxyzNetworkError,
     CoinsxyzOrderError,
-    CoinsxyzAuthError,
-    CoinsxyzRateLimitError
+    CoinsxyzRateLimitError,
 )
 
 

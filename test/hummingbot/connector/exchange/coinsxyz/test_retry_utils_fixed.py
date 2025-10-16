@@ -3,12 +3,16 @@
 Fixed Unit Tests for Coins.xyz Retry Utils
 """
 
-import unittest
 import asyncio
+import unittest
 
 from hummingbot.connector.exchange.coinsxyz.coinsxyz_retry_utils import (
-    CoinsxyzRetryHandler, RetryConfig, RetryConfigs, RetryType,
-    retry_on_rate_limit, is_retryable_error
+    CoinsxyzRetryHandler,
+    RetryConfig,
+    RetryConfigs,
+    RetryType,
+    is_retryable_error,
+    retry_on_rate_limit,
 )
 
 

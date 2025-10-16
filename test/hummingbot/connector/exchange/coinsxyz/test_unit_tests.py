@@ -12,8 +12,7 @@ from unittest.mock import MagicMock
 
 # Local imports
 from hummingbot.connector.exchange.coinsxyz.coinsxyz_auth import CoinsxyzAuth
-from hummingbot.connector.exchange.coinsxyz.coinsxyz_retry_utils import CoinsxyzRetryHandler
-from hummingbot.connector.exchange.coinsxyz.coinsxyz_retry_utils import RetryConfigs
+from hummingbot.connector.exchange.coinsxyz.coinsxyz_retry_utils import CoinsxyzRetryHandler, RetryConfigs
 from hummingbot.connector.exchange.coinsxyz.coinsxyz_websocket_message_parser import CoinsxyzWebSocketMessageParser
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 

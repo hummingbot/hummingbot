@@ -6,8 +6,8 @@ This unit test suite validates the authentication components
 of the Coins.xyz connector with proper mocking and isolation.
 """
 
-import unittest
 import time
+import unittest
 from unittest.mock import MagicMock
 
 # Local imports

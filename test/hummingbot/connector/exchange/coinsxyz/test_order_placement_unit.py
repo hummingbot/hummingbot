@@ -5,7 +5,7 @@ Unit Tests for Coins.xyz Order Placement
 
 import unittest
 from decimal import Decimal
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 from hummingbot.connector.exchange.coinsxyz.coinsxyz_order_placement import CoinsxyzOrderPlacement
 from hummingbot.core.data_type.common import TradeType

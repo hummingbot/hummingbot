@@ -4,13 +4,13 @@ Unit Tests for Coins.xyz User Stream Data Source
 """
 
 import unittest
-from unittest.mock import AsyncMock
-from unittest.mock import MagicMock
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from hummingbot.connector.exchange.coinsxyz.coinsxyz_api_user_stream_data_source import CoinsxyzAPIUserStreamDataSource
-from hummingbot.connector.exchange.coinsxyz.coinsxyz_api_user_stream_data_source import ListenKeyState
-from hummingbot.connector.exchange.coinsxyz.coinsxyz_api_user_stream_data_source import ValidationResult
+from hummingbot.connector.exchange.coinsxyz.coinsxyz_api_user_stream_data_source import (
+    CoinsxyzAPIUserStreamDataSource,
+    ListenKeyState,
+    ValidationResult,
+)
 
 
 class TestCoinsxyzAPIUserStreamDataSource(unittest.TestCase):

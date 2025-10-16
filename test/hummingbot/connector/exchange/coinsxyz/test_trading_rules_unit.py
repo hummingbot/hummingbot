@@ -5,8 +5,7 @@ Unit Tests for Coins.xyz Trading Rules
 
 import unittest
 from decimal import Decimal
-from unittest.mock import AsyncMock
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 from hummingbot.connector.exchange.coinsxyz.coinsxyz_trading_rules import CoinsxyzTradingRules
 

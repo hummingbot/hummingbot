@@ -3,13 +3,13 @@
 Fixed Unit Tests for Coins.xyz Authentication Module
 """
 
-import unittest
 import asyncio
 import time
+import unittest
 
 from hummingbot.connector.exchange.coinsxyz.coinsxyz_auth import CoinsxyzAuth
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
-from hummingbot.core.web_assistant.connections.data_types import RESTRequest, RESTMethod, WSRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
 
 
 class TestCoinsxyzAuthFixed(unittest.TestCase):

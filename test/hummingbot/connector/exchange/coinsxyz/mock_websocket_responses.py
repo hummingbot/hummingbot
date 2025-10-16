@@ -5,10 +5,10 @@ This module provides realistic mock WebSocket responses for all supported
 message types including order book diffs, trades, tickers, and klines.
 """
 
-import time
 import random
-from typing import Dict, Any, List
+import time
 from dataclasses import dataclass
+from typing import Any, Dict, List
 
 
 @dataclass

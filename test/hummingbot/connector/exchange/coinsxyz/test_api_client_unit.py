@@ -4,7 +4,7 @@ Unit Tests for Coins.xyz API Client
 """
 
 import unittest
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from hummingbot.connector.exchange.coinsxyz.coinsxyz_api_client import CoinsxyzAPIClient
 from hummingbot.connector.exchange.coinsxyz.coinsxyz_exceptions import CoinsxyzAPIError

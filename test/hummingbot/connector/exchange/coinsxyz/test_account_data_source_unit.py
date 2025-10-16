@@ -5,11 +5,11 @@ Unit Tests for Coins.xyz Account Data Source
 
 import unittest
 from decimal import Decimal
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from hummingbot.connector.exchange.coinsxyz.coinsxyz_account_data_source import (
+    AccountBalance,
     CoinsxyzAccountDataSource,
-    AccountBalance
 )
 
 
