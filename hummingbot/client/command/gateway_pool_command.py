@@ -193,6 +193,37 @@ class GatewayPoolCommand:
                 quote_token_address = pool_info_response.get("quoteTokenAddress")
                 fee_pct = pool_info_response.get("feePct")
 
+                # If symbols are missing, fetch them from token addresses
+                if not fetched_base_symbol and base_token_address:
+                    try:
+                        base_token_info = await self._get_gateway_instance().get_token(
+                            symbol_or_address=base_token_address,
+                            chain=chain,
+                            network=network
+                        )
+                        if "symbol" in base_token_info:
+                            fetched_base_symbol = base_token_info["symbol"]
+                    except Exception as e:
+                        self.notify(f"Warning: Could not fetch base token symbol: {str(e)}")
+
+                if not fetched_quote_symbol and quote_token_address:
+                    try:
+                        quote_token_info = await self._get_gateway_instance().get_token(
+                            symbol_or_address=quote_token_address,
+                            chain=chain,
+                            network=network
+                        )
+                        if "symbol" in quote_token_info:
+                            fetched_quote_symbol = quote_token_info["symbol"]
+                    except Exception as e:
+                        self.notify(f"Warning: Could not fetch quote token symbol: {str(e)}")
+
+                # Validate we have the required symbols
+                if not fetched_base_symbol or not fetched_quote_symbol:
+                    self.notify("Error: Could not determine token symbols from pool")
+                    self.notify("Cannot add pool without valid token symbols")
+                    return
+
                 # Display fetched pool information
                 self.notify("\n=== Pool Information ===")
                 self.notify(f"Connector: {connector}")
@@ -347,6 +378,37 @@ class GatewayPoolCommand:
                     base_token_address = pool_info_response.get("baseTokenAddress")
                     quote_token_address = pool_info_response.get("quoteTokenAddress")
                     fee_pct = pool_info_response.get("feePct")
+
+                    # If symbols are missing, fetch them from token addresses
+                    if not fetched_base_symbol and base_token_address:
+                        try:
+                            base_token_info = await self._get_gateway_instance().get_token(
+                                symbol_or_address=base_token_address,
+                                chain=chain,
+                                network=network
+                            )
+                            if "symbol" in base_token_info:
+                                fetched_base_symbol = base_token_info["symbol"]
+                        except Exception as e:
+                            self.notify(f"Warning: Could not fetch base token symbol: {str(e)}")
+
+                    if not fetched_quote_symbol and quote_token_address:
+                        try:
+                            quote_token_info = await self._get_gateway_instance().get_token(
+                                symbol_or_address=quote_token_address,
+                                chain=chain,
+                                network=network
+                            )
+                            if "symbol" in quote_token_info:
+                                fetched_quote_symbol = quote_token_info["symbol"]
+                        except Exception as e:
+                            self.notify(f"Warning: Could not fetch quote token symbol: {str(e)}")
+
+                    # Validate we have the required symbols
+                    if not fetched_base_symbol or not fetched_quote_symbol:
+                        self.notify("Error: Could not determine token symbols from pool")
+                        self.notify("Cannot add pool without valid token symbols")
+                        return
 
                     # Display fetched pool information
                     self.notify("\n=== Pool Information ===")

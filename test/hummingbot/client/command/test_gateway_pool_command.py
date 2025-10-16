@@ -177,6 +177,61 @@ class GatewayPoolCommandTest(unittest.TestCase):
         self.app.notify.assert_any_call("✓ Pool successfully added!")
         mock_restart.assert_called_once()
 
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_connector_chain_network')
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.pool_info')
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_token')
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.add_pool')
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.post_restart')
+    async def test_update_pool_direct_missing_symbols(self, mock_restart, mock_add_pool, mock_get_token, mock_pool_info, mock_chain_network):
+        """Test adding pool when symbols are missing from pool_info response"""
+        mock_chain_network.return_value = ("solana", "mainnet-beta", None)
+        # Mock pool_info response with null symbols (like Meteora returns)
+        mock_pool_info.return_value = {
+            'baseSymbol': None,
+            'quoteSymbol': None,
+            'baseTokenAddress': '27G8MtK7VtTcCHkpASjSDdkWWYfoqT6ggEuKidVJidD4',
+            'quoteTokenAddress': 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+            'feePct': 0.05
+        }
+        # Mock get_token responses to return symbols
+
+        def get_token_side_effect(symbol_or_address, chain, network):
+            if symbol_or_address == '27G8MtK7VtTcCHkpASjSDdkWWYfoqT6ggEuKidVJidD4':
+                return {'symbol': 'JUP'}
+            elif symbol_or_address == 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v':
+                return {'symbol': 'USDC'}
+            return {}
+
+        mock_get_token.side_effect = get_token_side_effect
+        mock_add_pool.return_value = {"message": "Pool added successfully"}
+        mock_restart.return_value = {}
+
+        gateway_instance = MagicMock()
+        gateway_instance.get_connector_chain_network = mock_chain_network
+        gateway_instance.pool_info = mock_pool_info
+        gateway_instance.get_token = mock_get_token
+        gateway_instance.add_pool = mock_add_pool
+        gateway_instance.post_restart = mock_restart
+        self.command._get_gateway_instance = MagicMock(return_value=gateway_instance)
+
+        await self.command._update_pool_direct(
+            "meteora/clmm",
+            "JUP-USDC",
+            "5cuy7pMhTPhVZN9xuhgSbykRb986iGJb6vnEtkuBrSU"
+        )
+
+        # Verify get_token was called to fetch symbols
+        self.assertEqual(mock_get_token.call_count, 2)
+
+        # Verify pool was added with correct symbols
+        mock_add_pool.assert_called_once()
+        call_args = mock_add_pool.call_args
+        pool_data = call_args.kwargs['pool_data']
+
+        self.assertEqual(pool_data['baseSymbol'], "JUP")
+        self.assertEqual(pool_data['quoteSymbol'], "USDC")
+        self.assertEqual(pool_data['type'], "clmm")
+
     def test_display_pool_info_uniswap_clmm(self):
         """Test display of Uniswap V3 CLMM pool information with real data from EVM chain"""
         # Real data fetched from Uniswap V3 CLMM gateway on Ethereum
