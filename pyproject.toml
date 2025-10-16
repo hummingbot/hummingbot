@@ -19,7 +19,7 @@ exclude = '''
 '''
 
 [build-system]
-requires = ["setuptools", "wheel", "numpy==1.26.4", "cython==3.0.0a10"]
+requires = ["setuptools", "wheel", "numpy>=2.2.6", "cython>=3.0.12"]
 
 [tool.isort]
 line_length = 120
