@@ -125,16 +125,26 @@ class GatewayPoolCommandTest(unittest.TestCase):
         self.app.notify.assert_any_call("Error: Invalid trading pair format 'SOLUSDC'. Use format like 'ETH-USDC'")
 
     @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_connector_chain_network')
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.pool_info')
     @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.add_pool')
     @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.post_restart')
-    async def test_update_pool_direct_success(self, mock_restart, mock_add_pool, mock_chain_network):
+    async def test_update_pool_direct_success(self, mock_restart, mock_add_pool, mock_pool_info, mock_chain_network):
         """Test adding pool directly with address"""
         mock_chain_network.return_value = ("solana", "mainnet-beta", None)
+        # Mock pool_info response with fetched data from Gateway
+        mock_pool_info.return_value = {
+            'baseSymbol': 'SOL',
+            'quoteSymbol': 'USDC',
+            'baseTokenAddress': 'So11111111111111111111111111111111111111112',
+            'quoteTokenAddress': 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+            'feePct': 0.04
+        }
         mock_add_pool.return_value = {"message": "Pool added successfully"}
         mock_restart.return_value = {}
 
         gateway_instance = MagicMock()
         gateway_instance.get_connector_chain_network = mock_chain_network
+        gateway_instance.pool_info = mock_pool_info
         gateway_instance.add_pool = mock_add_pool
         gateway_instance.post_restart = mock_restart
         self.command._get_gateway_instance = MagicMock(return_value=gateway_instance)
@@ -145,12 +155,19 @@ class GatewayPoolCommandTest(unittest.TestCase):
             "3ucNos4NbumPLZNWztqGHNFFgkHeRMBQAVemeeomsUxv"
         )
 
+        # Verify pool_info was called to fetch pool data
+        mock_pool_info.assert_called_once_with(
+            connector="raydium/clmm",
+            network="mainnet-beta",
+            pool_address="3ucNos4NbumPLZNWztqGHNFFgkHeRMBQAVemeeomsUxv"
+        )
+
         # Verify pool was added
         mock_add_pool.assert_called_once()
         call_args = mock_add_pool.call_args
         pool_data = call_args.kwargs['pool_data']
 
-        # Check that pool_data includes the required fields
+        # Check that pool_data includes the required fields (fetched from pool_info)
         self.assertEqual(pool_data['address'], "3ucNos4NbumPLZNWztqGHNFFgkHeRMBQAVemeeomsUxv")
         self.assertEqual(pool_data['baseSymbol'], "SOL")
         self.assertEqual(pool_data['quoteSymbol'], "USDC")
