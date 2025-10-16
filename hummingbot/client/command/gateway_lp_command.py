@@ -533,10 +533,9 @@ class GatewayLPCommand:
                         self.notify(f"  Current: {current_price:.6f}")
                         self.notify(f"  Upper: {upper_price:.6f}")
 
-                        # Calculate spread percentage for internal use
-                        mid_price = (lower_price + upper_price) / 2
-                        spread_pct = ((upper_price - lower_price) / (2 * mid_price)) * 100
-                        position_params['spread_pct'] = spread_pct
+                        # Store the explicit price range for passing to add_liquidity
+                        position_params['lower_price'] = lower_price
+                        position_params['upper_price'] = upper_price
 
                     except ValueError:
                         self.notify("Error: Invalid price values")
@@ -717,10 +716,12 @@ class GatewayLPCommand:
 
                 # Create order ID and execute
                 if is_clmm:
+                    # Pass explicit price range (lower_price and upper_price) instead of spread_pct
                     order_id = lp_connector.add_liquidity(
                         trading_pair=trading_pair,
                         price=pool_info.price,
-                        spread_pct=position_params['spread_pct'],
+                        lower_price=position_params.get('lower_price'),
+                        upper_price=position_params.get('upper_price'),
                         base_token_amount=base_amount,
                         quote_token_amount=quote_amount,
                         slippage_pct=slippage_pct
