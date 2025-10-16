@@ -55,14 +55,13 @@ class LPCommandUtils:
         base_token = base_token_info.get("symbol") if base_token_info else "Unknown"
         quote_token = quote_token_info.get("symbol") if quote_token_info else "Unknown"
 
-        # Display enhanced pool notification
+        # Display enhanced pool notification in list format
         pool_type = "CLMM" if is_clmm else "AMM"
-        pool_notification = (
-            f"Pool found: {base_token} ({GatewayCommandUtils.format_address_display(pool_info.base_token_address)}) - "
-            f"{quote_token} ({GatewayCommandUtils.format_address_display(pool_info.quote_token_address)}) | "
-            f"{pool_type} | Fee: {pool_info.fee_pct}%"
-        )
-        app.notify(pool_notification)
+        app.notify("Pool found:")
+        app.notify(f"  Base Token: {base_token} ({GatewayCommandUtils.format_address_display(pool_info.base_token_address)})")
+        app.notify(f"  Quote Token: {quote_token} ({GatewayCommandUtils.format_address_display(pool_info.quote_token_address)})")
+        app.notify(f"  Type: {pool_type}")
+        app.notify(f"  Fee: {pool_info.fee_pct}%")
 
         # Log detailed pool info
         app.logger().info(
