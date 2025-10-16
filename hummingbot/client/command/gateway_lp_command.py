@@ -642,11 +642,20 @@ class GatewayLPCommand:
                 self.notify(f"  {quote_token}: {quote_amount:.6f}")
 
                 # 11. Check balances and calculate impact
-                tokens_to_check = [base_token, quote_token]
+                # Explicitly construct token list to ensure base and quote tokens are included
+                tokens_to_check = []
+                if base_token:
+                    tokens_to_check.append(base_token)
+                if quote_token:
+                    tokens_to_check.append(quote_token)
+
                 native_token = lp_connector.native_currency or chain.upper()
 
-                current_balances = await self._get_gateway_instance().get_wallet_balances(
+                # Ensure native token is in the list
+                if native_token and native_token not in tokens_to_check:
+                    tokens_to_check.append(native_token)
 
+                current_balances = await self._get_gateway_instance().get_wallet_balances(
                     chain=chain,
                     network=network,
                     wallet_address=wallet_address,
@@ -914,11 +923,20 @@ class GatewayLPCommand:
                     )
 
                     # 11. Check balances and estimate fees
-                    tokens_to_check = [base_token, quote_token]
+                    # Explicitly construct token list to ensure base and quote tokens are included
+                    tokens_to_check = []
+                    if base_token:
+                        tokens_to_check.append(base_token)
+                    if quote_token:
+                        tokens_to_check.append(quote_token)
+
                     native_token = lp_connector.native_currency or chain.upper()
 
-                    current_balances = await self._get_gateway_instance().get_wallet_balances(
+                    # Ensure native token is in the list
+                    if native_token and native_token not in tokens_to_check:
+                        tokens_to_check.append(native_token)
 
+                    current_balances = await self._get_gateway_instance().get_wallet_balances(
                         chain=chain,
                         network=network,
                         wallet_address=wallet_address,
@@ -1183,12 +1201,18 @@ class GatewayLPCommand:
                     gas_fee_estimate = fee_info.get("fee_in_native", 0) if fee_info.get("success", False) else 0
 
                     # 12. Get current balances
-                    tokens_to_check = [selected_position.base_token, selected_position.quote_token]
-                    if native_token not in tokens_to_check:
+                    # Explicitly construct token list to ensure base and quote tokens are included
+                    tokens_to_check = []
+                    if selected_position.base_token:
+                        tokens_to_check.append(selected_position.base_token)
+                    if selected_position.quote_token:
+                        tokens_to_check.append(selected_position.quote_token)
+
+                    # Ensure native token is in the list
+                    if native_token and native_token not in tokens_to_check:
                         tokens_to_check.append(native_token)
 
                     current_balances = await self._get_gateway_instance().get_wallet_balances(
-
                         chain=chain,
                         network=network,
                         wallet_address=wallet_address,
