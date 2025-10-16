@@ -6,14 +6,17 @@ This unit test suite validates the WebSocket message parsing and
 connection management components with proper mocking.
 """
 
-import unittest
 import time
+import unittest
 from decimal import Decimal
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
+
+from hummingbot.connector.exchange.coinsxyz.coinsxyz_websocket_connection_manager import (
+    CoinsxyzWebSocketConnectionManager,
+)
 
 # Local imports
 from hummingbot.connector.exchange.coinsxyz.coinsxyz_websocket_message_parser import CoinsxyzWebSocketMessageParser
-from hummingbot.connector.exchange.coinsxyz.coinsxyz_websocket_connection_manager import CoinsxyzWebSocketConnectionManager
 
 
 class TestCoinsxyzWebSocketMessageParser(unittest.TestCase):

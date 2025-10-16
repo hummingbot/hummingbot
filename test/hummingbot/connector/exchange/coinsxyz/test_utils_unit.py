@@ -65,8 +65,8 @@ class TestCoinsxyzUtils(unittest.TestCase):
 
     def test_build_api_factory(self):
         """Test API factory building."""
-        from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
         from hummingbot.connector.time_synchronizer import TimeSynchronizer
+        from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
         throttler = AsyncThrottler([])
         time_sync = TimeSynchronizer()

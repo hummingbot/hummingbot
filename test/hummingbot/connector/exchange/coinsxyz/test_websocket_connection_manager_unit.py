@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
 import unittest
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
 
-from hummingbot.connector.exchange.coinsxyz.coinsxyz_websocket_connection_manager import CoinsxyzWebSocketConnectionManager
+from hummingbot.connector.exchange.coinsxyz.coinsxyz_websocket_connection_manager import (
+    CoinsxyzWebSocketConnectionManager,
+)
 
 
 class TestCoinsxyzWebSocketConnectionManager(unittest.TestCase):
