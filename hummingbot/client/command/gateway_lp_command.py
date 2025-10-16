@@ -1003,7 +1003,7 @@ class GatewayLPCommand:
                     # - For CLMM: uses clmm_close_position if 100%, clmm_remove_liquidity otherwise
                     # - For AMM: always uses amm_remove_liquidity
                     order_id = lp_connector.remove_liquidity(
-                        trading_pair=trading_pair,
+                        trading_pair=trading_pair_result,
                         position_address=position_address,
                         percentage=percentage
                     )
