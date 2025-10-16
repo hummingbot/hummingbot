@@ -21,12 +21,8 @@ from hummingbot.connector.exchange.coinsxyz.coinsxyz_exceptions import (
     CoinsxyzErrorParser,
     CoinsxyzNetworkError,
 )
-from hummingbot.connector.exchange.coinsxyz.coinsxyz_logger import CoinsxyzRequestLogger, CoinsxyzDebugLogger
-from hummingbot.connector.exchange.coinsxyz.coinsxyz_retry_utils import (
-    CoinsxyzRetryHandler,
-    RetryConfig,
-    RetryConfigs
-)
+from hummingbot.connector.exchange.coinsxyz.coinsxyz_logger import CoinsxyzDebugLogger, CoinsxyzRequestLogger
+from hummingbot.connector.exchange.coinsxyz.coinsxyz_retry_utils import CoinsxyzRetryHandler, RetryConfig, RetryConfigs
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 

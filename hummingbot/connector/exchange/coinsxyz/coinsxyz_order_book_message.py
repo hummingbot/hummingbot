@@ -7,7 +7,7 @@ specifically handling Coins.xyz API responses and Hummingbot internal formats.
 
 import time
 from decimal import Decimal
-from typing import Dict, List, Any, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 

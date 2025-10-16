@@ -31,13 +31,12 @@ Day 18 Features:
 import asyncio
 import logging
 import time
+from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Dict, List, Optional, Callable, Awaitable
-from dataclasses import dataclass
+from typing import Any, Awaitable, Callable, Dict, List, Optional
 
-from hummingbot.connector.exchange.coinsxyz import coinsxyz_constants as CONSTANTS
-from hummingbot.connector.exchange.coinsxyz import coinsxyz_web_utils as web_utils
+from hummingbot.connector.exchange.coinsxyz import coinsxyz_constants as CONSTANTS, coinsxyz_web_utils as web_utils
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory

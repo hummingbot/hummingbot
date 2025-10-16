@@ -8,13 +8,14 @@ including data validation, formatting, and conversion functions.
 from decimal import Decimal
 from typing import Any, Dict, Tuple
 
-from hummingbot.connector.utils import combine_to_hb_trading_pair
-from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.trade_fee import TradeFeeSchema
-from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 # from hummingbot.client.config.config_helpers import BaseConnectorConfigMap
 from pydantic import Field, SecretStr
 from pydantic.config import ConfigDict
+
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
+from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 
 def is_pair_information_valid(pair_info: Dict[str, Any]) -> bool:

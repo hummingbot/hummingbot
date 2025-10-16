@@ -10,6 +10,7 @@ import logging
 from typing import Dict, List, Optional, Set
 
 from hummingbot.connector.exchange.coinsxyz import coinsxyz_constants as CONSTANTS
+
 # from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType

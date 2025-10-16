@@ -8,12 +8,11 @@ lifecycle handling, reconnection logic, and subscription management.
 import asyncio
 import logging
 import time
-from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Callable, Awaitable
 import weakref
+from enum import Enum
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Set
 
-from hummingbot.connector.exchange.coinsxyz import coinsxyz_constants as CONSTANTS
-from hummingbot.connector.exchange.coinsxyz import coinsxyz_web_utils as web_utils
+from hummingbot.connector.exchange.coinsxyz import coinsxyz_constants as CONSTANTS, coinsxyz_web_utils as web_utils
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest, WSResponse
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant

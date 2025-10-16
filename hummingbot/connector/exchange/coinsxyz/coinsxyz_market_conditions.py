@@ -11,17 +11,17 @@ This module provides comprehensive market conditions testing including:
 
 import asyncio
 import logging
-import time
 import random
-from decimal import Decimal
-from typing import Any, Dict, List
+import time
 from dataclasses import dataclass
+from decimal import Decimal
 from enum import Enum
+from typing import Any, Dict, List
 
 from hummingbot.connector.exchange.coinsxyz.coinsxyz_order_lifecycle import CoinsxyzOrderLifecycle
 from hummingbot.connector.exchange.coinsxyz.coinsxyz_order_placement import CoinsxyzOrderPlacement
-from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.logger import HummingbotLogger
 
 

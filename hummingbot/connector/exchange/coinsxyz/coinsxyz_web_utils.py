@@ -10,11 +10,7 @@ from typing import Any, Callable, Dict, Optional
 import aiohttp
 
 from hummingbot.connector.exchange.coinsxyz import coinsxyz_constants as CONSTANTS
-from hummingbot.connector.exchange.coinsxyz.coinsxyz_retry_utils import (
-    CoinsxyzRetryHandler,
-    RetryConfig,
-    RetryConfigs
-)
+from hummingbot.connector.exchange.coinsxyz.coinsxyz_retry_utils import CoinsxyzRetryHandler, RetryConfig, RetryConfigs
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest

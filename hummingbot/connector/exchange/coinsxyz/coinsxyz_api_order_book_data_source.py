@@ -11,9 +11,12 @@ import time
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Union
 
-from hummingbot.connector.exchange.coinsxyz import coinsxyz_constants as CONSTANTS
-from hummingbot.connector.exchange.coinsxyz import coinsxyz_utils as utils
-from hummingbot.connector.exchange.coinsxyz import coinsxyz_web_utils as web_utils
+from hummingbot.connector.exchange.coinsxyz import (
+    coinsxyz_constants as CONSTANTS,
+    coinsxyz_utils as utils,
+    coinsxyz_web_utils as web_utils,
+)
+
 # Simplified imports to avoid circular dependencies
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType

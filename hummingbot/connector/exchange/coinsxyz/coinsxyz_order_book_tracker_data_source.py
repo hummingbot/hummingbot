@@ -7,8 +7,8 @@ handling REST API calls and WebSocket connections for order book data.
 
 import asyncio
 import logging
-from typing import Dict, List, Optional, Any
 from decimal import Decimal
+from typing import Any, Dict, List, Optional
 
 # from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_message import OrderBookMessage

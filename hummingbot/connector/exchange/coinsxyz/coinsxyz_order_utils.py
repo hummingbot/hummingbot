@@ -6,12 +6,11 @@ for seamless integration with Hummingbot's order management system.
 """
 
 import logging
+from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Union
-from datetime import datetime
 
-from hummingbot.connector.exchange.coinsxyz import coinsxyz_constants as CONSTANTS
-from hummingbot.connector.exchange.coinsxyz import coinsxyz_utils as utils
+from hummingbot.connector.exchange.coinsxyz import coinsxyz_constants as CONSTANTS, coinsxyz_utils as utils
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
 from hummingbot.logger import HummingbotLogger

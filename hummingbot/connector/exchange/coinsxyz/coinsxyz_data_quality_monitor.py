@@ -11,13 +11,13 @@ This module provides comprehensive data quality monitoring with:
 
 import asyncio
 import logging
-import time
-from decimal import Decimal
-from typing import Dict, Any, List, Optional, Tuple
-from collections import deque, defaultdict
-from dataclasses import dataclass
-from enum import Enum
 import statistics
+import time
+from collections import defaultdict, deque
+from dataclasses import dataclass
+from decimal import Decimal
+from enum import Enum
+from typing import Any, Dict, List, Optional, Tuple
 
 from hummingbot.logger import HummingbotLogger
 

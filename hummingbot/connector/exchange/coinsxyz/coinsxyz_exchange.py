@@ -12,9 +12,6 @@ from bidict import bidict
 
 # Production Hummingbot imports
 from hummingbot.connector.constants import s_decimal_NaN
-from hummingbot.connector.exchange_py_base import ExchangePyBase
-from hummingbot.connector.trading_rule import TradingRule
-
 from hummingbot.connector.exchange.coinsxyz import (
     coinsxyz_constants as CONSTANTS,
     coinsxyz_utils as utils,
@@ -22,6 +19,9 @@ from hummingbot.connector.exchange.coinsxyz import (
 )
 from hummingbot.connector.exchange.coinsxyz.coinsxyz_auth import CoinsxyzAuth
 from hummingbot.connector.exchange.coinsxyz.coinsxyz_exchange_info import CoinsxyzExchangeInfo
+from hummingbot.connector.exchange_py_base import ExchangePyBase
+from hummingbot.connector.trading_rule import TradingRule
+
 # Core data types - production Hummingbot imports
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
@@ -209,7 +209,9 @@ class CoinsxyzExchange(ExchangePyBase):
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         """Create the order book data source for market data."""
-        from hummingbot.connector.exchange.coinsxyz.coinsxyz_api_order_book_data_source import CoinsxyzAPIOrderBookDataSource
+        from hummingbot.connector.exchange.coinsxyz.coinsxyz_api_order_book_data_source import (
+            CoinsxyzAPIOrderBookDataSource,
+        )
         return CoinsxyzAPIOrderBookDataSource(
             trading_pairs=self._trading_pairs,
             connector=self,
@@ -219,7 +221,9 @@ class CoinsxyzExchange(ExchangePyBase):
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         """Create the user stream data source for account updates."""
-        from hummingbot.connector.exchange.coinsxyz.coinsxyz_api_user_stream_data_source import CoinsxyzAPIUserStreamDataSource
+        from hummingbot.connector.exchange.coinsxyz.coinsxyz_api_user_stream_data_source import (
+            CoinsxyzAPIUserStreamDataSource,
+        )
         return CoinsxyzAPIUserStreamDataSource(
             auth=self.authenticator,
             trading_pairs=self._trading_pairs,
