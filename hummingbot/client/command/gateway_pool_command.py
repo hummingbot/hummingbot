@@ -244,15 +244,20 @@ class GatewayPoolCommand:
                     self.notify(f"Fee: {fee_pct}%")
                 self.notify(f"Pool Address: {pool_address}")
 
-                # Create pool data - only include symbols if we have them
+                # Create pool data with required and optional fields
                 pool_data = {
                     "address": pool_address,
-                    "type": trading_type
+                    "type": trading_type,
+                    "baseTokenAddress": base_token_address,
+                    "quoteTokenAddress": quote_token_address
                 }
+                # Add optional fields
                 if fetched_base_symbol:
                     pool_data["baseSymbol"] = fetched_base_symbol
                 if fetched_quote_symbol:
                     pool_data["quoteSymbol"] = fetched_quote_symbol
+                if fee_pct is not None:
+                    pool_data["feePct"] = fee_pct
 
                 # Display pool data that will be stored
                 self.notify("\nPool to add:")
@@ -438,15 +443,20 @@ class GatewayPoolCommand:
                         self.notify(f"Fee: {fee_pct}%")
                     self.notify(f"Pool Address: {pool_address}")
 
-                    # Create pool data - only include symbols if we have them
+                    # Create pool data with required and optional fields
                     pool_data = {
                         "address": pool_address,
-                        "type": trading_type
+                        "type": trading_type,
+                        "baseTokenAddress": base_token_address,
+                        "quoteTokenAddress": quote_token_address
                     }
+                    # Add optional fields
                     if fetched_base_symbol:
                         pool_data["baseSymbol"] = fetched_base_symbol
                     if fetched_quote_symbol:
                         pool_data["quoteSymbol"] = fetched_quote_symbol
+                    if fee_pct is not None:
+                        pool_data["feePct"] = fee_pct
 
                     # Display pool data that will be stored
                     self.notify("\nPool to add:")

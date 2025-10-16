@@ -1375,7 +1375,15 @@ class GatewayHttpClient:
 
         :param connector: Connector name
         :param network: Network name
-        :param pool_data: Pool configuration data
+        :param pool_data: Pool configuration data. Required fields:
+            - address (str): Pool contract address
+            - type (str): Pool type ("amm" or "clmm")
+            - baseTokenAddress (str): Base token contract address
+            - quoteTokenAddress (str): Quote token contract address
+            Optional fields from pool-info:
+            - baseSymbol (str): Base token symbol
+            - quoteSymbol (str): Quote token symbol
+            - feePct (float): Pool fee percentage
         :return: Response with status
         """
         params = {

@@ -167,11 +167,15 @@ class GatewayPoolCommandTest(unittest.TestCase):
         call_args = mock_add_pool.call_args
         pool_data = call_args.kwargs['pool_data']
 
-        # Check that pool_data includes the required fields (fetched from pool_info)
+        # Check that pool_data includes the required fields
         self.assertEqual(pool_data['address'], "3ucNos4NbumPLZNWztqGHNFFgkHeRMBQAVemeeomsUxv")
+        self.assertEqual(pool_data['type'], "clmm")
+        self.assertEqual(pool_data['baseTokenAddress'], "So11111111111111111111111111111111111111112")
+        self.assertEqual(pool_data['quoteTokenAddress'], "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
+        # Check optional fields
         self.assertEqual(pool_data['baseSymbol'], "SOL")
         self.assertEqual(pool_data['quoteSymbol'], "USDC")
-        self.assertEqual(pool_data['type'], "clmm")
+        self.assertEqual(pool_data['feePct'], 0.04)
 
         # Verify success message
         self.app.notify.assert_any_call("✓ Pool successfully added!")
@@ -241,14 +245,20 @@ class GatewayPoolCommandTest(unittest.TestCase):
         # Verify get_token was called to fetch symbols
         self.assertEqual(mock_get_token.call_count, 2)
 
-        # Verify pool was added with correct symbols
+        # Verify pool was added with correct symbols and required fields
         mock_add_pool.assert_called_once()
         call_args = mock_add_pool.call_args
         pool_data = call_args.kwargs['pool_data']
 
+        # Check required fields
+        self.assertEqual(pool_data['address'], "5cuy7pMhTPhVZN9xuhgSbykRb986iGJb6vnEtkuBrSU")
+        self.assertEqual(pool_data['type'], "clmm")
+        self.assertEqual(pool_data['baseTokenAddress'], "27G8MtK7VtTcCHkpASjSDdkWWYfoqT6ggEuKidVJidD4")
+        self.assertEqual(pool_data['quoteTokenAddress'], "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
+        # Check optional fields
         self.assertEqual(pool_data['baseSymbol'], "JUP")
         self.assertEqual(pool_data['quoteSymbol'], "USDC")
-        self.assertEqual(pool_data['type'], "clmm")
+        self.assertEqual(pool_data['feePct'], 0.05)
 
     def test_display_pool_info_uniswap_clmm(self):
         """Test display of Uniswap V3 CLMM pool information with real data from EVM chain"""
