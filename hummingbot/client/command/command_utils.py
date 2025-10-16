@@ -248,6 +248,7 @@ class GatewayCommandUtils:
     ):
         """
         Display transaction fee details from fee estimation.
+        Shows EIP-1559 fields (maxFeePerGas, maxPriorityFeePerGas) if gasType is eip1559.
 
         :param app: HummingbotApplication instance (for notify method)
         :param fee_info: Fee information from estimate_transaction_fee
@@ -256,14 +257,28 @@ class GatewayCommandUtils:
             app.notify("\nWarning: Could not estimate transaction fees")
             return
 
-        fee_per_unit = fee_info["fee_per_unit"]
-        denomination = fee_info["denomination"]
+        denomination = fee_info.get("denomination", "")
         fee_in_native = fee_info["fee_in_native"]
         native_token = fee_info["native_token"]
+        gas_type = fee_info.get("gas_type")
 
         app.notify("\nTransaction Fee Details:")
-        if fee_per_unit and denomination:
-            app.notify(f"  Current Gas Price: {fee_per_unit:.4f} {denomination}")
+
+        # Show EIP-1559 fields if gas type is eip1559
+        if gas_type == "eip1559":
+            max_fee_per_gas = fee_info.get("max_fee_per_gas")
+            max_priority_fee_per_gas = fee_info.get("max_priority_fee_per_gas")
+
+            if max_fee_per_gas is not None and denomination:
+                app.notify(f"  Max Fee Per Gas: {max_fee_per_gas:.4f} {denomination}")
+            if max_priority_fee_per_gas is not None and denomination:
+                app.notify(f"  Max Priority Fee Per Gas: {max_priority_fee_per_gas:.4f} {denomination}")
+        else:
+            # Show legacy gas price for non-EIP-1559
+            fee_per_unit = fee_info.get("fee_per_unit")
+            if fee_per_unit and denomination:
+                app.notify(f"  Current Gas Price: {fee_per_unit:.4f} {denomination}")
+
         app.notify(f"  Estimated Gas Cost: ~{fee_in_native:.6f} {native_token}")
 
     @staticmethod
