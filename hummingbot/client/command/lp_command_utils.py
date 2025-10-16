@@ -58,6 +58,7 @@ class LPCommandUtils:
         # Display enhanced pool notification in list format
         pool_type = "CLMM" if is_clmm else "AMM"
         app.notify("Pool found:")
+        app.notify(f"  Address: {GatewayCommandUtils.format_address_display(pool_address)}")
         app.notify(f"  Base Token: {base_token} ({GatewayCommandUtils.format_address_display(pool_info.base_token_address)})")
         app.notify(f"  Quote Token: {quote_token} ({GatewayCommandUtils.format_address_display(pool_info.quote_token_address)})")
         app.notify(f"  Type: {pool_type}")

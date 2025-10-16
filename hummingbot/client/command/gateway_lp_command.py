@@ -322,6 +322,8 @@ class GatewayLPCommand:
 
                     pool_info, pool_address, base_token, quote_token, trading_pair = pool_result
 
+                    # Clear input while fetching positions (takes a few seconds)
+                    self.app.clear_input()
                     self.notify(f"\nFetching positions for {user_trading_pair} (pool: {GatewayCommandUtils.format_address_display(pool_address)})...")
 
                     # Get positions for this pool
@@ -814,6 +816,8 @@ class GatewayLPCommand:
 
                     pool_info, pool_address, base_token, quote_token, trading_pair = pool_result
 
+                    # Clear input while fetching positions (takes a few seconds)
+                    self.app.clear_input()
                     self.notify(f"\nFetching positions for {user_trading_pair} (pool: {GatewayCommandUtils.format_address_display(pool_address)})...")
 
                     # Get positions for this pool
@@ -1060,6 +1064,8 @@ class GatewayLPCommand:
 
                     pool_info, pool_address, base_token, quote_token, trading_pair = pool_result
 
+                    # Clear input while fetching positions (takes a few seconds)
+                    self.app.clear_input()
                     self.notify(f"\nFetching positions for {user_trading_pair} (pool: {GatewayCommandUtils.format_address_display(pool_address)})...")
 
                     # Get positions for this pool
