@@ -12,7 +12,6 @@ from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
 
-
 class CoinsxyzRequestLogger:
     """
     Advanced request/response logger with security filtering and performance monitoring.
