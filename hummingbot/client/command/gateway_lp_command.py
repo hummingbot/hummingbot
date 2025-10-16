@@ -313,13 +313,17 @@ class GatewayLPCommand:
                         self.notify("Error: Invalid trading pair format. Use format like 'SOL-USDC'")
                         return
 
-                    self.notify(f"\nFetching positions for {user_trading_pair}...")
-
                     # Get pool address for the trading pair
                     pool_address = await lp_connector.get_pool_address(user_trading_pair)
                     if not pool_address:
                         self.notify(f"No pool found for {user_trading_pair}")
                         return
+
+                    # Notify pool found and log it
+                    self.notify(f"Pool found: {GatewayCommandUtils.format_address_display(pool_address)}")
+                    self.logger().info(f"Found pool for {user_trading_pair}: {pool_address}")
+
+                    self.notify(f"\nFetching positions for {user_trading_pair} (pool: {GatewayCommandUtils.format_address_display(pool_address)})...")
 
                     # Get positions for this pool - they already have token info
                     positions = await lp_connector.get_user_positions(pool_address=pool_address)
@@ -811,13 +815,17 @@ class GatewayLPCommand:
                         self.notify("Error: Invalid trading pair format. Use format like 'SOL-USDC'")
                         return
 
-                    self.notify(f"\nFetching positions for {user_trading_pair}...")
-
                     # Get pool address for the trading pair
                     pool_address = await lp_connector.get_pool_address(user_trading_pair)
                     if not pool_address:
                         self.notify(f"No pool found for {user_trading_pair}")
                         return
+
+                    # Notify pool found and log it
+                    self.notify(f"Pool found: {GatewayCommandUtils.format_address_display(pool_address)}")
+                    self.logger().info(f"Found pool for {user_trading_pair}: {pool_address}")
+
+                    self.notify(f"\nFetching positions for {user_trading_pair} (pool: {GatewayCommandUtils.format_address_display(pool_address)})...")
 
                     # Get positions for this pool - they already have token info
                     positions = await lp_connector.get_user_positions(pool_address=pool_address)
@@ -1062,13 +1070,17 @@ class GatewayLPCommand:
                         self.notify("Error: Invalid trading pair format. Use format like 'SOL-USDC'")
                         return
 
-                    self.notify(f"\nFetching positions for {user_trading_pair}...")
-
                     # Get pool address for the trading pair
                     pool_address = await lp_connector.get_pool_address(user_trading_pair)
                     if not pool_address:
                         self.notify(f"No pool found for {user_trading_pair}")
                         return
+
+                    # Notify pool found and log it
+                    self.notify(f"Pool found: {GatewayCommandUtils.format_address_display(pool_address)}")
+                    self.logger().info(f"Found pool for {user_trading_pair}: {pool_address}")
+
+                    self.notify(f"\nFetching positions for {user_trading_pair} (pool: {GatewayCommandUtils.format_address_display(pool_address)})...")
 
                     # Get positions for this pool - they already have token info
                     all_positions = await lp_connector.get_user_positions(pool_address=pool_address)
