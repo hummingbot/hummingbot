@@ -10,11 +10,8 @@ import logging
 from typing import Dict, List, Optional, Any
 from decimal import Decimal
 
-from hummingbot.connector.exchange.coinsxyz import coinsxyz_constants as CONSTANTS
-from hummingbot.connector.exchange.coinsxyz import coinsxyz_web_utils as web_utils
 # from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
@@ -41,18 +38,6 @@ class CoinsxyzOrderBookTrackerDataSource:
         self._trading_pairs = trading_pairs
         self._last_traded_prices: Dict[str, Decimal] = {}
 
-    @classmethod
-    def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, Decimal]:
-        """
-        Get last traded prices for trading pairs.
-
-        :param trading_pairs: List of trading pairs
-        :return: Dictionary mapping trading pairs to last traded prices
-        """
-        # This would normally make API calls to get current prices
-        # For now, return empty dict to satisfy the interface
-        return {}
-
     async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, Decimal]:
         """
         Get last traded prices for trading pairs (async version).
@@ -66,10 +51,7 @@ class CoinsxyzOrderBookTrackerDataSource:
             for trading_pair in trading_pairs:
                 try:
                     # Convert trading pair to exchange format
-                    exchange_pair = self._convert_to_exchange_trading_pair(trading_pair)
-
-                    # Make API call to get ticker data
-                    url = web_utils.public_rest_url(f"/api/v3/ticker/price?symbol={exchange_pair}")
+                    self._convert_to_exchange_trading_pair(trading_pair)
 
                     # This would normally make the actual API call
                     # For now, we'll use a placeholder
@@ -96,10 +78,7 @@ class CoinsxyzOrderBookTrackerDataSource:
         """
         try:
             # Convert trading pair to exchange format
-            exchange_pair = self._convert_to_exchange_trading_pair(trading_pair)
-
-            # Make API call to get order book
-            url = web_utils.public_rest_url(f"/api/v3/depth?symbol={exchange_pair}&limit=1000")
+            self._convert_to_exchange_trading_pair(trading_pair)
 
             # This would normally make the actual API call
             # For now, we'll create a placeholder order book message

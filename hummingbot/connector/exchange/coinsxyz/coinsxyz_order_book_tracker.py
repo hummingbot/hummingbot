@@ -8,7 +8,6 @@ providing real-time order book updates and maintaining order book state.
 import asyncio
 import logging
 from typing import Dict, List, Optional, Set
-from decimal import Decimal
 
 from hummingbot.connector.exchange.coinsxyz import coinsxyz_constants as CONSTANTS
 # from hummingbot.core.data_type.order_book_tracker import OrderBookTracker

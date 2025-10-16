@@ -5,7 +5,6 @@ This module implements the main exchange connector class for Coins.xyz,
 providing integration with the Hummingbot trading framework.
 """
 
-import asyncio
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
@@ -15,7 +14,6 @@ from bidict import bidict
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import combine_to_hb_trading_pair
 
 from hummingbot.connector.exchange.coinsxyz import (
     coinsxyz_constants as CONSTANTS,
@@ -30,11 +28,10 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState,
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 if TYPE_CHECKING:
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
+    pass
 
 
 class CoinsxyzExchange(ExchangePyBase):
@@ -169,12 +166,12 @@ class CoinsxyzExchange(ExchangePyBase):
     def status_dict(self) -> Dict[str, bool]:
         """Override to add debug logging."""
         status = super().status_dict
-        self.logger().error(f"DEBUG READY: status_dict = {status}")
-        self.logger().error(f"DEBUG READY: symbols_mapping = {self.trading_pair_symbol_map_ready()}")
-        self.logger().error(f"DEBUG READY: order_books = {self.order_book_tracker.ready}")
-        self.logger().error(f"DEBUG READY: account_balance = {len(self._account_balances)} balances")
-        self.logger().error(f"DEBUG READY: trading_rules = {len(self._trading_rules)} rules")
-        self.logger().error(f"DEBUG READY: user_stream = {self._is_user_stream_initialized()}")
+        self.logger().error("DEBUG READY: status_dict = %s", status)
+        self.logger().error("DEBUG READY: symbols_mapping = %s", self.trading_pair_symbol_map_ready())
+        self.logger().error("DEBUG READY: order_books = %s", self.order_book_tracker.ready)
+        self.logger().error("DEBUG READY: account_balance = %s balances", len(self._account_balances))
+        self.logger().error("DEBUG READY: trading_rules = %s rules", len(self._trading_rules))
+        self.logger().error("DEBUG READY: user_stream = %s", self._is_user_stream_initialized())
         return status
 
     # ========================================
@@ -241,7 +238,6 @@ class CoinsxyzExchange(ExchangePyBase):
                  is_maker: Optional[bool] = None) -> TradeFeeBase:
         """Calculate trading fees for an order."""
         # Default fee calculation - will be updated with actual Coins.xyz fee structure
-        is_maker = order_type is OrderType.LIMIT_MAKER
         fee_percent = Decimal("0.001")  # 0.1% default fee
         return DeductedFromReturnsTradeFee(percent=fee_percent)
 
@@ -333,12 +329,10 @@ class CoinsxyzExchange(ExchangePyBase):
     async def _update_trading_fees(self):
         """Update trading fees information from the exchange."""
         # TODO: Implement fee updates
-        pass
 
     async def _user_stream_event_listener(self):
         """Listen for user stream events and process them."""
         # Basic implementation - user stream will be started when needed
-        pass
 
     async def _update_balances(self):
         try:
@@ -358,7 +352,7 @@ class CoinsxyzExchange(ExchangePyBase):
                 if "asset" in account_info and "free" in account_info:
                     balances = [account_info]
                 else:
-                    self.logger().warning(f"No balances found in account info response")
+                    self.logger().warning("No balances found in account info response")
                     return
 
             for balance_entry in balances:
@@ -489,7 +483,7 @@ class CoinsxyzExchange(ExchangePyBase):
 
             # Get ticker data from exchange
             ticker_data = await self._api_get(
-                path_url=f"{CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL}?symbol={exchange_symbol}",
+                path_url="{}?symbol={}".format(CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, exchange_symbol),
                 is_auth_required=False
             )
 
@@ -525,7 +519,7 @@ class CoinsxyzExchange(ExchangePyBase):
             List of trading pairs in Hummingbot format
         """
         try:
-            print(f"DEBUG HEDGE: all_trading_pairs() called for coinsxyz")
+            print("DEBUG HEDGE: all_trading_pairs() called for coinsxyz")
 
             # Get exchange info
             exchange_info = await self._api_get(

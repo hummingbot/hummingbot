@@ -7,7 +7,7 @@ for seamless integration with Hummingbot's balance management system.
 
 import logging
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 from hummingbot.logger import HummingbotLogger
 

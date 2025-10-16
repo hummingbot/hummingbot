@@ -10,12 +10,10 @@ This module provides comprehensive order validation including:
 
 import logging
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 
-from hummingbot.connector.exchange.coinsxyz import coinsxyz_constants as CONSTANTS
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.trade_fee import TradeFeeBase
 from hummingbot.logger import HummingbotLogger
 
 

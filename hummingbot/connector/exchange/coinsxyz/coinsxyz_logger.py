@@ -8,10 +8,9 @@ with security filtering, performance monitoring, and debugging support.
 import json
 import logging
 import time
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
-from hummingbot.connector.exchange.coinsxyz import coinsxyz_constants as CONSTANTS
 
 
 class CoinsxyzRequestLogger:

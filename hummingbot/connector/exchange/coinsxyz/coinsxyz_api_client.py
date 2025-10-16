@@ -8,7 +8,6 @@ request/response structure, and comprehensive logging for the Coins.xyz exchange
 import asyncio
 import json
 import logging
-import time
 from typing import Any, Dict, Optional
 from urllib.parse import urljoin
 
@@ -19,12 +18,8 @@ from hummingbot.connector.exchange.coinsxyz import coinsxyz_constants as CONSTAN
 from hummingbot.connector.exchange.coinsxyz.coinsxyz_auth import CoinsxyzAuth
 from hummingbot.connector.exchange.coinsxyz.coinsxyz_exceptions import (
     CoinsxyzAPIError,
-    CoinsxyzAuthenticationError,
-    CoinsxyzClientError,
     CoinsxyzErrorParser,
     CoinsxyzNetworkError,
-    CoinsxyzRateLimitError,
-    CoinsxyzServerError,
 )
 from hummingbot.connector.exchange.coinsxyz.coinsxyz_logger import CoinsxyzRequestLogger, CoinsxyzDebugLogger
 from hummingbot.connector.exchange.coinsxyz.coinsxyz_retry_utils import (

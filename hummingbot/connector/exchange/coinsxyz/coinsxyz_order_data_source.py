@@ -12,9 +12,8 @@ import asyncio
 import logging
 import time
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional
 from dataclasses import dataclass
-from enum import Enum
 
 from hummingbot.connector.exchange.coinsxyz import coinsxyz_constants as CONSTANTS
 from hummingbot.connector.exchange.coinsxyz import coinsxyz_utils as utils

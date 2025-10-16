@@ -13,7 +13,7 @@ import asyncio
 import logging
 import time
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 from dataclasses import dataclass
 from enum import Enum
 
@@ -23,7 +23,7 @@ from hummingbot.connector.exchange.coinsxyz import coinsxyz_web_utils as web_uti
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.trade_fee import TradeFeeBase, TradeFeeSchema, TradeFee
+from hummingbot.core.data_type.trade_fee import TradeFee
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.logger import HummingbotLogger
 

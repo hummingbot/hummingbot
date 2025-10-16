@@ -13,8 +13,7 @@ from hummingbot.connector.exchange.coinsxyz import coinsxyz_constants as CONSTAN
 from hummingbot.connector.exchange.coinsxyz.coinsxyz_retry_utils import (
     CoinsxyzRetryHandler,
     RetryConfig,
-    RetryConfigs,
-    retry_on_rate_limit
+    RetryConfigs
 )
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.auth import AuthBase

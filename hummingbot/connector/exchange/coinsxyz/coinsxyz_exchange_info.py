@@ -9,8 +9,6 @@ import logging
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
-from hummingbot.connector.exchange.coinsxyz import coinsxyz_constants as CONSTANTS
-from hummingbot.connector.exchange.coinsxyz import coinsxyz_utils as utils
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType
 
@@ -182,8 +180,8 @@ class CoinsxyzExchangeInfo:
             quote_asset = symbol_info.get("quoteAsset", "")
 
             # Get precision info
-            base_asset_precision = symbol_info.get("baseAssetPrecision", 8)
-            quote_precision = symbol_info.get("quotePrecision", 8)
+            symbol_info.get("baseAssetPrecision", 8)
+            symbol_info.get("quotePrecision", 8)
 
             # Extract LOT_SIZE filter (quantity constraints)
             lot_size_filter = filter_dict.get("LOT_SIZE", {})
@@ -194,8 +192,8 @@ class CoinsxyzExchangeInfo:
             # Extract PRICE_FILTER (price constraints)
             price_filter = filter_dict.get("PRICE_FILTER", {})
             min_price_increment = self._parse_decimal(price_filter.get("tickSize", "0.00000001"))
-            min_price = self._parse_decimal(price_filter.get("minPrice", "0"))
-            max_price = self._parse_decimal(price_filter.get("maxPrice", "1000000"))
+            self._parse_decimal(price_filter.get("minPrice", "0"))
+            self._parse_decimal(price_filter.get("maxPrice", "1000000"))
 
             # Extract MIN_NOTIONAL filter (minimum order value)
             min_notional_filter = filter_dict.get("MIN_NOTIONAL", {})

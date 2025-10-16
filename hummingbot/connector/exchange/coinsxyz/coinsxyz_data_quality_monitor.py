@@ -586,7 +586,7 @@ class CoinsxyzDataQualityMonitor:
             Tuple of (is_valid, list of issues)
         """
         try:
-            issues = []
+            pass
 
             if not isinstance(data, dict):
                 return False, ["Data must be a dictionary"]

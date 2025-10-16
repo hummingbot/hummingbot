@@ -7,8 +7,7 @@ message types including order book diffs, trades, tickers, and klines.
 
 import time
 import random
-from decimal import Decimal
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 from dataclasses import dataclass
 
 
@@ -25,7 +24,7 @@ class MockMarketData:
 class CoinsxyzMockWebSocketResponses:
     """
     Comprehensive mock WebSocket responses generator for Coins.xyz exchange.
-    
+
     Provides realistic mock data for:
     - Order book diff messages
     - Trade messages
@@ -34,7 +33,7 @@ class CoinsxyzMockWebSocketResponses:
     - Subscription responses
     - Error messages
     """
-    
+
     def __init__(self):
         """Initialize mock response generator."""
         self._market_data = {
@@ -46,55 +45,55 @@ class CoinsxyzMockWebSocketResponses:
         }
         self._trade_id_counter = 1000000
         self._subscription_id_counter = 1
-    
-    def get_order_book_diff_message(self, 
-                                   symbol: str = "BTCUSDT",
-                                   num_bids: int = 5,
-                                   num_asks: int = 5) -> Dict[str, Any]:
+
+    def get_order_book_diff_message(self,
+                                    symbol: str = "BTCUSDT",
+                                    num_bids: int = 5,
+                                    num_asks: int = 5) -> Dict[str, Any]:
         """
         Generate realistic order book diff message.
-        
+
         Args:
             symbol: Trading pair symbol
             num_bids: Number of bid levels
             num_asks: Number of ask levels
-            
+
         Returns:
             Mock order book diff message
         """
         market_data = self._market_data.get(symbol, self._market_data["BTCUSDT"])
         current_price = self._get_current_price(market_data)
-        
+
         # Generate realistic bid/ask levels
         bids = []
         asks = []
-        
+
         # Generate bids (below current price)
         for i in range(num_bids):
             price_offset = (i + 1) * 0.001 * current_price  # 0.1% increments
             bid_price = current_price - price_offset
             quantity = random.uniform(0.1, 10.0)
-            
+
             # Some entries with zero quantity (removals)
             if random.random() < 0.2:
                 quantity = 0.0
-            
+
             bids.append([f"{bid_price:.2f}", f"{quantity:.6f}"])
-        
+
         # Generate asks (above current price)
         for i in range(num_asks):
             price_offset = (i + 1) * 0.001 * current_price  # 0.1% increments
             ask_price = current_price + price_offset
             quantity = random.uniform(0.1, 10.0)
-            
+
             # Some entries with zero quantity (removals)
             if random.random() < 0.2:
                 quantity = 0.0
-            
+
             asks.append([f"{ask_price:.2f}", f"{quantity:.6f}"])
-        
+
         market_data.last_update_id += 1
-        
+
         return {
             "stream": f"{symbol.lower()}@depth",
             "data": {
@@ -107,28 +106,28 @@ class CoinsxyzMockWebSocketResponses:
                 "a": asks
             }
         }
-    
+
     def get_trade_message(self, symbol: str = "BTCUSDT") -> Dict[str, Any]:
         """
         Generate realistic trade message.
-        
+
         Args:
             symbol: Trading pair symbol
-            
+
         Returns:
             Mock trade message
         """
         market_data = self._market_data.get(symbol, self._market_data["BTCUSDT"])
         current_price = self._get_current_price(market_data)
-        
+
         # Generate realistic trade data
         price_variation = random.uniform(-0.005, 0.005)  # ±0.5% price variation
         trade_price = current_price * (1 + price_variation)
         trade_quantity = random.uniform(0.001, 5.0)
         is_buyer_maker = random.choice([True, False])
-        
+
         self._trade_id_counter += 1
-        
+
         return {
             "stream": f"{symbol.lower()}@trade",
             "data": {
@@ -145,30 +144,30 @@ class CoinsxyzMockWebSocketResponses:
                 "M": True  # ignore
             }
         }
-    
+
     def get_ticker_message(self, symbol: str = "BTCUSDT") -> Dict[str, Any]:
         """
         Generate realistic ticker message.
-        
+
         Args:
             symbol: Trading pair symbol
-            
+
         Returns:
             Mock ticker message
         """
         market_data = self._market_data.get(symbol, self._market_data["BTCUSDT"])
         current_price = self._get_current_price(market_data)
-        
+
         # Generate 24hr statistics
         price_change_percent = random.uniform(-10.0, 10.0)
         price_change = current_price * (price_change_percent / 100)
         open_price = current_price - price_change
-        
+
         high_price = current_price * random.uniform(1.0, 1.05)
         low_price = current_price * random.uniform(0.95, 1.0)
         volume = market_data.volume_base * random.uniform(0.5, 2.0)
         quote_volume = volume * current_price
-        
+
         return {
             "stream": f"{symbol.lower()}@ticker",
             "data": {
@@ -182,53 +181,53 @@ class CoinsxyzMockWebSocketResponses:
                 "c": f"{current_price:.2f}",  # current close
                 "Q": f"{random.uniform(0.1, 1.0):.6f}",  # close quantity
                 "b": f"{current_price * 0.999:.2f}",     # best bid
-                "B": f"{random.uniform(1.0, 10.0):.6f}", # best bid quantity
+                "B": f"{random.uniform(1.0, 10.0):.6f}",  # best bid quantity
                 "a": f"{current_price * 1.001:.2f}",     # best ask
-                "A": f"{random.uniform(1.0, 10.0):.6f}", # best ask quantity
+                "A": f"{random.uniform(1.0, 10.0):.6f}",  # best ask quantity
                 "o": f"{open_price:.2f}",     # open price
                 "h": f"{high_price:.2f}",     # high price
                 "l": f"{low_price:.2f}",      # low price
                 "v": f"{volume:.2f}",         # volume
                 "q": f"{quote_volume:.2f}",   # quote volume
                 "O": int((time.time() - 86400) * 1000),  # open time
-                "C": int(time.time() * 1000), # close time
+                "C": int(time.time() * 1000),  # close time
                 "F": random.randint(1000000, 9999999),    # first trade id
                 "L": random.randint(1000000, 9999999),    # last trade id
                 "n": random.randint(10000, 50000)         # trade count
             }
         }
-    
-    def get_kline_message(self, 
-                         symbol: str = "BTCUSDT",
-                         interval: str = "1m") -> Dict[str, Any]:
+
+    def get_kline_message(self,
+                          symbol: str = "BTCUSDT",
+                          interval: str = "1m") -> Dict[str, Any]:
         """
         Generate realistic kline/candlestick message.
-        
+
         Args:
             symbol: Trading pair symbol
             interval: Kline interval
-            
+
         Returns:
             Mock kline message
         """
         market_data = self._market_data.get(symbol, self._market_data["BTCUSDT"])
         current_price = self._get_current_price(market_data)
-        
+
         # Generate OHLC data
         open_price = current_price * random.uniform(0.98, 1.02)
         close_price = current_price
         high_price = max(open_price, close_price) * random.uniform(1.0, 1.02)
         low_price = min(open_price, close_price) * random.uniform(0.98, 1.0)
-        
+
         volume = market_data.volume_base * random.uniform(0.1, 2.0)
         quote_volume = volume * ((open_price + close_price) / 2)
-        
+
         # Calculate time based on interval
         current_time = int(time.time() * 1000)
         interval_ms = self._get_interval_milliseconds(interval)
         open_time = (current_time // interval_ms) * interval_ms
         close_time = open_time + interval_ms - 1
-        
+
         return {
             "stream": f"{symbol.lower()}@kline_{interval}",
             "data": {
@@ -256,22 +255,22 @@ class CoinsxyzMockWebSocketResponses:
                 }
             }
         }
-    
-    def get_subscription_response(self, 
-                                 channels: List[str],
-                                 success: bool = True) -> Dict[str, Any]:
+
+    def get_subscription_response(self,
+                                  channels: List[str],
+                                  success: bool = True) -> Dict[str, Any]:
         """
         Generate subscription response message.
-        
+
         Args:
             channels: List of subscribed channels
             success: Whether subscription was successful
-            
+
         Returns:
             Mock subscription response
         """
         self._subscription_id_counter += 1
-        
+
         if success:
             return {
                 "result": None,
@@ -285,17 +284,17 @@ class CoinsxyzMockWebSocketResponses:
                 },
                 "id": self._subscription_id_counter
             }
-    
-    def get_error_message(self, 
-                         error_code: int = -1,
-                         error_msg: str = "Generic error") -> Dict[str, Any]:
+
+    def get_error_message(self,
+                          error_code: int = -1,
+                          error_msg: str = "Generic error") -> Dict[str, Any]:
         """
         Generate error message.
-        
+
         Args:
             error_code: Error code
             error_msg: Error message
-            
+
         Returns:
             Mock error message
         """
@@ -306,26 +305,26 @@ class CoinsxyzMockWebSocketResponses:
             },
             "id": self._subscription_id_counter
         }
-    
-    def get_batch_messages(self, 
-                          symbol: str = "BTCUSDT",
-                          count: int = 10) -> List[Dict[str, Any]]:
+
+    def get_batch_messages(self,
+                           symbol: str = "BTCUSDT",
+                           count: int = 10) -> List[Dict[str, Any]]:
         """
         Generate batch of mixed message types for testing.
-        
+
         Args:
             symbol: Trading pair symbol
             count: Number of messages to generate
-            
+
         Returns:
             List of mock messages
         """
         messages = []
         message_types = ["trade", "ticker", "depth", "kline"]
-        
+
         for _ in range(count):
             msg_type = random.choice(message_types)
-            
+
             if msg_type == "trade":
                 messages.append(self.get_trade_message(symbol))
             elif msg_type == "ticker":
@@ -334,14 +333,14 @@ class CoinsxyzMockWebSocketResponses:
                 messages.append(self.get_order_book_diff_message(symbol))
             elif msg_type == "kline":
                 messages.append(self.get_kline_message(symbol))
-        
+
         return messages
-    
+
     def _get_current_price(self, market_data: MockMarketData) -> float:
         """Get current price with volatility."""
         volatility = random.uniform(-market_data.price_volatility, market_data.price_volatility)
         return market_data.base_price * (1 + volatility)
-    
+
     def _get_interval_milliseconds(self, interval: str) -> int:
         """Convert interval string to milliseconds."""
         interval_map = {
@@ -362,17 +361,17 @@ class CoinsxyzMockWebSocketResponses:
             "1M": 30 * 24 * 60 * 60 * 1000
         }
         return interval_map.get(interval, 60 * 1000)  # default to 1m
-    
-    def simulate_network_issues(self, 
-                               message: Dict[str, Any],
-                               issue_type: str = "delay") -> Dict[str, Any]:
+
+    def simulate_network_issues(self,
+                                message: Dict[str, Any],
+                                issue_type: str = "delay") -> Dict[str, Any]:
         """
         Simulate various network issues for testing.
-        
+
         Args:
             message: Original message
             issue_type: Type of issue (delay, corruption, duplication)
-            
+
         Returns:
             Modified message simulating network issues
         """
@@ -382,16 +381,16 @@ class CoinsxyzMockWebSocketResponses:
             if "data" in corrupted and "p" in corrupted["data"]:
                 corrupted["data"]["p"] = "invalid_price"
             return corrupted
-        
+
         elif issue_type == "duplication":
             # Return the same message (caller should handle duplication)
             return message
-        
+
         elif issue_type == "delay":
             # Add artificial delay timestamp
             delayed = message.copy()
             if "data" in delayed and "E" in delayed["data"]:
                 delayed["data"]["E"] = int((time.time() - 5) * 1000)  # 5 second delay
             return delayed
-        
+
         return message

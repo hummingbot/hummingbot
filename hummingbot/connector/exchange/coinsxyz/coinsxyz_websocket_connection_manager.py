@@ -707,7 +707,7 @@ class CoinsxyzWebSocketConnectionManager:
         try:
             # Check if this is a user stream message
             if 'stream' in message_data and 'data' in message_data:
-                stream = message_data['stream']
+                message_data['stream']
                 data = message_data['data']
 
                 # Route user stream messages to appropriate handlers

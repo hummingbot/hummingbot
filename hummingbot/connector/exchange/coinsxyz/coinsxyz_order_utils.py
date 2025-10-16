@@ -7,7 +7,7 @@ for seamless integration with Hummingbot's order management system.
 
 import logging
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 from datetime import datetime
 
 from hummingbot.connector.exchange.coinsxyz import coinsxyz_constants as CONSTANTS

@@ -8,12 +8,11 @@ with support for all market data stream types.
 import logging
 import time
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 from enum import Enum
 
 from hummingbot.connector.exchange.coinsxyz import coinsxyz_constants as CONSTANTS
 from hummingbot.core.data_type.common import TradeType
-from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.logger import HummingbotLogger
 
 

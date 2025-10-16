@@ -13,7 +13,7 @@ import asyncio
 import logging
 import time
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional
 from dataclasses import dataclass
 
 from hummingbot.connector.exchange.coinsxyz import coinsxyz_constants as CONSTANTS
