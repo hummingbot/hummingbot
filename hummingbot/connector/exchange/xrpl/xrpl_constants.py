@@ -685,4 +685,28 @@ MARKETS = {
         "base_issuer": "rGcyRGrZPaJAZbZDi4NqRFLA5GQH63iFpD",
         "quote_issuer": "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE",
     },
+    "EUROP-RLUSD": {
+        "base": "EUROP",
+        "quote": "RLUSD",
+        "base_issuer": "rMkEuRii9w9uBMQDnWV5AA43gvYZR9JxVK",
+        "quote_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+    },
+    "RLUSD-EUROP": {
+        "base": "RLUSD",
+        "quote": "EUROP",
+        "base_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+        "quote_issuer": "rMkEuRii9w9uBMQDnWV5AA43gvYZR9JxVK",
+    },
+    "EUROP-XRP": {
+        "base": "EUROP",
+        "quote": "XRP",
+        "base_issuer": "rMkEuRii9w9uBMQDnWV5AA43gvYZR9JxVK",
+        "quote_issuer": "",
+    },
+    "XRP-EUROP": {
+        "base": "XRP",
+        "quote": "EUROP",
+        "base_issuer": "",
+        "quote_issuer": "rMkEuRii9w9uBMQDnWV5AA43gvYZR9JxVK",
+    },
 }
