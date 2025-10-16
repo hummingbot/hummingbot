@@ -418,23 +418,22 @@ class GatewayLPCommand:
             self.notify(f"Wallet: {GatewayCommandUtils.format_address_display(wallet_address)}")
             self.notify(f"Type: {'Concentrated Liquidity' if is_clmm else 'Standard AMM'}")
 
-            # 4. Get trading pair from parameter or prompt
-            if trading_pair:
-                # Trading pair provided as parameter
-                try:
-                    user_base_token, user_quote_token = split_hb_trading_pair(trading_pair)
-                except (ValueError, AttributeError):
-                    self.notify("Error: Invalid trading pair format. Use format like 'SOL-USDC'")
-                    return
-
-                user_trading_pair = f"{user_base_token}-{user_quote_token}"
-            else:
-                # Enter interactive mode and prompt
-                await GatewayCommandUtils.enter_interactive_mode(self)
+            # 4. Always enter interactive mode since we'll need prompts for price range, amounts, confirmation
+            await GatewayCommandUtils.enter_interactive_mode(self)
 
             try:
-                # Get trading pair if not provided as parameter
-                if not trading_pair:
+                # Get trading pair from parameter or prompt
+                if trading_pair:
+                    # Trading pair provided as parameter
+                    try:
+                        user_base_token, user_quote_token = split_hb_trading_pair(trading_pair)
+                    except (ValueError, AttributeError):
+                        self.notify("Error: Invalid trading pair format. Use format like 'SOL-USDC'")
+                        return
+
+                    user_trading_pair = f"{user_base_token}-{user_quote_token}"
+                else:
+                    # Get trading pair from prompt
                     pair = await self.app.prompt(
                         prompt="Enter trading pair (e.g., SOL-USDC): "
                     )
@@ -753,9 +752,8 @@ class GatewayLPCommand:
                     self.notify(f"Use 'gateway lp {connector} position-info' to view your position")
 
             finally:
-                if not trading_pair:
-                    # Only exit if we entered interactive mode
-                    await GatewayCommandUtils.exit_interactive_mode(self)
+                # Always exit interactive mode since we always enter it
+                await GatewayCommandUtils.exit_interactive_mode(self)
                 # Always stop the connector
                 if lp_connector:
                     await lp_connector.stop_network()
