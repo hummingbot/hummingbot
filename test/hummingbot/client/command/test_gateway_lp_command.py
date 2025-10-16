@@ -32,7 +32,7 @@ class GatewayLPCommandTest(unittest.TestCase):
         self.command.gateway_lp(None, None)
 
         self.app.notify.assert_any_call("\nError: Connector is required")
-        self.app.notify.assert_any_call("Usage: gateway lp <connector> <action>")
+        self.app.notify.assert_any_call("Usage: gateway lp <connector> <action> [trading-pair]")
 
     def test_gateway_lp_no_action(self):
         """Test gateway lp command without action"""
