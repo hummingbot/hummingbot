@@ -7,7 +7,7 @@ import unittest
 
 from hummingbot.connector.exchange.coinsxyz.coinsxyz_exceptions import (
     CoinsxyzAPIError,
-    CoinsxyzAuthError,
+    CoinsxyzAuthenticationError,
     CoinsxyzNetworkError,
     CoinsxyzOrderError,
     CoinsxyzRateLimitError,
@@ -41,10 +41,10 @@ class TestCoinsxyzExceptions(unittest.TestCase):
         self.assertIsInstance(error, CoinsxyzAPIError)
 
     def test_auth_error(self):
-        """Test CoinsxyzAuthError."""
-        error = CoinsxyzAuthError("Invalid signature")
+        """Test CoinsxyzAuthenticationError."""
+        error = CoinsxyzAuthenticationError("Invalid signature")
 
-        self.assertEqual(str(error), "Invalid signature")
+        self.assertEqual(str(error), "Coins.ph API Error: Invalid signature")
         self.assertIsInstance(error, CoinsxyzAPIError)
 
     def test_rate_limit_error(self):
@@ -78,8 +78,10 @@ class TestCoinsxyzExceptions(unittest.TestCase):
         self.assertTrue(rate_limit_error.is_retryable())
 
         # Auth errors should not be retryable
-        auth_error = CoinsxyzAuthError("Invalid API key")
-        self.assertFalse(auth_error.is_retryable())
+        auth_error = CoinsxyzAuthenticationError("Invalid API key")
+        # Note: CoinsxyzAuthenticationError doesn't have is_retryable method, using parser
+        from hummingbot.connector.exchange.coinsxyz.coinsxyz_exceptions import CoinsxyzErrorParser
+        self.assertFalse(CoinsxyzErrorParser.is_retryable_error(auth_error))
 
         # Order errors should not be retryable
         order_error = CoinsxyzOrderError("Invalid order size")

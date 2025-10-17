@@ -3,12 +3,12 @@
 import unittest
 from decimal import Decimal
 
-from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTest
+from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
 from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.data_type.trade_fee import TokenAmount
 
 
-class CoinsxyzExchangeTest(AbstractExchangeConnectorTest.ExchangeConnectorTest):
+class CoinsxyzExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTests):
     """Integration tests for CoinsxyzExchange using the standard test framework."""
 
     @classmethod

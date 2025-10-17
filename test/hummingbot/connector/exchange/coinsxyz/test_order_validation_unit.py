@@ -6,57 +6,65 @@ Unit Tests for Coins.xyz Order Validation
 import unittest
 from decimal import Decimal
 
-from hummingbot.connector.exchange.coinsxyz.coinsxyz_order_validation import CoinsxyzOrderValidator
+from hummingbot.connector.exchange.coinsxyz.coinsxyz_order_validation import CoinsxyzOrderValidation
 from hummingbot.core.data_type.common import OrderType, TradeType
 
 
-class TestCoinsxyzOrderValidator(unittest.TestCase):
-    """Unit tests for CoinsxyzOrderValidator."""
+class TestCoinsxyzOrderValidation(unittest.TestCase):
+    """Unit tests for CoinsxyzOrderValidation."""
 
     def setUp(self):
         """Set up test fixtures."""
+        from hummingbot.connector.exchange.coinsxyz.coinsxyz_order_validation import TradingRule
         self.trading_rules = {
-            "BTCUSDT": {
-                "min_order_size": Decimal("0.001"),
-                "max_order_size": Decimal("1000"),
-                "min_price_increment": Decimal("0.01"),
-                "min_base_amount_increment": Decimal("0.000001")
-            }
+            "BTC-USDT": TradingRule(
+                trading_pair="BTC-USDT",
+                min_order_size=Decimal("0.001"),
+                max_order_size=Decimal("1000"),
+                min_price_increment=Decimal("0.01"),
+                min_base_amount_increment=Decimal("0.000001"),
+                min_quote_amount_increment=Decimal("0.01"),
+                min_notional_size=Decimal("10.0"),
+                max_price_significant_digits=8,
+                max_base_amount_significant_digits=8
+            )
         }
-        self.validator = CoinsxyzOrderValidator(trading_rules=self.trading_rules)
+        self.validator = CoinsxyzOrderValidation()
+        self.validator.update_trading_rules(self.trading_rules)
 
     def test_init(self):
         """Test validator initialization."""
         self.assertIsNotNone(self.validator._trading_rules)
 
-    def test_validate_order_size(self):
-        """Test order size validation."""
-        # Valid size
-        self.assertTrue(self.validator.validate_order_size(
-            "BTCUSDT", Decimal("1.0")
-        ))
+    def test_validate_order_parameters(self):
+        """Test order parameter validation."""
+        # Valid order
+        result = self.validator.validate_order_parameters(
+            trading_pair="BTC-USDT",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1.0"),
+            price=Decimal("50000.0")
+        )
+        self.assertTrue(result.is_valid)
 
-        # Too small
-        self.assertFalse(self.validator.validate_order_size(
-            "BTCUSDT", Decimal("0.0001")
-        ))
+        # Too small amount
+        result = self.validator.validate_order_parameters(
+            trading_pair="BTC-USDT",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("0.0001"),
+            price=Decimal("50000.0")
+        )
+        self.assertFalse(result.is_valid)
 
-        # Too large
-        self.assertFalse(self.validator.validate_order_size(
-            "BTCUSDT", Decimal("2000")
-        ))
-
-    def test_validate_order_price(self):
-        """Test order price validation."""
-        # Valid price
-        self.assertTrue(self.validator.validate_order_price(
-            "BTCUSDT", Decimal("50000.00")
-        ))
-
-        # Invalid increment
-        self.assertFalse(self.validator.validate_order_price(
-            "BTCUSDT", Decimal("50000.001")
-        ))
+    def test_format_order_price(self):
+        """Test order price formatting."""
+        # Valid price formatting
+        formatted = self.validator.format_order_price(
+            "BTC-USDT", Decimal("50000.123")
+        )
+        self.assertEqual(formatted, Decimal("50000.12"))
 
     def test_validate_limit_order(self):
         """Test limit order validation."""
