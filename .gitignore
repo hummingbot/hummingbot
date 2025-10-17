@@ -97,3 +97,7 @@ coverage.xml
 
 **/.claude/settings.local.json
 Miniconda3-latest-MacOSX-arm64.sh
+
+# Exclude nested repositories
+hummingbot-fresh/
+hummingbot/hummingbot/
