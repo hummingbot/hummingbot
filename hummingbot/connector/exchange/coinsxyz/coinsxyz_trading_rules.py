@@ -24,7 +24,7 @@ from hummingbot.connector.exchange.coinsxyz import (
 )
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.trade_fee import TradeFee
+from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.logger import HummingbotLogger
@@ -614,9 +614,9 @@ class CoinsxyzTradingRules:
                          trade_type: TradeType,
                          amount: Decimal,
                          price: Decimal,
-                         is_maker: Optional[bool] = None) -> TradeFee:
+                         is_maker: Optional[bool] = None) -> TokenAmount:
         """
-        Create TradeFee object for Hummingbot integration.
+        Create TokenAmount object for Hummingbot integration.
 
         Args:
             trading_pair: Trading pair
@@ -627,13 +627,13 @@ class CoinsxyzTradingRules:
             is_maker: Whether order is maker
 
         Returns:
-            TradeFee object
+            TokenAmount object
         """
         fee_info = self.calculate_fee(trading_pair, order_type, trade_type, amount, price, is_maker)
 
-        return TradeFee(
-            fee_asset=fee_info["fee_currency"],
-            fee_amount=fee_info["fee_amount"]
+        return TokenAmount(
+            token=fee_info["fee_currency"],
+            amount=fee_info["fee_amount"]
         )
 
     def get_volume_tier_fees(self, volume_30d: Decimal) -> Dict[str, Decimal]:
