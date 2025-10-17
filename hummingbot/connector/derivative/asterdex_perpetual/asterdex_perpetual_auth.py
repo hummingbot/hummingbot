@@ -14,27 +14,71 @@ class AsterdexPerpetualAuth(AuthBase):
     """
 
     def __init__(self, api_key: str, api_secret: str, use_vault: bool):
-        self._api_key: str = api_key
-        self._api_secret: str = api_secret
+        # Accept SecretStr or plain str; never cast SecretStr via str() because it masks the value
+        def _unwrap_secret(value):
+            if value is None:
+                return ""
+            # Pydantic SecretStr
+            if hasattr(value, "get_secret_value"):
+                try:
+                    return value.get_secret_value()
+                except Exception:
+                    pass
+            return value
+
+        raw_key = _unwrap_secret(api_key)
+        raw_secret = _unwrap_secret(api_secret)
+
+        # Ensure final types are strings
+        self._api_key: str = (raw_key if isinstance(raw_key, str) else str(raw_key)).strip()
+        self._api_secret: str = (raw_secret if isinstance(raw_secret, str) else str(raw_secret)).strip()
         self._use_vault: bool = use_vault
 
-    def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
+    async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
         """
-        Adds the server time and the signature to the request, required for authenticated endpoints
+        Authenticate REST requests.
+        - v1 private: timestamp + signature (X-MBX-APIKEY)
+        - v3 private: nonce + signature (X-API-KEY)
         """
-        if request.method == RESTMethod.GET:
-            params = request.params or {}
-            params["timestamp"] = int(time.time() * 1000)
-            params["signature"] = self._generate_signature(params)
-            request.params = params
-        else:
-            data = request.data or {}
-            data["timestamp"] = int(time.time() * 1000)
-            data["signature"] = self._generate_signature(data)
-            request.data = data
+        if request.params is None:
+            request.params = {}
+        elif isinstance(request.params, list):
+            request.params = {}
 
-        request.headers = request.headers or {}
-        request.headers["X-MBX-APIKEY"] = self._api_key
+        # Determine version by path
+        url = request.url or ""
+        use_v3 = "/fapi/v3/" in url
+
+        if use_v3:
+            # v3 uses nonce and X-API-KEY
+            nonce = str(int(time.time() * 1000))
+            request.params["nonce"] = nonce
+            # Keep v3 fields but also include legacy signature for safety
+            query_string = self._build_query_string(request.params)
+            signature = hmac.new(self._api_secret.encode("utf-8"), query_string.encode("utf-8"), hashlib.sha256).hexdigest()
+            request.params["signer"] = signature
+
+            headers = {}
+            if request.headers is not None:
+                headers.update(request.headers)
+            headers["X-API-KEY"] = self._api_key
+            request.headers = headers
+        else:
+            # v1 uses timestamp and X-MBX-APIKEY
+            timestamp = str(int(time.time() * 1000))
+            request.params["timestamp"] = timestamp
+            # Align with working curl by setting a recvWindow
+            if "recvWindow" not in request.params:
+                request.params["recvWindow"] = 5000
+            query_string = self._build_query_string(request.params)
+            signature = hmac.new(self._api_secret.encode("utf-8"), query_string.encode("utf-8"), hashlib.sha256).hexdigest()
+            request.params["signature"] = signature
+
+            headers = {}
+            if request.headers is not None:
+                headers.update(request.headers)
+            headers["X-MBX-APIKEY"] = self._api_key
+            request.headers = headers
 
         return request
 
@@ -45,14 +89,14 @@ class AsterdexPerpetualAuth(AuthBase):
         """
         return request
 
-    def _generate_signature(self, params: Dict[str, Any]) -> str:
+    def _build_query_string(self, params: Dict[str, Any]) -> str:
         """
-        Generates signature for AsterDex API
+        Build query string from parameters for signature generation
+        :param params: dictionary of parameters
+        :return: URL-encoded query string
         """
-        query_string = "&".join([f"{key}={value}" for key, value in sorted(params.items())])
-        signature = hmac.new(
-            self._api_secret.encode("utf-8"),
-            query_string.encode("utf-8"),
-            hashlib.sha256
-        ).hexdigest()
-        return signature
+        import urllib.parse
+        return urllib.parse.urlencode(params)
+
+    def _time(self) -> float:
+        return time.time()

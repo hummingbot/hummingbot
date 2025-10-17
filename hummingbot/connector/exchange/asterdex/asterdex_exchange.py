@@ -263,38 +263,45 @@ class AsterdexExchange(ExchangePyBase):
                 
             self.logger().info(f"Processing AsterDex symbol: {symbol}")
             
-            # AsterDex uses no-separator format like BNBUSDT, BTCUSDT, ETHUSDT, etc.
+            # AsterDex uses no-separator format like TESTUSDT, BTCUSDT, ETHUSDT, etc.
             # We need to parse these into base-quote pairs for Hummingbot
             base = None
             quote = None
             
-            # Common quote currencies in order of preference (longer first to avoid conflicts)
-            quote_currencies = [
-                "USDT", "USDC", "BUSD", "TUSD", "DAI", "FRAX",  # USD-pegged
-                "BTC", "ETH", "BNB", "ADA", "DOT", "LINK", "UNI", "LTC", "XRP", "SOL", "AVAX", "MATIC", "ATOM", "NEAR", "FTM", "ALGO", "VET", "TRX", "XLM", "EOS", "XTZ", "ZEC", "DASH", "NEO", "ONT", "ICX", "WAVES", "QTUM", "IOTA", "NANO", "BAT", "ZRX", "REP", "KNC", "LRC", "OMG", "STORJ", "GNT", "FUN", "SNT", "MCO", "WTC", "LUN", "YOYO", "WABI", "POWR", "LEND", "FUN", "REQ", "VIB", "HSR", "TRX", "VEN", "BNT", "HOT", "ZIL", "IOST", "CVC", "THETA", "IOTX", "ONT", "ZRX", "BAT", "ADX", "DNT", "MDA"
-            ]
-            
-            # Try to find a matching quote currency
-            for quote_currency in quote_currencies:
-                if symbol.endswith(quote_currency):
-                    base = symbol[:-len(quote_currency)]
-                    quote = quote_currency
-                    break
-            
-            # If no quote currency found, try generic parsing
-            if not base or not quote:
-                if len(symbol) >= 8:  # Like BTCUSDT (4+4)
-                    base = symbol[:-4]  # Remove last 4 chars
-                    quote = symbol[-4:]  # Last 4 chars
-                elif len(symbol) >= 6:  # Like BTCUSD (3+3)
-                    base = symbol[:-3]  # Remove last 3 chars
-                    quote = symbol[-3:]  # Last 3 chars
-                elif len(symbol) >= 4:  # Like BTC (3+1) or ETH (3+1)
-                    base = symbol[:-1]  # Remove last 1 char
-                    quote = symbol[-1:]  # Last 1 char
-                else:
-                    self.logger().warning(f"Symbol too short to process: {symbol}")
-                    continue
+            # Use the baseAsset and quoteAsset from the API response if available
+            if "baseAsset" in symbol_data and "quoteAsset" in symbol_data:
+                base = symbol_data["baseAsset"]
+                quote = symbol_data["quoteAsset"]
+                self.logger().info(f"Using API base/quote: {base}/{quote}")
+            else:
+                # Fallback: try to parse the symbol manually
+                # Common quote currencies in order of preference (longer first to avoid conflicts)
+                quote_currencies = [
+                    "USDT", "USDC", "BUSD", "TUSD", "DAI", "FRAX",  # USD-pegged
+                    "BTC", "ETH", "BNB", "ADA", "DOT", "LINK", "UNI", "LTC", "XRP", "SOL", "AVAX", "MATIC", "ATOM", "NEAR", "FTM", "ALGO", "VET", "TRX", "XLM", "EOS", "XTZ", "ZEC", "DASH", "NEO", "ONT", "ICX", "WAVES", "QTUM", "IOTA", "NANO", "BAT", "ZRX", "REP", "KNC", "LRC", "OMG", "STORJ", "GNT", "FUN", "SNT", "MCO", "WTC", "LUN", "YOYO", "WABI", "POWR", "LEND", "FUN", "REQ", "VIB", "HSR", "TRX", "VEN", "BNT", "HOT", "ZIL", "IOST", "CVC", "THETA", "IOTX", "ONT", "ZRX", "BAT", "ADX", "DNT", "MDA"
+                ]
+                
+                # Try to find a matching quote currency
+                for quote_currency in quote_currencies:
+                    if symbol.endswith(quote_currency):
+                        base = symbol[:-len(quote_currency)]
+                        quote = quote_currency
+                        break
+                
+                # If no quote currency found, try generic parsing
+                if not base or not quote:
+                    if len(symbol) >= 8:  # Like BTCUSDT (4+4)
+                        base = symbol[:-4]  # Remove last 4 chars
+                        quote = symbol[-4:]  # Last 4 chars
+                    elif len(symbol) >= 6:  # Like BTCUSD (3+3)
+                        base = symbol[:-3]  # Remove last 3 chars
+                        quote = symbol[-3:]  # Last 3 chars
+                    elif len(symbol) >= 4:  # Like BTC (3+1) or ETH (3+1)
+                        base = symbol[:-1]  # Remove last 1 char
+                        quote = symbol[-1:]  # Last 1 char
+                    else:
+                        self.logger().warning(f"Symbol too short to process: {symbol}")
+                        continue
             
             if base and quote:
                 hb_pair = combine_to_hb_trading_pair(base, quote)
@@ -312,6 +319,7 @@ class AsterdexExchange(ExchangePyBase):
         self.logger().info("=" * 50)
         self.logger().info(f"Successfully mapped {valid_pairs} trading pairs")
         self.logger().info(f"Final mapping: {dict(mapping)}")
+        self.logger().info(f"✅ Built trading pair map count: {len(mapping)}")
         
         if not mapping:
             self.logger().error("❌ NO TRADING PAIRS MAPPED! This will cause 'Markets are not ready' error.")
@@ -545,26 +553,75 @@ class AsterdexExchange(ExchangePyBase):
             del self._account_balances[asset_name]
 
     async def _format_trading_rules(self, raw_trading_pair_info: Dict[str, Any]) -> List[TradingRule]:
-        trading_rules = []
+        trading_rules: List[TradingRule] = []
 
-        for info in filter(utils.is_pair_information_valid, raw_trading_pair_info.get("data", [])):
+        # AsterDex exchangeInfo uses Binance-like schema with top-level 'symbols' and nested 'filters'
+        symbols = []
+        if isinstance(raw_trading_pair_info, dict):
+            symbols = raw_trading_pair_info.get("symbols") or raw_trading_pair_info.get("data") or []
+        elif isinstance(raw_trading_pair_info, list):
+            symbols = raw_trading_pair_info
+
+        for info in symbols:
             try:
-                # Check if info is a dictionary before calling .get()
                 if not isinstance(info, dict):
                     continue
-                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=info.get("symbol"))
-                trading_rules.append(
-                    TradingRule(
-                        trading_pair=trading_pair,
-                        min_order_size=Decimal(info["minQty"]),
-                        max_order_size=Decimal(info["maxQty"]),
-                        min_price_increment=Decimal(info["tickSize"]),
-                        min_base_amount_increment=Decimal(info["lotSize"]),
-                        min_notional_size=Decimal(info["minNotional"]),
-                    )
+                if not utils.is_pair_information_valid(info):
+                    continue
+
+                symbol = info.get("symbol")
+                if not symbol:
+                    continue
+
+                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=symbol)
+
+                # Extract filter values
+                min_qty = Decimal("0")
+                max_qty = Decimal("0")
+                lot_step = Decimal("0")
+                tick_size = Decimal("0")
+                min_notional = Decimal("0")
+
+                for f in info.get("filters", []):
+                    ftype = f.get("filterType") if isinstance(f, dict) else None
+                    if ftype == "LOT_SIZE":
+                        min_qty = Decimal(str(f.get("minQty", "0")))
+                        max_qty = Decimal(str(f.get("maxQty", "0")))
+                        lot_step = Decimal(str(f.get("stepSize", "0")))
+                    elif ftype == "MARKET_LOT_SIZE" and lot_step == 0:
+                        # fallback
+                        lot_step = Decimal(str(f.get("stepSize", "0")))
+                    elif ftype == "PRICE_FILTER":
+                        tick_size = Decimal(str(f.get("tickSize", "0")))
+                    elif ftype in ("MIN_NOTIONAL", "NOTIONAL"):
+                        # prefer minNotional if present
+                        val = f.get("minNotional") if isinstance(f, dict) else None
+                        if val is None:
+                            val = f.get("minNotional") if isinstance(f, dict) else None
+                        if val is None:
+                            val = f.get("minNotional") if isinstance(f, dict) else None
+                        # final fallback: try generic key
+                        val = val or f.get("minNotional") or f.get("min_notional") or f.get("min") or "0"
+                        min_notional = Decimal(str(val))
+
+                # Fallbacks from top-level precisions if filters missing
+                if tick_size == 0 and "pricePrecision" in info:
+                    tick_size = Decimal("1") / (Decimal(10) ** int(info.get("pricePrecision", 8)))
+                if lot_step == 0 and "quantityPrecision" in info:
+                    lot_step = Decimal("1") / (Decimal(10) ** int(info.get("quantityPrecision", 8)))
+
+                rule = TradingRule(
+                    trading_pair=trading_pair,
+                    min_order_size=min_qty if min_qty > 0 else lot_step,
+                    max_order_size=max_qty if max_qty > 0 else Decimal("999999999"),
+                    min_price_increment=tick_size if tick_size > 0 else Decimal("0.00000001"),
+                    min_base_amount_increment=lot_step if lot_step > 0 else Decimal("0.00000001"),
+                    min_notional_size=min_notional if min_notional > 0 else Decimal("0"),
                 )
+                trading_rules.append(rule)
             except Exception:
-                self.logger().exception(f"Error parsing the trading pair rule {info}. Skipping.", exc_info=True)
+                self.logger().exception(f"Error parsing trading rules for entry: {info}")
+
         return trading_rules
 
     async def _update_trading_fees(self):

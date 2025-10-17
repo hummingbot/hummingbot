@@ -104,26 +104,26 @@ class AsterdexPerpetualDerivative(PerpetualDerivativePyBase):
         """Get all trade updates for a specific order"""
         return []
 
-    async def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
+    def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         """Create order book data source"""
         from hummingbot.connector.derivative.asterdex_perpetual.asterdex_perpetual_api_order_book_data_source import AsterdexPerpetualAPIOrderBookDataSource
         return AsterdexPerpetualAPIOrderBookDataSource(
             trading_pairs=self._trading_pairs,
             connector=self,
-            api_factory=self._api_factory,
+            api_factory=None,  # Will be set later
         )
 
-    async def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
+    def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         """Create user stream data source"""
         from hummingbot.connector.derivative.asterdex_perpetual.asterdex_perpetual_api_user_stream_data_source import AsterdexPerpetualAPIUserStreamDataSource
         return AsterdexPerpetualAPIUserStreamDataSource(
             auth=self.authenticator,
             trading_pairs=self._trading_pairs,
             connector=self,
-            api_factory=self._api_factory,
+            api_factory=None,  # Will be set later
         )
 
-    async def _create_web_assistants_factory(self) -> WebAssistantsFactory:
+    def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         """Create web assistants factory"""
         return WebAssistantsFactory(
             throttler=self._throttler,
@@ -163,8 +163,26 @@ class AsterdexPerpetualDerivative(PerpetualDerivativePyBase):
     async def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         """Initialize trading pair symbols from exchange info"""
         mapping = bidict()
-        # Basic implementation - would need to parse AsterDex specific format
+        valid_pairs = 0
+        
+        if "symbols" in exchange_info:
+            for symbol_data in exchange_info["symbols"]:
+                symbol = symbol_data.get("symbol", "")
+                if not symbol or symbol_data.get("status") != "TRADING":
+                    continue
+                
+                # Parse base and quote assets
+                base = symbol_data.get("baseAsset", "")
+                quote = symbol_data.get("quoteAsset", "")
+                
+                if base and quote:
+                    hb_pair = combine_to_hb_trading_pair(base, quote)
+                    mapping[symbol] = hb_pair
+                    valid_pairs += 1
+                    self.logger().info(f"Added trading pair: {symbol} -> {hb_pair}")
+        
         self._set_trading_pair_symbol_map(mapping)
+        self.logger().info(f"Initialized {valid_pairs} trading pairs from exchange info")
 
     async def _is_order_not_found_during_cancelation_error(self, status: str) -> bool:
         """Check if order not found during cancellation"""
@@ -206,7 +224,41 @@ class AsterdexPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _update_balances(self):
         """Update balances"""
-        pass
+        local_asset_names = set(self._account_balances.keys())
+        remote_asset_names = set()
+
+        try:
+            response = await self._api_get(path_url=CONSTANTS.ACCOUNT_INFO_URL, is_auth_required=True)
+            
+            # Debug: Log the response
+            self.logger().info(f"Balance API response type: {type(response)}, content: {response}")
+
+            # AsterDex futures API returns assets array with walletBalance and availableBalance
+            if isinstance(response, dict) and "assets" in response:
+                for asset_entry in response["assets"]:
+                    asset_name = asset_entry["asset"]
+                    wallet_balance = Decimal(asset_entry["walletBalance"])
+                    available_balance = Decimal(asset_entry["availableBalance"])
+                    
+                    # Only add assets with non-zero balances
+                    if wallet_balance > 0:
+                        self._account_available_balances[asset_name] = available_balance
+                        self._account_balances[asset_name] = wallet_balance
+                        remote_asset_names.add(asset_name)
+                        self.logger().info(f"Updated balance for {asset_name}: {wallet_balance} (available: {available_balance})")
+            else:
+                self.logger().warning(f"Unexpected balance response format: {response}")
+                return
+
+            # Remove assets that are no longer present
+            asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+            for asset_name in asset_names_to_remove:
+                del self._account_available_balances[asset_name]
+                del self._account_balances[asset_name]
+
+        except Exception as e:
+            self.logger().error(f"Error fetching balances: {e}")
+            raise
 
     async def _update_positions(self):
         """Update positions"""
@@ -252,3 +304,38 @@ class AsterdexPerpetualDerivative(PerpetualDerivativePyBase):
     async def _set_position_mode(self, mode: PositionMode) -> bool:
         """Set position mode"""
         return True
+
+    # Required abstract methods from ExchangePyBase
+    @property
+    def trading_pairs(self) -> List[str]:
+        """Get trading pairs"""
+        return self._trading_pairs or []
+
+    @property
+    def is_cancel_request_in_exchange_synchronous(self) -> bool:
+        """Check if cancel request is synchronous"""
+        return False
+
+    @property
+    def is_trading_required(self) -> bool:
+        """Check if trading is required"""
+        return self._trading_required
+
+    @property
+    def supported_order_types(self) -> List[OrderType]:
+        """Get supported order types"""
+        return [OrderType.LIMIT, OrderType.MARKET]
+
+    @property
+    def supported_position_modes(self) -> List[PositionMode]:
+        """Get supported position modes"""
+        return [PositionMode.ONEWAY]
+
+    # Required abstract methods from PerpetualDerivativePyBase
+    def get_buy_collateral_token(self, trading_pair: str) -> str:
+        """Get buy collateral token"""
+        return "USDT"
+
+    def get_sell_collateral_token(self, trading_pair: str) -> str:
+        """Get sell collateral token"""
+        return "USDT"

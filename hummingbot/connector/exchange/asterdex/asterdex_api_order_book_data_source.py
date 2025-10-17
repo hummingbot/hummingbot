@@ -51,19 +51,30 @@ class AsterdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             exchange_symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
             self.logger().info(f"Requesting order book for {trading_pair} -> {exchange_symbol}")
             
-            params = {"symbol": exchange_symbol}
-            self.logger().info(f"Order book request params: {params}")
-
+            # AsterDex depth endpoint requires a limit; try fallbacks if empty
+            limits_to_try = [1000, 500, 100]
+            last_data: Dict[str, Any] = {}
             rest_assistant = await self._api_factory.get_rest_assistant()
-            data = await rest_assistant.execute_request(
-                url=web_utils.public_rest_url(path_url=CONSTANTS.DEPTH_PATH_URL),
-                params=params,
-                method=RESTMethod.GET,
-                throttler_limit_id=CONSTANTS.DEPTH_PATH_URL,
-            )
+            for idx, limit in enumerate(limits_to_try):
+                params = {"symbol": exchange_symbol, "limit": limit}
+                self.logger().info(f"Order book request attempt {idx+1}/{len(limits_to_try)} params: {params}")
+                data = await rest_assistant.execute_request(
+                    url=web_utils.public_rest_url(path_url=CONSTANTS.DEPTH_PATH_URL),
+                    params=params,
+                    method=RESTMethod.GET,
+                    throttler_limit_id=CONSTANTS.DEPTH_PATH_URL,
+                )
+                last_data = data if isinstance(data, dict) else {}
+                bids_len = len(last_data.get("bids", [])) if isinstance(last_data.get("bids"), list) else 0
+                asks_len = len(last_data.get("asks", [])) if isinstance(last_data.get("asks"), list) else 0
+                self.logger().info(f"Depth response sizes (bids, asks): ({bids_len}, {asks_len}) for limit {limit}")
+                if bids_len > 0 or asks_len > 0:
+                    self.logger().info("✅ Non-empty depth received; using this snapshot")
+                    return last_data
 
-            self.logger().info(f"Order book response for {trading_pair}: {data}")
-            return data
+            self.logger().warning("⚠️ All depth attempts returned empty book; returning last response")
+            self.logger().info(f"Last order book response for {trading_pair}: {last_data}")
+            return last_data
         except Exception as e:
             self.logger().error(f"❌ Error requesting order book for {trading_pair}: {e}")
             raise

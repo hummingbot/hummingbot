@@ -1,7 +1,7 @@
 import time
 from typing import Any, Dict, Optional
 
-from hummingbot.connector.derivative.asterdex_perpetual import asterdex_perpetual_constants as CONSTANTS
+from hummingbot.connector.exchange.extended import extended_constants as CONSTANTS
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest
@@ -9,11 +9,11 @@ from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBa
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
-class AsterdexPerpetualRESTPreProcessor(RESTPreProcessorBase):
+class ExtendedRESTPreProcessor(RESTPreProcessorBase):
     async def pre_process(self, request: RESTRequest) -> RESTRequest:
         if request.headers is None:
             request.headers = {}
-        # Generates generic headers required by Asterdex
+        # Generates generic headers required by Extended
         headers_generic = {}
         headers_generic["Accept"] = "application/json"
         headers_generic["Content-Type"] = "application/json"
@@ -31,37 +31,37 @@ def get_hb_id_headers() -> Dict[str, Any]:
     :return: a custom HB signature header
     """
     return {
-        "request-source": "hummingbot-liq-mining",
+        "User-Agent": "hummingbot-client",
     }
 
 
-def public_rest_url(path_url: str, domain: str = CONSTANTS.DOMAIN) -> str:
+def public_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
     """
     Creates a full URL for provided public REST endpoint
     :param path_url: a public REST endpoint
     :param domain: domain to connect to
     :return: the full URL to the endpoint
     """
-    return CONSTANTS.BASE_URL + path_url
+    return CONSTANTS.PUBLIC_REST_URL + path_url
 
 
-def private_rest_url(path_url: str, domain: str = CONSTANTS.DOMAIN) -> str:
+def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
     """
     Creates a full URL for provided private REST endpoint
     :param path_url: a private REST endpoint
     :param domain: the domain to connect to
     :return: the full URL to the endpoint
     """
-    return CONSTANTS.BASE_URL + path_url
+    return CONSTANTS.PRIVATE_REST_URL + path_url
 
 
 def build_api_factory(
     throttler: Optional[AsyncThrottler] = None,
-    domain: str = CONSTANTS.DOMAIN,
+    domain: str = CONSTANTS.DEFAULT_DOMAIN,
     auth: Optional[AuthBase] = None,
 ) -> WebAssistantsFactory:
     throttler = throttler or create_throttler()
-    api_factory = WebAssistantsFactory(throttler=throttler, auth=auth, rest_pre_processors=[AsterdexPerpetualRESTPreProcessor()])
+    api_factory = WebAssistantsFactory(throttler=throttler, auth=auth, rest_pre_processors=[ExtendedRESTPreProcessor()])
     return api_factory
 
 
@@ -71,6 +71,7 @@ def create_throttler() -> AsyncThrottler:
 
 async def get_current_server_time(
     throttler: Optional[AsyncThrottler] = None,
-    domain: str = CONSTANTS.DOMAIN,
+    domain: str = CONSTANTS.DEFAULT_DOMAIN,
 ) -> int:
     return int(time.time() * 1e3)
+

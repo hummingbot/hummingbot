@@ -681,8 +681,10 @@ class TradingCore:
         Args:
             market_names: List of (exchange_name, trading_pairs) tuples
         """
+        self.logger().info(f"🎯 INITIALIZE_MARKETS called with market_names: {market_names}")
         # Create connectors for each market
         for connector_name, trading_pairs in market_names:
+            self.logger().info(f"🎯 Processing connector: {connector_name}, trading_pairs: {trading_pairs}")
             # for now we identify gateway connector that contain "/" in their name
             if "/" in connector_name:
                 await self.gateway_monitor.wait_for_online_status()

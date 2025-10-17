@@ -53,8 +53,23 @@ class ConnectorManager:
         try:
             # Check if connector already exists
             if connector_name in self.connectors:
+                existing_connector = self.connectors[connector_name]
                 self._logger.warning(f"Connector {connector_name} already exists")
-                return self.connectors[connector_name]
+                
+                # If the existing connector has empty trading_pairs but we're now providing trading_pairs,
+                # update the connector's trading_pairs
+                if trading_pairs and (not existing_connector._trading_pairs or len(existing_connector._trading_pairs) == 0):
+                    self._logger.info(f"🔄 Updating {connector_name} trading_pairs from {existing_connector._trading_pairs} to {trading_pairs}")
+                    existing_connector._trading_pairs = trading_pairs
+                    
+                    # Recreate the order book data source with the new trading pairs
+                    if hasattr(existing_connector, '_order_book_tracker') and existing_connector._order_book_tracker:
+                        self._logger.info(f"🔄 Recreating order book tracker for {connector_name} with trading_pairs: {trading_pairs}")
+                        existing_connector._orderbook_ds = existing_connector._create_order_book_data_source()
+                        # Force the order book tracker to restart with new trading pairs
+                        existing_connector._order_book_tracker._data_source = existing_connector._orderbook_ds
+                
+                return existing_connector
 
             # Handle paper trading connector names
             if connector_name.endswith("_paper_trade"):
@@ -85,6 +100,8 @@ class ConnectorManager:
                     raise ValueError(f"API keys required for live trading connector '{connector_name}'. "
                                      f"Either provide API keys or use a paper trade connector.")
 
+                self._logger.info(f"🚨 CONNECTOR_MANAGER: Creating {connector_name} with trading_pairs: {trading_pairs}")
+                
                 init_params = conn_setting.conn_init_parameters(
                     trading_pairs=trading_pairs,
                     trading_required=trading_required,
@@ -93,6 +110,9 @@ class ConnectorManager:
                     rate_limits_share_pct=self.client_config_map.hb_config.rate_limits_share_pct,
                     gateway_config=self.client_config_map.hb_config.gateway,
                 )
+                
+                self._logger.info(f"🚨 CONNECTOR_MANAGER: init_params keys: {list(init_params.keys())}")
+                self._logger.info(f"🚨 CONNECTOR_MANAGER: init_params['trading_pairs']: {init_params.get('trading_pairs', 'KEY NOT FOUND')}")
 
                 connector_class = get_connector_class(connector_name)
                 connector = connector_class(**init_params)

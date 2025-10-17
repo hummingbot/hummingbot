@@ -7,7 +7,7 @@ from hummingbot.connector.derivative.asterdex_perpetual.asterdex_perpetual_auth 
 from hummingbot.connector.derivative.asterdex_perpetual.asterdex_perpetual_derivative import AsterdexPerpetualDerivative
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
-from hummingbot.core.web_assistant.connections.data_types import WSAssistant
+from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
 
@@ -24,7 +24,7 @@ class AsterdexPerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._trading_pairs = trading_pairs
         self._connector = connector
         self._api_factory = api_factory
-        self._logger = HummingbotLogger.get_logger()
+        self._logger = HummingbotLogger.logger_name_for_class(self.__class__)
 
     @property
     def name(self) -> str:

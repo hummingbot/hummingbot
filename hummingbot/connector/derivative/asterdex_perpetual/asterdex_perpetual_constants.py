@@ -10,11 +10,11 @@ MARKET_ORDER_SLIPPAGE = 0.05
 DOMAIN = EXCHANGE_NAME
 TESTNET_DOMAIN = "asterdex_perpetual_testnet"
 
-# AsterDex Perpetual API endpoints - based on official documentation
-BASE_URL = "https://fapi.asterdex.com/api/v1"
-TESTNET_BASE_URL = "https://fapi.asterdex.com/api/v1"  # Same for now
-WS_URL = "wss://fstream.asterdex.com/ws"
-TESTNET_WS_URL = "wss://fstream.asterdex.com/ws"
+# AsterDex Perpetual API endpoints - using official futures API
+BASE_URL = "https://fapi.asterdex.com"
+TESTNET_BASE_URL = "https://fapi.asterdex.com"  # Same for now
+WS_URL = "wss://fstream.asterdex.com"
+TESTNET_WS_URL = "wss://fstream.asterdex.com"
 
 FUNDING_RATE_UPDATE_INTERNAL_SECOND = 60
 CURRENCY = "USDT"
@@ -25,17 +25,23 @@ TRADES_TYPE = "userFills"
 ORDER_STATUS_TYPE = "orderStatus"
 USER_STATE_TYPE = "spotClearinghouseState"
 
-# API Endpoints - AsterDex Futures API v1
-TICKER_PRICE_CHANGE_URL = "/ticker/24hr"
-SNAPSHOT_REST_URL = "/depth"
-EXCHANGE_INFO_URL = "/exchangeInfo"
-CANCEL_ORDER_URL = "/order"
-CREATE_ORDER_URL = "/order"
-ACCOUNT_TRADE_LIST_URL = "/userTrades"
-ORDER_URL = "/order"
-ACCOUNT_INFO_URL = "/account"
-MY_TRADES_PATH_URL = "/userTrades"
-PING_URL = "/ping"
+# API Endpoints - AsterDex Futures API
+# Public endpoints (v1)
+TICKER_PRICE_CHANGE_URL = "/fapi/v1/ticker/24hr"
+SNAPSHOT_REST_URL = "/fapi/v1/depth"
+EXCHANGE_INFO_URL = "/fapi/v1/exchangeInfo"
+PING_URL = "/fapi/v1/ping"
+
+# Private endpoints
+# Use v1 for account info; authentication handled with timestamp/signature
+ACCOUNT_INFO_URL = "/fapi/v1/account"
+
+# Keep order/trades on v1 for now until verified against docs
+CANCEL_ORDER_URL = "/fapi/v1/order"
+CREATE_ORDER_URL = "/fapi/v1/order"
+ORDER_URL = "/fapi/v1/order"
+ACCOUNT_TRADE_LIST_URL = "/fapi/v1/userTrades"
+MY_TRADES_PATH_URL = "/fapi/v1/userTrades"
 
 TRADES_ENDPOINT_NAME = "trades"
 DEPTH_ENDPOINT_NAME = "depth"
