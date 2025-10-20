@@ -112,15 +112,12 @@ api_key_private_key = lighter.generate_api_key(
 
 # Prompt 1: Public Key (from Lighter API key generation)
 Enter your Lighter Public Key >>> 
-[Paste your Public Key here]
 
 # Prompt 2: Private Key (from Lighter API key generation)
 Enter your Lighter Private Key >>> 
-[Paste your Private Key here]
 
 # Prompt 3: API Key Index (from Lighter API key generation)
 Enter your Lighter API Key Index >>> 
-[Enter the API Key Index number, e.g., 3]
 
 ✅ You are now connected to lighter_perpetual.
 ```

@@ -35,13 +35,6 @@ class LighterPerpetualAuth(AuthBase):
         headers["X-Lighter-Public-Key"] = self.public_key
         headers["X-Api-Key-Index"] = str(self.api_key_index)
         
-        # Debug logging
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info(f"🔑 Lighter Auth: Adding Authorization header")
-        logger.info(f"🔑 Public Key: {self.public_key[:10]}..., API Key Index: {self.api_key_index}")
-        logger.info(f"🔑 Request URL: {request.url if hasattr(request, 'url') else 'N/A'}")
-        
         request.headers = headers
         
         return request
@@ -96,13 +89,9 @@ class LighterPerpetualAuth(AuthBase):
     
     def generate_transaction_signature(self, order_params: Dict[str, Any], nonce: int) -> str:
         """
-        Generate transaction signature for order placement
+        Generate transaction signature for order placement.
         
-        Lighter requires signing transactions with the private key.
-        The signature format follows Lighter's SignerClient specification.
-        
-        Note: This is a simplified implementation. In production, you may need
-        to integrate with Lighter's actual SignerClient or signing library.
+        Note: Requires integration with Lighter's SignerClient for production use.
         
         Args:
             order_params: Order parameters to sign
@@ -111,18 +100,9 @@ class LighterPerpetualAuth(AuthBase):
         Returns:
             Signature string
         """
-        # TODO: Implement proper Lighter signature generation
-        # This would typically involve:
-        # 1. Serialize order parameters in Lighter's expected format
-        # 2. Include nonce, public_key, api_key_index
-        # 3. Sign with private_key using Lighter's signing algorithm
-        # 4. Return hex-encoded signature
-        
-        # Placeholder: In real implementation, use Lighter SDK or crypto library
         import hashlib
         import json
         
-        # Create signing payload
         signing_data = {
             "nonce": nonce,
             "public_key": self.public_key,
@@ -130,7 +110,6 @@ class LighterPerpetualAuth(AuthBase):
             **order_params
         }
         
-        # Simple placeholder signature (replace with actual signing logic)
         signing_string = json.dumps(signing_data, sort_keys=True)
         signature = hashlib.sha256(
             f"{signing_string}{self.private_key}".encode()

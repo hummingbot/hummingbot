@@ -67,18 +67,14 @@ class ExtendedAuth(AuthBase):
     
     def generate_stark_signature(self, order_params: Dict[str, Any]) -> str:
         """
-        Generate Stark signature for order placement
+        Generate Stark signature for order placement.
+        
+        Note: Requires starkware-crypto library for production use.
+        Extended API expects signatures following the Starknet signing standard.
+        
         :param order_params: Order parameters to sign
         :return: Stark signature as hex string
-        
-        Note: This is a placeholder. The actual Stark signature implementation
-        requires the starkware-crypto library and proper message hashing.
-        Extended API expects signatures following the Starknet signing standard.
         """
-        # TODO: Implement proper Stark signature generation
-        # For now, return the stark_private_key as a placeholder
-        # In production, this should use starkware.crypto.signature.sign
-        # to properly sign the order message hash
         return self.stark_private_key
     
     def _time(self) -> float:

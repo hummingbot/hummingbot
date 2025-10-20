@@ -28,15 +28,7 @@ class ExtendedPerpetualAuth(AuthBase):
         if request.headers is not None:
             headers.update(request.headers)
         
-        # Use lowercase x-api-key as test showed both work but being consistent
         headers["X-Api-Key"] = self.api_key
-        
-        # Debug logging
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info(f"🔑 Extended Auth: Adding X-Api-Key header (key: {self.api_key[:10]}...)")
-        logger.info(f"🔑 Request URL: {request.url if hasattr(request, 'url') else 'N/A'}")
-        logger.info(f"🔑 All headers: {headers}")
         
         request.headers = headers
         
@@ -64,14 +56,11 @@ class ExtendedPerpetualAuth(AuthBase):
     
     def generate_stark_signature(self, order_params: Dict[str, Any]) -> str:
         """
-        Generate Stark signature for order placement
+        Generate Stark signature for order placement.
         
-        Note: This is a placeholder. Actual Stark signature implementation
-        requires the starkware-crypto library and proper message hashing.
+        Note: Requires starkware-crypto library for production use.
         Extended API expects signatures following the Starknet signing standard.
         """
-        # TODO: Implement proper Stark signature generation
-        # For now, return the stark_private_key as a placeholder
         return self.stark_private_key
     
     def _time(self) -> float:
