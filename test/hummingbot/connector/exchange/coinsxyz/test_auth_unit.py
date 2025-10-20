@@ -37,45 +37,47 @@ class TestCoinsxyzAuth(unittest.TestCase):
 
     def test_generate_signature(self):
         """Test HMAC signature generation."""
-        query_string = "symbol=BTCUSDT&side=BUY&type=LIMIT&quantity=1&price=50000"
-        timestamp = int(time.time() * 1000)
+        params = {"symbol": "BTCUSDT", "side": "BUY", "type": "LIMIT", "quantity": 1, "price": 50000, "timestamp": int(time.time() * 1000)}
 
-        signature = self.auth._generate_signature(query_string, timestamp)
+        signature = self.auth._generate_signature(params)
 
         self.assertIsInstance(signature, str)
         self.assertTrue(len(signature) > 0)
 
         # Test signature consistency
-        signature2 = self.auth._generate_signature(query_string, timestamp)
+        signature2 = self.auth._generate_signature(params)
         self.assertEqual(signature, signature2)
 
     def test_signature_uniqueness(self):
         """Test that different inputs produce different signatures."""
         timestamp = int(time.time() * 1000)
 
-        sig1 = self.auth._generate_signature("param1=value1", timestamp)
-        sig2 = self.auth._generate_signature("param1=value2", timestamp)
+        sig1 = self.auth._generate_signature({"param1": "value1", "timestamp": timestamp})
+        sig2 = self.auth._generate_signature({"param1": "value2", "timestamp": timestamp})
 
         self.assertNotEqual(sig1, sig2)
 
     def test_rest_authenticate(self):
         """Test REST API authentication."""
+        import asyncio
         request = MagicMock()
         request.params = {"symbol": "BTCUSDT"}
         request.headers = {}
+        request.method = MagicMock()
 
-        authenticated_request = self.auth.rest_authenticate(request)
+        authenticated_request = asyncio.run(self.auth.rest_authenticate(request))
 
         self.assertIsNotNone(authenticated_request)
         self.assertIn("timestamp", authenticated_request.params)
         self.assertIn("signature", authenticated_request.params)
-        self.assertEqual(authenticated_request.headers.get("X-MBX-APIKEY"), self.api_key)
+        self.assertEqual(authenticated_request.headers.get("X-COINS-APIKEY"), self.api_key)
 
     def test_ws_authenticate(self):
         """Test WebSocket authentication."""
+        import asyncio
         request = MagicMock()
 
-        authenticated_request = self.auth.ws_authenticate(request)
+        authenticated_request = asyncio.run(self.auth.ws_authenticate(request))
 
         self.assertIsNotNone(authenticated_request)
         # WebSocket auth would add specific headers/params
@@ -84,26 +86,26 @@ class TestCoinsxyzAuth(unittest.TestCase):
         """Test authentication headers."""
         headers = self.auth.header_for_authentication()
 
-        self.assertIn("X-MBX-APIKEY", headers)
-        self.assertEqual(headers["X-MBX-APIKEY"], self.api_key)
+        self.assertIn("X-COINS-APIKEY", headers)
+        self.assertEqual(headers["X-COINS-APIKEY"], self.api_key)
         self.assertIn("User-Agent", headers)
 
     def test_is_timestamp_valid(self):
         """Test timestamp validation."""
         current_time = int(time.time() * 1000)
 
-        # Valid timestamp (within 5 seconds)
+        # Valid timestamp (within 5 minutes)
         valid_timestamp = current_time - 3000
         self.assertTrue(self.auth.is_timestamp_valid(valid_timestamp))
 
-        # Invalid timestamp (too old)
-        invalid_timestamp = current_time - 10000
+        # Invalid timestamp (too old - more than 5 minutes)
+        invalid_timestamp = current_time - 400000
         self.assertFalse(self.auth.is_timestamp_valid(invalid_timestamp))
 
     def test_signature_with_empty_params(self):
         """Test signature generation with empty parameters."""
         timestamp = int(time.time() * 1000)
-        signature = self.auth._generate_signature("", timestamp)
+        signature = self.auth._generate_signature({"timestamp": timestamp})
 
         self.assertIsInstance(signature, str)
         self.assertTrue(len(signature) > 0)
@@ -111,35 +113,46 @@ class TestCoinsxyzAuth(unittest.TestCase):
     def test_signature_with_special_characters(self):
         """Test signature generation with special characters."""
         timestamp = int(time.time() * 1000)
-        query_string = "symbol=BTC-USDT&side=BUY&price=50,000.00"
+        params = {"symbol": "BTC-USDT", "side": "BUY", "price": "50,000.00", "timestamp": timestamp}
 
-        signature = self.auth._generate_signature(query_string, timestamp)
+        signature = self.auth._generate_signature(params)
 
         self.assertIsInstance(signature, str)
         self.assertTrue(len(signature) > 0)
 
     def test_authentication_with_none_params(self):
         """Test authentication with None parameters."""
+        import asyncio
         request = MagicMock()
         request.params = None
         request.headers = {}
+        request.data = None
+        request.method = MagicMock()
 
         # Should handle None params gracefully
         try:
-            authenticated_request = self.auth.rest_authenticate(request)
+            authenticated_request = asyncio.run(self.auth.rest_authenticate(request))
             self.assertIsNotNone(authenticated_request)
         except Exception as e:
             self.fail(f"Authentication failed with None params: {e}")
 
     def test_multiple_authentications(self):
         """Test multiple authentication calls."""
-        request = MagicMock()
-        request.params = {"symbol": "BTCUSDT"}
-        request.headers = {}
+        import asyncio
+        request1 = MagicMock()
+        request1.params = {"symbol": "BTCUSDT"}
+        request1.headers = {}
+        request1.method = MagicMock()
+        
+        request2 = MagicMock()
+        request2.params = {"symbol": "BTCUSDT"}
+        request2.headers = {}
+        request2.method = MagicMock()
 
         # Multiple authentications should work
-        auth1 = self.auth.rest_authenticate(request)
-        auth2 = self.auth.rest_authenticate(request)
+        auth1 = asyncio.run(self.auth.rest_authenticate(request1))
+        time.sleep(0.001)
+        auth2 = asyncio.run(self.auth.rest_authenticate(request2))
 
         self.assertIsNotNone(auth1)
         self.assertIsNotNone(auth2)

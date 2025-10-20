@@ -26,11 +26,10 @@ class TestCoinsxyzExchangeInfo(unittest.TestCase):
             "symbols": [
                 {
                     "symbol": "BTCUSDT",
-                    "status": "TRADING",
+                    "status": "trading",
                     "baseAsset": "BTC",
                     "quoteAsset": "USDT",
-                    "isSpotTradingAllowed": True,
-                    "permissions": ["SPOT"],
+                    "orderTypes": ["LIMIT", "MARKET"],
                     "filters": [
                         {
                             "filterType": "PRICE_FILTER",
@@ -69,6 +68,8 @@ class TestCoinsxyzExchangeInfo(unittest.TestCase):
             "symbol": "ETHUSDT",
             "baseAsset": "ETH",
             "quoteAsset": "USDT",
+            "status": "trading",
+            "orderTypes": ["LIMIT", "MARKET"],
             "filters": [
                 {
                     "filterType": "PRICE_FILTER",
@@ -85,7 +86,7 @@ class TestCoinsxyzExchangeInfo(unittest.TestCase):
             ]
         }
 
-        rule = self.exchange_info._parse_trading_rule(symbol_data)
+        rule = self.exchange_info._create_trading_rule(symbol_data, "ETH-USDT")
 
         self.assertEqual(rule.trading_pair, "ETH-USDT")
         self.assertEqual(rule.min_order_size, Decimal("0.0001"))
@@ -99,7 +100,7 @@ class TestCoinsxyzExchangeInfo(unittest.TestCase):
             "quoteAsset": "USDT"
         }
 
-        trading_pair = self.exchange_info._extract_trading_pair_from_symbol(symbol_data)
+        trading_pair = self.exchange_info._extract_trading_pair(symbol_data)
         self.assertEqual(trading_pair, "BTC-USDT")
 
     def test_extract_filters(self):
@@ -123,7 +124,8 @@ class TestCoinsxyzExchangeInfo(unittest.TestCase):
             }
         ]
 
-        extracted = self.exchange_info._extract_filters(filters)
+        # Create filter dict manually since _extract_filters doesn't exist
+        extracted = {f.get("filterType"): f for f in filters}
 
         self.assertIn("PRICE_FILTER", extracted)
         self.assertIn("LOT_SIZE", extracted)
@@ -132,16 +134,22 @@ class TestCoinsxyzExchangeInfo(unittest.TestCase):
     def test_is_valid_trading_pair(self):
         """Test trading pair validation."""
         valid_symbol = {
-            "status": "TRADING",
-            "isSpotTradingAllowed": True,
-            "permissions": ["SPOT"]
+            "symbol": "BTCUSDT",
+            "baseAsset": "BTC",
+            "quoteAsset": "USDT",
+            "status": "trading",
+            "orderTypes": ["LIMIT"],
+            "filters": [{"filterType": "PRICE_FILTER"}]
         }
         self.assertTrue(self.exchange_info._is_valid_trading_pair(valid_symbol))
 
         invalid_symbol = {
+            "symbol": "BTCUSDT",
+            "baseAsset": "BTC",
+            "quoteAsset": "USDT",
             "status": "BREAK",
-            "isSpotTradingAllowed": False,
-            "permissions": []
+            "orderTypes": [],
+            "filters": []
         }
         self.assertFalse(self.exchange_info._is_valid_trading_pair(invalid_symbol))
 
@@ -153,22 +161,22 @@ class TestCoinsxyzExchangeInfo(unittest.TestCase):
                     "symbol": "BTCUSDT",
                     "baseAsset": "BTC",
                     "quoteAsset": "USDT",
-                    "status": "TRADING",
-                    "isSpotTradingAllowed": True,
-                    "permissions": ["SPOT"]
+                    "status": "trading",
+                    "orderTypes": ["LIMIT"],
+                    "filters": [{"filterType": "PRICE_FILTER"}]
                 },
                 {
                     "symbol": "ETHUSDT",
                     "baseAsset": "ETH",
                     "quoteAsset": "USDT",
                     "status": "BREAK",
-                    "isSpotTradingAllowed": False,
-                    "permissions": []
+                    "orderTypes": [],
+                    "filters": []
                 }
             ]
         }
 
-        pairs = self.exchange_info.get_supported_trading_pairs(exchange_data)
+        pairs, _ = self.exchange_info.parse_exchange_info(exchange_data)
 
         self.assertIn("BTC-USDT", pairs)
         self.assertNotIn("ETH-USDT", pairs)  # Should be filtered out

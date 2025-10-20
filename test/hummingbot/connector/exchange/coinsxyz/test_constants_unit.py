@@ -77,14 +77,16 @@ class TestCoinsxyzConstants(unittest.TestCase):
             "isSpotTradingAllowed": True,
             "permissions": ["SPOT"]
         }
-        self.assertTrue(CONSTANTS.is_exchange_information_valid(valid_info))
+        # is_exchange_information_valid is a function, not a method
+        from hummingbot.connector.exchange.coinsxyz.coinsxyz_constants import is_exchange_information_valid
+        self.assertTrue(is_exchange_information_valid(valid_info))
 
         invalid_info = {
             "status": "BREAK",
             "isSpotTradingAllowed": False,
             "permissions": []
         }
-        self.assertFalse(CONSTANTS.is_exchange_information_valid(invalid_info))
+        self.assertFalse(is_exchange_information_valid(invalid_info))
 
 
 if __name__ == "__main__":

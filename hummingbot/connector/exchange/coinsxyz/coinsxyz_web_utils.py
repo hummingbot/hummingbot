@@ -307,3 +307,33 @@ def format_trading_pair_for_url(trading_pair: str) -> str:
     :return: Trading pair formatted for Coins.ph URLs
     """
     return trading_pair.replace("-", "").upper()
+
+
+class CoinsxyzWebUtils:
+    """Web utilities class for Coins.xyz connector."""
+
+    def build_api_url(self, endpoint: str) -> str:
+        return rest_url(endpoint)
+
+    def format_trading_pair(self, trading_pair: str, to_exchange: bool = True) -> str:
+        if to_exchange:
+            return trading_pair.replace("-", "").upper()
+        else:
+            if "-" in trading_pair:
+                return trading_pair
+            for i in range(len(trading_pair) - 1, 0, -1):
+                if trading_pair[:i].upper() in ["BTC", "ETH", "USDT", "USDC", "BNB"]:
+                    return f"{trading_pair[:i]}-{trading_pair[i:]}"
+            return trading_pair
+
+    def validate_response(self, response: Dict[str, Any]) -> bool:
+        return "error" not in response and ("status" in response or "data" in response or "result" in response)
+
+    def parse_timestamp(self, timestamp_ms: int) -> float:
+        return float(timestamp_ms) / 1000.0
+
+    def create_request_headers(self) -> Dict[str, str]:
+        return {
+            "Content-Type": "application/json",
+            "User-Agent": "Hummingbot/CoinsxyzConnector"
+        }
