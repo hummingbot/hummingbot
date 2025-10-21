@@ -68,7 +68,7 @@ class BitgetPerpetualCandles(CandlesBase):
 
     @property
     def _is_first_candle_not_included_in_rest_request(self):
-        return False
+        return True
 
     @staticmethod
     def product_type_associated_to_trading_pair(trading_pair: str) -> str:
