@@ -67,7 +67,7 @@ class BitgetSpotCandles(CandlesBase):
 
     @property
     def _is_first_candle_not_included_in_rest_request(self):
-        return False
+        return True
 
     async def check_network(self) -> NetworkStatus:
         rest_assistant = await self._api_factory.get_rest_assistant()
