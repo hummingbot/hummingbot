@@ -190,3 +190,5 @@ To have your exchange connector or other pull request merged into the codebase, 
 
 * **License**: Hummingbot is open source and licensed under [Apache 2.0](./LICENSE).
 * **Data collection**: See [Reporting](https://hummingbot.org/reporting/) for information on anonymous data collection and reporting in Hummingbot.
+<br>## Welcome to Trading Bots<br>Hummingbot's framework automates crypto strategies—new contributors, start with the market making tutorial for your first bot. Tip: Use connectors for 100+ exchanges! <br>
+
