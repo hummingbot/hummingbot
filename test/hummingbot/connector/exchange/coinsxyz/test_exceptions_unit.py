@@ -71,7 +71,7 @@ class TestCoinsxyzExceptions(unittest.TestCase):
     def test_is_retryable_error(self):
         """Test retryable error detection."""
         from hummingbot.connector.exchange.coinsxyz.coinsxyz_exceptions import CoinsxyzErrorParser
-        
+
         # Network errors should be retryable
         network_error = CoinsxyzNetworkError("Connection failed")
         self.assertTrue(CoinsxyzErrorParser.is_retryable_error(network_error))

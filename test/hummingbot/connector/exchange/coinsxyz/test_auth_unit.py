@@ -143,7 +143,7 @@ class TestCoinsxyzAuth(unittest.TestCase):
         request1.params = {"symbol": "BTCUSDT"}
         request1.headers = {}
         request1.method = MagicMock()
-        
+
         request2 = MagicMock()
         request2.params = {"symbol": "BTCUSDT"}
         request2.headers = {}
