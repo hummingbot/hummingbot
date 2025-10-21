@@ -1375,7 +1375,15 @@ class GatewayHttpClient:
 
         :param connector: Connector name
         :param network: Network name
-        :param pool_data: Pool configuration data
+        :param pool_data: Pool configuration data. Required fields:
+            - address (str): Pool contract address
+            - type (str): Pool type ("amm" or "clmm")
+            - baseTokenAddress (str): Base token contract address
+            - quoteTokenAddress (str): Quote token contract address
+            Optional fields from pool-info:
+            - baseSymbol (str): Base token symbol
+            - quoteSymbol (str): Quote token symbol
+            - feePct (float): Pool fee percentage
         :return: Response with status
         """
         params = {
@@ -1643,7 +1651,12 @@ class GatewayHttpClient:
             fee_in_native = gas_resp.get("fee", 0)  # Use the fee directly from response
             native_token = gas_resp.get("feeAsset", chain.upper())  # Use feeAsset from response
 
-            return {
+            # Extract EIP-1559 specific fields if present
+            gas_type = gas_resp.get("gasType")
+            max_fee_per_gas = gas_resp.get("maxFeePerGas")
+            max_priority_fee_per_gas = gas_resp.get("maxPriorityFeePerGas")
+
+            result = {
                 "success": True,
                 "fee_per_unit": fee_per_unit,
                 "estimated_units": compute_units,
@@ -1651,6 +1664,16 @@ class GatewayHttpClient:
                 "fee_in_native": fee_in_native,
                 "native_token": native_token
             }
+
+            # Add EIP-1559 fields if present
+            if gas_type:
+                result["gas_type"] = gas_type
+            if max_fee_per_gas is not None:
+                result["max_fee_per_gas"] = max_fee_per_gas
+            if max_priority_fee_per_gas is not None:
+                result["max_priority_fee_per_gas"] = max_priority_fee_per_gas
+
+            return result
 
         except Exception as e:
             return {
