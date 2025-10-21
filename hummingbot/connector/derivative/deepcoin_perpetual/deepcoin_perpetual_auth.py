@@ -68,6 +68,8 @@ class DeepcoinPerpetualAuth(AuthBase):
         
         headers["DC-ACCESS-SIGN"] = signature
         headers["Content-Type"] = "application/json"
+
+        # TODO brokerid need to be add to the headers
         request.headers = {**request.headers, **headers} if request.headers is not None else headers
         return request
 

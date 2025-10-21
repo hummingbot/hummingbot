@@ -28,6 +28,12 @@ WSS_PRIVATE_URLS = {
     "deepcoin_perpetual_testnet": "wss://test-wss.goodtest.cc/v1/private"
 }
 
+# User Stream WebSocket URLs (with listenKey parameter)
+WSS_USER_STREAM_URLS = {
+    "deepcoin_perpetual_main": "wss://stream.deepcoin.com/v1/private",
+    "deepcoin_perpetual_testnet": "wss://test-wss.goodtest.cc/v1/private"
+}
+
 # WebSocket Configuration
 WS_HEARTBEAT_TIME_INTERVAL = 10.0
 
@@ -64,7 +70,7 @@ PING_URL = "/deepcoin/market/ping"
 # Private API Endpoints
 ORDER_URL = "/deepcoin/trade/order"
 CANCEL_ALL_OPEN_ORDERS_URL = "/deepcoin/trade/swap/cancel-all"
-CANCEL_OPEN_ORDERS_URL="/deepcoin/trade/cancel-order"
+CANCEL_OPEN_ORDERS_URL = "/deepcoin/trade/cancel-order"
 ACCOUNT_TRADE_LIST_URL = "/deepcoin/trade/fills"
 SET_LEVERAGE_URL = "/deepcoin/trade/leverage"
 GET_INCOME_HISTORY_URL = "/deepcoin/trade/income"
@@ -74,6 +80,10 @@ CHANGE_POSITION_MODE_URL = "/deepcoin/trade/positionMode"
 ACCOUNT_INFO_URL = "/deepcoin/account/balances"
 POSITION_INFORMATION_URL = "/deepcoin/account/positions"
 
+# User Stream Endpoints
+USER_STREAM_ENDPOINT = "/deepcoin/listenkey/acquire"
+USER_STREAM_EXTEND_ENDPOINT = "/deepcoin/listenkey/extend"
+
 # WebSocket Event Types
 DIFF_EVENT_TYPE = "depthUpdate"
 TRADE_EVENT_TYPE = "trade"
@@ -81,23 +91,11 @@ ORDER_UPDATE_EVENT_TYPE = "orderUpdate"
 POSITION_UPDATE_EVENT_TYPE = "positionUpdate"
 BALANCE_UPDATE_EVENT_TYPE = "balanceUpdate"
 
-# Order States
-ORDER_STATE = {
-    "pending": OrderState.PENDING_CREATE,
-    "new": OrderState.OPEN,
-    "filled": OrderState.FILLED,
-    "partially_filled": OrderState.PARTIALLY_FILLED,
-    "pending_cancel": OrderState.OPEN,
-    "canceled": OrderState.CANCELED,
-    "rejected": OrderState.FAILED,
-    "expired": OrderState.FAILED,
-    "expired_in_match": OrderState.FAILED,
-}
 
 # Position Side
 POSITION_SIDE_LONG = "long"
 POSITION_SIDE_SHORT = "short"
-POSITION_SIDE_BOTH = "both"
+#POSITION_SIDE_BOTH = "both"
 
 # Position Mode
 POSITION_MODE_ONE_WAY = "one_way"
@@ -116,46 +114,77 @@ ONE_DAY = 86400
 
 MAX_REQUEST = 1000
 
-# Rate Limits
 RATE_LIMITS = [
-    # Pools
-    RateLimit(limit_id=REQUEST_WEIGHT, limit=1200, time_interval=ONE_MINUTE),
-    RateLimit(limit_id=ORDERS, limit=100, time_interval=10 * ONE_SECOND),
-    RateLimit(limit_id=ORDERS_24HR, limit=100000, time_interval=ONE_DAY),
-    RateLimit(limit_id=RAW_REQUESTS, limit=10000, time_interval=5 * ONE_MINUTE),
-    # Weighted Limits
-    RateLimit(limit_id=TICKER_PRICE_CHANGE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1),
-                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
-    RateLimit(limit_id=TICKER_PRICE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1),
-                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
-    RateLimit(limit_id=EXCHANGE_INFO_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 5),
-                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
-    RateLimit(limit_id=SNAPSHOT_REST_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 10),
-                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
-    RateLimit(limit_id=ACCOUNT_INFO_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 5),
-                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
-    RateLimit(limit_id=POSITION_INFORMATION_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 5),
-                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
-    RateLimit(limit_id=ACCOUNT_TRADE_LIST_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 5),
-                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
-    RateLimit(limit_id=ORDER_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 2),
-                             LinkedLimitWeightPair(ORDERS, 1),
-                             LinkedLimitWeightPair(ORDERS_24HR, 1),
-                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
-    RateLimit(limit_id=SET_LEVERAGE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1),
-                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
-    RateLimit(limit_id=CHANGE_POSITION_MODE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1),
-                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
+    RateLimit(
+        limit_id=SNAPSHOT_REST_URL,
+        limit=5,
+        time_interval=1,
+    ),
+    RateLimit(
+        limit_id=TICKER_PRICE_URL,
+        limit=5,
+        time_interval=1,
+    ),
+    RateLimit(
+        limit_id=TICKER_PRICE_CHANGE_URL,
+        limit=5,
+        time_interval=1,
+    ),
+    RateLimit(
+        limit_id=EXCHANGE_INFO_URL,
+        limit=5,
+        time_interval=1,
+    ),
+    RateLimit(
+        limit_id=RECENT_TRADES_URL,
+        limit=1,
+        time_interval=1,
+    ),
+    RateLimit(
+        limit_id=PING_URL,
+        limit=5,
+        time_interval=1,
+    ),
+    RateLimit(
+        limit_id=ORDER_URL,
+        limit=1,
+        time_interval=1,
+    ),
+    RateLimit(
+        limit_id=CANCEL_ALL_OPEN_ORDERS_URL,
+        limit=1,
+        time_interval=1,
+    ),
+    RateLimit(
+        limit_id=CANCEL_OPEN_ORDERS_URL,
+        limit=1,
+        time_interval=1,
+    ),
+    RateLimit(
+        limit_id=ACCOUNT_TRADE_LIST_URL,
+        limit=1,
+        time_interval=1,
+    ),
+    RateLimit(
+        limit_id=SET_LEVERAGE_URL,
+        limit=10,
+        time_interval=1,
+    ),
+    RateLimit(
+        limit_id=CHANGE_POSITION_MODE_URL,
+        limit=10,
+        time_interval=1,
+    ),
+    RateLimit(
+        limit_id=ACCOUNT_INFO_URL,
+        limit=20,
+        time_interval=1,
+    ),
+    RateLimit(
+        limit_id=POSITION_INFORMATION_URL,
+        limit=20,
+        time_interval=2,
+    ),
 ]
 
 # Error codes

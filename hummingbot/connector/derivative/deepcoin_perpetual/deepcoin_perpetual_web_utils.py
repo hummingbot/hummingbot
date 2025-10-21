@@ -39,7 +39,7 @@ def build_api_factory(
 
 
 def create_throttler(trading_pairs: List[str] = None) -> AsyncThrottler:
-    throttler = AsyncThrottler(build_rate_limits(trading_pairs))
+    throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
     return throttler
 
 
@@ -50,10 +50,10 @@ async def get_current_server_time(
     api_factory = build_api_factory_without_time_synchronizer_pre_processor(throttler=throttler)
     rest_assistant = await api_factory.get_rest_assistant()
     url = get_rest_url_for_endpoint(endpoint=CONSTANTS.SERVER_TIME_PATH_URL, domain=domain)
-    limit_id = get_rest_api_limit_id_for_endpoint(CONSTANTS.SERVER_TIME_PATH_URL)
+    #limit_id = get_rest_api_limit_id_for_endpoint(CONSTANTS.SERVER_TIME_PATH_URL)
     response = await rest_assistant.execute_request(
         url=url,
-        throttler_limit_id=limit_id,
+        throttler_limit_id=CONSTANTS.SERVER_TIME_PATH_URL,
         method=RESTMethod.GET,
     )
     time_data = response.get("data")
@@ -95,37 +95,32 @@ def get_rest_url_for_endpoint(
     return CONSTANTS.REST_URLS.get(variant) + endpoint
 
 
-def get_ws_url_for_endpoint(endpoint: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
+def get_ws_url_for_endpoint(domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
     variant = domain if domain else CONSTANTS.DEFAULT_DOMAIN
-    return CONSTANTS.WSS_PUBLIC_URLS.get(variant) + endpoint
+    return CONSTANTS.WSS_PUBLIC_URLS.get(variant)
 
 
-def get_ws_private_url_for_endpoint(endpoint: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
+def get_ws_private_url_for_endpoint(domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
     variant = domain if domain else CONSTANTS.DEFAULT_DOMAIN
-    return CONSTANTS.WSS_PRIVATE_URLS.get(variant) + endpoint
+    return CONSTANTS.WSS_USER_STREAM_URLS.get(variant) 
 
 
-def get_rest_api_limit_id_for_endpoint(endpoint: str) -> str:
-    return f"REST_{endpoint}"
-
-
-def build_rate_limits(trading_pairs: List[str] = None) -> List[RateLimit]:
+def public_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
     """
-    Creates rate limits for the connector
+    Get public REST URL for endpoint
     """
-    rate_limits = [
-        # General rate limits
-        RateLimit(limit_id="REST_GET", limit=1200, time_interval=60),
-        RateLimit(limit_id="REST_POST", limit=600, time_interval=60),
-        RateLimit(limit_id="REST_DELETE", limit=600, time_interval=60),
-        # Specific endpoint limits
-        RateLimit(limit_id="REST_api/v1/market/symbols", limit=100, time_interval=60),
-        RateLimit(limit_id="REST_api/v1/market/depth", limit=100, time_interval=60),
-        RateLimit(limit_id="REST_api/v1/market/ticker", limit=100, time_interval=60),
-        RateLimit(limit_id="REST_api/v1/account/balance", limit=100, time_interval=60),
-        RateLimit(limit_id="REST_api/v1/account/positions", limit=100, time_interval=60),
-        RateLimit(limit_id="REST_api/v1/trade/order", limit=100, time_interval=60),
-        RateLimit(limit_id="REST_api/v1/trade/leverage", limit=100, time_interval=60),
-        RateLimit(limit_id="REST_api/v1/trade/positionMode", limit=100, time_interval=60),
-    ]
-    return rate_limits
+    return get_rest_url_for_endpoint(domain=domain)+path_url
+
+
+def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN):
+    """
+    Get private REST URL for endpoint
+    """
+    return get_rest_url_for_endpoint(domain=domain)+path_url
+
+
+def wss_url(listenkey:str,domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
+    """
+    Get WebSocket URL for domain
+    """
+    return CONSTANTS.WSS_PUBLIC_URLS.get(domain, CONSTANTS.WSS_PUBLIC_URLS[CONSTANTS.DEFAULT_DOMAIN])

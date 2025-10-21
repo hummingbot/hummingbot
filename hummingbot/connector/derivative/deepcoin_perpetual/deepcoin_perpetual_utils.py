@@ -7,11 +7,11 @@ from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.core.data_type.common import OrderType, TradeType, PositionSide, PositionMode, PositionAction
 from hummingbot.core.data_type.trade_fee import TradeFeeBase, TokenAmount, AddedToCostTradeFee, DeductedFromReturnsTradeFee
-
+from hummingbot.connector.derivative.deepcoin_perpetual import deepcoin_perpetual_constants as CONSTANTS
 # Deepcoin fees
 DEFAULT_FEES = TradeFeeSchema(
-    maker_percent_fee_decimal=Decimal("0.0006"),
-    taker_percent_fee_decimal=Decimal("0.0001"),
+    maker_percent_fee_decimal=Decimal("0.0004"),
+    taker_percent_fee_decimal=Decimal("0.0006"),
 )
 
 CENTRALIZED = True
@@ -22,9 +22,8 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     """
     Verifies if a trading pair is enabled to operate with based on its exchange information
     """
-    status = exchange_info.get("status")
-    valid = status is not None and status in ["Trading", "Settling"]
-    return valid
+    return (exchange_info.get("instType") == "SWAP"
+            and exchange_info.get("state") == "live")
 
 
 def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
@@ -32,7 +31,8 @@ def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
     Converts exchange trading pair to Hummingbot format
     """
     if exchange_trading_pair:
-        return exchange_trading_pair.replace("-", "")
+        pair = exchange_trading_pair.replace("SWAP", "")
+        return pair.replace("-","")
     return None
 
 
@@ -53,7 +53,7 @@ def convert_from_exchange_order_type(exchange_order_type: str) -> OrderType:
         return OrderType.LIMIT
     elif exchange_order_type.upper() == "MARKET":
         return OrderType.MARKET
-    elif exchange_order_type.upper() == "LIMIT_MAKER":
+    elif exchange_order_type.upper() == "POST_ONLY":
         return OrderType.LIMIT_MAKER
     else:
         return OrderType.LIMIT
@@ -64,13 +64,13 @@ def convert_to_exchange_order_type(order_type: OrderType) -> str:
     Converts Hummingbot OrderType to exchange order type
     """
     if order_type == OrderType.LIMIT:
-        return "LIMIT"
+        return "limit"
     elif order_type == OrderType.MARKET:
-        return "MARKET"
+        return "market"
     elif order_type == OrderType.LIMIT_MAKER:
-        return "LIMIT_MAKER"
+        return "post_only"
     else:
-        return "LIMIT"
+        return "limit"
 
 
 def convert_from_exchange_side(exchange_side: str) -> TradeType:
@@ -150,7 +150,7 @@ def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
     Creates a new client order ID for a given trading pair
     """
     import time
-    return f"{CONSTANTS.BROKER_ID}-{trading_pair}-{int(time.time() * 1e6)}"
+    return f"{CONSTANTS.HBOT_BROKER_ID}-{trading_pair}-{int(time.time() * 1e6)}"
 
 
 def extract_trading_pair_from_exchange_symbol(symbol: str) -> Optional[str]:
@@ -292,15 +292,6 @@ class DeepcoinPerpetualConfigMap(BaseConnectorConfigMap):
 
 KEYS = DeepcoinPerpetualConfigMap.model_construct()
 
-OTHER_DOMAINS = ["deepcoin_perpetual_testnet"]
-OTHER_DOMAINS_PARAMETER = {"deepcoin_perpetual_testnet": "deepcoin_perpetual_testnet"}
-OTHER_DOMAINS_EXAMPLE_PAIR = {"deepcoin_perpetual_testnet": "BTC-USDT"}
-OTHER_DOMAINS_DEFAULT_FEES = {
-    "deepcoin_perpetual_testnet": TradeFeeSchema(
-        maker_percent_fee_decimal=Decimal("0.0006"),
-        taker_percent_fee_decimal=Decimal("0.0001"),
-    )
-}
 
 
 class DeepcoinPerpetualTestnetConfigMap(BaseConnectorConfigMap):
