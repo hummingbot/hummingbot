@@ -31,9 +31,10 @@ class DeepcoinPerpetualAuth(AuthBase):
 
     async def ws_authenticate(self, request: WSRequest) -> WSRequest:
         """
-        This method is intended to configure a websocket request to be authenticated.
+        This method is intended to configure a websocket request to be authenticated. Deepcoin does not use this
+        functionality
         """
-        return self.generate_ws_auth_message()
+        return request
 
     def get_referral_code_headers(self):
         """
@@ -43,7 +44,28 @@ class DeepcoinPerpetualAuth(AuthBase):
             "referer": CONSTANTS.HBOT_BROKER_ID
         }
         return headers
+    def authentication_headers(self, method: RESTMethod,request: RESTRequest):
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        
+        headers = {}
+        headers["DC-ACCESS-KEY"] = self.api_key
+        headers["DC-ACCESS-TIMESTAMP"] = timestamp
+        headers["DC-ACCESS-PASSPHRASE"] = self.passphrase
+        
+        # Get request path from the request URL
+        request_path = request.url.path if hasattr(request, 'url') else ""
+        
+        if method == RESTMethod.POST:
+            signature = self._generate_rest_signature(
+                timestamp=timestamp, method=method, request_path=request_path, payload=request.data)
+        else:
+            signature = self._generate_rest_signature(
+                timestamp=timestamp, method=method, request_path=request_path, payload=request.params)
+        
+        headers["DC-ACCESS-SIGN"] = signature
+        headers["Content-Type"] = "application/json"
 
+        return headers
     def add_auth_headers(self, method: RESTMethod, request: Optional[Dict[str, Any]]):
         """
         Add authentication headers in request object
@@ -99,32 +121,32 @@ class DeepcoinPerpetualAuth(AuthBase):
         ).digest()
         return base64.b64encode(signature).decode("utf-8")
 
-    def _generate_ws_signature(self, expires: int):
-        """
-        Generate WebSocket signature for Deepcoin
-        """
-        # For WebSocket, we need to use the same signature method as REST API
-        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-        param_str = timestamp + "GET" + "/realtime" + str(expires)
+    # def _generate_ws_signature(self, expires: int):
+    #     """
+    #     Generate WebSocket signature for Deepcoin
+    #     """
+    #     # For WebSocket, we need to use the same signature method as REST API
+    #     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    #     param_str = timestamp + "GET" + "/realtime" + str(expires)
         
-        signature = hmac.new(
-            bytes(self.secret_key, "utf-8"),
-            param_str.encode("utf-8"),
-            digestmod="sha256"
-        ).digest()
-        return base64.b64encode(signature).decode("utf-8")
+    #     signature = hmac.new(
+    #         bytes(self.secret_key, "utf-8"),
+    #         param_str.encode("utf-8"),
+    #         digestmod="sha256"
+    #     ).digest()
+    #     return base64.b64encode(signature).decode("utf-8")
 
-    def generate_ws_auth_message(self):
-        """
-        Generates the authentication message to start receiving messages from private ws channels
-        """
-        expires = int((self._time() + 10000) * 1000)
-        signature = self._generate_ws_signature(expires)
-        auth_message = {
-            "op": "auth",
-            "args": [self.api_key, expires, signature]
-        }
-        return auth_message
+    # def generate_ws_auth_message(self):
+    #     """
+    #     Generates the authentication message to start receiving messages from private ws channels
+    #     """
+    #     expires = int((self._time() + 10000) * 1000)
+    #     signature = self._generate_ws_signature(expires)
+    #     auth_message = {
+    #         "op": "auth",
+    #         "args": [self.api_key, expires, signature]
+    #     }
+    #     return auth_message
 
     def _time(self):
         return time.time()

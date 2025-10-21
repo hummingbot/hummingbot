@@ -1,3 +1,4 @@
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_constants import FUNDING_INFO_STREAM_ID
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.data_type.common import OrderType, PositionMode
 from hummingbot.core.data_type.in_flight_order import OrderState
@@ -23,10 +24,10 @@ WSS_PUBLIC_URLS = {
     "deepcoin_perpetual_main": "wss://stream.deepcoin.com/streamlet/trade/public/swap?platform=api",
     "deepcoin_perpetual_testnet": "wss://test-wss.goodtest.cc/streamlet/trade/public/swap?platform=api"
 }
-WSS_PRIVATE_URLS = {
-    "deepcoin_perpetual_main": "wss://stream.deepcoin.com/v1/private",
-    "deepcoin_perpetual_testnet": "wss://test-wss.goodtest.cc/v1/private"
-}
+# WSS_PRIVATE_URLS = {
+#     "deepcoin_perpetual_main": "wss://stream.deepcoin.com/v1/private",
+#     "deepcoin_perpetual_testnet": "wss://test-wss.goodtest.cc/v1/private"
+# }
 
 # User Stream WebSocket URLs (with listenKey parameter)
 WSS_USER_STREAM_URLS = {
@@ -64,7 +65,8 @@ TICKER_PRICE_CHANGE_URL = "/deepcoin/market/tickers"
 EXCHANGE_INFO_URL = "/deepcoin/market/instruments"
 RECENT_TRADES_URL = "/deepcoin/market/trades"
 PING_URL = "/deepcoin/market/ping"
-#MARK_PRICE_URL = "/deepcoin/market/markPrice"
+MARK_PRICE_URL = "/deepcoin/market/markPrice"
+FUNDING_INFO_URL = "/deepcoin/trade/funding-rate"
 #SERVER_TIME_PATH_URL = "/deepcoin/market/time"
 
 # Private API Endpoints
@@ -72,7 +74,7 @@ ORDER_URL = "/deepcoin/trade/order"
 CANCEL_ALL_OPEN_ORDERS_URL = "/deepcoin/trade/swap/cancel-all"
 CANCEL_OPEN_ORDERS_URL = "/deepcoin/trade/cancel-order"
 ACCOUNT_TRADE_LIST_URL = "/deepcoin/trade/fills"
-SET_LEVERAGE_URL = "/deepcoin/trade/leverage"
+SET_LEVERAGE_URL = "/deepcoin/account/set-leverage"
 GET_INCOME_HISTORY_URL = "/deepcoin/trade/income"
 CHANGE_POSITION_MODE_URL = "/deepcoin/trade/positionMode"
 
@@ -141,6 +143,11 @@ RATE_LIMITS = [
         time_interval=1,
     ),
     RateLimit(
+        limit_id=FUNDING_INFO_URL,
+        limit=5,
+        time_interval=1,
+    ),
+    RateLimit(
         limit_id=PING_URL,
         limit=5,
         time_interval=1,
@@ -172,18 +179,18 @@ RATE_LIMITS = [
     ),
     RateLimit(
         limit_id=CHANGE_POSITION_MODE_URL,
-        limit=10,
+        limit=1,
         time_interval=1,
     ),
     RateLimit(
         limit_id=ACCOUNT_INFO_URL,
-        limit=20,
+        limit=1,
         time_interval=1,
     ),
     RateLimit(
         limit_id=POSITION_INFORMATION_URL,
-        limit=20,
-        time_interval=2,
+        limit=1,
+        time_interval=1,
     ),
 ]
 
