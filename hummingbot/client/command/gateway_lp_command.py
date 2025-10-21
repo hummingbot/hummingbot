@@ -23,15 +23,15 @@ if TYPE_CHECKING:
 class GatewayLPCommand:
     """Handles gateway liquidity provision commands"""
 
-    def gateway_lp(self, connector: Optional[str], action: Optional[str]):
+    def gateway_lp(self, connector: Optional[str], action: Optional[str], trading_pair: Optional[str] = None):
         """
         Main entry point for LP commands.
         Routes to appropriate sub-command handler.
         """
         if not connector:
             self.notify("\nError: Connector is required")
-            self.notify("Usage: gateway lp <connector> <action>")
-            self.notify("\nExample: gateway lp uniswap/amm add-liquidity")
+            self.notify("Usage: gateway lp <connector> <action> [trading-pair]")
+            self.notify("\nExample: gateway lp uniswap/amm add-liquidity WETH-USDC")
             return
 
         if not action:
@@ -40,7 +40,8 @@ class GatewayLPCommand:
             self.notify("  remove-liquidity  - Remove liquidity from a position")
             self.notify("  position-info     - View your liquidity positions")
             self.notify("  collect-fees      - Collect accumulated fees (CLMM only)")
-            self.notify("\nExample: gateway lp uniswap/amm add-liquidity")
+            self.notify("\nExample: gateway lp uniswap/amm add-liquidity WETH-USDC")
+            self.notify("\nOptional: Specify trading-pair to skip the prompt")
             return
 
         # Check if collect-fees is being called on non-CLMM connector
@@ -57,13 +58,13 @@ class GatewayLPCommand:
 
         # Route to appropriate handler
         if action == "add-liquidity":
-            safe_ensure_future(self._add_liquidity(connector), loop=self.ev_loop)
+            safe_ensure_future(self._add_liquidity(connector, trading_pair), loop=self.ev_loop)
         elif action == "remove-liquidity":
-            safe_ensure_future(self._remove_liquidity(connector), loop=self.ev_loop)
+            safe_ensure_future(self._remove_liquidity(connector, trading_pair), loop=self.ev_loop)
         elif action == "position-info":
-            safe_ensure_future(self._position_info(connector), loop=self.ev_loop)
+            safe_ensure_future(self._position_info(connector, trading_pair), loop=self.ev_loop)
         elif action == "collect-fees":
-            safe_ensure_future(self._collect_fees(connector), loop=self.ev_loop)
+            safe_ensure_future(self._collect_fees(connector, trading_pair), loop=self.ev_loop)
         else:
             self.notify(f"\nError: Unknown action '{action}'")
             self.notify("Valid actions: add-liquidity, remove-liquidity, position-info, collect-fees")
@@ -241,11 +242,15 @@ class GatewayLPCommand:
     # Position Info Implementation
     async def _position_info(
         self,  # type: HummingbotApplication
-        connector: str
+        connector: str,
+        trading_pair: Optional[str] = None
     ):
         """
         Display detailed information about user's liquidity positions.
         Includes summary and detailed views.
+
+        :param connector: Connector name (e.g., 'uniswap/clmm')
+        :param trading_pair: Optional trading pair (e.g., 'WETH-USDC') to skip prompt
         """
         try:
             # 1. Validate connector and get chain/network info
@@ -291,50 +296,59 @@ class GatewayLPCommand:
                 # 5. Get user's positions
                 positions = []
 
-                # Ask for trading pair for both AMM and CLMM to filter by pool
-                await GatewayCommandUtils.enter_interactive_mode(self)
-
-                try:
-                    pair_input = await self.app.prompt(
-                        prompt="Enter trading pair (e.g., SOL-USDC): "
-                    )
-
-                    if self.app.to_stop_config:
-                        return
-
-                    if not pair_input.strip():
-                        self.notify("Error: Trading pair is required")
-                        return
-
-                    trading_pair = pair_input.strip().upper()
+                # Get trading pair from parameter or prompt
+                if trading_pair:
+                    # Trading pair provided as parameter
+                    user_trading_pair = trading_pair.upper()
 
                     # Validate trading pair format
-                    if "-" not in trading_pair:
+                    if "-" not in user_trading_pair:
                         self.notify("Error: Invalid trading pair format. Use format like 'SOL-USDC'")
                         return
+                else:
+                    # Ask for trading pair for both AMM and CLMM to filter by pool
+                    await GatewayCommandUtils.enter_interactive_mode(self)
 
-                    self.notify(f"\nFetching positions for {trading_pair}...")
+                    try:
+                        pair_input = await self.app.prompt(
+                            prompt="Enter trading pair (e.g., SOL-USDC): "
+                        )
 
-                    # Get pool address for the trading pair
-                    pool_address = await lp_connector.get_pool_address(trading_pair)
-                    if not pool_address:
-                        self.notify(f"No pool found for {trading_pair}")
-                        return
+                        if self.app.to_stop_config:
+                            return
 
-                    # Get positions for this pool
-                    positions = await lp_connector.get_user_positions(pool_address=pool_address)
+                        if not pair_input.strip():
+                            self.notify("Error: Trading pair is required")
+                            return
 
-                finally:
-                    await GatewayCommandUtils.exit_interactive_mode(self)
+                        user_trading_pair = pair_input.strip().upper()
 
-                if not positions:
-                    self.notify("\nNo liquidity positions found")
+                        # Validate trading pair format
+                        if "-" not in user_trading_pair:
+                            self.notify("Error: Invalid trading pair format. Use format like 'SOL-USDC'")
+                            return
+                    finally:
+                        await GatewayCommandUtils.exit_interactive_mode(self)
+
+                # Fetch and display pool info
+                pool_result = await LPCommandUtils.fetch_and_display_pool_info(
+                    self, lp_connector, user_trading_pair, is_clmm
+                )
+                if not pool_result:
                     return
 
-                # Extract base and quote tokens from trading pair
-                base_token, quote_token = trading_pair.split("-")
+                pool_info, pool_address, base_token, quote_token, trading_pair_result = pool_result
 
-                # 5. Display positions
+                self.notify(f"\nFetching positions for {user_trading_pair} (pool: {GatewayCommandUtils.format_address_display(pool_address)})...")
+
+                # Get positions for this pool
+                positions = await lp_connector.get_user_positions(pool_address=pool_address)
+
+                if not positions:
+                    self.notify(f"\nNo liquidity positions found for {user_trading_pair}")
+                    return
+
+                # Display positions
                 for i, position in enumerate(positions):
                     if len(positions) > 1:
                         self.notify(f"\n--- Position {i + 1} of {len(positions)} ---")
@@ -363,11 +377,15 @@ class GatewayLPCommand:
     # Add Liquidity Implementation
     async def _add_liquidity(
         self,  # type: HummingbotApplication
-        connector: str
+        connector: str,
+        trading_pair: Optional[str] = None
     ):
         """
         Interactive flow for adding liquidity to a pool.
         Supports both AMM and CLMM protocols.
+
+        :param connector: Connector name (e.g., 'uniswap/clmm')
+        :param trading_pair: Optional trading pair (e.g., 'WETH-USDC') to skip prompt
         """
         try:
             # 1. Validate connector and get chain/network info
@@ -400,25 +418,36 @@ class GatewayLPCommand:
             self.notify(f"Wallet: {GatewayCommandUtils.format_address_display(wallet_address)}")
             self.notify(f"Type: {'Concentrated Liquidity' if is_clmm else 'Standard AMM'}")
 
-            # 4. Enter interactive mode
+            # 4. Always enter interactive mode since we'll need prompts for price range, amounts, confirmation
             await GatewayCommandUtils.enter_interactive_mode(self)
 
             try:
-                # 5. Get trading pair
-                pair = await self.app.prompt(
-                    prompt="Enter trading pair (e.g., SOL-USDC): "
-                )
-                if self.app.to_stop_config or not pair:
-                    self.notify("Add liquidity cancelled")
-                    return
+                # Get trading pair from parameter or prompt
+                if trading_pair:
+                    # Trading pair provided as parameter
+                    try:
+                        user_base_token, user_quote_token = split_hb_trading_pair(trading_pair)
+                    except (ValueError, AttributeError):
+                        self.notify("Error: Invalid trading pair format. Use format like 'SOL-USDC'")
+                        return
 
-                try:
-                    base_token, quote_token = split_hb_trading_pair(pair)
-                except (ValueError, AttributeError):
-                    self.notify("Error: Invalid trading pair format. Use format like 'SOL-USDC'")
-                    return
+                    user_trading_pair = f"{user_base_token}-{user_quote_token}"
+                else:
+                    # Get trading pair from prompt
+                    pair = await self.app.prompt(
+                        prompt="Enter trading pair (e.g., SOL-USDC): "
+                    )
+                    if self.app.to_stop_config or not pair:
+                        self.notify("Add liquidity cancelled")
+                        return
 
-                trading_pair = f"{base_token}-{quote_token}"
+                    try:
+                        user_base_token, user_quote_token = split_hb_trading_pair(pair)
+                    except (ValueError, AttributeError):
+                        self.notify("Error: Invalid trading pair format. Use format like 'SOL-USDC'")
+                        return
+
+                    user_trading_pair = f"{user_base_token}-{user_quote_token}"
 
                 # 6. Create LP connector instance and start network
                 lp_connector = GatewayLp(
@@ -426,18 +455,40 @@ class GatewayLPCommand:
                     chain=chain,
                     network=network,
                     address=wallet_address,
-                    trading_pairs=[trading_pair]
+                    trading_pairs=[user_trading_pair]
                 )
                 await lp_connector.start_network()
 
                 # 7. Get and display pool info
-                self.notify(f"\nFetching pool information for {trading_pair}...")
-                pool_info = await lp_connector.get_pool_info(trading_pair)
+                self.notify(f"\nFetching pool information for {user_trading_pair}...")
+                pool_info = await lp_connector.get_pool_info(user_trading_pair)
 
                 if not pool_info:
-                    self.notify(f"Error: Could not find pool for {trading_pair}")
+                    self.notify(f"Error: Could not find pool for {user_trading_pair}")
                     await lp_connector.stop_network()
                     return
+
+                # 8. Extract authoritative token order from pool
+                # Get token symbols from addresses
+                base_token_info = lp_connector.get_token_by_address(pool_info.base_token_address)
+                quote_token_info = lp_connector.get_token_by_address(pool_info.quote_token_address)
+
+                base_token = base_token_info.get("symbol") if base_token_info else None
+                quote_token = quote_token_info.get("symbol") if quote_token_info else None
+
+                if not base_token or not quote_token:
+                    self.notify("Error: Could not determine token symbols from pool")
+                    await lp_connector.stop_network()
+                    return
+
+                # Use pool's authoritative trading pair
+                trading_pair = f"{base_token}-{quote_token}"
+
+                # Update connector with correct trading pair if different
+                if trading_pair != user_trading_pair:
+                    self.notify(f"Note: Using pool's token order: {trading_pair}")
+                    lp_connector._trading_pairs = [trading_pair]
+                    await lp_connector.load_token_data()
 
                 # Display pool information
                 self._display_pool_info(pool_info, is_clmm, base_token, quote_token)
@@ -482,10 +533,9 @@ class GatewayLPCommand:
                         self.notify(f"  Current: {current_price:.6f}")
                         self.notify(f"  Upper: {upper_price:.6f}")
 
-                        # Calculate spread percentage for internal use
-                        mid_price = (lower_price + upper_price) / 2
-                        spread_pct = ((upper_price - lower_price) / (2 * mid_price)) * 100
-                        position_params['spread_pct'] = spread_pct
+                        # Store the explicit price range for passing to add_liquidity
+                        position_params['lower_price'] = lower_price
+                        position_params['upper_price'] = upper_price
 
                     except ValueError:
                         self.notify("Error: Invalid price values")
@@ -592,11 +642,20 @@ class GatewayLPCommand:
                 self.notify(f"  {quote_token}: {quote_amount:.6f}")
 
                 # 11. Check balances and calculate impact
-                tokens_to_check = [base_token, quote_token]
+                # Explicitly construct token list to ensure base and quote tokens are included
+                tokens_to_check = []
+                if base_token:
+                    tokens_to_check.append(base_token)
+                if quote_token:
+                    tokens_to_check.append(quote_token)
+
                 native_token = lp_connector.native_currency or chain.upper()
 
-                current_balances = await self._get_gateway_instance().get_wallet_balances(
+                # Ensure native token is in the list
+                if native_token and native_token not in tokens_to_check:
+                    tokens_to_check.append(native_token)
 
+                current_balances = await self._get_gateway_instance().get_wallet_balances(
                     chain=chain,
                     network=network,
                     wallet_address=wallet_address,
@@ -666,10 +725,12 @@ class GatewayLPCommand:
 
                 # Create order ID and execute
                 if is_clmm:
+                    # Pass explicit price range (lower_price and upper_price) instead of spread_pct
                     order_id = lp_connector.add_liquidity(
                         trading_pair=trading_pair,
                         price=pool_info.price,
-                        spread_pct=position_params['spread_pct'],
+                        lower_price=position_params.get('lower_price'),
+                        upper_price=position_params.get('upper_price'),
                         base_token_amount=base_amount,
                         quote_token_amount=quote_amount,
                         slippage_pct=slippage_pct
@@ -701,6 +762,7 @@ class GatewayLPCommand:
                     self.notify(f"Use 'gateway lp {connector} position-info' to view your position")
 
             finally:
+                # Always exit interactive mode since we always enter it
                 await GatewayCommandUtils.exit_interactive_mode(self)
                 # Always stop the connector
                 if lp_connector:
@@ -713,11 +775,15 @@ class GatewayLPCommand:
     # Remove Liquidity Implementation
     async def _remove_liquidity(
         self,  # type: HummingbotApplication
-        connector: str
+        connector: str,
+        trading_pair: Optional[str] = None
     ):
         """
         Interactive flow for removing liquidity from positions.
         Supports partial removal and complete position closing.
+
+        :param connector: Connector name (e.g., 'uniswap/clmm')
+        :param trading_pair: Optional trading pair (e.g., 'WETH-USDC') to skip prompt
         """
         try:
             # 1. Validate connector and get chain/network info
@@ -764,42 +830,52 @@ class GatewayLPCommand:
                 await GatewayCommandUtils.enter_interactive_mode(self)
 
                 try:
-                    # Get trading pair from user
-                    pair_input = await self.app.prompt(
-                        prompt="Enter trading pair (e.g., SOL-USDC): "
+                    # Get trading pair from parameter or prompt
+                    if trading_pair:
+                        # Trading pair provided as parameter
+                        user_trading_pair = trading_pair.upper()
+
+                        # Validate trading pair format
+                        if "-" not in user_trading_pair:
+                            self.notify("Error: Invalid trading pair format. Use format like 'SOL-USDC'")
+                            return
+                    else:
+                        # Get trading pair from user
+                        pair_input = await self.app.prompt(
+                            prompt="Enter trading pair (e.g., SOL-USDC): "
+                        )
+
+                        if self.app.to_stop_config:
+                            return
+
+                        if not pair_input.strip():
+                            self.notify("Error: Trading pair is required")
+                            return
+
+                        user_trading_pair = pair_input.strip().upper()
+
+                        # Validate trading pair format
+                        if "-" not in user_trading_pair:
+                            self.notify("Error: Invalid trading pair format. Use format like 'SOL-USDC'")
+                            return
+
+                    # Fetch and display pool info
+                    pool_result = await LPCommandUtils.fetch_and_display_pool_info(
+                        self, lp_connector, user_trading_pair, is_clmm
                     )
-
-                    if self.app.to_stop_config:
+                    if not pool_result:
                         return
 
-                    if not pair_input.strip():
-                        self.notify("Error: Trading pair is required")
-                        return
+                    pool_info, pool_address, base_token, quote_token, trading_pair_result = pool_result
 
-                    trading_pair = pair_input.strip().upper()
-
-                    # Validate trading pair format
-                    if "-" not in trading_pair:
-                        self.notify("Error: Invalid trading pair format. Use format like 'SOL-USDC'")
-                        return
-
-                    self.notify(f"\nFetching positions for {trading_pair}...")
-
-                    # Get pool address for the trading pair
-                    pool_address = await lp_connector.get_pool_address(trading_pair)
-                    if not pool_address:
-                        self.notify(f"No pool found for {trading_pair}")
-                        return
+                    self.notify(f"\nFetching positions for {user_trading_pair} (pool: {GatewayCommandUtils.format_address_display(pool_address)})...")
 
                     # Get positions for this pool
                     positions = await lp_connector.get_user_positions(pool_address=pool_address)
 
                     if not positions:
-                        self.notify(f"\nNo liquidity positions found for {trading_pair}")
+                        self.notify(f"\nNo liquidity positions found for {user_trading_pair}")
                         return
-
-                    # Extract base and quote tokens
-                    base_token, quote_token = trading_pair.split("-")
 
                     # Display positions
                     for i, position in enumerate(positions):
@@ -817,6 +893,7 @@ class GatewayLPCommand:
                             )
 
                         self.notify(position_display)
+
                     # 7. Let user select position
                     selected_position = await LPCommandUtils.prompt_for_position_selection(
                         self, positions, prompt_text=f"\nSelect position number (1-{len(positions)}): "
@@ -845,17 +922,21 @@ class GatewayLPCommand:
                         base_token, quote_token
                     )
 
-                    # 11. Update LP connector with the selected trading pair
-                    lp_connector._trading_pairs = [trading_pair]
-                    # Reload token data for the selected pair if needed
-                    await lp_connector.load_token_data()
+                    # 11. Check balances and estimate fees
+                    # Explicitly construct token list to ensure base and quote tokens are included
+                    tokens_to_check = []
+                    if base_token:
+                        tokens_to_check.append(base_token)
+                    if quote_token:
+                        tokens_to_check.append(quote_token)
 
-                    # 12. Check balances and estimate fees
-                    tokens_to_check = [base_token, quote_token]
                     native_token = lp_connector.native_currency or chain.upper()
 
-                    current_balances = await self._get_gateway_instance().get_wallet_balances(
+                    # Ensure native token is in the list
+                    if native_token and native_token not in tokens_to_check:
+                        tokens_to_check.append(native_token)
 
+                    current_balances = await self._get_gateway_instance().get_wallet_balances(
                         chain=chain,
                         network=network,
                         wallet_address=wallet_address,
@@ -922,7 +1003,7 @@ class GatewayLPCommand:
                     # - For CLMM: uses clmm_close_position if 100%, clmm_remove_liquidity otherwise
                     # - For AMM: always uses amm_remove_liquidity
                     order_id = lp_connector.remove_liquidity(
-                        trading_pair=trading_pair,
+                        trading_pair=trading_pair_result,
                         position_address=position_address,
                         percentage=percentage
                     )
@@ -962,11 +1043,15 @@ class GatewayLPCommand:
     # Collect Fees Implementation
     async def _collect_fees(
         self,  # type: HummingbotApplication
-        connector: str
+        connector: str,
+        trading_pair: Optional[str] = None
     ):
         """
         Interactive flow for collecting accumulated fees from positions.
         Only applicable for CLMM positions that track fees separately.
+
+        :param connector: Connector name (e.g., 'uniswap/clmm')
+        :param trading_pair: Optional trading pair (e.g., 'WETH-USDC') to skip prompt
         """
         try:
             # 1. Validate connector and get chain/network info
@@ -1011,35 +1096,50 @@ class GatewayLPCommand:
             await lp_connector.start_network()
 
             try:
-                # 5. Enter interactive mode to get trading pair
+                # 5. Enter interactive mode for all prompts
                 await GatewayCommandUtils.enter_interactive_mode(self)
 
                 try:
-                    pair_input = await self.app.prompt(
-                        prompt="Enter trading pair (e.g., SOL-USDC): "
+                    # Get trading pair from parameter or prompt
+                    if trading_pair:
+                        # Trading pair provided as parameter
+                        user_trading_pair = trading_pair.upper()
+
+                        # Validate trading pair format
+                        if "-" not in user_trading_pair:
+                            self.notify("Error: Invalid trading pair format. Use format like 'SOL-USDC'")
+                            return
+                    else:
+                        # Prompt for trading pair
+                        pair_input = await self.app.prompt(
+                            prompt="Enter trading pair (e.g., SOL-USDC): "
+                        )
+
+                        if self.app.to_stop_config:
+                            return
+
+                        if not pair_input.strip():
+                            self.notify("Error: Trading pair is required")
+                            return
+
+                        user_trading_pair = pair_input.strip().upper()
+
+                        # Validate trading pair format
+                        if "-" not in user_trading_pair:
+                            self.notify("Error: Invalid trading pair format. Use format like 'SOL-USDC'")
+                            return
+
+                    # Fetch and display pool info
+                    is_clmm = True  # collect-fees is only for CLMM
+                    pool_result = await LPCommandUtils.fetch_and_display_pool_info(
+                        self, lp_connector, user_trading_pair, is_clmm
                     )
-
-                    if self.app.to_stop_config:
+                    if not pool_result:
                         return
 
-                    if not pair_input.strip():
-                        self.notify("Error: Trading pair is required")
-                        return
+                    pool_info, pool_address, base_token, quote_token, trading_pair_result = pool_result
 
-                    trading_pair = pair_input.strip().upper()
-
-                    # Validate trading pair format
-                    if "-" not in trading_pair:
-                        self.notify("Error: Invalid trading pair format. Use format like 'SOL-USDC'")
-                        return
-
-                    self.notify(f"\nFetching positions for {trading_pair}...")
-
-                    # Get pool address for the trading pair
-                    pool_address = await lp_connector.get_pool_address(trading_pair)
-                    if not pool_address:
-                        self.notify(f"No pool found for {trading_pair}")
-                        return
+                    self.notify(f"\nFetching positions for {user_trading_pair} (pool: {GatewayCommandUtils.format_address_display(pool_address)})...")
 
                     # Get positions for this pool
                     all_positions = await lp_connector.get_user_positions(pool_address=pool_address)
@@ -1052,7 +1152,7 @@ class GatewayLPCommand:
                     ]
 
                     if not positions_with_fees:
-                        self.notify(f"\nNo uncollected fees found in your {trading_pair} positions")
+                        self.notify(f"\nNo uncollected fees found in your {user_trading_pair} positions")
                         return
 
                     # 5. Display positions with fees
@@ -1101,12 +1201,18 @@ class GatewayLPCommand:
                     gas_fee_estimate = fee_info.get("fee_in_native", 0) if fee_info.get("success", False) else 0
 
                     # 12. Get current balances
-                    tokens_to_check = [selected_position.base_token, selected_position.quote_token]
-                    if native_token not in tokens_to_check:
+                    # Explicitly construct token list to ensure base and quote tokens are included
+                    tokens_to_check = []
+                    if selected_position.base_token:
+                        tokens_to_check.append(selected_position.base_token)
+                    if selected_position.quote_token:
+                        tokens_to_check.append(selected_position.quote_token)
+
+                    # Ensure native token is in the list
+                    if native_token and native_token not in tokens_to_check:
                         tokens_to_check.append(native_token)
 
                     current_balances = await self._get_gateway_instance().get_wallet_balances(
-
                         chain=chain,
                         network=network,
                         wallet_address=wallet_address,
