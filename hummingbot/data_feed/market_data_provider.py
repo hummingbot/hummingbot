@@ -26,6 +26,10 @@ from hummingbot.strategy_v2.executors.data_types import ConnectorPair
 
 class MarketDataProvider:
     _logger: Optional[HummingbotLogger] = None
+    gateway_price_provider_by_chain: Dict = {
+        "ethereum": "uniswap/router",
+        "solana": "jupiter/router",
+    }
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -69,11 +73,7 @@ class MarketDataProvider:
         :param connector_pairs: List[ConnectorPair]
         """
         for connector_pair in connector_pairs:
-            connector_name, _ = connector_pair
-            if connector_pair.is_amm_connector():
-                self._rates_required.add_or_update("gateway", connector_pair)
-                continue
-            self._rates_required.add_or_update(connector_name, connector_pair)
+            self._rates_required.add_or_update(connector_pair.connector_name, connector_pair)
         if not self._rates_update_task:
             self._rates_update_task = safe_ensure_future(self.update_rates_task())
 
@@ -83,11 +83,7 @@ class MarketDataProvider:
         :param connector_pairs: List[ConnectorPair]
         """
         for connector_pair in connector_pairs:
-            connector_name, _ = connector_pair
-            if connector_pair.is_amm_connector():
-                self._rates_required.remove("gateway", connector_pair)
-                continue
-            self._rates_required.remove(connector_name, connector_pair)
+            self._rates_required.remove(connector_pair.connector_name, connector_pair)
 
         # Stop the rates update task if no more rates are required
         if len(self._rates_required) == 0 and self._rates_update_task:
@@ -106,24 +102,19 @@ class MarketDataProvider:
 
                 rate_oracle = RateOracle.get_instance()
                 for connector, connector_pairs in self._rates_required.items():
-                    if connector == "gateway":
+                    if "gateway" in connector:
                         tasks = []
                         gateway_client = GatewayHttpClient.get_instance()
                         for connector_pair in connector_pairs:
                             # Handle new connector format like "jupiter/router"
-                            connector_name = connector_pair.connector_name
                             base, quote = connector_pair.trading_pair.split("-")
-
-                            # Parse connector to get chain and connector name
-                            # First try to get chain and network from gateway
+                            gateway, chain_network = connector.split("_", 1)
+                            chain, network = chain_network.split("-", 1)
+                            connector_name = self.gateway_price_provider_by_chain.get(chain)
+                            if not connector_name:
+                                self.logger().warning(f"No gateway price provider found for chain {chain}")
+                                continue
                             try:
-                                chain, network, error = await gateway_client.get_connector_chain_network(
-                                    connector_name
-                                )
-                                if error:
-                                    self.logger().warning(f"Could not get chain/network for {connector_name}: {error}")
-                                    continue
-
                                 tasks.append(
                                     gateway_client.get_price(
                                         chain=chain, network=network, connector=connector_name,
@@ -144,8 +135,9 @@ class MarketDataProvider:
                             self.logger().error(f"Error fetching prices from {connector_pairs}: {e}", exc_info=True)
                     else:
                         connector_instance = self._non_trading_connectors[connector]
-                        prices = await self._safe_get_last_traded_prices(connector_instance,
-                                                                         [pair.trading_pair for pair in connector_pairs])
+                        prices = await self._safe_get_last_traded_prices(
+                            connector=connector_instance,
+                            trading_pairs=[pair.trading_pair for pair in connector_pairs])
                         for pair, rate in prices.items():
                             rate_oracle.set_price(pair, rate)
 
@@ -277,6 +269,8 @@ class MarketDataProvider:
         connector_config = AllConnectorSettings.get_connector_config_keys(connector_name)
         if getattr(connector_config, "use_auth_for_public_endpoints", False):
             api_keys = api_keys_from_connector_config_map(ClientConfigAdapter(connector_config))
+        elif connector_config is not None:
+            api_keys = {}
         else:
             api_keys = {key: "" for key in connector_config.__class__.model_fields.keys() if key != "connector"}
         return api_keys
