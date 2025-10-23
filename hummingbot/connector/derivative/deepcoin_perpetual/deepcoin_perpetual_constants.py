@@ -87,8 +87,8 @@ USER_STREAM_ENDPOINT = "/deepcoin/listenkey/acquire"
 USER_STREAM_EXTEND_ENDPOINT = "/deepcoin/listenkey/extend"
 
 # WebSocket Event Types
-DIFF_EVENT_TYPE = "depthUpdate"
-TRADE_EVENT_TYPE = "trade"
+DIFF_EVENT_TYPE = "PMO"
+TRADE_EVENT_TYPE = "PMT"
 ORDER_UPDATE_EVENT_TYPE = "orderUpdate"
 POSITION_UPDATE_EVENT_TYPE = "positionUpdate"
 BALANCE_UPDATE_EVENT_TYPE = "balanceUpdate"

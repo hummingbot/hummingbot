@@ -2,9 +2,10 @@ import asyncio
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
+from hummingbot.connector import utils
 from hummingbot.connector.derivative.deepcoin_perpetual import (
     deepcoin_perpetual_constants as CONSTANTS,
-    deepcoin_perpetual_utils,
+    deepcoin_perpetual_utils as dp_utils,
     deepcoin_perpetual_web_utils as web_utils,
 )
 from hummingbot.core.data_type.common import TradeType
@@ -13,7 +14,7 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.core.data_type.perpetual_api_order_book_data_source import PerpetualAPIOrderBookDataSource
 from hummingbot.core.utils.tracking_nonce import NonceCreator
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest,WSPlainTextRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
@@ -120,30 +121,41 @@ class DeepcoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _subscribe_to_channels(self, ws: WSAssistant, trading_pairs: List[str]):
         try:
-            symbols = [
-                await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                for trading_pair in trading_pairs
+            ex_trading_pairs = [
+                await dp_utils.convert_to_exchange_trading_pair(trading_pair=trading_pair)
+                for trading_pair in self._trading_pairs
             ]
-            symbols_str = "|".join(symbols)
 
-            # Subscribe to order book updates
-            payload = {
-                "method": "subscribe",
-                "params": [f"{CONSTANTS.DIFF_EVENT_TYPE}.{symbols_str}"],
-                "id": 1
-            }
-            subscribe_orderbook_request = WSJSONRequest(payload=payload)
+            trades_payload = [
+                {
+                    "SendTopicAction": {
+                        "Action":"1",
+                        "FilterValue":"DeepCoin_"+ex_trading_pair,
+                        "LocalNo":9,
+                        "ResumeNo":0,
+                        "TopicID":"2",
+                    }
+                } for ex_trading_pair in ex_trading_pairs
+            ]
+            
+            subscribe_trades_request = WSJSONRequest(payload=trades_payload)
 
-            # Subscribe to trades
-            payload = {
-                "method": "subscribe", 
-                "params": [f"{CONSTANTS.TRADE_EVENT_TYPE}.{symbols_str}"],
-                "id": 2
-            }
-            subscribe_trade_request = WSJSONRequest(payload=payload)
+            order_book_payload = [
+                 {
+                    "SendTopicAction": {
+                        "Action":"1",
+                        "FilterValue":"DeepCoin_"+ex_trading_pair+"_0.1",
+                        "LocalNo":6,
+                        "ResumeNo":0,
+                        "TopicID":"25",
+                    }
+                } for ex_trading_pair in ex_trading_pairs
+            ]
+        
+            subscribe_orderbook_request = WSJSONRequest(payload=order_book_payload)
 
             await ws.send(subscribe_orderbook_request)
-            await ws.send(subscribe_trade_request)
+            await ws.send(subscribe_trades_request)
             self.logger().info("Subscribed to public order book and trade channels...")
         except asyncio.CancelledError:
             raise
@@ -156,13 +168,13 @@ class DeepcoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             try:
                 await super()._process_websocket_messages(websocket_assistant=websocket_assistant)
             except asyncio.TimeoutError:
-                ping_request = WSJSONRequest(payload={"method": "ping"})
+                ping_request = WSPlainTextRequest(payload="ping")
                 await websocket_assistant.send(ping_request)
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
         channel = ""
-        if "method" not in event_message:
-            event_channel = event_message.get("channel", "")
+        if "a" in event_message:
+            event_channel = event_message.get("a", "")
             if CONSTANTS.DIFF_EVENT_TYPE in event_channel:
                 channel = self._diff_messages_queue_key
             elif CONSTANTS.TRADE_EVENT_TYPE in event_channel:
@@ -170,15 +182,15 @@ class DeepcoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         return channel
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        event_type = raw_message.get("type", "")
+        event_type = raw_message.get("a", "")
 
-        if event_type == "delta":
-            symbol = raw_message["channel"].split(".")[-1]
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
-            timestamp_seconds = int(raw_message.get("ts", 0)) / 1e3
-            update_id = self._nonce_provider.get_tracking_nonce(timestamp=timestamp_seconds)
-            diffs_data = raw_message["data"]
-            bids, asks = self._get_bids_and_asks_from_ws_msg_data(diffs_data)
+        if event_type == "PMO":
+            r = raw_message["r"]
+            detail = (r[0] or {}).get("d") if r else None
+            trading_pair = detail["I"]
+            timestamp_seconds = int(raw_message.get("mt", 0)) / 1e3
+            update_id = int(raw_message.get("tt", 0)) / 1e3
+            bids, asks = self._get_bids_and_asks_from_ws_msg_data(r)
             order_book_message_content = {
                 "trading_pair": trading_pair,
                 "update_id": update_id,

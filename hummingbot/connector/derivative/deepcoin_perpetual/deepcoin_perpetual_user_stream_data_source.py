@@ -136,7 +136,6 @@ class DeepcoinPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                     await self._sleep(self.LISTEN_KEY_RETRY_INTERVAL)
                     continue
 
-                
                 success = await self._ping_listen_key()
                 if success:
                     pass
@@ -213,7 +212,7 @@ class DeepcoinPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             if isinstance(event_message, dict):
                 # Process different types of events
                 if "event" in event_message:
-                    event_type = event_message.get("event")
+                    event_type = event_message.get("action")
                     if event_type == "PushOrder":
                         await self._process_order_update(event_message, queue)
                     elif event_type == "PushPosition":

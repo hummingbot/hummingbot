@@ -31,8 +31,8 @@ def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
     Converts exchange trading pair to Hummingbot format
     """
     if exchange_trading_pair:
-        pair = exchange_trading_pair.replace("SWAP", "")
-        return pair.replace("-","")
+        pair = exchange_trading_pair.replace("-SWAP", "")
+        return pair
     return None
 
 
@@ -40,10 +40,16 @@ def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
     """
     Converts Hummingbot trading pair to exchange format
     """
-    if len(hb_trading_pair) >= 6:
-        return f"{hb_trading_pair[:3]}-{hb_trading_pair[3:]}"
-    return hb_trading_pair
+    return hb_trading_pair+("-SWAP")
 
+def is_exchange_inverse(hb_trading_pair: str) -> bool:
+    """
+    Converts Hummingbot trading pair to exchange format
+    """
+    _, quote_asset = split_hb_trading_pair(hb_trading_pair)
+    if quote_asset == "USD":
+        return True
+    return False
 
 def convert_from_exchange_order_type(exchange_order_type: str) -> OrderType:
     """
