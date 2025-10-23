@@ -38,11 +38,6 @@ WSS_USER_STREAM_URLS = {
 # WebSocket Configuration
 WS_HEARTBEAT_TIME_INTERVAL = 10.0
 
-# Time in Force
-DEFAULT_TIME_IN_FORCE = "GTC"
-TIME_IN_FORCE_GTC = "GTC"  # Good till cancelled
-TIME_IN_FORCE_IOC = "IOC"  # Immediate or cancel
-TIME_IN_FORCE_FOK = "FOK"  # Fill or kill
 
 # Order Type Mapping
 ORDER_TYPE_MAP = {
@@ -67,7 +62,7 @@ RECENT_TRADES_URL = "/deepcoin/market/trades"
 PING_URL = "/deepcoin/market/ping"
 MARK_PRICE_URL = "/deepcoin/market/markPrice"
 FUNDING_INFO_URL = "/deepcoin/trade/funding-rate"
-#SERVER_TIME_PATH_URL = "/deepcoin/market/time"
+SERVER_TIME_PATH_URL = "/deepcoin/market/time"
 
 # Private API Endpoints
 ORDER_URL = "/deepcoin/trade/order"

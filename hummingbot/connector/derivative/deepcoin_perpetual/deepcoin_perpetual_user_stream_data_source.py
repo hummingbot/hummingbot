@@ -5,6 +5,7 @@ import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from hummingbot.connector.derivative.deepcoin_perpetual import deepcoin_perpetual_constants as CONSTANTS
+from hummingbot.connector.derivative.deepcoin_perpetual.deepcoin_perpetual_auth import DeepcoinPerpetualAuth
 from hummingbot.connector.derivative.deepcoin_perpetual.deepcoin_perpetual_web_utils import public_rest_url, wss_url
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -32,7 +33,7 @@ class DeepcoinPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
 
     def __init__(
         self,
-        auth,
+        auth:DeepcoinPerpetualAuth,
         trading_pairs: List[str],
         connector: 'DeepcoinPerpetualDerivative',
         api_factory: WebAssistantsFactory,
@@ -79,8 +80,9 @@ class DeepcoinPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                     url= public_rest_url(self._domain,CONSTANTS.USER_STREAM_ENDPOINT),
                     method=RESTMethod.GET,
                     throttler_limit_id=CONSTANTS.USER_STREAM_ENDPOINT,
-                    headers=self._auth.get_auth_headers(method=RESTMethod.GET, request_path=CONSTANTS.USER_STREAM_ENDPOINT),
+                    headers=self._auth.add_auth_headers(method=RESTMethod.GET, request_path=CONSTANTS.USER_STREAM_ENDPOINT),
                     timeout=timeout,
+                    is_auth_required=True,
                 )
                 if data.get("code") == "0":
                     return data["data"]["listenkey"]
@@ -110,7 +112,7 @@ class DeepcoinPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 method=RESTMethod.GET,
                 throttler_limit_id=CONSTANTS.USER_STREAM_EXTEND_ENDPOINT,
                 is_auth_required= True,
-                headers=self._auth.get_auth_headers(method=RESTMethod.GET, request_path=CONSTANTS.USER_STREAM_EXTEND_ENDPOINT),
+                headers=self._auth.add_auth_headers(method=RESTMethod.GET, request_path=CONSTANTS.USER_STREAM_EXTEND_ENDPOINT),
                 params={"listenkey": self._current_listen_key},
                 timeout=5.0,
             )

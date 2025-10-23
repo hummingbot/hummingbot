@@ -38,22 +38,20 @@ def build_api_factory(
     return api_factory
 
 
-def create_throttler(trading_pairs: List[str] = None) -> AsyncThrottler:
-    throttler = AsyncThrottler(build_rate_limits(trading_pairs))
-    return throttler
+def create_throttler() -> AsyncThrottler:
+    return AsyncThrottler(CONSTANTS.RATE_LIMITS)
 
 
 async def get_current_server_time(
-    throttler: Optional[AsyncThrottler] = None, domain: str = CONSTANTS.DEFAULT_DOMAIN
+        throttler: Optional[AsyncThrottler] = None, domain: str = CONSTANTS.DEFAULT_DOMAIN
 ) -> float:
     throttler = throttler or create_throttler()
     api_factory = build_api_factory_without_time_synchronizer_pre_processor(throttler=throttler)
     rest_assistant = await api_factory.get_rest_assistant()
-    url = get_rest_url_for_endpoint(endpoint=CONSTANTS.SERVER_TIME_PATH_URL, domain=domain)
-    limit_id = get_rest_api_limit_id_for_endpoint(CONSTANTS.SERVER_TIME_PATH_URL)
+    url = public_rest_url(endpoint=CONSTANTS.SERVER_TIME_PATH_URL, domain=domain)
     response = await rest_assistant.execute_request(
         url=url,
-        throttler_limit_id=limit_id,
+        throttler_limit_id=CONSTANTS.SERVER_TIME_PATH_URL,
         method=RESTMethod.GET,
     )
     time_data = response.get("data")
@@ -63,83 +61,27 @@ async def get_current_server_time(
     else:
         raise ValueError("Failed to get server time")
 
-
-def endpoint_from_message(message: Dict[str, Any]) -> Optional[str]:
-    endpoint = None
-    if "request" in message:
-        message = message["request"]
-    if isinstance(message, dict):
-        if "op" in message.keys():
-            endpoint = message["op"]
-        elif endpoint is None and "topic" in message.keys():
-            endpoint = message["topic"]
-    return endpoint
-
-
-def payload_from_message(message: Dict[str, Any]) -> List[Dict[str, Any]]:
-    payload = message
-    if "data" in message:
-        payload = message["data"]
-    return payload
-
-
 def build_api_factory_without_time_synchronizer_pre_processor(throttler: AsyncThrottler) -> WebAssistantsFactory:
     api_factory = WebAssistantsFactory(throttler=throttler)
     return api_factory
 
 
-def get_rest_url_for_endpoint(
-    endpoint: str, trading_pair: Optional[str] = None, domain: str = CONSTANTS.DEFAULT_DOMAIN
-):
-    variant = domain if domain else CONSTANTS.DEFAULT_DOMAIN
-    return CONSTANTS.REST_URLS.get(variant) + endpoint
-
-
-def get_ws_url_for_endpoint(endpoint: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
-    variant = domain if domain else CONSTANTS.DEFAULT_DOMAIN
-    return CONSTANTS.WSS_PUBLIC_URLS.get(variant) + endpoint
-
-
-def get_ws_private_url_for_endpoint(endpoint: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
+def private_ws_url(endpoint: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
     variant = domain if domain else CONSTANTS.DEFAULT_DOMAIN
     return CONSTANTS.WSS_USER_STREAM_URLS.get(variant) + endpoint
-
-
-def get_rest_api_limit_id_for_endpoint(endpoint: str) -> str:
-    return f"REST_{endpoint}"
-
-
-def build_rate_limits(trading_pairs: List[str] = None) -> List[RateLimit]:
-    """
-    Creates rate limits for the connector
-    """
-    rate_limits = [
-        # General rate limits
-        RateLimit(limit_id="REST_GET", limit=1200, time_interval=60),
-        RateLimit(limit_id="REST_POST", limit=600, time_interval=60),
-        RateLimit(limit_id="REST_DELETE", limit=600, time_interval=60),
-        # Specific endpoint limits
-        RateLimit(limit_id="REST_api/v1/market/symbols", limit=100, time_interval=60),
-        RateLimit(limit_id="REST_api/v1/market/depth", limit=100, time_interval=60),
-        RateLimit(limit_id="REST_api/v1/market/ticker", limit=100, time_interval=60),
-        RateLimit(limit_id="REST_api/v1/account/balance", limit=100, time_interval=60),
-        RateLimit(limit_id="REST_api/v1/account/positions", limit=100, time_interval=60),
-        RateLimit(limit_id="REST_api/v1/trade/order", limit=100, time_interval=60),
-        RateLimit(limit_id="REST_api/v1/trade/leverage", limit=100, time_interval=60),
-        RateLimit(limit_id="REST_api/v1/trade/positionMode", limit=100, time_interval=60),
-    ]
-    return rate_limits
 
 
 def public_rest_url(endpoint: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
     """
     Get public REST URL for endpoint
     """
-    return get_rest_url_for_endpoint(endpoint, domain=domain)
+    variant = domain if domain else CONSTANTS.DEFAULT_DOMAIN
+    return CONSTANTS.REST_URLS.get(variant) + endpoint
 
 
-def wss_url(domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
+def public_wss_url(domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
     """
-    Get WebSocket URL for domain
+    Get public WebSocket URL
     """
-    return CONSTANTS.WSS_PUBLIC_URLS.get(domain, CONSTANTS.WSS_PUBLIC_URLS[CONSTANTS.DEFAULT_DOMAIN])
+    variant = domain if domain else CONSTANTS.DEFAULT_DOMAIN
+    return CONSTANTS.WSS_PUBLIC_URLS.get(variant)
