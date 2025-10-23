@@ -58,7 +58,11 @@ class CoinsxyzWebSocketConnectionManager:
             api_factory: Web assistants factory for creating connections
             domain: API domain (default or testnet)
         """
-        self._api_factory = api_factory or WebAssistantsFactory()
+        if api_factory is None:
+            from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+            throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+            api_factory = WebAssistantsFactory(throttler=throttler)
+        self._api_factory = api_factory
         self._domain = domain
         self._logger = None
 
@@ -674,6 +678,15 @@ class CoinsxyzWebSocketConnectionManager:
             Number of active subscriptions
         """
         return len(self._subscriptions)
+
+    def get_connection_url(self) -> str:
+        """
+        Get the WebSocket connection URL.
+
+        Returns:
+            WebSocket URL string
+        """
+        return web_utils.websocket_url(self._domain)
 
     async def connect(self) -> None:
         """

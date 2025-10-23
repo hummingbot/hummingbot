@@ -68,7 +68,7 @@ class TestCoinsxyzAccountDataSource(unittest.TestCase):
 
         self.assertEqual(len(parsed), 2)
         self.assertIn("BTC", parsed)
-        self.assertEqual(parsed["BTC"].total_balance, Decimal("1.5"))
+        self.assertEqual(parsed["BTC"]["total_balance"], Decimal("1.5"))
 
     def test_parse_account_info(self):
         """Test account info parsing."""

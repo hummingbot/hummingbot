@@ -27,6 +27,17 @@ class TestCoinsxyzOrderValidation(unittest.TestCase):
                 min_notional_size=Decimal("10.0"),
                 max_price_significant_digits=8,
                 max_base_amount_significant_digits=8
+            ),
+            "BTCUSDT": TradingRule(
+                trading_pair="BTCUSDT",
+                min_order_size=Decimal("0.001"),
+                max_order_size=Decimal("1000"),
+                min_price_increment=Decimal("0.01"),
+                min_base_amount_increment=Decimal("0.000001"),
+                min_quote_amount_increment=Decimal("0.01"),
+                min_notional_size=Decimal("10.0"),
+                max_price_significant_digits=8,
+                max_base_amount_significant_digits=8
             )
         }
         self.validator = CoinsxyzOrderValidation()

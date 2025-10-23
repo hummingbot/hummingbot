@@ -53,15 +53,20 @@ class TestCoinsxyzAuth(unittest.TestCase):
 
     def test_rest_authenticate(self):
         """Test REST API authentication."""
-        request = MagicMock()
-        request.params = {"symbol": "BTCUSDT"}
+        import asyncio
+        
+        async def run_test():
+            request = MagicMock()
+            request.params = {"symbol": "BTCUSDT"}
 
-        authenticated_request = self.auth.rest_authenticate(request)
+            authenticated_request = await self.auth.rest_authenticate(request)
 
-        self.assertIsNotNone(authenticated_request)
-        self.assertIn("timestamp", authenticated_request.params)
-        self.assertIn("signature", authenticated_request.params)
-        self.assertEqual(authenticated_request.headers.get("X-MBX-APIKEY"), self.api_key)
+            self.assertIsNotNone(authenticated_request)
+            self.assertIn("timestamp", authenticated_request.params)
+            self.assertIn("signature", authenticated_request.params)
+            self.assertEqual(authenticated_request.headers.get("X-COINS-APIKEY"), self.api_key)
+        
+        asyncio.run(run_test())
 
     def test_ws_authenticate(self):
         """Test WebSocket authentication."""
@@ -76,20 +81,20 @@ class TestCoinsxyzAuth(unittest.TestCase):
         """Test authentication headers."""
         headers = self.auth.header_for_authentication()
 
-        self.assertIn("X-MBX-APIKEY", headers)
-        self.assertEqual(headers["X-MBX-APIKEY"], self.api_key)
+        self.assertIn("X-COINS-APIKEY", headers)
+        self.assertEqual(headers["X-COINS-APIKEY"], self.api_key)
         self.assertIn("User-Agent", headers)
 
     def test_is_timestamp_valid(self):
         """Test timestamp validation."""
         current_time = int(time.time() * 1000)
 
-        # Valid timestamp (within 5 seconds)
+        # Valid timestamp (within 5 minutes)
         valid_timestamp = current_time - 3000
         self.assertTrue(self.auth.is_timestamp_valid(valid_timestamp))
 
-        # Invalid timestamp (too old)
-        invalid_timestamp = current_time - 10000
+        # Invalid timestamp (too old - more than 5 minutes)
+        invalid_timestamp = current_time - 400000
         self.assertFalse(self.auth.is_timestamp_valid(invalid_timestamp))
 
 

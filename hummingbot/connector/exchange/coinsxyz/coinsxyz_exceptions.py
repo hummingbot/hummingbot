@@ -135,6 +135,10 @@ class CoinsxyzOrderError(CoinsxyzAPIError):
         super().__init__(message, **kwargs)
         self.order_id = order_id
 
+    def __str__(self) -> str:
+        """String representation of the error."""
+        return self.message
+
 
 class CoinsxyzMarketError(CoinsxyzAPIError):
     """
@@ -208,6 +212,10 @@ class CoinsxyzNetworkError(CoinsxyzAPIError):
         :param kwargs: Additional arguments passed to parent
         """
         super().__init__(message, **kwargs)
+
+    def __str__(self) -> str:
+        """String representation of the error."""
+        return self.message
 
 
 class CoinsxyzErrorParser:

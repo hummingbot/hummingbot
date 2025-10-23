@@ -6,7 +6,10 @@ from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import Any, AsyncIterable, Callable, Dict, List, Optional, Tuple
 
-from async_timeout import timeout
+try:
+    from asyncio import timeout
+except ImportError:
+    from async_timeout import timeout
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.constants import MINUTE, TWELVE_HOURS, s_decimal_0, s_decimal_NaN

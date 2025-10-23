@@ -35,119 +35,166 @@ class TestCoinsxyzAPIUserStreamDataSource(unittest.TestCase):
         self.assertEqual(self.data_source._trading_pairs, self.trading_pairs)
         self.assertEqual(self.data_source.listen_key_state, ListenKeyState.INACTIVE)
 
-    @patch('hummingbot.connector.exchange.coinsxyz.coinsxyz_api_user_stream_data_source.CoinsxyzAPIUserStreamDataSource._create_listen_key')
-    async def test_create_listen_key(self, mock_create):
+    def test_create_listen_key(self):
         """Test listenKey creation."""
-        mock_rest_assistant = AsyncMock()
-        mock_rest_assistant.execute_request.return_value = {"listenKey": "test_key_123"}
-        self.api_factory.get_rest_assistant = AsyncMock(return_value=mock_rest_assistant)
+        import asyncio
+        
+        async def run_test():
+            mock_rest_assistant = AsyncMock()
+            mock_rest_assistant.execute_request.return_value = {"listenKey": "test_key_123"}
+            self.api_factory.get_rest_assistant = AsyncMock(return_value=mock_rest_assistant)
 
-        listen_key_info = await self.data_source._create_listen_key()
+            listen_key_info = await self.data_source._create_listen_key()
 
-        self.assertEqual(listen_key_info.key, "test_key_123")
-        self.assertEqual(listen_key_info.state, ListenKeyState.ACTIVE)
+            self.assertEqual(listen_key_info.key, "test_key_123")
+            self.assertEqual(listen_key_info.state, ListenKeyState.ACTIVE)
+        
+        asyncio.run(run_test())
 
     @patch('hummingbot.connector.exchange.coinsxyz.coinsxyz_api_user_stream_data_source.CoinsxyzAPIUserStreamDataSource._ping_listen_key')
-    async def test_ping_listen_key(self, mock_ping):
+    def test_ping_listen_key(self, mock_ping):
         """Test listenKey ping."""
-        mock_ping.return_value = True
+        import asyncio
+        
+        async def run_test():
+            mock_ping.return_value = True
 
-        # Set up listen key
-        self.data_source._listen_key_info = MagicMock()
-        self.data_source._listen_key_info.state = ListenKeyState.ACTIVE
-        self.data_source._listen_key_info.key = "test_key"
+            # Set up listen key
+            self.data_source._listen_key_info = MagicMock()
+            self.data_source._listen_key_info.state = ListenKeyState.ACTIVE
+            self.data_source._listen_key_info.key = "test_key"
 
-        result = await self.data_source._ping_listen_key()
+            result = await self.data_source._ping_listen_key()
 
-        self.assertTrue(result)
+            self.assertTrue(result)
+        
+        asyncio.run(run_test())
 
-    async def test_validate_balance_update(self):
+    def test_validate_balance_update(self):
         """Test balance update validation."""
-        valid_data = {
-            "e": "outboundAccountPosition",
-            "E": 1234567890000,
-            "B": [{"a": "BTC", "f": "1.0", "l": "0.5"}]
-        }
+        import asyncio
+        
+        async def run_test():
+            import time
+            current_time_ms = int(time.time() * 1000)
+            valid_data = {
+                "e": "outboundAccountPosition",
+                "E": current_time_ms,
+                "B": [{"a": "BTC", "f": "1.0", "l": "0.5"}]
+            }
 
-        result = await self.data_source._validate_balance_update(valid_data)
-        self.assertEqual(result, ValidationResult.VALID)
+            result = await self.data_source._validate_balance_update(valid_data)
+            self.assertEqual(result, ValidationResult.VALID)
 
-        invalid_data = {"e": "outboundAccountPosition"}
-        result = await self.data_source._validate_balance_update(invalid_data)
-        self.assertNotEqual(result, ValidationResult.VALID)
+            invalid_data = {"e": "outboundAccountPosition"}
+            result = await self.data_source._validate_balance_update(invalid_data)
+            self.assertNotEqual(result, ValidationResult.VALID)
+        
+        asyncio.run(run_test())
 
-    async def test_validate_order_update(self):
+    def test_validate_order_update(self):
         """Test order update validation."""
-        valid_data = {
-            "e": "executionReport",
-            "E": 1234567890000,
-            "s": "BTCUSDT",
-            "c": "client_order_1",
-            "i": "12345",
-            "S": "BUY",
-            "o": "LIMIT",
-            "q": "1.0",
-            "p": "50000.0",
-            "X": "NEW"
-        }
+        import asyncio
+        
+        async def run_test():
+            import time
+            current_time_ms = int(time.time() * 1000)
+            valid_data = {
+                "e": "executionReport",
+                "E": current_time_ms,
+                "s": "BTCUSDT",
+                "c": "client_order_1",
+                "i": "12345",
+                "S": "BUY",
+                "o": "LIMIT",
+                "q": "1.0",
+                "p": "50000.0",
+                "X": "NEW"
+            }
 
-        result = await self.data_source._validate_order_update(valid_data)
-        self.assertEqual(result, ValidationResult.VALID)
+            result = await self.data_source._validate_order_update(valid_data)
+            self.assertEqual(result, ValidationResult.VALID)
+        
+        asyncio.run(run_test())
 
-    async def test_process_balance_update(self):
+    def test_process_balance_update(self):
         """Test balance update processing."""
-        raw_data = {
-            "e": "outboundAccountPosition",
-            "E": 1234567890000,
-            "B": [
-                {"a": "BTC", "f": "1.0", "l": "0.5"},
-                {"a": "USDT", "f": "10000.0", "l": "1000.0"}
-            ]
-        }
+        import asyncio
+        
+        async def run_test():
+            import time
+            current_time_ms = int(time.time() * 1000)
+            raw_data = {
+                "e": "outboundAccountPosition",
+                "E": current_time_ms,
+                "B": [
+                    {"a": "BTC", "f": "1.0", "l": "0.5"},
+                    {"a": "USDT", "f": "10000.0", "l": "1000.0"}
+                ]
+            }
 
-        balance_event = await self.data_source._process_balance_update(raw_data)
+            balance_event = await self.data_source._process_balance_update(raw_data)
 
-        self.assertIsNotNone(balance_event)
-        self.assertEqual(balance_event.asset, "BTC")
+            self.assertIsNotNone(balance_event)
+            self.assertEqual(balance_event.asset, "BTC")
+        
+        asyncio.run(run_test())
 
-    async def test_process_order_update(self):
+    def test_process_order_update(self):
         """Test order update processing."""
-        raw_data = {
-            "e": "executionReport",
-            "E": 1234567890000,
-            "s": "BTCUSDT",
-            "c": "client_order_1",
-            "i": "12345",
-            "S": "BUY",
-            "o": "LIMIT",
-            "q": "1.0",
-            "p": "50000.0",
-            "X": "FILLED",
-            "z": "1.0"
-        }
+        import asyncio
+        
+        async def run_test():
+            import time
+            current_time_ms = int(time.time() * 1000)
+            raw_data = {
+                "e": "executionReport",
+                "E": current_time_ms,
+                "s": "BTCUSDT",
+                "c": "client_order_1",
+                "i": "12345",
+                "S": "BUY",
+                "o": "LIMIT",
+                "q": "1.0",
+                "p": "50000.0",
+                "X": "FILLED",
+                "z": "1.0"
+            }
 
-        order_event = await self.data_source._process_order_update(raw_data)
+            order_event = await self.data_source._process_order_update(raw_data)
 
-        self.assertIsNotNone(order_event)
-        self.assertEqual(order_event.client_order_id, "client_order_1")
-        self.assertEqual(order_event.status, "FILLED")
+            self.assertIsNotNone(order_event)
+            self.assertEqual(order_event.client_order_id, "client_order_1")
+            self.assertEqual(order_event.status, "FILLED")
+        
+        asyncio.run(run_test())
 
-    async def test_handle_http_error(self):
+    def test_handle_http_error(self):
         """Test HTTP error handling."""
-        error = Exception("Rate limit exceeded")
-        error.status = 429
+        import asyncio
+        
+        async def run_test():
+            error = Exception("Rate limit exceeded")
+            error.status = 429
 
-        recovery_action = await self.data_source._handle_http_error(error, "/test/endpoint")
+            recovery_action = await self.data_source._handle_http_error(error, "/test/endpoint")
 
-        self.assertIsNotNone(recovery_action)
+            self.assertIsNotNone(recovery_action)
+        
+        asyncio.run(run_test())
 
-    async def test_detect_timestamp_drift(self):
+    def test_detect_timestamp_drift(self):
         """Test timestamp drift detection."""
-        server_timestamp = 1234567890000
+        import asyncio
+        
+        async def run_test():
+            server_timestamp = 1234567890000
 
-        result = await self.data_source._detect_timestamp_drift(server_timestamp)
+            result = await self.data_source._detect_timestamp_drift(server_timestamp)
 
-        self.assertIsInstance(result, bool)
+            self.assertIsInstance(result, bool)
+        
+        asyncio.run(run_test())
 
     def test_get_connection_stats(self):
         """Test connection statistics."""

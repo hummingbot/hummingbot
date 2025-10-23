@@ -4,7 +4,10 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
-from async_timeout import timeout
+try:
+    from asyncio import timeout
+except ImportError:
+    from async_timeout import timeout
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.constants import FUNDING_FEE_POLL_INTERVAL, s_decimal_NaN

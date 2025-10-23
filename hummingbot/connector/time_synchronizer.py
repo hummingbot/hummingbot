@@ -94,3 +94,27 @@ class TimeSynchronizer:
 
     def _time(self):
         return time.time()
+
+    def time_ms(self) -> int:
+        """
+        Get current time in milliseconds.
+        
+        :return: Current time in milliseconds
+        """
+        return int(self.time() * 1000)
+
+    def get_timestamp(self) -> int:
+        """
+        Get current timestamp in milliseconds.
+        
+        :return: Current timestamp in milliseconds
+        """
+        return self.time_ms()
+
+    def get_time_offset_ms(self) -> float:
+        """
+        Get time offset in milliseconds.
+        
+        :return: Time offset in milliseconds
+        """
+        return self.time_offset_ms

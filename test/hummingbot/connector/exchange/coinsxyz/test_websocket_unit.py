@@ -234,53 +234,78 @@ class TestCoinsxyzWebSocketConnectionManager(unittest.TestCase):
         self.assertEqual(initial_state, ConnectionState.DISCONNECTED)
 
     @patch('asyncio.create_task')
-    async def test_start(self, mock_create_task):
+    def test_start(self, mock_create_task):
         """Test connection manager start."""
-        mock_create_task.return_value = MagicMock()
+        import asyncio
+        
+        async def run_test():
+            mock_create_task.return_value = MagicMock()
 
-        await self.connection_manager.start()
+            await self.connection_manager.start()
 
-        # Should create background tasks
-        self.assertTrue(mock_create_task.called)
+            # Should create background tasks
+            self.assertTrue(mock_create_task.called)
+        
+        asyncio.run(run_test())
 
-    async def test_stop(self):
+    def test_stop(self):
         """Test connection manager stop."""
-        # Mock some internal state
-        self.connection_manager._shutdown_event = AsyncMock()
-        self.connection_manager._ws_assistant = MagicMock()
-        self.connection_manager._ws_assistant.disconnect = AsyncMock()
+        import asyncio
+        
+        async def run_test():
+            # Mock some internal state
+            self.connection_manager._shutdown_event = AsyncMock()
+            self.connection_manager._ws_assistant = MagicMock()
+            self.connection_manager._ws_assistant.disconnect = AsyncMock()
 
-        await self.connection_manager.stop()
+            await self.connection_manager.stop()
 
-        # Should call shutdown
-        self.connection_manager._shutdown_event.set.assert_called_once()
+            # Should call shutdown
+            self.connection_manager._shutdown_event.set.assert_called_once()
+        
+        asyncio.run(run_test())
 
-    async def test_connect(self):
+    def test_connect(self):
         """Test WebSocket connection."""
-        with patch.object(self.connection_manager, '_connect', new_callable=AsyncMock) as mock_connect:
-            await self.connection_manager.connect()
-            mock_connect.assert_called_once()
+        import asyncio
+        
+        async def run_test():
+            with patch.object(self.connection_manager, '_connect', new_callable=AsyncMock) as mock_connect:
+                await self.connection_manager.connect()
+                mock_connect.assert_called_once()
+        
+        asyncio.run(run_test())
 
-    async def test_disconnect(self):
+    def test_disconnect(self):
         """Test WebSocket disconnection."""
-        with patch.object(self.connection_manager, '_disconnect', new_callable=AsyncMock) as mock_disconnect:
-            await self.connection_manager.disconnect()
-            mock_disconnect.assert_called_once()
+        import asyncio
+        
+        async def run_test():
+            with patch.object(self.connection_manager, '_disconnect', new_callable=AsyncMock) as mock_disconnect:
+                await self.connection_manager.disconnect()
+                mock_disconnect.assert_called_once()
+        
+        asyncio.run(run_test())
 
-    async def test_handle_user_stream_message(self):
+    def test_handle_user_stream_message(self):
         """Test user stream message handling."""
-        test_message = {
-            'stream': 'user_stream',
-            'data': {
-                'outboundAccountPosition': {
-                    'B': [{'a': 'BTC', 'f': '1.0', 'l': '0.5'}]
+        import asyncio
+        
+        async def run_test():
+            test_message = {
+                'stream': 'user_stream',
+                'data': {
+                    'outboundAccountPosition': {
+                        'B': [{'a': 'BTC', 'f': '1.0', 'l': '0.5'}]
+                    }
                 }
             }
-        }
 
-        with patch.object(self.connection_manager, '_handle_balance_update', new_callable=AsyncMock) as mock_handle:
-            await self.connection_manager._handle_user_stream_message(test_message)
-            mock_handle.assert_called_once()
+            with patch.object(self.connection_manager, '_handle_balance_update', new_callable=AsyncMock) as mock_handle:
+                await self.connection_manager._handle_user_stream_message(test_message)
+                mock_handle.assert_called_once()
+        
+        asyncio.run(run_test())
 
     def test_get_subscription_count(self):
         """Test subscription count."""

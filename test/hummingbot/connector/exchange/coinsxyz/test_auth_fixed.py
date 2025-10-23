@@ -75,8 +75,10 @@ class TestCoinsxyzAuthFixed(unittest.TestCase):
 
     def test_ws_authenticate_async(self):
         """Test WebSocket authentication (async)."""
+        from unittest.mock import MagicMock
+        
         async def run_test():
-            request = WSRequest(payload={})
+            request = MagicMock()
 
             authenticated_request = await self.auth.ws_authenticate(request)
 

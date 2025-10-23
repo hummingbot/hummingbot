@@ -302,6 +302,30 @@ class CoinsxyzTimeSynchronizer(TimeSynchronizer):
         """
         return int(self.time() * 1000)
 
+    def time_ms(self) -> int:
+        """
+        Get current synchronized time in milliseconds.
+
+        :return: Current time in milliseconds
+        """
+        return int(self.time() * 1000)
+
+    def get_timestamp(self) -> int:
+        """
+        Get current synchronized timestamp in milliseconds.
+
+        :return: Current timestamp in milliseconds
+        """
+        return int(self.time() * 1000)
+
+    def get_time_offset_ms(self) -> float:
+        """
+        Get server time offset in milliseconds.
+
+        :return: Server time offset in milliseconds
+        """
+        return self._server_time_offset * 1000
+
     # Day 18: Additional Timestamp Drift Methods
 
     async def detect_timestamp_drift(self) -> dict:

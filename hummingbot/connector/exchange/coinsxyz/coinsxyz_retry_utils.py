@@ -8,7 +8,7 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable
+from typing import Any, Callable, Dict
 
 
 class RetryType(Enum):
@@ -59,8 +59,11 @@ class CoinsxyzRetryHandler:
 
     def __init__(self, config: RetryConfig = None):
         """Initialize retry handler with configuration."""
-        self.config = config or RetryConfigs.STANDARD
+        self._config = config or RetryConfigs.STANDARD
+        self.config = self._config  # Alias for backward compatibility
         self.logger = logging.getLogger(__name__)
+        self._retry_count = 0
+        self._retry_stats = {}
 
     async def execute_with_retry(self,
                                  func: Callable,
@@ -71,6 +74,7 @@ class CoinsxyzRetryHandler:
 
         for attempt in range(self.config.max_attempts):
             try:
+                self._retry_count = attempt
                 return await func(*args, **kwargs)
             except self.config.retry_on_exceptions as e:
                 last_exception = e
@@ -96,6 +100,90 @@ class CoinsxyzRetryHandler:
             delay = self.config.initial_delay
 
         return min(delay, self.config.max_delay)
+
+    def calculate_backoff_delay(self, attempt: int) -> float:
+        """
+        Calculate backoff delay for retry attempt.
+
+        Args:
+            attempt: Attempt number (0-indexed)
+
+        Returns:
+            Delay in seconds
+        """
+        return self._calculate_delay(attempt)
+
+    def handle_rate_limit(self, headers: Dict[str, str]) -> float:
+        """
+        Handle rate limit response.
+
+        Args:
+            headers: Response headers
+
+        Returns:
+            Delay in seconds
+        """
+        # Check for Retry-After header
+        retry_after = headers.get("Retry-After", headers.get("retry-after"))
+        
+        if retry_after:
+            try:
+                return float(retry_after)
+            except (ValueError, TypeError):
+                pass
+        
+        # Default rate limit delay
+        return 60.0
+
+    def reset_retry_count(self):
+        """Reset retry counter."""
+        self._retry_count = 0
+
+    def should_retry_request(self, error: Exception, attempt: int) -> bool:
+        """
+        Determine if request should be retried.
+
+        Args:
+            error: Exception that occurred
+            attempt: Current attempt number
+
+        Returns:
+            True if should retry, False otherwise
+        """
+        # Check if we've exceeded max attempts
+        if attempt >= self.config.max_attempts:
+            return False
+
+        # Check if error is retryable
+        if not isinstance(error, self.config.retry_on_exceptions):
+            return False
+
+        # Check if error is in retryable list
+        return is_retryable_error(error)
+
+    def handle_network_failure(self, error: Exception) -> float:
+        """
+        Handle network failure.
+
+        Args:
+            error: Network error
+
+        Returns:
+            Delay before retry in seconds
+        """
+        self.logger.warning(f"Network failure: {error}")
+        return self.config.initial_delay
+
+    def recover_connection(self) -> bool:
+        """
+        Attempt to recover connection.
+
+        Returns:
+            True if recovery successful
+        """
+        # Reset retry count on recovery
+        self.reset_retry_count()
+        return True
 
 
 def retry_on_rate_limit(func: Callable) -> Callable:

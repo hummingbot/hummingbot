@@ -46,17 +46,22 @@ class CoinsxyzOrderUtils:
             response_data: Raw order response from API
 
         Returns:
-            Standardized order dictionary
+            Standardized order dictionary (single order) or dict with orders list
         """
         try:
             # Handle different response formats
             if "orders" in response_data:
                 orders = response_data["orders"]
+                is_list_response = True
             elif isinstance(response_data, list):
                 orders = response_data
+                is_list_response = True
             else:
-                orders = [response_data]
+                # Single order response
+                parsed_order = self._parse_single_order(response_data)
+                return parsed_order if parsed_order else {}
 
+            # Multiple orders response
             parsed_orders = []
             for order_data in orders:
                 parsed_order = self._parse_single_order(order_data)
@@ -528,3 +533,432 @@ class CoinsxyzOrderUtils:
             )
         except Exception:
             return f"Trade {trade_data.get('trade_id', 'N/A')}"
+
+    def apply_trading_rules(self,
+                           amount: Decimal,
+                           price: Decimal,
+                           trading_rule) -> Dict[str, Decimal]:
+        """
+        Apply trading rules to adjust amount and price.
+
+        Args:
+            amount: Order amount
+            price: Order price
+            trading_rule: Trading rule object
+
+        Returns:
+            Dictionary with adjusted amount and price
+        """
+        adjusted_amount = amount
+        adjusted_price = price
+
+        # Adjust amount precision
+        if hasattr(trading_rule, 'min_base_amount_increment'):
+            increment = trading_rule.min_base_amount_increment
+            if increment > 0:
+                adjusted_amount = (amount / increment).quantize(Decimal("1")) * increment
+
+        # Adjust price precision
+        if hasattr(trading_rule, 'min_price_increment'):
+            increment = trading_rule.min_price_increment
+            if increment > 0:
+                adjusted_price = (price / increment).quantize(Decimal("1")) * increment
+
+        return {
+            "amount": adjusted_amount,
+            "price": adjusted_price
+        }
+
+    def build_order_params(self,
+                          trading_pair: str,
+                          order_type: OrderType,
+                          trade_type: TradeType,
+                          amount: Decimal,
+                          client_order_id: str,
+                          price: Optional[Decimal] = None) -> Dict[str, Any]:
+        """
+        Build order parameters for API submission.
+
+        Args:
+            trading_pair: Trading pair
+            order_type: Order type
+            trade_type: Trade type
+            amount: Order amount
+            client_order_id: Client order ID
+            price: Order price (for limit orders)
+
+        Returns:
+            Dictionary with order parameters
+        """
+        symbol = utils.convert_to_exchange_trading_pair(trading_pair)
+
+        params = {
+            "symbol": symbol,
+            "side": "BUY" if trade_type == TradeType.BUY else "SELL",
+            "type": "LIMIT" if order_type == OrderType.LIMIT else "MARKET",
+            "quantity": str(amount),
+            "newClientOrderId": client_order_id,
+            "timestamp": int(datetime.now().timestamp() * 1000)
+        }
+
+        if order_type == OrderType.LIMIT and price is not None:
+            params["price"] = str(price)
+            params["timeInForce"] = "GTC"
+
+        return params
+
+    def build_cancel_params(self,
+                           trading_pair: str,
+                           client_order_id: Optional[str] = None,
+                           exchange_order_id: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Build cancel order parameters.
+
+        Args:
+            trading_pair: Trading pair
+            client_order_id: Client order ID
+            exchange_order_id: Exchange order ID
+
+        Returns:
+            Dictionary with cancel parameters
+        """
+        symbol = utils.convert_to_exchange_trading_pair(trading_pair)
+
+        params = {
+            "symbol": symbol,
+            "timestamp": int(datetime.now().timestamp() * 1000)
+        }
+
+        if exchange_order_id:
+            params["orderId"] = exchange_order_id
+        elif client_order_id:
+            params["origClientOrderId"] = client_order_id
+
+        return params
+
+    def build_order_status_params(self,
+                                  trading_pair: str,
+                                  client_order_id: Optional[str] = None,
+                                  exchange_order_id: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Build order status query parameters.
+
+        Args:
+            trading_pair: Trading pair
+            client_order_id: Client order ID
+            exchange_order_id: Exchange order ID
+
+        Returns:
+            Dictionary with status query parameters
+        """
+        symbol = utils.convert_to_exchange_trading_pair(trading_pair)
+
+        params = {
+            "symbol": symbol,
+            "timestamp": int(datetime.now().timestamp() * 1000)
+        }
+
+        if exchange_order_id:
+            params["orderId"] = exchange_order_id
+        elif client_order_id:
+            params["origClientOrderId"] = client_order_id
+
+        return params
+
+    def calculate_order_value(self, amount: Decimal, price: Decimal) -> Decimal:
+        """
+        Calculate order value (notional).
+
+        Args:
+            amount: Order amount
+            price: Order price
+
+        Returns:
+            Order value
+        """
+        return amount * price
+
+    def format_order_side(self, trade_type: TradeType) -> str:
+        """
+        Format order side for API.
+
+        Args:
+            trade_type: Trade type
+
+        Returns:
+            Order side string
+        """
+        return "BUY" if trade_type == TradeType.BUY else "SELL"
+
+    def format_order_type(self, order_type: OrderType) -> str:
+        """
+        Format order type for API.
+
+        Args:
+            order_type: Order type
+
+        Returns:
+            Order type string
+        """
+        type_map = {
+            OrderType.LIMIT: "LIMIT",
+            OrderType.MARKET: "MARKET",
+            OrderType.LIMIT_MAKER: "LIMIT_MAKER"
+        }
+        return type_map.get(order_type, "LIMIT")
+
+    def validate_order_params(self, params: Dict[str, Any]) -> bool:
+        """
+        Validate order parameters.
+
+        Args:
+            params: Order parameters
+
+        Returns:
+            True if valid, False otherwise
+        """
+        required_fields = ["symbol", "side", "type", "quantity"]
+
+        for field in required_fields:
+            if field not in params or not params[field]:
+                return False
+
+        # Validate quantity
+        try:
+            quantity = Decimal(str(params["quantity"]))
+            if quantity <= 0:
+                return False
+        except (ValueError, TypeError):
+            return False
+
+        # Validate price for limit orders
+        if params.get("type") == "LIMIT":
+            if "price" not in params:
+                return False
+            try:
+                price = Decimal(str(params["price"]))
+                if price <= 0:
+                    return False
+            except (ValueError, TypeError):
+                return False
+
+        return True
+
+    def apply_trading_rules(self,
+                           amount: Decimal,
+                           price: Decimal,
+                           trading_rule) -> Dict[str, Decimal]:
+        """
+        Apply trading rules to adjust order parameters.
+
+        Args:
+            amount: Order amount
+            price: Order price
+            trading_rule: TradingRule object
+
+        Returns:
+            Dictionary with adjusted amount and price
+        """
+        adjusted_amount = amount
+        adjusted_price = price
+
+        # Check minimum order size first
+        if hasattr(trading_rule, 'min_order_size'):
+            min_size = trading_rule.min_order_size
+            if min_size > 0 and adjusted_amount < min_size:
+                adjusted_amount = min_size
+
+        # Adjust amount to meet increment requirements
+        if hasattr(trading_rule, 'min_base_amount_increment'):
+            increment = trading_rule.min_base_amount_increment
+            if increment > 0:
+                adjusted_amount = (adjusted_amount / increment).quantize(Decimal("1")) * increment
+
+        # Adjust price to meet increment requirements
+        if hasattr(trading_rule, 'min_price_increment'):
+            increment = trading_rule.min_price_increment
+            if increment > 0:
+                adjusted_price = (price / increment).quantize(Decimal("1")) * increment
+
+        return {
+            "amount": adjusted_amount,
+            "price": adjusted_price
+        }
+
+    def build_order_params(self,
+                          trading_pair: str,
+                          order_type: OrderType,
+                          trade_type: TradeType,
+                          amount: Decimal,
+                          price: Optional[Decimal] = None,
+                          client_order_id: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Build order parameters for API submission.
+
+        Args:
+            trading_pair: Trading pair
+            order_type: Order type
+            trade_type: Trade type
+            amount: Order amount
+            price: Order price (required for LIMIT orders)
+            client_order_id: Client order ID
+
+        Returns:
+            Dictionary with order parameters
+        """
+        symbol = utils.convert_to_exchange_trading_pair(trading_pair)
+        
+        params = {
+            "symbol": symbol,
+            "side": "BUY" if trade_type == TradeType.BUY else "SELL",
+            "type": self.format_order_type(order_type),
+            "quantity": str(amount),
+            "timestamp": int(datetime.now().timestamp() * 1000)
+        }
+
+        if client_order_id:
+            params["newClientOrderId"] = client_order_id
+
+        if order_type == OrderType.LIMIT and price is not None:
+            params["price"] = str(price)
+            params["timeInForce"] = "GTC"
+
+        return params
+
+    def build_cancel_params(self,
+                           trading_pair: str,
+                           client_order_id: Optional[str] = None,
+                           exchange_order_id: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Build order cancellation parameters.
+
+        Args:
+            trading_pair: Trading pair
+            client_order_id: Client order ID
+            exchange_order_id: Exchange order ID
+
+        Returns:
+            Dictionary with cancellation parameters
+        """
+        symbol = utils.convert_to_exchange_trading_pair(trading_pair)
+        
+        params = {
+            "symbol": symbol,
+            "timestamp": int(datetime.now().timestamp() * 1000)
+        }
+
+        if exchange_order_id:
+            params["orderId"] = exchange_order_id
+        elif client_order_id:
+            params["origClientOrderId"] = client_order_id
+
+        return params
+
+    def build_order_status_params(self,
+                                  trading_pair: str,
+                                  client_order_id: Optional[str] = None,
+                                  exchange_order_id: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Build order status query parameters.
+
+        Args:
+            trading_pair: Trading pair
+            client_order_id: Client order ID
+            exchange_order_id: Exchange order ID
+
+        Returns:
+            Dictionary with status query parameters
+        """
+        symbol = utils.convert_to_exchange_trading_pair(trading_pair)
+        
+        params = {
+            "symbol": symbol,
+            "timestamp": int(datetime.now().timestamp() * 1000)
+        }
+
+        if exchange_order_id:
+            params["orderId"] = exchange_order_id
+        elif client_order_id:
+            params["origClientOrderId"] = client_order_id
+
+        return params
+
+    def calculate_order_value(self, amount: Decimal, price: Decimal) -> Decimal:
+        """
+        Calculate order notional value.
+
+        Args:
+            amount: Order amount
+            price: Order price
+
+        Returns:
+            Order value (amount * price)
+        """
+        return amount * price
+
+    def format_order_side(self, trade_type: TradeType) -> str:
+        """
+        Format trade type to exchange order side.
+
+        Args:
+            trade_type: TradeType enum
+
+        Returns:
+            Order side string ("BUY" or "SELL")
+        """
+        return "BUY" if trade_type == TradeType.BUY else "SELL"
+
+    def format_order_type(self, order_type: OrderType) -> str:
+        """
+        Format order type to exchange format.
+
+        Args:
+            order_type: OrderType enum
+
+        Returns:
+            Order type string
+        """
+        order_type_map = {
+            OrderType.LIMIT: "LIMIT",
+            OrderType.MARKET: "MARKET",
+            OrderType.LIMIT_MAKER: "LIMIT_MAKER"
+        }
+        return order_type_map.get(order_type, "LIMIT")
+
+    def validate_order_params(self, params: Dict[str, Any]) -> bool:
+        """
+        Validate order parameters.
+
+        Args:
+            params: Order parameters dictionary
+
+        Returns:
+            True if valid, False otherwise
+        """
+        required_fields = ["symbol", "side", "type", "quantity"]
+        
+        # Check required fields
+        for field in required_fields:
+            if field not in params or not params[field]:
+                return False
+
+        # Validate quantity
+        try:
+            quantity = Decimal(str(params["quantity"]))
+            if quantity <= 0:
+                return False
+        except (ValueError, TypeError):
+            return False
+
+        # Validate price for LIMIT orders
+        if params.get("type") == "LIMIT":
+            if "price" not in params:
+                return False
+            try:
+                price = Decimal(str(params["price"]))
+                if price <= 0:
+                    return False
+            except (ValueError, TypeError):
+                return False
+
+        return True

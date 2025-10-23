@@ -202,7 +202,7 @@ class CoinsxyzBalanceUtils:
         available = max(available, Decimal("0"))
         locked = max(locked, Decimal("0"))
 
-        # Calculate total if not provided or inconsistent
+        # Calculate total from available + locked (this is the correct total)
         calculated_total = available + locked
 
         if total == Decimal("0") and calculated_total > Decimal("0"):
@@ -212,14 +212,15 @@ class CoinsxyzBalanceUtils:
             # Only total provided, assume all is available
             available = total
             locked = Decimal("0")
+            total = available  # Recalculate total
         elif abs(total - calculated_total) > Decimal("0.00000001"):
-            # Inconsistent amounts, log warning and use calculated total
+            # Inconsistent amounts, use calculated total (free + locked)
             self.logger().warning(
                 f"Inconsistent balance amounts: total={total}, "
                 f"available={available}, locked={locked}, calculated_total={calculated_total}"
             )
-            # Use the larger of the two totals to be safe
-            total = max(total, calculated_total)
+            # Always use calculated total (free + locked) as the source of truth
+            total = calculated_total
 
         return total, available, locked
 
@@ -398,26 +399,97 @@ class CoinsxyzBalanceUtils:
         return issues
 
     def format_balance_for_display(self,
-                                   asset: str,
-                                   balance_data: Dict[str, Decimal],
+                                   asset: str = None,
+                                   balance_data: Dict[str, Decimal] = None,
                                    precision: int = 8) -> str:
         """
         Format balance data for display purposes.
 
         Args:
-            asset: Asset symbol
-            balance_data: Balance data dictionary
+            asset: Asset symbol (or Decimal value for simple formatting)
+            balance_data: Balance data dictionary (optional)
             precision: Decimal precision for display
 
         Returns:
             Formatted balance string
         """
-        total = balance_data.get("total", Decimal("0"))
-        available = balance_data.get("available", Decimal("0"))
-        locked = balance_data.get("locked", Decimal("0"))
+        # Handle simple case: format_balance_for_display(Decimal_value, precision=X)
+        if isinstance(asset, Decimal) and balance_data is None:
+            balance_value = asset
+            # Format with specified precision and remove trailing zeros
+            formatted = f"{balance_value:.{precision}f}"
+            # Remove trailing zeros after decimal point
+            if '.' in formatted:
+                formatted = formatted.rstrip('0').rstrip('.')
+                # Ensure we have the right number of decimal places
+                if '.' in formatted:
+                    decimal_part = formatted.split('.')[1]
+                    if len(decimal_part) < precision:
+                        formatted = f"{balance_value:.{precision}f}"
+            return formatted
+        
+        # Handle full case: format_balance_for_display(asset, balance_data, precision)
+        if balance_data is not None:
+            total = balance_data.get("total", Decimal("0"))
+            available = balance_data.get("available", Decimal("0"))
+            locked = balance_data.get("locked", Decimal("0"))
 
-        return (
-            f"{asset}: Total={total:.{precision}f}, "
-            f"Available={available:.{precision}f}, "
-            f"Locked={locked:.{precision}f}"
-        )
+            return (
+                f"{asset}: Total={total:.{precision}f}, "
+                f"Available={available:.{precision}f}, "
+                f"Locked={locked:.{precision}f}"
+            )
+        
+        # Fallback
+        return str(asset)
+
+    def calculate_total_balance(self, free_balance: Decimal, locked_balance: Decimal) -> Decimal:
+        """
+        Calculate total balance from free and locked amounts.
+
+        Args:
+            free_balance: Free/available balance
+            locked_balance: Locked balance
+
+        Returns:
+            Total balance
+        """
+        return free_balance + locked_balance
+
+    def validate_balance_data(self, balance_data: Dict[str, Any]) -> bool:
+        """
+        Validate balance data structure.
+
+        Args:
+            balance_data: Balance data to validate
+
+        Returns:
+            True if valid, False otherwise
+        """
+        try:
+            # Check required fields
+            if "asset" not in balance_data:
+                return False
+
+            # Check that at least one numeric field is present
+            has_numeric_field = False
+            
+            # Check numeric fields
+            for field in ["free", "locked", "total"]:
+                if field in balance_data:
+                    has_numeric_field = True
+                    try:
+                        value = Decimal(str(balance_data[field]))
+                        if value < 0:
+                            return False
+                    except (ValueError, TypeError):
+                        return False
+
+            # Require at least one numeric field
+            if not has_numeric_field:
+                return False
+
+            return True
+
+        except Exception:
+            return False

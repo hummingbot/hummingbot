@@ -20,26 +20,36 @@ class TestCoinsxyzWebSocketConnectionManager(unittest.TestCase):
         self.assertIsNotNone(self.connection_manager)
 
     @patch('websockets.connect')
-    async def test_connect_websocket(self, mock_connect):
+    def test_connect_websocket(self, mock_connect):
         """Test WebSocket connection establishment."""
-        mock_websocket = AsyncMock()
-        mock_connect.return_value.__aenter__.return_value = mock_websocket
+        import asyncio
+        
+        async def run_test():
+            mock_websocket = AsyncMock()
+            mock_connect.return_value.__aenter__.return_value = mock_websocket
 
-        result = await self.connection_manager.connect("wss://test.url")
+            result = await self.connection_manager.connect("wss://test.url")
 
-        self.assertIsNotNone(result)
-        mock_connect.assert_called_once()
+            self.assertIsNotNone(result)
+            mock_connect.assert_called_once()
+        
+        asyncio.run(run_test())
 
     def test_is_connected(self):
         """Test connection status check."""
         # Initially not connected
-        self.assertFalse(self.connection_manager.is_connected())
+        self.assertFalse(self.connection_manager.is_connected)
 
-    async def test_disconnect(self):
+    def test_disconnect(self):
         """Test WebSocket disconnection."""
-        # Should handle disconnect gracefully even when not connected
-        await self.connection_manager.disconnect()
-        self.assertFalse(self.connection_manager.is_connected())
+        import asyncio
+        
+        async def run_test():
+            # Should handle disconnect gracefully even when not connected
+            await self.connection_manager.disconnect()
+            self.assertFalse(self.connection_manager.is_connected)
+        
+        asyncio.run(run_test())
 
     def test_get_connection_url(self):
         """Test connection URL generation."""

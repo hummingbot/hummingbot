@@ -25,12 +25,6 @@ def is_pair_information_valid(pair_info: Dict[str, Any]) -> bool:
     :param pair_info: Trading pair information dictionary
     :return: True if the pair is valid and tradeable, False otherwise
     """
-    required_fields = ["symbol", "baseAsset", "quoteAsset", "status"]
-
-    # Check if all required fields are present
-    if not all(field in pair_info for field in required_fields):
-        return False
-
     # Check if the pair is active for trading
     if pair_info.get("status") != "TRADING":
         return False

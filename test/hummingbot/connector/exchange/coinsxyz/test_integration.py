@@ -3,6 +3,7 @@
 Integration Tests for Coins.xyz Connector
 """
 
+import asyncio
 import unittest
 from decimal import Decimal
 from unittest.mock import patch
@@ -16,35 +17,47 @@ class TestCoinsxyzIntegration(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures."""
+        # Create event loop for tests
+        self.ev_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.ev_loop)
+        
         self.exchange = CoinsxyzExchange(
             coinsxyz_api_key="test_key",
             coinsxyz_secret_key="test_secret",
             trading_pairs=["BTC-USDT"],
             trading_required=True
         )
+    
+    def tearDown(self):
+        """Clean up test fixtures."""
+        if hasattr(self, 'ev_loop') and self.ev_loop:
+            self.ev_loop.close()
 
     @patch('hummingbot.connector.exchange.coinsxyz.coinsxyz_exchange.CoinsxyzExchange._api_get')
-    async def test_full_order_lifecycle(self, mock_api_get):
+    def test_full_order_lifecycle(self, mock_api_get):
         """Test complete order lifecycle."""
-        # Mock exchange info
-        mock_api_get.return_value = {
-            "symbols": [{
-                "symbol": "BTCUSDT",
-                "status": "TRADING",
-                "baseAsset": "BTC",
-                "quoteAsset": "USDT",
-                "isSpotTradingAllowed": True,
-                "permissions": ["SPOT"],
-                "filters": []
-            }]
-        }
+        async def run_test():
+            # Mock exchange info
+            mock_api_get.return_value = {
+                "symbols": [{
+                    "symbol": "BTCUSDT",
+                    "status": "TRADING",
+                    "baseAsset": "BTC",
+                    "quoteAsset": "USDT",
+                    "isSpotTradingAllowed": True,
+                    "permissions": ["SPOT"],
+                    "filters": []
+                }]
+            }
 
-        # Test trading pairs initialization
-        await self.exchange._update_trading_fees()
+            # Test trading pairs initialization
+            await self.exchange._update_trading_fees()
 
-        # Verify exchange is ready for trading
-        self.assertIsNotNone(self.exchange.name)
-        self.assertEqual(self.exchange.name, "coinsxyz")
+            # Verify exchange is ready for trading
+            self.assertIsNotNone(self.exchange.name)
+            self.assertEqual(self.exchange.name, "coinsxyz")
+        
+        self.ev_loop.run_until_complete(run_test())
 
     @patch('hummingbot.connector.exchange.coinsxyz.coinsxyz_exchange.CoinsxyzExchange._api_get')
     @patch('hummingbot.connector.exchange.coinsxyz.coinsxyz_exchange.CoinsxyzExchange._api_post')

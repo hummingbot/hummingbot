@@ -345,28 +345,25 @@ class CoinsxyzAccountDataSource:
                     continue
 
                 # Parse balance amounts
-                total_str = balance_entry.get("free", balance_entry.get("total", "0"))
                 available_str = balance_entry.get("free", balance_entry.get("available", "0"))
                 locked_str = balance_entry.get("locked", balance_entry.get("frozen", "0"))
 
                 try:
-                    total_balance = Decimal(str(total_str))
                     available_balance = Decimal(str(available_str))
                     locked_balance = Decimal(str(locked_str))
 
-                    # Calculate total if not provided
-                    if total_balance == Decimal("0") and (available_balance > 0 or locked_balance > 0):
-                        total_balance = available_balance + locked_balance
+                    # Always calculate total as free + locked
+                    total_balance = available_balance + locked_balance
 
                     # Only include assets with non-zero balances
                     if total_balance > Decimal("0"):
-                        parsed_balances[asset] = AccountBalance(
-                            asset=asset,
-                            total_balance=total_balance,
-                            available_balance=available_balance,
-                            locked_balance=locked_balance,
-                            last_updated=current_time
-                        )
+                        parsed_balances[asset] = {
+                            "asset": asset,
+                            "total_balance": total_balance,
+                            "available_balance": available_balance,
+                            "locked_balance": locked_balance,
+                            "last_updated": current_time
+                        }
 
                 except (ValueError, TypeError) as e:
                     self.logger().warning(f"Error parsing balance for {asset}: {e}")

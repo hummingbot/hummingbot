@@ -11,7 +11,7 @@ This module provides comprehensive order validation including:
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.logger import HummingbotLogger
@@ -499,11 +499,22 @@ class CoinsxyzOrderValidation:
         Returns:
             Formatted amount
         """
+        from decimal import ROUND_DOWN
+        
         trading_rule = self._get_trading_rule(trading_pair)
         increment = trading_rule.min_base_amount_increment
 
         if increment > 0:
-            return (amount / increment).quantize(Decimal("1")) * increment
+            # Calculate number of decimal places in increment
+            increment_str = str(increment)
+            if '.' in increment_str:
+                decimal_places = len(increment_str.split('.')[1].rstrip('0'))
+            else:
+                decimal_places = 0
+            
+            # Quantize to the increment precision using ROUND_DOWN
+            quantize_str = '0.' + '0' * decimal_places if decimal_places > 0 else '1'
+            return amount.quantize(Decimal(quantize_str), rounding=ROUND_DOWN)
 
         return amount
 
@@ -518,10 +529,88 @@ class CoinsxyzOrderValidation:
         Returns:
             Formatted price
         """
+        from decimal import ROUND_DOWN
+        
         trading_rule = self._get_trading_rule(trading_pair)
         increment = trading_rule.min_price_increment
 
         if increment > 0:
-            return (price / increment).quantize(Decimal("1")) * increment
+            # Calculate number of decimal places in increment
+            increment_str = str(increment)
+            if '.' in increment_str:
+                decimal_places = len(increment_str.split('.')[1].rstrip('0'))
+            else:
+                decimal_places = 0
+            
+            # Quantize to the increment precision using ROUND_DOWN
+            quantize_str = '0.' + '0' * decimal_places if decimal_places > 0 else '1'
+            return price.quantize(Decimal(quantize_str), rounding=ROUND_DOWN)
 
         return price
+
+    def validate_order(self, order_data: Dict[str, Any]) -> OrderValidationResult:
+        """
+        Validate order data.
+
+        Args:
+            order_data: Order data dictionary
+
+        Returns:
+            OrderValidationResult
+        """
+        try:
+            # Extract order parameters
+            symbol = order_data.get("symbol", "")
+            trading_pair = order_data.get("trading_pair", symbol)
+            order_type = order_data.get("order_type", OrderType.LIMIT)
+            trade_type = order_data.get("side", TradeType.BUY)
+            quantity = order_data.get("quantity", Decimal("0"))
+            price = order_data.get("price")
+
+            # Validate symbol exists in trading rules
+            if trading_pair not in self._trading_rules and symbol not in self._trading_rules:
+                return OrderValidationResult(
+                    is_valid=False,
+                    error_message=f"Unknown symbol: {symbol or trading_pair}"
+                )
+
+            # Validate using existing method
+            return self.validate_order_parameters(
+                trading_pair=trading_pair,
+                order_type=order_type,
+                trade_type=trade_type,
+                amount=quantity,
+                price=price
+            )
+
+        except Exception as e:
+            return OrderValidationResult(
+                is_valid=False,
+                error_message=f"Validation error: {e}"
+            )
+
+    def quantize_order_amount(self, trading_pair: str, amount: Decimal) -> Decimal:
+        """
+        Quantize order amount according to trading rules.
+
+        Args:
+            trading_pair: Trading pair
+            amount: Order amount
+
+        Returns:
+            Quantized amount
+        """
+        return self.format_order_amount(trading_pair, amount)
+
+    def quantize_order_price(self, trading_pair: str, price: Decimal) -> Decimal:
+        """
+        Quantize order price according to trading rules.
+
+        Args:
+            trading_pair: Trading pair
+            price: Order price
+
+        Returns:
+            Quantized price
+        """
+        return self.format_order_price(trading_pair, price)

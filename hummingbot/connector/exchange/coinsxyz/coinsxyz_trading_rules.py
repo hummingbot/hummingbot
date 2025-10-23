@@ -846,3 +846,74 @@ class CoinsxyzTradingRules:
             "user_tier": user_tier,
             "savings": discount_amount
         }
+
+
+    @property
+    def _rules(self) -> Dict[str, Any]:
+        """Alias for _trading_rules for backward compatibility."""
+        return self._trading_rules
+
+    def get_trading_rule(self, symbol: str) -> Optional[Any]:
+        """
+        Get trading rule for a symbol.
+
+        Args:
+            symbol: Trading symbol
+
+        Returns:
+            Trading rule or None if not found
+        """
+        return self._trading_rules.get(symbol)
+
+    def is_symbol_supported(self, symbol: str) -> bool:
+        """
+        Check if symbol is supported.
+
+        Args:
+            symbol: Trading symbol
+
+        Returns:
+            True if supported, False otherwise
+        """
+        return symbol in self._trading_rules
+
+    def get_all_symbols(self) -> List[str]:
+        """
+        Get all supported symbols.
+
+        Returns:
+            List of trading symbols
+        """
+        return list(self._trading_rules.keys())
+
+    def _parse_lot_size_filter(self, filter_data: Dict[str, Any]) -> tuple:
+        """
+        Parse LOT_SIZE filter from exchange info.
+
+        Args:
+            filter_data: Filter data dictionary
+
+        Returns:
+            Tuple of (min_size, max_size, step_size)
+        """
+        min_qty = Decimal(str(filter_data.get("minQty", "0")))
+        max_qty = Decimal(str(filter_data.get("maxQty", "0")))
+        step_size = Decimal(str(filter_data.get("stepSize", "0")))
+        
+        return min_qty, max_qty, step_size
+
+    def _parse_price_filter(self, filter_data: Dict[str, Any]) -> tuple:
+        """
+        Parse PRICE_FILTER from exchange info.
+
+        Args:
+            filter_data: Filter data dictionary
+
+        Returns:
+            Tuple of (min_price, max_price, tick_size)
+        """
+        min_price = Decimal(str(filter_data.get("minPrice", "0")))
+        max_price = Decimal(str(filter_data.get("maxPrice", "0")))
+        tick_size = Decimal(str(filter_data.get("tickSize", "0")))
+        
+        return min_price, max_price, tick_size

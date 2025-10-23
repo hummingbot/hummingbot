@@ -16,12 +16,12 @@ class TestCoinsxyzOrderPlacement(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures."""
-        self.api_client = MagicMock()
-        self.order_placement = CoinsxyzOrderPlacement(api_client=self.api_client)
+        self.mock_api_factory = MagicMock()
+        self.order_placement = CoinsxyzOrderPlacement(api_factory=self.mock_api_factory)
 
     def test_init(self):
         """Test order placement initialization."""
-        self.assertIsNotNone(self.order_placement._api_client)
+        self.assertIsNotNone(self.order_placement._api_factory)
 
     async def test_place_limit_order(self):
         """Test limit order placement."""

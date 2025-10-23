@@ -3,6 +3,7 @@
 Unit Tests for Coins.xyz Exchange Connector
 """
 
+import asyncio
 import unittest
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
@@ -17,6 +18,10 @@ class TestCoinsxyzExchange(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures."""
+        # Create event loop for tests
+        self.ev_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.ev_loop)
+        
         self.api_key = "test_api_key"
         self.secret_key = "test_secret_key"
         self.trading_pairs = ["BTC-USDT", "ETH-USDT"]
@@ -27,6 +32,11 @@ class TestCoinsxyzExchange(unittest.TestCase):
             trading_pairs=self.trading_pairs,
             trading_required=True
         )
+    
+    def tearDown(self):
+        """Clean up test fixtures."""
+        if hasattr(self, 'ev_loop') and self.ev_loop:
+            self.ev_loop.close()
 
     def test_init(self):
         """Test exchange initialization."""

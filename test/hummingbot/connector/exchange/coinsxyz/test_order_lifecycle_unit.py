@@ -2,6 +2,7 @@
 
 import unittest
 from decimal import Decimal
+from unittest.mock import MagicMock
 
 from hummingbot.connector.exchange.coinsxyz.coinsxyz_order_lifecycle import CoinsxyzOrderLifecycle
 
@@ -11,7 +12,9 @@ class TestCoinsxyzOrderLifecycle(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures."""
-        self.order_lifecycle = CoinsxyzOrderLifecycle()
+        # Mock API factory
+        self.mock_api_factory = MagicMock()
+        self.order_lifecycle = CoinsxyzOrderLifecycle(api_factory=self.mock_api_factory)
 
     def test_init(self):
         """Test order lifecycle initialization."""

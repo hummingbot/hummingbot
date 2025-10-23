@@ -15,13 +15,13 @@ class TestCoinsxyzTradingRules(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures."""
-        self.api_client = MagicMock()
-        self.trading_rules = CoinsxyzTradingRules(api_client=self.api_client)
+        self.mock_api_factory = MagicMock()
+        self.trading_rules = CoinsxyzTradingRules(api_factory=self.mock_api_factory)
 
     def test_init(self):
         """Test trading rules initialization."""
-        self.assertIsNotNone(self.trading_rules._api_client)
-        self.assertEqual(len(self.trading_rules._rules), 0)
+        self.assertIsNotNone(self.trading_rules._api_factory)
+        self.assertEqual(len(self.trading_rules._trading_rules), 0)
 
     async def test_update_trading_rules(self):
         """Test trading rules update."""

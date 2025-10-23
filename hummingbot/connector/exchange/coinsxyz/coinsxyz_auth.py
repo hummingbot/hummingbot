@@ -118,20 +118,31 @@ class CoinsxyzAuth(AuthBase):
             "User-Agent": "hummingbot-coinsxyz-connector/1.0"
         }
 
-    def _generate_signature(self, params: Dict[str, Any]) -> str:
+    def _generate_signature(self, params: Dict[str, Any] = None, query_string: str = None, timestamp: int = None) -> str:
         """
         Generate HMAC-SHA256 signature for API request authentication.
 
         The signature is created by:
-        1. Converting parameters to URL-encoded query string
+        1. Converting parameters to URL-encoded query string (or using provided query_string)
         2. Creating HMAC-SHA256 hash using the secret key
         3. Converting to hexadecimal string
 
-        :param params: Request parameters to sign
+        :param params: Request parameters to sign (optional if query_string provided) - can also be a string for backward compatibility
+        :param query_string: Pre-formatted query string (optional if params provided)
+        :param timestamp: Optional timestamp to include
         :return: HMAC-SHA256 signature as hexadecimal string
         """
-        # Convert parameters to URL-encoded query string
-        encoded_params_str = urlencode(params)
+        # Handle backward compatibility: if params is a string, treat it as query_string
+        if isinstance(params, str):
+            encoded_params_str = params
+        elif query_string is not None:
+            # Use provided query string
+            encoded_params_str = query_string
+        elif params is not None:
+            # Convert parameters to URL-encoded query string
+            encoded_params_str = urlencode(params)
+        else:
+            encoded_params_str = ""
 
         # Generate HMAC-SHA256 signature
         signature = hmac.new(
@@ -220,18 +231,19 @@ class CoinsxyzAuth(AuthBase):
 
         return headers
 
-    def is_timestamp_valid(self, timestamp: int) -> bool:
+    def is_timestamp_valid(self, timestamp: int, tolerance_ms: int = 300000) -> bool:
         """
         Validate if a timestamp is within acceptable range.
 
         Args:
             timestamp: Timestamp in milliseconds
+            tolerance_ms: Maximum allowed time difference in milliseconds (default: 300000ms = 5 minutes)
 
         Returns:
             True if timestamp is valid, False otherwise
         """
         import time
         current_time = int(time.time() * 1000)
-        # Allow 5 minute window (300,000 ms)
+        # Check if timestamp is within tolerance window
         time_diff = abs(current_time - timestamp)
-        return time_diff <= 300000
+        return time_diff <= tolerance_ms

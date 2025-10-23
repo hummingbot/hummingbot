@@ -4,7 +4,10 @@ import math
 from decimal import Decimal
 from typing import Any, AsyncGenerator, AsyncIterable, Dict, Iterable, List, Optional, Tuple
 
-from async_timeout import timeout
+try:
+    from asyncio import timeout
+except ImportError:
+    from async_timeout import timeout
 from bidict import bidict
 
 import hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_constants as constants
