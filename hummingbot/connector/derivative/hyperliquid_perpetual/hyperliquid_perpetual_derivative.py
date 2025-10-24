@@ -71,8 +71,11 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
     @property
     def authenticator(self) -> Optional[HyperliquidPerpetualAuth]:
         if self._trading_required:
-            return HyperliquidPerpetualAuth(self.hyperliquid_perpetual_api_key, self.hyperliquid_perpetual_secret_key,
-                                            self._use_vault)
+            return HyperliquidPerpetualAuth(
+                self.hyperliquid_perpetual_api_key,
+                self.hyperliquid_perpetual_secret_key,
+                self._use_vault
+            )
         return None
 
     @property
@@ -383,7 +386,10 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 "sz": float(amount),
                 "reduceOnly": position_action == PositionAction.CLOSE,
                 "orderType": param_order_type,
-                "cloid": order_id,
+                # NOTE: cloid is intentionally NOT included. Hyperliquid's signature verification
+                # fails when cloid is present because it changes the msgpack encoding of the order,
+                # which changes the signature hash, causing signature recovery to produce random
+                # wallet addresses. Hyperliquid uses their own oid (order ID) for tracking instead.
             }
         }
         order_result = await self._api_post(

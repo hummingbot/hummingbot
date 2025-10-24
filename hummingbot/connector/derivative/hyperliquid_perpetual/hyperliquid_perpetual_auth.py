@@ -31,7 +31,7 @@ class HyperliquidPerpetualAuth(AuthBase):
         return bytes.fromhex(address[2:] if address.startswith("0x") else address)
 
     @classmethod
-    def action_hash(cls, action, vault_address, nonce):
+    def action_hash(cls, action, vault_address, nonce, expires_after=None):
         data = msgpack.packb(action)
         data += nonce.to_bytes(8, "big")
         if vault_address is None:
@@ -39,6 +39,10 @@ class HyperliquidPerpetualAuth(AuthBase):
         else:
             data += b"\x01"
             data += cls.address_to_bytes(vault_address)
+        # Add expires_after if provided (required by Hyperliquid API)
+        if expires_after is not None:
+            data += b"\x00"
+            data += expires_after.to_bytes(8, "big")
         return keccak(data)
 
     def sign_inner(self, wallet, data):
@@ -49,8 +53,8 @@ class HyperliquidPerpetualAuth(AuthBase):
     def construct_phantom_agent(self, hash, is_mainnet):
         return {"source": "a" if is_mainnet else "b", "connectionId": hash}
 
-    def sign_l1_action(self, wallet, action, active_pool, nonce, is_mainnet):
-        _hash = self.action_hash(action, active_pool, nonce)
+    def sign_l1_action(self, wallet, action, active_pool, nonce, expires_after, is_mainnet):
+        _hash = self.action_hash(action, active_pool, nonce, expires_after)
         phantom_agent = self.construct_phantom_agent(_hash, is_mainnet)
 
         data = {
@@ -92,6 +96,7 @@ class HyperliquidPerpetualAuth(AuthBase):
             params,
             None if not self._use_vault else self._api_key,
             timestamp,
+            None,  # expires_after
             CONSTANTS.PERPETUAL_BASE_URL in base_url,
         )
         payload = {
@@ -112,6 +117,7 @@ class HyperliquidPerpetualAuth(AuthBase):
             order_action,
             None if not self._use_vault else self._api_key,
             timestamp,
+            None,  # expires_after
             CONSTANTS.PERPETUAL_BASE_URL in base_url,
         )
         payload = {
@@ -124,12 +130,12 @@ class HyperliquidPerpetualAuth(AuthBase):
         return payload
 
     def _sign_order_params(self, params, base_url, timestamp):
-
         order = params["orders"]
         grouping = params["grouping"]
+        order_wire = order_spec_to_order_wire(order)
         order_action = {
             "type": "order",
-            "orders": [order_spec_to_order_wire(order)],
+            "orders": [order_wire],
             "grouping": grouping,
         }
         signature = self.sign_l1_action(
@@ -137,15 +143,14 @@ class HyperliquidPerpetualAuth(AuthBase):
             order_action,
             None if not self._use_vault else self._api_key,
             timestamp,
+            None,  # expires_after
             CONSTANTS.PERPETUAL_BASE_URL in base_url,
         )
-
         payload = {
             "action": order_action,
             "nonce": timestamp,
             "signature": signature,
             "vaultAddress": self._api_key if self._use_vault else None,
-
         }
         return payload
 
