@@ -4,7 +4,6 @@ from hummingbot.connector.derivative.deepcoin_perpetual import deepcoin_perpetua
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.utils import TimeSynchronizerRESTPreProcessor
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
@@ -61,14 +60,10 @@ async def get_current_server_time(
     else:
         raise ValueError("Failed to get server time")
 
+
 def build_api_factory_without_time_synchronizer_pre_processor(throttler: AsyncThrottler) -> WebAssistantsFactory:
     api_factory = WebAssistantsFactory(throttler=throttler)
     return api_factory
-
-
-def private_ws_url(endpoint: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
-    variant = domain if domain else CONSTANTS.DEFAULT_DOMAIN
-    return CONSTANTS.WSS_USER_STREAM_URLS.get(variant) + endpoint
 
 
 def public_rest_url(endpoint: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:

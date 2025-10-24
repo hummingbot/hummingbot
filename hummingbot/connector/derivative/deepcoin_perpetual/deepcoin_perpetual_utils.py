@@ -6,8 +6,10 @@ from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.core.data_type.common import OrderType, TradeType, PositionSide, PositionMode, PositionAction
-from hummingbot.core.data_type.trade_fee import TradeFeeBase, TokenAmount, AddedToCostTradeFee, DeductedFromReturnsTradeFee
+from hummingbot.core.data_type.trade_fee import TradeFeeBase, TokenAmount, AddedToCostTradeFee, \
+    DeductedFromReturnsTradeFee
 from hummingbot.connector.derivative.deepcoin_perpetual import deepcoin_perpetual_constants as CONSTANTS
+
 # Deepcoin fees
 DEFAULT_FEES = TradeFeeSchema(
     maker_percent_fee_decimal=Decimal("0.0004"),
@@ -40,7 +42,8 @@ def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
     """
     Converts Hummingbot trading pair to exchange format
     """
-    return hb_trading_pair+("-SWAP")
+    return hb_trading_pair + ("-SWAP")
+
 
 def is_exchange_inverse(hb_trading_pair: str) -> bool:
     """
@@ -50,6 +53,7 @@ def is_exchange_inverse(hb_trading_pair: str) -> bool:
     if quote_asset == "USD":
         return True
     return False
+
 
 def convert_from_exchange_order_type(exchange_order_type: str) -> OrderType:
     """
@@ -115,29 +119,6 @@ def convert_from_exchange_position_side(exchange_position_side: str) -> Position
         return PositionSide.LONG
 
 
-def convert_to_exchange_position_side(position_side: PositionSide) -> str:
-    """
-    Converts Hummingbot PositionSide to exchange position side
-    """
-    if position_side == PositionSide.LONG:
-        return CONSTANTS.POSITION_SIDE_LONG
-    elif position_side == PositionSide.SHORT:
-        return CONSTANTS.POSITION_SIDE_SHORT
-    else:
-        return CONSTANTS.POSITION_SIDE_LONG
-
-
-def convert_from_exchange_position_mode(exchange_position_mode: str) -> PositionMode:
-    """
-    Converts exchange position mode to Hummingbot PositionMode
-    """
-    if exchange_position_mode.lower() == "one_way":
-        return PositionMode.ONEWAY
-    elif exchange_position_mode.lower() == "hedge":
-        return PositionMode.HEDGE
-    else:
-        return PositionMode.ONEWAY
-
 class DeepcoinPerpetualConfigMap(BaseConnectorConfigMap):
     connector: str = "deepcoin_perpetual"
     deepcoin_perpetual_api_key: SecretStr = Field(
@@ -171,7 +152,6 @@ class DeepcoinPerpetualConfigMap(BaseConnectorConfigMap):
 
 
 KEYS = DeepcoinPerpetualConfigMap.model_construct()
-
 
 
 class DeepcoinPerpetualTestnetConfigMap(BaseConnectorConfigMap):

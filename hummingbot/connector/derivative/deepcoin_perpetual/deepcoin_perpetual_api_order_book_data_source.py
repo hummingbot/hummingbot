@@ -42,12 +42,17 @@ class DeepcoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
+
+        instType = "SwapU"
+        if dp_utils.is_exchange_inverse(trading_pair):
+            instType = "Swap"
         params = {
-            "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
+            "instId": await dp_utils.convert_to_exchange_trading_pair(trading_pair=trading_pair),
+            "instType": instType
         }
 
         rest_assistant = await self._api_factory.get_rest_assistant()
-        url_info = web_utils.public_rest_url(endpoint=CONSTANTS.TICKER_PRICE_URL, trading_pair=trading_pair,
+        url_info = web_utils.public_rest_url(endpoint=CONSTANTS.FUNDING_INFO_URL, trading_pair=trading_pair,
                                              domain=self._domain)
         funding_info_response = await rest_assistant.execute_request(
             url=url_info,
@@ -55,11 +60,11 @@ class DeepcoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             params=params,
             method=RESTMethod.GET,
         )
-        if not funding_info_response.get("data"):
+        if funding_info_response.get("code") is not "0":
             self._connector.logger().warning(f"Failed to get funding info for {trading_pair}")
             raise ValueError(f"Failed to get funding info for {trading_pair}")
 
-        general_info = funding_info_response["data"][0]
+        general_info = funding_info_response["data"]["current_fund_rates"][0]
 
         funding_info = FundingInfo(
             trading_pair=trading_pair,
