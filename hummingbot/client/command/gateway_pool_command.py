@@ -159,10 +159,6 @@ class GatewayPoolCommand:
             # Capitalize the trading pair
             trading_pair = trading_pair.upper()
 
-            tokens = trading_pair.split("-")
-            base_token = tokens[0]
-            quote_token = tokens[1]
-
             # Get chain and network from connector
             chain, network, error = await self._get_gateway_instance().get_connector_chain_network(
                 connector
@@ -175,15 +171,102 @@ class GatewayPoolCommand:
             self.notify(f"\nAdding pool for {trading_pair} on {connector}")
             self.notify(f"Chain: {chain}")
             self.notify(f"Network: {network}")
-            self.notify(f"Pool Address: {pool_address}")
 
-            # Create pool data
-            pool_data = {
-                "address": pool_address,
-                "baseSymbol": base_token,
-                "quoteSymbol": quote_token,
-                "type": trading_type
-            }
+            # Fetch pool info from Gateway
+            self.notify("\nFetching pool information from Gateway...")
+            try:
+                pool_info_response = await self._get_gateway_instance().pool_info(
+                    connector=connector,
+                    network=network,
+                    pool_address=pool_address
+                )
+
+                if "error" in pool_info_response:
+                    self.notify(f"Error fetching pool info: {pool_info_response['error']}")
+                    self.notify("Cannot add pool without valid pool information")
+                    return
+
+                # Extract pool information from response
+                fetched_base_symbol = pool_info_response.get("baseSymbol")
+                fetched_quote_symbol = pool_info_response.get("quoteSymbol")
+                base_token_address = pool_info_response.get("baseTokenAddress")
+                quote_token_address = pool_info_response.get("quoteTokenAddress")
+                fee_pct = pool_info_response.get("feePct")
+
+                # If symbols are missing, try to fetch them from token addresses
+                if not fetched_base_symbol and base_token_address:
+                    try:
+                        base_token_info = await self._get_gateway_instance().get_token(
+                            symbol_or_address=base_token_address,
+                            chain=chain,
+                            network=network
+                        )
+                        if "token" in base_token_info and "symbol" in base_token_info["token"]:
+                            fetched_base_symbol = base_token_info["token"]["symbol"]
+                    except Exception:
+                        # Silently skip - symbols are optional
+                        pass
+
+                if not fetched_quote_symbol and quote_token_address:
+                    try:
+                        quote_token_info = await self._get_gateway_instance().get_token(
+                            symbol_or_address=quote_token_address,
+                            chain=chain,
+                            network=network
+                        )
+                        if "token" in quote_token_info and "symbol" in quote_token_info["token"]:
+                            fetched_quote_symbol = quote_token_info["token"]["symbol"]
+                    except Exception:
+                        # Silently skip - symbols are optional
+                        pass
+
+                # Show warning if symbols couldn't be fetched
+                if not fetched_base_symbol or not fetched_quote_symbol:
+                    self.notify("\n⚠️  Warning: Could not determine token symbols from pool")
+                    if not fetched_base_symbol:
+                        self.notify(f"  - Base token symbol unknown (address: {base_token_address})")
+                    if not fetched_quote_symbol:
+                        self.notify(f"  - Quote token symbol unknown (address: {quote_token_address})")
+                    self.notify("  Pool will be added without symbols")
+
+                # Display fetched pool information
+                self.notify("\n=== Pool Information ===")
+                self.notify(f"Connector: {connector}")
+                if fetched_base_symbol and fetched_quote_symbol:
+                    self.notify(f"Trading Pair: {fetched_base_symbol}-{fetched_quote_symbol}")
+                self.notify(f"Pool Type: {trading_type}")
+                self.notify(f"Network: {network}")
+                self.notify(f"Base Token: {fetched_base_symbol if fetched_base_symbol else 'N/A'}")
+                self.notify(f"Quote Token: {fetched_quote_symbol if fetched_quote_symbol else 'N/A'}")
+                self.notify(f"Base Token Address: {base_token_address}")
+                self.notify(f"Quote Token Address: {quote_token_address}")
+                if fee_pct is not None:
+                    self.notify(f"Fee: {fee_pct}%")
+                self.notify(f"Pool Address: {pool_address}")
+
+                # Create pool data with required and optional fields
+                pool_data = {
+                    "address": pool_address,
+                    "type": trading_type,
+                    "baseTokenAddress": base_token_address,
+                    "quoteTokenAddress": quote_token_address
+                }
+                # Add optional fields
+                if fetched_base_symbol:
+                    pool_data["baseSymbol"] = fetched_base_symbol
+                if fetched_quote_symbol:
+                    pool_data["quoteSymbol"] = fetched_quote_symbol
+                if fee_pct is not None:
+                    pool_data["feePct"] = fee_pct
+
+                # Display pool data that will be stored
+                self.notify("\nPool to add:")
+                self.notify(json.dumps(pool_data, indent=2))
+
+            except Exception as e:
+                self.notify(f"Error fetching pool information: {str(e)}")
+                self.notify("Cannot add pool without valid pool information")
+                return
 
             # Add pool
             self.notify("\nAdding pool...")
@@ -234,10 +317,6 @@ class GatewayPoolCommand:
 
             # Capitalize the trading pair
             trading_pair = trading_pair.upper()
-
-            tokens = trading_pair.split("-")
-            base_token = tokens[0]
-            quote_token = tokens[1]
 
             # Get chain and network from connector
             chain, network, error = await self._get_gateway_instance().get_connector_chain_network(
@@ -292,25 +371,109 @@ class GatewayPoolCommand:
                     self.notify("Pool addition cancelled")
                     return
 
-                # Create pool data
-                pool_data = {
-                    "address": pool_address,
-                    "baseSymbol": base_token,
-                    "quoteSymbol": quote_token,
-                    "type": trading_type
-                }
+                # Fetch pool info from Gateway
+                self.notify("\nFetching pool information from Gateway...")
+                try:
+                    pool_info_response = await self._get_gateway_instance().pool_info(
+                        connector=connector,
+                        network=network,
+                        pool_address=pool_address
+                    )
 
-                # Display summary
-                self.notify("\nPool to add:")
-                self.notify(json.dumps(pool_data, indent=2))
+                    if "error" in pool_info_response:
+                        self.notify(f"Error fetching pool info: {pool_info_response['error']}")
+                        self.notify("Cannot add pool without valid pool information")
+                        return
 
-                # Confirm
-                confirm = await self.app.prompt(
-                    prompt="Add this pool? (Yes/No) >>> "
-                )
+                    # Extract pool information from response
+                    fetched_base_symbol = pool_info_response.get("baseSymbol")
+                    fetched_quote_symbol = pool_info_response.get("quoteSymbol")
+                    base_token_address = pool_info_response.get("baseTokenAddress")
+                    quote_token_address = pool_info_response.get("quoteTokenAddress")
+                    fee_pct = pool_info_response.get("feePct")
 
-                if confirm.lower() not in ["y", "yes"]:
-                    self.notify("Pool addition cancelled")
+                    # If symbols are missing, try to fetch them from token addresses
+                    if not fetched_base_symbol and base_token_address:
+                        try:
+                            base_token_info = await self._get_gateway_instance().get_token(
+                                symbol_or_address=base_token_address,
+                                chain=chain,
+                                network=network
+                            )
+                            if "token" in base_token_info and "symbol" in base_token_info["token"]:
+                                fetched_base_symbol = base_token_info["token"]["symbol"]
+                        except Exception:
+                            # Silently skip - symbols are optional
+                            pass
+
+                    if not fetched_quote_symbol and quote_token_address:
+                        try:
+                            quote_token_info = await self._get_gateway_instance().get_token(
+                                symbol_or_address=quote_token_address,
+                                chain=chain,
+                                network=network
+                            )
+                            if "token" in quote_token_info and "symbol" in quote_token_info["token"]:
+                                fetched_quote_symbol = quote_token_info["token"]["symbol"]
+                        except Exception:
+                            # Silently skip - symbols are optional
+                            pass
+
+                    # Show warning if symbols couldn't be fetched
+                    if not fetched_base_symbol or not fetched_quote_symbol:
+                        self.notify("\n⚠️  Warning: Could not determine token symbols from pool")
+                        if not fetched_base_symbol:
+                            self.notify(f"  - Base token symbol unknown (address: {base_token_address})")
+                        if not fetched_quote_symbol:
+                            self.notify(f"  - Quote token symbol unknown (address: {quote_token_address})")
+                        self.notify("  Pool will be added without symbols")
+
+                    # Display fetched pool information
+                    self.notify("\n=== Pool Information ===")
+                    self.notify(f"Connector: {connector}")
+                    if fetched_base_symbol and fetched_quote_symbol:
+                        self.notify(f"Trading Pair: {fetched_base_symbol}-{fetched_quote_symbol}")
+                    self.notify(f"Pool Type: {trading_type}")
+                    self.notify(f"Network: {network}")
+                    self.notify(f"Base Token: {fetched_base_symbol if fetched_base_symbol else 'N/A'}")
+                    self.notify(f"Quote Token: {fetched_quote_symbol if fetched_quote_symbol else 'N/A'}")
+                    self.notify(f"Base Token Address: {base_token_address}")
+                    self.notify(f"Quote Token Address: {quote_token_address}")
+                    if fee_pct is not None:
+                        self.notify(f"Fee: {fee_pct}%")
+                    self.notify(f"Pool Address: {pool_address}")
+
+                    # Create pool data with required and optional fields
+                    pool_data = {
+                        "address": pool_address,
+                        "type": trading_type,
+                        "baseTokenAddress": base_token_address,
+                        "quoteTokenAddress": quote_token_address
+                    }
+                    # Add optional fields
+                    if fetched_base_symbol:
+                        pool_data["baseSymbol"] = fetched_base_symbol
+                    if fetched_quote_symbol:
+                        pool_data["quoteSymbol"] = fetched_quote_symbol
+                    if fee_pct is not None:
+                        pool_data["feePct"] = fee_pct
+
+                    # Display pool data that will be stored
+                    self.notify("\nPool to add:")
+                    self.notify(json.dumps(pool_data, indent=2))
+
+                    # Confirm
+                    confirm = await self.app.prompt(
+                        prompt="Add this pool? (Yes/No) >>> "
+                    )
+
+                    if confirm.lower() not in ["y", "yes"]:
+                        self.notify("Pool addition cancelled")
+                        return
+
+                except Exception as e:
+                    self.notify(f"Error fetching pool information: {str(e)}")
+                    self.notify("Cannot add pool without valid pool information")
                     return
 
                 # Add pool
@@ -353,4 +516,7 @@ class GatewayPoolCommand:
         self.notify(f"Network: {pool_info.get('network', 'N/A')}")
         self.notify(f"Base Token: {pool_info.get('baseSymbol', 'N/A')}")
         self.notify(f"Quote Token: {pool_info.get('quoteSymbol', 'N/A')}")
+        self.notify(f"Base Token Address: {pool_info.get('baseTokenAddress', 'N/A')}")
+        self.notify(f"Quote Token Address: {pool_info.get('quoteTokenAddress', 'N/A')}")
+        self.notify(f"Fee: {pool_info.get('feePct', 'N/A')}%")
         self.notify(f"Pool Address: {pool_info.get('address', 'N/A')}")
