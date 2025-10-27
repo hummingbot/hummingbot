@@ -201,6 +201,9 @@ class BitgetExchange(ExchangePyBase):
             path_url=CONSTANTS.PLACE_ORDER_ENDPOINT,
             data=data,
             is_auth_required=True,
+            headers={
+                "X-CHANNEL-API-CODE": CONSTANTS.API_CODE,
+            }
         )
         response_code = create_order_response["code"]
 

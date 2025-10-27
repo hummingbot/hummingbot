@@ -43,6 +43,8 @@ ORDER_INFO_ENDPOINT = "/api/v2/spot/trade/orderInfo"
 PLACE_ORDER_ENDPOINT = "/api/v2/spot/trade/place-order"
 USER_FILLS_ENDPOINT = "/api/v2/spot/trade/fills"
 
+API_CODE = "bntva"
+
 PUBLIC_WS_BOOKS = "books"
 PUBLIC_WS_TRADE = "trade"
 

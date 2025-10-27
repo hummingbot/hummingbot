@@ -208,11 +208,23 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
         mock_task.cancel.assert_called_once()
         self.assertIsNone(self.provider._rates_update_task)
 
-    @patch.object(ConnectorPair, 'is_amm_connector', return_value=True)
-    def test_remove_rate_sources_amm(self, mock_is_amm):
-        # Test removing AMM connector rate sources
+    def test_remove_rate_sources_gateway(self):
+        # Test removing Gateway connector rate sources (new format)
         connector_pair = ConnectorPair(connector_name="uniswap/amm", trading_pair="BTC-USDT")
-        self.provider._rates_required.add_or_update("gateway", connector_pair)
+        # Gateway connectors are stored by their connector name directly
+        self.provider._rates_required.add_or_update("uniswap/amm", connector_pair)
+        mock_task = MagicMock()
+        self.provider._rates_update_task = mock_task
+
+        self.provider.remove_rate_sources([connector_pair])
+        self.assertEqual(len(self.provider._rates_required), 0)
+        mock_task.cancel.assert_called_once()
+        self.assertIsNone(self.provider._rates_update_task)
+
+    def test_remove_rate_sources_gateway_old_format(self):
+        # Test removing Gateway connector rate sources (old format)
+        connector_pair = ConnectorPair(connector_name="gateway_ethereum-mainnet", trading_pair="BTC-USDT")
+        self.provider._rates_required.add_or_update("gateway_ethereum-mainnet", connector_pair)
         mock_task = MagicMock()
         self.provider._rates_update_task = mock_task
 
@@ -242,26 +254,59 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
 
     @patch('hummingbot.core.rate_oracle.rate_oracle.RateOracle.get_instance')
     @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_instance')
-    async def test_update_rates_task_gateway(self, mock_gateway_client, mock_rate_oracle):
-        # Test gateway connector path
+    async def test_update_rates_task_gateway_new_format(self, mock_gateway_client, mock_rate_oracle):
+        # Test gateway connector with new format (e.g., "uniswap/amm")
         mock_gateway_instance = AsyncMock()
         mock_gateway_client.return_value = mock_gateway_instance
-        mock_gateway_instance.get_price.return_value = {"price": "50000"}
-
-        # Mock the chain/network lookup on the instance
         mock_gateway_instance.get_connector_chain_network.return_value = ("ethereum", "mainnet", None)
+        mock_gateway_instance.get_price.return_value = {"price": "50000"}
 
         mock_oracle_instance = MagicMock()
         mock_rate_oracle.return_value = mock_oracle_instance
 
         connector_pair = ConnectorPair(connector_name="uniswap/amm", trading_pair="BTC-USDT")
-        self.provider._rates_required.add_or_update("gateway", connector_pair)
+        # New format stores by connector name directly
+        self.provider._rates_required.add_or_update("uniswap/amm", connector_pair)
 
-        # Mock asyncio.sleep to avoid actual delay
-        with patch('asyncio.sleep', side_effect=[None, asyncio.CancelledError()]):
+        # Mock asyncio.sleep to cancel immediately after first iteration
+        with patch('asyncio.sleep', side_effect=asyncio.CancelledError()):
             with self.assertRaises(asyncio.CancelledError):
                 await self.provider.update_rates_task()
 
+        # Verify chain/network was fetched
+        mock_gateway_instance.get_connector_chain_network.assert_called_with("uniswap/amm")
+        # Verify price was fetched
+        mock_gateway_instance.get_price.assert_called()
+        # Verify price was set
+        mock_oracle_instance.set_price.assert_called_with("BTC-USDT", Decimal("50000"))
+
+    @patch('hummingbot.core.rate_oracle.rate_oracle.RateOracle.get_instance')
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_instance')
+    async def test_update_rates_task_gateway_old_format(self, mock_gateway_client, mock_rate_oracle):
+        # Test gateway connector with old format (e.g., "gateway_ethereum-mainnet")
+        mock_gateway_instance = AsyncMock()
+        mock_gateway_client.return_value = mock_gateway_instance
+        mock_gateway_instance.get_price.return_value = {"price": "50000"}
+
+        mock_oracle_instance = MagicMock()
+        mock_rate_oracle.return_value = mock_oracle_instance
+
+        connector_pair = ConnectorPair(connector_name="gateway_ethereum-mainnet", trading_pair="BTC-USDT")
+        self.provider._rates_required.add_or_update("gateway_ethereum-mainnet", connector_pair)
+
+        # Mock asyncio.sleep to cancel immediately after first iteration
+        with patch('asyncio.sleep', side_effect=asyncio.CancelledError()):
+            with self.assertRaises(asyncio.CancelledError):
+                await self.provider.update_rates_task()
+
+        # Old format doesn't call get_connector_chain_network
+        mock_gateway_instance.get_connector_chain_network.assert_not_called()
+        # Verify price was fetched with parsed chain/network
+        mock_gateway_instance.get_price.assert_called()
+        call_kwargs = mock_gateway_instance.get_price.call_args[1]
+        self.assertEqual(call_kwargs['chain'], 'ethereum')
+        self.assertEqual(call_kwargs['network'], 'mainnet')
+        # Verify price was set
         mock_oracle_instance.set_price.assert_called_with("BTC-USDT", Decimal("50000"))
 
     @patch('hummingbot.core.rate_oracle.rate_oracle.RateOracle.get_instance')
@@ -285,63 +330,38 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
 
     @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_instance')
     async def test_update_rates_task_gateway_error(self, mock_gateway_client):
-        # Test gateway connector with error
+        # Test gateway connector with error handling
         mock_gateway_instance = AsyncMock()
         mock_gateway_client.return_value = mock_gateway_instance
+        mock_gateway_instance.get_connector_chain_network.return_value = ("ethereum", "mainnet", None)
         mock_gateway_instance.get_price.side_effect = Exception("Gateway error")
 
-        # Mock the chain/network lookup on the instance
-        mock_gateway_instance.get_connector_chain_network.return_value = ("ethereum", "mainnet", None)
-
         connector_pair = ConnectorPair(connector_name="uniswap/amm", trading_pair="BTC-USDT")
-        self.provider._rates_required.add_or_update("gateway", connector_pair)
+        self.provider._rates_required.add_or_update("uniswap/amm", connector_pair)
 
-        with patch('asyncio.sleep', side_effect=[None, asyncio.CancelledError()]):
+        with patch('asyncio.sleep', side_effect=asyncio.CancelledError()):
             with self.assertRaises(asyncio.CancelledError):
                 await self.provider.update_rates_task()
+
+        # Should have attempted to fetch price despite error
+        mock_gateway_instance.get_price.assert_called()
 
     @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_instance')
     async def test_update_rates_task_gateway_chain_network_error(self, mock_gateway_client):
-        # Test lines 125-126: Chain/network lookup error handling
+        # Test error handling when fetching chain/network info fails
         mock_gateway_instance = AsyncMock()
         mock_gateway_client.return_value = mock_gateway_instance
-
-        # Mock the chain/network lookup to return an error
-        mock_gateway_instance.get_connector_chain_network.return_value = (None, None, "Chain lookup failed")
+        mock_gateway_instance.get_connector_chain_network.return_value = (None, None, "Network error")
 
         connector_pair = ConnectorPair(connector_name="uniswap/amm", trading_pair="BTC-USDT")
-        self.provider._rates_required.add_or_update("gateway", connector_pair)
+        self.provider._rates_required.add_or_update("uniswap/amm", connector_pair)
 
         with patch('asyncio.sleep', side_effect=[None, asyncio.CancelledError()]):
             with self.assertRaises(asyncio.CancelledError):
                 await self.provider.update_rates_task()
 
-        # Verify the warning was logged
-        with self.assertLogs(level='WARNING'):
-            mock_gateway_instance.get_connector_chain_network.return_value = (None, None, "Chain lookup failed")
-            connector_pair = ConnectorPair(connector_name="uniswap/amm", trading_pair="ETH-USDT")
-            self.provider._rates_required.clear()
-            self.provider._rates_required.add_or_update("gateway", connector_pair)
-
-            with patch('asyncio.sleep', side_effect=[None, asyncio.CancelledError()]):
-                with self.assertRaises(asyncio.CancelledError):
-                    await self.provider.update_rates_task()
-
-    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_instance')
-    async def test_update_rates_task_chain_info_exception(self, mock_gateway_client):
-        # Test lines 133-135: Exception during chain info retrieval
-        mock_gateway_instance = AsyncMock()
-        mock_gateway_client.return_value = mock_gateway_instance
-
-        # Mock the chain/network lookup to raise an exception
-        mock_gateway_instance.get_connector_chain_network.side_effect = Exception("Network error")
-
-        connector_pair = ConnectorPair(connector_name="uniswap/amm", trading_pair="BTC-USDT")
-        self.provider._rates_required.add_or_update("gateway", connector_pair)
-
-        with patch('asyncio.sleep', side_effect=[None, asyncio.CancelledError()]):
-            with self.assertRaises(asyncio.CancelledError):
-                await self.provider.update_rates_task()
+        # Should not attempt to fetch price if chain/network fetch failed
+        mock_gateway_instance.get_price.assert_not_called()
 
     async def test_update_rates_task_cancellation(self):
         # Test that task handles cancellation properly and cleans up
@@ -355,6 +375,52 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
 
         # Verify cleanup happened
         self.assertIsNone(self.provider._rates_update_task)
+
+    @patch('hummingbot.core.rate_oracle.rate_oracle.RateOracle.get_instance')
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_instance')
+    async def test_update_rates_task_parallel_gateway_calls(self, mock_gateway_client, mock_rate_oracle):
+        # Test that all gateway price calls are gathered in parallel
+        mock_gateway_instance = AsyncMock()
+        mock_gateway_client.return_value = mock_gateway_instance
+
+        # Set up multiple gateway connectors
+        mock_gateway_instance.get_connector_chain_network.side_effect = [
+            ("ethereum", "mainnet", None),
+            ("solana", "mainnet-beta", None),
+        ]
+        mock_gateway_instance.get_price.return_value = {"price": "50000"}
+
+        mock_oracle_instance = MagicMock()
+        mock_rate_oracle.return_value = mock_oracle_instance
+
+        # Add multiple gateway connector pairs
+        connector_pair1 = ConnectorPair(connector_name="uniswap/amm", trading_pair="BTC-USDT")
+        connector_pair2 = ConnectorPair(connector_name="jupiter/router", trading_pair="SOL-USDC")
+        self.provider._rates_required.add_or_update("uniswap/amm", connector_pair1)
+        self.provider._rates_required.add_or_update("jupiter/router", connector_pair2)
+
+        # Mock asyncio.gather to verify parallel execution
+        original_gather = asyncio.gather
+        gather_call_count = 0
+
+        async def mock_gather(*tasks, **kwargs):
+            nonlocal gather_call_count
+            gather_call_count += 1
+            # Verify we're gathering multiple tasks at once
+            if gather_call_count == 1:
+                # First gather should have 2 tasks (both gateway price calls)
+                self.assertEqual(len(tasks), 2)
+            return await original_gather(*tasks, **kwargs)
+
+        with patch('asyncio.gather', side_effect=mock_gather):
+            with patch('asyncio.sleep', side_effect=asyncio.CancelledError()):
+                with self.assertRaises(asyncio.CancelledError):
+                    await self.provider.update_rates_task()
+
+        # Verify both prices were fetched in parallel
+        self.assertEqual(mock_gateway_instance.get_price.call_count, 2)
+        # Verify both prices were set
+        self.assertEqual(mock_oracle_instance.set_price.call_count, 2)
 
     def test_get_candles_feed_existing_feed_stop(self):
         # Test that existing feed is stopped when creating new one with higher max_records
