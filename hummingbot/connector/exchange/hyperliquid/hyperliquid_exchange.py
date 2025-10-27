@@ -283,7 +283,7 @@ class HyperliquidExchange(ExchangePyBase):
         md5.update(order_id.encode('utf-8'))
         hex_order_id = f"0x{md5.hexdigest()}"
         if order_type is OrderType.MARKET:
-            reference_price = self.get_mid_price(trading_pair) if price is s_decimal_NaN else price
+            reference_price = self.get_mid_price(trading_pair) if price.is_nan() else price
             price = self.quantize_order_price(trading_pair, reference_price * Decimal(1 + CONSTANTS.MARKET_ORDER_SLIPPAGE))
 
         safe_ensure_future(self._create_order(
@@ -320,7 +320,7 @@ class HyperliquidExchange(ExchangePyBase):
         md5.update(order_id.encode('utf-8'))
         hex_order_id = f"0x{md5.hexdigest()}"
         if order_type is OrderType.MARKET:
-            reference_price = self.get_mid_price(trading_pair) if price is s_decimal_NaN else price
+            reference_price = self.get_mid_price(trading_pair) if price.is_nan() else price
             price = self.quantize_order_price(trading_pair, reference_price * Decimal(1 - CONSTANTS.MARKET_ORDER_SLIPPAGE))
 
         safe_ensure_future(self._create_order(
