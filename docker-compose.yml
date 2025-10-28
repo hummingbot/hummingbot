@@ -28,6 +28,10 @@ services:
   #    - CONFIG_PASSWORD=admin
   #    - CONFIG_FILE_NAME=v2_with_controllers.py
   #    - SCRIPT_CONFIG=conf_v2_with_controllers.yml
+  #    - CONDA_INSTALL=conda-forge::pandas-ta
+  #    - PIP_INSTALL=pandas-ta
+  #    - PUID=1000
+  #    - PGID=1000
 
   # gateway:
   #  restart: always

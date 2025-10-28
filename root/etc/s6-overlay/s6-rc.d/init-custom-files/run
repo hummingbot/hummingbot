@@ -1,0 +1,22 @@
+#!/usr/bin/with-contenv bash
+# shellcheck shell=bash
+
+# Directories
+SCRIPTS_DIR="/custom-cont-init.d"
+
+# Make sure custom init directory exists and has files in it
+if [[ -e "${SCRIPTS_DIR}" ]] && [[ -n "$(/bin/ls -A ${SCRIPTS_DIR} 2>/dev/null)" ]]; then
+    echo "[custom-init] Files found, executing"
+    for SCRIPT in "${SCRIPTS_DIR}"/*; do
+        NAME="$(basename "${SCRIPT}")"
+        if [[ -f "${SCRIPT}" ]]; then
+            echo "[custom-init] ${NAME}: executing..."
+            /bin/bash "${SCRIPT}"
+            echo "[custom-init] ${NAME}: exited $?"
+        elif [[ ! -f "${SCRIPT}" ]]; then
+            echo "[custom-init] ${NAME}: is not a file"
+        fi
+    done
+else
+    echo "[custom-init] No custom files found, skipping..."
+fi
