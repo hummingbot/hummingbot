@@ -1,15 +1,14 @@
 import asyncio
+import json
 import logging
-from operator import truediv
-import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from hummingbot.connector.derivative.deepcoin_perpetual import deepcoin_perpetual_constants as CONSTANTS
 from hummingbot.connector.derivative.deepcoin_perpetual.deepcoin_perpetual_auth import DeepcoinPerpetualAuth
-from hummingbot.connector.derivative.deepcoin_perpetual.deepcoin_perpetual_web_utils import public_rest_url, wss_url
+from hummingbot.connector.derivative.deepcoin_perpetual.deepcoin_perpetual_web_utils import public_rest_url
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSPlainTextRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSPlainTextRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -65,7 +64,7 @@ class DeepcoinPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
     async def _get_listen_key(self, max_retries: int = MAX_RETRIES) -> str:
         """
         Fetches a listen key from the exchange with retries and backoff.
-        
+
         :param max_retries: Maximum number of retry attempts
         :return: Valid listen key string
         """
@@ -76,12 +75,17 @@ class DeepcoinPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         rest_assistant = await self._api_factory.get_rest_assistant()
         while True:
             try:
+                request = RESTRequest(
+                    method=RESTMethod.GET,
+                    url=public_rest_url(self._domain, CONSTANTS.USER_STREAM_ENDPOINT),
+                    is_auth_required=True,
+                    throttler_limit_id=CONSTANTS.USER_STREAM_ENDPOINT
+                )
                 data = await rest_assistant.execute_request(
                     url=public_rest_url(self._domain, CONSTANTS.USER_STREAM_ENDPOINT),
                     method=RESTMethod.GET,
                     throttler_limit_id=CONSTANTS.USER_STREAM_ENDPOINT,
-                    headers=self._auth.add_auth_headers(method=RESTMethod.GET,
-                                                        request_path=CONSTANTS.USER_STREAM_ENDPOINT),
+                    headers=self._auth.authentication_headers(request),
                     timeout=timeout,
                     is_auth_required=True,
                 )
@@ -105,19 +109,24 @@ class DeepcoinPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
     async def _ping_listen_key(self) -> bool:
         """
         Sends a ping to keep the listen key alive.
-        
+
         :return: True if successful, False otherwise
         """
         try:
             rest_assistant = await self._api_factory.get_rest_assistant()
+            request = RESTRequest(
+                method=RESTMethod.GET,
+                url=public_rest_url(self._domain, CONSTANTS.USER_STREAM_EXTEND_ENDPOINT),
+                is_auth_required=True,
+                throttler_limit_id=CONSTANTS.USER_STREAM_EXTEND_ENDPOINT,
+                params=json.dumps({'listenkey': self._current_listen_key}),
+            )
             data = await rest_assistant.execute_request(
                 url=public_rest_url(self._domain) + CONSTANTS.USER_STREAM_EXTEND_ENDPOINT,
                 method=RESTMethod.GET,
                 throttler_limit_id=CONSTANTS.USER_STREAM_EXTEND_ENDPOINT,
                 is_auth_required=True,
-                headers=self._auth.add_auth_headers(method=RESTMethod.GET,
-                                                    request_path=CONSTANTS.USER_STREAM_EXTEND_ENDPOINT),
-                params={"listenkey": self._current_listen_key},
+                headers=self._auth.authentication_headers(request),
                 timeout=5.0,
             )
             if data.get("code") == "0":

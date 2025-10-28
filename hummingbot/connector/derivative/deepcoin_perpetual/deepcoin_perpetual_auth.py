@@ -1,7 +1,6 @@
+import base64
 import hashlib
 import hmac
-import base64
-import time
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 from urllib.parse import urlencode
@@ -9,7 +8,7 @@ from urllib.parse import urlencode
 import hummingbot.connector.derivative.deepcoin_perpetual.deepcoin_perpetual_constants as CONSTANTS
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest
 
 
 class DeepcoinPerpetualAuth(AuthBase):
@@ -25,15 +24,21 @@ class DeepcoinPerpetualAuth(AuthBase):
 
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
         """
-        Adds the server time and the signature to the request, required for authenticated interactions.
-        """
-        return self.add_auth_headers(method=request.method, request=request)
+        All private REST requests must contain the following headers:
 
-    async def ws_authenticate(self, request: WSRequest) -> WSRequest:
+            - DeepCoin-ACCESS-KEY The API Key as a String.
+            - DeepCoin-ACCESS-SIGN The Base64-encoded signature
+            - DeepCoin-ACCESS-TIMESTAMP The UTC timestamp of your request .e.g : 2020-12-08T09:08:57.715Z
+            - DeepCoin-ACCESS-PASSPHRASE The passphrase you specified when creating the APIKey.
+
+        Request bodies should have content type application/json and be in valid JSON format.
         """
-        This method is intended to configure a websocket request to be authenticated. Deepcoin does not use this
-        functionality
-        """
+        headers = {}
+        if request.headers is not None:
+            headers.update(request.headers)
+        headers.update(self.authentication_headers(request=request))
+        request.headers = headers
+
         return request
 
     def get_referral_code_headers(self):
@@ -44,109 +49,40 @@ class DeepcoinPerpetualAuth(AuthBase):
             "referer": CONSTANTS.HBOT_BROKER_ID
         }
         return headers
-    def authentication_headers(self, method: RESTMethod,request: RESTRequest):
-        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-        
-        headers = {}
-        headers["DC-ACCESS-KEY"] = self.api_key
-        headers["DC-ACCESS-TIMESTAMP"] = timestamp
-        headers["DC-ACCESS-PASSPHRASE"] = self.passphrase
-        
-        # Get request path from the request URL
-        request_path = request.url.path if hasattr(request, 'url') else ""
-        
-        if method == RESTMethod.POST:
-            signature = self._generate_rest_signature(
-                timestamp=timestamp, method=method, request_path=request_path, payload=request.data)
-        else:
-            signature = self._generate_rest_signature(
-                timestamp=timestamp, method=method, request_path=request_path, payload=request.params)
-        
-        headers["DC-ACCESS-SIGN"] = signature
-        headers["Content-Type"] = "application/json"
 
-        return headers
-    def add_auth_headers(self, method: RESTMethod, request: Optional[Dict[str, Any]]):
-        """
-        Add authentication headers in request object
-        """
-        # Generate ISO format timestamp as required by Deepcoin API
-        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-        
-        headers = {}
-        headers["DC-ACCESS-KEY"] = self.api_key
-        headers["DC-ACCESS-TIMESTAMP"] = timestamp
-        headers["DC-ACCESS-PASSPHRASE"] = self.passphrase
-        
-        # Get request path from the request URL
-        request_path = request.url.path if hasattr(request, 'url') else ""
-        
-        if method == RESTMethod.POST:
-            signature = self._generate_rest_signature(
-                timestamp=timestamp, method=method, request_path=request_path, payload=request.data)
-        else:
-            signature = self._generate_rest_signature(
-                timestamp=timestamp, method=method, request_path=request_path, payload=request.params)
-        
-        headers["DC-ACCESS-SIGN"] = signature
-        headers["Content-Type"] = "application/json"
+    def authentication_headers(self, request: RESTRequest) -> Dict[str, Any]:
+        timestamp = self._get_timestamp()
+        path_url = request.throttler_limit_id
+        if request.params:
+            query_string_components = urlencode(request.params)
+            query_string_components_with_comma = query_string_components.replace("%2C", ",")
+            path_url = f"{request.throttler_limit_id}?{query_string_components_with_comma}"
 
-        # TODO brokerid need to be add to the headers
-        request.headers = {**request.headers, **headers} if request.headers is not None else headers
-        return request
+        header = {
+            "DC-ACCESS-KEY": self.api_key,
+            "DC-ACCESS-SIGN": self._generate_signature(timestamp, request.method.value.upper(), path_url, request.data),
+            "DC-ACCESS-TIMESTAMP": timestamp,
+            "DC-ACCESS-PASSPHRASE": self.passphrase,
+        }
 
-    def _generate_rest_signature(self, timestamp: str, method: RESTMethod, request_path: str, payload: Optional[Dict[str, Any]]) -> str:
-        """
-        Generate signature for Deepcoin Perpetual API requests
-        According to Deepcoin API docs: timestamp + method + requestPath + body
-        """
-        if payload is None:
-            payload = {}
-        
-        # For GET requests, parameters are part of requestPath, not body
-        if method == RESTMethod.GET:
-            # For GET requests, body is empty as parameters are in URL
-            body = ""
-        else:
-            # For POST requests, body is the JSON payload
-            body = str(payload) if payload else ""
-        
-        # Create signature string: timestamp + method + requestPath + body
-        param_str = timestamp + method.value + request_path + body
-            
-        signature = hmac.new(
-            bytes(self.secret_key, "utf-8"),
-            param_str.encode("utf-8"),
-            digestmod="sha256"
-        ).digest()
-        return base64.b64encode(signature).decode("utf-8")
+        return header
 
-    # def _generate_ws_signature(self, expires: int):
-    #     """
-    #     Generate WebSocket signature for Deepcoin
-    #     """
-    #     # For WebSocket, we need to use the same signature method as REST API
-    #     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-    #     param_str = timestamp + "GET" + "/realtime" + str(expires)
-        
-    #     signature = hmac.new(
-    #         bytes(self.secret_key, "utf-8"),
-    #         param_str.encode("utf-8"),
-    #         digestmod="sha256"
-    #     ).digest()
-    #     return base64.b64encode(signature).decode("utf-8")
+    def _generate_signature(self, timestamp: str, method: str, path_url: str, body: Optional[str] = None) -> str:
+        unsigned_signature = timestamp + method + path_url
+        if body is not None:
+            unsigned_signature += body
 
-    # def generate_ws_auth_message(self):
-    #     """
-    #     Generates the authentication message to start receiving messages from private ws channels
-    #     """
-    #     expires = int((self._time() + 10000) * 1000)
-    #     signature = self._generate_ws_signature(expires)
-    #     auth_message = {
-    #         "op": "auth",
-    #         "args": [self.api_key, expires, signature]
-    #     }
-    #     return auth_message
+        signature = base64.b64encode(
+            hmac.new(
+                self.secret_key.encode("utf-8"),
+                unsigned_signature.encode("utf-8"),
+                hashlib.sha256).digest()).decode()
+        return signature
 
-    def _time(self):
-        return time.time()
+    @staticmethod
+    def _get_timestamp() -> str:
+        ts = datetime.now(timezone.utc).isoformat(timespec='milliseconds')
+        return ts.replace('+00:00', 'Z')
+
+    async def ws_authenticate(self, request: WSRequest) -> WSRequest:
+        return request  # pass-through

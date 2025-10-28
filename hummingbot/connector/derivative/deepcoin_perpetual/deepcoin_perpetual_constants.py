@@ -1,7 +1,5 @@
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_constants import FUNDING_INFO_STREAM_ID
-from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
+from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, PositionMode
-from hummingbot.core.data_type.in_flight_order import OrderState
 
 # Exchange Info
 EXCHANGE_NAME = "deepcoin_perpetual"
@@ -56,7 +54,7 @@ POSITION_MODE_MAP = {
 # Public API Endpoints
 SNAPSHOT_REST_URL = "/deepcoin/market/books"
 TICKER_PRICE_URL = "/deepcoin/market/tickers"
-TICKER_PRICE_CHANGE_URL = "/deepcoin/market/tickers"
+INSTRUMENTID_INFO_URL = "deepcoin/market/instruments"
 EXCHANGE_INFO_URL = "/deepcoin/market/instruments"
 RECENT_TRADES_URL = "/deepcoin/market/trades"
 PING_URL = "/deepcoin/market/ping"
@@ -92,7 +90,7 @@ BALANCE_UPDATE_EVENT_TYPE = "balanceUpdate"
 # Position Side
 POSITION_SIDE_LONG = "long"
 POSITION_SIDE_SHORT = "short"
-#POSITION_SIDE_BOTH = "both"
+# POSITION_SIDE_BOTH = "both"
 
 # Position Mode
 POSITION_MODE_ONE_WAY = "one_way"
@@ -123,7 +121,7 @@ RATE_LIMITS = [
         time_interval=1,
     ),
     RateLimit(
-        limit_id=TICKER_PRICE_CHANGE_URL,
+        limit_id=INSTRUMENTID_INFO_URL,
         limit=5,
         time_interval=1,
     ),

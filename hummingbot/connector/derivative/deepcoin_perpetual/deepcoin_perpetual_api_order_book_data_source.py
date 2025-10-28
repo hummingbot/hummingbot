@@ -3,16 +3,14 @@ import time
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
-from hummingbot.connector import utils
 from hummingbot.connector.derivative.deepcoin_perpetual import (
     deepcoin_perpetual_constants as CONSTANTS,
     deepcoin_perpetual_utils as dp_utils,
     deepcoin_perpetual_web_utils as web_utils,
 )
 from hummingbot.core.data_type.common import TradeType
-from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
-from hummingbot.core.data_type.order_book_message import OrderBookMessage
-from hummingbot.core.data_type.order_book_message import OrderBookMessageType
+from hummingbot.core.data_type.funding_info import FundingInfo
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.perpetual_api_order_book_data_source import PerpetualAPIOrderBookDataSource
 from hummingbot.core.utils.tracking_nonce import NonceCreator
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest, WSPlainTextRequest
@@ -20,8 +18,9 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
 if TYPE_CHECKING:
-    from hummingbot.connector.derivative.deepcoin_perpetual.deepcoin_perpetual_derivative import \
-        DeepcoinPerpetualDerivative
+    from hummingbot.connector.derivative.deepcoin_perpetual.deepcoin_perpetual_derivative import (
+        DeepcoinPerpetualDerivative,
+    )
 
 
 class DeepcoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
@@ -37,12 +36,35 @@ class DeepcoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._api_factory = api_factory
         self._domain = domain
         self._nonce_provider = NonceCreator.for_microseconds()
+        self._trading_rules = {}
+
+    async def _set_trading_rules(self) -> Dict[str, Any]:
+        if not bool(self._trading_rules):
+            resp = await self._request_trading_rules_info()
+            for rule in resp["data"]:
+                trading_pair = dp_utils.convert_from_exchange_trading_pair(rule["instId"])
+                self._trading_rules[trading_pair] = float(rule["ctVal"])
+        return self._trading_rules
+
+    async def _request_trading_rules_info(self) -> Dict[str, Any]:
+        params = {
+            "instType": "SWAP"
+        }
+        rest_assistant = await self._api_factory.get_rest_assistant()
+        endpoint = CONSTANTS.INSTRUMENTID_INFO_URL
+        url = web_utils.public_rest_url(endpoint=endpoint, domain=self._domain)
+        data = await rest_assistant.execute_request(
+            url=url,
+            throttler_limit_id=endpoint,
+            method=RESTMethod.GET,
+            params=params
+        )
+        return data
 
     async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
-
         instType = "SwapU"
         if dp_utils.is_exchange_inverse(trading_pair):
             instType = "Swap"
@@ -60,7 +82,7 @@ class DeepcoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             params=params,
             method=RESTMethod.GET,
         )
-        if funding_info_response.get("code") is not "0":
+        if funding_info_response.get("code") != "0":
             self._connector.logger().warning(f"Failed to get funding info for {trading_pair}")
             raise ValueError(f"Failed to get funding info for {trading_pair}")
 
@@ -199,15 +221,15 @@ class DeepcoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 trading_pair = trading_pair.replace("USDT", "-USDT")
             elif trading_pair.endswith("USD"):
                 trading_pair = trading_pair.replace("USD", "-USD")
-
+            ct_val = self._trading_rules[trading_pair]
             timestamp_seconds = int(raw_message.get("mt", 0)) / 1e3
             update_id = int(raw_message.get("tt", 0)) / 1e3
             bids, asks = self._get_bids_and_asks_from_ws_msg_data(r)
             order_book_message_content = {
                 "trading_pair": trading_pair,
                 "update_id": update_id,
-                "bids": bids,
-                "asks": asks,
+                "bids": [(bid[0], str(float(bid[1]) * ct_val)) for bid in bids],
+                "asks": [(ask[0], str(float(ask[1]) * ct_val)) for ask in asks],
             }
             diff_message = OrderBookMessage(
                 message_type=OrderBookMessageType.DIFF,
@@ -227,14 +249,14 @@ class DeepcoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                         trading_pair = trading_pair.replace("USDT", "-USDT")
                     elif trading_pair.endswith("USD"):
                         trading_pair = trading_pair.replace("USD", "-USD")
-
+                    ct_val = self._trading_rules[trading_pair]
                     ts_ms = int(data.get("T", 0))
                     trade_type = float(TradeType.BUY.value) if data.get("D") == "0" else float(TradeType.SELL.value)
                     message_content = {
                         "trade_id": trade_data.get("i", ""),
                         "trading_pair": trading_pair,
                         "trade_type": trade_type,
-                        "amount": data.get("V", 0),
+                        "amount": str(float(data.get("V", 0)) * ct_val),
                         "price": data.get("P", 0),
                     }
                     trade_message = OrderBookMessage(
@@ -250,17 +272,19 @@ class DeepcoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         pass
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
+        await self._set_trading_rules()
         snapshot_response = await self._request_order_book_snapshot(trading_pair)
         if snapshot_response.get("code") == "0":
             bids = snapshot_response.get("data").get("bids")
             asks = snapshot_response.get("data").get("asks")
+            ct_val = self._trading_rules[trading_pair]
             timestamp = float(time.time())
             update_id = self._nonce_provider.get_tracking_nonce(timestamp=timestamp)
             order_book_message_content = {
                 "trading_pair": trading_pair,
                 "update_id": update_id,
-                "bids": bids,
-                "asks": asks,
+                "bids": [(bid[0], str(float(bid[1]) * ct_val)) for bid in bids],
+                "asks": [(ask[0], str(float(ask[1]) * ct_val)) for ask in asks],
             }
             snapshot_msg: OrderBookMessage = OrderBookMessage(
                 message_type=OrderBookMessageType.SNAPSHOT,
@@ -277,7 +301,7 @@ class DeepcoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         }
 
         rest_assistant = await self._api_factory.get_rest_assistant()
-        url = web_utils.public_rest_url(endpoint=CONSTANTS.SNAPSHOT_REST_URL, trading_pair=trading_pair,
+        url = web_utils.public_rest_url(endpoint=CONSTANTS.SNAPSHOT_REST_URL,
                                         domain=self._domain)
         data = await rest_assistant.execute_request(
             url=url,

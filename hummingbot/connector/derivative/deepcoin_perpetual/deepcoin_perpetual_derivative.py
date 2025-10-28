@@ -1,10 +1,6 @@
 import asyncio
-import time
-from collections import defaultdict
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
-
-from bidict import bidict
+from typing import Any, Dict, List, Optional
 
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.derivative.deepcoin_perpetual import (
@@ -15,21 +11,18 @@ from hummingbot.connector.derivative.deepcoin_perpetual.deepcoin_perpetual_auth 
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.data_types import RateLimit
-from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
+from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.trade_fee import TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_gather
-from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
 class DeepcoinPerpetualDerivative(PerpetualDerivativePyBase):
     """
-    DeepcoinPerpetualDerivative connects with Deepcoin Perpetual exchange and provides order book pricing, 
+    DeepcoinPerpetualDerivative connects with Deepcoin Perpetual exchange and provides order book pricing,
     user account tracking and trading functionality for perpetual contracts.
     """
 
@@ -66,7 +59,7 @@ class DeepcoinPerpetualDerivative(PerpetualDerivativePyBase):
     @property
     def authenticator(self) -> DeepcoinPerpetualAuth:
         return DeepcoinPerpetualAuth(
-            self.deepcoin_perpetual_api_key, 
+            self.deepcoin_perpetual_api_key,
             self.deepcoin_perpetual_secret_key,
             self.deepcoin_perpetual_passphrase,
             self._time_synchronizer
@@ -140,12 +133,16 @@ class DeepcoinPerpetualDerivative(PerpetualDerivativePyBase):
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         # TODO: Implement order book data source
-        from hummingbot.connector.derivative.deepcoin_perpetual.deepcoin_perpetual_api_order_book_data_source import DeepcoinPerpetualAPIOrderBookDataSource
+        from hummingbot.connector.derivative.deepcoin_perpetual.deepcoin_perpetual_api_order_book_data_source import (
+            DeepcoinPerpetualAPIOrderBookDataSource,
+        )
         return DeepcoinPerpetualAPIOrderBookDataSource(trading_pairs=self._trading_pairs, domain=self._domain)
 
     def _create_user_stream_tracker_data_source(self) -> UserStreamTrackerDataSource:
         # TODO: Implement user stream data source
-        from hummingbot.connector.derivative.deepcoin_perpetual.deepcoin_perpetual_user_stream_data_source import DeepcoinPerpetualUserStreamDataSource
+        from hummingbot.connector.derivative.deepcoin_perpetual.deepcoin_perpetual_user_stream_data_source import (
+            DeepcoinPerpetualUserStreamDataSource,
+        )
         return DeepcoinPerpetualUserStreamDataSource(
             auth=self.authenticator,
             trading_pairs=self._trading_pairs,
@@ -162,19 +159,19 @@ class DeepcoinPerpetualDerivative(PerpetualDerivativePyBase):
                 is_auth_required=True
             )
             self._validate_exchange_response(account_info, "Error fetching account balance: ")
-            
+
             self._account_balances.clear()
             self._account_available_balances.clear()
-            
+
             if "data" in account_info:
                 for balance_info in account_info["data"]:
                     asset = balance_info.get("currency", "")
                     total_balance = Decimal(balance_info.get("balance", "0"))
                     available_balance = Decimal(balance_info.get("available", "0"))
-                    
+
                     self._account_balances[asset] = total_balance
                     self._account_available_balances[asset] = available_balance
-                    
+
         except Exception as e:
             self.logger().error(f"Error updating balances: {e}")
 
@@ -187,19 +184,19 @@ class DeepcoinPerpetualDerivative(PerpetualDerivativePyBase):
                 path_url=CONSTANTS.POSITION_INFORMATION_URL,
                 is_auth_required=True
             )
-            
+
             self._account_positions.clear()
-            
+
             if "data" in positions_info:
                 for position_data in positions_info["data"]:
                     try:
                         from hummingbot.connector.derivative.deepcoin_perpetual import deepcoin_perpetual_utils as utils
                         parsed_position = utils.parse_position_data(position_data)
-                        
+
                         trading_pair = parsed_position["trading_pair"]
                         position_side = parsed_position["position_side"]
                         amount = parsed_position["amount"]
-                        
+
                         if amount > 0:  # Only track non-zero positions
                             position_key = f"{trading_pair}_{position_side.value}"
                             self._account_positions[position_key] = Position(
@@ -212,7 +209,7 @@ class DeepcoinPerpetualDerivative(PerpetualDerivativePyBase):
                     except Exception as e:
                         self.logger().error(f"Error parsing position: {e}")
                         continue
-                        
+
         except Exception as e:
             self.logger().error(f"Error updating positions: {e}")
 
@@ -224,7 +221,7 @@ class DeepcoinPerpetualDerivative(PerpetualDerivativePyBase):
             exchange_info = await self._api_get(
                 path_url=CONSTANTS.EXCHANGE_INFO_URL
             )
-            
+
             trading_rules = []
             if "data" in exchange_info:
                 for symbol_info in exchange_info["data"]:
@@ -245,11 +242,11 @@ class DeepcoinPerpetualDerivative(PerpetualDerivativePyBase):
                     except Exception as e:
                         self.logger().error(f"Error parsing trading rule: {e}")
                         continue
-            
+
             self._trading_rules.clear()
             for trading_rule in trading_rules:
                 self._trading_rules[trading_rule.trading_pair] = trading_rule
-                
+
         except Exception as e:
             self.logger().error(f"Error updating trading rules: {e}")
 
@@ -261,44 +258,44 @@ class DeepcoinPerpetualDerivative(PerpetualDerivativePyBase):
             tracked_orders = list(self._in_flight_orders.values())
             if not tracked_orders:
                 return
-                
+
             for tracked_order in tracked_orders:
                 try:
                     order_info = await self._api_get(
                         path_url=f"{CONSTANTS.ORDER_URL}?orderId={tracked_order.exchange_order_id}",
                         is_auth_required=True
                     )
-                    
+
                     if "data" in order_info:
                         order_data = order_info["data"]
                         from hummingbot.connector.derivative.deepcoin_perpetual import deepcoin_perpetual_utils as utils
                         new_status = utils.parse_order_status(order_data)
-                        
+
                         if new_status != tracked_order.current_state:
                             tracked_order.current_state = new_status
-                            
+
                             if new_status == "filled":
                                 tracked_order.is_done = True
                                 tracked_order.is_cancelled = False
                             elif new_status == "canceled":
                                 tracked_order.is_done = True
                                 tracked_order.is_cancelled = True
-                                
+
                 except Exception as e:
                     self.logger().error(f"Error updating order status: {e}")
-                    
+
         except Exception as e:
             self.logger().error(f"Error updating order status: {e}")
 
     async def _place_order(self, order_id: str, trading_pair: str, amount: Decimal, order_type: OrderType,
-                          trade_type: TradeType, price: Decimal = s_decimal_NaN, 
-                          position_action: PositionAction = PositionAction.OPEN) -> Optional[str]:
+                           trade_type: TradeType, price: Decimal = s_decimal_NaN,
+                           position_action: PositionAction = PositionAction.OPEN) -> Optional[str]:
         """
         Places an order
         """
         try:
             from hummingbot.connector.derivative.deepcoin_perpetual import deepcoin_perpetual_utils as utils
-            
+
             order_data = {
                 "symbol": utils.convert_to_exchange_trading_pair(trading_pair),
                 "side": utils.convert_to_exchange_side(trade_type),
@@ -307,23 +304,23 @@ class DeepcoinPerpetualDerivative(PerpetualDerivativePyBase):
                 "clientOrderId": order_id,
                 "positionAction": position_action.value.lower(),
             }
-            
+
             if order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]:
                 order_data["price"] = str(price)
                 order_data["timeInForce"] = CONSTANTS.TIME_IN_FORCE_GTC
-            
+
             response = await self._api_post(
                 path_url=CONSTANTS.ORDER_URL,
                 data=order_data,
                 is_auth_required=True
             )
-            
+
             if "data" in response:
                 return response["data"].get("orderId")
             else:
                 self.logger().error(f"Error placing order: {response}")
                 return None
-                
+
         except Exception as e:
             self.logger().error(f"Error placing order: {e}")
             return None
@@ -337,9 +334,9 @@ class DeepcoinPerpetualDerivative(PerpetualDerivativePyBase):
                 path_url=f"{CONSTANTS.ORDER_URL}?orderId={order_id}",
                 is_auth_required=True
             )
-            
+
             return "data" in response and response["data"].get("success", False)
-            
+
         except Exception as e:
             self.logger().error(f"Error canceling order: {e}")
             return False
@@ -350,20 +347,20 @@ class DeepcoinPerpetualDerivative(PerpetualDerivativePyBase):
         """
         try:
             from hummingbot.connector.derivative.deepcoin_perpetual import deepcoin_perpetual_utils as utils
-            
+
             leverage_data = {
                 "symbol": utils.convert_to_exchange_trading_pair(trading_pair),
                 "leverage": leverage
             }
-            
+
             response = await self._api_post(
                 path_url=CONSTANTS.SET_LEVERAGE_URL,
                 data=leverage_data,
                 is_auth_required=True
             )
-            
+
             return "data" in response and response["data"].get("success", False)
-            
+
         except Exception as e:
             self.logger().error(f"Error setting leverage: {e}")
             return False
@@ -373,30 +370,29 @@ class DeepcoinPerpetualDerivative(PerpetualDerivativePyBase):
         Sets position mode (one-way or hedge)
         """
         try:
-            from hummingbot.connector.derivative.deepcoin_perpetual import deepcoin_perpetual_utils as utils
-            
+
             position_mode_data = {
                 "dualSidePosition": position_mode == PositionMode.HEDGE
             }
-            
+
             response = await self._api_post(
                 path_url=CONSTANTS.CHANGE_POSITION_MODE_URL,
                 data=position_mode_data,
                 is_auth_required=True
             )
-            
+
             if "data" in response and response["data"].get("success", False):
                 self._position_mode = position_mode
                 return True
             return False
-            
+
         except Exception as e:
             self.logger().error(f"Error setting position mode: {e}")
             return False
 
     def _create_in_flight_order(self, client_order_id: str, exchange_order_id: str, trading_pair: str,
-                               order_type: OrderType, trade_type: TradeType, price: Decimal, amount: Decimal,
-                               position_action: PositionAction = PositionAction.OPEN) -> InFlightOrder:
+                                order_type: OrderType, trade_type: TradeType, price: Decimal, amount: Decimal,
+                                position_action: PositionAction = PositionAction.OPEN) -> InFlightOrder:
         """
         Creates an in-flight order
         """
@@ -426,7 +422,7 @@ class DeepcoinPerpetualDerivative(PerpetualDerivativePyBase):
                 fee_rate = trading_rule.sell_order_fee
         else:
             fee_rate = Decimal("0.001")
-        
+
         return TradeFeeBase.new_spot_fee(
             fee_schema=TradeFeeBase.new_spot_fee_schema(),
             maker_percent=fee_rate,

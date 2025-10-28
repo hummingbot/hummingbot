@@ -1,14 +1,12 @@
 from decimal import Decimal
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict
+
 from pydantic import ConfigDict, Field, SecretStr
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.connector.utils import split_hb_trading_pair
+from hummingbot.core.data_type.common import OrderType, PositionSide, TradeType
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
-from hummingbot.core.data_type.common import OrderType, TradeType, PositionSide, PositionMode, PositionAction
-from hummingbot.core.data_type.trade_fee import TradeFeeBase, TokenAmount, AddedToCostTradeFee, \
-    DeductedFromReturnsTradeFee
-from hummingbot.connector.derivative.deepcoin_perpetual import deepcoin_perpetual_constants as CONSTANTS
 
 # Deepcoin fees
 DEFAULT_FEES = TradeFeeSchema(
