@@ -72,12 +72,14 @@ class V2WithControllers(StrategyV2Base):
                         filter_func=lambda x: x.is_active and not x.is_trading,
                     )
                     self.executor_orchestrator.execute_actions(
-                        actions=[StopExecutorAction(controller_id=controller_id, executor_id=executor.id) for executor in executors_order_placed]
+                        actions=[StopExecutorAction(controller_id=controller_id, executor_id=executor.id) for executor
+                                 in executors_order_placed]
                     )
                     self.drawdown_exited_controllers.append(controller_id)
 
     def check_max_global_drawdown(self):
-        current_global_pnl = sum([self.get_performance_report(controller_id).global_pnl_quote for controller_id in self.controllers.keys()])
+        current_global_pnl = sum(
+            [self.get_performance_report(controller_id).global_pnl_quote for controller_id in self.controllers.keys()])
         if current_global_pnl > self.max_global_pnl:
             self.max_global_pnl = current_global_pnl
         else:
@@ -90,7 +92,8 @@ class V2WithControllers(StrategyV2Base):
 
     def send_performance_report(self):
         if self.current_timestamp - self._last_performance_report_timestamp >= self.performance_report_interval and self._pub:
-            performance_reports = {controller_id: self.get_performance_report(controller_id).dict() for controller_id in self.controllers.keys()}
+            performance_reports = {controller_id: self.get_performance_report(controller_id).dict() for controller_id in
+                                   self.controllers.keys()}
             self._pub(performance_reports)
             self._last_performance_report_timestamp = self.current_timestamp
 
@@ -141,9 +144,10 @@ class V2WithControllers(StrategyV2Base):
                 if self.is_perpetual(config_dict["connector_name"]):
                     if "position_mode" in config_dict:
                         connectors_position_mode[config_dict["connector_name"]] = config_dict["position_mode"]
-                    if "leverage" in config_dict:
-                        self.connectors[config_dict["connector_name"]].set_leverage(leverage=config_dict["leverage"],
-                                                                                    trading_pair=config_dict["trading_pair"])
+                    if "leverage" in config_dict and "trading_pair" in config_dict:
+                        self.connectors[config_dict["connector_name"]].set_leverage(
+                            leverage=config_dict["leverage"],
+                            trading_pair=config_dict["trading_pair"])
         for connector_name, position_mode in connectors_position_mode.items():
             self.connectors[connector_name].set_position_mode(position_mode)
 
