@@ -11,7 +11,6 @@ Date: Sept 19, 2025
 
 """
 import asyncio
-import datetime
 import json
 import os
 import re
@@ -232,7 +231,7 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
             if self.gas_max_price_gwei > 0:
                 self.logger().info(f"⛽ Max gas price: {self.gas_max_price_gwei} Gwei")
             else:
-                self.logger().info(f"⛽ Max gas price: UNLIMITED (execution guaranteed)")
+                self.logger().info("⛽ Max gas price: UNLIMITED (execution guaranteed)")
         else:
             self.logger().info(f"⛽ Gas Strategy: FIXED (buffer={self.gas_buffer}x)")
 
@@ -529,7 +528,7 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
                     # Update trade_fee JSON to include gas cost
                     try:
                         fee_data = json.loads(trade_fill.trade_fee) if trade_fill.trade_fee else {}
-                    except:
+                    except Exception:
                         fee_data = {}
 
                     # Add or update flat_fees with gas cost
@@ -1611,16 +1610,16 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
             # Gas Strategy Summary
             self.logger().info("⛽ Gas Strategy Configuration:")
             if self.gas_strategy == "adaptive":
-                self.logger().info(f"  📈 Strategy: ADAPTIVE (always execute at market price)")
+                self.logger().info("  📈 Strategy: ADAPTIVE (always execute at market price)")
                 self.logger().info(f"  📊 Buffer: +{(self.gas_buffer - 1) * 100:.0f}% above current gas")
                 self.logger().info(f"  🚨 Urgency: +{(self.gas_urgency_multiplier - 1) * 100:.0f}% for critical retries")
                 if self.gas_max_price_gwei > 0:
                     self.logger().info(f"  💰 Max Price: {self.gas_max_price_gwei} Gwei")
                 else:
-                    self.logger().info(f"  💰 Max Price: UNLIMITED (guaranteed execution)")
-                self.logger().info(f"  💡 Trades will ALWAYS execute regardless of gas price")
+                    self.logger().info("  💰 Max Price: UNLIMITED (guaranteed execution)")
+                self.logger().info("  💡 Trades will ALWAYS execute regardless of gas price")
             else:
-                self.logger().info(f"  📈 Strategy: FIXED")
+                self.logger().info("  📈 Strategy: FIXED")
                 self.logger().info(f"  📊 Buffer: {self.gas_buffer}x")
                 self.logger().info(f"  📈 Retry: +{self.gas_retry_multiplier}x per attempt")
 
@@ -1678,11 +1677,11 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
                 # Predictive selling configuration
                 self.logger().info("🎯 CEX Predictive Selling:")
                 if self.cex_predictive_enabled:
-                    self.logger().info(f"  ✅ Enabled")
+                    self.logger().info("  ✅ Enabled")
                     self.logger().info(f"  ⏱️ Window: {self.cex_predictive_window} seconds")
                     self.logger().info(f"  💰 Fee Estimate: {self.cex_fee_estimate}%")
                 else:
-                    self.logger().info(f"  ❌ Disabled")
+                    self.logger().info("  ❌ Disabled")
 
                 # Connection status
                 if self.cex_connector:
@@ -1701,13 +1700,13 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
                     if order_book_count > 0:
                         self.logger().info(f"  📊 Order Books: {order_book_count} active subscriptions")
                     else:
-                        self.logger().info(f"  📊 Order Books: Initializing...")
+                        self.logger().info("  📊 Order Books: Initializing...")
 
                     # Environment variables source
-                    self.logger().info(f"  📋 Config Source: HBOT_CEX_TRADING_PAIRS environment variable")
+                    self.logger().info("  📋 Config Source: HBOT_CEX_TRADING_PAIRS environment variable")
 
                 else:
-                    self.logger().info(f"  🔌 Connection: Connector not found")
+                    self.logger().info("  🔌 Connection: Connector not found")
             else:
                 cex_disabled_reason = "HBOT_CEX_ENABLED=false" if not self.cex_enabled else "Connector unavailable"
                 self.logger().info(f"  ❌ CEX Trading Disabled ({cex_disabled_reason})")
@@ -1726,9 +1725,9 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
                 self.logger().info(f"  📊 CEX for preferred tokens: {self.cex_preferred_tokens}")
                 if self.use_cex_for_large_orders:
                     self.logger().info(f"  📊 CEX for orders ≥ ${self.cex_threshold_amount}")
-                self.logger().info(f"  🌊 DEX for all other trades")
+                self.logger().info("  🌊 DEX for all other trades")
             else:
-                self.logger().info(f"  🌊 DEX only (CEX disabled)")
+                self.logger().info("  🌊 DEX only (CEX disabled)")
 
             # Overall capability summary
             cex_capability = f"{len(self.markets.get(self.cex_exchange_name, []))} CEX pairs" if self.cex_enabled else "CEX disabled"
@@ -1856,7 +1855,7 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
         if pool_address:
             self.logger().info(f"✅ Pool found: {pool_address[:10]}... ({pool_info['type']})")
         else:
-            self.logger().info(f"🔄 No pool configured, Gateway will auto-select")
+            self.logger().info("🔄 No pool configured, Gateway will auto-select")
 
         # Execute trade
         if action == "BUY":
@@ -2013,7 +2012,7 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
             # Determine sell amount
             if use_predictive:
                 sell_amount = predictive_amount
-                self.logger().info(f"⚡ Using predictive amount (conservative estimate)")
+                self.logger().info("⚡ Using predictive amount (conservative estimate)")
 
             else:
                 # Normal balance check for older trades
@@ -2049,7 +2048,7 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
             # Get current price
             order_book = self.cex_connector.get_order_book(trading_pair)
             if not order_book:
-                self.logger().error(f"❌ No order book available")
+                self.logger().error("❌ No order book available")
                 return False
 
             bid_price = order_book.get_price(False)
@@ -2066,7 +2065,7 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
                         f"⚠️ Predictive amount too small (${float(usd_value):.2f} < ${self.cex_min_order_size})"
                     )
                 else:
-                    self.logger().warning(f"⚠️ Order too small for minimum size")
+                    self.logger().warning("⚠️ Order too small for minimum size")
                 return False
 
             # EXECUTE THE SELL ORDER
@@ -2124,7 +2123,7 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
 
                     # Log what we tried vs what might be available
                     self.logger().info(f"📊 Debug: Tried to sell {float(sell_amount):.8f}")
-                    self.logger().info(f"📊 Debug: Check actual balance to see discrepancy")
+                    self.logger().info("📊 Debug: Check actual balance to see discrepancy")
 
                     # Log stats after failure
                     self.log_predictive_stats()
@@ -2144,7 +2143,7 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
             success_rate = (self.predictive_stats['successes'] / self.predictive_stats['attempts']) * 100
 
             self.logger().info(
-                f"📊 === PREDICTIVE SELLING STATS ==="
+                "📊 === PREDICTIVE SELLING STATS ==="
             )
             self.logger().info(
                 f"   Total Attempts: {self.predictive_stats['attempts']}"
@@ -2166,15 +2165,15 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
 
             # Performance assessment
             if success_rate >= 95:
-                self.logger().info(f"   🎯 Performance: EXCELLENT")
+                self.logger().info("   🎯 Performance: EXCELLENT")
             elif success_rate >= 90:
-                self.logger().info(f"   ✅ Performance: GOOD")
+                self.logger().info("   ✅ Performance: GOOD")
             elif success_rate >= 80:
-                self.logger().info(f"   ⚠️ Performance: NEEDS TUNING (consider adjusting fee estimate)")
+                self.logger().info("   ⚠️ Performance: NEEDS TUNING (consider adjusting fee estimate)")
             else:
-                self.logger().info(f"   ❌ Performance: POOR (check fee settings)")
+                self.logger().info("   ❌ Performance: POOR (check fee settings)")
 
-            self.logger().info(f"   =========================")
+            self.logger().info("   =========================")
 
     def _extract_base_token_from_symbol(self, symbol: str) -> str:
         """
@@ -2344,7 +2343,7 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
                     network=network,
                     exchange=exchange
                 )
-                self.logger().info(f"✅ BUY trade successful!")
+                self.logger().info("✅ BUY trade successful!")
 
             return success
 
@@ -3006,7 +3005,7 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
                     if exchange and exchange.lower() == "0x":
                         pool_type = "router"
                         pool = None
-                        self.logger().info(f"📋 0x router detected - no pool address needed")
+                        self.logger().info("📋 0x router detected - no pool address needed")
                     else:
                         pool_key = f"{base_token}-{quote_token}"
                         pool_info = await self._get_pool_info(network, exchange, pool_key=pool_key)
@@ -3029,7 +3028,7 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
                 # Final fallback for pool type
                 if not pool_type:
                     pool_type = "clmm"
-                    self.logger().info(f"📋 Using default CLMM for EVM trading")
+                    self.logger().info("📋 Using default CLMM for EVM trading")
 
             # Auto-detect pool type for router exchanges
             if exchange.lower() in ['0x']:
@@ -3174,7 +3173,7 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
                     if exchange and exchange.lower() == "jupiter":
                         pool_type = "router"
                         pool = None
-                        self.logger().info(f"📋 Jupiter router detected - no pool address needed")
+                        self.logger().info("📋 Jupiter router detected - no pool address needed")
                     else:
                         pool_key = f"{base_token}-{quote_token}"
                         pool_info = await self._get_pool_info(network, exchange, pool_key=pool_key)
@@ -3197,7 +3196,7 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
                 # Final fallback for pool type
                 if not pool_type:
                     pool_type = "amm"
-                    self.logger().info(f"📋 Using default AMM for Solana trading")
+                    self.logger().info("📋 Using default AMM for Solana trading")
 
             # Step 2: Get balance
             balance = await self._get_token_balance(base_token, network)
@@ -3649,7 +3648,7 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
                         "poolAddress": pool_address
                     }
 
-                    endpoint = f"/connectors/raydium/clmm/quote-swap"
+                    endpoint = "/connectors/raydium/clmm/quote-swap"
                     response = await self.gateway_request("GET", endpoint, params=quote_params)
 
                     if response and "amountOut" in response:
@@ -3786,7 +3785,7 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
                     price = float(response["amountOut"])
                     self.logger().info(f"💰 {token} price (auto-selected pool): ${price:.6f}")
                     return price
-            except:
+            except Exception:
                 pass
 
             # Try token-SOL as last resort
@@ -3809,7 +3808,7 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
                         token_price_usd = token_price_in_sol * sol_price_usd
                         self.logger().info(f"💰 {token} price (via SOL, auto-pool): ${token_price_usd:.9f}")
                         return token_price_usd
-            except:
+            except Exception:
                 pass
 
             self.logger().warning(f"⚠️ Could not get price for {token}")
@@ -4078,7 +4077,7 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
 
                         # Special handling for 500 errors with signatures
                         if response.status == 500 and "signature" in response_data:
-                            self.logger().warning(f"⚠️ Gateway 500 with signature - likely confirmation timeout")
+                            self.logger().warning("⚠️ Gateway 500 with signature - likely confirmation timeout")
                         elif response.status >= 400:
                             self.logger().error(f"❌ Gateway error {response.status}: {response_data}")
 
@@ -4095,7 +4094,7 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
 
                         # Special handling for 500 errors with signatures (Solana timeout case)
                         if response.status == 500 and "signature" in response_data:
-                            self.logger().warning(f"⚠️ Gateway 500 with signature - likely confirmation timeout")
+                            self.logger().warning("⚠️ Gateway 500 with signature - likely confirmation timeout")
                         elif response.status >= 400:
                             self.logger().error(f"❌ Gateway error {response.status}: {response_data}")
 
@@ -4267,7 +4266,7 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
             cex_ready = "✅ Ready" if self.cex_ready else "🔄 Initializing"
             lines.append(f"  CEX ({self.cex_exchange_name}): {cex_status} - {cex_ready}")
         else:
-            lines.append(f"  CEX: ❌ Disabled")
+            lines.append("  CEX: ❌ Disabled")
 
         return lines
 
@@ -4490,8 +4489,8 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
 
         # Last signal time (in-memory only)
         if hasattr(self, 'last_signal_time') and self.last_signal_time:
-            time_diff = datetime.datetime.now(datetime.timezone.utc) - self.last_signal_time
-            lines.append(f"  Last Signal: {time_diff.seconds // 60}m {time_diff.seconds%60}s ago")
+            time_diff = datetime.now(timezone.utc) - self.last_signal_time
+            lines.append(f"  Last Signal: {time_diff.seconds // 60}m {time_diff.seconds % 60}s ago")
 
         return lines
 
