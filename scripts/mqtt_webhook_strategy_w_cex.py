@@ -36,6 +36,7 @@ except ImportError:
 
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.connector.gateway.core.gateway_network_adapter import GatewayNetworkAdapter
+from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativePyBase
 from hummingbot.core.data_type.common import OrderType, PositionAction
 from hummingbot.core.event.events import OrderFilledEvent
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
@@ -2019,27 +2020,61 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
                 self.logger().info(f"📊 Buy is older than {self.cex_predictive_window}s, checking actual balance...")
 
                 try:
-                    balances = self.cex_connector.get_all_balances()
-                    if asyncio.iscoroutine(balances):
-                        balances = await balances
+                    # Detect if this is a perpetual connector (positions) or spot connector (balances)
+                    if isinstance(self.cex_connector, PerpetualDerivativePyBase):
+                        # PERPETUAL CONNECTOR: Check positions instead of balances
+                        self.logger().info("📊 Perpetual connector detected - checking positions...")
 
-                    if not balances or not isinstance(balances, dict):
-                        self.logger().error("❌ Could not get balances")
-                        return False
+                        positions = self.cex_connector.account_positions
 
-                    base_balance = balances.get(base_token, Decimal("0"))
+                        # Sum up all positions for this trading pair (LONG + SHORT if needed)
+                        total_position = Decimal("0")
+                        for pos_key, position in positions.items():
+                            if position.trading_pair == trading_pair:
+                                # For perpetual, use absolute value of position amount
+                                total_position += abs(position.amount)
+                                self.logger().info(
+                                    f"📊 Found position: {position.trading_pair} "
+                                    f"side={position.position_side} amount={abs(position.amount)}"
+                                )
 
-                    if base_balance <= 0:
-                        self.logger().warning(f"⚠️ No {base_token} balance to sell")
-                        return False
+                        if total_position <= 0:
+                            self.logger().warning(f"⚠️ No {base_token} position to sell")
+                            return False
 
-                    sell_amount = base_balance * Decimal(str(percentage / 100.0))
-                    sell_amount = sell_amount.quantize(Decimal('0.00000001'))
+                        sell_amount = total_position * Decimal(str(percentage / 100.0))
+                        sell_amount = sell_amount.quantize(Decimal('0.00000001'))
 
-                    self.logger().info(
-                        f"📊 Actual balance: {float(base_balance):.8f} {base_token}, "
-                        f"selling {percentage}% = {float(sell_amount):.8f}"
-                    )
+                        self.logger().info(
+                            f"📊 Total position: {float(total_position):.8f} {base_token}, "
+                            f"selling {percentage}% = {float(sell_amount):.8f}"
+                        )
+
+                    else:
+                        # SPOT CONNECTOR: Check balances (existing logic)
+                        self.logger().info("📊 Spot connector detected - checking balances...")
+
+                        balances = self.cex_connector.get_all_balances()
+                        if asyncio.iscoroutine(balances):
+                            balances = await balances
+
+                        if not balances or not isinstance(balances, dict):
+                            self.logger().error("❌ Could not get balances")
+                            return False
+
+                        base_balance = balances.get(base_token, Decimal("0"))
+
+                        if base_balance <= 0:
+                            self.logger().warning(f"⚠️ No {base_token} balance to sell")
+                            return False
+
+                        sell_amount = base_balance * Decimal(str(percentage / 100.0))
+                        sell_amount = sell_amount.quantize(Decimal('0.00000001'))
+
+                        self.logger().info(
+                            f"📊 Actual balance: {float(base_balance):.8f} {base_token}, "
+                            f"selling {percentage}% = {float(sell_amount):.8f}"
+                        )
 
                 except Exception as e:
                     self.logger().error(f"❌ Balance check failed: {e}")
