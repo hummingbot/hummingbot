@@ -60,7 +60,7 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
         # CEX connector
         os.getenv("HBOT_CEX_DEFAULT_EXCHANGE", "hyperliquid_perpetual"): os.getenv(
             "HBOT_CEX_TRADING_PAIRS",
-            "ETH-USD,BTC-USD,SOL-USD,AVAX-USD,ATOM-USD,LINK-USD,DOT-USD,XRP-USD"
+            "ETH-USD,BTC-USD,HYPE-USD,SOL-USD,AVAX-USD,ATOM-USD,LINK-USD,DOT-USD,XRP-USD"
         ).split(","),
 
         # Gateway DEX connectors - Use format: {name}/{type}
@@ -1556,9 +1556,9 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
         if signal_data.get("use_cex", False):
             return True
 
-        # Check if exchange is explicitly set to CEX
+        # Check if exchange is explicitly set to CEX or is a direct connector (like Hyperliquid)
         exchange = signal_data.get("exchange", "").lower()
-        if "coinbase" in exchange or "cex" in exchange:
+        if self._is_cex_exchange(exchange):
             return True
 
         # Get symbol and check if it's a CEX preferred token
@@ -1935,6 +1935,14 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
 
             self.logger().info(f"✅ CEX BUY order placed: {order_id}")
 
+            # Inject price into rate oracle to help with fee calculations
+            try:
+                rate_oracle = RateOracle.get_instance()
+                rate_oracle.set_price(trading_pair, ask_price_decimal)
+                self.logger().debug(f"📊 Injected {trading_pair} = ${ask_price_decimal:.2f} into rate oracle")
+            except Exception as oracle_err:
+                self.logger().debug(f"⚠️ Could not inject price into rate oracle: {oracle_err}")
+
             # Enhanced tracking for predictive selling
             self._pending_balances[base_token] = {
                 'order_id': order_id,
@@ -2077,6 +2085,14 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
                 )
 
                 self.logger().info(f"✅ CEX SELL order placed: {order_id}")
+
+                # Inject price into rate oracle to help with fee calculations
+                try:
+                    rate_oracle = RateOracle.get_instance()
+                    rate_oracle.set_price(trading_pair, bid_price)
+                    self.logger().debug(f"📊 Injected {trading_pair} = ${bid_price:.2f} into rate oracle")
+                except Exception as oracle_err:
+                    self.logger().debug(f"⚠️ Could not inject price into rate oracle: {oracle_err}")
 
                 # TRACK SUCCESS
                 if use_predictive:
