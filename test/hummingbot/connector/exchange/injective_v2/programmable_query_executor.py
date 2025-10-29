@@ -167,6 +167,7 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
         derivative_orderbooks_filter: Optional[chain_stream_query.OrderbookFilter] = None,
         positions_filter: Optional[chain_stream_query.PositionsFilter] = None,
         oracle_price_filter: Optional[chain_stream_query.OraclePriceFilter] = None,
+        order_failures_filter: Optional[chain_stream_query.OrderFailuresFilter] = None,
     ):
         while True:
             next_event = await self._chain_stream_events.get()
