@@ -214,7 +214,7 @@ class SimpleXEMMGateway(ScriptStrategyBase):
         if self.taker_buy_price is None or self.taker_sell_price is None:
             raise ValueError
 
-        columns = ["Exchange", "Market", "Side", "Price", "Amount", "Profitability %", "Min Profit %", "Age"]
+        columns = ["Exchange", "Market", "Side", "Price", "Amount", "Current Profit %", "Min Profit %", "Age"]
         data = []
         for connector_name, connector in self.connectors.items():
             for order in self.get_active_orders(connector_name):
