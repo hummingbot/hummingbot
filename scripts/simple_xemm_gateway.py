@@ -53,6 +53,8 @@ class SimpleXEMMGateway(ScriptStrategyBase):
         self.config = config
         self.taker_buy_price = None
         self.taker_sell_price = None
+        self.maker_buy_price = None
+        self.maker_sell_price = None
         self.price_fetch_in_progress = False
 
     def on_tick(self):
@@ -79,11 +81,11 @@ class SimpleXEMMGateway(ScriptStrategyBase):
             if not self.buy_order_placed:
                 # Maker BUY: profitability = (taker_price - maker_price) / maker_price
                 # To achieve target: maker_price = taker_price / (1 + target_profitability)
-                maker_buy_price = self.taker_sell_price / (Decimal("1") + self.config.target_profitability)
+                self.maker_buy_price = self.taker_sell_price / (Decimal("1") + self.config.target_profitability)
                 buy_order_amount = min(self.config.order_amount, self.buy_hedging_budget())
 
                 buy_order = OrderCandidate(trading_pair=self.config.maker_trading_pair, is_maker=True, order_type=OrderType.LIMIT,
-                                           order_side=TradeType.BUY, amount=Decimal(buy_order_amount), price=maker_buy_price)
+                                           order_side=TradeType.BUY, amount=Decimal(buy_order_amount), price=self.maker_buy_price)
                 buy_order_adjusted = self.connectors[self.config.maker_connector].budget_checker.adjust_candidate(buy_order, all_or_none=False)
                 self.buy(self.config.maker_connector, self.config.maker_trading_pair, buy_order_adjusted.amount,
                          buy_order_adjusted.order_type, buy_order_adjusted.price)
@@ -92,10 +94,10 @@ class SimpleXEMMGateway(ScriptStrategyBase):
             if not self.sell_order_placed:
                 # Maker SELL: profitability = (maker_price - taker_price) / maker_price
                 # To achieve target: maker_price = taker_price / (1 - target_profitability)
-                maker_sell_price = self.taker_buy_price / (Decimal("1") - self.config.target_profitability)
+                self.maker_sell_price = self.taker_buy_price / (Decimal("1") - self.config.target_profitability)
                 sell_order_amount = min(self.config.order_amount, await self._get_sell_hedging_budget())
                 sell_order = OrderCandidate(trading_pair=self.config.maker_trading_pair, is_maker=True, order_type=OrderType.LIMIT,
-                                            order_side=TradeType.SELL, amount=Decimal(sell_order_amount), price=maker_sell_price)
+                                            order_side=TradeType.SELL, amount=Decimal(sell_order_amount), price=self.maker_sell_price)
                 sell_order_adjusted = self.connectors[self.config.maker_connector].budget_checker.adjust_candidate(sell_order, all_or_none=False)
                 self.sell(self.config.maker_connector, self.config.maker_trading_pair, sell_order_adjusted.amount,
                           sell_order_adjusted.order_type, sell_order_adjusted.price)
@@ -184,19 +186,20 @@ class SimpleXEMMGateway(ScriptStrategyBase):
         if self.taker_buy_price is None or self.taker_sell_price is None:
             return pd.DataFrame()
 
-        maker_buy_result = self.connectors[self.config.maker_connector].get_price_for_volume(self.config.maker_trading_pair, True, self.config.order_amount)
-        maker_sell_result = self.connectors[self.config.maker_connector].get_price_for_volume(self.config.maker_trading_pair, False, self.config.order_amount)
+        if self.maker_buy_price is None or self.maker_sell_price is None:
+            return pd.DataFrame()
+
         # Calculate profitability: (taker_price - maker_price) / maker_price for buy, (maker_price - taker_price) / maker_price for sell
-        maker_buy_profitability_pct = (self.taker_sell_price - maker_buy_result.result_price) / maker_buy_result.result_price * 100
-        maker_sell_profitability_pct = (maker_sell_result.result_price - self.taker_buy_price) / maker_sell_result.result_price * 100
+        maker_buy_profitability_pct = (self.taker_sell_price - self.maker_buy_price) / self.maker_buy_price * 100
+        maker_sell_profitability_pct = (self.maker_sell_price - self.taker_buy_price) / self.maker_sell_price * 100
         columns = ["Exchange", "Market", "Mid Price", "Buy Price", "Sell Price", "Maker Buy Profit %", "Maker Sell Profit %"]
         data = []
         data.append([
             self.config.maker_connector,
             self.config.maker_trading_pair,
             float(self.connectors[self.config.maker_connector].get_mid_price(self.config.maker_trading_pair)),
-            float(maker_buy_result.result_price),
-            float(maker_sell_result.result_price),
+            float(self.maker_buy_price),
+            float(self.maker_sell_price),
             f"{float(maker_buy_profitability_pct):.3f}",
             f"{float(maker_sell_profitability_pct):.3f}"
         ])
