@@ -16,9 +16,9 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 class SimpleXEMMGatewayConfig(BaseClientModel):
     script_file_name: str = os.path.basename(__file__)
-    maker_connector: str = Field("kucoin_paper_trade", json_schema_extra={
+    maker_connector: str = Field("okx", json_schema_extra={
         "prompt": "Maker connector where the bot will place maker orders", "prompt_on_new": True})
-    maker_trading_pair: str = Field("ETH-USDT", json_schema_extra={
+    maker_trading_pair: str = Field("SOL-USDT", json_schema_extra={
         "prompt": "Maker trading pair where the bot will place maker orders", "prompt_on_new": True})
     taker_connector: str = Field("jupiter/router", json_schema_extra={
         "prompt": "Taker connector (gateway connector) where the bot will hedge filled orders", "prompt_on_new": True})
@@ -26,12 +26,12 @@ class SimpleXEMMGatewayConfig(BaseClientModel):
         "prompt": "Taker trading pair where the bot will hedge filled orders", "prompt_on_new": True})
     order_amount: Decimal = Field(0.1, json_schema_extra={
         "prompt": "Order amount (denominated in base asset)", "prompt_on_new": True})
-    target_profitability: Decimal = Field(Decimal("0.001"), json_schema_extra={
+    target_profitability: Decimal = Field(Decimal("0.01"), json_schema_extra={
         "prompt": "Target profitability (e.g., 0.01 for 1%)", "prompt_on_new": True})
-    min_profitability: Decimal = Field(Decimal("0.0005"), json_schema_extra={
+    min_profitability: Decimal = Field(Decimal("0.005"), json_schema_extra={
         "prompt": "Minimum profitability (e.g., 0.005 for 0.5%)", "prompt_on_new": True})
-    max_profitability: Decimal = Field(Decimal("0.002"), json_schema_extra={
-        "prompt": "Maximum profitability (e.g., 0.02 for 2%)", "prompt_on_new": True})
+    max_order_age: int = Field(120, json_schema_extra={
+        "prompt": "Max order age (in seconds)", "prompt_on_new": True})
 
 
 class SimpleXEMMGateway(ScriptStrategyBase):
@@ -102,17 +102,18 @@ class SimpleXEMMGateway(ScriptStrategyBase):
                 self.sell_order_placed = True
 
             for order in self.get_active_orders(connector_name=self.config.maker_connector):
+                cancel_timestamp = order.creation_timestamp / 1000000 + self.config.max_order_age
                 if order.is_buy:
                     # Calculate current profitability: (taker_sell_price - maker_buy_price) / maker_buy_price
                     current_profitability = (self.taker_sell_price - order.price) / order.price
-                    if current_profitability < self.config.min_profitability or current_profitability > self.config.max_profitability:
+                    if current_profitability < self.config.min_profitability or cancel_timestamp < self.current_timestamp:
                         self.logger().info(f"Cancelling buy order: {order.client_order_id} (profitability: {current_profitability:.4f})")
                         self.cancel(self.config.maker_connector, order.trading_pair, order.client_order_id)
                         self.buy_order_placed = False
                 else:
                     # Calculate current profitability: (maker_sell_price - taker_buy_price) / maker_sell_price
                     current_profitability = (order.price - self.taker_buy_price) / order.price
-                    if current_profitability < self.config.min_profitability or current_profitability > self.config.max_profitability:
+                    if current_profitability < self.config.min_profitability or cancel_timestamp < self.current_timestamp:
                         self.logger().info(f"Cancelling sell order: {order.client_order_id} (profitability: {current_profitability:.4f})")
                         self.cancel(self.config.maker_connector, order.trading_pair, order.client_order_id)
                         self.sell_order_placed = False
@@ -188,7 +189,7 @@ class SimpleXEMMGateway(ScriptStrategyBase):
         # Calculate profitability: (taker_price - maker_price) / maker_price for buy, (maker_price - taker_price) / maker_price for sell
         maker_buy_profitability_pct = (self.taker_sell_price - maker_buy_result.result_price) / maker_buy_result.result_price * 100
         maker_sell_profitability_pct = (maker_sell_result.result_price - self.taker_buy_price) / maker_sell_result.result_price * 100
-        columns = ["Exchange", "Market", "Mid Price", "Buy Price", "Sell Price", "Buy Profit %", "Sell Profit %"]
+        columns = ["Exchange", "Market", "Mid Price", "Buy Price", "Sell Price", "Maker Buy Profit %", "Maker Sell Profit %"]
         data = []
         data.append([
             self.config.maker_connector,
@@ -205,8 +206,8 @@ class SimpleXEMMGateway(ScriptStrategyBase):
             float((self.taker_buy_price + self.taker_sell_price) / 2),
             float(self.taker_buy_price),
             float(self.taker_sell_price),
-            f"{-float(maker_buy_profitability_pct):.3f}",
-            f"{-float(maker_sell_profitability_pct):.3f}"
+            "",
+            "",
         ])
         df = pd.DataFrame(data=data, columns=columns)
         return df
@@ -218,10 +219,11 @@ class SimpleXEMMGateway(ScriptStrategyBase):
         if self.taker_buy_price is None or self.taker_sell_price is None:
             raise ValueError
 
-        columns = ["Exchange", "Market", "Side", "Price", "Amount", "Profitability %", "Min Profit %", "Max Profit %"]
+        columns = ["Exchange", "Market", "Side", "Price", "Amount", "Profitability %", "Min Profit %", "Age"]
         data = []
         for connector_name, connector in self.connectors.items():
             for order in self.get_active_orders(connector_name):
+                age_txt = "n/a" if order.age() <= 0. else pd.Timestamp(order.age(), unit='s').strftime('%H:%M:%S')
                 if order.is_buy:
                     # Buy profitability: (taker_sell_price - maker_buy_price) / maker_buy_price
                     current_profitability = (self.taker_sell_price - order.price) / order.price * 100
@@ -237,7 +239,7 @@ class SimpleXEMMGateway(ScriptStrategyBase):
                     float(order.quantity),
                     f"{float(current_profitability):.3f}",
                     f"{float(self.config.min_profitability * 100):.3f}",
-                    f"{float(self.config.max_profitability * 100):.3f}"
+                    age_txt
                 ])
         if not data:
             raise ValueError
