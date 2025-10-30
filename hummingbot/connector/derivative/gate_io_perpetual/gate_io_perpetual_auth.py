@@ -17,6 +17,7 @@ class GateIoPerpetualAuth(AuthBase):
     Auth Gate.io API
     https://www.gate.io/docs/apiv4/en/#authentication
     """
+
     def __init__(self, api_key: str, secret_key: str):
         self.api_key = api_key
         self.secret_key = secret_key

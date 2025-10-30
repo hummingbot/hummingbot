@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
 from __future__ import unicode_literals
-from asyncio import get_event_loop
 
-from contextlib import contextmanager
-import threading
 import sys
+import threading
+from asyncio import get_event_loop
+from contextlib import contextmanager
 
 __all__ = [
     'patch_stdout',
@@ -39,6 +39,7 @@ class StdoutProxy(object):
     Proxy object for stdout which captures everything and prints output inside
     the current application.
     """
+
     def __init__(self, raw=False, original_stdout=None, log_field=None):
         assert isinstance(raw, bool)
         original_stdout = original_stdout or sys.__stdout__
