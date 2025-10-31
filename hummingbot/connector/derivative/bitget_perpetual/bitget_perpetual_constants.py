@@ -71,6 +71,8 @@ SET_POSITION_MODE_ENDPOINT = "/api/v2/mix/account/set-position-mode"
 SET_MARGIN_MODE_ENDPOINT = "/api/v2/mix/account/set-margin-mode"
 ACCOUNT_BILLS_ENDPOINT = "/api/v2/mix/account/bill"
 
+API_CODE = "bntva"
+
 PUBLIC_WS_BOOKS = "books"
 PUBLIC_WS_TRADE = "trade"
 PUBLIC_WS_TICKER = "ticker"

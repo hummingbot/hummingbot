@@ -141,9 +141,10 @@ class V2WithControllers(StrategyV2Base):
                 if self.is_perpetual(config_dict["connector_name"]):
                     if "position_mode" in config_dict:
                         connectors_position_mode[config_dict["connector_name"]] = config_dict["position_mode"]
-                    if "leverage" in config_dict:
-                        self.connectors[config_dict["connector_name"]].set_leverage(leverage=config_dict["leverage"],
-                                                                                    trading_pair=config_dict["trading_pair"])
+                    if "leverage" in config_dict and "trading_pair" in config_dict:
+                        self.connectors[config_dict["connector_name"]].set_leverage(
+                            leverage=config_dict["leverage"],
+                            trading_pair=config_dict["trading_pair"])
         for connector_name, position_mode in connectors_position_mode.items():
             self.connectors[connector_name].set_position_mode(position_mode)
 
@@ -151,7 +152,7 @@ class V2WithControllers(StrategyV2Base):
         """
         Handle order failure events by logging the error and stopping the strategy if necessary.
         """
-        if "position side" in order_failed_event.error_message.lower():
+        if order_failed_event.error_message and "position side" in order_failed_event.error_message.lower():
             connectors_position_mode = {}
             for controller_id, controller in self.controllers.items():
                 config_dict = controller.config.model_dump()

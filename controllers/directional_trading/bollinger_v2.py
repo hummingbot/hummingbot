@@ -1,8 +1,12 @@
+from sys import float_info as sflt
 from typing import List
 
+import pandas as pd
 import pandas_ta as ta  # noqa: F401
+import talib
 from pydantic import Field, field_validator
 from pydantic_core.core_schema import ValidationInfo
+from talib import MA_Type
 
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.strategy_v2.controllers.directional_trading_controller_base import (
@@ -11,8 +15,8 @@ from hummingbot.strategy_v2.controllers.directional_trading_controller_base impo
 )
 
 
-class BollingerV1ControllerConfig(DirectionalTradingControllerConfigBase):
-    controller_name: str = "bollinger_v1"
+class BollingerV2ControllerConfig(DirectionalTradingControllerConfigBase):
+    controller_name: str = "bollinger_v2"
     candles_config: List[CandlesConfig] = []
     candles_connector: str = Field(
         default=None,
@@ -51,10 +55,10 @@ class BollingerV1ControllerConfig(DirectionalTradingControllerConfigBase):
         return v
 
 
-class BollingerV1Controller(DirectionalTradingControllerBase):
-    def __init__(self, config: BollingerV1ControllerConfig, *args, **kwargs):
+class BollingerV2Controller(DirectionalTradingControllerBase):
+    def __init__(self, config: BollingerV2ControllerConfig, *args, **kwargs):
         self.config = config
-        self.max_records = self.config.bb_length
+        self.max_records = self.config.bb_length * 5
         if len(self.config.candles_config) == 0:
             self.config.candles_config = [CandlesConfig(
                 connector=config.candles_connector,
@@ -64,6 +68,24 @@ class BollingerV1Controller(DirectionalTradingControllerBase):
             )]
         super().__init__(config, *args, **kwargs)
 
+    def non_zero_range(self, x: pd.Series, y: pd.Series) -> pd.Series:
+        """Non-Zero Range
+
+        Calculates the difference of two Series plus epsilon to any zero values.
+        Technically: ```x - y + epsilon```
+
+        Parameters:
+            x (Series): Series of 'x's
+            y (Series): Series of 'y's
+
+        Returns:
+            (Series): 1 column
+        """
+        diff = x - y
+        if diff.eq(0).any().any():
+            diff += sflt.epsilon
+        return diff
+
     async def update_processed_data(self):
         df = self.market_data_provider.get_candles_df(connector_name=self.config.candles_connector,
                                                       trading_pair=self.config.candles_trading_pair,
@@ -71,7 +93,11 @@ class BollingerV1Controller(DirectionalTradingControllerBase):
                                                       max_records=self.max_records)
         # Add indicators
         df.ta.bbands(length=self.config.bb_length, lower_std=self.config.bb_std, upper_std=self.config.bb_std, append=True)
-        bbp = df[f"BBP_{self.config.bb_length}_{self.config.bb_std}_{self.config.bb_std}"]
+        df["upperband"], df["middleband"], df["lowerband"] = talib.BBANDS(real=df["close"], timeperiod=self.config.bb_length, nbdevup=self.config.bb_std, nbdevdn=self.config.bb_std, matype=MA_Type.SMA)
+
+        ulr = self.non_zero_range(df["upperband"], df["lowerband"])
+        bbp = self.non_zero_range(df["close"], df["lowerband"]) / ulr
+        df["percent"] = bbp
 
         # Generate signal
         long_condition = bbp < self.config.bb_long_threshold
@@ -81,6 +107,11 @@ class BollingerV1Controller(DirectionalTradingControllerBase):
         df["signal"] = 0
         df.loc[long_condition, "signal"] = 1
         df.loc[short_condition, "signal"] = -1
+
+        # Debug
+        # We skip the last row which is live candle
+        with pd.option_context('display.max_rows', None, 'display.max_columns', None, 'display.width', None):
+            self.logger().info(df.head(-1).tail(15))
 
         # Update processed data
         self.processed_data["signal"] = df["signal"].iloc[-1]

@@ -26,6 +26,10 @@ from hummingbot.strategy_v2.executors.data_types import ConnectorPair
 
 class MarketDataProvider:
     _logger: Optional[HummingbotLogger] = None
+    gateway_price_provider_by_chain: Dict = {
+        "ethereum": "uniswap/router",
+        "solana": "jupiter/router",
+    }
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -69,11 +73,7 @@ class MarketDataProvider:
         :param connector_pairs: List[ConnectorPair]
         """
         for connector_pair in connector_pairs:
-            connector_name, _ = connector_pair
-            if connector_pair.is_amm_connector():
-                self._rates_required.add_or_update("gateway", connector_pair)
-                continue
-            self._rates_required.add_or_update(connector_name, connector_pair)
+            self._rates_required.add_or_update(connector_pair.connector_name, connector_pair)
         if not self._rates_update_task:
             self._rates_update_task = safe_ensure_future(self.update_rates_task())
 
@@ -83,11 +83,7 @@ class MarketDataProvider:
         :param connector_pairs: List[ConnectorPair]
         """
         for connector_pair in connector_pairs:
-            connector_name, _ = connector_pair
-            if connector_pair.is_amm_connector():
-                self._rates_required.remove("gateway", connector_pair)
-                continue
-            self._rates_required.remove(connector_name, connector_pair)
+            self._rates_required.remove(connector_pair.connector_name, connector_pair)
 
         # Stop the rates update task if no more rates are required
         if len(self._rates_required) == 0 and self._rates_update_task:
@@ -105,49 +101,83 @@ class MarketDataProvider:
                     break
 
                 rate_oracle = RateOracle.get_instance()
+
+                # Separate gateway and non-gateway connectors
+                gateway_tasks = []
+                gateway_task_metadata = []  # Store (connector_pair, trading_pair) for each task
+                non_gateway_connectors = {}
+
                 for connector, connector_pairs in self._rates_required.items():
-                    if connector == "gateway":
-                        tasks = []
+                    # Detect gateway connectors: either new format (contains "/") or old format (contains "gateway")
+                    is_gateway = "/" in connector or "gateway" in connector
+
+                    if is_gateway:
                         gateway_client = GatewayHttpClient.get_instance()
+
                         for connector_pair in connector_pairs:
-                            # Handle new connector format like "jupiter/router"
-                            connector_name = connector_pair.connector_name
-                            base, quote = connector_pair.trading_pair.split("-")
-
-                            # Parse connector to get chain and connector name
-                            # First try to get chain and network from gateway
                             try:
-                                chain, network, error = await gateway_client.get_connector_chain_network(
-                                    connector_name
-                                )
-                                if error:
-                                    self.logger().warning(f"Could not get chain/network for {connector_name}: {error}")
-                                    continue
+                                base, quote = connector_pair.trading_pair.split("-")
 
-                                tasks.append(
-                                    gateway_client.get_price(
-                                        chain=chain, network=network, connector=connector_name,
-                                        base_asset=base, quote_asset=quote, amount=Decimal("1"),
-                                        side=TradeType.BUY))
+                                # Parse connector format to extract chain/network
+                                if "/" in connector:
+                                    # New format: "jupiter/router" or "uniswap/amm"
+                                    # Need to get chain/network from the connector instance or Gateway
+                                    chain, network, error = await gateway_client.get_connector_chain_network(connector)
+                                    if error:
+                                        self.logger().warning(f"Failed to get chain/network for {connector}: {error}")
+                                        continue
+                                    connector_name = connector  # Use the connector as-is for new format
+                                else:
+                                    # Old format: "gateway_chain-network"
+                                    gateway, chain_network = connector.split("_", 1)
+                                    chain, network = chain_network.split("-", 1)
+                                    connector_name = self.gateway_price_provider_by_chain.get(chain)
+                                    if not connector_name:
+                                        self.logger().warning(f"No gateway price provider found for chain {chain}")
+                                        continue
+
+                                task = gateway_client.get_price(
+                                    chain=chain,
+                                    network=network,
+                                    connector=connector_name,
+                                    base_asset=base,
+                                    quote_asset=quote,
+                                    amount=Decimal("1"),
+                                    side=TradeType.BUY
+                                )
+                                gateway_tasks.append(task)
+                                gateway_task_metadata.append((connector_pair, connector_pair.trading_pair))
+
                             except Exception as e:
-                                self.logger().warning(f"Error getting chain info for {connector_name}: {e}")
+                                self.logger().warning(f"Error preparing price request for {connector_pair.trading_pair}: {e}")
                                 continue
-                        try:
-                            if tasks:
-                                results = await asyncio.gather(*tasks, return_exceptions=True)
-                                for connector_pair, rate in zip(connector_pairs, results):
-                                    if isinstance(rate, Exception):
-                                        self.logger().error(f"Error fetching price for {connector_pair.trading_pair}: {rate}")
-                                    elif rate and "price" in rate:
-                                        rate_oracle.set_price(connector_pair.trading_pair, Decimal(rate["price"]))
-                        except Exception as e:
-                            self.logger().error(f"Error fetching prices from {connector_pairs}: {e}", exc_info=True)
                     else:
+                        # Non-gateway connector
+                        non_gateway_connectors[connector] = connector_pairs
+
+                # Gather ALL gateway tasks at once for maximum parallelization
+                if gateway_tasks:
+                    try:
+                        results = await asyncio.gather(*gateway_tasks, return_exceptions=True)
+                        for (connector_pair, trading_pair), rate in zip(gateway_task_metadata, results):
+                            if isinstance(rate, Exception):
+                                self.logger().error(f"Error fetching price for {trading_pair}: {rate}")
+                            elif rate and "price" in rate:
+                                rate_oracle.set_price(trading_pair, Decimal(rate["price"]))
+                    except Exception as e:
+                        self.logger().error(f"Error fetching gateway prices: {e}", exc_info=True)
+
+                # Process non-gateway connectors
+                for connector, connector_pairs in non_gateway_connectors.items():
+                    try:
                         connector_instance = self._non_trading_connectors[connector]
-                        prices = await self._safe_get_last_traded_prices(connector_instance,
-                                                                         [pair.trading_pair for pair in connector_pairs])
+                        prices = await self._safe_get_last_traded_prices(
+                            connector=connector_instance,
+                            trading_pairs=[pair.trading_pair for pair in connector_pairs])
                         for pair, rate in prices.items():
                             rate_oracle.set_price(pair, rate)
+                    except Exception as e:
+                        self.logger().error(f"Error fetching prices from {connector}: {e}", exc_info=True)
 
                 await asyncio.sleep(self._rates_update_interval)
         except asyncio.CancelledError:
@@ -276,9 +306,14 @@ class MarketDataProvider:
     def get_connector_config_map(connector_name: str):
         connector_config = AllConnectorSettings.get_connector_config_keys(connector_name)
         if getattr(connector_config, "use_auth_for_public_endpoints", False):
+            # Use real API keys for connectors that require auth for public endpoints
             api_keys = api_keys_from_connector_config_map(ClientConfigAdapter(connector_config))
-        else:
+        elif connector_config is not None:
+            # Provide empty strings for all config keys (for public data access without auth)
             api_keys = {key: "" for key in connector_config.__class__.model_fields.keys() if key != "connector"}
+        else:
+            # No config found, return empty dict
+            api_keys = {}
         return api_keys
 
     def get_balance(self, connector_name: str, asset: str):
