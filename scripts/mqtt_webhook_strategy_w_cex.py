@@ -4336,38 +4336,142 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
 
         return lines
 
-    def _format_active_positions(self) -> List[str]:
-        """Format active positions information"""
-        lines = ["", "💼 Active Positions:"]
+    def _get_open_positions_from_database(self) -> Optional[List]:
+        """
+        Get actual open positions from database using the reporting system.
+        This is the source of truth for what positions are actually open.
 
-        if not hasattr(self, 'active_positions') or not self.active_positions:
+        Returns:
+            List of OpenPosition objects or None if database unavailable
+        """
+        try:
+            from pathlib import Path
+
+            from hummingbot import data_path
+            from reporting.database.connection import DatabaseManager
+            from reporting.matching.trade_matcher import MatchingMethod, TradeMatcher
+            from reporting.normalization.trade_normalizer import TradeNormalizer
+
+            # Get database path
+            db_path = Path(data_path()) / "mqtt_webhook_strategy_w_cex.sqlite"
+
+            if not db_path.exists():
+                self.logger().debug(f"Database not found: {db_path}")
+                return None
+
+            # Load and normalize trades
+            db = DatabaseManager(str(db_path))
+            trades = db.get_all_trades()
+
+            if not trades:
+                return None
+
+            # Normalize trades
+            normalizer = TradeNormalizer()
+            normalized_trades = normalizer.normalize_trades(trades)
+
+            # Match trades using FIFO
+            matcher = TradeMatcher(method=MatchingMethod.FIFO)
+            result = matcher.match_trades(normalized_trades)
+
+            return result['open_positions']
+
+        except Exception as e:
+            self.logger().debug(f"Could not get open positions from database: {e}")
+            return None
+
+    def _format_active_positions(self) -> List[str]:
+        """
+        Format active positions information using database as source of truth.
+        Shows actual open positions based on trade history, not just in-memory tracking.
+        """
+        lines = ["", "💼 Active Positions (from database):"]
+
+        # Get open positions from database (source of truth)
+        open_positions = self._get_open_positions_from_database()
+
+        if not open_positions:
             lines.append("  No active positions")
             return lines
 
-        # Position headers
-        lines.append("  Token    Quote    Network     Exchange    Pool Type   USD Value")
-        lines.append("  " + "-" * 65)
+        # Build position summary by grouping by base asset
+        from collections import defaultdict
+        position_summary = defaultdict(lambda: {
+            'quantity': Decimal('0'),
+            'quote_token': 'USD',
+            'network': 'N/A',
+            'exchange': 'N/A',
+            'cost_basis': Decimal('0'),
+            'count': 0
+        })
 
-        total_usd_value = 0
-        for token, position in self.active_positions.items():
-            quote_token = position.get('quote_token', 'USDC')
-            network = position.get('network', 'N/A')
-            exchange = position.get('exchange', 'N/A')
-            pool_type = position.get('pool_type', 'N/A')
-            usd_value = position.get('usd_value', 0)
+        for open_pos in open_positions:
+            trade = open_pos.trade
+            base_asset = trade.base_asset
+
+            # Extract exchange and network from original trade
+            original_trade = trade.original_trade
+            market = original_trade.market if hasattr(original_trade, 'market') else ''
+
+            # Parse exchange and network from market field
+            if '/' in market:
+                # DEX format: "uniswap/clmm", "raydium/amm"
+                exchange = market.split('/')[0]
+                # Determine network from exchange
+                if 'uniswap' in exchange.lower():
+                    network = 'arbitrum'
+                elif 'raydium' in exchange.lower() or 'meteora' in exchange.lower():
+                    network = 'mainnet-beta'
+                else:
+                    network = 'arbitrum'
+            elif 'hyperliquid' in market.lower():
+                exchange = 'hyperliquid'
+                network = 'hyperliquid'
+            else:
+                exchange = market
+                network = market
+
+            # Aggregate position info
+            summary = position_summary[base_asset]
+            summary['quantity'] += open_pos.remaining_quantity
+            summary['quote_token'] = trade.quote_asset
+            summary['network'] = network
+            summary['exchange'] = exchange
+            summary['cost_basis'] += trade.cost
+            summary['count'] += 1
+
+        # Position headers
+        lines.append("  Token    Quantity       Quote    Network        Exchange       Cost Basis")
+        lines.append("  " + "-" * 80)
+
+        total_cost_basis = Decimal('0')
+
+        # Sort by base asset name
+        for base_asset in sorted(position_summary.keys()):
+            summary = position_summary[base_asset]
+
+            quantity = summary['quantity']
+            quote_token = summary['quote_token']
+            network = summary['network']
+            exchange = summary['exchange']
+            cost_basis = summary['cost_basis']
 
             # Truncate long values for display
-            token_display = token[:8].ljust(8)
+            token_display = base_asset[:8].ljust(8)
+            quantity_display = f"{float(quantity):.6f}"[:14].ljust(14)
             quote_display = quote_token[:8].ljust(8)
-            network_display = network[:10].ljust(10)
-            exchange_display = exchange[:10].ljust(10)
-            pool_display = pool_type[:9].ljust(9)
+            network_display = network[:14].ljust(14)
+            exchange_display = exchange[:14].ljust(14)
 
-            lines.append(f"  {token_display} {quote_display} {network_display} {exchange_display} {pool_display} ${usd_value:>8.2f}")
-            total_usd_value += float(usd_value)
+            lines.append(
+                f"  {token_display} {quantity_display} {quote_display} "
+                f"{network_display} {exchange_display} ${float(cost_basis):>10.2f}"
+            )
+            total_cost_basis += cost_basis
 
-        lines.append("  " + "-" * 65)
-        lines.append(f"  Total USD Value: ${total_usd_value:,.2f}")
+        lines.append("  " + "-" * 80)
+        lines.append(f"  Total Cost Basis: ${float(total_cost_basis):,.2f}")
+        lines.append(f"  Total Positions: {len(position_summary)}")
 
         return lines
 
