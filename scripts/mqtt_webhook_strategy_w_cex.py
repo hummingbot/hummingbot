@@ -115,7 +115,9 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
         self._cex_init_completed = False
 
         # CEX routing configuration
-        self.cex_preferred_tokens: List[str] = os.getenv("HBOT_CEX_PREFERRED_TOKENS", "ETH,BTC").split(",")
+        # Extract base tokens from trading pairs (e.g., "BTC-USD,ETH-USD" -> ["BTC", "ETH"])
+        trading_pairs = os.getenv("HBOT_CEX_TRADING_PAIRS", "ETH-USD,BTC-USD").split(",")
+        self.cex_preferred_tokens: List[str] = [pair.split("-")[0] for pair in trading_pairs if "-" in pair]
         self.use_cex_for_large_orders: bool = os.getenv("HBOT_USE_CEX_FOR_LARGE_ORDERS", "true").lower() == "true"
         self.cex_threshold_amount: float = float(os.getenv("HBOT_CEX_THRESHOLD_AMOUNT", "50.0"))
 
@@ -4430,41 +4432,35 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
             # Build asset info map from most recent trades
             asset_info = {}
             for trade in trades:
-                # Extract base asset from trading pair
-                # Format: "BTC-USD", "WBTC-USDC", "HYPE-USD", etc.
-                trading_pair = trade.get('market', '')
-                if '-' in trading_pair:
-                    base, quote = trading_pair.split('-', 1)
-                else:
-                    base = trading_pair
-                    quote = 'USD'
+                # Get base and quote assets directly from Trade object attributes
+                base = trade.base_asset if hasattr(trade, 'base_asset') else 'UNKNOWN'
+                quote = trade.quote_asset if hasattr(trade, 'quote_asset') else 'USD'
 
-                # Get exchange (for CEX) or connector name (for DEX)
-                exchange = trade.get('market', '').split('/')[0] if '/' in trade.get('market', '') else trade.get('market', 'N/A')
+                # Get exchange/connector from market field
+                # market format: "uniswap/clmm", "hyperliquid_perpetual", "raydium/clmm"
+                market = trade.market if hasattr(trade, 'market') else ''
 
-                # For CEX trades, market is just the exchange name
-                # For DEX trades, we need to extract from config_file_path or use a default
-                config_path = trade.get('config_file_path', '')
+                # Parse exchange and network from market field
+                if '/' in market:
+                    # DEX format: "uniswap/clmm", "raydium/clmm"
+                    exchange_parts = market.split('/')
+                    actual_exchange = exchange_parts[0]
 
-                # Determine exchange and network
-                if 'hyperliquid' in exchange.lower() or 'hyperliquid' in config_path.lower():
+                    # Determine network based on exchange type
+                    if 'uniswap' in actual_exchange.lower():
+                        network = 'arbitrum'  # Uniswap is on Arbitrum
+                    elif 'raydium' in actual_exchange.lower() or 'meteora' in actual_exchange.lower():
+                        network = 'mainnet-beta'  # Raydium/Meteora are on Solana
+                    else:
+                        network = 'arbitrum'  # Default to Arbitrum for other EVM DEXs
+                elif 'hyperliquid' in market.lower():
+                    # Hyperliquid perpetual
                     actual_exchange = 'hyperliquid_perpetual'
                     network = 'hyperliquid'
-                elif 'coinbase' in exchange.lower() or 'coinbase' in config_path.lower():
-                    actual_exchange = 'coinbase'
-                    network = 'coinbase'
                 else:
-                    # Try to parse network from config or trading pair
-                    # DEX trades typically have network info in the config path
-                    if 'arbitrum' in config_path.lower():
-                        network = 'arbitrum'
-                        actual_exchange = 'uniswap'  # Default for EVM DEX
-                    elif 'mainnet-beta' in config_path.lower() or 'solana' in config_path.lower():
-                        network = 'mainnet-beta'
-                        actual_exchange = 'raydium'  # Default for Solana DEX
-                    else:
-                        network = 'N/A'
-                        actual_exchange = exchange
+                    # CEX or unknown
+                    actual_exchange = market
+                    network = market
 
                 # Store most recent info for each asset
                 if base not in asset_info:
@@ -4509,14 +4505,55 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
             if not trades:
                 return None
 
+            # Debug: Count trades by asset BEFORE normalization
+            self.logger().info("=== DEBUG: Raw trades from database ===")
+            from collections import defaultdict
+            trade_counts = defaultdict(lambda: {'BUY': 0, 'SELL': 0})
+            for trade in trades:
+                base = trade.base_asset if hasattr(trade, 'base_asset') else 'UNKNOWN'
+                trade_type = trade.trade_type if hasattr(trade, 'trade_type') else 'UNKNOWN'
+                trade_counts[base][trade_type] += 1
+
+            for asset, counts in sorted(trade_counts.items()):
+                self.logger().info(f"  {asset}: {counts['BUY']} BUY, {counts['SELL']} SELL")
+
             # Normalize trades (handles CEX, Solana DEX, EVM DEX)
             normalizer = TradeNormalizer()
             normalized_trades = normalizer.normalize_trades(trades)
+
+            # Debug: Count trades by asset AFTER normalization
+            self.logger().info("=== DEBUG: After normalization ===")
+            norm_counts = defaultdict(lambda: {'BUY': 0, 'SELL': 0})
+            for trade in normalized_trades:
+                norm_counts[trade.base_asset][trade.trade_type.value] += 1
+
+            for asset, counts in sorted(norm_counts.items()):
+                self.logger().info(f"  {asset}: {counts['BUY']} BUY, {counts['SELL']} SELL")
 
             # Match trades (FIFO)
             from reporting.matching.trade_matcher import MatchingMethod
             matcher = TradeMatcher(method=MatchingMethod.FIFO)
             result = matcher.match_trades(normalized_trades)
+
+            # Debug: Count matched positions by asset
+            self.logger().info("=== DEBUG: After matching ===")
+            match_counts = defaultdict(int)
+            for matched_pos in result['matched_positions']:
+                asset = matched_pos.buy_trade.base_asset
+                match_counts[asset] += 1
+
+            for asset, count in sorted(match_counts.items()):
+                self.logger().info(f"  {asset}: {count} matched positions")
+
+            # Debug: Count open positions by asset
+            self.logger().info("=== DEBUG: Open positions ===")
+            open_counts = defaultdict(int)
+            for open_pos in result['open_positions']:
+                asset = open_pos.trade.base_asset
+                open_counts[asset] += 1
+
+            for asset, count in sorted(open_counts.items()):
+                self.logger().info(f"  {asset}: {count} open positions")
 
             # Calculate PnL
             calculator = PnLCalculator()
@@ -4525,6 +4562,12 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
                 open_positions=result['open_positions'],
                 all_trades=normalized_trades
             )
+
+            # Debug: Log assets in report
+            self.logger().info("=== DEBUG: Final report.by_asset ===")
+            self.logger().info(f"Assets in report.by_asset: {list(report.by_asset.keys())}")
+            for asset, pnl in report.by_asset.items():
+                self.logger().info(f"  {asset}: {pnl.total_trades} matched, {pnl.open_positions} open, PnL: ${pnl.total_realized_pnl}")
 
             # Calculate total trades from database
             total_trades = len(trades)
@@ -4584,15 +4627,15 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
             lines.append(f"  Total Fees: ${db_pnl['total_fees']:.4f}")
             lines.append(f"  Net PnL: ${db_pnl['net_pnl']:.2f}")
 
-            # Show top 3 performing assets
+            # Show all matched assets sorted by PnL (best to worst)
             if db_pnl['by_asset']:
                 lines.append("")
-                lines.append("  Top Assets:")
+                lines.append("  All Assets (sorted by PnL):")
                 sorted_assets = sorted(
                     db_pnl['by_asset'].items(),
                     key=lambda x: x[1].get('realized_pnl', 0),
                     reverse=True
-                )[:3]
+                )
                 for asset, metrics in sorted_assets:
                     pnl = metrics.get('realized_pnl', 0)
                     trades = metrics.get('total_trades', 0)
