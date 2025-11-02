@@ -1561,6 +1561,13 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
         if self._is_cex_exchange(exchange):
             return True
 
+        # If exchange is explicitly specified and it's not a CEX, respect that choice
+        # Only apply heuristics (preferred tokens, large orders) when no exchange is specified
+        if exchange:
+            # Exchange is explicitly specified but not a CEX, so use DEX
+            return False
+
+        # No exchange specified - apply heuristics to determine routing
         # Get symbol and check if it's a CEX preferred token
         symbol = signal_data.get("symbol", "").upper()
         base_token = symbol.replace("USDC", "").replace("USD", "").replace("-", "")
@@ -4399,6 +4406,80 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
 
         return lines
 
+    def _get_asset_exchange_network_info(self) -> Dict[str, Dict]:
+        """
+        Get exchange and network information for each asset from database.
+        Returns dict: {asset: {'exchange': str, 'network': str, 'quote': str}}
+        """
+        try:
+            from pathlib import Path
+
+            from hummingbot import data_path
+
+            db_path = Path(data_path()) / "mqtt_webhook_strategy_w_cex.sqlite"
+            if not db_path.exists():
+                return {}
+
+            from reporting.database.connection import DatabaseManager
+            db = DatabaseManager(str(db_path))
+            trades = db.get_all_trades()
+
+            if not trades:
+                return {}
+
+            # Build asset info map from most recent trades
+            asset_info = {}
+            for trade in trades:
+                # Extract base asset from trading pair
+                # Format: "BTC-USD", "WBTC-USDC", "HYPE-USD", etc.
+                trading_pair = trade.get('market', '')
+                if '-' in trading_pair:
+                    base, quote = trading_pair.split('-', 1)
+                else:
+                    base = trading_pair
+                    quote = 'USD'
+
+                # Get exchange (for CEX) or connector name (for DEX)
+                exchange = trade.get('market', '').split('/')[0] if '/' in trade.get('market', '') else trade.get('market', 'N/A')
+
+                # For CEX trades, market is just the exchange name
+                # For DEX trades, we need to extract from config_file_path or use a default
+                config_path = trade.get('config_file_path', '')
+
+                # Determine exchange and network
+                if 'hyperliquid' in exchange.lower() or 'hyperliquid' in config_path.lower():
+                    actual_exchange = 'hyperliquid_perpetual'
+                    network = 'hyperliquid'
+                elif 'coinbase' in exchange.lower() or 'coinbase' in config_path.lower():
+                    actual_exchange = 'coinbase'
+                    network = 'coinbase'
+                else:
+                    # Try to parse network from config or trading pair
+                    # DEX trades typically have network info in the config path
+                    if 'arbitrum' in config_path.lower():
+                        network = 'arbitrum'
+                        actual_exchange = 'uniswap'  # Default for EVM DEX
+                    elif 'mainnet-beta' in config_path.lower() or 'solana' in config_path.lower():
+                        network = 'mainnet-beta'
+                        actual_exchange = 'raydium'  # Default for Solana DEX
+                    else:
+                        network = 'N/A'
+                        actual_exchange = exchange
+
+                # Store most recent info for each asset
+                if base not in asset_info:
+                    asset_info[base] = {
+                        'exchange': actual_exchange,
+                        'network': network,
+                        'quote': quote
+                    }
+
+            return asset_info
+
+        except Exception as e:
+            self.logger().debug(f"Could not get asset info: {e}")
+            return {}
+
     def _get_database_pnl(self) -> Optional[Dict[str, any]]:
         """
         Calculate PnL from database using the reporting system.
@@ -4455,13 +4536,20 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
             else:
                 win_rate = 0.0
 
+            # Get exchange/network info for each asset
+            asset_info = self._get_asset_exchange_network_info()
+
             # Convert by_asset AssetPnL objects to dictionaries for easy access
             by_asset_dict = {}
             for asset, asset_pnl in report.by_asset.items():
+                info = asset_info.get(asset, {})
                 by_asset_dict[asset] = {
                     'realized_pnl': float(asset_pnl.total_realized_pnl),
                     'total_trades': asset_pnl.total_trades,
-                    'win_rate': float(asset_pnl.win_rate)
+                    'win_rate': float(asset_pnl.win_rate),
+                    'exchange': info.get('exchange', 'N/A'),
+                    'network': info.get('network', 'N/A'),
+                    'quote': info.get('quote', 'USD')
                 }
 
             return {
@@ -4508,7 +4596,9 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
                 for asset, metrics in sorted_assets:
                     pnl = metrics.get('realized_pnl', 0)
                     trades = metrics.get('total_trades', 0)
-                    lines.append(f"    {asset}: ${pnl:.2f} ({trades} trades)")
+                    exchange = metrics.get('exchange', 'N/A')
+                    network = metrics.get('network', 'N/A')
+                    lines.append(f"    {asset} ({exchange}/{network}): ${pnl:.2f} ({trades} trades)")
         else:
             # Fallback to in-memory tracking
             total_trades = getattr(self, 'successful_trades', 0) + getattr(self, 'failed_trades', 0)
