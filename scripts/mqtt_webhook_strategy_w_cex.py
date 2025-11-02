@@ -4488,6 +4488,7 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
             from hummingbot import data_path
             from reporting.analysis.pnl_calculator import PnLCalculator
             from reporting.database.connection import DatabaseManager
+            from reporting.database.models import NormalizedTrade
             from reporting.matching.trade_matcher import TradeMatcher
             from reporting.normalization.trade_normalizer import TradeNormalizer
 
@@ -4523,9 +4524,12 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
 
             # Debug: Count trades by asset AFTER normalization
             self.logger().info("=== DEBUG: After normalization ===")
-            norm_counts = defaultdict(lambda: {'BUY': 0, 'SELL': 0})
+            norm_counts: Dict[str, Dict[str, int]] = {}
+            trade: NormalizedTrade
             for trade in normalized_trades:
-                norm_counts[trade.base_asset][trade.trade_type.value] += 1
+                # Initialize with setdefault for better type inference
+                asset_counts = norm_counts.setdefault(trade.base_asset, {'BUY': 0, 'SELL': 0})
+                asset_counts[trade.trade_type.name] += 1
 
             for asset, counts in sorted(norm_counts.items()):
                 self.logger().info(f"  {asset}: {counts['BUY']} BUY, {counts['SELL']} SELL")
