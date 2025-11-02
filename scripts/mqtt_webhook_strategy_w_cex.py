@@ -1261,39 +1261,6 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
             self.logger().error(f"❌ Symbol format validation error: {format_error}")
             return False
 
-    class ConfigurationError(Exception):
-        """
-        Specific exception for Gateway configuration errors
-        Provides detailed context about configuration failures
-        """
-
-        def __init__(self, message: str, error_code: str = "CONFIG_ERROR", details: Dict = None):
-            """
-            Initialize configuration error with context
-
-            Args:
-                message: Error message
-                error_code: Error code for categorization (default: CONFIG_ERROR)
-                details: Additional error details as dictionary
-            """
-            super().__init__(message)
-            self.message = message
-            self.error_code = error_code
-            self.details = details or {}
-            self.timestamp = datetime.now().isoformat()
-
-        def __str__(self):
-            """String representation with full context"""
-            base_msg = f"[{self.error_code}] {self.message}"
-
-            if self.details:
-                details_str = "\nDetails:"
-                for key, value in self.details.items():
-                    details_str += f"\n  - {key}: {value}"
-                base_msg += details_str
-
-            return base_msg
-
     def _setup_mqtt(self) -> None:
         """Set up MQTT client connection"""
         try:
