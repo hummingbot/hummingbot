@@ -143,6 +143,7 @@ class DManV3Controller(DirectionalTradingControllerBase):
     Mean reversion strategy with Grid execution making use of Bollinger Bands indicator to make spreads dynamic
     and shift the mid-price.
     """
+
     def __init__(self, config: DManV3ControllerConfig, *args, **kwargs):
         self.config = config
         self.max_records = config.bb_length
@@ -161,11 +162,11 @@ class DManV3Controller(DirectionalTradingControllerBase):
                                                       interval=self.config.interval,
                                                       max_records=self.max_records)
         # Add indicators
-        df.ta.bbands(length=self.config.bb_length, std=self.config.bb_std, append=True)
+        df.ta.bbands(length=self.config.bb_length, lower_std=self.config.bb_std, upper_std=self.config.bb_std, append=True)
 
         # Generate signal
-        long_condition = df[f"BBP_{self.config.bb_length}_{self.config.bb_std}"] < self.config.bb_long_threshold
-        short_condition = df[f"BBP_{self.config.bb_length}_{self.config.bb_std}"] > self.config.bb_short_threshold
+        long_condition = df[f"BBP_{self.config.bb_length}_{self.config.bb_std}_{self.config.bb_std}"] < self.config.bb_long_threshold
+        short_condition = df[f"BBP_{self.config.bb_length}_{self.config.bb_std}_{self.config.bb_std}"] > self.config.bb_short_threshold
 
         # Generate signal
         df["signal"] = 0
@@ -179,7 +180,7 @@ class DManV3Controller(DirectionalTradingControllerBase):
     def get_spread_multiplier(self) -> Decimal:
         if self.config.dynamic_order_spread:
             df = self.processed_data["features"]
-            bb_width = df[f"BBB_{self.config.bb_length}_{self.config.bb_std}"].iloc[-1]
+            bb_width = df[f"BBB_{self.config.bb_length}_{self.config.bb_std}_{self.config.bb_std}"].iloc[-1]
             return Decimal(bb_width / 200)
         else:
             return Decimal("1.0")

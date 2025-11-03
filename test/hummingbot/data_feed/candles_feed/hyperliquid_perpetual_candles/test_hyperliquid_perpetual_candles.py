@@ -6,7 +6,10 @@ from test.hummingbot.data_feed.candles_feed.test_candles_base import TestCandles
 from aioresponses import aioresponses
 
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
-from hummingbot.data_feed.candles_feed.hyperliquid_perpetual_candles import HyperliquidPerpetualCandles
+from hummingbot.data_feed.candles_feed.hyperliquid_perpetual_candles import (
+    HyperliquidPerpetualCandles,
+    constants as CONSTANTS,
+)
 
 
 class TestHyperliquidPerpetualCandles(TestCandlesBase):
@@ -156,3 +159,8 @@ class TestHyperliquidPerpetualCandles(TestCandlesBase):
 
         self.assertEqual(resp.shape[0], len(self.get_fetch_candles_data_mock()))
         self.assertEqual(resp.shape[1], 10)
+
+    @aioresponses()
+    def test_ping_pong(self, mock_api):
+        self.assertEqual(self.data_feed._ping_payload, CONSTANTS.PING_PAYLOAD)
+        self.assertEqual(self.data_feed._ping_timeout, CONSTANTS.PING_TIMEOUT)

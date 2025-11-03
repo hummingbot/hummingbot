@@ -21,6 +21,7 @@ class WebAssistantsFactory:
 
     todo: integrate AsyncThrottler
     """
+
     def __init__(
         self,
         throttler: AsyncThrottlerBase,

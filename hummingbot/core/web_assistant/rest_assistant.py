@@ -18,6 +18,7 @@ class RESTAssistant:
     the `RESTPreProcessorBase` and `RESTPostProcessorBase` classes. The pre-processors are applied to a request
     before it is sent out, while the post-processors are applied to a response before it is returned to the caller.
     """
+
     def __init__(
         self,
         connection: RESTConnection,
