@@ -94,5 +94,42 @@ coverage.xml
 /**/.injective_cookie
 
 .env
+.env.hummingbot
+.env.hummingbot.backup
 
 **/.claude/settings.local.json
+
+# Local development and testing files
+.session_data.json
+/gateway/
+/reporting/
+/reports/
+/transactions/
+/plan/
+/conf/strategies/scripts/
+/conf/strategies/test_*.py
+
+# Debug/test scripts
+scripts/capture_session.py
+scripts/debug_*.py
+scripts/diagnose_*.py
+scripts/find_*.py
+scripts/remove_*.py
+scripts/simple_test.py
+scripts/test_*.py
+
+# Shell scripts and utilities
+check_pr_status.sh
+diagnose_gateway_connection.sh
+end_session.sh
+test_multinetwork.sh
+
+# Documentation and notes (local only)
+Bestpractices.txt
+Githubupdate.txt
+automatic_session_capture_instructions.txt
+t updated
+
+# Backup files
+*.backup
+hummingbot/core/utils/*.backup
