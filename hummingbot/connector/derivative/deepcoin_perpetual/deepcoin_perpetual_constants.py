@@ -146,6 +146,11 @@ RATE_LIMITS = [
         time_interval=1,
     ),
     RateLimit(
+        limit_id=SERVER_TIME_PATH_URL,
+        limit=5,
+        time_interval=1,
+    ),
+    RateLimit(
         limit_id=ORDER_URL,
         limit=1,
         time_interval=1,
@@ -182,6 +187,16 @@ RATE_LIMITS = [
     ),
     RateLimit(
         limit_id=POSITION_INFORMATION_URL,
+        limit=1,
+        time_interval=1,
+    ),
+    RateLimit(
+        limit_id=USER_STREAM_ENDPOINT,
+        limit=1,
+        time_interval=1,
+    ),
+    RateLimit(
+        limit_id=USER_STREAM_EXTEND_ENDPOINT,
         limit=1,
         time_interval=1,
     ),

@@ -12,8 +12,11 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 
 class HeadersContentRESTPreProcessor(RESTPreProcessorBase):
     async def pre_process(self, request: RESTRequest) -> RESTRequest:
-        request.headers = request.headers or {}
-        request.headers["Content-Type"] = "application/json"
+        if request.headers is None:
+            request.headers = {}
+        request.headers["Content-Type"] = (
+            "application/json" if request.method == RESTMethod.POST else "application/x-www-form-urlencoded"
+        )
         return request
 
 
@@ -55,7 +58,7 @@ async def get_current_server_time(
     )
     time_data = response.get("data")
     if time_data is not None:
-        server_time = float(time_data["timestamp"])
+        server_time = float(time_data["ts"])
         return server_time
     else:
         raise ValueError("Failed to get server time")

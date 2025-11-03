@@ -1,6 +1,8 @@
 import asyncio
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import bidict as bidict
 
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.derivative.deepcoin_perpetual import (
@@ -13,10 +15,11 @@ from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativ
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
@@ -32,15 +35,15 @@ class DeepcoinPerpetualDerivative(PerpetualDerivativePyBase):
     LONG_POLL_INTERVAL = 120.0
 
     def __init__(
-        self,
-        balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
-        rate_limits_share_pct: Decimal = Decimal("100"),
-        deepcoin_perpetual_api_key: str = None,
-        deepcoin_perpetual_api_secret: str = None,
-        deepcoin_perpetual_passphrase: str = None,
-        trading_pairs: Optional[List[str]] = None,
-        trading_required: bool = True,
-        domain: str = CONSTANTS.DOMAIN,
+            self,
+            balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
+            rate_limits_share_pct: Decimal = Decimal("100"),
+            deepcoin_perpetual_api_key: str = None,
+            deepcoin_perpetual_api_secret: str = None,
+            deepcoin_perpetual_passphrase: str = None,
+            trading_pairs: Optional[List[str]] = None,
+            trading_required: bool = True,
+            domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
         self.deepcoin_perpetual_api_key = deepcoin_perpetual_api_key
         self.deepcoin_perpetual_secret_key = deepcoin_perpetual_api_secret
@@ -67,7 +70,7 @@ class DeepcoinPerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def rate_limits_rules(self) -> List[RateLimit]:
-        return web_utils.build_rate_limits(self.trading_pairs)
+        return CONSTANTS.RATE_LIMITS
 
     @property
     def domain(self) -> str:
@@ -119,7 +122,7 @@ class DeepcoinPerpetualDerivative(PerpetualDerivativePyBase):
         return web_utils.build_api_factory(
             throttler=self._throttler,
             time_synchronizer=self._time_synchronizer,
-            auth=self.authenticator
+            auth=self.authenticator,
         )
 
     def _validate_exchange_response(self, response: Dict[str, Any], before_text: str = ""):
@@ -133,21 +136,11 @@ class DeepcoinPerpetualDerivative(PerpetualDerivativePyBase):
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         # TODO: Implement order book data source
-        from hummingbot.connector.derivative.deepcoin_perpetual.deepcoin_perpetual_api_order_book_data_source import (
-            DeepcoinPerpetualAPIOrderBookDataSource,
-        )
-        return DeepcoinPerpetualAPIOrderBookDataSource(trading_pairs=self._trading_pairs, domain=self._domain)
+        return None
 
     def _create_user_stream_tracker_data_source(self) -> UserStreamTrackerDataSource:
         # TODO: Implement user stream data source
-        from hummingbot.connector.derivative.deepcoin_perpetual.deepcoin_perpetual_user_stream_data_source import (
-            DeepcoinPerpetualUserStreamDataSource,
-        )
-        return DeepcoinPerpetualUserStreamDataSource(
-            auth=self.authenticator,
-            trading_pairs=self._trading_pairs,
-            domain=self._domain
-        )
+        return None
 
     async def _update_balances(self):
         """
@@ -471,6 +464,27 @@ class DeepcoinPerpetualDerivative(PerpetualDerivativePyBase):
                 self.logger().error(f"Error in trading rules polling loop: {e}")
                 await asyncio.sleep(60.0)
 
+    def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
+        return None
+
+    def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
+        return True
+
+    async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
+        return True
+
+    def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
+        pass
+
+    def get_buy_collateral_token(self, trading_pair: str) -> str:
+        return ""
+
+    def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
+        return True
+
+    def get_sell_collateral_token(self, trading_pair: str) -> str:
+        return ""
+
     async def _trading_fees_polling_loop(self):
         """
         Polls for trading fees updates
@@ -495,38 +509,13 @@ class DeepcoinPerpetualDerivative(PerpetualDerivativePyBase):
         """
         Formats trading rules from exchange info
         """
-        trading_rules = []
-        if "data" in exchange_info:
-            for symbol_info in exchange_info["data"]:
-                try:
-                    from hummingbot.connector.derivative.deepcoin_perpetual import deepcoin_perpetual_utils as utils
-                    trading_pair = utils.get_trading_pair_from_exchange_info(symbol_info)
-                    if trading_pair:
-                        trading_rules.append(TradingRule(
-                            trading_pair=trading_pair,
-                            min_order_size=Decimal(symbol_info.get("minOrderSize", "0.001")),
-                            max_order_size=Decimal(symbol_info.get("maxOrderSize", "1000000")),
-                            min_price_increment=Decimal(symbol_info.get("tickSize", "0.01")),
-                            min_base_amount_increment=Decimal(symbol_info.get("stepSize", "0.001")),
-                            min_notional_size=Decimal(symbol_info.get("minNotional", "5.0")),
-                            buy_order_fee=Decimal(symbol_info.get("makerFeeRate", "0.001")),
-                            sell_order_fee=Decimal(symbol_info.get("takerFeeRate", "0.001")),
-                        ))
-                except Exception as e:
-                    self.logger().error(f"Error parsing trading rule: {e}")
-                    continue
-        return trading_rules
+        return None
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         """
         Initializes trading pair symbols from exchange info
         """
-        if "data" in exchange_info:
-            for symbol_info in exchange_info["data"]:
-                from hummingbot.connector.derivative.deepcoin_perpetual import deepcoin_perpetual_utils as utils
-                trading_pair = utils.get_trading_pair_from_exchange_info(symbol_info)
-                if trading_pair:
-                    self._trading_pair_symbol_map[trading_pair] = symbol_info.get("symbol", "")
+        pass
 
     def _make_trading_rules_request(self) -> Any:
         """
@@ -539,3 +528,146 @@ class DeepcoinPerpetualDerivative(PerpetualDerivativePyBase):
         Makes a trading pairs request
         """
         return self._api_get(path_url=CONSTANTS.EXCHANGE_INFO_URL)
+
+    async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
+
+        return None
+
+    async def _request_order_fills(self, order: InFlightOrder) -> Dict[str, Any]:
+        return
+
+    async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
+        return None
+
+    async def _request_order_status_data(self, tracked_order: InFlightOrder) -> Dict:
+        return None
+
+    async def _process_account_position_event(self, position_msg: Dict[str, Any]):
+        """
+        Updates position
+        :param position_msg: The position event message payload
+        """
+        pass
+
+    def _process_trade_event_message(self, trade_msg: Dict[str, Any]):
+        """
+        Updates in-flight order and trigger order filled event for trade message received. Triggers order completed
+        event if the total executed amount equals to the specified order amount.
+        :param trade_msg: The trade event message payload
+        """
+
+        pass
+
+    def _parse_trade_update(self, trade_msg: Dict, tracked_order: InFlightOrder) -> TradeUpdate:
+        return None
+
+    def _process_order_event_message(self, order_msg: Dict[str, Any]):
+        """
+        Updates in-flight order and triggers cancellation or failure event if needed.
+        :param order_msg: The order event message payload
+        """
+        pass
+
+    def _resolve_trading_pair_symbols_duplicate(self, mapping: bidict, new_exchange_symbol: str, base: str, quote: str):
+        """Resolves name conflicts provoked by futures contracts.
+
+        If the expected BASEQUOTE combination matches one of the exchange symbols, it is the one taken, otherwise,
+        the trading pair is removed from the map and an error is logged.
+        """
+        pass
+
+    async def _get_last_traded_price(self, trading_pair: str) -> float:
+        return 123
+
+    async def _trading_pair_position_mode_set(self, mode: PositionMode, trading_pair: str) -> Tuple[bool, str]:
+        msg = ""
+        success = True
+
+        return success, msg
+
+    async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:
+        exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
+        data = {
+            "category": "linear",
+            "symbol": exchange_symbol,
+            "buyLeverage": str(leverage),
+            "sellLeverage": str(leverage)
+        }
+        resp: Dict[str, Any] = await self._api_post(
+            path_url=CONSTANTS.SET_LEVERAGE_PATH_URL,
+            data=data,
+            is_auth_required=True,
+            trading_pair=trading_pair,
+        )
+
+        success = False
+        msg = ""
+        if resp["retCode"] in [CONSTANTS.RET_CODE_OK, CONSTANTS.RET_CODE_LEVERAGE_NOT_MODIFIED]:
+            success = True
+        else:
+            formatted_ret_code = self._format_ret_code_for_print(resp['retCode'])
+            msg = f"{formatted_ret_code} - {resp['retMsg']}"
+
+        return success, msg
+
+    async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
+        # exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
+
+        params = {
+            "type": "SETTLEMENT",
+        }
+
+        raw_response: Dict[str, Any] = await self._api_get(
+            path_url=CONSTANTS.FUNDING_INFO_URL,
+            params=params,
+            is_auth_required=True,
+            trading_pair=trading_pair
+        )
+        data: Dict[str, Any] = raw_response["result"]["list"]
+
+        if not data:
+            # An empty funding fee/payment is retrieved.
+            timestamp, funding_rate, payment = 0, Decimal("-1"), Decimal("-1")
+        else:
+            # TODO: Check how to handle - signs and filter by exchange_symbol
+            last_data = data[0]
+            funding_rate: Decimal = Decimal(str(last_data["funding"]))
+            position_size: Decimal = Decimal(str(last_data["size"]))
+            payment: Decimal = funding_rate * position_size
+            timestamp: int = int(last_data["transactionTime"]) / 1e3
+
+        return timestamp, funding_rate, payment
+
+    @staticmethod
+    def _format_ret_code_for_print(ret_code: Union[str, int]) -> str:
+        return f"ret_code <{ret_code}>"
+
+    async def _api_request(self,
+                           path_url,
+                           method: RESTMethod = RESTMethod.GET,
+                           params: Optional[Dict[str, Any]] = None,
+                           data: Optional[Dict[str, Any]] = None,
+                           is_auth_required: bool = False,
+                           return_err: bool = False,
+                           limit_id: Optional[str] = None,
+                           trading_pair: Optional[str] = None,
+                           **kwargs) -> Dict[str, Any]:
+
+        rest_assistant = await self._web_assistants_factory.get_rest_assistant()
+        if limit_id is None:
+            limit_id = web_utils.get_rest_api_limit_id_for_endpoint(
+                endpoint=path_url,
+                trading_pair=trading_pair,
+            )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=path_url, trading_pair=trading_pair, domain=self._domain)
+
+        resp = await rest_assistant.execute_request(
+            url=url,
+            params=params,
+            data=data,
+            method=method,
+            is_auth_required=is_auth_required,
+            return_err=return_err,
+            throttler_limit_id=limit_id if limit_id else path_url,
+        )
+        return resp

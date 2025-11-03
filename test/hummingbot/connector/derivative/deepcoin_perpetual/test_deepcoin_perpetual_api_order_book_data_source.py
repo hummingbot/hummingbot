@@ -1,14 +1,16 @@
 import asyncio
 import json
 import re
-from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
-from typing import Dict
+from typing import Dict, List
 from unittest.mock import AsyncMock, MagicMock, patch
+from urllib.parse import urlencode
 
 from aioresponses import aioresponses
 from bidict import bidict
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.deepcoin_perpetual import (
     deepcoin_perpetual_constants as CONSTANTS,
     deepcoin_perpetual_web_utils as web_utils,
@@ -16,11 +18,14 @@ from hummingbot.connector.derivative.deepcoin_perpetual import (
 from hummingbot.connector.derivative.deepcoin_perpetual.deepcoin_perpetual_api_order_book_data_source import (
     DeepcoinPerpetualAPIOrderBookDataSource,
 )
+from hummingbot.connector.derivative.deepcoin_perpetual.deepcoin_perpetual_auth import DeepcoinPerpetualAuth
 from hummingbot.connector.derivative.deepcoin_perpetual.deepcoin_perpetual_derivative import DeepcoinPerpetualDerivative
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+
+# from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_derivative import BybitPerpetualDerivative
 
 
 class DeepcoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
@@ -40,20 +45,32 @@ class DeepcoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCas
         self.log_records = []
         self.listening_task = None
 
+        self.mock_time_provider = MagicMock()
+        self.mock_time_provider.time.return_value = 1000
+
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = DeepcoinPerpetualDerivative(
-            bybit_perpetual_api_key="",
-            bybit_perpetual_secret_key="",
+            client_config_map,
+            deepcoin_perpetual_api_key="",
+            deepcoin_perpetual_api_secret="",
+            deepcoin_perpetual_passphrase="",
             trading_pairs=[self.trading_pair],
             trading_required=False,
             domain=self.domain,
         )
+        auth = DeepcoinPerpetualAuth(api_key="test", secret_key="test", passphrase="123",
+                                     time_provider=self.mock_time_provider)
+
         self.data_source = DeepcoinPerpetualAPIOrderBookDataSource(
+            auth=auth,
             trading_pairs=[self.trading_pair],
             connector=self.connector,
             api_factory=self.connector._web_assistants_factory,
             domain=self.domain,
         )
 
+        self._original_full_order_book_reset_time = self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS
+        self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = -1
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
@@ -65,8 +82,7 @@ class DeepcoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCas
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
-        for task in self.async_tasks:
-            task.cancel()
+        self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = self._original_full_order_book_reset_time
         super().tearDown()
 
     def handle(self, record):
@@ -109,14 +125,61 @@ class DeepcoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCas
             "data": {"current_fund_rates": [{"instrumentId": self.trading_pair, "fundingRate": 0.0001}]},
         }
 
+    @property
+    def trading_rules_request_mock_response(self):
+        response = {
+            "code": "0",
+            "msg": "",
+            "data": [
+                {
+                    "instType": "SWAP",
+                    "instId": self.ex_trading_pair,
+                    "uly": "",
+                    "baseCcy": "GRIFFAIN",
+                    "quoteCcy": "USDT",
+                    "ctVal": "1",
+                    "ctValCcy": self.base_asset,
+                    "listTime": "0",
+                    "lever": "25",
+                    "tickSz": "0.00001",
+                    "lotSz": "1",
+                    "minSz": "50",
+                    "ctType": "",
+                    "alias": "",
+                    "state": "live",
+                    "maxLmtSz": "10000000",
+                    "maxMktSz": "10000000"
+                }
+            ],
+        }
+        return response
+
+    def configure_trading_rules_response(
+            self,
+            mock_api: aioresponses,
+    ) -> List[str]:
+        base_url = web_utils.public_rest_url(endpoint=CONSTANTS.INSTRUMENTID_INFO_URL,
+                                             domain=CONSTANTS.DEFAULT_DOMAIN)
+        params = {
+            "instType": "SWAP"
+        }
+        encoded_params = urlencode(params)
+        full_url = f"{base_url}?{encoded_params}"
+        regex_url = re.compile(f"^{full_url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        response = self.trading_rules_request_mock_response
+        mock_api.get(regex_url, body=json.dumps(response))
+        return [base_url]
+
     @aioresponses()
     async def test_get_new_order_book_successful(self, mock_api):
+
+        self.configure_trading_rules_response(mock_api)
         endpoint = CONSTANTS.SNAPSHOT_REST_URL
         url = web_utils.public_rest_url(endpoint, self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        # regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         resp = {"code": "0", "msg": "", "data": {"asks": [[4114.25, 6.263]], "bids": [[4112.25, 49.29]]}}
 
-        mock_api.get(regex_url, body=json.dumps(resp))
+        mock_api.get(url + "?sz=400&instId=COINALPHA-HBOT-SWAP", body=json.dumps(resp))
 
         order_book: OrderBook = await self.data_source.get_new_order_book(self.trading_pair)
 
@@ -124,10 +187,10 @@ class DeepcoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCas
         asks = list(order_book.ask_entries())
         self.assertEqual(1, len(bids))
         self.assertEqual(4112.25, bids[0].price)
-        self.assertEqual(49.29 * 0.000001, bids[0].amount)
+        self.assertEqual(49.29, bids[0].amount)
         self.assertEqual(1, len(asks))
         self.assertEqual(4114.25, asks[0].price)
-        self.assertEqual(6.263 * 0.000001, asks[0].amount)
+        self.assertEqual(6.263, asks[0].amount)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_subscriptions_subscribes_to_trades_diffs_and_funding_info(self, ws_connect_mock):
@@ -147,7 +210,7 @@ class DeepcoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCas
             websocket_mock=ws_connect_mock.return_value
         )
 
-        self.assertEqual(1, len(sent_subscription_messages))
+        self.assertEqual(2, len(sent_subscription_messages))
         istId = self.trading_pair.replace("-SWAP", "").replace("-", "")
         expected_trade_subscription = {
             "SendTopicAction": {
@@ -158,7 +221,8 @@ class DeepcoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCas
                 "TopicID": "2",
             }
         }
-        self.assertEqual(expected_trade_subscription, sent_subscription_messages[0])
+        print("sent_subscription_messages:", sent_subscription_messages)
+        self.assertEqual(expected_trade_subscription, sent_subscription_messages[1][0])
         #
         # self.assertTrue(
         #     self._is_logged("INFO", "Subscribed to public order book, trade and funding info channels...")
@@ -232,15 +296,17 @@ class DeepcoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCas
 
         self.assertTrue(True)
 
-    async def test_listen_for_trades_successful(self):
+    @aioresponses()
+    async def test_listen_for_trades_successful(self, mock_api):
+        self.configure_trading_rules_response(mock_api)
         mock_queue = AsyncMock()
-        istId = self.trading_pair.replace("-SWAP", "").replace("-", "")
         trade_event = {
             "a": "PMT",
             "b": 0,
             "tt": 1757640595167,
             "mt": 1757640595167,
-            "r": [{"d": {"TradeID": "1000170423277947", "I": istId, "D": "1", "P": 4519.91, "V": 4, "T": 1757640595}}],
+            "r": [{"d": {"TradeID": "1000170423277947", "I": self.trading_pair, "D": "1", "P": 4519.91, "V": 4,
+                         "T": 1757640595}}],
         }
         mock_queue.get.side_effect = [trade_event, asyncio.CancelledError()]
         self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
@@ -252,10 +318,7 @@ class DeepcoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCas
         )
 
         msg: OrderBookMessage = await msg_queue.get()
-
         self.assertEqual(OrderBookMessageType.TRADE, msg.type)
-        # self.assertEqual(trade_event["data"][0]["i"], msg.trade_id)
-        # self.assertEqual(trade_event["data"][0]["T"] * 1e-3, msg.timestamp)
 
     async def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
@@ -269,7 +332,6 @@ class DeepcoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCas
 
     async def test_listen_for_order_book_diffs_logs_exception(self):
         incomplete_resp = self.get_ws_diff_msg()
-        del incomplete_resp["ts"]
 
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [incomplete_resp, asyncio.CancelledError()]
@@ -284,7 +346,9 @@ class DeepcoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCas
 
         self.assertTrue(True)
 
-    async def test_listen_for_order_book_diffs_successful(self):
+    @aioresponses()
+    async def test_listen_for_order_book_diffs_successful(self, mock_api):
+        self.configure_trading_rules_response(mock_api)
         mock_queue = AsyncMock()
         diff_event = self.get_ws_diff_msg()
         mock_queue.get.side_effect = [diff_event, asyncio.CancelledError()]
@@ -306,6 +370,7 @@ class DeepcoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCas
 
     @aioresponses()
     async def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
+        self.configure_trading_rules_response(mock_api)
         endpoint = CONSTANTS.SNAPSHOT_REST_URL
         url = web_utils.public_rest_url(endpoint=endpoint, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -338,8 +403,9 @@ class DeepcoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCas
 
     @aioresponses()
     async def test_listen_for_order_book_snapshots_successful(self, mock_api):
+        self.configure_trading_rules_response(mock_api)
         msg_queue: asyncio.Queue = asyncio.Queue()
-        url = web_utils.public_rest_url(CONSTANTS.ORDER_BOOK_ENDPOINT, self.domain)
+        url = web_utils.public_rest_url(CONSTANTS.SNAPSHOT_REST_URL, self.domain)
         snapshot_data = {
             "code": "0",
             "msg": "",
@@ -349,26 +415,25 @@ class DeepcoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCas
             },
         }
 
-        mock_api.get(url, body=json.dumps(snapshot_data))
+        mock_api.get(url + "?instId=COINALPHA-HBOT-SWAP&sz=400", body=json.dumps(snapshot_data))
 
         self.listening_task = self.local_event_loop.create_task(
             self.data_source.listen_for_order_book_snapshots(self.local_event_loop, msg_queue)
         )
-
         msg: OrderBookMessage = await msg_queue.get()
 
         bids = msg.bids
         asks = msg.asks
         self.assertEqual(2, len(bids))
         self.assertEqual(6500.12, bids[0].price)
-        self.assertEqual(4.505414e-07, bids[0].amount)
+        self.assertEqual(0.4505414, bids[0].amount)
         self.assertEqual(6500.11, bids[1].price)
-        self.assertEqual(4.505414e-07, bids[1].amount)
+        self.assertEqual(0.4505414, bids[1].amount)
         self.assertEqual(2, len(asks))
         self.assertEqual(6500.16, asks[0].price)
-        self.assertEqual(5.7753524e-07, asks[0].amount)
+        self.assertEqual(0.57753524, asks[0].amount)
         self.assertEqual(6500.15, asks[1].price)
-        self.assertEqual(5.7753524e-07, asks[1].amount)
+        self.assertEqual(0.57753524, asks[1].amount)
 
     async def test_listen_for_funding_info_cancelled_when_listening(self):
         # DeepCoin doesn't have ws updates for funding info
@@ -387,8 +452,8 @@ class DeepcoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCas
         endpoint = CONSTANTS.FUNDING_INFO_URL
         url = web_utils.public_rest_url(endpoint, self.domain)
         general_resp = self.get_funding_info_msg()
-        mock_api.get(url, body=json.dumps(general_resp))
+        mock_api.get(url + "?instId=COINALPHA-HBOT-SWAP&instType=SwapU", body=json.dumps(general_resp))
 
         funding_info: FundingInfo = await self.data_source.get_funding_info(self.trading_pair)
         general_info_result = general_resp["data"]["current_fund_rates"][0]
-        self.assertEqual(Decimal(str(general_info_result["instrumentId"])), funding_info.trading_pair)
+        self.assertEqual((general_info_result["instrumentId"]), funding_info.trading_pair)

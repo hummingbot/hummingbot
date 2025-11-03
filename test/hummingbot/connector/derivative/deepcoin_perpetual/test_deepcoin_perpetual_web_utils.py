@@ -48,7 +48,7 @@ class DeepcoinPerpetualWebUtilsTest(unittest.TestCase):
 
     @aioresponses()
     def test_get_current_server_time(self, mock_api):
-        response = {"code": "0", "msg": "", "data": [{"ts": "1597026383085"}]}
+        response = {"code": "0", "msg": "", "data": {"ts": "1597026383085"}}
 
         mock_api.get(web_utils.public_rest_url(CONSTANTS.SERVER_TIME_PATH_URL), body=json.dumps(response))
 

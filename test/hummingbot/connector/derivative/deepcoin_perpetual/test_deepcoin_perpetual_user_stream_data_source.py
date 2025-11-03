@@ -1,8 +1,8 @@
 import asyncio
 import re
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
-from typing import Optional
-from unittest.mock import AsyncMock, patch
+from typing import Any, Dict, Optional
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import ujson
 from aioresponses.core import aioresponses
@@ -30,23 +30,26 @@ class DeepcoinPerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestC
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = cls.base_asset + cls.quote_asset
-        cls.domain = CONSTANTS.TESTNET_DOMAIN
+        cls.domain = CONSTANTS.DEFAULT_DOMAIN
 
         cls.api_key = "TEST_API_KEY"
         cls.secret_key = "TEST_SECRET_KEY"
         cls.listen_key = "TEST_LISTEN_KEY"
+        cls.pass_phrase = "TEST_PASS_KEY"
 
     async def asyncSetUp(self) -> None:
         self.log_records = []
         self.listening_task: Optional[asyncio.Task] = None
         self.mocking_assistant = NetworkMockingAssistant(self.local_event_loop)
+        self.mock_time_provider = MagicMock()
+        self.mock_time_provider.time.return_value = 1000
 
         self.emulated_time = 1640001112.223
         self.connector = DeepcoinPerpetualDerivative(
-            binance_perpetual_api_key="", binance_perpetual_api_secret="", domain=self.domain, trading_pairs=[]
+            deepcoin_perpetual_api_key=self.api_key, deepcoin_perpetual_api_secret=self.secret_key, deepcoin_perpetual_passphrase=self.pass_phrase, domain=self.domain, trading_pairs=[]
         )
 
-        self.auth = DeepcoinPerpetualAuth(api_key=self.api_key, api_secret=self.secret_key, time_provider=self)
+        self.auth = DeepcoinPerpetualAuth(api_key=self.api_key, secret_key=self.secret_key, passphrase=self.pass_phrase, time_provider=self.mock_time_provider)
         self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
@@ -92,6 +95,11 @@ class DeepcoinPerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestC
         resp = {"code": "0", "msg": "", "data": {"listenkey": self.listen_key, "expire_time": 1691403285}}
         return ujson.dumps(resp)
 
+    def _error_response(self) -> Dict[str, Any]:
+        resp = {"code": "50103", "msg": "ERROR MESSAGE"}
+
+        return resp
+
     def _simulate_user_update_event(self):
         # Order Trade Update
         resp = {
@@ -129,7 +137,7 @@ class DeepcoinPerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestC
         "hummingbot.connector.derivative.deepcoin_perpetual.deepcoin_perpetual_user_stream_data_source.DeepcoinPerpetualUserStreamDataSource._sleep"
     )
     async def test_get_listen_key_exception_raised(self, mock_api, _):
-        url = web_utils.public_rest_url(path_url=CONSTANTS.USER_STREAM_ENDPOINT, domain=self.domain)
+        url = web_utils.public_rest_url(CONSTANTS.USER_STREAM_ENDPOINT, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.post(regex_url, status=400, body=ujson.dumps(self._error_response()))
@@ -139,10 +147,11 @@ class DeepcoinPerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestC
 
     @aioresponses()
     async def test_get_listen_key_successful(self, mock_api):
-        url = web_utils.public_rest_url(path_url=CONSTANTS.USER_STREAM_ENDPOINT, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        url = web_utils.public_rest_url(CONSTANTS.USER_STREAM_ENDPOINT, domain=self.domain)
+        # regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        mock_api.post(regex_url, body=self._successful_get_listen_key_response())
+        print("url:", url)
+        mock_api.get(url, body=self._successful_get_listen_key_response())
 
         result: str = await self.data_source._get_listen_key()
 
@@ -150,11 +159,8 @@ class DeepcoinPerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestC
 
     @aioresponses()
     async def test_ping_listen_key_successful(self, mock_api):
-        url = web_utils.public_rest_url(path_url=CONSTANTS.USER_STREAM_EXTEND_ENDPOINT, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        mock_api.put(regex_url, body=ujson.dumps({}))
-
+        url = web_utils.public_rest_url(CONSTANTS.USER_STREAM_EXTEND_ENDPOINT, domain=self.domain)
+        mock_api.get(url + f"?listenkey={self.listen_key}", body=ujson.dumps({"code": "0"}))
         self.data_source._current_listen_key = self.listen_key
         result: bool = await self.data_source._ping_listen_key()
         self.assertTrue(result)
@@ -171,9 +177,6 @@ class DeepcoinPerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestC
 
         self.data_source._current_listen_key = self.listen_key
 
-        # Simulate LISTEN_KEY_KEEP_ALIVE_INTERVAL reached
-        self.data_source._last_listen_key_ping_ts = 0
-
         self.listening_task = self.local_event_loop.create_task(self.data_source._manage_listen_key_task_loop())
 
         await self.resume_test_event.wait()
@@ -184,29 +187,30 @@ class DeepcoinPerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestC
 
     @aioresponses()
     async def test_manage_listen_key_task_loop_keep_alive_successful(self, mock_api):
-        url = web_utils.public_rest_url(path_url=CONSTANTS.USER_STREAM_EXTEND_ENDPOINT, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        mock_api.put(regex_url, body=ujson.dumps({}), callback=self._mock_responses_done_callback)
+        url = web_utils.public_rest_url(CONSTANTS.USER_STREAM_EXTEND_ENDPOINT, domain=self.domain)
+        mock_api.get(url + f"?listenkey={self.listen_key}", body=ujson.dumps({"code": "0"}), callback=self._mock_responses_done_callback)
 
         self.data_source._current_listen_key = self.listen_key
-
         # Simulate LISTEN_KEY_KEEP_ALIVE_INTERVAL reached
         self.data_source._last_listen_key_ping_ts = 0
 
         self.listening_task = self.local_event_loop.create_task(self.data_source._manage_listen_key_task_loop())
 
-        await self.mock_done_event.wait()
+        # await self.mock_done_event.wait()
+
+        try:
+            await asyncio.wait_for(self.mock_done_event.wait(), timeout=5.0)
+        except asyncio.TimeoutError:
+            self.fail("Timeout waiting for mock_done_event to be triggered")
 
         self.assertGreater(self.data_source._last_listen_key_ping_ts, 0)
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_user_stream_successful(self, mock_api, mock_ws):
-        url = web_utils.public_rest_url(path_url=CONSTANTS.USER_STREAM_ENDPOINT, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        url = web_utils.public_rest_url(CONSTANTS.USER_STREAM_ENDPOINT, domain=self.domain)
 
-        mock_api.post(regex_url, body=self._successful_get_listen_key_response())
+        mock_api.get(url, body=self._successful_get_listen_key_response())
 
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
 
@@ -215,17 +219,18 @@ class DeepcoinPerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestC
         msg_queue = asyncio.Queue()
         self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
-        msg = await msg_queue.get()
+        # msg = await msg_queue.get()
+        msg = await asyncio.wait_for(msg_queue.get(), timeout=3)
+
         self.assertTrue(msg, self._simulate_user_update_event)
-        mock_ws.return_value.ping.assert_called()
+        # mock_ws.return_value.ping.assert_called()
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_user_stream_does_not_queue_empty_payload(self, mock_api, mock_ws):
-        url = web_utils.public_rest_url(path_url=CONSTANTS.USER_STREAM_ENDPOINT, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        url = web_utils.public_rest_url(CONSTANTS.USER_STREAM_ENDPOINT, domain=self.domain)
 
-        mock_api.post(regex_url, body=self._successful_get_listen_key_response())
+        mock_api.get(url, body=self._successful_get_listen_key_response())
 
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
 

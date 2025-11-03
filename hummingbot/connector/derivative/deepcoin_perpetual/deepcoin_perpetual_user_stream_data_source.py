@@ -1,14 +1,13 @@
 import asyncio
-import json
-import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+import time
+from typing import TYPE_CHECKING, Optional
 
 from hummingbot.connector.derivative.deepcoin_perpetual import deepcoin_perpetual_constants as CONSTANTS
 from hummingbot.connector.derivative.deepcoin_perpetual.deepcoin_perpetual_auth import DeepcoinPerpetualAuth
 from hummingbot.connector.derivative.deepcoin_perpetual.deepcoin_perpetual_web_utils import public_rest_url
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSPlainTextRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSPlainTextRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -33,7 +32,6 @@ class DeepcoinPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
     def __init__(
             self,
             auth: DeepcoinPerpetualAuth,
-            trading_pairs: List[str],
             connector: 'DeepcoinPerpetualDerivative',
             api_factory: WebAssistantsFactory,
             domain: str = CONSTANTS.DEFAULT_DOMAIN,
@@ -42,18 +40,11 @@ class DeepcoinPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         self._domain = domain
         self._api_factory = api_factory
         self._auth = auth
-        self._trading_pairs = trading_pairs
         self._connector = connector
         self._current_listen_key = None
         self._last_listen_key_ping_ts = None
         self._manage_listen_key_task = None
         self._listen_key_initialized_event = asyncio.Event()
-
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        if not hasattr(cls, "_logger"):
-            cls._logger = logging.getLogger(HummingbotLogger.logger_name_for_class(cls))
-        return cls._logger
 
     async def _get_ws_assistant(self) -> WSAssistant:
         """
@@ -75,17 +66,17 @@ class DeepcoinPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         rest_assistant = await self._api_factory.get_rest_assistant()
         while True:
             try:
-                request = RESTRequest(
-                    method=RESTMethod.GET,
-                    url=public_rest_url(self._domain, CONSTANTS.USER_STREAM_ENDPOINT),
-                    is_auth_required=True,
-                    throttler_limit_id=CONSTANTS.USER_STREAM_ENDPOINT
-                )
+                # request = RESTRequest(
+                #     method=RESTMethod.GET,
+                #     url=public_rest_url(CONSTANTS.USER_STREAM_ENDPOINT,self._domain),
+                #     is_auth_required=True,
+                #     throttler_limit_id=CONSTANTS.USER_STREAM_ENDPOINT
+                # )
                 data = await rest_assistant.execute_request(
-                    url=public_rest_url(self._domain, CONSTANTS.USER_STREAM_ENDPOINT),
+                    url=public_rest_url(CONSTANTS.USER_STREAM_ENDPOINT, self._domain),
                     method=RESTMethod.GET,
                     throttler_limit_id=CONSTANTS.USER_STREAM_ENDPOINT,
-                    headers=self._auth.authentication_headers(request),
+                    # headers=self._auth.authentication_headers(request),
                     timeout=timeout,
                     is_auth_required=True,
                 )
@@ -114,20 +105,20 @@ class DeepcoinPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         """
         try:
             rest_assistant = await self._api_factory.get_rest_assistant()
-            request = RESTRequest(
-                method=RESTMethod.GET,
-                url=public_rest_url(self._domain, CONSTANTS.USER_STREAM_EXTEND_ENDPOINT),
-                is_auth_required=True,
-                throttler_limit_id=CONSTANTS.USER_STREAM_EXTEND_ENDPOINT,
-                params=json.dumps({'listenkey': self._current_listen_key}),
-            )
+            # request = RESTRequest(
+            #     method=RESTMethod.GET,
+            #     url=public_rest_url(CONSTANTS.USER_STREAM_EXTEND_ENDPOINT,self._domain),
+            #     is_auth_required=True,
+            #     throttler_limit_id=CONSTANTS.USER_STREAM_EXTEND_ENDPOINT,
+            #     params={'listenkey': self._current_listen_key},
+            # )
             data = await rest_assistant.execute_request(
-                url=public_rest_url(self._domain) + CONSTANTS.USER_STREAM_EXTEND_ENDPOINT,
+                url=public_rest_url(CONSTANTS.USER_STREAM_EXTEND_ENDPOINT, self._domain),
                 method=RESTMethod.GET,
                 throttler_limit_id=CONSTANTS.USER_STREAM_EXTEND_ENDPOINT,
                 is_auth_required=True,
-                headers=self._auth.authentication_headers(request),
-                timeout=5.0,
+                # headers=self._auth.authentication_headers(request),
+                params={'listenkey': self._current_listen_key},
             )
             if data.get("code") == "0":
                 self.logger().debug(f"Successfully refreshed listen key {self._current_listen_key}")
@@ -152,7 +143,9 @@ class DeepcoinPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                     continue
 
                 success = await self._ping_listen_key()
+                print("success:", success)
                 if success:
+                    self._last_listen_key_ping_ts = int(time.time())
                     pass
                 else:
                     # If ping fails, try to get a new listen key
@@ -166,7 +159,52 @@ class DeepcoinPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 self.logger().error(f"Error in manage listen key task loop: {e}")
                 await self._sleep(self.LISTEN_KEY_RETRY_INTERVAL)
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
+    async def _ensure_listen_key_task_running(self):
+        """
+        Ensures the listen key management task is running.
+        """
+        # If task is already running, do nothing
+        if self._manage_listen_key_task is not None and not self._manage_listen_key_task.done():
+            return
+
+        # Cancel old task if it exists and is done (failed)
+        if self._manage_listen_key_task is not None:
+            self._manage_listen_key_task.cancel()
+            try:
+                await self._manage_listen_key_task
+            except asyncio.CancelledError:
+                pass
+            except Exception:
+                pass  # Ignore any exception from the failed task
+
+        # Create new task
+        self._manage_listen_key_task = safe_ensure_future(self._manage_listen_key_task_loop())
+
+    async def _connected_websocket_assistant(self) -> WSAssistant:
+        """
+        Creates an instance of WSAssistant connected to the exchange.
+
+        This method ensures the listen key is ready before connecting.
+        """
+        # Make sure the listen key management task is running
+        await self._ensure_listen_key_task_running()
+
+        # Wait for the listen key to be initialized
+        await self._listen_key_initialized_event.wait()
+
+        # Get a websocket assistant and connect it
+        ws = await self._get_ws_assistant()
+        # url = f"{web_utils.wss_url(CONSTANTS.PRIVATE_WS_ENDPOINT, self._domain)}/{self._current_listen_key}"
+        base_url = CONSTANTS.WSS_USER_STREAM_URLS[self._domain]
+        url = f"{base_url}?listenKey={self._current_listen_key}"
+
+        self.logger().info(f"Connecting to user stream with listen key {self._current_listen_key}")
+        await ws.connect(ws_url=url, ping_timeout=self.HEARTBEAT_TIME_INTERVAL)
+        self.logger().info("Successfully connected to user stream")
+
+        return ws
+
+    async def listen_for_user_stream(self, output: asyncio.Queue):
         """
         Listens for user stream messages
         """
@@ -175,11 +213,12 @@ class DeepcoinPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 # Get or refresh listen key
                 if self._current_listen_key is None:
                     self._current_listen_key = await self._get_listen_key()
+                    self._last_listen_key_ping_ts = int(time.time())
                     self._listen_key_initialized_event.set()
 
                     # Start the listen key management task
-                    if self._manage_listen_key_task is None:
-                        self._manage_listen_key_task = safe_ensure_future(self._manage_listen_key_task_loop())
+                    # if self._manage_listen_key_task is None:
+                    #     self._manage_listen_key_task = safe_ensure_future(self._manage_listen_key_task_loop())
 
                 # Connect to WebSocket
                 base_url = CONSTANTS.WSS_USER_STREAM_URLS[self._domain]
@@ -207,9 +246,9 @@ class DeepcoinPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         """
         while True:
             try:
-                message = await websocket_assistant.receive()
-                if message:
-                    await self._process_event_message(message, queue)
+                await super()._process_websocket_messages(
+                    websocket_assistant=websocket_assistant,
+                    queue=queue)
             except asyncio.TimeoutError:
                 ping_request = WSPlainTextRequest(payload="ping")
                 await websocket_assistant.send(ping_request)
@@ -219,45 +258,45 @@ class DeepcoinPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 self.logger().error(f"Error processing WebSocket message: {e}")
                 raise
 
-    async def _process_event_message(self, event_message: Dict[str, Any], queue: asyncio.Queue):
-        """
-        Process individual event messages
-        """
-        try:
-            if isinstance(event_message, dict):
-                # Process different types of events
-                if "event" in event_message:
-                    event_type = event_message.get("action")
-                    if event_type == "PushOrder":
-                        await self._process_order_update(event_message, queue)
-                    elif event_type == "PushPosition":
-                        await self._process_position_update(event_message, queue)
-                    elif event_type == "PushAccount":
-                        await self._process_balance_update(event_message, queue)
-                    elif event_type == "PushTrade":
-                        await self._process_trades_update(event_message, queue)
-                else:
-                    # Generic message processing
-                    # await queue.put(event_message)
-                    pass
-        except Exception as e:
-            self.logger().error(f"Error processing event message: {e}")
-
-    async def _process_order_update(self, event_message: Dict[str, Any], queue: asyncio.Queue):
-        """Process order update events"""
-        await queue.put_nowait(event_message)
-
-    async def _process_position_update(self, event_message: Dict[str, Any], queue: asyncio.Queue):
-        """Process position update events"""
-        await queue.put_nowait(event_message)
-
-    async def _process_balance_update(self, event_message: Dict[str, Any], queue: asyncio.Queue):
-        """Process balance update events"""
-        await queue.put_nowait(event_message)
-
-    async def _process_trades_update(self, event_message: Dict[str, Any], queue: asyncio.Queue):
-        """Process trades update events"""
-        await queue.put_nowait(event_message)
+    # async def _process_event_message(self, event_message: Dict[str, Any], queue: asyncio.Queue):
+    #     """
+    #     Process individual event messages
+    #     """
+    #     try:
+    #         if isinstance(event_message, dict):
+    #             # Process different types of events
+    #             if "event" in event_message:
+    #                 event_type = event_message.get("action")
+    #                 if event_type == "PushOrder":
+    #                     await self._process_order_update(event_message, queue)
+    #                 elif event_type == "PushPosition":
+    #                     await self._process_position_update(event_message, queue)
+    #                 elif event_type == "PushAccount":
+    #                     await self._process_balance_update(event_message, queue)
+    #                 elif event_type == "PushTrade":
+    #                     await self._process_trades_update(event_message, queue)
+    #             else:
+    #                 # Generic message processing
+    #                 # await queue.put(event_message)
+    #                 pass
+    #     except Exception as e:
+    #         self.logger().error(f"Error processing event message: {e}")
+    #
+    # async def _process_order_update(self, event_message: Dict[str, Any], queue: asyncio.Queue):
+    #     """Process order update events"""
+    #     await queue.put_nowait(event_message)
+    #
+    # async def _process_position_update(self, event_message: Dict[str, Any], queue: asyncio.Queue):
+    #     """Process position update events"""
+    #     await queue.put_nowait(event_message)
+    #
+    # async def _process_balance_update(self, event_message: Dict[str, Any], queue: asyncio.Queue):
+    #     """Process balance update events"""
+    #     await queue.put_nowait(event_message)
+    #
+    # async def _process_trades_update(self, event_message: Dict[str, Any], queue: asyncio.Queue):
+    #     """Process trades update events"""
+    #     await queue.put_nowait(event_message)
 
     async def _sleep(self, delay: float):
         """Sleep for the specified delay"""

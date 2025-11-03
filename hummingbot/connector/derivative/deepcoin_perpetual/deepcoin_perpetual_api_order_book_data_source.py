@@ -8,6 +8,7 @@ from hummingbot.connector.derivative.deepcoin_perpetual import (
     deepcoin_perpetual_utils as dp_utils,
     deepcoin_perpetual_web_utils as web_utils,
 )
+from hummingbot.connector.derivative.deepcoin_perpetual.deepcoin_perpetual_auth import DeepcoinPerpetualAuth
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
@@ -23,9 +24,16 @@ if TYPE_CHECKING:
     )
 
 
+# if TYPE_CHECKING:
+#     from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_derivative import (
+#         BybitPerpetualDerivative,
+#     )
+
+
 class DeepcoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     def __init__(
             self,
+            auth: DeepcoinPerpetualAuth,
             trading_pairs: List[str],
             connector: 'DeepcoinPerpetualDerivative',
             api_factory: WebAssistantsFactory,
@@ -37,6 +45,7 @@ class DeepcoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._domain = domain
         self._nonce_provider = NonceCreator.for_microseconds()
         self._trading_rules = {}
+        self._auth = auth
 
     async def _set_trading_rules(self) -> Dict[str, Any]:
         if not bool(self._trading_rules):
@@ -53,11 +62,12 @@ class DeepcoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         rest_assistant = await self._api_factory.get_rest_assistant()
         endpoint = CONSTANTS.INSTRUMENTID_INFO_URL
         url = web_utils.public_rest_url(endpoint=endpoint, domain=self._domain)
+
         data = await rest_assistant.execute_request(
             url=url,
             throttler_limit_id=endpoint,
             method=RESTMethod.GET,
-            params=params
+            params=params,
         )
         return data
 
@@ -69,21 +79,31 @@ class DeepcoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         if dp_utils.is_exchange_inverse(trading_pair):
             instType = "Swap"
         params = {
-            "instId": await dp_utils.convert_to_exchange_trading_pair(trading_pair=trading_pair),
+            "instId": dp_utils.convert_to_exchange_trading_pair(trading_pair),
             "instType": instType
         }
-
         rest_assistant = await self._api_factory.get_rest_assistant()
-        url_info = web_utils.public_rest_url(endpoint=CONSTANTS.FUNDING_INFO_URL, trading_pair=trading_pair,
+        url_info = web_utils.public_rest_url(endpoint=CONSTANTS.FUNDING_INFO_URL,
                                              domain=self._domain)
+        # request = RESTRequest(
+        #     method=RESTMethod.GET,
+        #     url=url_info,
+        #     is_auth_required=True,
+        #     params=params,
+        #     throttler_limit_id=CONSTANTS.FUNDING_INFO_URL
+        # )
+        # header = self._auth.authentication_headers(request)
+        # print("2header:",header)
         funding_info_response = await rest_assistant.execute_request(
             url=url_info,
             throttler_limit_id=CONSTANTS.FUNDING_INFO_URL,
             params=params,
             method=RESTMethod.GET,
+            is_auth_required=True,
+            # headers=header,
+            timeout=5,
         )
         if funding_info_response.get("code") != "0":
-            self._connector.logger().warning(f"Failed to get funding info for {trading_pair}")
             raise ValueError(f"Failed to get funding info for {trading_pair}")
 
         general_info = funding_info_response["data"]["current_fund_rates"][0]
@@ -105,7 +125,7 @@ class DeepcoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         try:
             tasks = []
             tasks.append(self._listen_for_subscriptions_on_url(
-                url=web_utils.public_wss_url("", self._domain),
+                url=web_utils.public_wss_url(self._domain),
                 trading_pairs=self._trading_pairs))
 
             if tasks:
@@ -149,7 +169,7 @@ class DeepcoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     async def _subscribe_to_channels(self, ws: WSAssistant, trading_pairs: List[str]):
         try:
             ex_trading_pairs = [
-                await dp_utils.convert_to_exchange_trading_pair(trading_pair=trading_pair)
+                dp_utils.convert_to_exchange_trading_pair(trading_pair)
                 for trading_pair in self._trading_pairs
             ]
 
@@ -157,7 +177,7 @@ class DeepcoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 {
                     "SendTopicAction": {
                         "Action": "1",
-                        "FilterValue": "DeepCoin_" + ex_trading_pair,
+                        "FilterValue": "DeepCoin_" + ex_trading_pair.replace("-SWAP", "").replace("-", ""),
                         "LocalNo": 9,
                         "ResumeNo": 0,
                         "TopicID": "2",
@@ -165,13 +185,13 @@ class DeepcoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 } for ex_trading_pair in ex_trading_pairs
             ]
 
-            subscribe_trades_request = WSJSONRequest(payload=trades_payload)
+            subscribe_trades_request = WSJSONRequest(trades_payload)
 
             order_book_payload = [
                 {
                     "SendTopicAction": {
                         "Action": "1",
-                        "FilterValue": "DeepCoin_" + ex_trading_pair + "_0.1",
+                        "FilterValue": "DeepCoin_" + ex_trading_pair.replace("-SWAP", "").replace("-", "") + "_0.1",
                         "LocalNo": 6,
                         "ResumeNo": 0,
                         "TopicID": "25",
@@ -210,7 +230,7 @@ class DeepcoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         event_type = raw_message.get("a", "")
-
+        await self._set_trading_rules()
         if event_type == CONSTANTS.DIFF_EVENT_TYPE:
             r = raw_message["r"]
             detail = (r[0] or {}).get("d") if r else None
@@ -240,6 +260,7 @@ class DeepcoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         event_type = raw_message.get("a", "")
+        await self._set_trading_rules()
         if event_type == CONSTANTS.TRADE_EVENT_TYPE:
             for trade_data in raw_message.get("r", []):
                 data = trade_data.get("d")
@@ -296,7 +317,7 @@ class DeepcoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         params = {
-            "instId": await dp_utils.convert_to_exchange_trading_pair(trading_pair=trading_pair),
+            "instId": dp_utils.convert_to_exchange_trading_pair(trading_pair),
             "sz": 400
         }
 
@@ -343,8 +364,8 @@ class DeepcoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         for dd in snapshot:
             value = dd.get("d")
             if value is not None:
-                price = float(dd.get("P"))
-                size = float(dd.get("V"))
+                price = float(value.get("P"))
+                size = float(value.get("V"))
                 if value.get("D") == "0":
                     bids.append((price, size))
                 else:
