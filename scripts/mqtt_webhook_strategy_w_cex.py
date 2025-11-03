@@ -2019,7 +2019,8 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
                             return False
 
                         sell_amount = total_position * Decimal(str(percentage / 100.0))
-                        sell_amount = sell_amount.quantize(Decimal('0.00000001'))
+                        # Use connector's quantize method to respect trading pair's size decimals
+                        sell_amount = self.cex_connector.quantize_order_amount(trading_pair, sell_amount)
 
                         self.logger().info(
                             f"📊 Total position: {float(total_position):.8f} {base_token}, "
@@ -2045,7 +2046,8 @@ class EnhancedMQTTWebhookStrategy(ScriptStrategyBase):
                             return False
 
                         sell_amount = base_balance * Decimal(str(percentage / 100.0))
-                        sell_amount = sell_amount.quantize(Decimal('0.00000001'))
+                        # Use connector's quantize method to respect trading pair's size decimals
+                        sell_amount = self.cex_connector.quantize_order_amount(trading_pair, sell_amount)
 
                         self.logger().info(
                             f"📊 Actual balance: {float(base_balance):.8f} {base_token}, "
