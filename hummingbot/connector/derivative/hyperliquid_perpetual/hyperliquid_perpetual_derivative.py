@@ -2,7 +2,7 @@ import asyncio
 import hashlib
 import time
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
+from typing import Any, AsyncIterable, Dict, List, Literal, Optional, Tuple
 
 from bidict import bidict
 
@@ -45,16 +45,16 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             self,
             balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
             rate_limits_share_pct: Decimal = Decimal("100"),
-            hyperliquid_perpetual_api_secret: str = None,
-            use_vault: bool = False,
+            hyperliquid_perpetual_secret_key: str = None,
             hyperliquid_perpetual_api_key: str = None,
+            hyperliquid_perpetual_mode: Literal["wallet", "vault", "api_wallet"] = "wallet",
             trading_pairs: Optional[List[str]] = None,
             trading_required: bool = True,
             domain: str = CONSTANTS.DOMAIN,
     ):
         self.hyperliquid_perpetual_api_key = hyperliquid_perpetual_api_key
-        self.hyperliquid_perpetual_secret_key = hyperliquid_perpetual_api_secret
-        self._use_vault = use_vault
+        self.hyperliquid_perpetual_secret_key = hyperliquid_perpetual_secret_key
+        self._connection_mode = hyperliquid_perpetual_mode
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._domain = domain
@@ -75,8 +75,11 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
     @property
     def authenticator(self) -> Optional[HyperliquidPerpetualAuth]:
         if self._trading_required:
-            return HyperliquidPerpetualAuth(self.hyperliquid_perpetual_api_key, self.hyperliquid_perpetual_secret_key,
-                                            self._use_vault)
+            return HyperliquidPerpetualAuth(
+                self.hyperliquid_perpetual_api_key,
+                self.hyperliquid_perpetual_secret_key,
+                self._connection_mode
+            )
         return None
 
     @property

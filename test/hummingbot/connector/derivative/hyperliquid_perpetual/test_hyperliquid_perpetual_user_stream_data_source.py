@@ -31,7 +31,7 @@ class TestHyperliquidPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTest
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = f"{cls.base_asset}_{cls.quote_asset}"
         cls.api_key = "someKey"
-        cls.use_vault = False
+        cls.hyperliquid_mode = "wallet"
         cls.api_secret_key = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock"
 
     def setUp(self) -> None:
@@ -45,14 +45,14 @@ class TestHyperliquidPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTest
         self.auth = HyperliquidPerpetualAuth(
             api_key=self.api_key,
             api_secret=self.api_secret_key,
-            use_vault=self.use_vault)
+            connection_mode=self.hyperliquid_mode)
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
 
         self.connector = HyperliquidPerpetualDerivative(
             hyperliquid_perpetual_api_key=self.api_key,
-            hyperliquid_perpetual_api_secret=self.api_secret_key,
-            use_vault=self.use_vault,
+            hyperliquid_perpetual_secret_key=self.api_secret_key,
+            hyperliquid_perpetual_mode=self.hyperliquid_mode,
             trading_pairs=[])
         self.connector._web_assistants_factory._auth = self.auth
 
