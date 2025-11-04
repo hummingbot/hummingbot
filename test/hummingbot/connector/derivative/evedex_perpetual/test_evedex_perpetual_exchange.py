@@ -28,6 +28,15 @@ hexbytes_stub = types.SimpleNamespace(HexBytes=bytes)
 sys.modules.setdefault("hexbytes", hexbytes_stub)
 network_status_stub = types.SimpleNamespace(NetworkStatus=types.SimpleNamespace(CONNECTED="connected", NOT_CONNECTED="not_connected"))
 sys.modules.setdefault("hummingbot.core.network_iterator", network_status_stub)
+eth_account_stub = types.SimpleNamespace(
+    Account=types.SimpleNamespace(from_key=lambda *_args, **_kwargs: types.SimpleNamespace(address="0x0"))
+)
+sys.modules.setdefault("eth_account", eth_account_stub)
+eth_account_messages_stub = types.SimpleNamespace(
+    encode_defunct=lambda *_args, **_kwargs: None,
+    encode_typed_data=lambda *_args, **_kwargs: None,
+)
+sys.modules.setdefault("eth_account.messages", eth_account_messages_stub)
 class _DummyTimeout:
     async def __aenter__(self):
         return None
