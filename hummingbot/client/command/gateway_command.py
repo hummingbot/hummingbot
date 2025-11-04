@@ -326,6 +326,7 @@ Use 'gateway <command> --help' for more information about a command.""")
 
         certs_path: str = get_gateway_paths(
             self.client_config_map).local_certs_path.as_posix()
+        host: str = self.client_config_map.gateway.gateway_api_host
 
         if not from_client_password:
             with begin_placeholder_mode(self):
@@ -339,7 +340,7 @@ Use 'gateway <command> --help' for more information about a command.""")
                     self.notify("Error: Invalid pass phrase")
         else:
             pass_phase = Security.secrets_manager.password.get_secret_value()
-        create_self_sign_certs(pass_phase, certs_path)
+        create_self_sign_certs(pass_phase, certs_path, host)
         self.notify(
             f"Gateway SSL certification files are created in {certs_path}.")
         self._get_gateway_instance().reload_certs(self.client_config_map.gateway)
