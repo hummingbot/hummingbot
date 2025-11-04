@@ -18,12 +18,6 @@ from hummingbot.core.gateway import get_gateway_paths
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
-CERT_SUBJECT = [
-    x509.NameAttribute(NameOID.ORGANIZATION_NAME, 'localhost'),
-    x509.NameAttribute(NameOID.COMMON_NAME, 'localhost'),
-]
-# Set alternative DNS
-SAN_DNS = [x509.DNSName('localhost')]
 VALIDITY_DURATION = 365
 CONF_DIR_PATH = root_path() / "conf"
 
@@ -57,13 +51,18 @@ def generate_private_key(password, filepath):
     return private_key
 
 
-def generate_public_key(private_key, filepath):
+def generate_public_key(private_key, filepath, host):
     """
     Generate Public Key
     """
 
+    cert_subject = [
+        x509.NameAttribute(NameOID.ORGANIZATION_NAME, host),
+        x509.NameAttribute(NameOID.COMMON_NAME, host),
+    ]
+
     # Subject info for certification
-    subject = x509.Name(CERT_SUBJECT)
+    subject = x509.Name(cert_subject)
 
     # Use subject as issuer on self-sign certificate
     cert_issuer = subject
@@ -99,20 +98,23 @@ def generate_public_key(private_key, filepath):
     return public_key
 
 
-def generate_csr(private_key, filepath):
+def generate_csr(private_key, filepath, host):
     """
     Generate CSR (Certificate Signing Request)
     """
 
     # CSR subject cannot be the same as CERT_SUBJECT
     subject = x509.Name([
-        x509.NameAttribute(NameOID.COMMON_NAME, 'localhost'),
+        x509.NameAttribute(NameOID.COMMON_NAME, host),
     ])
+
+    # Set alternative DNS
+    san_dns = [x509.DNSName(host)]
 
     builder = (
         x509.CertificateSigningRequestBuilder()
         .subject_name(subject)
-        .add_extension(x509.SubjectAlternativeName(SAN_DNS), critical=False)
+        .add_extension(x509.SubjectAlternativeName(san_dns), critical=False)
     )
 
     csr = builder.sign(private_key, hashes.SHA256(), default_backend())
@@ -184,7 +186,7 @@ def certs_files_exist(client_config_map: "ClientConfigAdapter") -> bool:
     return all(elem in file_list for elem in required_certs)
 
 
-def create_self_sign_certs(pass_phase: str, cert_path: str):
+def create_self_sign_certs(pass_phase: str, cert_path: str, host: str):
     """
     Create self-sign CA Cert
     """
@@ -200,14 +202,17 @@ def create_self_sign_certs(pass_phase: str, cert_path: str):
         'client_csr': join(cert_path, client_csr_filename)
     }
 
+    if host is None or len(host) == 0:
+        host = 'localhost'
+
     # Create CA Private & Public Keys for signing
     ca_private_key = generate_private_key(pass_phase, filepath_list['ca_key'])
-    generate_public_key(ca_private_key, filepath_list['ca_cert'])
+    generate_public_key(ca_private_key, filepath_list['ca_cert'], host)
 
     # Create Server Private & Public Keys for signing
     server_private_key = generate_private_key(pass_phase, filepath_list['server_key'])
     # Create CSR
-    generate_csr(server_private_key, filepath_list['server_csr'])
+    generate_csr(server_private_key, filepath_list['server_csr'], host)
     # Load CSR
     with open(filepath_list['server_csr'], 'rb') as server_csr_file:
         server_csr = x509.load_pem_x509_csr(server_csr_file.read(), default_backend())
@@ -216,7 +221,7 @@ def create_self_sign_certs(pass_phase: str, cert_path: str):
     # local certificate must be unencrypted. Currently, Requests does not support using encrypted keys.
     client_private_key = generate_private_key(None, filepath_list['client_key'])
     # Create CSR
-    generate_csr(client_private_key, filepath_list['client_csr'])
+    generate_csr(client_private_key, filepath_list['client_csr'], host='hummingbot')
     # Load CSR
     with open(filepath_list['client_csr'], 'rb') as client_csr_file:
         client_csr = x509.load_pem_x509_csr(client_csr_file.read(), default_backend())
