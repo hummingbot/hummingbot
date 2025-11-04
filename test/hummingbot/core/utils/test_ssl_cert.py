@@ -49,7 +49,7 @@ class SslCertTest(unittest.TestCase):
 
         # create the public key, assert that the file exists
         public_key_file_path = temp_dir + "/public_key_test"
-        generate_public_key(private_key, public_key_file_path)
+        generate_public_key(private_key, public_key_file_path, "gateway")
         self.assertEqual(os.path.exists(public_key_file_path), True)
 
     def test_generate_csr(self):
@@ -64,7 +64,7 @@ class SslCertTest(unittest.TestCase):
 
         # create a csr and assert that it exists
         csr_file_path = temp_dir + "/csr_test"
-        generate_csr(private_key, csr_file_path)
+        generate_csr(private_key, csr_file_path, "gateway")
         self.assertEqual(os.path.exists(csr_file_path), True)
 
     def test_sign_csr(self):
@@ -79,11 +79,11 @@ class SslCertTest(unittest.TestCase):
 
         # create a public key
         public_key_file_path = temp_dir + "/public_key_test"
-        public_key = generate_public_key(private_key, public_key_file_path)
+        public_key = generate_public_key(private_key, public_key_file_path, "gateway")
 
         # create a csr
         csr_file_path = temp_dir + "/csr_test"
-        csr = generate_csr(private_key, csr_file_path)
+        csr = generate_csr(private_key, csr_file_path, "gateway")
 
         # create a verified public key
         verified_public_key_file_path = temp_dir + "/verified_public_key"
@@ -123,5 +123,5 @@ class SslCertTest(unittest.TestCase):
                 self.assertEqual(certs_files_exist(client_config_map=self.client_config_map), False)
 
                 # generate all necessary certs then confirm they exist in the expected place
-                create_self_sign_certs("abc123", cert_path=mock_gateway_paths.local_certs_path.as_posix())
+                create_self_sign_certs("abc123", cert_path=mock_gateway_paths.local_certs_path.as_posix(), host="gateway")
                 self.assertEqual(certs_files_exist(client_config_map=self.client_config_map), True)
