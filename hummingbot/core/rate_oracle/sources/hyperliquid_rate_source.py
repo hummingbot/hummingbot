@@ -52,9 +52,9 @@ class HyperliquidRateSource(RateSourceBase):
         from hummingbot.connector.exchange.hyperliquid.hyperliquid_exchange import HyperliquidExchange
 
         return HyperliquidExchange(
-            hyperliquid_api_secret="",
+            hyperliquid_secret_key="",
             trading_pairs=[],
-            use_vault = False,
+            hyperliquid_mode = "wallet",
             hyperliquid_api_key="",
             trading_required=False,
         )

@@ -2,6 +2,7 @@ import json
 import threading
 import time
 from collections import OrderedDict
+from typing import Literal
 
 import eth_account
 import msgpack
@@ -19,10 +20,15 @@ class HyperliquidAuth(AuthBase):
     Auth class required by Hyperliquid API with centralized, collision-free nonce generation.
     """
 
-    def __init__(self, api_key: str, api_secret: str, use_vault: bool):
+    def __init__(
+        self,
+        api_key: str,
+        api_secret: str,
+        connection_mode: Literal["wallet", "vault", "api_wallet"]
+    ):
         self._api_key: str = api_key
         self._api_secret: str = api_secret
-        self._use_vault: bool = use_vault
+        self._vault_address = None if connection_mode == "wallet" else api_key
         self.wallet = eth_account.Account.from_key(api_secret)
         # one nonce manager per connector instance (shared by orders/cancels/updates)
         self._nonce = _NonceManager()
@@ -93,7 +99,7 @@ class HyperliquidAuth(AuthBase):
         signature = self.sign_l1_action(
             self.wallet,
             params,
-            None if not self._use_vault else self._api_key,
+            self._vault_address,
             nonce_ms,
             CONSTANTS.BASE_URL in base_url,
         )
@@ -101,7 +107,7 @@ class HyperliquidAuth(AuthBase):
             "action": params,
             "nonce": nonce_ms,
             "signature": signature,
-            "vaultAddress": self._api_key if self._use_vault else None,
+            "vaultAddress": self._vault_address,
         }
 
     def _sign_cancel_params(self, params, base_url, nonce_ms: int):
@@ -112,7 +118,7 @@ class HyperliquidAuth(AuthBase):
         signature = self.sign_l1_action(
             self.wallet,
             order_action,
-            None if not self._use_vault else self._api_key,
+            self._vault_address,
             nonce_ms,
             CONSTANTS.BASE_URL in base_url,
         )
@@ -120,7 +126,7 @@ class HyperliquidAuth(AuthBase):
             "action": order_action,
             "nonce": nonce_ms,
             "signature": signature,
-            "vaultAddress": self._api_key if self._use_vault else None,
+            "vaultAddress": self._vault_address,
         }
 
     def _sign_order_params(self, params, base_url, nonce_ms: int):
@@ -134,7 +140,7 @@ class HyperliquidAuth(AuthBase):
         signature = self.sign_l1_action(
             self.wallet,
             order_action,
-            None if not self._use_vault else self._api_key,
+            self._vault_address,
             nonce_ms,
             CONSTANTS.BASE_URL in base_url,
         )
@@ -142,7 +148,7 @@ class HyperliquidAuth(AuthBase):
             "action": order_action,
             "nonce": nonce_ms,
             "signature": signature,
-            "vaultAddress": self._api_key if self._use_vault else None,
+            "vaultAddress": self._vault_address,
         }
 
     def add_auth_to_params_post(self, params: str, base_url):

@@ -35,7 +35,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         super().setUpClass()
         cls.api_key = "someKey"
         cls.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
-        cls.use_vault = False  # noqa: mock
+        cls.hyperliquid_mode = "wallet"  # noqa: mock
         cls.user_id = "someUserId"
         cls.base_asset = "BTC"
         cls.quote_asset = "USD"  # linear
@@ -385,8 +385,8 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     def create_exchange_instance(self):
         exchange = HyperliquidPerpetualDerivative(
-            hyperliquid_perpetual_api_secret=self.api_secret,
-            use_vault=self.use_vault,
+            hyperliquid_perpetual_secret_key=self.api_secret,
+            hyperliquid_perpetual_mode=self.hyperliquid_mode,
             hyperliquid_perpetual_api_key=self.api_key,
             trading_pairs=[self.trading_pair],
         )
@@ -788,8 +788,8 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
     def test_supported_position_modes(self):
         linear_connector = HyperliquidPerpetualDerivative(
             hyperliquid_perpetual_api_key=self.api_key,
-            hyperliquid_perpetual_api_secret=self.api_secret,
-            use_vault=self.use_vault,
+            hyperliquid_perpetual_secret_key=self.api_secret,
+            hyperliquid_perpetual_mode=self.hyperliquid_mode,
             trading_pairs=[self.trading_pair],
         )
 

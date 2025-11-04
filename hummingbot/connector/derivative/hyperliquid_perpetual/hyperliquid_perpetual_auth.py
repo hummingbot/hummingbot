@@ -1,6 +1,7 @@
 import json
 import time
 from collections import OrderedDict
+from typing import Literal
 
 import eth_account
 import msgpack
@@ -20,10 +21,15 @@ class HyperliquidPerpetualAuth(AuthBase):
     Auth class required by Hyperliquid Perpetual API
     """
 
-    def __init__(self, api_key: str, api_secret: str, use_vault: bool):
+    def __init__(
+        self,
+        api_key: str,
+        api_secret: str,
+        connection_mode: Literal["wallet", "vault", "api_wallet"]
+    ):
         self._api_key: str = api_key
         self._api_secret: str = api_secret
-        self._use_vault: bool = use_vault
+        self._vault_address = None if connection_mode == "wallet" else api_key
         self.wallet = eth_account.Account.from_key(api_secret)
 
     @classmethod
@@ -90,7 +96,7 @@ class HyperliquidPerpetualAuth(AuthBase):
         signature = self.sign_l1_action(
             self.wallet,
             params,
-            None if not self._use_vault else self._api_key,
+            self._vault_address,
             timestamp,
             CONSTANTS.PERPETUAL_BASE_URL in base_url,
         )
@@ -98,7 +104,7 @@ class HyperliquidPerpetualAuth(AuthBase):
             "action": params,
             "nonce": timestamp,
             "signature": signature,
-            "vaultAddress": self._api_key if self._use_vault else None,
+            "vaultAddress": self._vault_address,
         }
         return payload
 
@@ -110,7 +116,7 @@ class HyperliquidPerpetualAuth(AuthBase):
         signature = self.sign_l1_action(
             self.wallet,
             order_action,
-            None if not self._use_vault else self._api_key,
+            self._vault_address,
             timestamp,
             CONSTANTS.PERPETUAL_BASE_URL in base_url,
         )
@@ -118,7 +124,7 @@ class HyperliquidPerpetualAuth(AuthBase):
             "action": order_action,
             "nonce": timestamp,
             "signature": signature,
-            "vaultAddress": self._api_key if self._use_vault else None,
+            "vaultAddress": self._vault_address,
 
         }
         return payload
@@ -135,7 +141,7 @@ class HyperliquidPerpetualAuth(AuthBase):
         signature = self.sign_l1_action(
             self.wallet,
             order_action,
-            None if not self._use_vault else self._api_key,
+            self._vault_address,
             timestamp,
             CONSTANTS.PERPETUAL_BASE_URL in base_url,
         )
@@ -144,7 +150,7 @@ class HyperliquidPerpetualAuth(AuthBase):
             "action": order_action,
             "nonce": timestamp,
             "signature": signature,
-            "vaultAddress": self._api_key if self._use_vault else None,
+            "vaultAddress": self._vault_address,
 
         }
         return payload
