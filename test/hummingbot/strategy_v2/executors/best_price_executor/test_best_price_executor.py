@@ -53,7 +53,7 @@ class TestBestPriceExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         connector.get_order_book.return_value = order_book
 
         strategy.connectors = {
-            "binance": connector,
+            "binance": connector
         }
         return strategy
 
