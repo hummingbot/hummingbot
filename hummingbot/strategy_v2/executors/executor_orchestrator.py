@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 
 from hummingbot.strategy_v2.executors.arbitrage_executor.arbitrage_executor import ArbitrageExecutor
+from hummingbot.strategy_v2.executors.best_price_executor.best_price_executor import BestPriceExecutor
 from hummingbot.strategy_v2.executors.data_types import PositionSummary
 from hummingbot.strategy_v2.executors.dca_executor.dca_executor import DCAExecutor
 from hummingbot.strategy_v2.executors.grid_executor.grid_executor import GridExecutor
@@ -145,6 +146,7 @@ class ExecutorOrchestrator:
         "twap_executor": TWAPExecutor,
         "xemm_executor": XEMMExecutor,
         "order_executor": OrderExecutor,
+        "best_price_executor": BestPriceExecutor,
     }
 
     @classmethod
