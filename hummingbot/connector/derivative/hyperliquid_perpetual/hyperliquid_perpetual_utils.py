@@ -37,7 +37,7 @@ class HyperliquidPerpetualConfigMap(BaseConnectorConfigMap):
     hyperliquid_perpetual_mode: Literal["wallet", "vault", "api_wallet"] = Field(
         default="wallet",
         json_schema_extra={
-            "prompt": "Select connection mode (wallet / vault / api_wallet)",
+            "prompt": "Select connection mode (wallet/vault/api_wallet)",
             "is_secure": False,
             "is_connect_key": True,
             "prompt_on_new": True,
@@ -106,7 +106,7 @@ class HyperliquidPerpetualTestnetConfigMap(BaseConnectorConfigMap):
     hyperliquid_perpetual_testnet_mode: Literal["wallet", "vault", "api_wallet"] = Field(
         default="wallet",
         json_schema_extra={
-            "prompt": "Select connection mode (wallet / vault / api_wallet)",
+            "prompt": "Select connection mode (wallet/vault/api_wallet)",
             "is_secure": False,
             "is_connect_key": True,
             "prompt_on_new": True,
