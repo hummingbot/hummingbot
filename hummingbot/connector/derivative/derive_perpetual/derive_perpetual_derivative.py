@@ -448,6 +448,8 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         hex_order_id = f"0x{md5.hexdigest()}"
         if order_type is OrderType.MARKET:
             mid_price = self.get_mid_price(trading_pair)
+            if mid_price is None or not isinstance(mid_price, Decimal):
+                self.logger().warning(f"Invalid mid_price for {trading_pair}. Cannot create market order.")
             price = self.quantize_order_price(trading_pair, mid_price)
 
         safe_ensure_future(self._create_order(
@@ -485,6 +487,8 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         hex_order_id = f"0x{md5.hexdigest()}"
         if order_type is OrderType.MARKET:
             mid_price = self.get_mid_price(trading_pair)
+            if mid_price is None or not isinstance(mid_price, Decimal):
+                self.logger().warning(f"Invalid mid_price for {trading_pair}. Cannot create market order.")
             price = self.quantize_order_price(trading_pair, mid_price)
 
         safe_ensure_future(self._create_order(
