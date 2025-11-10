@@ -79,8 +79,6 @@ class GatewayLp(GatewaySwap):
     async def get_pool_address(self, trading_pair: str) -> Optional[str]:
         """Get pool address for a trading pair"""
         try:
-            self.logger().info(f"Fetching pool address for {trading_pair} on {self.connector_name}")
-
             # Parse connector to get type (amm or clmm)
             connector_type = get_connector_type(self.connector_name)
             pool_type = "clmm" if connector_type == ConnectorType.CLMM else "amm"
@@ -94,9 +92,8 @@ class GatewayLp(GatewaySwap):
             )
 
             pool_address = pool_info.get("address")
-            if pool_address:
-                self.logger().info(f"Pool address: {pool_address}")
-            else:
+
+            if not pool_address:
                 self.logger().warning(f"No pool address found for {trading_pair}")
 
             return pool_address
