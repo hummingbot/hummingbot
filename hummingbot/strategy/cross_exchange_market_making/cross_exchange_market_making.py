@@ -322,7 +322,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                     "Mid Price": mid_price
                 }
                 if markets_df is not None:
-                    markets_df = markets_df.append(taker_data, ignore_index=True)
+                    markets_df = pd.concat([markets_df, pd.DataFrame([taker_data])], ignore_index=True)
             lines.extend(["", "  Markets:"] +
                          ["    " + line for line in str(markets_df).split("\n")])
 
