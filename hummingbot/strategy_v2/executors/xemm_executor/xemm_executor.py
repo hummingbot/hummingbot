@@ -150,9 +150,13 @@ class XEMMExecutor(ExecutorBase):
             order_amount=self.config.order_amount)
         await self.update_tx_costs()
         if self.taker_order_side == TradeType.BUY:
-            self._maker_target_price = self._taker_result_price * (1 + self.config.target_profitability + self._tx_cost_pct)
+            # Maker is SELL: profitability = (maker_price - taker_price) / maker_price
+            # To achieve target: maker_price = taker_price / (1 - target_profitability - tx_cost_pct)
+            self._maker_target_price = self._taker_result_price / (Decimal("1") - self.config.target_profitability - self._tx_cost_pct)
         else:
-            self._maker_target_price = self._taker_result_price * (1 - self.config.target_profitability - self._tx_cost_pct)
+            # Maker is BUY: profitability = (taker_price - maker_price) / maker_price
+            # To achieve target: maker_price = taker_price / (1 + target_profitability + tx_cost_pct)
+            self._maker_target_price = self._taker_result_price / (Decimal("1") + self.config.target_profitability + self._tx_cost_pct)
 
     async def update_tx_costs(self):
         base, quote = split_hb_trading_pair(trading_pair=self.config.buying_market.trading_pair)
@@ -229,11 +233,11 @@ class XEMMExecutor(ExecutorBase):
     async def control_update_maker_order(self):
         await self.update_current_trade_profitability()
         if self._current_trade_profitability - self._tx_cost_pct < self.config.min_profitability:
-            self.logger().info(f"Trade profitability {self._current_trade_profitability - self._tx_cost_pct} is below minimum profitability. Cancelling order.")
+            self.logger().info(f"Order {self.maker_order.order_id} profitability {self._current_trade_profitability - self._tx_cost_pct} is below minimum profitability {self.config.min_profitability}. Cancelling order.")
             self._strategy.cancel(self.maker_connector, self.maker_trading_pair, self.maker_order.order_id)
             self.maker_order = None
         elif self._current_trade_profitability - self._tx_cost_pct > self.config.max_profitability:
-            self.logger().info(f"Trade profitability {self._current_trade_profitability - self._tx_cost_pct} is above target profitability. Cancelling order.")
+            self.logger().info(f"Order {self.maker_order.order_id} profitability {self._current_trade_profitability - self._tx_cost_pct} is above maximum profitability {self.config.max_profitability}. Cancelling order.")
             self._strategy.cancel(self.maker_connector, self.maker_trading_pair, self.maker_order.order_id)
             self.maker_order = None
 
