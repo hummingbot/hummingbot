@@ -116,6 +116,9 @@ class GatewayHttpClient:
                 ssl_ctx.load_cert_chain(certfile=f"{cert_path}/client_cert.pem",
                                         keyfile=f"{cert_path}/client_key.pem",
                                         password=Security.secrets_manager.password.get_secret_value())
+                # Disable hostname verification for Docker environments where the certificate CN
+                # may not match the container hostname. Certificate validation is still enforced.
+                ssl_ctx.check_hostname = False
                 conn = aiohttp.TCPConnector(ssl_context=ssl_ctx)
             else:
                 # Non-SSL connection for development
