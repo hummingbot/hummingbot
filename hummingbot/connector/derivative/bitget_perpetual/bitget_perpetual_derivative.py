@@ -124,9 +124,15 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
     async def start_network(self):
         await super().start_network()
         await self.set_margin_mode(self._margin_mode)
-
-        if self.is_trading_required:
-            self.set_position_mode(PositionMode.HEDGE)
+        # Respect the current position mode set by the strategy/user. Do not force-switch here.
+        # Sync internal position mode with exchange-side mode
+        try:
+            if self.trading_pairs:
+                for tp in self.trading_pairs:
+                    await self.get_exchange_position_mode(tp)
+        except Exception:
+            # Non-fatal: proceed even if we cannot fetch position mode
+            pass
 
     def supported_order_types(self) -> List[OrderType]:
         return [OrderType.LIMIT, OrderType.MARKET]
@@ -186,6 +192,8 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         }
 
         position_mode = position_modes[account_info_response["data"]["posMode"]]
+        # Update internal state to reflect exchange-side mode
+        self._perpetual_trading.set_position_mode(position_mode)
 
         self.logger().info(f"Position mode for {trading_pair}: {position_mode}")
 
@@ -290,19 +298,27 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
             "symbol": await self.exchange_symbol_associated_to_pair(trading_pair),
             "productType": product_type,
             "size": str(amount),
-            "force": CONSTANTS.DEFAULT_TIME_IN_FORCE,
             "clientOid": order_id,
             "side": trade_type.name.lower(),
             "marginMode": margin_modes[self._margin_mode],
             "orderType": "limit" if order_type.is_limit_type() else "market",
+            # Explicitly include position mode to satisfy Bitget unilateral/hedge mode requirements
+            "posMode": CONSTANTS.POSITION_MODE_TYPES[self.position_mode],
         }
         if order_type.is_limit_type():
             data["price"] = str(price)
+            data["force"] = CONSTANTS.DEFAULT_TIME_IN_FORCE
 
         if self.position_mode is PositionMode.HEDGE:
             if position_action is PositionAction.CLOSE:
                 data["side"] = "sell" if trade_type is TradeType.BUY else "buy"
             data["tradeSide"] = position_action.name.lower()
+        elif self.position_mode is PositionMode.ONEWAY:
+            # In ONEWAY mode, Bitget requires reduceOnly parameter
+            # Set to "yes" for closing positions, "no" for opening
+            data["reduceOnly"] = "yes" if position_action == PositionAction.CLOSE else "no"
+            # Some Bitget environments require tradeSide to be explicitly set in unilateral mode
+            data["tradeSide"] = "buy_single" if trade_type is TradeType.BUY else "sell_single"
 
         resp = await self._api_post(
             path_url=CONSTANTS.PLACE_ORDER_ENDPOINT,

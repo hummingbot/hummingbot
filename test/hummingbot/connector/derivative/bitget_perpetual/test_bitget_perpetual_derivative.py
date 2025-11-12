@@ -942,14 +942,35 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(order.trade_type.name.lower(), request_data["side"])
         self.assertEqual(self.exchange_trading_pair, request_data["symbol"])
         self.assertEqual(order.amount, Decimal(request_data["size"]))
-        self.assertEqual(CONSTANTS.DEFAULT_TIME_IN_FORCE, request_data["force"])
         self.assertEqual(order.client_order_id, request_data["clientOid"])
+        
+        # posMode should always be present
+        self.assertIn("posMode", request_data)
+        expected_pos_mode = CONSTANTS.POSITION_MODE_TYPES[self.exchange.position_mode]
+        self.assertEqual(expected_pos_mode, request_data["posMode"])
+        
+        # force parameter should only be present for limit orders
+        if order.order_type.is_limit_type():
+            self.assertIn("force", request_data)
+            self.assertEqual(CONSTANTS.DEFAULT_TIME_IN_FORCE, request_data["force"])
+        else:
+            self.assertNotIn("force", request_data)
 
         if self.exchange.position_mode == PositionMode.HEDGE:
             self.assertIn("tradeSide", request_data)
             self.assertEqual(order.position.name.lower(), request_data["tradeSide"])
-        else:
-            self.assertNotIn("tradeSide", request_data)
+            self.assertNotIn("reduceOnly", request_data)
+        elif self.exchange.position_mode == PositionMode.ONEWAY:
+            # In ONEWAY mode, tradeSide should be "buy_single" or "sell_single"
+            self.assertIn("tradeSide", request_data)
+            expected_trade_side = "buy_single" if order.trade_type is TradeType.BUY else "sell_single"
+            self.assertEqual(expected_trade_side, request_data["tradeSide"])
+            # reduceOnly should be present in ONEWAY mode
+            self.assertIn("reduceOnly", request_data)
+            if order.position == PositionAction.CLOSE:
+                self.assertEqual("yes", request_data["reduceOnly"])
+            else:
+                self.assertEqual("no", request_data["reduceOnly"])
 
     def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = json.loads(request_call.kwargs["data"])
