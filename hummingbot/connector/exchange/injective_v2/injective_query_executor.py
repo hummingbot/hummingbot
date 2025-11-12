@@ -176,8 +176,8 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
     async def get_spot_orderbook(self, market_id: str) -> Dict[str, Any]:  # pragma: no cover
         order_book_response = await self._sdk_client.fetch_chain_spot_orderbook(market_id=market_id)
         result = {
-            "buys": [(buy["p"], buy["q"], int(buy["timestamp"])) for buy in order_book_response.get("buysPriceLevel", [])],
-            "sells": [(sell["p"], sell["q"], int(sell["timestamp"])) for sell in order_book_response.get("sellsPriceLevel", [])],
+            "buys": [(buy["p"], buy["q"]) for buy in order_book_response.get("buysPriceLevel", [])],
+            "sells": [(sell["p"], sell["q"]) for sell in order_book_response.get("sellsPriceLevel", [])],
             "sequence": int(order_book_response["seq"]),
         }
 
@@ -186,9 +186,9 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
     async def get_derivative_orderbook(self, market_id: str) -> Dict[str, Any]:  # pragma: no cover
         order_book_response = await self._sdk_client.fetch_chain_derivative_orderbook(market_id=market_id)
         result = {
-            "buys": [(buy["p"], buy["q"], int(buy["timestamp"])) for buy in
+            "buys": [(buy["p"], buy["q"]) for buy in
                      order_book_response.get("buysPriceLevel", [])],
-            "sells": [(sell["p"], sell["q"], int(sell["timestamp"])) for sell in
+            "sells": [(sell["p"], sell["q"]) for sell in
                       order_book_response.get("sellsPriceLevel", [])],
             "sequence": int(order_book_response["seq"]),
         }
