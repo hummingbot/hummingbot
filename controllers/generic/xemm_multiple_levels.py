@@ -165,10 +165,21 @@ class XEMMMultipleLevels(ControllerBase):
             filter_func=lambda e: e.is_done and e.config.maker_side == TradeType.SELL and e.filled_amount_quote != 0
         )
         imbalance = len(stopped_buy_executors) - len(stopped_sell_executors)
+
+        # Calculate total amounts for proportional allocation
+        total_buy_amount = sum(amount for _, amount in self.buy_levels_targets_amount)
+        total_sell_amount = sum(amount for _, amount in self.sell_levels_targets_amount)
+
+        # Allocate 50% of total_amount_quote to each side
+        buy_side_quote = self.config.total_amount_quote * Decimal("0.5")
+        sell_side_quote = self.config.total_amount_quote * Decimal("0.5")
+
         for target_profitability, amount in self.buy_levels_targets_amount:
             active_buy_executors_target = [e.config.target_profitability == target_profitability for e in active_buy_executors]
 
             if len(active_buy_executors_target) == 0 and imbalance < self.config.max_executors_imbalance:
+                # Calculate proportional amount: (level_amount / total_side_amount) * (total_quote * 0.5)
+                proportional_amount_quote = (amount / total_buy_amount) * buy_side_quote
                 min_profitability = target_profitability - self.config.min_profitability
                 max_profitability = target_profitability + self.config.max_profitability
                 config = XEMMExecutorConfig(
@@ -179,7 +190,7 @@ class XEMMMultipleLevels(ControllerBase):
                     selling_market=ConnectorPair(connector_name=self.config.taker_connector,
                                                  trading_pair=self.config.taker_trading_pair),
                     maker_side=TradeType.BUY,
-                    order_amount=amount / mid_price,
+                    order_amount=proportional_amount_quote / mid_price,
                     min_profitability=min_profitability,
                     target_profitability=target_profitability,
                     max_profitability=max_profitability
@@ -188,6 +199,8 @@ class XEMMMultipleLevels(ControllerBase):
         for target_profitability, amount in self.sell_levels_targets_amount:
             active_sell_executors_target = [e.config.target_profitability == target_profitability for e in active_sell_executors]
             if len(active_sell_executors_target) == 0 and imbalance > -self.config.max_executors_imbalance:
+                # Calculate proportional amount: (level_amount / total_side_amount) * (total_quote * 0.5)
+                proportional_amount_quote = (amount / total_sell_amount) * sell_side_quote
                 min_profitability = target_profitability - self.config.min_profitability
                 max_profitability = target_profitability + self.config.max_profitability
                 config = XEMMExecutorConfig(
@@ -198,7 +211,7 @@ class XEMMMultipleLevels(ControllerBase):
                     selling_market=ConnectorPair(connector_name=self.config.maker_connector,
                                                  trading_pair=self.config.maker_trading_pair),
                     maker_side=TradeType.SELL,
-                    order_amount=amount / mid_price,
+                    order_amount=proportional_amount_quote / mid_price,
                     min_profitability=min_profitability,
                     target_profitability=target_profitability,
                     max_profitability=max_profitability
