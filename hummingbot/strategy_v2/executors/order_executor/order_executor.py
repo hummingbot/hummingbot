@@ -309,6 +309,55 @@ class OrderExecutor(ExecutorBase):
                 price=self.config.price,
             )
         adjusted_order_candidates = self.adjust_order_candidates(self.config.connector_name, [order_candidate])
+        candidate = adjusted_order_candidates[0]
+        connector: Optional[ConnectorBase] = self._strategy.connectors.get(self.config.connector_name)
+        min_notional_threshold: Optional[Decimal] = None
+        if connector is not None:
+            try:
+                trading_rules = getattr(connector, "_trading_rules", {})
+                trading_rule = trading_rules.get(self.config.trading_pair) if trading_rules is not None else None
+                if trading_rule is not None:
+                    rule_min = getattr(trading_rule, "min_notional_size", None)
+                    if rule_min is not None:
+                        min_notional_threshold = Decimal(str(rule_min))
+            except Exception:
+                min_notional_threshold = None
+        if (
+            min_notional_threshold is not None
+            and min_notional_threshold > Decimal("0")
+        ):
+            notional_value: Optional[Decimal] = None
+            candidate_price = candidate.price if candidate.price is not None else self.config.price
+            price_valid = candidate_price is not None and not (
+                hasattr(candidate_price, "is_nan") and candidate_price.is_nan()
+            )
+            try:
+                if price_valid:
+                    notional_value = (candidate.amount * Decimal(str(candidate_price))).copy_abs()
+            except Exception:
+                notional_value = None
+            if notional_value is None and candidate.order_collateral is not None:
+                try:
+                    notional_value = candidate.order_collateral.amount.copy_abs()
+                except Exception:
+                    notional_value = None
+            if notional_value is not None and notional_value < min_notional_threshold:
+                candidate.set_to_zero()
+
+        if candidate.amount == Decimal("0"):
+            connector: Optional[ConnectorBase] = self._strategy.connectors.get(self.config.connector_name)
+            if connector is not None:
+                if hasattr(connector, "_update_balances"):
+                    await connector._update_balances()
+                if (
+                    self.is_perpetual_connector(self.config.connector_name)
+                    and hasattr(connector, "_update_positions")
+                ):
+                    await connector._update_positions()
+                adjusted_order_candidates = self.adjust_order_candidates(
+                    self.config.connector_name,
+                    [order_candidate],
+                )
         if adjusted_order_candidates[0].amount == Decimal("0"):
             self.close_type = CloseType.INSUFFICIENT_BALANCE
             self.logger().error("Not enough budget to open position.")

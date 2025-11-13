@@ -60,7 +60,7 @@ class TWAPExecutor(ExecutorBase):
         self.close_timestamp = self._strategy.current_timestamp
         self.stop()
 
-    def validate_sufficient_balance(self):
+    async def validate_sufficient_balance(self):
         mid_price = self.get_price(self.config.connector_name, self.config.trading_pair, PriceType.MidPrice)
         total_amount_base = self.config.total_amount_quote / mid_price
         if self.is_perpetual_connector(self.config.connector_name):

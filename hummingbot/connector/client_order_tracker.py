@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Callable, Dict, Optional
 
 from cachetools import TTLCache
 
-from hummingbot.core.data_type.common import TradeType
+from hummingbot.core.data_type.common import PositionAction, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.trade_fee import TradeFeeBase
 from hummingbot.core.event.events import (
@@ -432,6 +432,8 @@ class ClientOrderTracker:
 
         elif tracked_order.is_filled:
             self._trigger_completed_event(tracked_order)
+            if getattr(tracked_order, "position", None) == PositionAction.CLOSE:
+                safe_ensure_future(self._connector._update_balances())
             self.logger().info(f"{tracked_order.trade_type.name.upper()} order {tracked_order.client_order_id} completely filled.")
 
         elif tracked_order.is_failure:

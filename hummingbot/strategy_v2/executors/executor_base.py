@@ -1,3 +1,4 @@
+import time
 from decimal import Decimal
 from functools import lru_cache
 from typing import Dict, List, Optional, Tuple, Union
@@ -108,6 +109,8 @@ class ExecutorBase(RunnableBase):
         """
         Returns the executor info.
         """
+        if getattr(self.config, "timestamp", None) is None:
+            object.__setattr__(self.config, "timestamp", time.time())
         ei = ExecutorInfo(
             id=self.config.id,
             timestamp=self.config.timestamp,

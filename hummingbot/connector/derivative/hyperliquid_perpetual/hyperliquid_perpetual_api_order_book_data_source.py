@@ -204,6 +204,36 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
 
             message_queue.put_nowait(trade_message)
 
+    async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
+        """
+        When we run the connector outside the main Hummingbot client (e.g. inside headless scripts) there may be
+        long idle stretches without outbound traffic. Hyperliquid expects periodic client pings; without them the
+        server closes the socket (code 1006). We proactively emit keepalive pings whenever the connection has been
+        idle for ~80% of the configured heartbeat interval.
+        """
+        ping_interval = max(CONSTANTS.HEARTBEAT_TIME_INTERVAL * 0.8, 10.0)
+        last_ping_ts = time.time()
+        async for ws_response in websocket_assistant.iter_messages():
+            data: Dict[str, Any] = ws_response.data
+            if data is not None:
+                channel: str = self._channel_originating_message(event_message=data)
+                valid_channels = self._get_messages_queue_keys()
+                if channel in valid_channels:
+                    self._message_queue[channel].put_nowait(data)
+                else:
+                    await self._process_message_for_unknown_channel(
+                        event_message=data, websocket_assistant=websocket_assistant
+                    )
+
+            now = time.time()
+            if now - last_ping_ts >= ping_interval:
+                try:
+                    await websocket_assistant.ping()
+                    last_ping_ts = now
+                except Exception:
+                    self.logger().debug("Failed to send Hyperliquid keepalive ping.", exc_info=True)
+                    raise
+
     async def _parse_funding_info_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         pass
 
