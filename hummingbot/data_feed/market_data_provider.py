@@ -320,6 +320,10 @@ class MarketDataProvider:
         connector = self.get_connector(connector_name)
         return connector.get_balance(asset)
 
+    def get_available_balance(self, connector_name: str, asset: str):
+        connector = self.get_connector(connector_name)
+        return connector.get_available_balance(asset)
+
     def get_order_book(self, connector_name: str, trading_pair: str):
         """
         Retrieves the order book for a trading pair from the specified connector.
