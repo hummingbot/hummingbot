@@ -463,15 +463,6 @@ class GatewayHttpClient:
                         raise ValueError(f"Error on {method.upper()} {url} Error: {parsed_response}")
 
         except Exception as e:
-            # Always log SSL/connection errors for debugging, even if fail_silently=True
-            if self.is_timeout_error(e):
-                self.logger().warning(f"The network call to {url} has timed out.")
-            else:
-                self.logger().warning(
-                    f"Request to {url} failed: {type(e).__name__}: {e}",
-                    exc_info=True
-                )
-
             if not fail_silently:
                 if self.is_timeout_error(e):
                     self.logger().network(f"The network call to {url} has timed out.")
