@@ -4,7 +4,10 @@ from decimal import Decimal
 from typing import Dict, List, Set
 
 import pandas as pd
-import pandas_ta as ta  # noqa: F401
+try:
+    import pandas_ta as ta  # noqa: F401
+except ImportError:
+    ta = None  # pandas_ta not available (requires Python 3.12+)
 
 from hummingbot import data_path
 from hummingbot.connector.connector_base import ConnectorBase

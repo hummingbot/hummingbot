@@ -66,7 +66,7 @@ def main():
         "numpy>=2.2.6",
         "objgraph",
         "pandas>=2.3.2",
-        "pandas-ta>=0.4.71b",
+        # "pandas-ta>=0.4.71b",  # Temporarily disabled - requires Python 3.12+
         "prompt_toolkit>=3.0.39",
         "protobuf>=4.23.3",
         "psutil>=5.9.5",
