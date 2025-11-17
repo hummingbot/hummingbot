@@ -2242,7 +2242,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "instruments": [
                     {
                         'instrument_type': 'option',  # Should be filtered out - line 804
-                        'instrument_name': 'BTC-25DEC',
+                        'instrument_name': 'ETH-25DEC',
                         'tick_size': '0.01',
                         'minimum_amount': '0.1',
                         'amount_step': '0.01',
