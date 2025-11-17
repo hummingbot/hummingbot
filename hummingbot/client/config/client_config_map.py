@@ -12,7 +12,7 @@ from tabulate import tabulate_formats
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum
 from hummingbot.client.config.config_methods import using_exchange as using_exchange_pointer
 from hummingbot.client.config.config_validators import validate_bool, validate_float
-from hummingbot.client.settings import DEFAULT_GATEWAY_CERTS_PATH, DEFAULT_LOG_FILE_PATH, AllConnectorSettings
+from hummingbot.client.settings import DEFAULT_LOG_FILE_PATH, AllConnectorSettings
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.connector_metrics_collector import (
     DummyMetricsCollector,
@@ -345,11 +345,6 @@ class GatewayConfigMap(BaseClientModel):
     gateway_use_ssl: bool = Field(
         default=False,
         json_schema_extra={"prompt": lambda cm: "Enable SSL endpoints for secure Gateway connection? (True / False)"},
-    )
-    certs_path: Path = Field(
-        default=DEFAULT_GATEWAY_CERTS_PATH,
-        json_schema_extra={"prompt": lambda cm: "Where would you like to save certificates that connect your bot to "
-                                                "Gateway? (default 'certs')"},
     )
 
     model_config = ConfigDict(title="gateway")
