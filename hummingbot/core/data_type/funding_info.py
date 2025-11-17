@@ -14,7 +14,7 @@ class FundingInfo:
                  mark_price: Decimal,
                  next_funding_utc_timestamp: int,
                  rate: Decimal,
-                 funding_interval_hours: Optional[int],
+                 funding_interval_hours: Optional[int] = None,
                  ):
         self._trading_pair = trading_pair
         self._index_price = index_price
