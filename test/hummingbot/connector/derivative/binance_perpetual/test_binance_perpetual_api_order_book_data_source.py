@@ -384,10 +384,9 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
         mock_api.get(regex_url, exception=asyncio.CancelledError)
 
         msg_queue: asyncio.Queue = asyncio.Queue()
-        ev_loop = cast(asyncio.BaseEventLoop, self.local_event_loop)
 
         with self.assertRaises(asyncio.CancelledError):
-            await self.data_source.listen_for_order_book_snapshots(ev_loop, msg_queue)
+            await self.data_source.listen_for_order_book_snapshots(self.local_event_loop, msg_queue)
 
         self.assertEqual(0, msg_queue.qsize())
 
@@ -404,9 +403,8 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
-        ev_loop = cast(asyncio.BaseEventLoop, self.local_event_loop)
         self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_order_book_snapshots(ev_loop, msg_queue)
+            self.data_source.listen_for_order_book_snapshots(self.local_event_loop, msg_queue)
         )
 
         await self.resume_test_event.wait()
@@ -430,9 +428,8 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
         mock_api.get(regex_url, body=json.dumps(mock_response))
 
         msg_queue: asyncio.Queue = asyncio.Queue()
-        ev_loop = cast(asyncio.BaseEventLoop, self.local_event_loop)
         self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_order_book_snapshots(ev_loop, msg_queue)
+            self.data_source.listen_for_order_book_snapshots(self.local_event_loop, msg_queue)
         )
 
         result = await msg_queue.get()
