@@ -36,9 +36,10 @@ class VestPerpetualAuthTests(TestCase):
         )
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
-        return asyncio.get_event_loop().run_until_complete(
-            asyncio.wait_for(coroutine, timeout)
-        )
+        async def runner():
+            return await asyncio.wait_for(coroutine, timeout)
+
+        return asyncio.run(runner())
 
     def _sample_order(self):
         return {

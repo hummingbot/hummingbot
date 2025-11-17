@@ -1,9 +1,9 @@
 import asyncio
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from contextlib import suppress
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import hummingbot.connector.derivative.vest_perpetual.vest_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.vest_perpetual.vest_perpetual_web_utils as web_utils
-from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
@@ -12,6 +12,7 @@ from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
 if TYPE_CHECKING:
+    from hummingbot.connector.derivative.vest_perpetual.vest_perpetual_auth import VestPerpetualAuth
     from hummingbot.connector.derivative.vest_perpetual.vest_perpetual_derivative import VestPerpetualDerivative
 
 
@@ -32,7 +33,6 @@ class VestPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         self._use_testnet = use_testnet
         self._listen_key: Optional[str] = None
         self._listen_key_initialized_event = asyncio.Event()
-        self._last_listen_key_ping_ts = 0
         self._manage_listen_key_task: Optional[asyncio.Task] = None
 
     @property
@@ -43,10 +43,12 @@ class VestPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         """Create and connect a WebSocket assistant with listen key."""
         await self._get_listen_key()
 
-        account_group = self._connector._account_group
-        ws_url = (
-            f"{web_utils.wss_url(self._use_testnet)}"
-            f"?version=1.0&xwebsocketserver=restserver{account_group}&listenKey={self._listen_key}"
+        account_group = getattr(self._connector, "_account_group", 0)
+        domain = getattr(self._connector, "domain", CONSTANTS.DEFAULT_DOMAIN)
+        ws_url = web_utils.private_ws_url(
+            listen_key=self._listen_key or "",
+            domain=domain,
+            account_group=account_group,
         )
 
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
@@ -88,6 +90,7 @@ class VestPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             url=url,
             throttler_limit_id=CONSTANTS.LISTEN_KEY_PATH_URL,
             method=RESTMethod.POST,
+            is_auth_required=True,
         )
 
         self._listen_key = response["listenKey"]
@@ -96,6 +99,9 @@ class VestPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _ping_listen_key(self):
         """Ping the listen key to keep it alive."""
+        if self._listen_key is None:
+            return
+
         rest_assistant = await self._api_factory.get_rest_assistant()
         url = web_utils.rest_url(CONSTANTS.LISTEN_KEY_PATH_URL, self._use_testnet)
 
@@ -104,6 +110,7 @@ class VestPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 url=url,
                 throttler_limit_id=CONSTANTS.LISTEN_KEY_PATH_URL,
                 method=RESTMethod.PUT,
+                is_auth_required=True,
             )
             self.logger().debug("Listen key pinged successfully")
         except Exception as e:
@@ -125,4 +132,11 @@ class VestPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
     async def listen_for_user_stream(self, output: asyncio.Queue):
         """Listen for user stream messages and put them in the output queue."""
         self._manage_listen_key_task = safe_ensure_future(self._manage_listen_key_task_loop())
-        await super().listen_for_user_stream(output)
+        try:
+            await super().listen_for_user_stream(output)
+        finally:
+            if self._manage_listen_key_task is not None:
+                self._manage_listen_key_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await self._manage_listen_key_task
+                self._manage_listen_key_task = None

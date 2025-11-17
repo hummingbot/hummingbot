@@ -1,7 +1,5 @@
-"""
-Web utilities for Vest Perpetual connector.
-"""
-from typing import Any, Dict, Optional
+"""Utility helpers for Vest Perpetual REST/WS endpoints and API factories."""
+from typing import Optional
 
 from hummingbot.connector.derivative.vest_perpetual import vest_perpetual_constants as CONSTANTS
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
@@ -12,19 +10,45 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
-def rest_url(path_url: str, use_testnet: bool = False, domain: str = CONSTANTS.REST_URL) -> str:
-    """
-    Creates a full REST URL for a path_url.
-    """
-    base_url = CONSTANTS.REST_URL_DEV if use_testnet else domain
+def _resolve_domain(use_testnet: bool = False, domain: Optional[str] = None) -> str:
+    if domain is not None:
+        return domain
+    return CONSTANTS.TESTNET_DOMAIN if use_testnet else CONSTANTS.DEFAULT_DOMAIN
+
+
+def rest_url(path_url: str, use_testnet: bool = False, domain: Optional[str] = None) -> str:
+    """Creates a full REST URL for a path."""
+    resolved_domain = _resolve_domain(use_testnet=use_testnet, domain=domain)
+    base_url = CONSTANTS.REST_URLS.get(resolved_domain, CONSTANTS.REST_URL_PROD)
     return base_url + path_url
 
 
+def public_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
+    return rest_url(path_url=path_url, domain=domain)
+
+
+def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
+    return rest_url(path_url=path_url, domain=domain)
+
+
 def wss_url(use_testnet: bool = False) -> str:
-    """
-    Creates the WebSocket URL.
-    """
+    """Deprecated helper preserved for backwards compatibility."""
     return CONSTANTS.WSS_URL_DEV if use_testnet else CONSTANTS.WSS_URL_PROD
+
+
+def public_ws_url(domain: str = CONSTANTS.DEFAULT_DOMAIN, account_group: int = 0) -> str:
+    base_ws_url = CONSTANTS.WSS_URLS.get(domain, CONSTANTS.WSS_URL_PROD)
+    query = f"version=1.0&xwebsocketserver=restserver{account_group}&websocketserver=restserver{account_group}"
+    return f"{base_ws_url}?{query}"
+
+
+def private_ws_url(
+    listen_key: str,
+    domain: str = CONSTANTS.DEFAULT_DOMAIN,
+    account_group: int = 0,
+) -> str:
+    base = public_ws_url(domain=domain, account_group=account_group)
+    return f"{base}&listenKey={listen_key}"
 
 
 def build_api_factory(
