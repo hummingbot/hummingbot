@@ -95,7 +95,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             bidict({f"{self.base_asset}-PERP": self.trading_pair}))
 
     def test_get_related_limits(self):
-        self.assertEqual(17, len(self.throttler._rate_limits))
+        self.assertEqual(16, len(self.throttler._rate_limits))
 
         rate_limit, related_limits = self.throttler.get_related_limits(CONSTANTS.ENDPOINTS["limits"]["non_matching"][4])
         self.assertIsNotNone(rate_limit, "Rate limit for TEST_POOL_ID is None.")  # Ensure rate_limit is not None
@@ -2107,42 +2107,23 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         print([url])
         return [url]
 
-    def configure_currency_trading_rules_response(
-            self,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
-    ) -> List[str]:
-
-        url = self.trading_rules_currency_url
-        response = self.currency_request_mock_response
-        mock_api.post(url, body=json.dumps(response), callback=callback)
-        return [url]
-
     def test_user_stream_balance_update(self):
         pass
 
     @aioresponses()
-    def test_all_trading_pairs_does_not_raise_exception(self, mock_pair):
-        res = self.currency_request_mock_response
-        self.configure_currency_trading_rules_response(mock_api=mock_pair)
-        self.exchange.currencies = [res]
+    def test_all_trading_pairs_does_not_raise_exception(self, mock_api):
         self.exchange._set_trading_pair_symbol_map(None)
 
         url = self.all_symbols_url
-        mock_pair.post(url, exception=Exception)
+        mock_api.post(url, exception=Exception)
 
         result: List[str] = self.async_run_with_timeout(self.exchange.all_trading_pairs())
 
         self.assertEqual(0, len(result))
 
-    @patch("hummingbot.connector.derivative.derive_perpetual.derive_perpetual_derivative.DerivePerpetualDerivative._make_currency_request", new_callable=AsyncMock)
     @aioresponses()
-    def test_all_trading_pairs(self, mock_mess: AsyncMock, mock_api):
+    def test_all_trading_pairs(self, mock_api):
         # Mock the currency request response
-        self.configure_currency_trading_rules_response(mock_api=mock_api)
-        mock_mess.return_value = self.currency_request_mock_response
-        self.exchange.currencies = [self.currency_request_mock_response]
-
         self.exchange._set_trading_pair_symbol_map(None)
 
         self.configure_all_symbols_response(mock_api=mock_api)
@@ -2221,16 +2202,12 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     def test_lost_order_included_in_order_fills_update_and_not_in_order_status_update(self, mock_api):
         pass
 
-    @patch("hummingbot.connector.derivative.derive_perpetual.derive_perpetual_derivative.DerivePerpetualDerivative._make_currency_request", new_callable=AsyncMock)
     @aioresponses()
-    def test_update_trading_rules(self, mock_request: AsyncMock, mock_api):
+    def test_update_trading_rules(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
 
         # Mock the currency request response
         mocked_response = self.get_trading_rule_rest_msg()
-        self.configure_currency_trading_rules_response(mock_api=mock_api)
-        mock_request.return_value = self.currency_request_mock_response
-        self.exchange.currencies = [self.currency_request_mock_response]
 
         self.configure_trading_rules_response(mock_api=mock_api)
         self.exchange._instrument_ticker.append(mocked_response[0])
@@ -2253,6 +2230,48 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     @aioresponses()
     def test_update_trading_rules_ignores_rule_with_error(self, mock_api):
         pass
+
+    @aioresponses()
+    def test_update_trading_rules_filters_non_perp_instruments(self, mock_api):
+        """Test line 804: Filter non-perp instrument types"""
+        self.exchange._set_current_timestamp(1640780000)
+
+        # Mock response with mixed instrument types
+        mocked_response = {
+            "result": {
+                "instruments": [
+                    {
+                        'instrument_type': 'option',  # Should be filtered out - line 804
+                        'instrument_name': 'BTC-25DEC',
+                        'tick_size': '0.01',
+                        'minimum_amount': '0.1',
+                        'amount_step': '0.01',
+                    },
+                    {
+                        'instrument_type': 'perp',  # Should be included
+                        'instrument_name': f'{self.base_asset}-PERP',
+                        'tick_size': '0.01',
+                        'minimum_amount': '0.1',
+                        'maximum_amount': '1000',
+                        'amount_step': '0.01',
+                        'base_currency': self.base_asset,
+                        'quote_currency': self.quote_asset,
+                    }
+                ]
+            }
+        }
+
+        # Mock the API call
+        url = self.trading_rules_url
+        mock_api.post(url, body=json.dumps(mocked_response))
+
+        # Set _instrument_ticker with both instrument types
+        self.exchange._instrument_ticker = mocked_response["result"]["instruments"]
+        self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
+
+        # Only perp instrument should be in trading rules (option filtered out by line 804)
+        self.assertEqual(1, len(self.exchange.trading_rules))
+        self.assertTrue(self.trading_pair in self.exchange.trading_rules)
 
     def _simulate_trading_rules_initialized(self):
         mocked_response = self.get_trading_rule_rest_msg()
