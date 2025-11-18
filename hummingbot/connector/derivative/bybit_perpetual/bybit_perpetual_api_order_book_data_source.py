@@ -251,13 +251,8 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 info_update.next_funding_utc_timestamp = int(entry["nextFundingTime"]) // 1e3
             if "fundingRate" in entry:
                 info_update.rate = Decimal(str(entry["fundingRate"]))
-            interval_raw = entry.get("fundingIntervalHour")
-            try:
-                interval_hours = int(interval_raw) if interval_raw is not None else None
-            except (TypeError, ValueError):
-                interval_hours = None
-            if interval_hours is not None:
-                info_update.funding_interval_hours = interval_hours
+            if "fundingIntervalHour" in entry:
+                info_update.funding_interval_hours = int(entry["fundingIntervalHour"])
             message_queue.put_nowait(info_update)
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
