@@ -475,7 +475,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         """
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         if len(self._instrument_ticker) == 0:
-            await self._make_trading_rules_request(self, trading_pair=symbol, fetch_pair=True)
+            await self._make_trading_rules_request(trading_pair=symbol, fetch_pair=True)
         instrument = next((pair for pair in self._instrument_ticker if symbol == pair["instrument_name"]), None)
         if order_type is OrderType.LIMIT and position_action == PositionAction.CLOSE:
             param_order_type = "gtc"
