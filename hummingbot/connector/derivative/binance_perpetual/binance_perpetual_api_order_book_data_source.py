@@ -220,12 +220,14 @@ class BinancePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             ex_trading_pair = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
             response: Any = await self._connector._api_get(
                 path_url=CONSTANTS.FUNDING_INFO_URL,
-                params={"symbol": ex_trading_pair},
+                params=None,
                 is_auth_required=False,
             )
-            if isinstance(response, list) and response:
-                info = response[0]
-                interval = info.get("fundingIntervalHours")
+
+            matcher = filter(lambda item: item.get("symbol", "") == ex_trading_pair, response)
+            matching_info = next(matcher, None)
+            if matching_info is not None:
+                interval = matching_info.get("fundingIntervalHours")
                 if interval is not None:
                     return int(interval)
         except Exception as e:
