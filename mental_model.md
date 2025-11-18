@@ -4,6 +4,24 @@ Overview
 
 Jarvis is a voice/text-driven trading assistant. Users express intents (“buy BTC at 90k”, “alert me if BTC volume spikes”, “run EMA cross buy/sell”), and Jarvis compiles those into safe, auditable jobs executed by a hardened backend built on a minimally modified, event‑driven Hummingbot (v2.10.0 base) and Hyperliquid connectors.
 
+Goals & constraints
+
+- Turn Hummingbot into a **multi-tenant trading engine**:
+  - Many concurrent users and strategies per user.
+  - Low-latency event-driven execution (no global 1 s tick delay).
+  - Single shared market data layer all strategies subscribe to.
+- Keep core Hummingbot connectors + StrategyBase APIs intact; add only additive hooks (event-driven base, TradingCore gate).
+- Embed Hummingbot into a `UserEngine` wrapper so backend services can spin up per-user runtimes on demand.
+- Deliver one reference **event-driven EMA+ATR** strategy for Jarvis; defer the broader library.
+- Provide minimal ExecutionService risk checks necessary for production usage; larger risk products are out-of-scope now.
+- Jarvis/LLM stack is unchanged in this pass; focus from “strategy spec ready” downward.
+
+Non-goals (this phase)
+
+- No generalized strategy marketplace yet—land the EMA+ATR exemplar first.
+- No additional queues/buffers in the hot path; keep MDS → Redis Streams → UserEngines as lean as possible.
+- No frontend or LLM UX work besides documenting how they invoke the new runtime.
+
 High-level architecture
 
 - Mobile/Web Frontend (Hyperliquid Builder UI + Privy)
@@ -20,9 +38,21 @@ High-level architecture
   - Exposes CRUD for strategies/executors, event stream for fills, PnL, alerts.
   - Communicates with an Event‑Driven Hummingbot Runtime via in‑process API or RPC.
 - Event‑Driven Hummingbot Runtime
-  - Strategies extend an event-driven base (no Clock tick loop).
-  - Uses executors (order/twap/dca) and our improved Hyperliquid connector.
-  - Publishes events (fills, balance/position updates) to the orchestrator.
+  - Strategies extend `EventDrivenStrategyV2Base` (Clock no longer drives them).
+  - TradingCore detects `is_event_driven` strategies and calls their `start_event_driven()` entrypoint instead of `Clock.add_iterator`.
+  - Uses existing executors and the improved Hyperliquid connector.
+  - Publishes fills/balances over the EventBus so orchestrator subscribers stay in sync.
+- Market Data Service (MDS)
+  - One process per cluster connects once per Hyperliquid symbol/timeframe.
+  - Computes EMA/ATR incrementally and publishes to Redis Stream topics `md.<symbol>.<timeframe>`.
+  - Maintains per-symbol indicator state entirely in-memory for microsecond-level turnaround.
+- Event bus
+  - Thin abstraction over Redis Streams with `publish` / async `subscribe`.
+  - No additional buffering (no extra queues); MDS hands data straight to Redis, UserEngines consume immediately.
+- UserEngine (per user)
+  - Embeds TradingCore + connectors + ExecutionService and injects EventBus handles into strategies.
+  - Subscribes to shared market data topics; runs multiple strategies per user or scales out with per-user processes.
+  - Exposes lifecycle RPC (start/stop strategies) for the orchestrator/StrategyManager.
 - Data/Signals
   - Hyperliquid trades/orderbook/candles (with keepalive pings) + derived signals (EMA, volume spikes, breakouts).
   - Scanners run as light jobs and emit triggers that start/stop strategies.
@@ -61,7 +91,8 @@ Key integration points
 Runtime and deployment
 
 - One orchestrator API (FastAPI) + worker (async) per environment.
-- One or more event‑driven Hummingbot processes; multiple strategies per process.
+- Market Data Service + Redis per region; Redis Streams fan out to all UserEngines.
+- One or more event-driven Hummingbot processes; scale by user or shard.
 - Supervisord/systemd to manage workers; metrics + logs shipped to central observability.
 
 Extensibility

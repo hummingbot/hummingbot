@@ -23,7 +23,13 @@ from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
-from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketOrderFailureEvent, SellOrderCreatedEvent
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.event.events import (
+    AccountEvent,
+    BuyOrderCreatedEvent,
+    MarketOrderFailureEvent,
+    SellOrderCreatedEvent,
+)
 from hummingbot.core.network_iterator import NetworkStatus
 
 
@@ -774,6 +780,30 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.assertEqual(order.trading_pair, event.trading_pair)
         self.assertEqual(order.amount, event.amount)
         self.assertTrue(order.is_open)
+
+    def test_process_positions_ws_updates_internal_state(self):
+        self.exchange._set_current_timestamp(1700000000)
+        position_logger = EventLogger()
+        self.exchange.add_listener(AccountEvent.PositionUpdate, position_logger)
+
+        payload = [{
+            "position": {
+                "coin": self.base_asset,
+                "szi": "0.5",
+                "entryPx": "30000",
+                "unrealizedPnl": "25",
+                "leverage": {"value": "5"},
+            }
+        }]
+
+        self.async_run_with_timeout(self.exchange._process_positions_ws(payload))
+
+        position = self.exchange._perpetual_trading.get_position(self.trading_pair)
+        self.assertIsNotNone(position)
+        self.assertEqual(Decimal("0.5"), position.amount)
+        self.assertGreater(len(position_logger.event_log), 0)
+        event = position_logger.event_log[0]
+        self.assertEqual(self.trading_pair, event.trading_pair)
 
     @property
     def balance_event_websocket_update(self):

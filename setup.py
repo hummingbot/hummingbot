@@ -73,6 +73,7 @@ def main():
         "pydantic>=2",
         "pyjwt>=2.3.0",
         "pyperclip>=1.8.2",
+        "redis>=5.0.1",
         "requests>=2.31.0",
         "ruamel.yaml>=0.2.5",
         "safe-pysha3",

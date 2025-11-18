@@ -7,21 +7,56 @@ This document captures the technical plan to adapt Hummingbot (v2.10.0 base) wit
 1) Event-driven Hummingbot runtime
 
 - Strategy base
-  - Add EventDrivenStrategyV2Base that marks strategies as event-driven and runs two lightweight loops:
-    - _info_update_loop(): fold connector/executor/book updates into strategy state.
-    - _action_loop(): compute actions on a short cadence (e.g., 200–500 ms).
+  - Add `EventDrivenStrategyV2Base` (new file `hummingbot/strategy/event_driven_strategy_v2_base.py`):
+    - Inherits from `ScriptStrategyBase` so all existing helpers (`buy`, `sell`, `connectors`, `markets`) stay untouched.
+    - Sets `is_event_driven = True`, overrides `on_tick()` to no-op, and exposes async `start_event_driven()` / `stop_event_driven()` entrypoints.
+    - Manages its own background tasks via `_spawn_task()` that wraps `safe_ensure_future`, ensuring deterministic cancellation on stop.
+    - Subclasses override `_start_loops()` to subscribe to market data or event buses; no shared Clock involvement.
 - Trading core gate
-  - In TradingCore._start_strategy_execution(), if strategy.is_event_driven: call start_event_driven(); else fall back to Clock iterator.
+  - Update `TradingCore._start_strategy_execution()` so that when `strategy.is_event_driven` is true it skips `Clock.add_iterator` and awaits `strategy.start_event_driven()` instead.
+  - Non-event-driven strategies remain untouched and still run through the Clock iterator.
+  - `TradingCore.stop_strategy()` now calls `strategy.stop_event_driven()` before discarding event-driven strategies to guarantee cleanup.
+- Reference strategy
+  - Place `scripts/jarvis/ema_atr_event_driven.py` as the canonical EMA+ATR subclass.
+  - Strategy subscribes to `md.<symbol>.<timeframe>` via the injected EventBus client, reacts to EMA 12/26 cross filtered by ATR, and routes orders through inherited helper methods (or injected ExecutionService).
 
-2) Hyperliquid connector improvements (already applied)
+2) Hyperliquid connector improvements (already applied + WS-first positions)
 
 - WebSocket keepalive in API order book data source: send ping at ~80% HEARTBEAT_TIME_INTERVAL.
 - Added reduceOnlyRejected order state mapping.
 - Fee accounting: buy_percent_fee_deducted_from_returns=False.
 - Balance refresh on position CLOSE in ClientOrderTracker.
 - Min-notional check and balance/position refresh retry in OrderExecutor.
+- WS-first positions
+  - Ensure the Hyperliquid perpetual connector parses `assetPositions` (and related) payloads from the user WebSocket stream.
+  - Update `self._account_positions` + emit `PositionUpdateEvent` as soon as WS messages arrive; REST polling is relegated to startup/reconciliation.
+  - Document drift handling in `gotchas.md`.
 
-3) Jarvis Orchestrator service
+3) Multi-tenant platform services (new `services/` package)
+
+- Event bus (`services/event_bus.py`)
+  - Thin async interface over Redis Streams: `publish(topic, payload)` and `subscribe(topic)` returning an async iterator.
+  - Uses consumer groups for fan-out while avoiding extra queues/buffers; backpressure handled by Redis trimming policies.
+  - Backend is swappable (NATS/Kafka later) because callers only know about the abstraction.
+- Market Data Service (`services/market_data_service.py`)
+  - Connect once per Hyperliquid symbol/timeframe, maintain `IndicatorState` (EMA fast/slow, ATR) entirely in-memory.
+  - For each WS candle/trade message: update indicators in O(1), publish payload `{symbol, timeframe, close, ema_fast, ema_slow, atr, timestamp}` to `md.<symbol>.<tf>` immediately.
+  - Guarantees low-latency (no sleep loops) by streaming directly from WS → Redis.
+- ExecutionService (`services/execution_service.py`)
+  - Wraps connector order helpers with minimal risk checks (notional caps, leverage, reduce-only).
+  - Strategies submit `OrderIntent` dataclasses; ExecutionService enforces rules then calls `buy`/`sell`.
+- UserEngine (`services/user_engine.py`)
+  - Embeds TradingCore per user, wiring user-specific connectors + ExecutionService + EventBus handles.
+  - Provides `start_ema_atr_strategy`, `stop_strategy`, etc., injecting shared market data bus references into each strategy.
+  - Persists strategy instances in-memory and ensures `stop_event_driven()` is called during shutdown.
+- UserEngine registry (`services/user_engine_registry.py`)
+  - Lazy-start map of `user_id -> UserEngine`, instantiating connectors + TradingCore exactly once per process.
+  - Used by StrategyManager to ensure per-user isolation.
+- Strategy lifecycle & data models
+  - `StrategyJobSpec`, `StrategyConfig`, `OrderIntent` live in `services/models.py`.
+  - `services/strategy_manager.py` persists `StrategyConfig`, asks the registry for an engine, and starts/stops strategies based on type (EMA+ATR for now).
+
+4) Jarvis Orchestrator service
 
 - API surface (FastAPI recommended)
   - POST /intents: Submit an intent (NL or structured). Returns compiled plan.
@@ -41,7 +76,7 @@ This document captures the technical plan to adapt Hummingbot (v2.10.0 base) wit
   - Breakout scanner: price crossing rolling high/low bands.
   - Alert jobs: only notify; strategies optional.
 
-4) Wallets and identity
+5) Wallets and identity
 
 - Privy
   - Frontend: embed SDK; collect DID + signature; request session JWT.
@@ -51,24 +86,25 @@ This document captures the technical plan to adapt Hummingbot (v2.10.0 base) wit
   - Withdrawal routes require out-of-band approval; trading is scoped by budget caps.
   - Connector uses these credentials for signing with no change to public API.
 
-5) Safety and risk controls
+6) Safety and risk controls
 
 - Hard caps: per-intent and per-day notional limits; per-order min/max.
 - Reduce-only where relevant; “close-only” mode toggle.
 - Cooldowns after failures; circuit breaker on consecutive rejections.
 - Dry run flag and paper connector support for first‑time intents.
 
-6) Runtime and deployment
+7) Runtime and deployment
 
 - Processes
+  - Market Data Service (Redis → EventBus) per region.
+  - UserEngine processes (per user or per shard) embedding Hummingbot TradingCore.
   - Orchestrator API (stateless) + background workers.
-  - One Hummingbot process can host many strategies; shard by user count.
 - Infra
   - Supervisord/systemd for long‑running tasks; Prometheus metrics; structured logs.
 - Storage
-  - PostgreSQL (jobs, runs, audit), Redis (queues, pub/sub), S3 (artifacts).
+  - PostgreSQL (jobs, runs, audit), Redis Streams (event bus), S3 (artifacts).
 
-7) Minimal code insertion points (when we implement)
+8) Minimal code insertion points (when we implement)
 
 - New package: jarvis/
   - api/server.py (FastAPI endpoints)
@@ -80,7 +116,7 @@ This document captures the technical plan to adapt Hummingbot (v2.10.0 base) wit
   - Use StrategyV2 + executors; inherit from EventDrivenStrategyV2Base.
   - Interact via in‑process Python calls or lightweight RPC (if separate processes).
 
-8) Observability
+9) Observability
 
 - Metrics: order attempts, rejections, fills, balance refreshes, WS reconnects.
 - Traces around compile → schedule → run → stop.
@@ -88,42 +124,15 @@ This document captures the technical plan to adapt Hummingbot (v2.10.0 base) wit
 
 Rollout plan
 
-1. Land orchestrator API skeleton + intent schema + “DirectBuy” strategy.
+1. Land orchestrator API skeleton + intent schema + "DirectBuy" strategy.
 2. Add EMACross template, volume spike scanner, and alert jobs.
 3. Add hedge flow (portfolio readback → target notional → short index perp).
 4. Harden risk controls and approval flows; add paper/live switches.
 5. Expand UI with Privy auth and status stream.
 
-# Event-Driven Strategy V2 – Implementation Notes
+Jarvis frontend MVP (Next.js)
 
-## Overview
-
-This refactor introduces the `EventDrivenStrategyV2Base` helper and wires Hummingbot to run Strategy V2 scripts without relying on the per-second `on_tick()` loop. Event-driven strategies still sit on the central clock for lifecycle bookkeeping (order tracker, timestamps), but the heavy logic now lives in lightweight asyncio tasks that react to events.
-
-## Key Components
-
-- `hummingbot/strategy_v2/event_driven_strategy_v2_base.py`
-  - Subclass of `StrategyV2Base` with `is_event_driven = True`.
-  - Spawns two background loops:
-    - `_info_update_loop()` → periodically syncs executor/controller state.
-    - `_action_loop()` → pulls `determine_executor_actions()` and executes decisions.
-  - Overrides `on_tick()` to a no-op while leaving `TimeIterator` ticking for order tracker upkeep.
-  - Ensures tasks are cancelled in `on_stop()`.
-
-- `hummingbot/core/trading_core.py`
-  - When a strategy exposes `is_event_driven`, we call `start_event_driven()` before adding it to the clock. This primes the new asyncio loops while retaining the existing iterator behaviour for order trackers and lifecycle hooks.
-
-- Hyperliquid websocket positions
-  - `hummingbot/connector/derivative/hyperliquid_perpetual/hyperliquid_perpetual_derivative.py` listens for `assetPositions` payloads on the user stream, updates `_perpetual_trading`, and emits `AccountEvent.PositionUpdate`. REST `_update_positions()` remains the reconciliation fallback.
-  - Position payloads normalised to `Position` instances with sign-aware side detection; zero-size payloads clear state.
-
-## Testing
-
-- New unit tests under `test/hummingbot/strategy_v2/test_event_driven_strategy_v2_base.py` cover task creation, idempotency, loop execution, and task cancellation. Tests skip automatically if Strategy V2 compiled dependencies are unavailable.
-- Hyperliquid websocket processing tests live in `test/hummingbot/connector/derivative/hyperliquid_perpetual/test_hyperliquid_perpetual_derivative.py`. These run when `aioresponses` is installed; otherwise they skip at collection time.
-
-## Operational Guidance
-
-- Event-driven strategies should inherit from `EventDrivenStrategyV2Base` (or a project-specific subclass) to opt-in.
-- Supervisord/systemd can run one process per user; setting `is_event_driven` removes the expensive per-second logic while keeping connectors on the clock.
-- When adding new connectors that emit position events, follow the Hyperliquid pattern: normalise amounts, map to HB trading pairs, update `PerpetualTrading`, emit `PositionUpdateEvent`.
+- Location: `/Users/udaikhattar/jarvis-mvp` – Next.js 15, TypeScript, Tailwind, Privy SDK.
+- Chat/agent UX hits `/api/agent/intent` which wraps the OpenAI Agents SDK (model `gpt-5.1-med`) plus compile/portfolio/notification tools; confirmations post to `/api/agent/tools/strategy/start`.
+- Wallet + funding: `/api/agent/wallet` and `/api/agent/wallet/deposit` mirror Hyperliquid `approveAgent` + `usdSend`. Secrets backend is pluggable with AWS Secrets Manager (preferred) and Turnkey shims.
+- Marketing + portfolio pages copy Emre Karatas comps (starfield hero, holdings, asset detail) and are wired to swap mock payloads for orchestrator data once available.

@@ -16,6 +16,12 @@ Operational risks
   - Mitigation: compile to a plan with explicit parameters; request confirmation when missing.
 - Strategy proliferation (zombie jobs).
   - Mitigation: TTL and idle shutdown; single‑owner lock per symbol/side unless overridden.
+- Redis Stream backlogs or stalls.
+  - Mitigation: per-topic maxlen trim + consumer lag monitoring; alert when lag > 100 ms.
+- Market Data Service failover.
+  - Mitigation: run hot-standby MDS pointing to same Redis; user engines detect stale timestamps (>2× timeframe) and raise alarms.
+- UserEngine restart sequencing.
+  - Mitigation: persist `StrategyConfig` so StrategyManager can rehydrate strategies before orchestrator accepts new intents.
 
 Development caveats
 
@@ -23,24 +29,17 @@ Development caveats
 - Never block on long loops in strategies (use event-driven pattern).
 - Do not persist secrets in logs; scrub configs before storing.
 - Paper/live toggles must be explicit in every run config.
+- EventBus is Redis Streams only for now—no random asyncio.Queue usage; swapping backend later must preserve `publish/subscribe` semantics.
+- Strategies must inject ExecutionService instead of hand-rolling risk logic to keep per-user caps consistent.
 
 Testing notes
 
 - Unit: intent compiler, budget checker, notional sizing, EMA cross signal.
 - Integration: strategy lifecycle; fills and position updates end‑to‑end.
 - Chaos: WS drop/reconnect, partial fills, rejection bursts, REST fallback.
+- Latency: assert WS → Redis → UserEngine path stays <50 ms in lab env; raise alarms if exceeded.
 
-# Event-Driven Strategy V2 – Gotchas
+Frontend-specific notes
 
-- **Clock membership still required**
-  - We keep event-driven strategies on the `Clock` so `StrategyBase.c_tick` continues to update timestamps and the order tracker. Removing the iterator breaks order bookkeeping.
-- **Background loop interval**
-  - `_info_update_loop` and `_action_loop` default to 0.5s. Aggressive reductions can overwhelm executors; tune per strategy if needed.
-- **Task lifecycle**
-  - Ensure `on_stop()` is awaited; orphaned `_info_update_task`/`_action_loop_task` will otherwise continue running and log `CancelledError` traces.
-- **Websocket schema variance**
-  - Hyperliquid’s `assetPositions` payload occasionally omits nested dictionaries (e.g., leverage). Parsing uses `Decimal(str(value))`; ensure future schema updates still coerce cleanly.
-- **Dependencies for tests**
-  - Event-driven tests skip when compiled strategy modules are missing. Hyperliquid websocket tests require `aioresponses`; install or expect skipped runs locally.
-- **Position removal**
-  - Zero-size websocket updates remove only the side reported. Exchanges that omit the side for closures may require explicit cleanup of both `LONG` and `SHORT` keys.
+- Hyperliquid still lacks documented account abstraction for agents. The Next.js MVP keeps the approveAgent + usdSend flow and simply surfaces it in the UI; swap once HL publishes AA docs.
+- Secrets backend is stubbed. Before production, wire AWS Secrets Manager (preferred) or Turnkey and ensure no agent keys live in browser storage/logs.

@@ -10,6 +10,7 @@ APIs (proposed)
 - POST /strategies/{id}/start | /stop | /cancel
 - GET /strategies/{id}
 - GET /events/stream (WebSocket/SSE)
+- POST /internal/user-engines/{userId}/strategies/ema-atr (internal hook that maps straight into UserEngine.start_ema_atr_strategy)
 
 Common intents
 
@@ -24,66 +25,27 @@ Env vars (examples)
 - HL_AGENT_WALLET_SECRET_REF (e.g., AWS Secrets Manager ARN)
 - JARVIS_DB_URL, JARVIS_REDIS_URL
 - JARVIS_PAPER_MODE=true|false
+- REDIS_URL (EventBus + Market Data Service)
+- MDS_SYMBOLS=BTC-PERP,ETH-PERP ; MDS_TIMEFRAMES=1m,5m
+- USER_ENGINE_CONNECTOR_CONFIG_PATH=/secrets/connectors/{user_id}.yml
 
 CLI snippets
 
 - Start orchestrator (to be implemented): python -m jarvis.api.server
+- Start Market Data Service: python -m services.market_data_service --symbols BTC-PERP,ETH-PERP --timeframes 1m,5m
+- Start per-user engine worker: python -m services.user_engine_process --user-id <user>
 - Create DirectBuy (cURL): POST /intents { “intent”: “DirectBuy”, “params”: { “symbol”: “BTC-USD”, “price”: “90000”, “sizeQuote”: “100” } }
+- Start EMA+ATR (cURL): POST /strategies { "strategy_type": "ema_atr", "params": { ... } }
 
 References
 
 - Hummingbot v2.10.0; StrategyV2 executors; Hyperliquid connector.
+- Redis Streams topics `md.<symbol>.<timeframe>` supply shared market data.
+- UserEngine registry persists `strategy_id` ↔ runtime mapping in PostgreSQL for restart safety.
 
-# Event-Driven Strategy V2 – Quick Reference
+Frontend MVP notes
 
-## Opt-in from a strategy
-
-```python
-from hummingbot.strategy_v2.event_driven_strategy_v2_base import EventDrivenStrategyV2Base
-
-
-class MyEventDrivenStrategy(EventDrivenStrategyV2Base):
-    markets = {"exchange": {"HBOT-USDT"}}
-
-    def create_actions_proposal(self):
-        # Return a list of CreateExecutorAction
-        return []
-
-    def stop_actions_proposal(self):
-        return []
-
-    def store_actions_proposal(self):
-        return []
-```
-
-## TradingCore behaviour
-
-- Strategies with `is_event_driven = True`:
-  1. `TradingCore` calls `strategy.start_event_driven()` before registering as a clock iterator.
-  2. The clock still manages lifecycle callbacks (`c_start`, `c_tick`, `c_stop`).
-
-## Background task tuning
-
-- Override `info_update_interval` / `action_loop_interval` on subclasses for slower/faster cadences.
-- Call `self.trigger_event(...)` inside `_action_loop` derivations if custom notifications required.
-
-## Hyperliquid WS positions
-
-```python
-positions_payload = {
-    "assetPositions": [{
-        "position": {
-            "coin": "BTC",
-            "szi": "0.8",
-            "entryPx": "29000",
-            "unrealizedPnl": "15.2",
-            "leverage": {"value": 5}
-        }
-    }]
-}
-
-await connector._process_positions_ws(positions_payload["assetPositions"])
-```
-
-- Emits `AccountEvent.PositionUpdate` with normalised `PositionUpdateEvent` payload.
-- REST `_update_positions()` remains the reconciliation path on reconnects/fills.
+- Repo: `/Users/udaikhattar/jarvis-mvp` (Next.js 15 / Tailwind).
+- Env vars: `NEXT_PUBLIC_PRIVY_APP_ID`, `NEXT_PUBLIC_PRIVY_VERIFIER_PUBLIC_KEY`, `OPENAI_API_KEY`, `HL_API_BASE`, `SECRETS_BACKEND`.
+- API routes: `/api/agent/intent`, `/api/agent/tools/strategy/start`, `/api/agent/wallet`, `/api/agent/wallet/deposit`.
+- LLM stack: OpenAI Agents SDK pinned to `gpt-5.1-med` with compile/portfolio/notification tools.

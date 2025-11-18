@@ -96,3 +96,8 @@ coverage.xml
 .env
 
 **/.claude/settings.local.json
+
+# Frontend node_modules and build artifacts
+hyperliquid-dashboard/node_modules/
+hyperliquid-dashboard/.vite/
+hyperliquid-dashboard/dist/

@@ -28,6 +28,7 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.event.events import AccountEvent, PositionUpdateEvent
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
@@ -544,6 +545,8 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                     if "fills" in results:
                         for trade_msg in results["fills"]:
                             await self._process_trade_message(trade_msg)
+                    if "assetPositions" in results:
+                        await self._process_positions_ws(results["assetPositions"])
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -744,6 +747,57 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             keys = list(self._perpetual_trading.account_positions.keys())
             for key in keys:
                 self._perpetual_trading.remove_position(key)
+
+    async def _process_positions_ws(self, asset_positions: List[Dict[str, Any]]):
+        if asset_positions is None:
+            return
+        active_keys = set()
+        for entry in asset_positions:
+            payload = entry.get("position") or entry
+            coin = payload.get("coin")
+            if coin is None:
+                continue
+            ex_trading_pair = f"{coin}-{CONSTANTS.CURRENCY}"
+            hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(ex_trading_pair)
+            amount = Decimal(str(payload.get("szi", 0)))
+            position_side = PositionSide.LONG if amount > 0 else PositionSide.SHORT
+            pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
+            active_keys.add(pos_key)
+            if amount == 0:
+                self._perpetual_trading.remove_position(pos_key)
+                continue
+            entry_price = Decimal(str(payload.get("entryPx", "0")))
+            unrealized_pnl = Decimal(str(payload.get("unrealizedPnl", "0")))
+            leverage_payload = payload.get("leverage") or {}
+            leverage = Decimal(str(leverage_payload.get("value", "0"))) if leverage_payload else Decimal("0")
+            position = Position(
+                trading_pair=hb_trading_pair,
+                position_side=position_side,
+                unrealized_pnl=unrealized_pnl,
+                entry_price=entry_price,
+                amount=amount,
+                leverage=leverage
+            )
+            self._perpetual_trading.set_position(pos_key, position)
+            event = PositionUpdateEvent(
+                timestamp=self.current_timestamp,
+                trading_pair=hb_trading_pair,
+                position_side=position_side,
+                unrealized_pnl=unrealized_pnl,
+                entry_price=entry_price,
+                amount=amount,
+                leverage=leverage,
+            )
+            self._trigger_event(AccountEvent.PositionUpdate, event)
+        if not asset_positions:
+            keys = list(self._perpetual_trading.account_positions.keys())
+            for key in keys:
+                self._perpetual_trading.remove_position(key)
+        else:
+            existing_keys = list(self._perpetual_trading.account_positions.keys())
+            for key in existing_keys:
+                if key not in active_keys:
+                    self._perpetual_trading.remove_position(key)
 
     async def _get_position_mode(self) -> Optional[PositionMode]:
         return PositionMode.ONEWAY

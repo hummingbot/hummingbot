@@ -543,9 +543,13 @@ class TradingCore:
             if self.clock is None:
                 await self.start_clock()
 
-            # Add strategy to clock
-            if self.strategy and self.clock:
-                self.clock.add_iterator(self.strategy)
+            # Start strategy execution (event-driven vs clock-driven)
+            if self.strategy:
+                is_event_driven = bool(getattr(self.strategy, "is_event_driven", False))
+                if self.clock and not is_event_driven:
+                    self.clock.add_iterator(self.strategy)
+                elif is_event_driven:
+                    await self.strategy.start_event_driven()
 
                 # Restore market states if markets recorder exists
                 if self.markets_recorder:
@@ -594,7 +598,15 @@ class TradingCore:
 
             # Remove strategy from clock FIRST to prevent further ticks
             if self.clock is not None and self.strategy is not None:
-                self.clock.remove_iterator(self.strategy)
+                if not bool(getattr(self.strategy, "is_event_driven", False)):
+                    self.clock.remove_iterator(self.strategy)
+
+            # Stop event-driven loops if needed
+            if self.strategy is not None and bool(getattr(self.strategy, "is_event_driven", False)):
+                try:
+                    await self.strategy.stop_event_driven()
+                except Exception as exc:
+                    self.logger().error(f"Failed to stop event-driven strategy cleanly: {exc}", exc_info=True)
 
             # Remove kill switch from clock
             if self.clock is not None and self.kill_switch is not None:
