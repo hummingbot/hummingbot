@@ -211,25 +211,27 @@ class BinancePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _get_funding_interval_hours(self, trading_pair: str) -> Optional[int]:
         if trading_pair not in self._funding_interval_hours_map:
-            interval = await self._fetch_funding_interval_hours(trading_pair)
-            self._funding_interval_hours_map[trading_pair] = interval
-        return self._funding_interval_hours_map[trading_pair]
+            await self._refresh_funding_interval_hours_map()
+        return self._funding_interval_hours_map.get(trading_pair)
 
-    async def _fetch_funding_interval_hours(self, trading_pair: str) -> Optional[int]:
+    async def _refresh_funding_interval_hours_map(self):
         try:
-            ex_trading_pair = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
             response: Any = await self._connector._api_get(
                 path_url=CONSTANTS.FUNDING_INFO_URL,
                 params=None,
                 is_auth_required=False,
             )
 
-            matcher = filter(lambda item: item.get("symbol", "") == ex_trading_pair, response)
-            matching_info = next(matcher, None)
-            if matching_info is not None:
-                interval = matching_info.get("fundingIntervalHours")
-                if interval is not None:
-                    return int(interval)
+            for info in response:
+                symbol = info.get("symbol")
+
+                try:
+                    trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
+                except Exception:
+                    self.logger().debug(f"Could not map symbol {symbol} to trading pair.")
+                    continue
+                interval_raw = info.get("fundingIntervalHours")
+                interval = int(interval_raw) if interval_raw is not None else None
+                self._funding_interval_hours_map[trading_pair] = interval
         except Exception as e:
-            self.logger().exception(f"Failed to fetch funding interval hours for {trading_pair}. Error: {str(e)}")
-        return None
+            self.logger().exception("Failed to fetch funding interval hours map. Error: %s", str(e))
