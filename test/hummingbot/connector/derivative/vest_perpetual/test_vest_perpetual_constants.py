@@ -1,4 +1,10 @@
-from hummingbot.connector.derivative.vest_perpetual import vest_perpetual_constants as CONSTANTS
+from hummingbot.connector.derivative.vest_perpetual import (
+    vest_perpetual_constants as CONSTANTS,
+)
+
+
+def test_default_domain_equals_exchange_name():
+    assert CONSTANTS.DEFAULT_DOMAIN == CONSTANTS.EXCHANGE_NAME
 
 
 def test_rest_and_ws_urls_use_expected_endpoints():

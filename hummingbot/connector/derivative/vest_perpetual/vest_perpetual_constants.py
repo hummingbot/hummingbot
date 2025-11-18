@@ -1,13 +1,32 @@
 """
 Vest Perpetual API constants.
 """
+
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
+
+EXCHANGE_NAME = "vest_perpetual"
+DEFAULT_DOMAIN = EXCHANGE_NAME
+TESTNET_DOMAIN = f"{EXCHANGE_NAME}_testnet"
 
 # Base URLs
 REST_URL_PROD = "https://server-prod.hz.vestmarkets.com/v2"
 REST_URL_DEV = "https://server-dev.hz.vestmarkets.com/v2"
 WSS_URL_PROD = "wss://ws-prod.hz.vestmarkets.com/ws-api"
 WSS_URL_DEV = "wss://ws-dev.hz.vestmarkets.com/ws-api"
+
+REST_URLS = {
+    DEFAULT_DOMAIN: REST_URL_PROD,
+    TESTNET_DOMAIN: REST_URL_DEV,
+    "mainnet": REST_URL_PROD,
+    "testnet": REST_URL_DEV,
+}
+
+WSS_URLS = {
+    DEFAULT_DOMAIN: WSS_URL_PROD,
+    TESTNET_DOMAIN: WSS_URL_DEV,
+    "mainnet": WSS_URL_PROD,
+    "testnet": WSS_URL_DEV,
+}
 
 # Default to production
 REST_URL = REST_URL_PROD
