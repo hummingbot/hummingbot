@@ -469,11 +469,6 @@ class BinanceRateSourceMode(ExchangeRateSourceModeBase):
     model_config = ConfigDict(title="binance")
 
 
-class BinanceUSRateSourceMode(ExchangeRateSourceModeBase):
-    name: str = Field(default="binance_us")
-    model_config = ConfigDict(title="binance_us")
-
-
 class MexcRateSourceMode(ExchangeRateSourceModeBase):
     name: str = Field(default="mexc")
     model_config = ConfigDict(title="mexc")
@@ -666,7 +661,6 @@ class DeriveRateSourceMode(ExchangeRateSourceModeBase):
 RATE_SOURCE_MODES = {
     AscendExRateSourceMode.model_config["title"]: AscendExRateSourceMode,
     BinanceRateSourceMode.model_config["title"]: BinanceRateSourceMode,
-    BinanceUSRateSourceMode.model_config["title"]: BinanceUSRateSourceMode,
     CoinGeckoRateSourceMode.model_config["title"]: CoinGeckoRateSourceMode,
     CoinCapRateSourceMode.model_config["title"]: CoinCapRateSourceMode,
     DexalotRateSourceMode.model_config["title"]: DexalotRateSourceMode,
