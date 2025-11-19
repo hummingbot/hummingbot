@@ -3,51 +3,68 @@ from unittest import TestCase
 from hummingbot.connector.exchange.hyperliquid.hyperliquid_utils import (
     HyperliquidConfigMap,
     HyperliquidTestnetConfigMap,
-    validate_mode,
+    validate_bool,
+    validate_wallet_mode,
 )
 
 
 class HyperliquidUtilsTests(TestCase):
     def test_validate_connection_mode_succeed(self):
-        allowed = ('wallet', 'vault', 'api_wallet')
-        validations = [validate_mode(value) for value in allowed]
+        allowed = ('arb_wallet', 'api_wallet')
+        validations = [validate_wallet_mode(value) for value in allowed]
 
-        for validation in validations:
-            self.assertIsNone(validation)
+        for index, validation in enumerate(validations):
+            self.assertEqual(validation, allowed[index])
 
     def test_validate_connection_mode_fails(self):
         wrong_value = "api_vault"
-        allowed = ('wallet', 'vault', 'api_wallet')
-        validation_error = validate_mode(wrong_value)
+        allowed = ('arb_wallet', 'api_wallet')
 
-        self.assertEqual(validation_error, f"Invalid mode '{wrong_value}', choose from: {allowed}")
+        with self.assertRaises(ValueError) as context:
+            validate_wallet_mode(wrong_value)
+
+        self.assertEqual(f"Invalid wallet mode '{wrong_value}', choose from: {allowed}", str(context.exception))
 
     def test_cls_validate_connection_mode_succeed(self):
-        allowed = ('wallet', 'vault', 'api_wallet')
-        validations = [HyperliquidConfigMap.validate_hyperliquid_mode(value) for value in allowed]
+        allowed = ('arb_wallet', 'api_wallet')
+        validations = [HyperliquidConfigMap.validate_mode(value) for value in allowed]
 
         for validation in validations:
             self.assertTrue(validation)
 
+    def test_cls_validate_use_vault_succeed(self):
+        truthy = {"yes", "y", "true", "1"}
+        falsy = {"no", "n", "false", "0"}
+        true_validations = [validate_bool(value) for value in truthy]
+        false_validations = [validate_bool(value) for value in falsy]
+
+        for validation in true_validations:
+            self.assertTrue(validation)
+
+        for validation in false_validations:
+            self.assertFalse(validation)
+
     def test_cls_validate_connection_mode_fails(self):
         wrong_value = "api_vault"
-        allowed = ('wallet', 'vault', 'api_wallet')
+        allowed = ('arb_wallet', 'api_wallet')
 
-        with self.assertRaises(ValueError) as exception_context:
-            HyperliquidConfigMap.validate_hyperliquid_mode(wrong_value)
-        self.assertEqual(str(exception_context.exception), f"Invalid mode '{wrong_value}', choose from: {allowed}")
+        with self.assertRaises(ValueError) as context:
+            HyperliquidConfigMap.validate_mode(wrong_value)
+
+        self.assertEqual(f"Invalid wallet mode '{wrong_value}', choose from: {allowed}", str(context.exception))
 
     def test_cls_testnet_validate_bool_succeed(self):
-        allowed = ('wallet', 'vault', 'api_wallet')
-        validations = [HyperliquidTestnetConfigMap.validate_hyperliquid_mode(value) for value in allowed]
+        allowed = ('arb_wallet', 'api_wallet')
+        validations = [HyperliquidTestnetConfigMap.validate_mode(value) for value in allowed]
 
         for validation in validations:
             self.assertTrue(validation)
 
     def test_cls_testnet_validate_bool_fails(self):
         wrong_value = "api_vault"
-        allowed = ('wallet', 'vault', 'api_wallet')
+        allowed = ('arb_wallet', 'api_wallet')
 
-        with self.assertRaises(ValueError) as exception_context:
-            HyperliquidTestnetConfigMap.validate_hyperliquid_mode(wrong_value)
-        self.assertEqual(str(exception_context.exception), f"Invalid mode '{wrong_value}', choose from: {allowed}")
+        with self.assertRaises(ValueError) as context:
+            HyperliquidTestnetConfigMap.validate_mode(wrong_value)
+
+        self.assertEqual(f"Invalid wallet mode '{wrong_value}', choose from: {allowed}", str(context.exception))

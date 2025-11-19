@@ -46,14 +46,16 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
             rate_limits_share_pct: Decimal = Decimal("100"),
             hyperliquid_perpetual_secret_key: str = None,
-            hyperliquid_perpetual_api_key: str = None,
-            hyperliquid_perpetual_mode: Literal["wallet", "vault", "api_wallet"] = "wallet",
+            hyperliquid_perpetual_address: str = None,
+            use_vault: bool = False,
+            hyperliquid_perpetual_mode: Literal["arb_wallet", "api_wallet"] = "arb_wallet",
             trading_pairs: Optional[List[str]] = None,
             trading_required: bool = True,
             domain: str = CONSTANTS.DOMAIN,
     ):
-        self.hyperliquid_perpetual_api_key = hyperliquid_perpetual_api_key
+        self.hyperliquid_perpetual_address = hyperliquid_perpetual_address
         self.hyperliquid_perpetual_secret_key = hyperliquid_perpetual_secret_key
+        self._use_vault = use_vault
         self._connection_mode = hyperliquid_perpetual_mode
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
@@ -76,9 +78,9 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
     def authenticator(self) -> Optional[HyperliquidPerpetualAuth]:
         if self._trading_required:
             return HyperliquidPerpetualAuth(
-                self.hyperliquid_perpetual_api_key,
+                self.hyperliquid_perpetual_address,
                 self.hyperliquid_perpetual_secret_key,
-                self._connection_mode
+                self._use_vault
             )
         return None
 
@@ -459,7 +461,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                     path_url=CONSTANTS.ACCOUNT_TRADE_LIST_URL,
                     data={
                         "type": CONSTANTS.TRADES_TYPE,
-                        "user": self.hyperliquid_perpetual_api_key,
+                        "user": self.hyperliquid_perpetual_address,
                     })
             except asyncio.CancelledError:
                 raise
@@ -535,7 +537,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             path_url=CONSTANTS.ORDER_URL,
             data={
                 "type": CONSTANTS.ORDER_STATUS_TYPE,
-                "user": self.hyperliquid_perpetual_api_key,
+                "user": self.hyperliquid_perpetual_address,
                 "oid": int(exchange_order_id) if exchange_order_id else client_order_id
             })
         current_state = order_update["order"]["status"]
@@ -853,7 +855,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
         account_info = await self._api_post(path_url=CONSTANTS.ACCOUNT_INFO_URL,
                                             data={"type": CONSTANTS.USER_STATE_TYPE,
-                                                  "user": self.hyperliquid_perpetual_api_key},
+                                                  "user": self.hyperliquid_perpetual_address},
                                             )
         quote = CONSTANTS.CURRENCY
         self._account_balances[quote] = Decimal(account_info["crossMarginSummary"]["accountValue"])
@@ -862,7 +864,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
     async def _update_positions(self):
         positions = await self._api_post(path_url=CONSTANTS.POSITION_INFORMATION_URL,
                                          data={"type": CONSTANTS.USER_STATE_TYPE,
-                                               "user": self.hyperliquid_perpetual_api_key}
+                                               "user": self.hyperliquid_perpetual_address}
                                          )
         for position in positions["assetPositions"]:
             position = position.get("position")
@@ -962,7 +964,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         funding_info_response = await self._api_post(path_url=CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL,
                                                      data={
                                                          "type": "userFunding",
-                                                         "user": self.hyperliquid_perpetual_api_key,
+                                                         "user": self.hyperliquid_perpetual_address,
                                                          "startTime": self._last_funding_time(),
                                                      }
                                                      )
