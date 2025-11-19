@@ -21,7 +21,7 @@ logging.basicConfig(level=logging.ERROR)
 
 
 # Update the orderbook so that the top bids and asks are lower than actual for a wider bid ask spread
-# this basially removes the orderbook entries above top bid and below top ask
+# this basically removes the orderbook entries above top bid and below top ask
 def simulate_order_book_widening(order_book: OrderBook, top_bid: float, top_ask: float):
     bid_diffs: List[OrderBookRow] = []
     ask_diffs: List[OrderBookRow] = []
