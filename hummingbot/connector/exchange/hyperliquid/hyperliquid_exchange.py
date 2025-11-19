@@ -44,14 +44,16 @@ class HyperliquidExchange(ExchangePyBase):
             balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
             rate_limits_share_pct: Decimal = Decimal("100"),
             hyperliquid_secret_key: str = None,
-            hyperliquid_api_key: str = None,
-            hyperliquid_mode: Literal["wallet", "vault", "api_wallet"] = "wallet",
+            hyperliquid_address: str = None,
+            use_vault: bool = False,
+            hyperliquid_mode: Literal["arb_wallet", "api_wallet"] = "arb_wallet",
             trading_pairs: Optional[List[str]] = None,
             trading_required: bool = True,
             domain: str = CONSTANTS.DOMAIN,
     ):
-        self.hyperliquid_api_key = hyperliquid_api_key
+        self.hyperliquid_address = hyperliquid_address
         self.hyperliquid_secret_key = hyperliquid_secret_key
+        self._use_vault = use_vault
         self._connection_mode = hyperliquid_mode
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
@@ -71,9 +73,9 @@ class HyperliquidExchange(ExchangePyBase):
     def authenticator(self) -> Optional[HyperliquidAuth]:
         if self._trading_required:
             return HyperliquidAuth(
-                self.hyperliquid_api_key,
+                self.hyperliquid_address,
                 self.hyperliquid_secret_key,
-                self._connection_mode
+                self._use_vault
             )
         return None
 
@@ -391,7 +393,7 @@ class HyperliquidExchange(ExchangePyBase):
                     path_url = CONSTANTS.ACCOUNT_TRADE_LIST_URL,
                     data = {
                         "type": CONSTANTS.TRADES_TYPE,
-                        "user": self.hyperliquid_api_key,
+                        "user": self.hyperliquid_address,
                     })
             except asyncio.CancelledError:
                 raise
@@ -637,7 +639,7 @@ class HyperliquidExchange(ExchangePyBase):
 
         account_info = await self._api_post(path_url=CONSTANTS.ACCOUNT_INFO_URL,
                                             data={"type": CONSTANTS.USER_STATE_TYPE,
-                                                  "user": self.hyperliquid_api_key},
+                                                  "user": self.hyperliquid_address},
                                             )
         balances = account_info["balances"]
         for balance_entry in balances:
@@ -659,7 +661,7 @@ class HyperliquidExchange(ExchangePyBase):
             path_url=CONSTANTS.ORDER_URL,
             data={
                 "type": CONSTANTS.ORDER_STATUS_TYPE,
-                "user": self.hyperliquid_api_key,
+                "user": self.hyperliquid_address,
                 "oid": int(tracked_order.exchange_order_id) if tracked_order.exchange_order_id else client_order_id
             })
         current_state = order_update["order"]["status"]
@@ -699,7 +701,7 @@ class HyperliquidExchange(ExchangePyBase):
             for trading_pair in trading_pairs:
                 params = {
                     'type': CONSTANTS.TRADES_TYPE,
-                    'user': self.hyperliquid_api_key,
+                    'user': self.hyperliquid_address,
                 }
                 if self._last_poll_timestamp > 0:
                     params['type'] = 'userFillsByTime'
@@ -781,7 +783,7 @@ class HyperliquidExchange(ExchangePyBase):
                 path_url=CONSTANTS.MY_TRADES_PATH_URL,
                 params={
                     "type": "userFills",
-                    'user': self.hyperliquid_api_key,
+                    'user': self.hyperliquid_address,
                 },
                 is_auth_required=True,
                 limit_id=CONSTANTS.MY_TRADES_PATH_URL)

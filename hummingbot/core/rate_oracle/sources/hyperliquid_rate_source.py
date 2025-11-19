@@ -54,7 +54,8 @@ class HyperliquidRateSource(RateSourceBase):
         return HyperliquidExchange(
             hyperliquid_secret_key="",
             trading_pairs=[],
-            hyperliquid_mode = "wallet",
-            hyperliquid_api_key="",
+            use_vault=False,
+            hyperliquid_mode = "arb_wallet",
+            hyperliquid_address="",
             trading_required=False,
         )
