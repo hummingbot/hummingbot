@@ -1452,12 +1452,10 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
         self.assertEqual(0, len(result))
 
-    @patch("hummingbot.connector.exchange.derive.derive_exchange.DeriveExchange._make_currency_request", new_callable=AsyncMock)
     @aioresponses()
-    def test_all_trading_pairs(self, mock_mess: AsyncMock, mock_api):
+    def test_all_trading_pairs(self, mock_api):
         # Mock the currency request response
         self.configure_currency_trading_rules_response(mock_api=mock_api)
-        mock_mess.return_value = self.currency_request_mock_response
         self.exchange.currencies = [self.currency_request_mock_response]
 
         self.exchange._set_trading_pair_symbol_map(None)
@@ -1538,16 +1536,12 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     def test_lost_order_included_in_order_fills_update_and_not_in_order_status_update(self, mock_api):
         pass
 
-    @patch("hummingbot.connector.exchange.derive.derive_exchange.DeriveExchange._make_currency_request", new_callable=AsyncMock)
     @aioresponses()
-    def test_update_trading_rules(self, mock_request: AsyncMock, mock_api):
+    def test_update_trading_rules(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
 
         # Mock the currency request response
         mocked_response = self.get_trading_rule_rest_msg()
-        self.configure_currency_trading_rules_response(mock_api=mock_api)
-        mock_request.return_value = self.currency_request_mock_response
-        self.exchange.currencies = [self.currency_request_mock_response]
 
         self.configure_trading_rules_response(mock_api=mock_api)
         self.exchange._instrument_ticker.append(mocked_response[0])
