@@ -166,6 +166,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
 
         exchange_info = await self._api_post(path_url=self.trading_currencies_request_path, data=payload)
         info = exchange_info["result"]["instruments"]
+        self._instrument_ticker = info
         return info
 
     async def _make_trading_rules_request(self, trading_pair: Optional[str] = None, fetch_pair: Optional[bool] = False) -> Any:
@@ -180,7 +181,6 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             payload["instrument_name"] = symbol
         exchange_info = await self._api_post(path_url=self.trading_pairs_request_path, data=(payload))
         info: List[Dict[str, Any]] = exchange_info["result"]
-        self._instrument_ticker = info
         return info
 
     async def get_all_pairs_prices(self) -> Dict[str, Any]:
@@ -918,8 +918,8 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         await self.trading_pair_symbol_map()
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         payload = {"instrument_name": exchange_symbol}
-        response = await self._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
-                                        data=payload)
+        response = await self._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, data=payload, is_auth_required=False,
+                                        limit_id=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL)
 
         return response["result"]["mark_price"]
 
