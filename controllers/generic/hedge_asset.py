@@ -32,7 +32,7 @@ class HedgeAssetConfig(ControllerConfigBase):
 
     # Spot connector
     spot_connector_name: str = "binance"
-    spot_trading_pair: str = "SOL-USDT"
+    asset_to_hedge: str = "SOL"
 
     # Perpetual connector
     hedge_connector_name: str = "binance_perpetual"
@@ -46,7 +46,7 @@ class HedgeAssetConfig(ControllerConfigBase):
     cooldown_time: float = Field(default=10.0, ge=0)
 
     def update_markets(self, markets: MarketDict) -> MarketDict:
-        markets.add_or_update(self.spot_connector_name, self.spot_trading_pair)
+        markets.add_or_update(self.spot_connector_name, self.asset_to_hedge + "-USDC")
         markets.add_or_update(self.hedge_connector_name, self.hedge_trading_pair)
         return markets
 
@@ -55,7 +55,6 @@ class HedgeAssetController(ControllerBase):
     def __init__(self, config: HedgeAssetConfig, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
         self.config = config
-        self.asset_to_hedge = self.config.spot_trading_pair.split("-")[0]
         self.perp_collateral_asset = self.config.hedge_trading_pair.split("-")[1]
         self.set_leverage_and_position_mode()
 
@@ -87,8 +86,8 @@ class HedgeAssetController(ControllerBase):
         """
         Compute current spot balance, hedge position size, current hedge ratio, last hedge time, current hedge gap quote
         """
-        current_price = self.market_data_provider.get_price_by_type(self.config.spot_connector_name, self.config.spot_trading_pair)
-        spot_balance = self.market_data_provider.get_balance(self.config.spot_connector_name, self.asset_to_hedge)
+        current_price = self.market_data_provider.get_price_by_type(self.config.hedge_connector_name, self.config.hedge_trading_pair)
+        spot_balance = self.market_data_provider.get_balance(self.config.spot_connector_name, self.config.asset_to_hedge)
         perp_available_balance = self.market_data_provider.get_available_balance(self.config.hedge_connector_name, self.perp_collateral_asset)
         hedge_position_size = self.hedge_position_size
         hedge_position_gap = spot_balance * self.config.hedge_ratio - hedge_position_size
@@ -143,24 +142,35 @@ class HedgeAssetController(ControllerBase):
         cooldown_ok = self.processed_data.get("cool_down_time_condition", False)
         notional_ok = self.processed_data.get("min_notional_size_condition", False)
 
+        # Calculate theoretical hedge
+        theoretical_hedge = spot_balance * self.config.hedge_ratio
+
         # Status indicators
         cooldown_status = "✓" if cooldown_ok else "✗"
         notional_status = "✓" if notional_ok else "✗"
 
         # Header
-        lines.append(f"\n{'=' * 70}")
-        lines.append(f"  Hedge Status: {self.asset_to_hedge} | Price: {current_price:.4f} {self.perp_collateral_asset}")
-        lines.append(f"{'=' * 70}")
+        lines.append(f"\n{'=' * 65}")
+        lines.append(f"  HEDGE ASSET CONTROLLER: {self.config.asset_to_hedge} @ {current_price:.4f} {self.perp_collateral_asset}")
+        lines.append(f"{'=' * 65}")
 
-        # Balances and Position
-        lines.append(f"  Spot: {spot_balance:>10.4f} {self.asset_to_hedge} | Hedge: {hedge_position:>10.4f} {self.asset_to_hedge} | Perp Balance: {perp_balance:>10.2f} {self.perp_collateral_asset}")
+        # Calculation flow
+        lines.append(f"  Spot Balance:      {spot_balance:>10.4f} {self.config.asset_to_hedge}")
+        lines.append(f"  × Hedge Ratio:     {self.config.hedge_ratio:>10.1%}")
+        lines.append(f"  {'─' * 61}")
+        lines.append(f"  = Target Hedge:    {theoretical_hedge:>10.4f} {self.config.asset_to_hedge}")
+        lines.append(f"  - Current Hedge:   {hedge_position:>10.4f} {self.config.asset_to_hedge}")
+        lines.append(f"  {'─' * 61}")
+        lines.append(f"  = Gap:             {gap:>10.4f} {self.config.asset_to_hedge}  ({gap_quote:>8.2f} {self.perp_collateral_asset})")
+        lines.append("")
+        lines.append(f"  Perp Balance:      {perp_balance:>10.2f} {self.perp_collateral_asset}")
+        lines.append("")
 
-        # Gap
-        lines.append(f"  Gap:  {gap:>10.4f} {self.asset_to_hedge} | Gap Quote: {gap_quote:>10.2f} {self.perp_collateral_asset}")
+        # Trading conditions
+        lines.append("  Trading Conditions:")
+        lines.append(f"    Cooldown ({self.config.cooldown_time:.0f}s):      {cooldown_status}")
+        lines.append(f"    Min Notional (≥{self.config.min_notional_size:.0f} {self.perp_collateral_asset}): {notional_status}")
 
-        # Conditions and Config
-        lines.append(f"  Cooldown: {cooldown_status} | Min Notional: {notional_status} | Hedge Ratio: {self.config.hedge_ratio:.1%} | Min: {self.config.min_notional_size:.0f} {self.perp_collateral_asset} | CD: {self.config.cooldown_time:.0f}s")
-
-        lines.append(f"{'=' * 70}\n")
+        lines.append(f"{'=' * 65}\n")
 
         return lines
