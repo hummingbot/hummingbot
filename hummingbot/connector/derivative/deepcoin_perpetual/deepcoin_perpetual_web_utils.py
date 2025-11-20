@@ -1,4 +1,4 @@
-from typing import Callable, Optional
+from typing import Callable, Optional, Dict, Any, List
 
 from hummingbot.connector.derivative.deepcoin_perpetual import deepcoin_perpetual_constants as CONSTANTS
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
@@ -83,3 +83,21 @@ def public_wss_url(domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
     """
     variant = domain if domain else CONSTANTS.DEFAULT_DOMAIN
     return CONSTANTS.WSS_PUBLIC_URLS.get(variant)
+
+def endpoint_from_message(message: Dict[str, Any]) -> Optional[str]:
+    endpoint = None
+    if isinstance(message, dict):
+        endpoint = message.get("action")
+    return endpoint
+
+
+def payload_from_message(message: Dict[str, Any]) -> List[Dict[str, Any]]:
+    return message.get("result", [])
+
+
+def get_rest_url_for_endpoint(
+    endpoint: str,
+    domain: str = CONSTANTS.DEFAULT_DOMAIN
+):
+    variant = domain if domain else CONSTANTS.DEFAULT_DOMAIN
+    return CONSTANTS.REST_URLS.get(variant) + endpoint

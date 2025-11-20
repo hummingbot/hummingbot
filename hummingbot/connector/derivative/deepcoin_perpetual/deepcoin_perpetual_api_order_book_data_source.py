@@ -32,12 +32,12 @@ if TYPE_CHECKING:
 
 class DeepcoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     def __init__(
-            self,
-            auth: DeepcoinPerpetualAuth,
-            trading_pairs: List[str],
-            connector: 'DeepcoinPerpetualDerivative',
-            api_factory: WebAssistantsFactory,
-            domain: str = CONSTANTS.DEFAULT_DOMAIN
+        self,
+        #auth: DeepcoinPerpetualAuth,
+        trading_pairs: List[str],
+        connector: 'DeepcoinPerpetualDerivative',
+        api_factory: WebAssistantsFactory,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
         super().__init__(trading_pairs)
         self._connector = connector
@@ -45,7 +45,8 @@ class DeepcoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._domain = domain
         self._nonce_provider = NonceCreator.for_microseconds()
         self._trading_rules = {}
-        self._auth = auth
+        #self._auth = auth
+
 
     async def _set_trading_rules(self) -> Dict[str, Any]:
         if not bool(self._trading_rules):

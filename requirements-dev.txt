@@ -1,0 +1,10 @@
+pandas
+bidict
+aiohttp
+yarl
+aiodns
+pytest
+pytest-asyncio
+hexbytes
+cython
+

@@ -32,7 +32,6 @@ class DeepcoinPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
     def __init__(
             self,
             auth: DeepcoinPerpetualAuth,
-            connector: 'DeepcoinPerpetualDerivative',
             api_factory: WebAssistantsFactory,
             domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
@@ -40,7 +39,6 @@ class DeepcoinPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         self._domain = domain
         self._api_factory = api_factory
         self._auth = auth
-        self._connector = connector
         self._current_listen_key = None
         self._last_listen_key_ping_ts = None
         self._manage_listen_key_task = None

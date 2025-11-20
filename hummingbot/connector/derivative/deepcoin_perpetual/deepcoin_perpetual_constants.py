@@ -1,5 +1,6 @@
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, PositionMode
+from hummingbot.core.data_type.in_flight_order import OrderState
 
 # Exchange Info
 EXCHANGE_NAME = "deepcoin_perpetual"
@@ -41,6 +42,7 @@ WS_HEARTBEAT_TIME_INTERVAL = 10.0
 ORDER_TYPE_MAP = {
     OrderType.LIMIT: "limit",
     OrderType.MARKET: "market",
+    OrderType.LIMIT_MAKER: "post_only",
 }
 
 # Position Mode Mapping
@@ -63,13 +65,16 @@ FUNDING_INFO_URL = "/deepcoin/trade/funding-rate"
 SERVER_TIME_PATH_URL = "/deepcoin/market/time"
 
 # Private API Endpoints
-ORDER_URL = "/deepcoin/trade/order"
+CREATIVE_ORDER_URL = "/deepcoin/trade/order"
 CANCEL_ALL_OPEN_ORDERS_URL = "/deepcoin/trade/swap/cancel-all"
 CANCEL_OPEN_ORDERS_URL = "/deepcoin/trade/cancel-order"
 ACCOUNT_TRADE_LIST_URL = "/deepcoin/trade/fills"
 SET_LEVERAGE_URL = "/deepcoin/account/set-leverage"
+GET_BILLS_DETAILS = "/deepcoin/account/bills"
 GET_INCOME_HISTORY_URL = "/deepcoin/trade/income"
 CHANGE_POSITION_MODE_URL = "/deepcoin/trade/positionMode"
+ACTIVE_ORDER_URL = "/deepcoin/trade/orderByID"
+REST_USER_TRADE_RECORDS = "/deepcoin/trade/orders-history"
 
 # Account and Position Endpoints
 ACCOUNT_INFO_URL = "/deepcoin/account/balances"
@@ -151,7 +156,7 @@ RATE_LIMITS = [
         time_interval=1,
     ),
     RateLimit(
-        limit_id=ORDER_URL,
+        limit_id=CREATIVE_ORDER_URL,
         limit=1,
         time_interval=1,
     ),
@@ -211,3 +216,30 @@ INSUFFICIENT_BALANCE_ERROR_CODE = 40003
 INSUFFICIENT_BALANCE_MESSAGE = "Insufficient balance"
 INVALID_LEVERAGE_ERROR_CODE = 40004
 INVALID_LEVERAGE_MESSAGE = "Invalid leverage"
+
+
+RET_CODE_OK = "0"
+
+# Order Status
+ORDER_STATE = {
+    "live": OrderState.OPEN,
+    "filled": OrderState.FILLED,
+    "partially_filled": OrderState.PARTIALLY_FILLED,
+    "canceled": OrderState.CANCELED,
+}
+
+WS_ORDER_STATE = {
+    "1": OrderState.FILLED,
+    "2": OrderState.PARTIALLY_FILLED,
+    "3": OrderState.FILLED,
+    "4": OrderState.OPEN,
+    "5": OrderState.CANCELED,
+}
+
+WS_ORDERS_CHANNEL = "PushOrder"
+WS_TRADES_CHANNEL = "PushTrade"
+WS_POSITIONS_CHANNEL = "PushPosition"
+WS_ACCOUNT_CHANNEL = "PushAccountDetail"
+
+
+FUNDING_PAYMENT_TYPE = "7"

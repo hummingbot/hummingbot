@@ -1,6 +1,5 @@
 from decimal import Decimal
-from typing import Any, Dict
-
+from typing import Optional, Any, Dict, List, Tuple
 from pydantic import ConfigDict, Field, SecretStr
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
