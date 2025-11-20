@@ -68,3 +68,25 @@ class HyperliquidPerpetualUtilsTests(TestCase):
             HyperliquidPerpetualTestnetConfigMap.validate_mode(wrong_value)
 
         self.assertEqual(f"Invalid wallet mode '{wrong_value}', choose from: {allowed}", str(context.exception))
+
+    def test_validate_bool_invalid(self):
+        with self.assertRaises(ValueError):
+            validate_bool("maybe")
+
+    def test_validate_bool_with_spaces(self):
+        self.assertTrue(validate_bool("  YES  "))
+        self.assertFalse(validate_bool("  No  "))
+
+    def test_validate_bool_boolean_passthrough(self):
+        self.assertTrue(validate_bool(True))
+        self.assertFalse(validate_bool(False))
+
+    def test_hyperliquid_address_strips_hl_prefix(self):
+        corrected_address = HyperliquidPerpetualConfigMap.validate_address("HL:abcdef123")
+
+        self.assertEqual(corrected_address, "abcdef123")
+
+    def test_hyperliquid_testnet_address_strips_hl_prefix(self):
+        corrected_address = HyperliquidPerpetualTestnetConfigMap.validate_address("HL:zzz8z8z")
+
+        self.assertEqual(corrected_address, "zzz8z8z")

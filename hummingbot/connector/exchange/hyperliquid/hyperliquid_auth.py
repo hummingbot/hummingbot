@@ -251,7 +251,7 @@ class HyperliquidAuth(AuthBase):
             "type": "approveAgent",
             "hyperliquidChain": 'Mainnet' if is_mainnet else 'Testnet',
             "signatureChainId": '0xa4b1' if is_mainnet else '0x66eee',
-            "agentAddress": self._api_key,
+            "agentAddress": self._api_address,
             "agentName": CONSTANTS.DEFAULT_AGENT_NAME,
             "nonce": nonce_ms,
         }
