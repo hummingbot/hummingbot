@@ -2706,3 +2706,134 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
         self.assertEqual(OrderType.LIMIT, failure_event.order_type)
         self.assertEqual(order_id_for_invalid_order, failure_event.order_id)
+
+    @aioresponses()
+    def test_make_trading_rules_request(self, mock_api):
+        """Test _make_trading_rules_request to cover lines 173, 179-181"""
+        url = web_utils.private_rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        response = {
+            "result": [
+                {
+                    "instrument_type": "perp",
+                    "instrument_name": f"{self.base_asset}-PERP",
+                    "tick_size": "0.01",
+                    "minimum_amount": "0.1",
+                    "maximum_amount": "1000",
+                    "amount_step": "0.01",
+                    "base_currency": self.base_asset,
+                    "quote_currency": "USDC",
+                    "base_asset_address": "0xE201fCEfD4852f96810C069f66560dc25B2C7A55",
+                    "base_asset_sub_id": "0",
+                }
+            ]
+        }
+
+        mock_api.post(regex_url, body=json.dumps(response))
+        result = self.async_run_with_timeout(self.exchange._make_trading_rules_request())
+
+        self.assertEqual(response["result"], result)
+
+    @aioresponses()
+    def test_get_all_pairs_prices_with_empty_instrument_ticker(self, mock_api):
+        """Test get_all_pairs_prices when _instrument_ticker is empty to cover line 187"""
+        self.exchange._instrument_ticker = []
+
+        # Mock _make_trading_pairs_request
+        pairs_url = web_utils.private_rest_url(CONSTANTS.EXCHANGE_CURRENCIES_PATH_URL)
+        pairs_regex = re.compile(f"^{pairs_url}".replace(".", r"\.").replace("?", r"\?"))
+
+        pairs_response = {
+            "result": {
+                "instruments": [
+                    {
+                        "instrument_name": f"{self.base_asset}-PERP",
+                        "instrument_type": "perp",
+                    }
+                ]
+            }
+        }
+        mock_api.post(pairs_regex, body=json.dumps(pairs_response))
+
+        # Mock ticker price requests
+        ticker_url = web_utils.private_rest_url(CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL)
+        ticker_regex = re.compile(f"^{ticker_url}".replace(".", r"\.").replace("?", r"\?"))
+
+        ticker_response = {
+            "result": {
+                "instrument_name": f"{self.base_asset}-PERP",
+                "best_bid_price": "10000",
+                "best_ask_price": "10001",
+            }
+        }
+        mock_api.post(ticker_regex, body=json.dumps(ticker_response))
+
+        result = self.async_run_with_timeout(self.exchange.get_all_pairs_prices())
+
+        self.assertEqual(1, len(result))
+        self.assertEqual(f"{self.base_asset}-PERP", result[0]["symbol"]["instrument_name"])
+
+    @aioresponses()
+    def test_place_order_with_empty_instrument_ticker(self, mock_api):
+        """Test _place_order when _instrument_ticker is empty to cover line 475"""
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._instrument_ticker = []
+
+        # Mock _make_trading_pairs_request
+        pairs_url = web_utils.private_rest_url(CONSTANTS.EXCHANGE_CURRENCIES_PATH_URL)
+        pairs_regex = re.compile(f"^{pairs_url}".replace(".", r"\.").replace("?", r"\?"))
+
+        pairs_response = {
+            "result": {
+                "instruments": [
+                    {
+                        "instrument_name": f"{self.base_asset}-PERP",
+                        "instrument_type": "perp",
+                        "base_asset_address": "0xE201fCEfD4852f96810C069f66560dc25B2C7A55",
+                        "base_asset_sub_id": "0",
+                    }
+                ]
+            }
+        }
+        mock_api.post(pairs_regex, body=json.dumps(pairs_response))
+
+        # Mock order creation
+        url = self.order_creation_url
+        creation_response = self.order_creation_request_successful_mock_response
+        mock_api.post(url, body=json.dumps(creation_response))
+
+        order_id = self.place_buy_order()
+        self.async_run_with_timeout(self.exchange._create_order(
+            trade_type=TradeType.BUY,
+            order_id=order_id,
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            price=Decimal("10000"),
+            position_action=PositionAction.OPEN,
+        ))
+
+        self.assertEqual(1, len(self.buy_order_created_logger.event_log))
+
+    @aioresponses()
+    def test_get_last_traded_price(self, mock_api):
+        """Test _get_last_traded_price to cover line 918"""
+        self._simulate_trading_rules_initialized()
+
+        url = web_utils.private_rest_url(CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        response = {
+            "result": {
+                "instrument_name": f"{self.base_asset}-PERP",
+                "mark_price": "10500.50",
+            }
+        }
+
+        mock_api.post(regex_url, body=json.dumps(response))
+
+        price = self.async_run_with_timeout(self.exchange._get_last_traded_price(self.trading_pair))
+
+        self.assertEqual(response["result"]["mark_price"], price)
