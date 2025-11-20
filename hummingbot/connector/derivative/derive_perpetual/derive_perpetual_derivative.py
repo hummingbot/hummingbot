@@ -169,16 +169,13 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         self._instrument_ticker = info
         return info
 
-    async def _make_trading_rules_request(self, trading_pair: Optional[str] = None, fetch_pair: Optional[bool] = False) -> Any:
+    async def _make_trading_rules_request(self) -> Any:
         payload = {
             "expired": False,
             "instrument_type": "perp",
             "page": 1,
             "page_size": 1000,
         }
-        if fetch_pair and trading_pair is not None:
-            symbol = trading_pair.split("-")[0]
-            payload["instrument_name"] = symbol
         exchange_info = await self._api_post(path_url=self.trading_pairs_request_path, data=(payload))
         info: List[Dict[str, Any]] = exchange_info["result"]
         return info
@@ -187,7 +184,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         res = []
         tasks = []
         if len(self._instrument_ticker) == 0:
-            await self._make_trading_rules_request()
+            await self._make_trading_pairs_request()
         for token in self._instrument_ticker:
             payload = {"instrument_name": token["instrument_name"]}
             tasks.append(self._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, data=payload))
@@ -475,7 +472,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         """
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         if len(self._instrument_ticker) == 0:
-            await self._make_trading_rules_request(trading_pair=symbol, fetch_pair=True)
+            await self._make_trading_pairs_request()
         instrument = next((pair for pair in self._instrument_ticker if symbol == pair["instrument_name"]), None)
         if order_type is OrderType.LIMIT and position_action == PositionAction.CLOSE:
             param_order_type = "gtc"
