@@ -641,6 +641,20 @@ class InjectiveV2Exchange(ExchangePyBase):
                         is_partial_fill = order_update.new_state == OrderState.FILLED and not tracked_order.is_filled
                         if not is_partial_fill:
                             self._order_tracker.process_order_update(order_update=order_update)
+                elif channel == "order_failure":
+                    original_order_update = event_data
+                    tracked_order = self._order_tracker.all_updatable_orders.get(original_order_update.client_order_id)
+                    if tracked_order is not None:
+                        # we need to set the trading_pair in the order update because that info is not included in the chain stream update
+                        order_update = OrderUpdate(
+                            trading_pair=tracked_order.trading_pair,
+                            update_timestamp=original_order_update.update_timestamp,
+                            new_state=original_order_update.new_state,
+                            client_order_id=original_order_update.client_order_id,
+                            exchange_order_id=original_order_update.exchange_order_id,
+                            misc_updates=original_order_update.misc_updates,
+                        )
+                        self._order_tracker.process_order_update(order_update=order_update)
                 elif channel == "balance":
                     if event_data.total_balance is not None:
                         self._account_balances[event_data.asset_name] = event_data.total_balance
@@ -809,6 +823,10 @@ class InjectiveV2Exchange(ExchangePyBase):
         self._forwarders.append(event_forwarder)
         self._data_source.add_listener(event_tag=MarketEvent.OrderUpdate, listener=event_forwarder)
 
+        event_forwarder = EventForwarder(to_function=self._process_user_order_failure_update)
+        self._forwarders.append(event_forwarder)
+        self._data_source.add_listener(event_tag=MarketEvent.OrderFailure, listener=event_forwarder)
+
         event_forwarder = EventForwarder(to_function=self._process_balance_event)
         self._forwarders.append(event_forwarder)
         self._data_source.add_listener(event_tag=AccountEvent.BalanceEvent, listener=event_forwarder)
@@ -825,6 +843,11 @@ class InjectiveV2Exchange(ExchangePyBase):
     def _process_user_order_update(self, order_update: OrderUpdate):
         self._all_trading_events_queue.put_nowait(
             {"channel": "order", "data": order_update}
+        )
+
+    def _process_user_order_failure_update(self, order_update: OrderUpdate):
+        self._all_trading_events_queue.put_nowait(
+            {"channel": "order_failure", "data": order_update}
         )
 
     def _process_user_trade_update(self, trade_update: TradeUpdate):
