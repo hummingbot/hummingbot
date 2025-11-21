@@ -12,9 +12,6 @@ from hummingbot.connector.exchange.injective_v2 import injective_constants as CO
 from hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source import (
     InjectiveGranteeDataSource,
 )
-from hummingbot.connector.exchange.injective_v2.data_sources.injective_vaults_data_source import (
-    InjectiveVaultsDataSource,
-)
 from hummingbot.connector.exchange.injective_v2.injective_v2_utils import (
     InjectiveConfigMap,
     InjectiveCustomNetworkMode,
@@ -23,7 +20,6 @@ from hummingbot.connector.exchange.injective_v2.injective_v2_utils import (
     InjectiveMessageBasedTransactionFeeCalculatorMode,
     InjectiveSimulatedTransactionFeeCalculatorMode,
     InjectiveTestnetNetworkMode,
-    InjectiveVaultAccountMode,
 )
 
 
@@ -100,24 +96,6 @@ class InjectiveConfigMapTests(TestCase):
         )
 
         self.assertEqual(InjectiveGranteeDataSource, type(data_source))
-
-    def test_injective_vault_account_config_creation(self):
-        _, private_key = PrivateKey.generate()
-
-        config = InjectiveVaultAccountMode(
-            private_key=private_key.to_hex(),
-            subaccount_index=0,
-            vault_contract_address=Address(
-                bytes.fromhex(private_key.to_public_key().to_hex())).to_acc_bech32(),
-        )
-
-        data_source = config.create_data_source(
-            network=Network.testnet(node="sentry"),
-            rate_limits=CONSTANTS.PUBLIC_NODE_RATE_LIMITS,
-            fee_calculator_mode=InjectiveSimulatedTransactionFeeCalculatorMode(),
-        )
-
-        self.assertEqual(InjectiveVaultsDataSource, type(data_source))
 
     def test_injective_config_creation(self):
         network_config = InjectiveMainnetNetworkMode()
