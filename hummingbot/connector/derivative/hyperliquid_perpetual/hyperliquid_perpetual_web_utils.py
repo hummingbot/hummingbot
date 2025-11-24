@@ -128,15 +128,19 @@ def order_grouping_to_number(grouping) -> int:
 
 
 def order_spec_to_order_wire(order_spec):
-    return {
+    order_wire = {
         "a": order_spec["asset"],
         "b": order_spec["isBuy"],
         "p": float_to_wire(order_spec["limitPx"]),
         "s": float_to_wire(order_spec["sz"]),
         "r": order_spec["reduceOnly"],
         "t": order_type_to_wire(order_spec["orderType"]),
-        "c": order_spec["cloid"],
     }
+    # NOTE: cloid handling - only include if present and not None
+    # This matches the official Hyperliquid SDK behavior
+    if "cloid" in order_spec and order_spec["cloid"] is not None:
+        order_wire["c"] = order_spec["cloid"]
+    return order_wire
 
 
 def float_to_wire(x: float) -> str:

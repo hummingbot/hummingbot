@@ -815,9 +815,20 @@ class GatewayHttpClient:
             request_payload["network"] = network
         if wallet_address is not None:
             request_payload["walletAddress"] = wallet_address
+
+        # Parse connector to get name and type (e.g., "uniswap/clmm" -> "uniswap" and "clmm")
+        # Gateway 2.9 uses format: /connectors/{name}/{type}/execute-swap
+        connector_parts = connector.split("/")
+        if len(connector_parts) == 2:
+            connector_name, connector_type = connector_parts
+            path = f"connectors/{connector_name}/{connector_type}/execute-swap"
+        else:
+            # Fallback for connectors without type (shouldn't happen with Gateway 2.9)
+            path = f"connectors/{connector}/execute-swap"
+
         return await self.api_request(
             "post",
-            f"connectors/{connector}/execute-swap",
+            path,
             request_payload
         )
 

@@ -23,8 +23,8 @@ PUBLIC = CoinGeckoTier(
     name="PUBLIC",
     header=None,
     base_url="https://api.coingecko.com/api/v3",
-    rate_limit=10,
-    rate_limits=[RateLimit(REST_CALL_RATE_LIMIT_ID, limit=10, time_interval=60)]
+    rate_limit=8,
+    rate_limits=[RateLimit(REST_CALL_RATE_LIMIT_ID, limit=8, time_interval=60)]
 )
 
 DEMO = CoinGeckoTier(

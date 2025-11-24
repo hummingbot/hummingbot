@@ -60,7 +60,7 @@ class DEXTrade(ScriptStrategyBase):
         self.final_base_balance = None
         self.final_quote_balance = None
         self.order_id = None
-        self.balance_check_delay = 2  # seconds to wait after fill before checking balances
+        self.balance_check_delay = 2  # seconds to wait after fill before checking balance
 
         # Log trade information
         condition = "rises above" if self.config.trigger_above else "falls below"
