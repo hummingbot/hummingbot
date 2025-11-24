@@ -145,6 +145,7 @@ class BaseInjectiveQueryExecutor(ABC):
         derivative_orderbooks_filter: Optional[chain_stream_query.OrderbookFilter] = None,
         positions_filter: Optional[chain_stream_query.PositionsFilter] = None,
         oracle_price_filter: Optional[chain_stream_query.OraclePriceFilter] = None,
+        order_failures_filter: Optional[chain_stream_query.OrderFailuresFilter] = None,
     ):
         raise NotImplementedError
 
@@ -173,26 +174,23 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
         return response
 
     async def get_spot_orderbook(self, market_id: str) -> Dict[str, Any]:  # pragma: no cover
-        order_book_response = await self._indexer_client.fetch_spot_orderbook_v2(market_id=market_id, depth=0)
-        order_book_data = order_book_response["orderbook"]
+        order_book_response = await self._sdk_client.fetch_chain_spot_orderbook(market_id=market_id)
         result = {
-            "buys": [(buy["price"], buy["quantity"], int(buy["timestamp"])) for buy in order_book_data.get("buys", [])],
-            "sells": [(sell["price"], sell["quantity"], int(sell["timestamp"])) for sell in order_book_data.get("sells", [])],
-            "sequence": int(order_book_data["sequence"]),
-            "timestamp": int(order_book_data["timestamp"]),
+            "buys": [(buy["p"], buy["q"]) for buy in order_book_response.get("buysPriceLevel", [])],
+            "sells": [(sell["p"], sell["q"]) for sell in order_book_response.get("sellsPriceLevel", [])],
+            "sequence": int(order_book_response["seq"]),
         }
 
         return result
 
     async def get_derivative_orderbook(self, market_id: str) -> Dict[str, Any]:  # pragma: no cover
-        order_book_response = await self._indexer_client.fetch_derivative_orderbook_v2(market_id=market_id, depth=0)
-        order_book_data = order_book_response["orderbook"]
+        order_book_response = await self._sdk_client.fetch_chain_derivative_orderbook(market_id=market_id)
         result = {
-            "buys": [(buy["price"], buy["quantity"], int(buy["timestamp"])) for buy in order_book_data.get("buys", [])],
-            "sells": [(sell["price"], sell["quantity"], int(sell["timestamp"])) for sell in
-                      order_book_data.get("sells", [])],
-            "sequence": int(order_book_data["sequence"]),
-            "timestamp": int(order_book_data["timestamp"]),
+            "buys": [(buy["p"], buy["q"]) for buy in
+                     order_book_response.get("buysPriceLevel", [])],
+            "sells": [(sell["p"], sell["q"]) for sell in
+                      order_book_response.get("sellsPriceLevel", [])],
+            "sequence": int(order_book_response["seq"]),
         }
 
         return result
@@ -351,6 +349,7 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
         derivative_orderbooks_filter: Optional[chain_stream_query.OrderbookFilter] = None,
         positions_filter: Optional[chain_stream_query.PositionsFilter] = None,
         oracle_price_filter: Optional[chain_stream_query.OraclePriceFilter] = None,
+        order_failures_filter: Optional[chain_stream_query.OrderFailuresFilter] = None,
     ):  # pragma: no cover
         await self._sdk_client.listen_chain_stream_updates(
             callback=callback,
@@ -366,4 +365,5 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
             derivative_orderbooks_filter=derivative_orderbooks_filter,
             positions_filter=positions_filter,
             oracle_price_filter=oracle_price_filter,
+            order_failures_filter=order_failures_filter,
         )

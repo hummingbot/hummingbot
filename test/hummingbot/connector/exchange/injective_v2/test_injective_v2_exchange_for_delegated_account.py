@@ -745,6 +745,31 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             "oraclePrices": [],
         }
 
+    def order_event_for_failed_order_websocket_update(self, order: InFlightOrder):
+        return {
+            "blockHeight": "20583",
+            "blockTime": "1640001112223",
+            "gasPrice": "160000000.000000000000000000",
+            "subaccountDeposits": [],
+            "spotOrderbookUpdates": [],
+            "derivativeOrderbookUpdates": [],
+            "bankBalances": [],
+            "spotTrades": [],
+            "derivativeTrades": [],
+            "spotOrders": [],
+            "derivativeOrders": [],
+            "positions": [],
+            "oraclePrices": [],
+            "orderFailures": [
+                {
+                    "account": self.portfolio_account_injective_address,
+                    "orderHash": order.exchange_order_id,
+                    "cid": order.client_order_id,
+                    "errorCode": 1,
+                },
+            ],
+        }
+
     def order_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         return {
             "blockHeight": "20583",
@@ -1388,7 +1413,8 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                 self.exchange._data_source._listen_to_chain_updates(
                     spot_markets=[market],
                     derivative_markets=[],
-                    subaccount_ids=[self.portfolio_account_subaccount_id]
+                    subaccount_ids=[self.portfolio_account_subaccount_id],
+                    accounts=[self.portfolio_account_injective_address],
                 ),
                 timeout=2,
             )
@@ -1434,7 +1460,8 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                 self.exchange._data_source._listen_to_chain_updates(
                     spot_markets=[market],
                     derivative_markets=[],
-                    subaccount_ids=[self.portfolio_account_subaccount_id]
+                    subaccount_ids=[self.portfolio_account_subaccount_id],
+                    accounts=[self.portfolio_account_injective_address],
                 ),
                 timeout=2,
             )
@@ -1491,7 +1518,8 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                 self.exchange._data_source._listen_to_chain_updates(
                     spot_markets=[market],
                     derivative_markets=[],
-                    subaccount_ids=[self.portfolio_account_subaccount_id]
+                    subaccount_ids=[self.portfolio_account_subaccount_id],
+                    accounts=[self.portfolio_account_injective_address],
                 ),
                 timeout=5,
             )
@@ -1509,6 +1537,57 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.assertTrue(
             self.is_logged("INFO", f"Successfully canceled order {order.client_order_id}.")
         )
+
+    async def test_user_stream_update_for_failed_order(self):
+        self.configure_all_symbols_response(mock_api=None)
+
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=str(self.expected_exchange_order_id),
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+        order_event = self.order_event_for_failed_order_websocket_update(order=order)
+
+        mock_queue = AsyncMock()
+        event_messages = [order_event, asyncio.CancelledError]
+        mock_queue.get.side_effect = event_messages
+        self.exchange._data_source._query_executor._chain_stream_events = mock_queue
+
+        self.async_tasks.append(
+            asyncio.get_event_loop().create_task(
+                self.exchange._user_stream_event_listener()
+            )
+        )
+
+        market = await asyncio.wait_for(
+            self.exchange._data_source.spot_market_info_for_id(market_id=self.market_id), timeout=1
+        )
+        try:
+            await asyncio.wait_for(
+                self.exchange._data_source._listen_to_chain_updates(
+                    spot_markets=[market],
+                    derivative_markets=[],
+                    subaccount_ids=[self.portfolio_account_subaccount_id],
+                    accounts=[self.portfolio_account_injective_address],
+                ),
+                timeout=5,
+            )
+        except asyncio.CancelledError:
+            pass
+
+        failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
+        self.assertEqual(order.client_order_id, failure_event.order_id)
+        self.assertEqual(order.order_type, failure_event.order_type)
+        self.assertEqual(None, failure_event.error_message)
+        self.assertEqual("1", failure_event.error_type)
 
     @aioresponses()
     async def test_user_stream_update_for_order_full_fill(self, mock_api):
@@ -1553,7 +1632,8 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                 self.exchange._data_source._listen_to_chain_updates(
                     spot_markets=[market],
                     derivative_markets=[],
-                    subaccount_ids=[self.portfolio_account_subaccount_id]
+                    subaccount_ids=[self.portfolio_account_subaccount_id],
+                    accounts=[self.portfolio_account_injective_address],
                 )
             ),
         ]
@@ -1645,7 +1725,8 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                 self.exchange._data_source._listen_to_chain_updates(
                     spot_markets=[market],
                     derivative_markets=[],
-                    subaccount_ids=[self.portfolio_account_subaccount_id]
+                    subaccount_ids=[self.portfolio_account_subaccount_id],
+                    accounts=[self.portfolio_account_injective_address],
                 ),
                 timeout=1,
             )
@@ -1654,6 +1735,62 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         self.assertNotIn(order.client_order_id, self.exchange._order_tracker.lost_orders)
         self.assertEqual(0, len(self.order_cancelled_logger.event_log))
+        self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
+        self.assertFalse(order.is_cancelled)
+        self.assertTrue(order.is_failure)
+
+    async def test_lost_order_removed_after_failed_status_user_event_received(self):
+        self.configure_all_symbols_response(mock_api=None)
+
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=str(self.expected_exchange_order_id),
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+        for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
+            await asyncio.wait_for(
+                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id), timeout=1)
+
+        self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
+
+        order_event = self.order_event_for_failed_order_websocket_update(order=order)
+
+        mock_queue = AsyncMock()
+        event_messages = [order_event, asyncio.CancelledError]
+        mock_queue.get.side_effect = event_messages
+        self.exchange._data_source._query_executor._chain_stream_events = mock_queue
+
+        self.async_tasks.append(
+            asyncio.get_event_loop().create_task(
+                self.exchange._user_stream_event_listener()
+            )
+        )
+
+        market = await asyncio.wait_for(
+            self.exchange._data_source.spot_market_info_for_id(market_id=self.market_id), timeout=1
+        )
+        try:
+            await asyncio.wait_for(
+                self.exchange._data_source._listen_to_chain_updates(
+                    spot_markets=[market],
+                    derivative_markets=[],
+                    subaccount_ids=[self.portfolio_account_subaccount_id],
+                    accounts=[self.portfolio_account_injective_address],
+                ),
+                timeout=1,
+            )
+        except asyncio.CancelledError:
+            pass
+
+        self.assertNotIn(order.client_order_id, self.exchange._order_tracker.lost_orders)
+        self.assertEqual(1, len(self.order_failure_logger.event_log))
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
         self.assertFalse(order.is_cancelled)
         self.assertTrue(order.is_failure)
@@ -1707,7 +1844,8 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                 self.exchange._data_source._listen_to_chain_updates(
                     spot_markets=[market],
                     derivative_markets=[],
-                    subaccount_ids=[self.portfolio_account_subaccount_id]
+                    subaccount_ids=[self.portfolio_account_subaccount_id],
+                    accounts=[self.portfolio_account_injective_address],
                 )
             ),
         ]
