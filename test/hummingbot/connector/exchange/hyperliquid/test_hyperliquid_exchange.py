@@ -36,9 +36,10 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.api_key = "someKey"
+        cls.api_address = "someAddress"
         cls.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
-        cls.use_vault = False  # noqa: mock
+        cls.hyperliquid_mode = "arb_wallet"  # noqa: mock
+        cls.use_vault = False
         cls.user_id = "someUserId"
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "USDC"  # linear
@@ -452,9 +453,10 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
     def create_exchange_instance(self):
         exchange = HyperliquidExchange(
-            hyperliquid_api_secret=self.api_secret,
+            hyperliquid_secret_key=self.api_secret,
+            hyperliquid_mode=self.hyperliquid_mode,
+            hyperliquid_address=self.api_address,
             use_vault=self.use_vault,
-            hyperliquid_api_key=self.api_key,
             trading_pairs=[self.trading_pair],
         )
         # exchange._last_trade_history_timestamp = self.latest_trade_hist_timestamp
@@ -477,7 +479,7 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = json.loads(request_call.kwargs["data"])
-        self.assertEqual(self.api_key, request_params["user"])
+        self.assertEqual(self.api_address, request_params["user"])
 
     def configure_successful_cancelation_response(
             self,
@@ -1767,7 +1769,7 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(request)
         request_params = request.kwargs["params"]
-        self.assertEqual(self.api_key, request_params["user"])
+        self.assertEqual(self.api_address, request_params["user"])
 
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
@@ -1866,7 +1868,7 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(request)
         request_params = request.kwargs["params"]
-        self.assertEqual(self.api_key, request_params["user"])
+        self.assertEqual(self.api_address, request_params["user"])
 
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
