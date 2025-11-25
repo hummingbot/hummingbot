@@ -30,9 +30,10 @@ class TestHyperliquidPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTest
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = f"{cls.base_asset}_{cls.quote_asset}"
-        cls.api_key = "someKey"
+        cls.api_address = "someAddress"
+        cls.hyperliquid_mode = "arb_wallet"  # noqa: mock
         cls.use_vault = False
-        cls.api_secret_key = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock"
+        cls.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock"
 
     def setUp(self) -> None:
         super().setUp()
@@ -43,17 +44,20 @@ class TestHyperliquidPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTest
         self.mock_time_provider = MagicMock()
         self.mock_time_provider.time.return_value = 1000
         self.auth = HyperliquidPerpetualAuth(
-            api_key=self.api_key,
-            api_secret=self.api_secret_key,
-            use_vault=self.use_vault)
+            api_address=self.api_address,
+            api_secret=self.api_secret,
+            use_vault=self.use_vault
+        )
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
 
         self.connector = HyperliquidPerpetualDerivative(
-            hyperliquid_perpetual_api_key=self.api_key,
-            hyperliquid_perpetual_api_secret=self.api_secret_key,
+            hyperliquid_perpetual_address=self.api_address,
+            hyperliquid_perpetual_secret_key=self.api_secret,
+            hyperliquid_perpetual_mode=self.hyperliquid_mode,
             use_vault=self.use_vault,
-            trading_pairs=[])
+            trading_pairs=[]
+        )
         self.connector._web_assistants_factory._auth = self.auth
 
         self.data_source = HyperliquidPerpetualUserStreamDataSource(
@@ -124,7 +128,7 @@ class TestHyperliquidPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTest
             "method": "subscribe",
             "subscription": {
                 "type": "orderUpdates",
-                "user": self.api_key,
+                "user": self.api_address,
             }
         }
         self.assertEqual(expected_orders_subscription, sent_subscription_messages[0])
@@ -132,7 +136,7 @@ class TestHyperliquidPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTest
             "method": "subscribe",
             "subscription": {
                 "type": "user",
-                "user": self.api_key,
+                "user": self.api_address,
             }
         }
         self.assertEqual(expected_trades_subscription, sent_subscription_messages[1])

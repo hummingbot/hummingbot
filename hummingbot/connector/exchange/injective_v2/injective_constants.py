@@ -78,12 +78,12 @@ ENDPOINTS_RATE_LIMITS = [
         limit_id=SPOT_ORDERBOOK_LIMIT_ID,
         limit=NO_LIMIT,
         time_interval=ONE_SECOND,
-        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)]),
+        linked_limits=[LinkedLimitWeightPair(CHAIN_ENDPOINTS_GROUP_LIMIT_ID)]),
     RateLimit(
         limit_id=DERIVATIVE_ORDERBOOK_LIMIT_ID,
         limit=NO_LIMIT,
         time_interval=ONE_SECOND,
-        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)]),
+        linked_limits=[LinkedLimitWeightPair(CHAIN_ENDPOINTS_GROUP_LIMIT_ID)]),
     RateLimit(
         limit_id=PORTFOLIO_BALANCES_LIMIT_ID,
         limit=NO_LIMIT,
