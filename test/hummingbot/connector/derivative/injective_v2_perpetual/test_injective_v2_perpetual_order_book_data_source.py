@@ -18,6 +18,7 @@ from hummingbot.connector.derivative.injective_v2_perpetual.injective_v2_perpetu
 from hummingbot.connector.derivative.injective_v2_perpetual.injective_v2_perpetual_derivative import (
     InjectiveV2PerpetualDerivative,
 )
+from hummingbot.connector.exchange.injective_v2.injective_market import InjectiveToken
 from hummingbot.connector.exchange.injective_v2.injective_v2_utils import (
     InjectiveConfigMap,
     InjectiveDelegatedAccountMode,
@@ -150,19 +151,13 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         )
         derivative_markets_response = self._derivative_markets_response()
         self.query_executor._derivative_markets_responses.put_nowait(derivative_markets_response)
-        derivative_market = list(derivative_markets_response.values())[0]
-
-        quote_decimals = derivative_market.quote_token.decimals
 
         order_book_snapshot = {
-            "buys": [(Decimal("9487") * Decimal(f"1e{quote_decimals}"),
-                      Decimal("336241"),
-                      1640001112223)],
-            "sells": [(Decimal("9487.5") * Decimal(f"1e{quote_decimals}"),
-                       Decimal("522147"),
-                       1640001112224)],
+            "buys": [(InjectiveToken.convert_value_to_extended_decimal_format(Decimal("9487")),
+                      InjectiveToken.convert_value_to_extended_decimal_format(Decimal("336241")))],
+            "sells": [(InjectiveToken.convert_value_to_extended_decimal_format(Decimal("9487.5")),
+                       InjectiveToken.convert_value_to_extended_decimal_format(Decimal("522147")))],
             "sequence": 512,
-            "timestamp": 1650001112223,
         }
 
         self.query_executor._derivative_order_book_responses.put_nowait(order_book_snapshot)
