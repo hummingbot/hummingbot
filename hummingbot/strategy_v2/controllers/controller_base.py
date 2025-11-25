@@ -145,7 +145,7 @@ class ControllerBase(RunnableBase):
 
     def start(self):
         """
-        Allow controllers to be restarted after being stopped.=
+        Allow controllers to be restarted after being stopped.
         """
         if self._status != RunnableStatus.RUNNING:
             self.terminated.clear()
