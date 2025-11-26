@@ -249,7 +249,7 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         funding_info = FundingInfoUpdate(
             trading_pair=trading_pair,
             index_price=Decimal(data["instrument_ticker"]["I"]),
-            mark_price=Decimal(data["instrument_ticker"]["m"]),
+            mark_price=Decimal(data["instrument_ticker"]["M"]),
             next_funding_utc_timestamp=self._next_funding_time(),
             rate=Decimal(data["instrument_ticker"]["f"]),
         )
