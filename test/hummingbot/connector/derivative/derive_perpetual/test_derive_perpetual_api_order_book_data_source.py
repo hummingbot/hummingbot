@@ -170,13 +170,14 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                 "channel": f"ticker_slim.{self.base_asset}-PERP.1000",
                 "data": {
                     "instrument_name": f"{self.base_asset}-PERP",
-                    "best_bid_price": "1.6682",
-                    "best_ask_price": "1.6693",
-                    "mark_price": "1.667960602579197952",
-                    "index_price": "1.667960602579197952",
-                    "funding_rate": "0.00001793",
-                    "next_funding_rate": "0.00001800",
-                    "time_until_next_funding": 600000
+                    "params": {
+                        "channel": f"ticker_slim.{self.base_asset}-PERP.1000"
+                    },
+                    "instrument_ticker": {
+                        "I": "1.667960602579197952",
+                        "M": "1.667960602579197952",
+                        "f": "0.00001793"
+                    }
                 }
             }
         }
@@ -494,65 +495,64 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
             )
         }
 
-    @aioresponses()
-    @patch.object(DerivePerpetualAPIOrderBookDataSource, "_sleep")
-    async def test_listen_for_funding_info_cancelled_error_raised(self, mock_api, sleep_mock):
-        sleep_mock.side_effect = [asyncio.CancelledError()]
-        endpoint = CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL
-        url = web_utils.public_rest_url(endpoint)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        resp = self.get_funding_info_rest_msg()
-        mock_api.post(regex_url, body=json.dumps(resp))
+    async def test_listen_for_funding_info_cancelled_error_raised(self):
+        """Test that listen_for_funding_info raises CancelledError properly"""
+        mock_queue = MagicMock()
+        mock_queue.get.side_effect = asyncio.CancelledError()
+        self.data_source._message_queue[self.data_source._funding_info_messages_queue_key] = mock_queue
 
-        mock_queue: asyncio.Queue = asyncio.Queue()
+        output_queue: asyncio.Queue = asyncio.Queue()
         with self.assertRaises(asyncio.CancelledError):
-            await self.data_source.listen_for_funding_info(mock_queue)
+            await self.data_source.listen_for_funding_info(output_queue)
 
-        self.assertEqual(1, mock_queue.qsize())
+    async def test_listen_for_funding_info_logs_exception(self):
+        """Test that listen_for_funding_info logs exceptions properly"""
+        await self._simulate_trading_rules_initialized()
 
-    @aioresponses()
-    async def test_listen_for_funding_info_logs_exception(self, mock_api):
-        endpoint = CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL
-        url = web_utils.public_rest_url(endpoint)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
-        resp = self.get_funding_info_rest_msg()
-        resp["error"] = ""
-        mock_api.post(regex_url, body=json.dumps(resp), callback=self.resume_test_callback)
+        # Create an invalid message that will cause parsing error
+        invalid_message = {"invalid": "data"}
+
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [invalid_message, asyncio.CancelledError()]
+        self.data_source._message_queue[self.data_source._funding_info_messages_queue_key] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
-        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_funding_info(msg_queue))
-
-        await self.resume_test_event.wait()
+        try:
+            await self.data_source.listen_for_funding_info(msg_queue)
+        except asyncio.CancelledError:
+            pass
 
         self.assertTrue(
             self._is_logged("ERROR", "Unexpected error when processing public funding info updates from exchange"))
 
-    @patch(
-        "hummingbot.connector.derivative.derive_perpetual.derive_perpetual_api_order_book_data_source."
-        "DerivePerpetualAPIOrderBookDataSource._next_funding_time")
-    @aioresponses()
-    async def test_listen_for_funding_info_successful(self, next_funding_time_mock, mock_api):
-        next_funding_time_mock.return_value = 1713272400
-        endpoint = CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL
-        url = web_utils.public_rest_url(endpoint)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
-        resp = self.get_funding_info_rest_msg()
-        mock_api.post(regex_url, body=json.dumps(resp))
+    async def test_listen_for_funding_info_successful(self):
+        """Test that listen_for_funding_info processes WebSocket messages successfully"""
+        await self._simulate_trading_rules_initialized()
+
+        # Mock WebSocket funding info message
+        funding_info_message = self.get_ws_funding_info_msg()
+
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [funding_info_message, asyncio.CancelledError()]
+        self.data_source._message_queue[self.data_source._funding_info_messages_queue_key] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
-        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_funding_info(msg_queue))
+        try:
+            await self.data_source.listen_for_funding_info(msg_queue)
+        except asyncio.CancelledError:
+            pass
 
-        msg: FundingInfoUpdate = await msg_queue.get()
+        self.assertEqual(1, msg_queue.qsize())
+        msg: FundingInfoUpdate = msg_queue.get_nowait()
 
         self.assertEqual(self.trading_pair, msg.trading_pair)
-        expected_index_price = Decimal('36717.0')
+        expected_index_price = Decimal('1.667960602579197952')
         self.assertEqual(expected_index_price, msg.index_price)
-        expected_mark_price = Decimal('36733.0')
+        expected_mark_price = Decimal('1.667960602579197952')
         self.assertEqual(expected_mark_price, msg.mark_price)
-        expected_funding_time = next_funding_time_mock.return_value
-        self.assertEqual(expected_funding_time, msg.next_funding_utc_timestamp)
+        self.assertIsNotNone(msg.next_funding_utc_timestamp)
         expected_rate = Decimal('0.00001793')
         self.assertEqual(expected_rate, msg.rate)
 
@@ -617,6 +617,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         await self._simulate_trading_rules_initialized()
 
         # Add ETH-PERP to symbol mapping so we can test the trading pair check
+        # ETH-USDC is NOT in self._trading_pairs, so it should be filtered out
         self.connector._set_trading_pair_symbol_map(
             bidict({f"{self.base_asset}-PERP": self.trading_pair, "ETH-PERP": "ETH-USDC"})
         )
@@ -643,3 +644,33 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         # Should not add anything to queue for wrong trading pair
         self.assertEqual(0, output_queue.qsize())
+
+    async def test_parse_funding_info_message_direct_fields(self):
+        """Test _parse_funding_info_message with direct field format (index_price, mark_price, funding_rate)"""
+        await self._simulate_trading_rules_initialized()
+        output_queue = asyncio.Queue()
+        raw_message = {
+            "params": {
+                "channel": "ticker_slim.BTC-PERP.1000",
+                "data": {
+                    "instrument_name": "BTC-PERP",
+                    "params": {
+                        "channel": "ticker_slim.BTC-PERP.1000"
+                    },
+                    "instrument_ticker": {
+                        "I": "2000.0",
+                        "M": "2001.0",
+                        "f": "0.00001"
+                    }
+                }
+            }
+        }
+
+        await self.data_source._parse_funding_info_message(raw_message, output_queue)
+
+        self.assertEqual(1, output_queue.qsize())
+        funding_info: FundingInfoUpdate = await output_queue.get()
+        self.assertEqual(self.trading_pair, funding_info.trading_pair)
+        self.assertEqual(Decimal("2000.0"), funding_info.index_price)
+        self.assertEqual(Decimal("2001.0"), funding_info.mark_price)
+        self.assertEqual(Decimal("0.00001"), funding_info.rate)
