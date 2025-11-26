@@ -69,26 +69,18 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def listen_for_funding_info(self, output: asyncio.Queue):
         """
-        Reads the funding info events queue and updates the local funding info information.
+        Reads the funding info events from WebSocket queue and updates the local funding info information.
         """
+        message_queue = self._message_queue[self._funding_info_messages_queue_key]
         while True:
             try:
-                for trading_pair in self._trading_pairs:
-                    funding_info = await self.get_funding_info(trading_pair)
-                    funding_info_update = FundingInfoUpdate(
-                        trading_pair=trading_pair,
-                        index_price=funding_info.index_price,
-                        mark_price=funding_info.mark_price,
-                        next_funding_utc_timestamp=funding_info.next_funding_utc_timestamp,
-                        rate=funding_info.rate,
-                    )
-                    output.put_nowait(funding_info_update)
-                await self._sleep(CONSTANTS.FUNDING_RATE_UPDATE_INTERNAL_SECOND)
+                funding_info_event = await message_queue.get()
+                await self._parse_funding_info_message(funding_info_event, output)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().exception("Unexpected error when processing public funding info updates from exchange")
-                await self._sleep(CONSTANTS.FUNDING_RATE_UPDATE_INTERNAL_SECOND)
+                await self._sleep(5)
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         """
@@ -241,7 +233,7 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         data: Dict[str, Any] = raw_message["params"]["data"]
         # ticker_slim.ETH-PERP.1000
 
-        symbol = data["params"]["channel"].split(".")[1]
+        symbol = raw_message["params"]["channel"].split(".")[1]
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
 
         if trading_pair not in self._trading_pairs:
