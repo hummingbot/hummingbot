@@ -1,10 +1,12 @@
 import asyncio
+import hashlib
 import importlib
 import inspect
 import os
 from decimal import Decimal
 from typing import Callable, Dict, List, Optional, Set
 
+import base58
 import pandas as pd
 import yaml
 from pydantic import Field, field_validator
@@ -185,7 +187,10 @@ class StrategyV2Base(ScriptStrategyBase):
 
     def __init__(self, connectors: Dict[str, ConnectorBase], config: Optional[StrategyV2ConfigBase] = None):
         super().__init__(connectors, config)
+        if config is None:
+            raise ValueError("config parameter is required and cannot be None")
         self.config = config
+        self._controller_id_map: Dict[str, str] = {}
 
         # Initialize empty dictionaries to hold controllers and unified controller reports
         self.controllers: Dict[str, ControllerBase] = {}
@@ -238,13 +243,11 @@ class StrategyV2Base(ScriptStrategyBase):
         Collect initial positions from all controller configurations.
         Returns a dictionary mapping controller_id -> list of InitialPositionConfig.
         """
-        if not self.config:
-            return {}
-
         initial_positions_by_controller = {}
         try:
             controllers_configs = self.config.load_controller_configs()
-            for controller_config in controllers_configs:
+            for config_path, controller_config in zip(self.config.controllers_config, controllers_configs):
+                self._assign_controller_id(config_path, controller_config)
                 if hasattr(controller_config, 'initial_positions') and controller_config.initial_positions:
                     initial_positions_by_controller[controller_config.id] = controller_config.initial_positions
         except Exception as e:
@@ -257,16 +260,24 @@ class StrategyV2Base(ScriptStrategyBase):
         Initialize the controllers based on the provided configuration.
         """
         controllers_configs = self.config.load_controller_configs()
-        for controller_config in controllers_configs:
-            self.add_controller(controller_config)
-            MarketsRecorder.get_instance().store_controller_config(controller_config)
+        for config_path, controller_config in zip(self.config.controllers_config, controllers_configs):
+            self._assign_controller_id(config_path, controller_config)
+            controller = self.add_controller(controller_config)
+            if controller is not None:
+                MarketsRecorder.get_instance().store_controller_config(controller_config)
 
     def add_controller(self, config: ControllerConfigBase):
         try:
             controller = config.get_controller_class()(config, self.market_data_provider, self.actions_queue)
             self.controllers[config.id] = controller
+            executor_orchestrator = getattr(self, "executor_orchestrator", None)
+            if executor_orchestrator is not None:
+                initial_positions = getattr(config, "initial_positions", [])
+                executor_orchestrator.register_controller(config.id, initial_positions or None)
+            return controller
         except Exception as e:
             self.logger().error(f"Error adding controller: {e}", exc_info=True)
+            return None
 
     def update_controllers_configs(self):
         """
@@ -275,11 +286,42 @@ class StrategyV2Base(ScriptStrategyBase):
         if self._last_config_update_ts + self.config_update_interval < self.current_timestamp:
             self._last_config_update_ts = self.current_timestamp
             controllers_configs = self.config.load_controller_configs()
-            for controller_config in controllers_configs:
+            for config_path, controller_config in zip(self.config.controllers_config, controllers_configs):
+                self._assign_controller_id(config_path, controller_config)
                 if controller_config.id in self.controllers:
-                    self.controllers[controller_config.id].update_config(controller_config)
+                    controller = self.controllers[controller_config.id]
+                    controller.update_config(controller_config)
                 else:
-                    self.add_controller(controller_config)
+                    controller = self.add_controller(controller_config)
+                    if controller is not None:
+                        MarketsRecorder.get_instance().store_controller_config(controller_config)
+                        if self.ready_to_trade:
+                            controller.start()
+    
+    def _assign_controller_id(self, config_path: Optional[str], controller_config: ControllerConfigBase):
+        """
+        Ensure controllers keep a stable identifier across config reloads by caching the id per config path.
+        If the configuration explicitly provides an id we respect it, otherwise generate a deterministic one.
+        """
+        key = config_path or controller_config.controller_name
+        if key in self._controller_id_map:
+            controller_config.id = self._controller_id_map[key]
+            return
+
+        fields_set = getattr(controller_config, "model_fields_set", set())
+        if isinstance(fields_set, set) and "id" in fields_set and controller_config.id:
+            self._controller_id_map[key] = controller_config.id
+            return
+
+        deterministic_id = self._generate_deterministic_id(key)
+        controller_config.id = deterministic_id
+        self._controller_id_map[key] = deterministic_id
+
+    @staticmethod
+    def _generate_deterministic_id(source: str) -> str:
+        source_bytes = str(source).encode("utf-8")
+        digest = hashlib.sha256(source_bytes).digest()
+        return base58.b58encode(digest).decode("utf-8")
 
     async def listen_to_executor_actions(self):
         """
@@ -288,12 +330,15 @@ class StrategyV2Base(ScriptStrategyBase):
         while True:
             try:
                 actions = await self.actions_queue.get()
+                if not actions:  # Skip if actions list is empty
+                    continue
                 self.executor_orchestrator.execute_actions(actions)
                 self.update_executors_info()
                 controller_id = actions[0].controller_id
                 controller = self.controllers.get(controller_id)
-                controller.executors_info = self.get_executors_by_controller(controller_id)
-                controller.executors_update_event.set()
+                if controller is not None:  # Check controller exists before updating
+                    controller.executors_info = self.get_executors_by_controller(controller_id)
+                    controller.executors_update_event.set()
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -406,6 +451,9 @@ class StrategyV2Base(ScriptStrategyBase):
         """
         Convert a list of executor handler info to a dataframe.
         """
+        if not executors_info:  # Handle empty list case
+            return pd.DataFrame()
+            
         df = pd.DataFrame([ei.to_dict() for ei in executors_info])
         # Convert the enum values to integers
         df['status'] = df['status'].apply(lambda x: x.value)
@@ -424,6 +472,9 @@ class StrategyV2Base(ScriptStrategyBase):
         lines = []
         warning_lines = []
         warning_lines.extend(self.network_warning(self.get_market_trading_pair_tuples()))
+        
+        # Add network warnings to the output
+        lines.extend(warning_lines)
 
         # Basic account info
         balance_df = self.get_balance_df()

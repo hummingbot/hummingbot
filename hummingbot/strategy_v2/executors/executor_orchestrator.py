@@ -29,6 +29,7 @@ from hummingbot.strategy_v2.models.executor_actions import (
 )
 from hummingbot.strategy_v2.models.executors import CloseType
 from hummingbot.strategy_v2.models.executors_info import ExecutorInfo, PerformanceReport
+from hummingbot.strategy_v2.models.position_config import InitialPositionConfig
 
 
 class PositionHold:
@@ -168,6 +169,23 @@ class ExecutorOrchestrator:
         self.initial_positions_by_controller = initial_positions_by_controller or {}
         self._initialize_cached_performance()
 
+    def register_controller(self,
+                            controller_id: str,
+                            initial_positions: Optional[List[InitialPositionConfig]] = None):
+        """
+        Register a new controller after the orchestrator has been initialized so it can participate in reporting.
+        """
+        if controller_id not in self.cached_performance:
+            self.cached_performance[controller_id] = PerformanceReport()
+        if controller_id not in self.active_executors:
+            self.active_executors[controller_id] = []
+        if controller_id not in self.positions_held:
+            self.positions_held[controller_id] = []
+
+        if initial_positions:
+            self.initial_positions_by_controller[controller_id] = initial_positions
+            self._create_initial_positions_for_controller(controller_id, initial_positions)
+
     def _initialize_cached_performance(self):
         """
         Initialize cached performance by querying the database for stored executors and positions.
@@ -252,40 +270,50 @@ class ExecutorOrchestrator:
         Uses NaN for quote amounts initially - they will be calculated lazily when needed.
         """
         for controller_id, initial_positions in self.initial_positions_by_controller.items():
-            if controller_id not in self.cached_performance:
-                self.cached_performance[controller_id] = PerformanceReport()
-                self.active_executors[controller_id] = []
-                self.positions_held[controller_id] = []
+            self._create_initial_positions_for_controller(controller_id, initial_positions)
 
-            for position_config in initial_positions:
-                # Create PositionHold object
-                position_hold = PositionHold(
-                    position_config.connector_name,
-                    position_config.trading_pair,
-                    position_config.side
-                )
+    def _create_initial_positions_for_controller(self,
+                                                 controller_id: str,
+                                                 initial_positions: List[InitialPositionConfig]):
+        if controller_id not in self.cached_performance:
+            self.cached_performance[controller_id] = PerformanceReport()
+        if controller_id not in self.active_executors:
+            self.active_executors[controller_id] = []
+        if controller_id not in self.positions_held:
+            self.positions_held[controller_id] = []
 
-                # Set amounts based on side, using NaN for quote amounts
-                if position_config.side == TradeType.BUY:
-                    position_hold.buy_amount_base = position_config.amount
-                    position_hold.buy_amount_quote = Decimal("NaN")  # Will be calculated lazily
-                    position_hold.sell_amount_base = Decimal("0")
-                    position_hold.sell_amount_quote = Decimal("0")
-                else:
-                    position_hold.sell_amount_base = position_config.amount
-                    position_hold.sell_amount_quote = Decimal("NaN")  # Will be calculated lazily
-                    position_hold.buy_amount_base = Decimal("0")
-                    position_hold.buy_amount_quote = Decimal("0")
+        if not initial_positions:
+            return
 
-                # Set fees and volume to 0 (as specified - this is a fresh start)
-                position_hold.volume_traded_quote = Decimal("0")
-                position_hold.cum_fees_quote = Decimal("0")
+        # Prevent duplicating entries if the controller was already initialized.
+        if len(self.positions_held[controller_id]) > 0:
+            return
 
-                # Add to positions held
-                self.positions_held[controller_id].append(position_hold)
+        for position_config in initial_positions:
+            position_hold = PositionHold(
+                position_config.connector_name,
+                position_config.trading_pair,
+                position_config.side
+            )
 
-                self.logger().info(f"Created initial position for controller {controller_id}: {position_config.amount} "
-                                   f"{position_config.side.name} {position_config.trading_pair} on {position_config.connector_name}")
+            if position_config.side == TradeType.BUY:
+                position_hold.buy_amount_base = position_config.amount
+                position_hold.buy_amount_quote = Decimal("NaN")
+                position_hold.sell_amount_base = Decimal("0")
+                position_hold.sell_amount_quote = Decimal("0")
+            else:
+                position_hold.sell_amount_base = position_config.amount
+                position_hold.sell_amount_quote = Decimal("NaN")
+                position_hold.buy_amount_base = Decimal("0")
+                position_hold.buy_amount_quote = Decimal("0")
+
+            position_hold.volume_traded_quote = Decimal("0")
+            position_hold.cum_fees_quote = Decimal("0")
+
+            self.positions_held[controller_id].append(position_hold)
+
+            self.logger().info(f"Created initial position for controller {controller_id}: {position_config.amount} "
+                               f"{position_config.side.name} {position_config.trading_pair} on {position_config.connector_name}")
 
     async def stop(self, max_executors_close_attempts: int = 3):
         """
