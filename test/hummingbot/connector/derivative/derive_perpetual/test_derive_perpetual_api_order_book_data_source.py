@@ -596,7 +596,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                     },
                     "instrument_ticker": {
                         "I": "36717.0",
-                        "m": "36733.0",
+                        "M": "36733.0",
                         "f": "0.00001793"
                     }
                 }
