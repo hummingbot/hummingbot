@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "chainID": { "type": "integer" },
+    "nodeURL": { "type": "string" },
+    "nativeCurrencySymbol": { "type": "string" },
+    "swapProvider": {
+      "type": "string",
+      "description": "Default swap router provider for this network (format: connector/type, e.g., uniswap/router)",
+      "default": "uniswap/router"
+    },
+    "gasPrice": {
+      "type": ["number", "null"],
+      "description": "Gas price in GWEI for legacy (non-EIP-1559) networks (optional, will fetch from network RPC if not set)"
+    },
+    "baseFee": {
+      "type": ["number", "null"],
+      "description": "EIP-1559 base fee in GWEI (optional, will fetch from network or Etherscan API if not set)"
+    },
+    "priorityFee": {
+      "type": ["number", "null"],
+      "description": "EIP-1559 priority fee in GWEI (optional, will fetch from network or Etherscan API if not set)"
+    },
+    "baseFeeMultiplier": {
+      "type": "number",
+      "description": "EIP-1559 base fee multiplier for maxFeePerGas calculation (default: 1.2)",
+      "default": 1.2
+    }
+  },
+  "required": ["chainID", "nodeURL", "nativeCurrencySymbol"],
+  "additionalProperties": false
+}

@@ -1,0 +1,10 @@
+chainID: 42161
+nodeURL: https://arb1.arbitrum.io/rpc
+nativeCurrencySymbol: ETH
+swapProvider: uniswap/router
+
+# EIP-1559 gas parameters (in GWEI)
+# If not set, will fetch from Etherscan API (if etherscanAPIKey is set in ethereum.yml) or network RPC
+baseFee:
+baseFeeMultiplier: 1.2
+priorityFee: 0.001

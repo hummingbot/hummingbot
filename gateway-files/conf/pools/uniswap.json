@@ -1,0 +1,332 @@
+[
+  {
+    "type": "amm",
+    "network": "base",
+    "baseSymbol": "AERO",
+    "quoteSymbol": "USDC",
+    "address": "0x6cdcb1c4a4d1c3c6d054b27ac5b77e89eafb971d",
+    "baseTokenAddress": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "quoteTokenAddress": "0x940181a94A35A4569E4529A3CDfB74e38FD98631",
+    "feePct": 0.3
+  },
+  {
+    "type": "amm",
+    "network": "arbitrum",
+    "baseSymbol": "ARB",
+    "quoteSymbol": "USDC",
+    "address": "0xcda53b1f66614552f834ceef361a8d12a0b8dad8",
+    "baseTokenAddress": "0x912CE59144191C1204E64559FE8253a0e49E6548",
+    "quoteTokenAddress": "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
+    "feePct": 0.3
+  },
+  {
+    "type": "amm",
+    "network": "optimism",
+    "baseSymbol": "OP",
+    "quoteSymbol": "USDC",
+    "address": "0x1c3140ab59d6caf9fa7459c6f83d4b52ba881d36",
+    "baseTokenAddress": "0x4200000000000000000000000000000000000042",
+    "quoteTokenAddress": "0x7F5c764cBc14f9669B88837ca1490cCa17c31607",
+    "feePct": 0.3
+  },
+  {
+    "type": "amm",
+    "network": "mainnet",
+    "baseSymbol": "USDC",
+    "quoteSymbol": "USDT",
+    "address": "0x3416cf6c708da44db2624d63ea0aaef7113527c6",
+    "baseTokenAddress": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+    "quoteTokenAddress": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+    "feePct": 0.3
+  },
+  {
+    "type": "amm",
+    "network": "mainnet",
+    "baseSymbol": "WBTC",
+    "quoteSymbol": "WETH",
+    "address": "0xbb2b8038a1640196fbe3e38816f3e67cba72d940",
+    "baseTokenAddress": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+    "quoteTokenAddress": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+    "feePct": 0.3
+  },
+  {
+    "type": "amm",
+    "network": "arbitrum",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "ARB",
+    "address": "0xc24f7d8e51a64dc1238880bd00bb961d54cbeb29",
+    "baseTokenAddress": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+    "quoteTokenAddress": "0xFa7F8980b0f1E64A2062791cc3b0871572f1F7f0",
+    "feePct": 0.3
+  },
+  {
+    "type": "amm",
+    "network": "mainnet",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "DAI",
+    "address": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11",
+    "baseTokenAddress": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+    "quoteTokenAddress": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+    "feePct": 0.3
+  },
+  {
+    "type": "amm",
+    "network": "optimism",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "OP",
+    "address": "0x68f5c0a2de713a54991e01858fd27a3832401849",
+    "baseTokenAddress": "0x4200000000000000000000000000000000000006",
+    "quoteTokenAddress": "0x4200000000000000000000000000000000000042",
+    "feePct": 0.3
+  },
+  {
+    "type": "amm",
+    "network": "base",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDbC",
+    "address": "0xc9034c3e7f58003e6ae0c8438e7c8f4598d5acaa",
+    "baseTokenAddress": "0x4200000000000000000000000000000000000006",
+    "quoteTokenAddress": "0x4ed4E862860beD51a9570b96d89aF5E1B0Efefed",
+    "feePct": 0.3
+  },
+  {
+    "type": "amm",
+    "network": "mainnet",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDC",
+    "address": "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
+    "baseTokenAddress": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+    "quoteTokenAddress": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+    "feePct": 0.3
+  },
+  {
+    "type": "amm",
+    "network": "arbitrum",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDC",
+    "address": "0xc24f7d8e51a64dc1238880bd00bb961d54cbeb29",
+    "baseTokenAddress": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+    "quoteTokenAddress": "0xFa7F8980b0f1E64A2062791cc3b0871572f1F7f0",
+    "feePct": 0.3
+  },
+  {
+    "type": "amm",
+    "network": "optimism",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDC",
+    "address": "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+    "baseTokenAddress": "0x4200000000000000000000000000000000000006",
+    "quoteTokenAddress": "0x7F5c764cBc14f9669B88837ca1490cCa17c31607",
+    "feePct": 0.3
+  },
+  {
+    "type": "amm",
+    "network": "polygon",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDC",
+    "address": "0x45dda9cb7c25131df268515131f647d726f50608",
+    "baseTokenAddress": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
+    "quoteTokenAddress": "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619",
+    "feePct": 0.3
+  },
+  {
+    "type": "amm",
+    "network": "base",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDC",
+    "address": "0x88A43bbDF9D098eEC7bCEda4e2494615dfD9bB9C",
+    "baseTokenAddress": "0x4200000000000000000000000000000000000006",
+    "quoteTokenAddress": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "feePct": 0.3
+  },
+  {
+    "type": "amm",
+    "network": "mainnet",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDT",
+    "address": "0x0d4a11d5eeaac28ec3f61d100daf4d40471f1852",
+    "baseTokenAddress": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+    "quoteTokenAddress": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+    "feePct": 0.3
+  },
+  {
+    "type": "amm",
+    "network": "arbitrum",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDT",
+    "address": "0x641c00a822e8b671738d32a431a4fb6074e5c79d",
+    "baseTokenAddress": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+    "quoteTokenAddress": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+    "feePct": 0.3
+  },
+  {
+    "type": "amm",
+    "network": "polygon",
+    "baseSymbol": "WMATIC",
+    "quoteSymbol": "USDC",
+    "address": "0xa374094527e1673a86de625aa59517c5de346d32",
+    "baseTokenAddress": "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
+    "quoteTokenAddress": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
+    "feePct": 0.3
+  },
+  {
+    "type": "amm",
+    "network": "polygon",
+    "baseSymbol": "WMATIC",
+    "quoteSymbol": "WETH",
+    "address": "0x86f1d8390222a3691c28938ec7404a1661e618e0",
+    "baseTokenAddress": "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
+    "quoteTokenAddress": "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619",
+    "feePct": 0.3
+  },
+  {
+    "type": "clmm",
+    "network": "arbitrum",
+    "baseSymbol": "ARB",
+    "quoteSymbol": "WETH",
+    "address": "0xc6f780497a95e246eb9449f5e4770916dcd6396a",
+    "baseTokenAddress": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+    "quoteTokenAddress": "0x912CE59144191C1204E64559FE8253a0e49E6548",
+    "feePct": 0.05
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet",
+    "baseSymbol": "USDC",
+    "quoteSymbol": "USDT",
+    "address": "0x7858e59e0c01ea06df3af3d20ac7b0003275d4bf",
+    "baseTokenAddress": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+    "quoteTokenAddress": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+    "feePct": 0.05
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet",
+    "baseSymbol": "WBTC",
+    "quoteSymbol": "WETH",
+    "address": "0xcbcdf9626bc03e24f779434178a73a0b4bad62ed",
+    "baseTokenAddress": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+    "quoteTokenAddress": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+    "feePct": 0.3
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "DAI",
+    "address": "0x60594a405d53811d3bc4766596efd80fd545a270",
+    "baseTokenAddress": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+    "quoteTokenAddress": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+    "feePct": 0.05
+  },
+  {
+    "type": "clmm",
+    "network": "arbitrum",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "GMX",
+    "address": "0x80a9ae39310abf666a87c743d6ebbd0e8c42158e",
+    "baseTokenAddress": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+    "quoteTokenAddress": "0xfc5A1A6EB076a2C7aD06eD22C90d7E710E35ad0a",
+    "feePct": 1
+  },
+  {
+    "type": "clmm",
+    "network": "optimism",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "OP",
+    "address": "0xfc1f3296458f9b2a27a0b91dd7681c4020e09d05",
+    "baseTokenAddress": "0x4200000000000000000000000000000000000006",
+    "quoteTokenAddress": "0x4200000000000000000000000000000000000042",
+    "feePct": 0.05
+  },
+  {
+    "type": "clmm",
+    "network": "base",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDbC",
+    "address": "0x4c36388be6f416a29c8d8eee81c771ce6be14b18",
+    "baseTokenAddress": "0x4200000000000000000000000000000000000006",
+    "quoteTokenAddress": "0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA",
+    "feePct": 0.05
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDC",
+    "address": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+    "baseTokenAddress": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+    "quoteTokenAddress": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+    "feePct": 0.3
+  },
+  {
+    "type": "clmm",
+    "network": "arbitrum",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDC",
+    "address": "0xc473e2aee3441bf9240be85eb122abb059a3b57c",
+    "baseTokenAddress": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+    "quoteTokenAddress": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+    "feePct": 0.3
+  },
+  {
+    "type": "clmm",
+    "network": "polygon",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDC",
+    "address": "0x45dda9cb7c25131df268515131f647d726f50608",
+    "baseTokenAddress": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
+    "quoteTokenAddress": "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619",
+    "feePct": 0.05
+  },
+  {
+    "type": "clmm",
+    "network": "base",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDC",
+    "address": "0xd0b53d9277642d899df5c87a3966a349a798f224",
+    "baseTokenAddress": "0x4200000000000000000000000000000000000006",
+    "quoteTokenAddress": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "feePct": 0.05
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDT",
+    "address": "0x4e68ccd3e89f51c3074ca5072bbac773960dfa36",
+    "baseTokenAddress": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+    "quoteTokenAddress": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+    "feePct": 0.3
+  },
+  {
+    "type": "clmm",
+    "network": "arbitrum",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDT",
+    "address": "0xc82819f72a9e77e2c0c3a69b3196478f44303cf4",
+    "baseTokenAddress": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+    "quoteTokenAddress": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+    "feePct": 0.3
+  },
+  {
+    "type": "clmm",
+    "network": "polygon",
+    "baseSymbol": "WMATIC",
+    "quoteSymbol": "USDC",
+    "address": "0xa374094527e1673a86de625aa59517c5de346d32",
+    "baseTokenAddress": "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
+    "quoteTokenAddress": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
+    "feePct": 0.05
+  },
+  {
+    "type": "clmm",
+    "network": "polygon",
+    "baseSymbol": "WMATIC",
+    "quoteSymbol": "WETH",
+    "address": "0x86f1d8390222a3691c28938ec7404a1661e618e0",
+    "baseTokenAddress": "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
+    "quoteTokenAddress": "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619",
+    "feePct": 0.05
+  }
+]

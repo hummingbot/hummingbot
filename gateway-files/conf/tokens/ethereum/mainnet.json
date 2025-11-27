@@ -1,0 +1,107 @@
+[
+  {
+    "chainId": 1,
+    "name": "Aave",
+    "symbol": "AAVE",
+    "address": "0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9",
+    "decimals": 18
+  },
+  {
+    "chainId": 1,
+    "name": "Curve DAO",
+    "symbol": "CRV",
+    "address": "0xd533a949740bb3306d119cc777fa900ba034cd52",
+    "decimals": 18
+  },
+  {
+    "chainId": 1,
+    "name": "Dai",
+    "symbol": "DAI",
+    "address": "0x6b175474e89094c44da98b954eedeac495271d0f",
+    "decimals": 18
+  },
+  {
+    "chainId": 1,
+    "name": "Hummingbot Governance Token",
+    "symbol": "HBOT",
+    "address": "0xe5097d9baeafb89f9bcb78c9290d545db5f9e9cb",
+    "decimals": 18
+  },
+  {
+    "chainId": 1,
+    "name": "Lido DAO",
+    "symbol": "LDO",
+    "address": "0x5a98fcbea516cf06857215779fd812ca3bef1b32",
+    "decimals": 18
+  },
+  {
+    "chainId": 1,
+    "name": "Chainlink",
+    "symbol": "LINK",
+    "address": "0x514910771af9ca656af840dff83e8264ecf986ca",
+    "decimals": 18
+  },
+  {
+    "chainId": 1,
+    "name": "Pepe",
+    "symbol": "PEPE",
+    "address": "0x6982508145454ce325ddbe47a25d4ec3d2311933",
+    "decimals": 18
+  },
+  {
+    "chainId": 1,
+    "name": "Shiba Inu",
+    "symbol": "SHIB",
+    "address": "0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce",
+    "decimals": 18
+  },
+  {
+    "chainId": 1,
+    "name": "Lido Staked Ether",
+    "symbol": "STETH",
+    "address": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+    "decimals": 18
+  },
+  {
+    "chainId": 1,
+    "name": "Uniswap",
+    "symbol": "UNI",
+    "address": "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984",
+    "decimals": 18
+  },
+  {
+    "chainId": 1,
+    "name": "USD Coin",
+    "symbol": "USDC",
+    "address": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+    "decimals": 6
+  },
+  {
+    "chainId": 1,
+    "name": "Tether",
+    "symbol": "USDT",
+    "address": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+    "decimals": 6
+  },
+  {
+    "chainId": 1,
+    "name": "Wrapped Bitcoin",
+    "symbol": "WBTC",
+    "address": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+    "decimals": 8
+  },
+  {
+    "chainId": 1,
+    "name": "Wrapped Ethererum",
+    "symbol": "WETH",
+    "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+    "decimals": 18
+  },
+  {
+    "chainId": 1,
+    "name": "Wrapped stETH",
+    "symbol": "WSTETH",
+    "address": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+    "decimals": 18
+  }
+]

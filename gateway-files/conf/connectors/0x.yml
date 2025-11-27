@@ -1,0 +1,9 @@
+# Configuration for 0x DEX Aggregator
+
+# Allowed slippage for swap transactions (as a percentage)
+# Default: 1 (1%)
+slippagePct: 1
+
+# API key for 0x API (required)
+# Get your API key from https://dashboard.0x.org
+apiKey: ''

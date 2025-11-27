@@ -1,0 +1,8 @@
+chainID: 56
+nodeURL: https://binance.llamarpc.com
+nativeCurrencySymbol: BNB
+swapProvider: pancakeswap/router
+
+# Legacy gas price (in GWEI)
+# If not set, will fetch from network RPC
+gasPrice:

@@ -1,0 +1,19 @@
+nodeURL: https://api.devnet.solana.com
+nativeCurrencySymbol: SOL
+swapProvider: jupiter/router
+
+# Default compute units for a transaction
+# This sets the compute unit limit for transactions when not specified by the user
+defaultComputeUnits: 200000
+
+# Confirmation polling interval in seconds
+# How often to check if a submitted transaction has been confirmed (inner retry loop)
+confirmRetryInterval: 1
+
+# Number of confirmation polling attempts
+# How many times to poll for confirmation before considering the transaction unconfirmed
+confirmRetryCount: 10
+
+# Minimum priority fee per compute unit in lamports
+# This sets the floor for priority fees to ensure transactions are processed (default: 0.1 lamports/CU)
+minPriorityFeePerCU: 0.01

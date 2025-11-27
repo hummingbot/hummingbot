@@ -1,0 +1,58 @@
+[
+  {
+    "chainId": 8453,
+    "name": "Aave",
+    "symbol": "aave",
+    "address": "0x63706e401c06ac8513145b7687a14804d17f814b",
+    "decimals": 18
+  },
+  {
+    "chainId": 8453,
+    "name": "Coinbase Wrapped BTC",
+    "symbol": "cbBTC",
+    "address": "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf",
+    "decimals": 8
+  },
+  {
+    "chainId": 8453,
+    "name": "Dai Stablecoin",
+    "symbol": "DAI",
+    "address": "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb",
+    "decimals": 18
+  },
+  {
+    "chainId": 8453,
+    "name": "Chainlink",
+    "symbol": "link",
+    "address": "0x88fb150bdc53a65fe94dea0c9ba0a6daf8c6e196",
+    "decimals": 18
+  },
+  {
+    "chainId": 8453,
+    "name": "USD Coin",
+    "symbol": "USDC",
+    "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "decimals": 6
+  },
+  {
+    "chainId": 8453,
+    "name": "Tether USD",
+    "symbol": "USDT",
+    "address": "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2",
+    "decimals": 6
+  },
+  {
+    "chainId": 8453,
+    "name": "Virtual Protocol",
+    "symbol": "VIRTUAL",
+    "address": "0x0b3e328455c4059eeb9e3f84b5543f74e24e7e1b",
+    "decimals": 18
+  },
+  {
+    "chainId": 8453,
+    "name": "Wrapped Ether",
+    "symbol": "WETH",
+    "address": "0x4200000000000000000000000000000000000006",
+    "decimals": 18
+  }
+]

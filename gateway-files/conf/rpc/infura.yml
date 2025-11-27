@@ -1,0 +1,8 @@
+# Infura RPC Provider Configuration
+# Get your API key from https://infura.io
+
+# Required: Your Infura API key  
+apiKey: 'YOUR_INFURA_API_KEY_HERE'
+
+# Enable WebSocket connections for real-time events
+useWebSocket: false

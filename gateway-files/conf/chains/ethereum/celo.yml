@@ -1,0 +1,8 @@
+chainID: 42220
+nodeURL: https://rpc.ankr.com/celo
+nativeCurrencySymbol: CELO
+swapProvider: uniswap/router
+
+# Legacy gas price (in GWEI)
+# If not set, will fetch from network RPC
+gasPrice:

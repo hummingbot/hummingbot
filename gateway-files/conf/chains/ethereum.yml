@@ -1,0 +1,10 @@
+defaultNetwork: mainnet
+defaultWallet: '<ethereum-wallet-address>'
+
+# RPC provider: 'url' uses nodeURL from network config, 'infura' uses Infura service for all networks
+rpcProvider: url
+
+# Etherscan API key for gas price estimates across all supported networks
+# Get your free API key from https://etherscan.io/myapikey
+# Works for all chains supported by Etherscan V2 API: https://docs.etherscan.io/supported-chains
+# etherscanAPIKey: 'YOUR_ETHERSCAN_API_KEY_HERE'

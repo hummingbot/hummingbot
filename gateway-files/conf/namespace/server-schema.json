@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "certificatePath": { "type": "string" },
+    "logPath": { "type": "string" },
+    "port": { "type": "integer" },
+    "docsPort": { "type": "integer" },
+    "ipWhitelist": { "type": "array" },
+    "GMTOffset": { "type": "number" },
+    "logToStdOut": { "type": "boolean" },
+    "fastifyLogs": { "type": "boolean" },
+    "logLevel": {
+      "type": "string",
+      "enum": ["debug", "info", "warn", "error"],
+      "default": "info"
+    }
+  },
+  "additionalProperties": false,
+  "required": ["port", "certificatePath", "logPath"]
+}

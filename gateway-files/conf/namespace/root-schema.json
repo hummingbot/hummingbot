@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "integer"
+    },
+    "configurations": {
+      "type": "object",
+      "patternProperties": {
+        "^\\$namespace ": {
+          "type": "object",
+          "properties": {
+            "configurationPath": {
+              "type": "string"
+            },
+            "schemaPath": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "additionalProperties": false
+  }
+}

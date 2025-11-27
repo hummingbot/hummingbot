@@ -1,0 +1,20 @@
+2025-11-26 22:28:39 | info | 	⚡️ Gateway version 2.10.0 starting at http://localhost:15888
+2025-11-26 22:28:39 | info | 	🔧 Log level configured as: debug
+2025-11-26 22:28:39 | info | 	Checking for processes using port 15888...
+2025-11-26 22:28:39 | info | 	No process found using port 15888
+2025-11-26 22:28:39 | info | 	🔴 Running in development mode with (unsafe!) HTTP endpoints
+2025-11-26 22:28:41 | info | 	📓 Documentation available at http://localhost:15888/docs
+2025-11-26 22:28:54 | info | 	Getting available DEX connectors and networks
+2025-11-26 22:28:54 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-26 22:28:54 | info | 	Getting available blockchain networks
+2025-11-26 22:28:54 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-26 22:28:54 | info | 	Getting all configuration namespaces
+2025-11-26 22:28:54 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-26 22:28:54 | info | 	Getting all configurations
+2025-11-26 22:30:21 | info | 	Getting available DEX connectors and networks
+2025-11-26 22:30:21 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-26 22:30:21 | info | 	Getting available blockchain networks
+2025-11-26 22:30:21 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-26 22:30:21 | info | 	Getting all configuration namespaces
+2025-11-26 22:30:21 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-26 22:30:21 | info | 	Getting all configurations

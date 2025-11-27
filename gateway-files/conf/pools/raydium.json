@@ -1,0 +1,142 @@
+[
+  {
+    "type": "amm",
+    "network": "mainnet-beta",
+    "baseSymbol": "POPCAT",
+    "quoteSymbol": "SOL",
+    "address": "FRhB8L7Y9Qq41qZXYLtC2nw8An1RJfLLxRF2x9RwLLMo",
+    "baseTokenAddress": "7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr",
+    "quoteTokenAddress": "So11111111111111111111111111111111111111112",
+    "feePct": 0.0025
+  },
+  {
+    "type": "amm",
+    "network": "mainnet-beta",
+    "baseSymbol": "RAY",
+    "quoteSymbol": "SOL",
+    "address": "AVs9TA4nWDzfPJE9gGVNJMVhcQy3V9PGazuz33BfG2RA",
+    "baseTokenAddress": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+    "quoteTokenAddress": "So11111111111111111111111111111111111111112",
+    "feePct": 0.0025
+  },
+  {
+    "type": "amm",
+    "network": "mainnet-beta",
+    "baseSymbol": "RAY",
+    "quoteSymbol": "USDC",
+    "address": "6UmmUiYoBjSrhakAobJw8BvkmJtDVxaeBtbt7rxWo1mg",
+    "baseTokenAddress": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+    "quoteTokenAddress": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "feePct": 0.0025
+  },
+  {
+    "type": "amm",
+    "network": "mainnet-beta",
+    "baseSymbol": "SOL",
+    "quoteSymbol": "USDC",
+    "address": "58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2",
+    "baseTokenAddress": "So11111111111111111111111111111111111111112",
+    "quoteTokenAddress": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "feePct": 0.0025
+  },
+  {
+    "type": "amm",
+    "network": "mainnet-beta",
+    "baseSymbol": "TRUMP",
+    "quoteSymbol": "SOL",
+    "address": "HKuJrP5tYQLbEUdjKwjgnHs2957QKjR2iWhJKTtMa1xs",
+    "baseTokenAddress": "So11111111111111111111111111111111111111112",
+    "quoteTokenAddress": "6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN",
+    "feePct": 0
+  },
+  {
+    "type": "amm",
+    "network": "mainnet-beta",
+    "baseSymbol": "WIF",
+    "quoteSymbol": "SOL",
+    "address": "EP2ib6dYdEeqD8MfE2ezHCxX3kP3K2eLKkirfPm5eyMx",
+    "baseTokenAddress": "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
+    "quoteTokenAddress": "So11111111111111111111111111111111111111112",
+    "feePct": 0.0025
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "RAY",
+    "quoteSymbol": "USDC",
+    "address": "61R1ndXxvsWXXkWSyNkCxnzwd3zUNB8Q2ibmkiLPC8ht",
+    "baseTokenAddress": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+    "quoteTokenAddress": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "feePct": 0.25
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "SOL",
+    "quoteSymbol": "JITOSOL",
+    "address": "2uoKbPEidR7KAMYtY4x7xdkHXWqYib5k4CutJauSL3Mc",
+    "baseTokenAddress": "So11111111111111111111111111111111111111112",
+    "quoteTokenAddress": "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn",
+    "feePct": 0.01
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "SOL",
+    "quoteSymbol": "RAY",
+    "address": "2AXXcN6oN9bBT5owwmTH53C7QHUXvhLeu718Kqt8rvY2",
+    "baseTokenAddress": "So11111111111111111111111111111111111111112",
+    "quoteTokenAddress": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+    "feePct": 0.05
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "SOL",
+    "quoteSymbol": "TRUMP",
+    "address": "GQsPr4RJk9AZkkfWHud7v4MtotcxhaYzZHdsPCg9vNvW",
+    "baseTokenAddress": "So11111111111111111111111111111111111111112",
+    "quoteTokenAddress": "6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN",
+    "feePct": 0.25
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "SOL",
+    "quoteSymbol": "USDC",
+    "address": "3ucNos4NbumPLZNWztqGHNFFgkHeRMBQAVemeeomsUxv",
+    "baseTokenAddress": "So11111111111111111111111111111111111111112",
+    "quoteTokenAddress": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "feePct": 0.04
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "SOL",
+    "quoteSymbol": "USDT",
+    "address": "3nMFwZXwY1s1M5s8vYAHqd4wGs4iSxXE4LRoUMMYqEgF",
+    "baseTokenAddress": "So11111111111111111111111111111111111111112",
+    "quoteTokenAddress": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+    "feePct": 0.01
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "TRUMP",
+    "quoteSymbol": "USDC",
+    "address": "7XzVsjqTebULfkUofTDH5gDdZDmxacPmPuTfHa1n9kuh",
+    "baseTokenAddress": "6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN",
+    "quoteTokenAddress": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "feePct": 0.25
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "USDC",
+    "quoteSymbol": "USDT",
+    "address": "BZtgQEyS6eXUXicYPHecYQ7PybqodXQMvkjUbP4R8mUU",
+    "baseTokenAddress": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "quoteTokenAddress": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+    "feePct": 0.01
+  }
+]

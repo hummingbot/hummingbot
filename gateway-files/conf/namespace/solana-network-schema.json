@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "nodeURL": { "type": "string" },
+    "nativeCurrencySymbol": { "type": "string" },
+    "swapProvider": {
+      "type": "string",
+      "description": "Default swap router provider for this network (format: connector/type, e.g., jupiter/router)",
+      "default": "jupiter/router"
+    },
+    "defaultComputeUnits": { "type": "number" },
+    "confirmRetryInterval": { "type": "number" },
+    "confirmRetryCount": { "type": "number" },
+    "minPriorityFeePerCU": { "type": "number" }
+  },
+  "required": ["nodeURL", "nativeCurrencySymbol"],
+  "additionalProperties": false
+}

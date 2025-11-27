@@ -1,0 +1,3 @@
+# Global settings for Raydium
+# Default slippage percentage for swaps (e.g., 1 = 1%)
+slippagePct: 2

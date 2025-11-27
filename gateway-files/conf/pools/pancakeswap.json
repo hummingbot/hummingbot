@@ -1,0 +1,42 @@
+[
+  {
+    "type": "clmm",
+    "network": "bsc",
+    "baseSymbol": "ASTER",
+    "quoteSymbol": "USDT",
+    "baseTokenAddress": "0x000Ae314E2A2172a039B26378814C252734f556A",
+    "quoteTokenAddress": "0x55d398326f99059fF775485246999027B3197955",
+    "feePct": 0.25,
+    "address": "0xaead6bd31dd66eb3a6216aaf271d0e661585b0b1"
+  },
+  {
+    "type": "clmm",
+    "network": "bsc",
+    "baseSymbol": "USDT",
+    "quoteSymbol": "WBNB",
+    "baseTokenAddress": "0x55d398326f99059fF775485246999027B3197955",
+    "quoteTokenAddress": "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+    "feePct": 0.01,
+    "address": "0x172fcd41e0913e95784454622d1c3724f546f849"
+  },
+  {
+    "type": "clmm",
+    "network": "bsc",
+    "baseSymbol": "CAKE",
+    "quoteSymbol": "USDT",
+    "baseTokenAddress": "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82",
+    "quoteTokenAddress": "0x55d398326f99059fF775485246999027B3197955",
+    "feePct": 0.25,
+    "address": "0x7f51c8aaa6b0599abd16674e2b17fec7a9f674a1"
+  },
+  {
+    "type": "amm",
+    "network": "bsc",
+    "baseSymbol": "WBNB",
+    "quoteSymbol": "BUSD",
+    "baseTokenAddress": "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+    "quoteTokenAddress": "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
+    "feePct": 0.25,
+    "address": "0x58f876857a02d6762e0101bb5c46a8c1ed44dc16"
+  }
+]

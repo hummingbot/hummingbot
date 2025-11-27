@@ -1,0 +1,65 @@
+[
+  {
+    "chainId": 42161,
+    "name": "Arbitrum",
+    "symbol": "ARB",
+    "address": "0x912ce59144191c1204e64559fe8253a0e49e6548",
+    "decimals": 18
+  },
+  {
+    "chainId": 42161,
+    "name": "Balancer",
+    "symbol": "BAL",
+    "address": "0x040d1edc9569d4bab2d15287dc5a4f10f56a56b8",
+    "decimals": 18
+  },
+  {
+    "chainId": 42161,
+    "name": "Coinbase Wrapped BTC",
+    "symbol": "cbBTC",
+    "address": "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf",
+    "decimals": 8
+  },
+  {
+    "chainId": 42161,
+    "name": "Curve DAO",
+    "symbol": "CRV",
+    "address": "0x11cdb42b0eb46d95f990bedd4695a6e3fa034978",
+    "decimals": 18
+  },
+  {
+    "chainId": 42161,
+    "name": "Dai",
+    "symbol": "DAI",
+    "address": "0xda10009cbd5d07dd0cecc66161fc93d7c9000da1",
+    "decimals": 18
+  },
+  {
+    "chainId": 42161,
+    "name": "USD Coin",
+    "symbol": "USDC",
+    "address": "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+    "decimals": 6
+  },
+  {
+    "chainId": 42161,
+    "name": "Tether",
+    "symbol": "USDT",
+    "address": "0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9",
+    "decimals": 6
+  },
+  {
+    "chainId": 42161,
+    "name": "Wrapped Bitcoin",
+    "symbol": "WBTC",
+    "address": "0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f",
+    "decimals": 8
+  },
+  {
+    "chainId": 42161,
+    "name": "WETH",
+    "symbol": "WETH",
+    "address": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
+    "decimals": 18
+  }
+]

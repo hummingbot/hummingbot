@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "slippagePct": {
+      "type": "number",
+      "description": "Default slippage percentage (e.g., 1 for 1%)"
+    }
+  },
+  "additionalProperties": false,
+  "required": ["slippagePct"]
+}

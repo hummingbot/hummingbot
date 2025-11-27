@@ -1,0 +1,30 @@
+[
+    {
+      "chainId": 103,
+      "name": "Dev USDC",
+      "symbol": "devUSDC",
+      "address": "BRjpCHtyQLNCo8gqRUr8jtdAj5AjPYQaoqbvcZiHok1k",
+      "decimals": 6
+    },
+    {
+      "chainId": 103,
+      "name": "Dev USDT",
+      "symbol": "devUSDT",
+      "address": "H8UekPGwePSmQ3ttuYGPU1szyFfjZR4N53rymSFwpLPm",
+      "decimals": 6
+    },
+    {
+      "chainId": 103,
+      "name": "Dev SAMO",
+      "symbol": "devSAMO",
+      "address": "Jd4M8bfJG3sAkd82RsGWyEXoaBXQP7njFzBwEaCTuDa",
+      "decimals": 9
+    },
+    {
+      "chainId": 103,
+      "name": "Dev TMAC",
+      "symbol": "devTMAC",
+      "address": "Afn8YB1p4NsoZeS5XJBZ18LTfEy5NFPwN46wapZcBQr6",
+      "decimals": 6
+    }
+]

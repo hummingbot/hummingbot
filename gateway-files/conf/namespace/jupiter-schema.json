@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "slippagePct": {
+      "type": "number",
+      "description": "Default slippage percentage for swaps (e.g., 1 = 1%)"
+    },
+    "priorityLevel": {
+      "type": "string",
+      "enum": ["medium", "high", "veryHigh"]
+    },
+    "maxLamports": {
+      "type": "number",
+      "description": "Maximum priority fee in lamports for dynamic priority fees"
+    },
+    "onlyDirectRoutes": {
+      "type": "boolean",
+      "description": "Restrict routing to only go through 1 market"
+    },
+    "restrictIntermediateTokens": {
+      "type": "boolean",
+      "description": "Restrict routing through highly liquid intermediate tokens only"
+    },
+    "apiKey": {
+      "type": "string",
+      "description": "Jupiter API key for paid plans. Leave empty for free tier."
+    }
+  },
+  "additionalProperties": false,
+  "required": ["slippagePct", "priorityLevel", "maxLamports", "onlyDirectRoutes", "restrictIntermediateTokens"]
+}

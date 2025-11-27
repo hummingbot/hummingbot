@@ -1,0 +1,8 @@
+chainID: 11155111
+nodeURL: https://rpc.ankr.com/eth_sepolia
+nativeCurrencySymbol: ETH
+swapProvider: uniswap/router
+
+# Legacy gas price (in GWEI)
+# If not set, will fetch from network RPC
+gasPrice:

@@ -1,0 +1,72 @@
+[
+  {
+    "chainId": 10,
+    "name": "Aave Token",
+    "symbol": "AAVE",
+    "address": "0x76FB31fb4af56892A25e32cFC43De717950c9278",
+    "decimals": 18
+  },
+  {
+    "chainId": 10,
+    "name": "Dai Stablecoin",
+    "symbol": "DAI",
+    "address": "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1",
+    "decimals": 18
+  },
+  {
+    "chainId": 10,
+    "name": "Ethereum Name Service",
+    "symbol": "ENS",
+    "address": "0x65559aA14915a70190438eF90104769e5E890A00",
+    "decimals": 18
+  },
+  {
+    "chainId": 10,
+    "name": "Ether",
+    "symbol": "ETH",
+    "address": "0xDeadDeAddeAddEAddeadDEaDDEAdDeaDDeAD0000",
+    "decimals": 18
+  },
+  {
+    "chainId": 10,
+    "name": "Optimism",
+    "symbol": "OP",
+    "address": "0x4200000000000000000000000000000000000042",
+    "decimals": 18
+  },
+  {
+    "chainId": 10,
+    "name": "USDCoin",
+    "symbol": "USDC",
+    "address": "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",
+    "decimals": 6
+  },
+  {
+    "chainId": 10,
+    "name": "Tether USD",
+    "symbol": "USDT",
+    "address": "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58",
+    "decimals": 6
+  },
+  {
+    "chainId": 10,
+    "name": "Wrapped BTC",
+    "symbol": "WBTC",
+    "address": "0x68f180fcCe6836688e9084f035309E29Bf0A2095",
+    "decimals": 8
+  },
+  {
+    "chainId": 10,
+    "name": "Wrapped Ether",
+    "symbol": "WETH",
+    "address": "0x4200000000000000000000000000000000000006",
+    "decimals": 18
+  },
+  {
+    "chainId": 10,
+    "name": "Wrapped liquid staked Ether 2.0",
+    "symbol": "wstETH",
+    "address": "0x1F32b1c2345538c0c6f582fCB022739c4A194Ebb",
+    "decimals": 18
+  }
+]

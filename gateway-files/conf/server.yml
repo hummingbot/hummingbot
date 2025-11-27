@@ -1,0 +1,30 @@
+# GMT Offset in hours (e.g. -8 for Pacific US Time, -5 for Eastern US Time)
+GMTOffset: -8
+
+# Port on which to run the Gateway server
+port: 15888
+
+# Port on which to run the Swagger documentation UI. 
+# Set to 0 to serve docs at http://0.0.0.0:{port}/docs (same port as Gateway server)
+# Set to a specific port (e.g. 8080) to serve docs separately at http://0.0.0.0:{docPort}
+docsPort: 0
+
+# Path to folder where Hummingbot generates self-signed certificates
+certificatePath: ./certs/
+
+# Path to folder where logs will be stored.
+logPath: './logs'
+
+# IPs allowed to access gateway. localhost is allowed by default.
+ipWhitelist: []
+
+# If true, logs will be stored in logPath and printed to stdout. If false, they
+# will only be stored in logPath and not printed to stdout.
+logToStdOut: true
+
+# If true, the server will print detailed Fastify logs for each request and response to stdout. If false, only standard logs will be emitted.
+fastifyLogs: false
+
+# Log level for the application (debug, info, warn, error)
+logLevel: debug
+

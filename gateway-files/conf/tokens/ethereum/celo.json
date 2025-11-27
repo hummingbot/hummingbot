@@ -1,0 +1,51 @@
+[
+  {
+    "chainId": 42220,
+    "name": "Celo",
+    "symbol": "CELO",
+    "address": "0x471EcE3750Da237f93B8E339c536989b8978a438",
+    "decimals": 18
+  },
+  {
+    "chainId": 42220,
+    "name": "DAI Stablecoin (Portal)",
+    "symbol": "DAI",
+    "address": "0x97926a82930bb7B33178E3c2f4ED1BFDc91A9FBF",
+    "decimals": 18
+  },
+  {
+    "chainId": 42220,
+    "name": "Allbridge SOL",
+    "symbol": "SOL",
+    "address": "0x173234922eB27d5138c5e481be9dF5261fAeD450",
+    "decimals": 18
+  },
+  {
+    "chainId": 42220,
+    "name": "USD Coin",
+    "symbol": "USDC",
+    "address": "0xcebA9300f2b948710d2653dD7B07f33A8B32118C",
+    "decimals": 6
+  },
+  {
+    "chainId": 42220,
+    "name": "Wormhole Wrapped Bitcoin",
+    "symbol": "WBTC",
+    "address": "0xd71Ffd0940c920786eC4DbB5A12306669b5b81EF",
+    "decimals": 18
+  },
+  {
+    "chainId": 42220,
+    "name": "Wrapped Celo",
+    "symbol": "WCELO",
+    "address": "0x3d5c2dd10a315de15f6e6d0a19c0c37dd5ccf599",
+    "decimals": 18
+  },
+  {
+    "chainId": 42220,
+    "name": "Portal WETH",
+    "symbol": "WETH",
+    "address": "0x66803FB87aBd4aaC3cbB3fAd7C3aa01f6F3FB207",
+    "decimals": 18
+  }
+]

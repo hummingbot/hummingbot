@@ -1,0 +1,8 @@
+chainID: 43114
+nodeURL: https://api.avax.network/ext/bc/C/rpc
+nativeCurrencySymbol: AVAX
+swapProvider: uniswap/router
+
+# Legacy gas price (in GWEI)
+# If not set, will fetch from network RPC
+gasPrice:

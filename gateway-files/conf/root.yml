@@ -1,0 +1,98 @@
+version: 2
+configurations:
+  $namespace server:
+    configurationPath: server.yml
+    schemaPath: server-schema.json
+
+  # Chain configurations
+  $namespace ethereum:
+    configurationPath: chains/ethereum.yml
+    schemaPath: ethereum-chain-schema.json
+
+  $namespace solana:
+    configurationPath: chains/solana.yml
+    schemaPath: solana-chain-schema.json
+
+  # Ethereum networks
+  $namespace ethereum-mainnet:
+    configurationPath: chains/ethereum/mainnet.yml
+    schemaPath: ethereum-network-schema.json
+
+  $namespace ethereum-arbitrum:
+    configurationPath: chains/ethereum/arbitrum.yml
+    schemaPath: ethereum-network-schema.json
+
+  $namespace ethereum-optimism:
+    configurationPath: chains/ethereum/optimism.yml
+    schemaPath: ethereum-network-schema.json
+
+  $namespace ethereum-base:
+    configurationPath: chains/ethereum/base.yml
+    schemaPath: ethereum-network-schema.json
+
+  $namespace ethereum-sepolia:
+    configurationPath: chains/ethereum/sepolia.yml
+    schemaPath: ethereum-network-schema.json
+
+  $namespace ethereum-bsc:
+    configurationPath: chains/ethereum/bsc.yml
+    schemaPath: ethereum-network-schema.json
+
+  $namespace ethereum-avalanche:
+    configurationPath: chains/ethereum/avalanche.yml
+    schemaPath: ethereum-network-schema.json
+
+  $namespace ethereum-celo:
+    configurationPath: chains/ethereum/celo.yml
+    schemaPath: ethereum-network-schema.json
+
+  $namespace ethereum-polygon:
+    configurationPath: chains/ethereum/polygon.yml
+    schemaPath: ethereum-network-schema.json
+
+  # Solana networks
+  $namespace solana-mainnet-beta:
+    configurationPath: chains/solana/mainnet-beta.yml
+    schemaPath: solana-network-schema.json
+
+  $namespace solana-devnet:
+    configurationPath: chains/solana/devnet.yml
+    schemaPath: solana-network-schema.json
+
+  # Connectors
+  $namespace uniswap:
+    configurationPath: connectors/uniswap.yml
+    schemaPath: uniswap-schema.json
+
+  $namespace jupiter:
+    configurationPath: connectors/jupiter.yml
+    schemaPath: jupiter-schema.json
+
+  $namespace meteora:
+    configurationPath: connectors/meteora.yml
+    schemaPath: meteora-schema.json
+
+  $namespace raydium:
+    configurationPath: connectors/raydium.yml
+    schemaPath: raydium-schema.json
+
+  $namespace 0x:
+    configurationPath: connectors/0x.yml
+    schemaPath: 0x-schema.json
+
+  $namespace pancakeswap:
+    configurationPath: connectors/pancakeswap.yml
+    schemaPath: pancakeswap-schema.json
+
+  $namespace pancakeswap-sol:
+    configurationPath: connectors/pancakeswap-sol.yml
+    schemaPath: pancakeswap-sol-schema.json
+
+  # RPC providers
+  $namespace helius:
+    configurationPath: rpc/helius.yml
+    schemaPath: helius-schema.json
+
+  $namespace infura:
+    configurationPath: rpc/infura.yml
+    schemaPath: infura-schema.json

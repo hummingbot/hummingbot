@@ -1,0 +1,25 @@
+# Helius RPC Provider Configuration
+# Get your API key from https://helius.dev
+
+# Required: Your Helius API key
+# IMPORTANT: Set your API key here to enable Helius features
+apiKey: 'YOUR_HELIUS_API_KEY_HERE'
+
+# Use Helius WebSocket for real-time transaction monitoring
+# Provides faster confirmation notifications than polling
+useWebSocketRPC: false
+
+# Use Helius Sender endpoint for ultra-fast transaction delivery
+# Routes transactions through optimized infrastructure
+useSender: false
+
+# Regional endpoint for Helius Sender
+# Options: slc (Salt Lake City), ewr (Newark), lon (London), 
+#          fra (Frankfurt), ams (Amsterdam), sg (Singapore), tyo (Tokyo)
+# Choose the region closest to your server for lowest latency
+regionCode: 'slc'
+
+# Jito tip amount in SOL for bundle inclusion
+# Minimum 0.001 SOL required for Jito bundles
+# Higher tips may result in faster inclusion during congestion
+jitoTipSOL: 0.001
