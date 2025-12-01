@@ -18,3 +18,590 @@
 2025-11-26 22:30:21 | info | 	Getting all configuration namespaces
 2025-11-26 22:30:21 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
 2025-11-26 22:30:21 | info | 	Getting all configurations
+2025-11-26 22:43:24 | info | 	Getting available DEX connectors and networks
+2025-11-26 22:43:24 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-26 22:43:24 | info | 	Getting available blockchain networks
+2025-11-26 22:43:24 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-26 22:43:24 | info | 	Getting all configuration namespaces
+2025-11-26 22:43:24 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-26 22:43:24 | info | 	Getting all configurations
+2025-11-27 00:28:59 | info | 	Getting available DEX connectors and networks
+2025-11-27 00:28:59 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 00:28:59 | info | 	Getting available blockchain networks
+2025-11-27 00:28:59 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 00:28:59 | info | 	Getting all configuration namespaces
+2025-11-27 00:28:59 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 00:28:59 | info | 	Getting all configurations
+2025-11-27 00:31:12 | info | 	Getting available DEX connectors and networks
+2025-11-27 00:31:12 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 00:31:12 | info | 	Getting available blockchain networks
+2025-11-27 00:31:12 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 00:31:12 | info | 	Getting all configuration namespaces
+2025-11-27 00:31:12 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 00:31:12 | info | 	Getting all configurations
+2025-11-27 00:34:54 | info | 	Getting available DEX connectors and networks
+2025-11-27 00:34:54 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 00:34:54 | info | 	Getting available blockchain networks
+2025-11-27 00:34:54 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 00:34:54 | info | 	Getting all configuration namespaces
+2025-11-27 00:34:54 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 00:34:54 | info | 	Getting all configurations
+2025-11-27 00:36:05 | info | 	Getting available DEX connectors and networks
+2025-11-27 00:36:05 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 00:36:05 | info | 	Getting available blockchain networks
+2025-11-27 00:36:05 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 00:36:05 | info | 	Getting all configuration namespaces
+2025-11-27 00:36:05 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 00:36:05 | info | 	Getting all configurations
+2025-11-27 00:38:55 | info | 	Getting available DEX connectors and networks
+2025-11-27 00:38:55 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 00:38:55 | info | 	Getting available blockchain networks
+2025-11-27 00:38:55 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 00:38:55 | info | 	Getting all configuration namespaces
+2025-11-27 00:38:55 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 00:38:55 | info | 	Getting all configurations
+2025-11-27 00:40:44 | info | 	Getting available DEX connectors and networks
+2025-11-27 00:40:44 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 00:40:44 | info | 	Getting available blockchain networks
+2025-11-27 00:40:44 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 00:40:44 | info | 	Getting all configuration namespaces
+2025-11-27 00:40:44 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 00:40:44 | info | 	Getting all configurations
+2025-11-27 00:43:21 | info | 	Getting available DEX connectors and networks
+2025-11-27 00:43:21 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 00:43:21 | info | 	Getting available blockchain networks
+2025-11-27 00:43:21 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 00:43:21 | info | 	Getting all configuration namespaces
+2025-11-27 00:43:21 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 00:43:21 | info | 	Getting all configurations
+2025-11-27 00:50:22 | info | 	Getting available DEX connectors and networks
+2025-11-27 00:50:22 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 00:50:22 | info | 	Getting available blockchain networks
+2025-11-27 00:50:22 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 00:50:22 | info | 	Getting all configuration namespaces
+2025-11-27 00:50:22 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 00:50:22 | info | 	Getting all configurations
+2025-11-27 00:52:34 | info | 	Getting available DEX connectors and networks
+2025-11-27 00:52:34 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 00:52:34 | info | 	Getting available blockchain networks
+2025-11-27 00:52:34 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 00:52:34 | info | 	Getting all configuration namespaces
+2025-11-27 00:52:34 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 00:52:34 | info | 	Getting all configurations
+2025-11-27 00:57:53 | info | 	Getting available DEX connectors and networks
+2025-11-27 00:57:53 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 00:57:53 | info | 	Getting available blockchain networks
+2025-11-27 00:57:53 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 00:57:53 | info | 	Getting all configuration namespaces
+2025-11-27 00:57:53 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 00:57:53 | info | 	Getting all configurations
+2025-11-27 00:59:03 | info | 	Getting available DEX connectors and networks
+2025-11-27 00:59:03 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 00:59:03 | info | 	Getting available blockchain networks
+2025-11-27 00:59:03 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 00:59:03 | info | 	Getting all configuration namespaces
+2025-11-27 00:59:03 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 00:59:03 | info | 	Getting all configurations
+2025-11-27 01:01:49 | info | 	Getting available DEX connectors and networks
+2025-11-27 01:01:49 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 01:01:49 | info | 	Getting available blockchain networks
+2025-11-27 01:01:49 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 01:01:49 | info | 	Getting all configuration namespaces
+2025-11-27 01:01:49 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 01:01:49 | info | 	Getting all configurations
+2025-11-27 01:07:14 | info | 	Getting available DEX connectors and networks
+2025-11-27 01:07:14 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 01:07:14 | info | 	Getting available blockchain networks
+2025-11-27 01:07:14 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 01:07:14 | info | 	Getting all configuration namespaces
+2025-11-27 01:07:14 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 01:07:14 | info | 	Getting all configurations
+2025-11-27 01:13:11 | info | 	Getting available DEX connectors and networks
+2025-11-27 01:13:11 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 01:13:11 | info | 	Getting available blockchain networks
+2025-11-27 01:13:11 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 01:13:11 | info | 	Getting all configuration namespaces
+2025-11-27 01:13:11 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 01:13:11 | info | 	Getting all configurations
+2025-11-27 01:16:15 | info | 	Getting available DEX connectors and networks
+2025-11-27 01:16:15 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 01:16:15 | info | 	Getting available blockchain networks
+2025-11-27 01:16:15 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 01:16:15 | info | 	Getting all configuration namespaces
+2025-11-27 01:16:15 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 01:16:15 | info | 	Getting all configurations
+2025-11-27 01:49:18 | info | 	Getting available DEX connectors and networks
+2025-11-27 01:49:18 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 01:49:18 | info | 	Getting available blockchain networks
+2025-11-27 01:49:18 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 01:49:18 | info | 	Getting all configuration namespaces
+2025-11-27 01:49:18 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 01:49:18 | info | 	Getting all configurations
+2025-11-27 01:53:43 | info | 	Getting available DEX connectors and networks
+2025-11-27 01:53:43 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 01:53:43 | info | 	Getting available blockchain networks
+2025-11-27 01:53:43 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 01:53:43 | info | 	Getting all configuration namespaces
+2025-11-27 01:53:43 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 01:53:43 | info | 	Getting all configurations
+2025-11-27 01:55:54 | info | 	Getting available DEX connectors and networks
+2025-11-27 01:55:54 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 01:55:54 | info | 	Getting available blockchain networks
+2025-11-27 01:55:54 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 01:55:54 | info | 	Getting all configuration namespaces
+2025-11-27 01:55:54 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 01:55:54 | info | 	Getting all configurations
+2025-11-27 02:01:18 | info | 	Getting available DEX connectors and networks
+2025-11-27 02:01:18 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 02:01:18 | info | 	Getting available blockchain networks
+2025-11-27 02:01:18 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 02:01:18 | info | 	Getting all configuration namespaces
+2025-11-27 02:01:18 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 02:01:18 | info | 	Getting all configurations
+2025-11-27 02:07:24 | info | 	Getting available DEX connectors and networks
+2025-11-27 02:07:24 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 02:07:24 | info | 	Getting available blockchain networks
+2025-11-27 02:07:24 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 02:07:24 | info | 	Getting all configuration namespaces
+2025-11-27 02:07:24 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 02:07:24 | info | 	Getting all configurations
+2025-11-27 02:23:57 | info | 	Getting available DEX connectors and networks
+2025-11-27 02:23:57 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 02:23:57 | info | 	Getting available blockchain networks
+2025-11-27 02:23:57 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 02:23:57 | info | 	Getting all configuration namespaces
+2025-11-27 02:23:57 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 02:23:57 | info | 	Getting all configurations
+2025-11-27 02:27:50 | info | 	Getting available DEX connectors and networks
+2025-11-27 02:27:50 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 02:27:50 | info | 	Getting available blockchain networks
+2025-11-27 02:27:50 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 02:27:50 | info | 	Getting all configuration namespaces
+2025-11-27 02:27:50 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 02:27:50 | info | 	Getting all configurations
+2025-11-27 02:30:02 | info | 	Getting available DEX connectors and networks
+2025-11-27 02:30:02 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 02:30:02 | info | 	Getting available blockchain networks
+2025-11-27 02:30:02 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 02:30:02 | info | 	Getting all configuration namespaces
+2025-11-27 02:30:02 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 02:30:02 | info | 	Getting all configurations
+2025-11-27 02:34:36 | info | 	Getting available DEX connectors and networks
+2025-11-27 02:34:36 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 02:34:36 | info | 	Getting available blockchain networks
+2025-11-27 02:34:36 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 02:34:36 | info | 	Getting all configuration namespaces
+2025-11-27 02:34:36 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 02:34:36 | info | 	Getting all configurations
+2025-11-27 02:50:47 | info | 	Getting available DEX connectors and networks
+2025-11-27 02:50:47 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 02:50:47 | info | 	Getting available blockchain networks
+2025-11-27 02:50:47 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 02:50:47 | info | 	Getting all configuration namespaces
+2025-11-27 02:50:47 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 02:50:47 | info | 	Getting all configurations
+2025-11-27 02:53:27 | info | 	Getting available DEX connectors and networks
+2025-11-27 02:53:27 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 02:53:27 | info | 	Getting available blockchain networks
+2025-11-27 02:53:27 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 02:53:27 | info | 	Getting all configuration namespaces
+2025-11-27 02:53:27 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 02:53:27 | info | 	Getting all configurations
+2025-11-27 03:10:39 | info | 	Getting available DEX connectors and networks
+2025-11-27 03:10:39 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 03:10:39 | info | 	Getting available blockchain networks
+2025-11-27 03:10:39 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 03:10:39 | info | 	Getting all configuration namespaces
+2025-11-27 03:10:39 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 03:10:39 | info | 	Getting all configurations
+2025-11-27 03:16:34 | info | 	Getting available DEX connectors and networks
+2025-11-27 03:16:34 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 03:16:34 | info | 	Getting available blockchain networks
+2025-11-27 03:16:34 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 03:16:34 | info | 	Getting all configuration namespaces
+2025-11-27 03:16:34 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 03:16:34 | info | 	Getting all configurations
+2025-11-27 03:18:42 | info | 	Getting available DEX connectors and networks
+2025-11-27 03:18:42 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 03:18:42 | info | 	Getting available blockchain networks
+2025-11-27 03:18:42 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 03:18:42 | info | 	Getting all configuration namespaces
+2025-11-27 03:18:42 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 03:18:42 | info | 	Getting all configurations
+2025-11-27 03:20:36 | info | 	Getting available DEX connectors and networks
+2025-11-27 03:20:36 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 03:20:36 | info | 	Getting available blockchain networks
+2025-11-27 03:20:36 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 03:20:36 | info | 	Getting all configuration namespaces
+2025-11-27 03:20:36 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 03:20:36 | info | 	Getting all configurations
+2025-11-27 03:30:56 | info | 	Getting available DEX connectors and networks
+2025-11-27 03:30:56 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 03:30:56 | info | 	Getting available blockchain networks
+2025-11-27 03:30:56 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 03:30:56 | info | 	Getting all configuration namespaces
+2025-11-27 03:30:56 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 03:30:56 | info | 	Getting all configurations
+2025-11-27 03:34:04 | info | 	Getting available DEX connectors and networks
+2025-11-27 03:34:04 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 03:34:04 | info | 	Getting available blockchain networks
+2025-11-27 03:34:04 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 03:34:04 | info | 	Getting all configuration namespaces
+2025-11-27 03:34:04 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 03:34:04 | info | 	Getting all configurations
+2025-11-27 03:35:38 | info | 	Getting available DEX connectors and networks
+2025-11-27 03:35:38 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 03:35:38 | info | 	Getting available blockchain networks
+2025-11-27 03:35:38 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 03:35:38 | info | 	Getting all configuration namespaces
+2025-11-27 03:35:38 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 03:35:38 | info | 	Getting all configurations
+2025-11-27 03:45:22 | info | 	Getting available DEX connectors and networks
+2025-11-27 03:45:22 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 03:45:22 | info | 	Getting available blockchain networks
+2025-11-27 03:45:22 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 03:45:22 | info | 	Getting all configuration namespaces
+2025-11-27 03:45:22 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 03:45:22 | info | 	Getting all configurations
+2025-11-27 03:45:43 | info | 	Getting available DEX connectors and networks
+2025-11-27 03:45:43 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 03:45:43 | info | 	Getting available blockchain networks
+2025-11-27 03:45:43 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 03:45:43 | info | 	Getting all configuration namespaces
+2025-11-27 03:45:43 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 03:45:43 | info | 	Getting all configurations
+2025-11-27 03:56:44 | info | 	Getting available DEX connectors and networks
+2025-11-27 03:56:44 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 03:56:44 | info | 	Getting available blockchain networks
+2025-11-27 03:56:44 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 03:56:44 | info | 	Getting all configuration namespaces
+2025-11-27 03:56:44 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 03:56:44 | info | 	Getting all configurations
+2025-11-27 04:23:32 | info | 	Getting available DEX connectors and networks
+2025-11-27 04:23:32 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 04:23:32 | info | 	Getting available blockchain networks
+2025-11-27 04:23:32 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 04:23:32 | info | 	Getting all configuration namespaces
+2025-11-27 04:23:32 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 04:23:32 | info | 	Getting all configurations
+2025-11-27 04:25:29 | info | 	Getting available DEX connectors and networks
+2025-11-27 04:25:29 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 04:25:29 | info | 	Getting available blockchain networks
+2025-11-27 04:25:29 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 04:25:29 | info | 	Getting all configuration namespaces
+2025-11-27 04:25:29 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 04:25:29 | info | 	Getting all configurations
+2025-11-27 04:25:58 | info | 	Getting available DEX connectors and networks
+2025-11-27 04:25:58 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 04:25:58 | info | 	Getting available blockchain networks
+2025-11-27 04:25:58 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 04:25:58 | info | 	Getting all configuration namespaces
+2025-11-27 04:25:58 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 04:25:58 | info | 	Getting all configurations
+2025-11-27 04:29:01 | info | 	Getting available DEX connectors and networks
+2025-11-27 04:29:01 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 04:29:01 | info | 	Getting available blockchain networks
+2025-11-27 04:29:01 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 04:29:01 | info | 	Getting all configuration namespaces
+2025-11-27 04:29:01 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 04:29:01 | info | 	Getting all configurations
+2025-11-27 04:31:52 | info | 	Getting available DEX connectors and networks
+2025-11-27 04:31:52 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 04:31:52 | info | 	Getting available blockchain networks
+2025-11-27 04:31:52 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 04:31:52 | info | 	Getting all configuration namespaces
+2025-11-27 04:31:52 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 04:31:52 | info | 	Getting all configurations
+2025-11-27 04:33:10 | info | 	Getting available DEX connectors and networks
+2025-11-27 04:33:10 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 04:33:10 | info | 	Getting available blockchain networks
+2025-11-27 04:33:10 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 04:33:10 | info | 	Getting all configuration namespaces
+2025-11-27 04:33:10 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 04:33:10 | info | 	Getting all configurations
+2025-11-27 04:33:55 | info | 	Getting available DEX connectors and networks
+2025-11-27 04:33:55 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 04:33:55 | info | 	Getting available blockchain networks
+2025-11-27 04:33:55 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 04:33:55 | info | 	Getting all configuration namespaces
+2025-11-27 04:33:55 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 04:33:55 | info | 	Getting all configurations
+2025-11-27 04:35:24 | info | 	Getting available DEX connectors and networks
+2025-11-27 04:35:24 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 04:35:24 | info | 	Getting available blockchain networks
+2025-11-27 04:35:24 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 04:35:24 | info | 	Getting all configuration namespaces
+2025-11-27 04:35:24 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 04:35:24 | info | 	Getting all configurations
+2025-11-27 04:38:07 | info | 	Getting available DEX connectors and networks
+2025-11-27 04:38:07 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 04:38:07 | info | 	Getting available blockchain networks
+2025-11-27 04:38:07 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 04:38:07 | info | 	Getting all configuration namespaces
+2025-11-27 04:38:07 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 04:38:07 | info | 	Getting all configurations
+2025-11-27 04:39:23 | info | 	Getting available DEX connectors and networks
+2025-11-27 04:39:23 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 04:39:23 | info | 	Getting available blockchain networks
+2025-11-27 04:39:23 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 04:39:23 | info | 	Getting all configuration namespaces
+2025-11-27 04:39:23 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 04:39:23 | info | 	Getting all configurations
+2025-11-27 04:47:59 | info | 	Getting available DEX connectors and networks
+2025-11-27 04:47:59 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 04:47:59 | info | 	Getting available blockchain networks
+2025-11-27 04:47:59 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 04:47:59 | info | 	Getting all configuration namespaces
+2025-11-27 04:47:59 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 04:47:59 | info | 	Getting all configurations
+2025-11-27 04:51:40 | info | 	Getting available DEX connectors and networks
+2025-11-27 04:51:40 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 04:51:40 | info | 	Getting available blockchain networks
+2025-11-27 04:51:40 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 04:51:40 | info | 	Getting all configuration namespaces
+2025-11-27 04:51:40 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 04:51:40 | info | 	Getting all configurations
+2025-11-27 04:55:45 | info | 	Getting available DEX connectors and networks
+2025-11-27 04:55:45 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 04:55:45 | info | 	Getting available blockchain networks
+2025-11-27 04:55:45 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 04:55:45 | info | 	Getting all configuration namespaces
+2025-11-27 04:55:45 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 04:55:45 | info | 	Getting all configurations
+2025-11-27 04:59:53 | info | 	Getting available DEX connectors and networks
+2025-11-27 04:59:53 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 04:59:53 | info | 	Getting available blockchain networks
+2025-11-27 04:59:53 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 04:59:53 | info | 	Getting all configuration namespaces
+2025-11-27 04:59:53 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 04:59:53 | info | 	Getting all configurations
+2025-11-27 05:02:13 | info | 	Getting available DEX connectors and networks
+2025-11-27 05:02:13 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 05:02:13 | info | 	Getting available blockchain networks
+2025-11-27 05:02:13 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 05:02:13 | info | 	Getting all configuration namespaces
+2025-11-27 05:02:13 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 05:02:13 | info | 	Getting all configurations
+2025-11-27 05:02:43 | info | 	Getting available DEX connectors and networks
+2025-11-27 05:02:43 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 05:02:43 | info | 	Getting available blockchain networks
+2025-11-27 05:02:43 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 05:02:43 | info | 	Getting all configuration namespaces
+2025-11-27 05:02:43 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 05:02:43 | info | 	Getting all configurations
+2025-11-27 05:04:18 | info | 	Getting available DEX connectors and networks
+2025-11-27 05:04:18 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 05:04:18 | info | 	Getting available blockchain networks
+2025-11-27 05:04:18 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 05:04:18 | info | 	Getting all configuration namespaces
+2025-11-27 05:04:18 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 05:04:18 | info | 	Getting all configurations
+2025-11-27 05:05:25 | info | 	Getting available DEX connectors and networks
+2025-11-27 05:05:25 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 05:05:25 | info | 	Getting available blockchain networks
+2025-11-27 05:05:25 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 05:05:25 | info | 	Getting all configuration namespaces
+2025-11-27 05:05:25 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 05:05:25 | info | 	Getting all configurations
+2025-11-27 05:14:27 | info | 	Getting available DEX connectors and networks
+2025-11-27 05:14:27 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 05:14:27 | info | 	Getting available blockchain networks
+2025-11-27 05:14:27 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 05:14:27 | info | 	Getting all configuration namespaces
+2025-11-27 05:14:27 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 05:14:27 | info | 	Getting all configurations
+2025-11-27 05:15:41 | info | 	Getting available DEX connectors and networks
+2025-11-27 05:15:41 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 05:15:41 | info | 	Getting available blockchain networks
+2025-11-27 05:15:41 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 05:15:41 | info | 	Getting all configuration namespaces
+2025-11-27 05:15:41 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 05:15:41 | info | 	Getting all configurations
+2025-11-27 05:16:27 | info | 	Getting available DEX connectors and networks
+2025-11-27 05:16:27 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 05:16:27 | info | 	Getting available blockchain networks
+2025-11-27 05:16:27 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 05:16:27 | info | 	Getting all configuration namespaces
+2025-11-27 05:16:27 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 05:16:27 | info | 	Getting all configurations
+2025-11-27 05:18:44 | info | 	Getting available DEX connectors and networks
+2025-11-27 05:18:44 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 05:18:44 | info | 	Getting available blockchain networks
+2025-11-27 05:18:44 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 05:18:44 | info | 	Getting all configuration namespaces
+2025-11-27 05:18:44 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 05:18:44 | info | 	Getting all configurations
+2025-11-27 05:20:32 | info | 	Getting available DEX connectors and networks
+2025-11-27 05:20:32 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 05:20:32 | info | 	Getting available blockchain networks
+2025-11-27 05:20:32 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 05:20:32 | info | 	Getting all configuration namespaces
+2025-11-27 05:20:32 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 05:20:32 | info | 	Getting all configurations
+2025-11-27 05:23:21 | info | 	Getting available DEX connectors and networks
+2025-11-27 05:23:21 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 05:23:21 | info | 	Getting available blockchain networks
+2025-11-27 05:23:21 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 05:23:21 | info | 	Getting all configuration namespaces
+2025-11-27 05:23:21 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 05:23:21 | info | 	Getting all configurations
+2025-11-27 05:25:00 | info | 	Getting available DEX connectors and networks
+2025-11-27 05:25:00 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 05:25:00 | info | 	Getting available blockchain networks
+2025-11-27 05:25:00 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 05:25:00 | info | 	Getting all configuration namespaces
+2025-11-27 05:25:00 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 05:25:00 | info | 	Getting all configurations
+2025-11-27 05:27:15 | info | 	Getting available DEX connectors and networks
+2025-11-27 05:27:15 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 05:27:15 | info | 	Getting available blockchain networks
+2025-11-27 05:27:15 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 05:27:15 | info | 	Getting all configuration namespaces
+2025-11-27 05:27:15 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 05:27:15 | info | 	Getting all configurations
+2025-11-27 05:28:55 | info | 	Getting available DEX connectors and networks
+2025-11-27 05:28:55 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 05:28:55 | info | 	Getting available blockchain networks
+2025-11-27 05:28:55 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 05:28:55 | info | 	Getting all configuration namespaces
+2025-11-27 05:28:55 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 05:28:55 | info | 	Getting all configurations
+2025-11-27 05:30:34 | info | 	Getting available DEX connectors and networks
+2025-11-27 05:30:34 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 05:30:34 | info | 	Getting available blockchain networks
+2025-11-27 05:30:34 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 05:30:34 | info | 	Getting all configuration namespaces
+2025-11-27 05:30:34 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 05:30:34 | info | 	Getting all configurations
+2025-11-27 05:32:50 | info | 	Getting available DEX connectors and networks
+2025-11-27 05:32:50 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 05:32:50 | info | 	Getting available blockchain networks
+2025-11-27 05:32:50 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 05:32:50 | info | 	Getting all configuration namespaces
+2025-11-27 05:32:50 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 05:32:50 | info | 	Getting all configurations
+2025-11-27 05:35:06 | info | 	Getting available DEX connectors and networks
+2025-11-27 05:35:06 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 05:35:06 | info | 	Getting available blockchain networks
+2025-11-27 05:35:06 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 05:35:06 | info | 	Getting all configuration namespaces
+2025-11-27 05:35:06 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 05:35:06 | info | 	Getting all configurations
+2025-11-27 05:36:45 | info | 	Getting available DEX connectors and networks
+2025-11-27 05:36:45 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 05:36:45 | info | 	Getting available blockchain networks
+2025-11-27 05:36:45 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 05:36:45 | info | 	Getting all configuration namespaces
+2025-11-27 05:36:45 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 05:36:45 | info | 	Getting all configurations
+2025-11-27 05:37:38 | info | 	Getting available DEX connectors and networks
+2025-11-27 05:37:38 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 05:37:38 | info | 	Getting available blockchain networks
+2025-11-27 05:37:38 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 05:37:38 | info | 	Getting all configuration namespaces
+2025-11-27 05:37:38 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 05:37:38 | info | 	Getting all configurations
+2025-11-27 05:39:05 | info | 	Getting available DEX connectors and networks
+2025-11-27 05:39:05 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 05:39:05 | info | 	Getting available blockchain networks
+2025-11-27 05:39:05 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 05:39:05 | info | 	Getting all configuration namespaces
+2025-11-27 05:39:05 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 05:39:05 | info | 	Getting all configurations
+2025-11-27 08:52:25 | info | 	Getting available DEX connectors and networks
+2025-11-27 08:52:25 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 08:52:25 | info | 	Getting available blockchain networks
+2025-11-27 08:52:25 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 08:52:25 | info | 	Getting all configuration namespaces
+2025-11-27 08:52:25 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 08:52:25 | info | 	Getting all configurations
+2025-11-27 09:20:21 | info | 	Getting available DEX connectors and networks
+2025-11-27 09:20:21 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 09:20:21 | info | 	Getting available blockchain networks
+2025-11-27 09:20:21 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 09:20:21 | info | 	Getting all configuration namespaces
+2025-11-27 09:20:21 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 09:20:21 | info | 	Getting all configurations
+2025-11-27 09:45:53 | info | 	⚡️ Gateway version 2.10.0 starting at http://localhost:15888
+2025-11-27 09:45:53 | info | 	🔧 Log level configured as: debug
+2025-11-27 09:45:53 | info | 	Checking for processes using port 15888...
+2025-11-27 09:45:53 | info | 	No process found using port 15888
+2025-11-27 09:45:53 | info | 	🔴 Running in development mode with (unsafe!) HTTP endpoints
+2025-11-27 09:45:55 | info | 	📓 Documentation available at http://localhost:15888/docs
+2025-11-27 09:47:10 | info | 	Getting available DEX connectors and networks
+2025-11-27 09:47:10 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 09:47:10 | info | 	Getting available blockchain networks
+2025-11-27 09:47:10 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 09:47:10 | info | 	Getting all configuration namespaces
+2025-11-27 09:47:10 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 09:47:10 | info | 	Getting all configurations
+2025-11-27 09:58:28 | info | 	Getting available DEX connectors and networks
+2025-11-27 09:58:28 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 09:58:28 | info | 	Getting available blockchain networks
+2025-11-27 09:58:28 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 09:58:28 | info | 	Getting all configuration namespaces
+2025-11-27 09:58:28 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 09:58:28 | info | 	Getting all configurations
+2025-11-27 10:41:40 | info | 	Getting available DEX connectors and networks
+2025-11-27 10:41:40 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 10:41:40 | info | 	Getting available blockchain networks
+2025-11-27 10:41:40 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 10:41:40 | info | 	Getting all configuration namespaces
+2025-11-27 10:41:40 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 10:41:40 | info | 	Getting all configurations
+2025-11-27 10:49:31 | info | 	Getting available DEX connectors and networks
+2025-11-27 10:49:31 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 10:49:31 | info | 	Getting available blockchain networks
+2025-11-27 10:49:31 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 10:49:31 | info | 	Getting all configuration namespaces
+2025-11-27 10:49:31 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 10:49:31 | info | 	Getting all configurations
+2025-11-27 10:51:02 | info | 	Getting available DEX connectors and networks
+2025-11-27 10:51:02 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 10:51:02 | info | 	Getting available blockchain networks
+2025-11-27 10:51:02 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 10:51:02 | info | 	Getting all configuration namespaces
+2025-11-27 10:51:02 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 10:51:02 | info | 	Getting all configurations
+2025-11-27 11:08:37 | info | 	Getting available DEX connectors and networks
+2025-11-27 11:08:37 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 11:08:37 | info | 	Getting available blockchain networks
+2025-11-27 11:08:37 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 11:08:37 | info | 	Getting all configuration namespaces
+2025-11-27 11:08:37 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 11:08:37 | info | 	Getting all configurations
+2025-11-27 11:15:09 | info | 	Getting available DEX connectors and networks
+2025-11-27 11:15:09 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 11:15:09 | info | 	Getting available blockchain networks
+2025-11-27 11:15:09 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 11:15:09 | info | 	Getting all configuration namespaces
+2025-11-27 11:15:09 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 11:15:09 | info | 	Getting all configurations
+2025-11-27 11:17:08 | info | 	Getting available DEX connectors and networks
+2025-11-27 11:17:08 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 11:17:08 | info | 	Getting available blockchain networks
+2025-11-27 11:17:08 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 11:17:08 | info | 	Getting all configuration namespaces
+2025-11-27 11:17:08 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 11:17:08 | info | 	Getting all configurations
+2025-11-27 11:29:10 | info | 	Getting available DEX connectors and networks
+2025-11-27 11:29:10 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 11:29:10 | info | 	Getting available blockchain networks
+2025-11-27 11:29:10 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 11:29:10 | info | 	Getting all configuration namespaces
+2025-11-27 11:29:10 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 11:29:10 | info | 	Getting all configurations
+2025-11-27 11:37:34 | info | 	Getting available DEX connectors and networks
+2025-11-27 11:37:34 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 11:37:34 | info | 	Getting available blockchain networks
+2025-11-27 11:37:34 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 11:37:34 | info | 	Getting all configuration namespaces
+2025-11-27 11:37:34 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 11:37:34 | info | 	Getting all configurations
+2025-11-27 11:38:39 | info | 	Getting available DEX connectors and networks
+2025-11-27 11:38:39 | info | 	Available connectors: jupiter, meteora, raydium, uniswap, 0x, pancakeswap, pancakeswap-sol
+2025-11-27 11:38:39 | info | 	Getting available blockchain networks
+2025-11-27 11:38:39 | info | 	Available chains: ethereum (9 networks), solana (2 networks)
+2025-11-27 11:38:39 | info | 	Getting all configuration namespaces
+2025-11-27 11:38:39 | info | 	Found 23 namespaces: 0x, ethereum, ethereum-arbitrum, ethereum-avalanche, ethereum-base, ethereum-bsc, ethereum-celo, ethereum-mainnet, ethereum-optimism, ethereum-polygon, ethereum-sepolia, helius, infura, jupiter, meteora, pancakeswap, pancakeswap-sol, raydium, server, solana, solana-devnet, solana-mainnet-beta, uniswap
+2025-11-27 11:38:39 | info | 	Getting all configurations
