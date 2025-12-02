@@ -66,6 +66,10 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
         order_book: OrderBook = self.order_book_create_function()
         order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
         return order_book
+    
+    async def order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
+        snapshot_msg: OrderBookMessage = await self._order_book_snapshot(trading_pair=trading_pair)
+        return snapshot_msg
 
     async def listen_for_subscriptions(self):
         """

@@ -9,16 +9,16 @@ from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 
 
 class USDTQuoteSpreadViewerConfig(BaseModel):
-    connector_name: str = "binance_paper_trade"
+    connector_name: str = "binance"
     interval_sec: int = 900  # 15 minutes
 
 
 class USDTQuoteSpreadViewer(ScriptStrategyBase):
-    connector_name: str = "binance_paper_trade"
+    connector_name: str = "binance"
     interval_sec: int = 900
 
     markets: Dict[str, Set[str]] = {
-        "binance_paper_trade": {
+        "binance": {
             "BTC-USDT",
             "ETH-USDT",
             "LTC-USDT",

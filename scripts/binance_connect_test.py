@@ -1,52 +1,85 @@
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
-from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
-from hummingbot.client.config.security import Security
-from hummingbot.core.connector_manager import ConnectorManager
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from typing import Dict, Set
 import asyncio
+from typing import Dict, Set, List
 
-
+from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.client.config.security import Security
+from hummingbot.data_feed.market_data_provider import MarketDataProvider  # adjust import path if needed
+from hummingbot.client.settings import AllConnectorSettings
+from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 class BinanceConnectTest(ScriptStrategyBase):
-    tick_interval = 900  # 15 minutes
+    tick_interval = 300
 
-    markets = {
-    }
+    markets: Dict[str, Set[str]] = {}
+    
+    connector_name = "binance"
 
-    connector_ready = False
-
-    async def on_start(self):
+    def connect_to_binance(self):
         self.logger().info("Initializing Binance connection...")
 
         api_keys = Security.api_keys("binance")
         if not api_keys:
-            self.logger().error("❌ No Binance API keys. Run `config binance`.")
+            self.logger().error("No Binance API keys. Run `config binance`.")
             return
 
-        self.manager = ConnectorManager(ClientConfigAdapter({}))
+        # ScriptStrategyBase will create/connect markets from `markets` automatically. [web:16]
 
-        self.connector = self.manager.create_connector(
-            connector_name="binance",
-            trading_pairs=[],
-            trading_required=False,
-            api_keys=api_keys
-        )
+        # Wait until connectors are actually ready before logging pairs
+        self.logger().info(f"{api_keys}")
+        self.logger().info("Creating trading pairs")
+        self.wait_and_log_trading_pairs()
 
-        self.logger().info("Binance connector created. Waiting for websocket init...")
-        await asyncio.sleep(3)
+        self.logger().info("on_start completed, waiting for connectors to be ready...")
 
-        # Start periodic fetch
-        asyncio.create_task(self.periodic_fetch_pairs())
+    def wait_and_log_trading_pairs(self):
+        """
+        Wait until all connectors in this script are ready, then log all Binance trading pairs.
+        Uses MarketDataProvider.get_trading_pairs(), which reads connector.trading_pairs. [web:24]
+        """
+        # Poll until ScriptStrategyBase marks all connectors ready
+        # while not self.ready_to_trade:
+        #     await asyncio.sleep(1)
 
-        self.connector_ready = True
-        self.logger().info("✔ Binance connector ready.")
+        self.logger().info("All connectors ready, fetching trading pairs via MarketDataProvider...")
 
-    async def periodic_fetch_pairs(self):
-        while True:
-            await self.fetch_and_print_pairs()
-            await asyncio.sleep(900)  
+        # Use the same connectors dict that ScriptStrategyBase manages
+        self.logger().info(f"Connectors available: {self.connector_name}")
+        
+        self.logger().info(f"{self.connectors}")
+        
+        connector_setting = AllConnectorSettings.get_connector_settings()[self.connector_name]
+        inst = TradingPairFetcher.get_instance()
+        binance_pairs: List[str] = inst.trading_pairs
+        
+        # mdp = MarketDataProvider(self.connectors)
+
+        # # This directly uses connector.trading_pairs, no extra background fetch required. [web:24]
+        # binance_pairs: List[str] = mdp.get_trading_pairs("binance")
+
+        self.logger().info(f"Total Binance pairs (from connector.trading_pairs): {len(binance_pairs)}")
+
+        usdt_pairs = [p for p in binance_pairs if p.endswith("-USDT")]
+        self.logger().info(f"Total Binance USDT pairs: {len(usdt_pairs)}")
+
+        for p in usdt_pairs[:40]:
+            self.logger().info(f"- {p}")
+            
+        self.market = {
+            self.connector_name: set(usdt_pairs)
+        }
+
+        self.logger().info("Finished logging Binance USDT pairs.")
 
     def on_tick(self):
+        """
+        Spread logging, unchanged, but guard on readiness.
+        """
+        
+        self.connect_to_binance()
+        # self.on_start()
+        # if not self.ready_to_trade:
+        #     # core already logs "binance is not ready. Please wait...", keep this light
+        #     return
+
         for connector_name, trading_pairs in self.markets.items():
             connector = self.connectors.get(connector_name)
             if connector is None:
@@ -55,8 +88,8 @@ class BinanceConnectTest(ScriptStrategyBase):
 
             for pair in trading_pairs:
                 try:
-                    bid = connector.get_price(pair, False)
-                    ask = connector.get_price(pair, True)
+                    bid = connector.get_price(pair, is_buy=False)
+                    ask = connector.get_price(pair, is_buy=True)
 
                     if bid is None or ask is None:
                         continue
@@ -69,25 +102,5 @@ class BinanceConnectTest(ScriptStrategyBase):
                         f"{pair} → BID: {bid}, ASK: {ask}, "
                         f"SPREAD: {spread:.6f} ({spread_pct:.4f}%)"
                     )
-
                 except Exception as e:
                     self.logger().warning(f"{pair} error: {e}")
-                    
-    async def fetch_and_print_pairs(self):
-        """
-        This part can be async because it is called with asyncio.create_task().
-        """
-        fetcher = TradingPairFetcher.get_instance()
-        await fetcher.fetch_data()
-
-        all_pairs = fetcher.trading_pairs.get("binance", [])
-        self.logger().info(f"Total Binance pairs: {len(all_pairs)}")
-
-        usdt_pairs = [p for p in all_pairs if p.endswith("-USDT")]
-        self.logger().info(f"Total Binance USDT pairs: {len(usdt_pairs)}")
-
-        # Print a few only
-        for p in usdt_pairs[:40]:
-            self.logger().info(f"- {p}")
-
-        self.logger().info("✔ Finished fetching Binance USDT pairs.")
