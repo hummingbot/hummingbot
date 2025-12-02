@@ -1,4 +1,3 @@
-import decimal
 from decimal import Decimal
 from typing import Dict, List, Optional
 
@@ -118,22 +117,12 @@ class MultiGridStrike(ControllerBase):
 
     def is_inside_bounds(self, price: Decimal, grid: GridConfig) -> bool:
         """Check if price is within grid bounds"""
-        if price is None or not isinstance(price, Decimal):
-            return False
-        try:
-            return grid.start_price <= price <= grid.end_price
-        except (decimal.InvalidOperation, TypeError):
-            return False
+        return grid.start_price <= price <= grid.end_price
 
     def determine_executor_actions(self) -> List[ExecutorAction]:
         actions = []
         mid_price = self.market_data_provider.get_price_by_type(
             self.config.connector_name, self.config.trading_pair, PriceType.MidPrice)
-
-        # Return empty actions if price is not available
-        if mid_price is None or not isinstance(mid_price, Decimal):
-            self.logger().warning(f"Invalid mid_price for {self.config.trading_pair}: {mid_price}")
-            return actions
 
         # Check for config changes
         if self._has_config_changed():
@@ -202,13 +191,6 @@ class MultiGridStrike(ControllerBase):
 
         # Define standard box width for consistency
         box_width = 114
-
-        # Handle invalid price
-        if mid_price is None or not isinstance(mid_price, Decimal):
-            status.append("┌" + "─" * box_width + "┐")
-            status.append("│ Multi-Grid Configuration - Price data unavailable" + " " * 63 + "│")
-            status.append("└" + "─" * box_width + "┘")
-            return status
 
         # Top Multi-Grid Configuration box
         status.append("┌" + "─" * box_width + "┐")
