@@ -4,7 +4,6 @@ from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCa
 from typing import Dict
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from aioresponses import aioresponses
 from bidict import bidict
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
@@ -14,7 +13,7 @@ from hummingbot.connector.exchange.derive.derive_exchange import DeriveExchange
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_message import OrderBookMessage
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
 
 class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
@@ -84,28 +83,43 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.resume_test_event.set()
         return None
 
-    @aioresponses()
     @patch("hummingbot.connector.exchange.derive.derive_api_order_book_data_source"
-           ".DeriveAPIOrderBookDataSource._time")
-    async def test_get_new_order_book_successful(self, mock_api, mock_time):
-        mock_time.return_value = 1737885894
+           ".DeriveAPIOrderBookDataSource._request_order_book_snapshot", new_callable=AsyncMock)
+    async def test_get_new_order_book_successful(self, mock_snapshot):
+        # Mock the snapshot response
+        mock_snapshot.return_value = {
+            "params": {
+                "data": {
+                    "instrument_name": "BTC-USDC",
+                    "publish_id": 12345,
+                    "bids": [["100.0", "1.5"], ["99.0", "2.0"]],
+                    "asks": [["101.0", "1.5"], ["102.0", "2.0"]],
+                    "timestamp": 1737885894000
+                }
+            }
+        }
+
         order_book: OrderBook = await self.data_source.get_new_order_book(self.trading_pair)
 
-        expected_update_id = 1737885894
+        expected_update_id = 12345
 
         self.assertEqual(expected_update_id, order_book.snapshot_uid)
         bids = list(order_book.bid_entries())
         asks = list(order_book.ask_entries())
-        self.assertEqual(0, len(bids))
-        self.assertEqual(0, len(asks))
+        self.assertEqual(2, len(bids))
+        self.assertEqual(2, len(asks))
+        self.assertEqual(100.0, bids[0].price)
+        self.assertEqual(1.5, bids[0].amount)
+        self.assertEqual(101.0, asks[0].price)
+        self.assertEqual(1.5, asks[0].amount)
 
     def _trade_update_event(self):
         resp = {"params": {
-            'channel': f'trades.{self.quote_asset}-{self.base_asset}',
+            'channel': f'trades.{self.base_asset}-{self.quote_asset}',
             'data': [
                 {
                     'trade_id': '5f249af2-2a84-47b2-946e-2552f886f0a8',  # noqa: mock
-                    'instrument_name': f'{self.quote_asset}-{self.base_asset}', 'timestamp': 1737810932869,
+                    'instrument_name': f'{self.base_asset}-{self.quote_asset}', 'timestamp': 1737810932869,
                     'trade_price': '1.6682', 'trade_amount': '20', 'mark_price': '1.667960602579197952',
                     'index_price': '1.667960602579197952', 'direction': 'sell', 'quote_id': None
                 }
@@ -115,9 +129,9 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
     def get_ws_snapshot_msg(self) -> Dict:
         return {"params": {
-            'channel': f'orderbook.{self.quote_asset}-{self.base_asset}.1.100',
+            'channel': f'orderbook.{self.base_asset}-{self.quote_asset}.1.100',
             'data': {
-                'timestamp': 1700687397643, 'instrument_name': f'{self.quote_asset}-{self.base_asset}', 'publish_id': 2865914,
+                'timestamp': 1700687397643, 'instrument_name': f'{self.base_asset}-{self.quote_asset}', 'publish_id': 2865914,
                 'bids': [['1.6679', '2157.37'], ['1.6636', '2876.75'], ['1.51', '1']],
                 'asks': [['1.6693', '2157.56'], ['1.6736', '2876.32'], ['2.65', '8.93'], ['2.75', '8.97']]
             }
@@ -125,9 +139,9 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
     def get_ws_diff_msg(self) -> Dict:
         return {"params": {
-            'channel': f'orderbook.{self.quote_asset}-{self.base_asset}.1.100',
+            'channel': f'orderbook.{self.base_asset}-{self.quote_asset}.1.100',
             'data': {
-                'timestamp': 1700687397643, 'instrument_name': f'{self.quote_asset}-{self.base_asset}', 'publish_id': 2865914,
+                'timestamp': 1700687397643, 'instrument_name': f'{self.base_asset}-{self.quote_asset}', 'publish_id': 2865914,
                 'bids': [['1.6679', '2157.37'], ['1.6636', '2876.75'], ['1.51', '1']],
                 'asks': [['1.6693', '2157.56'], ['1.6736', '2876.32'], ['2.65', '8.93'], ['2.75', '8.97']]
             }
@@ -135,9 +149,9 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
     def get_ws_diff_msg_2(self) -> Dict:
         return {
-            'channel': f'orderbook.{self.quote_asset}-{self.base_asset}.1.100',
+            'channel': f'orderbook.{self.base_asset}-{self.quote_asset}.1.100',
             'data': {
-                'timestamp': 1700687397643, 'instrument_name': f'{self.quote_asset}-{self.base_asset}', 'publish_id': 2865914,
+                'timestamp': 1700687397643, 'instrument_name': f'{self.base_asset}-{self.quote_asset}', 'publish_id': 2865914,
                 'bids': [['1.6679', '2157.37'], ['1.6636', '2876.75'], ['1.51', '1']],
                 'asks': [['1.6693', '2157.56'], ['1.6736', '2876.32'], ['2.65', '8.93'], ['2.75', '8.97']]
             }
@@ -147,7 +161,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         return [
             {
                 'instrument_type': 'erc20',
-                'instrument_name': f'{self.quote_asset}-{self.base_asset}',
+                'instrument_name': f'{self.base_asset}-{self.quote_asset}',
                 'scheduled_activation': 1728508925,
                 'scheduled_deactivation': 9223372036854775807,
                 'is_active': True,
@@ -296,3 +310,16 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                 min_base_amount_increment=Decimal(str(min_base_amount_increment)),
             )
         }
+
+    async def test_request_snapshot_with_cached(self):
+        """Lines 136-141: Return cached snapshot"""
+        self._simulate_trading_rules_initialized()
+        snapshot_msg = OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
+            "trading_pair": self.trading_pair,
+            "update_id": 99999,
+            "bids": [["100.0", "1.5"]],
+            "asks": [["101.0", "1.5"]],
+        }, timestamp=1737885894.0)
+        self.data_source._snapshot_messages[self.trading_pair] = snapshot_msg
+        result = await self.data_source._request_order_book_snapshot(self.trading_pair)
+        self.assertEqual(99999, result["params"]["data"]["publish_id"])
