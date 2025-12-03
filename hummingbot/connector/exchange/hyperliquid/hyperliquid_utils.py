@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import ConfigDict, Field, SecretStr, field_validator
 
@@ -20,22 +20,48 @@ EXAMPLE_PAIR = "HYPE-USD"
 BROKER_ID = "HBOT"
 
 
+def validate_wallet_mode(value: str) -> Optional[str]:
+    """
+    Check if the value is a valid mode
+    """
+    allowed = ('arb_wallet', 'api_wallet')
+
+    if isinstance(value, str):
+        formatted_value = value.strip().lower()
+
+        if formatted_value in allowed:
+            return formatted_value
+
+    raise ValueError(f"Invalid wallet mode '{value}', choose from: {allowed}")
+
+
 def validate_bool(value: str) -> Optional[str]:
     """
     Permissively interpret a string as a boolean
     """
-    valid_values = ('true', 'yes', 'y', 'false', 'no', 'n')
-    if value.lower() not in valid_values:
-        return f"Invalid value, please choose value from {valid_values}"
+    if isinstance(value, bool):
+        return value
+
+    if isinstance(value, str):
+        formatted_value = value.strip().lower()
+        truthy = {"yes", "y", "true", "1"}
+        falsy = {"no", "n", "false", "0"}
+
+        if formatted_value in truthy:
+            return True
+        if formatted_value in falsy:
+            return False
+
+    raise ValueError(f"Invalid value, please choose value from {truthy.union(falsy)}")
 
 
 class HyperliquidConfigMap(BaseConnectorConfigMap):
     connector: str = "hyperliquid"
-    hyperliquid_api_secret: SecretStr = Field(
-        default=...,
+    hyperliquid_mode: Literal["arb_wallet", "api_wallet"] = Field(
+        default="arb_wallet",
         json_schema_extra={
-            "prompt": "Enter your Arbitrum wallet private key",
-            "is_secure": True,
+            "prompt": "Select connection mode (arb_wallet/api_wallet)",
+            "is_secure": False,
             "is_connect_key": True,
             "prompt_on_new": True,
         }
@@ -43,31 +69,60 @@ class HyperliquidConfigMap(BaseConnectorConfigMap):
     use_vault: bool = Field(
         default="no",
         json_schema_extra={
-            "prompt": "Do you want to use the vault address?(Yes/No)",
+            "prompt": "Do you want to use the Vault address? (Yes/No)",
             "is_secure": False,
             "is_connect_key": True,
             "prompt_on_new": True,
         }
     )
-    hyperliquid_api_key: SecretStr = Field(
+    hyperliquid_address: SecretStr = Field(
         default=...,
         json_schema_extra={
-            "prompt": "Enter your Arbitrum or vault address",
+            "prompt": lambda cm: (
+                "Enter your Vault address"
+                if getattr(cm, "use_vault", False)
+                else "Enter your Arbitrum wallet address"
+            ),
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
         }
     )
+    hyperliquid_secret_key: SecretStr = Field(
+        default=...,
+        json_schema_extra={
+            "prompt": lambda cm: {
+                "arb_wallet": "Enter your Arbitrum wallet private key",
+                "api_wallet": "Enter your API wallet private key (from https://app.hyperliquid.xyz/API)"
+            }.get(getattr(cm, "hyperliquid_mode", "arb_wallet")),
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
+    )
+    model_config = ConfigDict(title="hyperliquid")
+
+    @field_validator("hyperliquid_mode", mode="before")
+    @classmethod
+    def validate_mode(cls, value: str) -> str:
+        """Used for client-friendly error output."""
+        return validate_wallet_mode(value)
 
     @field_validator("use_vault", mode="before")
     @classmethod
-    def validate_bool(cls, v: str):
+    def validate_use_vault(cls, value: str):
         """Used for client-friendly error output."""
-        if isinstance(v, str):
-            ret = validate_bool(v)
-            if ret is not None:
-                raise ValueError(ret)
-        return v
+        return validate_bool(value)
+
+    @field_validator("hyperliquid_address", mode="before")
+    @classmethod
+    def validate_address(cls, value: str):
+        """Used for client-friendly error output."""
+        if isinstance(value, str):
+            if value.startswith("HL:"):
+                # Strip out the "HL:" that the HyperLiquid Vault page adds to vault addresses
+                return value[3:]
+        return value
 
 
 KEYS = HyperliquidConfigMap.model_construct()
@@ -80,11 +135,11 @@ OTHER_DOMAINS_DEFAULT_FEES = {"hyperliquid_testnet": [0, 0.025]}
 
 class HyperliquidTestnetConfigMap(BaseConnectorConfigMap):
     connector: str = "hyperliquid_testnet"
-    hyperliquid_testnet_api_secret: SecretStr = Field(
-        default=...,
+    hyperliquid_testnet_mode: Literal["arb_wallet", "api_wallet"] = Field(
+        default="arb_wallet",
         json_schema_extra={
-            "prompt": "Enter your Arbitrum wallet private key",
-            "is_secure": True,
+            "prompt": "Select connection mode (arb_wallet/api_wallet)",
+            "is_secure": False,
             "is_connect_key": True,
             "prompt_on_new": True,
         }
@@ -92,16 +147,32 @@ class HyperliquidTestnetConfigMap(BaseConnectorConfigMap):
     use_vault: bool = Field(
         default="no",
         json_schema_extra={
-            "prompt": "Do you want to use the vault address?(Yes/No)",
+            "prompt": "Do you want to use the Vault address? (Yes/No)",
             "is_secure": False,
             "is_connect_key": True,
             "prompt_on_new": True,
         }
     )
-    hyperliquid_testnet_api_key: SecretStr = Field(
+    hyperliquid_testnet_address: SecretStr = Field(
         default=...,
         json_schema_extra={
-            "prompt": "Enter your Arbitrum or vault address",
+            "prompt": lambda cm: (
+                "Enter your Vault address"
+                if getattr(cm, "use_vault", False)
+                else "Enter your Arbitrum wallet address"
+            ),
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
+    )
+    hyperliquid_testnet_secret_key: SecretStr = Field(
+        default=...,
+        json_schema_extra={
+            "prompt": lambda cm: {
+                "arb_wallet": "Enter your Arbitrum wallet private key",
+                "api_wallet": "Enter your API wallet private key (from https://app.hyperliquid.xyz/API)"
+            }.get(getattr(cm, "hyperliquid_mode", "arb_wallet")),
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
@@ -109,15 +180,29 @@ class HyperliquidTestnetConfigMap(BaseConnectorConfigMap):
     )
     model_config = ConfigDict(title="hyperliquid")
 
+    @field_validator("hyperliquid_testnet_mode", mode="before")
+    @classmethod
+    def validate_mode(cls, value: str) -> str:
+        """Used for client-friendly error output."""
+        return validate_wallet_mode(value)
+
     @field_validator("use_vault", mode="before")
     @classmethod
-    def validate_bool(cls, v: str):
+    def validate_use_vault(cls, value: str):
         """Used for client-friendly error output."""
-        if isinstance(v, str):
-            ret = validate_bool(v)
-            if ret is not None:
-                raise ValueError(ret)
-        return v
+        return validate_bool(value)
+
+    @field_validator("hyperliquid_testnet_address", mode="before")
+    @classmethod
+    def validate_address(cls, value: str):
+        """Used for client-friendly error output."""
+        if isinstance(value, str):
+            if value.startswith("HL:"):
+                # Strip out the "HL:" that the HyperLiquid Vault page adds to vault addresses
+                return value[3:]
+        return value
 
 
-OTHER_DOMAINS_KEYS = {"hyperliquid_testnet": HyperliquidTestnetConfigMap.model_construct()}
+OTHER_DOMAINS_KEYS = {
+    "hyperliquid_testnet": HyperliquidTestnetConfigMap.model_construct()
+}
