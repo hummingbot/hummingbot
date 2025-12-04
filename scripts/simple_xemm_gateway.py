@@ -41,9 +41,6 @@ class SimpleXEMMGateway(ScriptStrategyBase):
     Uses gateway's async get_quote_price method instead of get_price_for_volume.
     """
 
-    buy_order_placed = False
-    sell_order_placed = False
-
     @classmethod
     def init_markets(cls, config: SimpleXEMMGatewayConfig):
         cls.markets = {config.maker_connector: {config.maker_trading_pair}, config.taker_connector: {config.taker_trading_pair}}
@@ -54,6 +51,18 @@ class SimpleXEMMGateway(ScriptStrategyBase):
         self.taker_buy_price = None
         self.taker_sell_price = None
         self.price_fetch_in_progress = False
+        # Track our active maker order IDs
+        self.active_buy_order_id = None
+        self.active_sell_order_id = None
+
+    def is_our_order_active(self, order_id: str) -> bool:
+        """Check if a specific order ID is still active"""
+        if order_id is None:
+            return False
+        for order in self.get_active_orders(connector_name=self.config.maker_connector):
+            if order.client_order_id == order_id:
+                return True
+        return False
 
     def on_tick(self):
         # Fetch prices async if not already in progress
@@ -76,32 +85,48 @@ class SimpleXEMMGateway(ScriptStrategyBase):
                 self.logger().warning("Failed to get taker prices from gateway")
                 return
 
-            if not self.buy_order_placed:
+            # Check if our tracked orders are still active
+            buy_order_active = self.is_our_order_active(self.active_buy_order_id)
+            sell_order_active = self.is_our_order_active(self.active_sell_order_id)
+
+            # Place new buy order if we don't have one active
+            if not buy_order_active:
+                self.active_buy_order_id = None  # Clear stale ID
                 # Maker BUY: profitability = (taker_price - maker_price) / maker_price
                 # To achieve target: maker_price = taker_price / (1 + target_profitability)
                 maker_buy_price = self.taker_sell_price / (Decimal("1") + self.config.target_profitability)
                 buy_order_amount = min(self.config.order_amount, self.buy_hedging_budget())
 
-                buy_order = OrderCandidate(trading_pair=self.config.maker_trading_pair, is_maker=True, order_type=OrderType.LIMIT,
-                                           order_side=TradeType.BUY, amount=Decimal(buy_order_amount), price=maker_buy_price)
-                buy_order_adjusted = self.connectors[self.config.maker_connector].budget_checker.adjust_candidate(buy_order, all_or_none=False)
-                self.buy(self.config.maker_connector, self.config.maker_trading_pair, buy_order_adjusted.amount,
-                         buy_order_adjusted.order_type, buy_order_adjusted.price)
-                self.buy_order_placed = True
+                if buy_order_amount > 0:
+                    buy_order = OrderCandidate(trading_pair=self.config.maker_trading_pair, is_maker=True, order_type=OrderType.LIMIT,
+                                               order_side=TradeType.BUY, amount=Decimal(buy_order_amount), price=maker_buy_price)
+                    buy_order_adjusted = self.connectors[self.config.maker_connector].budget_checker.adjust_candidate(buy_order, all_or_none=False)
+                    if buy_order_adjusted.amount > 0:
+                        self.active_buy_order_id = self.buy(self.config.maker_connector, self.config.maker_trading_pair,
+                                                            buy_order_adjusted.amount, buy_order_adjusted.order_type, buy_order_adjusted.price)
 
-            if not self.sell_order_placed:
+            # Place new sell order if we don't have one active
+            if not sell_order_active:
+                self.active_sell_order_id = None  # Clear stale ID
                 # Maker SELL: profitability = (maker_price - taker_price) / maker_price
                 # To achieve target: maker_price = taker_price / (1 - target_profitability)
                 maker_sell_price = self.taker_buy_price / (Decimal("1") - self.config.target_profitability)
                 sell_order_amount = min(self.config.order_amount, await self._get_sell_hedging_budget())
-                sell_order = OrderCandidate(trading_pair=self.config.maker_trading_pair, is_maker=True, order_type=OrderType.LIMIT,
-                                            order_side=TradeType.SELL, amount=Decimal(sell_order_amount), price=maker_sell_price)
-                sell_order_adjusted = self.connectors[self.config.maker_connector].budget_checker.adjust_candidate(sell_order, all_or_none=False)
-                self.sell(self.config.maker_connector, self.config.maker_trading_pair, sell_order_adjusted.amount,
-                          sell_order_adjusted.order_type, sell_order_adjusted.price)
-                self.sell_order_placed = True
 
+                if sell_order_amount > 0:
+                    sell_order = OrderCandidate(trading_pair=self.config.maker_trading_pair, is_maker=True, order_type=OrderType.LIMIT,
+                                                order_side=TradeType.SELL, amount=Decimal(sell_order_amount), price=maker_sell_price)
+                    sell_order_adjusted = self.connectors[self.config.maker_connector].budget_checker.adjust_candidate(sell_order, all_or_none=False)
+                    if sell_order_adjusted.amount > 0:
+                        self.active_sell_order_id = self.sell(self.config.maker_connector, self.config.maker_trading_pair,
+                                                              sell_order_adjusted.amount, sell_order_adjusted.order_type, sell_order_adjusted.price)
+
+            # Check profitability and age for our active orders
             for order in self.get_active_orders(connector_name=self.config.maker_connector):
+                # Only manage our own orders
+                if order.client_order_id not in (self.active_buy_order_id, self.active_sell_order_id):
+                    continue
+
                 cancel_timestamp = order.creation_timestamp / 1000000 + self.config.max_order_age
                 if order.is_buy:
                     # Calculate current profitability: (taker_sell_price - maker_buy_price) / maker_buy_price
@@ -109,14 +134,14 @@ class SimpleXEMMGateway(ScriptStrategyBase):
                     if current_profitability < self.config.min_profitability or cancel_timestamp < self.current_timestamp:
                         self.logger().info(f"Cancelling buy order: {order.client_order_id} (profitability: {current_profitability:.4f})")
                         self.cancel(self.config.maker_connector, order.trading_pair, order.client_order_id)
-                        self.buy_order_placed = False
+                        self.active_buy_order_id = None
                 else:
                     # Calculate current profitability: (maker_sell_price - taker_buy_price) / maker_sell_price
                     current_profitability = (order.price - self.taker_buy_price) / order.price
                     if current_profitability < self.config.min_profitability or cancel_timestamp < self.current_timestamp:
                         self.logger().info(f"Cancelling sell order: {order.client_order_id} (profitability: {current_profitability:.4f})")
                         self.cancel(self.config.maker_connector, order.trading_pair, order.client_order_id)
-                        self.sell_order_placed = False
+                        self.active_sell_order_id = None
         except Exception as e:
             self.logger().error(f"Error fetching prices and updating: {str(e)}", exc_info=True)
         finally:
@@ -137,28 +162,22 @@ class SimpleXEMMGateway(ScriptStrategyBase):
             return Decimal(0)
         return balance / taker_buy_price
 
-    def is_active_maker_order(self, event: OrderFilledEvent):
-        """
-        Helper function that checks if order is an active order on the maker exchange
-        """
-        for order in self.get_active_orders(connector_name=self.config.maker_connector):
-            if order.client_order_id == event.order_id:
-                return True
-        return False
-
     def did_fill_order(self, event: OrderFilledEvent):
-        if event.trade_type == TradeType.BUY and self.is_active_maker_order(event):
+        # Only handle fills for our tracked maker orders
+        if event.order_id == self.active_buy_order_id:
             self.logger().info(f"Filled maker buy order at price {event.price:.6f} for amount {event.amount:.2f}")
+            # Hedge by selling on taker
             safe_ensure_future(self._place_sell_order(self.config.taker_connector, self.config.taker_trading_pair, event.amount))
-            # Cancel the partially filled order and allow a new one to be placed
+            # Cancel any remaining amount and clear the order ID so a new order can be placed
             self.cancel(self.config.maker_connector, self.config.maker_trading_pair, event.order_id)
-            self.buy_order_placed = False
-        elif event.trade_type == TradeType.SELL and self.is_active_maker_order(event):
+            self.active_buy_order_id = None
+        elif event.order_id == self.active_sell_order_id:
             self.logger().info(f"Filled maker sell order at price {event.price:.6f} for amount {event.amount:.2f}")
+            # Hedge by buying on taker
             safe_ensure_future(self._place_buy_order(self.config.taker_connector, self.config.taker_trading_pair, event.amount))
-            # Cancel the partially filled order and allow a new one to be placed
+            # Cancel any remaining amount and clear the order ID so a new order can be placed
             self.cancel(self.config.maker_connector, self.config.maker_trading_pair, event.order_id)
-            self.sell_order_placed = False
+            self.active_sell_order_id = None
 
     async def _place_buy_order(self, exchange: str, trading_pair: str, amount: Decimal, order_type: OrderType = OrderType.LIMIT):
         buy_price = await self.connectors[exchange].get_quote_price(trading_pair, True, amount)
