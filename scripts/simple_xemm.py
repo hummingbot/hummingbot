@@ -122,12 +122,15 @@ class SimpleXEMM(ScriptStrategyBase):
         if event.trade_type == TradeType.BUY and self.is_active_maker_order(event):
             self.logger().info(f"Filled maker buy order at price {event.price:.6f} for amount {event.amount:.2f}")
             self.place_sell_order(self.config.taker_connector, self.config.taker_trading_pair, event.amount)
+            # Cancel the partially filled order and allow a new one to be placed
+            self.cancel(self.config.maker_connector, self.config.maker_trading_pair, event.order_id)
             self.buy_order_placed = False
-        else:
-            if event.trade_type == TradeType.SELL and self.is_active_maker_order(event):
-                self.logger().info(f"Filled maker sell order at price {event.price:.6f} for amount {event.amount:.2f}")
-                self.place_buy_order(self.config.taker_connector, self.config.taker_trading_pair, event.amount)
-                self.sell_order_placed = False
+        elif event.trade_type == TradeType.SELL and self.is_active_maker_order(event):
+            self.logger().info(f"Filled maker sell order at price {event.price:.6f} for amount {event.amount:.2f}")
+            self.place_buy_order(self.config.taker_connector, self.config.taker_trading_pair, event.amount)
+            # Cancel the partially filled order and allow a new one to be placed
+            self.cancel(self.config.maker_connector, self.config.maker_trading_pair, event.order_id)
+            self.sell_order_placed = False
 
     def place_buy_order(self, exchange: str, trading_pair: str, amount: Decimal, order_type: OrderType = OrderType.LIMIT):
         buy_result = self.connectors[exchange].get_price_for_volume(trading_pair, True, amount)
