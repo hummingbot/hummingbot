@@ -67,7 +67,9 @@ class GatewayBase(ConnectorBase):
                  balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
                  trading_pairs: List[str] = [],
                  trading_required: bool = True,
-                 gateway_config: Optional["GatewayConfigMap"] = None
+                 gateway_config: Optional["GatewayConfigMap"] = None,
+                 skip_init_tasks: bool = False,
+                 skip_token_load: bool = False
                  ):
         """
         :param connector_name: name of connector on gateway (e.g., 'uniswap/amm', 'jupiter/router')
@@ -76,6 +78,8 @@ class GatewayBase(ConnectorBase):
         :param address: the address of the wallet which has been added on gateway (uses default wallet if not provided)
         :param trading_pairs: a list of trading pairs
         :param trading_required: Whether actual trading is needed. Useful for some functionalities or commands like the balance command
+        :param skip_init_tasks: If True, skip background polling tasks (status, gas estimate, chain info) during start_network()
+        :param skip_token_load: If True, skip loading all token data during start_network()
         """
         self._connector_name = connector_name
         self._name = f"{connector_name}_{chain}_{network}"
@@ -106,6 +110,8 @@ class GatewayBase(ConnectorBase):
         self._amount_quantum_dict = {}
         self._token_data = {}  # Store complete token information
         self._allowances = {}
+        self._skip_init_tasks = skip_init_tasks
+        self._skip_token_load = skip_token_load
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -240,12 +246,16 @@ class GatewayBase(ConnectorBase):
         # Update the name to same as the connector name
         self._name = f"{self._connector_name}"
 
-        if self._trading_required:
-            self._status_polling_task = safe_ensure_future(self._status_polling_loop())
-            self._get_gas_estimate_task = safe_ensure_future(self.get_gas_estimate())
-        self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
-        # Load token data to populate amount quantum dict
-        await self.load_token_data()
+        # Start background tasks unless skip_init_tasks is set
+        if not self._skip_init_tasks:
+            if self._trading_required:
+                self._status_polling_task = safe_ensure_future(self._status_polling_loop())
+                self._get_gas_estimate_task = safe_ensure_future(self.get_gas_estimate())
+            self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
+
+        # Load token data to populate amount quantum dict unless skip_token_load is set
+        if not self._skip_token_load:
+            await self.load_token_data()
 
     async def stop_network(self):
         if self._status_polling_task is not None:

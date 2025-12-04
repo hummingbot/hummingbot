@@ -161,8 +161,8 @@ class GatewaySwapCommand:
                 self.notify(f"Slippage: {slippage_pct}%")
 
             if "priceImpactPct" in quote_resp:
-                impact = float(quote_resp["priceImpactPct"]) * 100
-                self.notify(f"Price Impact: {impact:.2f}%")
+                impact = float(quote_resp["priceImpactPct"])
+                self.notify(f"Price Impact: {impact:.4f}%")
 
             # Show what user will spend and receive
             if side == "BUY":
@@ -186,10 +186,8 @@ class GatewaySwapCommand:
             # Get fee estimation from gateway
             self.notify(f"\nEstimating transaction fees for {chain} {network}...")
             fee_info = await self._get_gateway_instance().estimate_transaction_fee(
-
                 chain,
                 network,
-                transaction_type="swap"
             )
 
             native_token = fee_info.get("native_token", chain.upper())
@@ -266,13 +264,15 @@ class GatewaySwapCommand:
                 trading_pair = f"{base_token}-{quote_token}"
 
                 # Create a new GatewaySwap instance for this swap
-                # (The temporary one was already stopped)
+                # Use skip_init_tasks to avoid redundant polling tasks
+                # since we already have chain/network/wallet info from the quote phase
                 swap_connector = GatewaySwap(
                     connector_name=connector,  # DEX connector (e.g., 'uniswap/amm', 'raydium/clmm')
                     chain=chain,
                     network=network,
                     address=wallet_address,
-                    trading_pairs=[trading_pair]
+                    trading_pairs=[trading_pair],
+                    skip_init_tasks=True,  # Skip polling tasks for one-off swap
                 )
 
                 # Start the network connection

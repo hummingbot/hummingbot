@@ -119,7 +119,6 @@ class GatewayApproveCommand:
             fee_info = await self._get_gateway_instance().estimate_transaction_fee(
                 chain,
                 network,
-                transaction_type="approve"
             )
 
             native_token = fee_info.get("native_token", chain.upper())
