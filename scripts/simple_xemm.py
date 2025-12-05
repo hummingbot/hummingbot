@@ -204,26 +204,26 @@ class SimpleXEMM(ScriptStrategyBase):
         data = []
         taker_buy_result = self.connectors[self.config.taker_connector].get_price_for_volume(self.config.taker_trading_pair, True, self.config.order_amount)
         taker_sell_result = self.connectors[self.config.taker_connector].get_price_for_volume(self.config.taker_trading_pair, False, self.config.order_amount)
-        for connector_name, connector in self.connectors.items():
-            for order in self.get_active_orders(connector_name):
-                age_txt = "n/a" if order.age() <= 0. else pd.Timestamp(order.age(), unit='s').strftime('%H:%M:%S')
-                if order.is_buy:
-                    # Buy profitability: (taker_sell_price - maker_buy_price) / maker_buy_price
-                    current_profitability = (taker_sell_result.result_price - order.price) / order.price * 100
-                else:
-                    # Sell profitability: (maker_sell_price - taker_buy_price) / maker_sell_price
-                    current_profitability = (order.price - taker_buy_result.result_price) / order.price * 100
+        # Only show orders from the maker connector
+        for order in self.get_active_orders(connector_name=self.config.maker_connector):
+            age_txt = "n/a" if order.age() <= 0. else pd.Timestamp(order.age(), unit='s').strftime('%H:%M:%S')
+            if order.is_buy:
+                # Buy profitability: (taker_sell_price - maker_buy_price) / maker_buy_price
+                current_profitability = (taker_sell_result.result_price - order.price) / order.price * 100
+            else:
+                # Sell profitability: (maker_sell_price - taker_buy_price) / maker_sell_price
+                current_profitability = (order.price - taker_buy_result.result_price) / order.price * 100
 
-                data.append([
-                    self.config.maker_connector,
-                    order.trading_pair,
-                    "buy" if order.is_buy else "sell",
-                    float(order.price),
-                    float(order.quantity),
-                    f"{float(current_profitability):.3f}",
-                    f"{float(self.config.min_profitability * 100):.3f}",
-                    age_txt
-                ])
+            data.append([
+                self.config.maker_connector,
+                order.trading_pair,
+                "buy" if order.is_buy else "sell",
+                float(order.price),
+                float(order.quantity),
+                f"{float(current_profitability):.3f}",
+                f"{float(self.config.min_profitability * 100):.3f}",
+                age_txt
+            ])
         if not data:
             raise ValueError
         df = pd.DataFrame(data=data, columns=columns)
