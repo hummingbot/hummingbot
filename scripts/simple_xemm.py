@@ -54,7 +54,6 @@ class SimpleXEMM(ScriptStrategyBase):
         # Track our active maker order IDs
         self.active_buy_order_id = None
         self.active_sell_order_id = None
-        self._startup_cleanup_done = False
 
     def is_our_order_active(self, order_id: str) -> bool:
         """Check if a specific order ID is still active"""
@@ -66,15 +65,6 @@ class SimpleXEMM(ScriptStrategyBase):
         return False
 
     def on_tick(self):
-        # On first tick, cancel any pre-existing maker orders for our trading pair
-        if not self._startup_cleanup_done:
-            self._startup_cleanup_done = True
-            for order in self.get_active_orders(connector_name=self.config.maker_connector):
-                if order.trading_pair == self.config.maker_trading_pair:
-                    self.logger().info(f"Cancelling pre-existing order on startup: {order.client_order_id}")
-                    self.cancel(self.config.maker_connector, order.trading_pair, order.client_order_id)
-            return  # Skip this tick to let cancellations process
-
         taker_buy_result = self.connectors[self.config.taker_connector].get_price_for_volume(self.config.taker_trading_pair, True, self.config.order_amount)
         taker_sell_result = self.connectors[self.config.taker_connector].get_price_for_volume(self.config.taker_trading_pair, False, self.config.order_amount)
 
