@@ -25,6 +25,8 @@ CURRENCY = "USD"
 META_INFO = "meta"
 
 ASSET_CONTEXT_TYPE = "metaAndAssetCtxs"
+DEX_ASSET_CONTEXT_TYPE = "perpDexs"
+
 
 TRADES_TYPE = "userFills"
 
