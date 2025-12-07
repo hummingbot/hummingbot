@@ -186,6 +186,16 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         # Remove any null entries
         exchange_info_dex = [info for info in exchange_info_dex if info is not None]
 
+        # Fetch perpMeta for each DEX from the meta endpoint
+        for dex_info in exchange_info_dex:
+            if dex_info is not None:
+                dex_name = dex_info.get("name", "")
+                dex_meta = await self._api_post(
+                    path_url=self.trading_pairs_request_path,
+                    data={"type": "meta", "dex": dex_name})
+                if "universe" in dex_meta:
+                    dex_info["perpMeta"] = dex_meta["universe"]
+
         # DEBUG: Log both API responses to understand structure
         base_universe_size = len(exchange_info[0]["universe"]) if exchange_info and "universe" in exchange_info[0] else 0
         dex_markets_count = len(exchange_info_dex)
@@ -210,6 +220,17 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 data={"type": CONSTANTS.DEX_ASSET_CONTEXT_TYPE})
             # Remove any null entries
             exchange_info_dex = [info for info in exchange_info_dex if info is not None]
+
+            # Fetch perpMeta for each DEX from the meta endpoint
+            for dex_info in exchange_info_dex:
+                if dex_info is not None:
+                    dex_name = dex_info.get("name", "")
+                    dex_meta = await self._api_post(
+                        path_url=self.trading_pairs_request_path,
+                        data={"type": "meta", "dex": dex_name})
+                    if "universe" in dex_meta:
+                        dex_info["perpMeta"] = dex_meta["universe"]
+
             # Store DEX info separately for reference
             self._dex_markets = exchange_info_dex
             # Initialize trading pairs from both sources
@@ -666,26 +687,37 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         # Map HIP-3 DEX markets with their actual asset IDs for order placement
         # According to Hyperliquid SDK: builder-deployed perp dexs start at 110000
         # Each DEX gets an offset of 10000 (first=110000, second=120000, etc.)
-        # Asset ID = base_offset + index_within_dex
-        for dex_index, dex_info in enumerate(self._dex_markets):
-            base_asset_id = 110000 + (dex_index * 10000)  # 110000, 120000, 130000, ...
-            asset_list = dex_info.get("assetToStreamingOiCap", [])
+        perp_dex_to_offset = {"": 0}
+        perp_dexs = self._dex_markets
+        if perp_dexs is None:
+            perp_dexs = [""]
+        else:
+            for i, perp_dex in enumerate(perp_dexs):
+                # builder-deployed perp dexs start at 110000
+                perp_dex_to_offset[perp_dex["name"]] = 110000 + i * 10000
 
-            for asset_index, asset_pair in enumerate(asset_list):
-                if isinstance(asset_pair, list) and len(asset_pair) > 0:
-                    full_symbol = asset_pair[0]  # e.g., "flx:TSLA"
+        for dex_info in self._dex_markets:
+            if dex_info is None:
+                continue
+            dex_name = dex_info.get("name", "")
+            base_asset_id = perp_dex_to_offset.get(dex_name, 0)
+
+            # Use perpMeta (universe from meta endpoint) with enumerate for correct indices
+            # The position in the array IS the index (no explicit index field in API response)
+            perp_meta_list = dex_info.get("perpMeta", [])
+            for asset_index, perp_meta in enumerate(perp_meta_list):
+                if isinstance(perp_meta, dict):
+                    full_symbol = perp_meta.get("name", "")  # e.g., "xyz:TSLA"
+
                     if ':' in full_symbol:
                         coin_name = full_symbol
-                        # Calculate actual asset ID: 110000 + (dex_index * 10000) + asset_index
+                        # Calculate actual asset ID using offset + array position
                         asset_id = base_asset_id + asset_index
 
                         self._is_hip3_market[coin_name] = True
-                        self._hip3_coin_to_api_name[coin_name] = full_symbol  # Store "flx:TSLA" for API
+                        self._hip3_coin_to_api_name[coin_name] = full_symbol  # Store "xyz:TSLA" for API
                         self.coin_to_asset[coin_name] = asset_id  # Store asset ID for order placement
                         self.logger().debug(f"Mapped HIP-3 {coin_name} -> asset_id {asset_id} (base={base_asset_id}, idx={asset_index}, API name: {full_symbol})")
-                        self.logger().debug(f"Total perpetuals mapped: {len([k for k, v in self._is_hip3_market.items() if not v])}, "
-                                            f"HIP-3 markets: {len([k for k, v in self._is_hip3_market.items() if v])}, "
-                                            f"Universe size: {len(exchange_info_dict[0]['universe'])}")
 
         coin_infos: list = exchange_info_dict[0]['universe']
         price_infos: list = exchange_info_dict[1]
@@ -715,17 +747,21 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
         # Process HIP-3/DEX markets from separate _dex_markets list
         for dex_info in self._dex_markets:
-            for asset_pair in dex_info.get("assetToStreamingOiCap", []):
+            if dex_info is None:
+                continue
+            perp_meta_list = dex_info.get("perpMeta", [])
+            for asset_index, perp_meta in enumerate(perp_meta_list):
                 try:
-                    if isinstance(asset_pair, list) and len(asset_pair) > 0:
-                        full_symbol = asset_pair[0]  # e.g., 'xyz:AAPL'
+                    if isinstance(perp_meta, dict):
+                        full_symbol = perp_meta.get("name", "")  # e.g., 'xyz:AAPL'
                         if ':' in full_symbol:
                             deployer, coin_name = full_symbol.split(':')
                             quote = "USD" if deployer == "xyz" else 'USDH'
                             trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=full_symbol)
 
-                            # Use default values for HIP-3 markets
-                            step_size = Decimal("0.00001")  # Default 5 decimals
+                            # Use values from perpMeta if available
+                            sz_decimals = perp_meta.get("szDecimals", 5)
+                            step_size = Decimal(str(10 ** -sz_decimals))
                             price_size = Decimal("0.01")     # Default 2 decimals for price
                             _min_order_size = Decimal("0.01")  # Default minimum
                             collateral_token = quote
@@ -741,7 +777,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                                 )
                             )
                 except Exception:
-                    self.logger().error(f"Error parsing HIP-3 trading pair rule {asset_pair}. Skipping.",
+                    self.logger().error(f"Error parsing HIP-3 trading pair rule {perp_meta}. Skipping.",
                                         exc_info=True)
 
         return return_val
@@ -760,9 +796,12 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
         # Process HIP-3/DEX markets from separate _dex_markets list
         for dex_info in self._dex_markets:
-            for asset_info in dex_info.get("assetToStreamingOiCap", []):
-                if isinstance(asset_info, list) and len(asset_info) > 0:
-                    full_symbol = asset_info[0]  # e.g., 'xyz:AAPL'
+            if dex_info is None:
+                continue
+            perp_meta_list = dex_info.get("perpMeta", [])
+            for _, perp_meta in enumerate(perp_meta_list):
+                if isinstance(perp_meta, dict):
+                    full_symbol = perp_meta.get("name", "")  # e.g., 'xyz:AAPL'
                     if ':' in full_symbol:
                         deployer, base = full_symbol.split(':')
                         symbol = f'{full_symbol}-{"USD" if deployer == "xyz" else "USDH"}'
@@ -884,10 +923,10 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         self.logger().info(f"Setting leverage for {trading_pair}: coin={exchange_symbol}, asset_id={asset_id}")
 
         params = {
+            "type": "updateLeverage",
             "asset": asset_id,
             "isCross": is_cross,
             "leverage": leverage,
-            "type": "updateLeverage",
         }
         try:
             set_leverage = await self._api_post(

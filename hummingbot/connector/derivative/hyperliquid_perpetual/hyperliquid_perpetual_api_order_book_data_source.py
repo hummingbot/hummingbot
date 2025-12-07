@@ -37,6 +37,7 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
         self._connector = connector
         self._api_factory = api_factory
         self._domain = domain
+        self._dex_markets = []
         self._trading_pairs: List[str] = trading_pairs
         self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
         self._snapshot_messages_queue_key = "order_book_snapshot"
@@ -49,17 +50,33 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
         response: List = await self._request_complete_funding_info(trading_pair)
         ex_trading_pair = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-
-        for index, i in enumerate(response[0]['universe']):
-            if i['name'] == ex_trading_pair:
-                funding_info = FundingInfo(
-                    trading_pair=trading_pair,
-                    index_price=Decimal(response[1][index]['oraclePx']),
-                    mark_price=Decimal(response[1][index]['markPx']),
-                    next_funding_utc_timestamp=self._next_funding_time(),
-                    rate=Decimal(response[1][index]['funding']),
-                )
-                return funding_info
+        # Check if this is a HIP-3 market (contains ":")
+        if ":" in ex_trading_pair:
+            for dex_info in self._dex_markets:
+                if dex_info is None:
+                    continue
+                perp_meta_list = dex_info.get("perpMeta", [])
+                for index, perp_meta in enumerate(perp_meta_list):
+                    if perp_meta.get('name') == ex_trading_pair:
+                        funding_info = FundingInfo(
+                            trading_pair=trading_pair,
+                            index_price=Decimal(response[1][index]['oraclePx']),
+                            mark_price=Decimal(response[1][index]['markPx']),
+                            next_funding_utc_timestamp=self._next_funding_time(),
+                            rate=Decimal(response[1][index]['funding']),
+                        )
+                        return funding_info
+        else:
+            for index, i in enumerate(response[0]['universe']):
+                if i['name'] == ex_trading_pair:
+                    funding_info = FundingInfo(
+                        trading_pair=trading_pair,
+                        index_price=Decimal(response[1][index]['oraclePx']),
+                        mark_price=Decimal(response[1][index]['markPx']),
+                        next_funding_utc_timestamp=self._next_funding_time(),
+                        rate=Decimal(response[1][index]['funding']),
+                    )
+                    return funding_info
 
     async def listen_for_funding_info(self, output: asyncio.Queue):
         """
@@ -224,8 +241,17 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
                                                             data={"type": CONSTANTS.DEX_ASSET_CONTEXT_TYPE})
         # Remove any null entries
         exchange_info_dex = [info for info in exchange_info_dex if info is not None]
-        # Store DEX info separately for reference, don't extend universe
-        data = data[0]["universe"].extend(exchange_info_dex)
+
+        # Fetch perpMeta for each DEX from the meta endpoint
+        for dex_info in exchange_info_dex:
+            if dex_info is not None:
+                dex_name = dex_info.get("name", "")
+                dex_meta = await self._connector._api_post(
+                    path_url=CONSTANTS.EXCHANGE_INimFO_URL,
+                    data={"type": "meta", "dex": dex_name})
+                if "universe" in dex_meta:
+                    dex_info["perpMeta"] = dex_meta["universe"]
+        self._dex_markets = exchange_info_dex
         return data
 
     def _next_funding_time(self) -> int:
