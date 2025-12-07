@@ -61,6 +61,7 @@ PING_URL = "/info"
 
 TRADES_ENDPOINT_NAME = "trades"
 DEPTH_ENDPOINT_NAME = "l2Book"
+FUNDING_INFO_ENDPOINT_NAME = "activeAssetCtx"
 
 
 USER_ORDERS_ENDPOINT_NAME = "orderUpdates"
