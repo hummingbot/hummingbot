@@ -809,11 +809,12 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                     full_symbol = perp_meta.get("name", "")  # e.g., 'xyz:AAPL'
                     if ':' in full_symbol:
                         deployer, base = full_symbol.split(':')
-                        symbol = f'{full_symbol}-{"USD" if deployer == "xyz" else "USDH"}'
-                        quote = "USD" if deployer == "xyz" else 'USDH'
-                        trading_pair = combine_to_hb_trading_pair(base, quote)
+                        quote = CONSTANTS.CURRENCY
+                        symbol = f'{deployer.upper()}_{base}'
+                        # quote = "USD" if deployer == "xyz" else 'USDH'
+                        trading_pair = combine_to_hb_trading_pair(full_symbol, quote)
                         if trading_pair in mapping.inverse:
-                            self._resolve_trading_pair_symbols_duplicate(mapping, full_symbol, base, quote)
+                            self._resolve_trading_pair_symbols_duplicate(mapping, full_symbol, full_symbol, quote)
                         else:
                             mapping[full_symbol] = trading_pair
 
