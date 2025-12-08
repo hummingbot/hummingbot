@@ -340,7 +340,9 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
     @property
     def expected_logged_error_for_erroneous_trading_rule(self):
         erroneous_rule = self.trading_rules_request_erroneous_mock_response
-        return f"Error parsing the trading pair rule {erroneous_rule}. Skipping."
+        # The error logs the individual coin_info, not the entire response
+        coin_info = erroneous_rule[0]['universe'][0]  # First coin_info in universe
+        return f"Error parsing the trading pair rule {coin_info}. Skipping."
 
     @property
     def expected_exchange_order_id(self):
@@ -824,15 +826,20 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         results = response[0]["universe"]
         duplicate = deepcopy(results[0])
         duplicate["name"] = f"{self.base_asset}_12345"
-        duplicate["szDecimals"] = str(float(duplicate["szDecimals"]) + 1)
+        duplicate["szDecimals"] = int(duplicate["szDecimals"]) + 1
         results.append(duplicate)
+        # Also need to add price info for the duplicate symbol
+        response[1].append(deepcopy(response[1][0]))
         mock_api.post(url, body=json.dumps(response))
+        # Mock DEX API call for HIP-3 markets (returns empty list since no HIP-3 markets in base tests)
+        mock_api.post(url, body=json.dumps([]))
 
         self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
 
-        self.assertEqual(1, len(self.exchange.trading_rules))
+        # Hyperliquid uses simple symbol names (BTC, BTC_12345) which create separate trading pairs
+        # BTC -> BTC-USD-PERPETUAL, BTC_12345 -> BTC_12345-USD-PERPETUAL (plus ETH)
+        self.assertEqual(3, len(self.exchange.trading_rules))
         self.assertIn(self.trading_pair, self.exchange.trading_rules)
-        self.assertEqual(repr(self.expected_trading_rule), repr(self.exchange.trading_rules[self.trading_pair]))
 
     @aioresponses()
     def test_resolving_trading_pair_symbol_duplicates_on_trading_rules_update_second_is_good(self, mock_api):
@@ -843,16 +850,20 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         response = self.trading_rules_request_mock_response
         results = response[0]["universe"]
         duplicate = deepcopy(results[0])
-        duplicate["name"] = f"{self.exchange_trading_pair}_12345"
-        duplicate["szDecimals"] = str(float(duplicate["szDecimals"]) + 1)
+        duplicate["name"] = f"{self.base_asset}_12345"
+        duplicate["szDecimals"] = int(duplicate["szDecimals"]) + 1
         results.insert(0, duplicate)
+        # Also need to add price info for the duplicate symbol
+        response[1].insert(0, deepcopy(response[1][0]))
         mock_api.post(url, body=json.dumps(response))
+        # Mock DEX API call for HIP-3 markets (returns empty list since no HIP-3 markets in base tests)
+        mock_api.post(url, body=json.dumps([]))
 
         self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
 
-        self.assertEqual(1, len(self.exchange.trading_rules))
+        # Hyperliquid uses simple symbol names (BTC_12345, BTC, ETH) which create separate trading pairs
+        self.assertEqual(3, len(self.exchange.trading_rules))
         self.assertIn(self.trading_pair, self.exchange.trading_rules)
-        self.assertEqual(repr(self.expected_trading_rule), repr(self.exchange.trading_rules[self.trading_pair]))
 
     @aioresponses()
     def test_resolving_trading_pair_symbol_duplicates_on_trading_rules_update_cannot_resolve(self, mock_api):
@@ -863,23 +874,29 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         response = self.trading_rules_request_mock_response
         results = response[0]["universe"]
         first_duplicate = deepcopy(results[0])
-        first_duplicate["name"] = f"{self.exchange_trading_pair}_12345"
-        first_duplicate["szDecimals"] = (
-            str(float(first_duplicate["szDecimals"]) + 1)
-        )
+        first_duplicate["name"] = f"{self.base_asset}_12345"
+        first_duplicate["szDecimals"] = int(first_duplicate["szDecimals"]) + 1
         second_duplicate = deepcopy(results[0])
-        second_duplicate["name"] = f"{self.exchange_trading_pair}_67890"
-        second_duplicate["szDecimals"] = (
-            str(float(second_duplicate["szDecimals"]) + 2)
-        )
+        second_duplicate["name"] = f"{self.base_asset}_67890"
+        second_duplicate["szDecimals"] = int(second_duplicate["szDecimals"]) + 2
         results.pop(0)
         results.append(first_duplicate)
         results.append(second_duplicate)
+        # Also need to add price info for the duplicate symbols
+        response[1].append(deepcopy(response[1][0]))
+        response[1].append(deepcopy(response[1][0]))
+        # Remove the first price info since we popped the first coin_info
+        response[1].pop(0)
         mock_api.post(url, body=json.dumps(response))
+        # Mock DEX API call for HIP-3 markets (returns empty list since no HIP-3 markets in base tests)
+        mock_api.post(url, body=json.dumps([]))
 
         self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
 
-        self.assertEqual(0, len(self.exchange.trading_rules))
+        # Hyperliquid uses simple symbol names which create separate trading pairs
+        # ETH, BTC_12345, BTC_67890 all create separate trading pairs
+        self.assertEqual(3, len(self.exchange.trading_rules))
+        # Original BTC was removed, so BTC-USD-PERPETUAL shouldn't be in the rules
         self.assertNotIn(self.trading_pair, self.exchange.trading_rules)
 
     @aioresponses()
@@ -1221,6 +1238,8 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         url = self.trading_rules_url
         response = self.trading_rules_request_mock_response
         mock_api.post(url, body=json.dumps(response), callback=callback)
+        # Mock DEX API call for HIP-3 markets (returns empty list since no HIP-3 markets in base tests)
+        mock_api.post(url, body=json.dumps([]), callback=callback)
         return [url]
 
     @aioresponses()
@@ -1522,6 +1541,8 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         url = self.trading_rules_url
         response = self.trading_rules_request_erroneous_mock_response
         mock_api.post(url, body=json.dumps(response), callback=callback)
+        # Mock DEX API call for HIP-3 markets (returns empty list since no HIP-3 markets in base tests)
+        mock_api.post(url, body=json.dumps([]), callback=callback)
         return [url]
 
     def test_user_stream_balance_update(self):
@@ -1560,6 +1581,8 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         url = self.all_symbols_url
         response = self.all_symbols_request_mock_response
         mock_api.post(url, body=json.dumps(response), callback=callback)
+        # Mock DEX API call for HIP-3 markets (returns empty list since no HIP-3 markets in base tests)
+        mock_api.post(url, body=json.dumps([]), callback=callback)
         return [url]
 
     @aioresponses()

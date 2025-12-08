@@ -64,7 +64,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
         self.data_source.logger().addHandler(self)
 
         self.connector._set_trading_pair_symbol_map(
-            bidict({f"{self.base_asset}-{self.quote_asset}-PERPETUAL": self.trading_pair}))
+            bidict({self.base_asset: self.trading_pair}))
 
     async def asyncSetUp(self) -> None:
         self.mocking_assistant = NetworkMockingAssistant()
@@ -201,7 +201,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
             websocket_mock=ws_connect_mock.return_value
         )
 
-        self.assertEqual(2, len(sent_subscription_messages))
+        self.assertEqual(3, len(sent_subscription_messages))
         expected_trade_subscription_channel = CONSTANTS.TRADES_ENDPOINT_NAME
         expected_trade_subscription_payload = self.ex_trading_pair.split("-")[0]
         self.assertEqual(expected_trade_subscription_channel, sent_subscription_messages[0]["subscription"]["type"])
@@ -210,9 +210,12 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
         expected_depth_subscription_payload = self.ex_trading_pair.split("-")[0]
         self.assertEqual(expected_depth_subscription_channel, sent_subscription_messages[1]["subscription"]["type"])
         self.assertEqual(expected_depth_subscription_payload, sent_subscription_messages[1]["subscription"]["coin"])
+        # Verify funding info subscription
+        expected_funding_subscription_payload = self.ex_trading_pair.split("-")[0]
+        self.assertEqual(expected_funding_subscription_payload, sent_subscription_messages[2]["subscription"]["coin"])
 
         self.assertTrue(
-            self._is_logged("INFO", "Subscribed to public order book, trade channels...")
+            self._is_logged("INFO", "Subscribed to public order book, trade, and funding info channels...")
         )
 
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
@@ -484,36 +487,59 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
             )
         }
 
-    @aioresponses()
-    @patch.object(HyperliquidPerpetualAPIOrderBookDataSource, "_sleep")
-    async def test_listen_for_funding_info_cancelled_error_raised(self, mock_api, sleep_mock):
-        sleep_mock.side_effect = [asyncio.CancelledError()]
-        endpoint = CONSTANTS.EXCHANGE_INFO_URL
-        url = web_utils.public_rest_url(endpoint)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        resp = self.get_funding_info_rest_msg()
-        mock_api.post(regex_url, body=json.dumps(resp))
+    async def test_listen_for_funding_info_cancelled_error_raised(self):
+        # Simulate a websocket funding info message
+        funding_message = {
+            "data": {
+                "coin": self.base_asset,
+                "ctx": {
+                    "oraclePx": "36717.0",
+                    "markPx": "36733.0",
+                    "openInterest": "34.37756",
+                    "funding": "0.00001793"
+                }
+            }
+        }
+
+        # Put message in the internal queue
+        message_queue = self.data_source._message_queue[self.data_source._funding_info_messages_queue_key]
+        message_queue.put_nowait(funding_message)
 
         mock_queue: asyncio.Queue = asyncio.Queue()
+
+        # Start the listener task
+        task = self.local_event_loop.create_task(self.data_source.listen_for_funding_info(mock_queue))
+
+        # Give it time to process the message
+        await asyncio.sleep(0.1)
+
+        # Cancel the task
+        task.cancel()
+
         with self.assertRaises(asyncio.CancelledError):
-            await self.data_source.listen_for_funding_info(mock_queue)
+            await task
 
         self.assertEqual(1, mock_queue.qsize())
 
-    @aioresponses()
-    async def test_listen_for_funding_info_logs_exception(self, mock_api):
-        endpoint = CONSTANTS.EXCHANGE_INFO_URL
-        url = web_utils.public_rest_url(endpoint)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
-        resp = self.get_funding_info_rest_msg()
-        resp[0]["universe"] = ""
-        mock_api.post(regex_url, body=json.dumps(resp), callback=self.resume_test_callback)
+    async def test_listen_for_funding_info_logs_exception(self):
+        # Simulate a malformed websocket message that will cause an exception
+        malformed_message = {
+            "data": {
+                "coin": self.base_asset,
+                # Missing "ctx" key which will cause KeyError
+            }
+        }
+
+        # Put malformed message in the internal queue
+        message_queue = self.data_source._message_queue[self.data_source._funding_info_messages_queue_key]
+        message_queue.put_nowait(malformed_message)
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_funding_info(msg_queue))
 
-        await self.resume_test_event.wait()
+        # Wait for the exception to be logged
+        await asyncio.sleep(0.2)
 
         self.assertTrue(
             self._is_logged("ERROR", "Unexpected error when processing public funding info updates from exchange"))
@@ -521,20 +547,31 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
     @patch(
         "hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_api_order_book_data_source."
         "HyperliquidPerpetualAPIOrderBookDataSource._next_funding_time")
-    @aioresponses()
-    async def test_listen_for_funding_info_successful(self, next_funding_time_mock, mock_api):
+    async def test_listen_for_funding_info_successful(self, next_funding_time_mock):
         next_funding_time_mock.return_value = 1713272400
-        endpoint = CONSTANTS.EXCHANGE_INFO_URL
-        url = web_utils.public_rest_url(endpoint)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
-        resp = self.get_funding_info_rest_msg()
-        mock_api.post(regex_url, body=json.dumps(resp))
+
+        # Simulate a websocket funding info message
+        funding_message = {
+            "data": {
+                "coin": self.base_asset,
+                "ctx": {
+                    "oraclePx": "36717.0",
+                    "markPx": "36733.0",
+                    "openInterest": "0.00001793",  # This is used as the rate
+                    "funding": "0.00001793"
+                }
+            }
+        }
+
+        # Put message in the internal queue
+        message_queue = self.data_source._message_queue[self.data_source._funding_info_messages_queue_key]
+        message_queue.put_nowait(funding_message)
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_funding_info(msg_queue))
 
-        msg: FundingInfoUpdate = await msg_queue.get()
+        msg: FundingInfoUpdate = await asyncio.wait_for(msg_queue.get(), timeout=5.0)
 
         self.assertEqual(self.trading_pair, msg.trading_pair)
         expected_index_price = Decimal('36717.0')

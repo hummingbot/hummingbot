@@ -208,12 +208,13 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
         # Store DEX info separately for reference, don't extend universe
         self._dex_markets = exchange_info_dex
+        # Initialize symbol map BEFORE formatting trading rules (needed for symbol lookup)
+        self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
         # Keep base universe unchanged - only use validated perpetual indices
         trading_rules_list = await self._format_trading_rules(exchange_info)
         self._trading_rules.clear()
         for trading_rule in trading_rules_list:
             self._trading_rules[trading_rule.trading_pair] = trading_rule
-        self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
 
     async def _initialize_trading_pair_symbol_map(self):
         try:
