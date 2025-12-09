@@ -710,7 +710,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
             # Use perpMeta (universe from meta endpoint) with enumerate for correct indices
             # The position in the array IS the index (no explicit index field in API response)
-            perp_meta_list = dex_info.get("perpMeta", [])
+            perp_meta_list = dex_info.get("perpMeta", []) or []
             for asset_index, perp_meta in enumerate(perp_meta_list):
                 if isinstance(perp_meta, dict):
                     full_symbol = perp_meta.get("name", "")  # e.g., "xyz:TSLA"
@@ -755,7 +755,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         for dex_info in self._dex_markets:
             if dex_info is None:
                 continue
-            perp_meta_list = dex_info.get("perpMeta", [])
+            perp_meta_list = dex_info.get("perpMeta", []) or []
             for asset_index, perp_meta in enumerate(perp_meta_list):
                 try:
                     if isinstance(perp_meta, dict):
