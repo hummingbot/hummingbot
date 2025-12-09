@@ -106,14 +106,6 @@ class DeriveRateSourceTest(unittest.TestCase):
             "id": "dedda961-4a97-46fb-84fb-6510f90dceb0"  # noqa: mock
         }
 
-    @property
-    def currency_request_mock_response(self):
-        return {
-            'result': [
-                {'currency': 'COINALPHA', 'spot_price': '27.761323954505412608', 'spot_price_24h': '33.240154426604556288'},
-            ]
-        }
-
     def configure_trading_rules_response(
             self,
             mock_api: aioresponses,
@@ -147,7 +139,7 @@ class DeriveRateSourceTest(unittest.TestCase):
         mock_api.post(url, body=json.dumps(response), callback=callback)
         return [url]
 
-    def setup_derive_responses(self, mock_request, mock_prices, mock_api, expected_rate: Decimal):
+    def setup_derive_responses(self, mock_prices, mock_api, expected_rate: Decimal):
         url = web_utils.private_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -219,19 +211,16 @@ class DeriveRateSourceTest(unittest.TestCase):
         mock_api.post(derive_prices_global_url, body=json.dumps(derive_prices_global_response))
 
     @patch("hummingbot.connector.exchange.derive.derive_exchange.DeriveExchange._make_trading_rules_request", new_callable=AsyncMock)
-    @patch("hummingbot.connector.exchange.derive.derive_exchange.DeriveExchange._make_currency_request", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.derive.derive_exchange.DeriveExchange.get_all_pairs_prices", new_callable=AsyncMock)
     @aioresponses()
-    def test_get_prices(self, mock_prices: AsyncMock, mock_request: AsyncMock, mock_rules, mock_api):
+    def test_get_prices(self, mock_prices: AsyncMock, mock_rules, mock_api):
 
         res = [{"symbol": {"instrument_name": "COINALPHA-USDC", "best_bid": "3143.16", "best_ask": "3149.46"}}]
 
         expected_rate = Decimal("3146.31")
-        self.setup_derive_responses(mock_api=mock_api, mock_request=mock_request, mock_prices=mock_prices, expected_rate=expected_rate)
+        self.setup_derive_responses(mock_api=mock_api, mock_prices=mock_prices, expected_rate=expected_rate)
 
         rate_source = DeriveRateSource()
-        self.configure_currency_trading_rules_response(mock_api=mock_api)
-        mock_request.return_value = self.currency_request_mock_response
 
         mocked_response = self.trading_rules_request_mock_response
         self.configure_trading_rules_response(mock_api=mock_api)
@@ -239,7 +228,6 @@ class DeriveRateSourceTest(unittest.TestCase):
         self.exchange._instrument_ticker = mocked_response["result"]["instruments"]
         mock_prices.side_effect = [res]
 
-        mock_request.side_effect = [self.currency_request_mock_response]
         prices = self.async_run_with_timeout(rate_source.get_prices(quote_token="USDC"))
         self.assertIn(self.trading_pair, prices)
         self.assertEqual(expected_rate, prices[self.trading_pair])
