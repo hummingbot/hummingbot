@@ -582,3 +582,89 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
         self.assertEqual(expected_funding_time, msg.next_funding_utc_timestamp)
         expected_rate = Decimal('0.00001793')
         self.assertEqual(expected_rate, msg.rate)
+
+    @aioresponses()
+    @patch("hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_api_order_book_data_source.HyperliquidPerpetualAPIOrderBookDataSource._next_funding_time")
+    async def test_get_funding_info_hip3_market_with_data_message(self, mock_api, next_funding_time_mock):
+        """Test get_funding_info for HIP-3 market (contains ':') with data message from websocket."""
+        next_funding_time_mock.return_value = 1713272400
+
+        # Set up HIP-3 trading pair
+        hip3_pair = "xyz:AAPL-USD"
+        hip3_ex_symbol = "xyz:AAPL"
+        self.connector._set_trading_pair_symbol_map(bidict({hip3_ex_symbol: hip3_pair}))
+
+        # Simulate websocket message with "data" field
+        funding_message = {
+            "data": {
+                "coin": hip3_ex_symbol,
+                "ctx": {
+                    "oraclePx": "150.5",
+                    "markPx": "150.7",
+                    "funding": "0.0001"
+                }
+            }
+        }
+
+        # Put message in queue
+        message_queue = self.data_source._message_queue[self.data_source._funding_info_messages_queue_key]
+        message_queue.put_nowait(funding_message)
+
+        # Call get_funding_info
+        funding_info = await self.data_source.get_funding_info(hip3_pair)
+
+        self.assertEqual(hip3_pair, funding_info.trading_pair)
+        self.assertEqual(Decimal('150.5'), funding_info.index_price)
+        self.assertEqual(Decimal('150.7'), funding_info.mark_price)
+        self.assertEqual(Decimal('0.0001'), funding_info.rate)
+        self.assertEqual(1713272400, funding_info.next_funding_utc_timestamp)
+
+    @aioresponses()
+    async def test_parse_order_book_snapshot_message(self, mock_api):
+        """Test _parse_order_book_snapshot_message parsing."""
+        raw_message = {
+            "channel": "l2Book",
+            "data": {
+                "coin": self.base_asset,
+                "time": 1700687397643,
+                "levels": [
+                    [{"px": "36000.0", "sz": "1.5", "n": 1}],  # bids
+                    [{"px": "36100.0", "sz": "2.0", "n": 1}]   # asks
+                ]
+            }
+        }
+
+        message_queue = asyncio.Queue()
+        await self.data_source._parse_order_book_snapshot_message(raw_message, message_queue)
+
+        message = message_queue.get_nowait()
+        self.assertEqual(OrderBookMessageType.SNAPSHOT, message.type)
+        self.assertEqual(self.trading_pair, message.content["trading_pair"])
+        self.assertEqual(1, len(message.content["bids"]))
+        self.assertEqual(1, len(message.content["asks"]))
+
+    @aioresponses()
+    async def test_parse_trade_message(self, mock_api):
+        """Test _parse_trade_message parsing."""
+        raw_message = {
+            "channel": "trades",
+            "data": [
+                {
+                    "coin": self.base_asset,
+                    "side": "B",
+                    "px": "36500.0",
+                    "sz": "0.5",
+                    "time": 1700687397643,
+                    "hash": "abc123"
+                }
+            ]
+        }
+
+        message_queue = asyncio.Queue()
+        await self.data_source._parse_trade_message(raw_message, message_queue)
+
+        message = message_queue.get_nowait()
+        self.assertEqual(OrderBookMessageType.TRADE, message.type)
+        self.assertEqual(self.trading_pair, message.content["trading_pair"])
+        self.assertEqual(float("36500.0"), message.content["price"])
+        self.assertEqual(float("0.5"), message.content["amount"])
