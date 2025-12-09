@@ -34,7 +34,7 @@ ORDER_STATE = {
     "open": OrderState.OPEN,
     "filled": OrderState.FILLED,
     "partial_filled": OrderState.PARTIALLY_FILLED,
-    "canceled": OrderState.CANCELED,
+    "cancelled": OrderState.CANCELED,
     "rejected": OrderState.FAILED,
 }
 
