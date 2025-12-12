@@ -164,8 +164,8 @@ class GatewayLpTest(unittest.TestCase):
                 self.assertTrue(order_id.startswith("range-ETH-USDC-"))
                 mock_ensure_future.assert_called_once()
 
-    def test_add_liquidity_clmm(self):
-        """Test adding liquidity to CLMM pool"""
+    def test_add_liquidity_clmm_explicit_prices(self):
+        """Test adding liquidity to CLMM pool with explicit price range"""
         with patch('hummingbot.connector.gateway.gateway_lp.get_connector_type') as mock_connector_type:
             mock_connector_type.return_value = ConnectorType.CLMM
 
@@ -173,7 +173,26 @@ class GatewayLpTest(unittest.TestCase):
                 order_id = self.connector.add_liquidity(
                     trading_pair="ETH-USDC",
                     price=1500.0,
-                    spread_pct=10.0,
+                    lower_price=1400.0,
+                    upper_price=1600.0,
+                    base_token_amount=1.0,
+                    quote_token_amount=1500.0
+                )
+
+                self.assertTrue(order_id.startswith("range-ETH-USDC-"))
+                mock_ensure_future.assert_called_once()
+
+    def test_add_liquidity_clmm_width_percentages(self):
+        """Test adding liquidity to CLMM pool with width percentages"""
+        with patch('hummingbot.connector.gateway.gateway_lp.get_connector_type') as mock_connector_type:
+            mock_connector_type.return_value = ConnectorType.CLMM
+
+            with patch('hummingbot.connector.gateway.gateway_lp.safe_ensure_future') as mock_ensure_future:
+                order_id = self.connector.add_liquidity(
+                    trading_pair="ETH-USDC",
+                    price=1500.0,
+                    upper_width_pct=10.0,
+                    lower_width_pct=5.0,
                     base_token_amount=1.0,
                     quote_token_amount=1500.0
                 )
@@ -224,7 +243,7 @@ class GatewayLpTest(unittest.TestCase):
 
     @patch('hummingbot.connector.gateway.gateway_lp.get_connector_type')
     async def test_clmm_open_position_execution(self, mock_connector_type):
-        """Test CLMM open position execution"""
+        """Test CLMM open position execution with explicit price range"""
         mock_connector_type.return_value = ConnectorType.CLMM
 
         mock_response = {
@@ -241,7 +260,8 @@ class GatewayLpTest(unittest.TestCase):
             order_id="test-order-123",
             trading_pair="ETH-USDC",
             price=1500.0,
-            spread_pct=10.0,
+            lower_price=1400.0,
+            upper_price=1600.0,
             base_token_amount=1.0,
             quote_token_amount=1500.0
         )

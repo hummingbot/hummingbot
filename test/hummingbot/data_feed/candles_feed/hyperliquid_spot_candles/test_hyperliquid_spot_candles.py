@@ -6,7 +6,7 @@ from test.hummingbot.data_feed.candles_feed.test_candles_base import TestCandles
 from aioresponses import aioresponses
 
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
-from hummingbot.data_feed.candles_feed.hyperliquid_spot_candles import HyperliquidSpotCandles
+from hummingbot.data_feed.candles_feed.hyperliquid_spot_candles import HyperliquidSpotCandles, constants as CONSTANTS
 
 
 class TestHyperliquidSpotC0andles(TestCandlesBase):
@@ -168,3 +168,8 @@ class TestHyperliquidSpotC0andles(TestCandlesBase):
         mock_api.post(url=url, payload=self.get_universe_data_mock())
         self.run_async_with_timeout(self.data_feed._initialize_coins_dict())
         self.assertEqual(self.data_feed._universe, self.get_universe_data_mock())
+
+    @aioresponses()
+    def test_ping_pong(self, mock_api):
+        self.assertEqual(self.data_feed._ping_payload, CONSTANTS.PING_PAYLOAD)
+        self.assertEqual(self.data_feed._ping_timeout, CONSTANTS.PING_TIMEOUT)

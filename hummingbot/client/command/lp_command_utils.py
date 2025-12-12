@@ -8,11 +8,77 @@ import pandas as pd
 from hummingbot.client.command.command_utils import GatewayCommandUtils
 
 if TYPE_CHECKING:
-    from hummingbot.connector.gateway.gateway_lp import AMMPoolInfo, AMMPositionInfo, CLMMPoolInfo, CLMMPositionInfo
+    from hummingbot.connector.gateway.gateway_lp import (
+        AMMPoolInfo,
+        AMMPositionInfo,
+        CLMMPoolInfo,
+        CLMMPositionInfo,
+        GatewayLp,
+    )
 
 
 class LPCommandUtils:
     """Utility functions for LP commands."""
+
+    @staticmethod
+    async def fetch_and_display_pool_info(
+        app: Any,  # HummingbotApplication
+        lp_connector: "GatewayLp",
+        user_trading_pair: str,
+        is_clmm: bool
+    ) -> Optional[Tuple[Any, str, str, str, str]]:
+        """
+        Fetch pool info and display enhanced notification with pool details.
+
+        :param app: HummingbotApplication instance
+        :param lp_connector: GatewayLp connector instance
+        :param user_trading_pair: Trading pair entered by user
+        :param is_clmm: Whether the connector is CLMM type
+        :return: Tuple of (pool_info, pool_address, base_token, quote_token, trading_pair) or None if error
+        """
+        # Get pool address for the trading pair
+        pool_address = await lp_connector.get_pool_address(user_trading_pair)
+        if not pool_address:
+            app.notify(f"No pool found for {user_trading_pair}")
+            return None
+
+        # Fetch pool info to get token details and fee tier
+        pool_info = await lp_connector.get_pool_info(user_trading_pair)
+        if not pool_info:
+            app.notify(f"Error: Could not get pool info for {user_trading_pair}")
+            return None
+
+        # Get token symbols from addresses
+        base_token_info = lp_connector.get_token_by_address(pool_info.base_token_address)
+        quote_token_info = lp_connector.get_token_by_address(pool_info.quote_token_address)
+
+        base_token = base_token_info.get("symbol") if base_token_info else "Unknown"
+        quote_token = quote_token_info.get("symbol") if quote_token_info else "Unknown"
+
+        # Display enhanced pool notification in list format
+        pool_type = "CLMM" if is_clmm else "AMM"
+        app.notify("Pool found:")
+        app.notify(f"  Address: {GatewayCommandUtils.format_address_display(pool_address)}")
+        app.notify(f"  Base Token: {base_token} ({GatewayCommandUtils.format_address_display(pool_info.base_token_address)})")
+        app.notify(f"  Quote Token: {quote_token} ({GatewayCommandUtils.format_address_display(pool_info.quote_token_address)})")
+        app.notify(f"  Type: {pool_type}")
+        app.notify(f"  Fee: {pool_info.fee_pct}%")
+
+        # Log detailed pool info
+        app.logger().info(
+            f"Found pool for {user_trading_pair}: {pool_address} | "
+            f"Base: {base_token} ({pool_info.base_token_address}) | "
+            f"Quote: {quote_token} ({pool_info.quote_token_address}) | "
+            f"Type: {pool_type} | Fee: {pool_info.fee_pct}%"
+        )
+
+        trading_pair = f"{base_token}-{quote_token}"
+
+        # Notify if token order differs from user input
+        if trading_pair != user_trading_pair:
+            app.notify(f"Note: Pool uses token order: {trading_pair}")
+
+        return pool_info, pool_address, base_token, quote_token, trading_pair
 
     @staticmethod
     def format_pool_info_display(
