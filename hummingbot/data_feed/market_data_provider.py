@@ -143,7 +143,7 @@ class MarketDataProvider:
                                     base_asset=base,
                                     quote_asset=quote,
                                     amount=Decimal("1"),
-                                    side=TradeType.BUY
+                                    side=TradeType.SELL
                                 )
                                 gateway_tasks.append(task)
                                 gateway_task_metadata.append((connector_pair, connector_pair.trading_pair))
@@ -320,6 +320,10 @@ class MarketDataProvider:
         connector = self.get_connector(connector_name)
         return connector.get_balance(asset)
 
+    def get_available_balance(self, connector_name: str, asset: str):
+        connector = self.get_connector(connector_name)
+        return connector.get_available_balance(asset)
+
     def get_order_book(self, connector_name: str, trading_pair: str):
         """
         Retrieves the order book for a trading pair from the specified connector.
@@ -330,7 +334,7 @@ class MarketDataProvider:
         connector = self.get_connector_with_fallback(connector_name)
         return connector.get_order_book(trading_pair)
 
-    def get_price_by_type(self, connector_name: str, trading_pair: str, price_type: PriceType):
+    def get_price_by_type(self, connector_name: str, trading_pair: str, price_type: PriceType = PriceType.MidPrice):
         """
         Retrieves the price for a trading pair from the specified connector.
         :param connector_name: str

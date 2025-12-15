@@ -294,18 +294,15 @@ class GatewayConfigCommand:
                     self.notify(f"Error: Expected boolean value (true/false), got '{value}'")
                     return None
 
-            elif isinstance(current_value, int):
-                # Integer conversion
+            elif isinstance(current_value, (int, float)):
+                # Numeric conversion - accept both int and float values
+                # This allows reverting from integer to decimal values
                 try:
-                    return int(value)
-                except ValueError:
-                    self.notify(f"Error: Expected integer value, got '{value}'")
-                    return None
-
-            elif isinstance(current_value, float):
-                # Float conversion
-                try:
-                    return float(value)
+                    parsed = float(value)
+                    # Return int if the value is a whole number and current is int
+                    if isinstance(current_value, int) and parsed == int(parsed):
+                        return int(parsed)
+                    return parsed
                 except ValueError:
                     self.notify(f"Error: Expected numeric value, got '{value}'")
                     return None

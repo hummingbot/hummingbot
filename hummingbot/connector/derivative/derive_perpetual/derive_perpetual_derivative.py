@@ -65,7 +65,6 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         self._last_trades_poll_timestamp = 1.0
         self._instrument_ticker = []
         self.real_time_balance_update = False
-        self.currencies = []
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
     @property
@@ -158,74 +157,34 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         return trading_rule.sell_order_collateral_token
 
     async def _make_trading_pairs_request(self) -> Any:
-        exchange_infos = []
-        if len(self.currencies) == 0:
-            self.currencies.append(await self._make_currency_request())
-        for currency in self.currencies[0]["result"]:
+        payload = {
+            "expired": True,
+            "instrument_type": "perp",
+            "page": 1,
+            "page_size": 1000,
+        }
 
-            payload = {
-                "expired": True,
-                "instrument_type": "perp",
-                "currency": currency["currency"],
-            }
+        exchange_info = await self._api_post(path_url=self.trading_currencies_request_path, data=payload)
+        info = exchange_info["result"]["instruments"]
+        self._instrument_ticker = info
+        return info
 
-            exchange_info = await self._api_post(path_url=self.trading_currencies_request_path, data=payload)
-            if "error" in exchange_info:
-                if 'Instrument not found' in exchange_info['error']['message']:
-                    self.logger().debug(f"Ignoring currency {currency['currency']}: not supported sport.")
-                    continue
-                self.logger().error(f"Error: {currency['message']}")
-                raise
-            exchange_infos.append(exchange_info["result"]["instruments"][0])
-        return exchange_infos
-
-    async def _make_currency_request(self) -> Any:
-        currencies = await self._api_post(path_url=self.trading_pairs_request_path, data={
-            "instrument_type": "parp",
-        })
-        self.currencies.append(currencies)
-        return currencies
-
-    async def _make_trading_rules_request(self, trading_pair: Optional[str] = None, fetch_pair: Optional[bool] = False) -> Any:
-        self._instrument_ticker = []
-        exchange_infos = []
-        if not fetch_pair:
-            if len(self.currencies) == 0:
-                self.currencies.append(await self._make_currency_request())
-            for currency in self.currencies[0]["result"]:
-                payload = {
-                    "expired": True,
-                    "instrument_type": "perp",
-                    "currency": currency["currency"],
-                }
-
-                exchange_info = await self._api_post(path_url=self.trading_currencies_request_path, data=payload)
-                if "error" in exchange_info:
-                    if 'Instrument not found' in exchange_info['error']['message']:
-                        self.logger().debug(f"Ignoring currency {currency['currency']}: not supported sport.")
-                        continue
-                    self.logger().warning(f"Error: {exchange_info['error']['message']}")
-                    raise
-
-                exchange_info["result"]["instruments"][0]["spot_price"] = currency["spot_price"]
-                self._instrument_ticker.append(exchange_info["result"]["instruments"][0])
-                exchange_infos.append(exchange_info["result"]["instruments"][0])
-        else:
-            exchange_info = await self._api_post(path_url=self.trading_pairs_request_path, data={
-                "expired": True,
-                "instrument_type": "perp",
-                "currency": trading_pair.split("-")[0],
-            })
-            exchange_info["result"]["instruments"][0]["spot_price"] = currency["spot_price"]
-            self._instrument_ticker.append(exchange_info["result"]["instruments"][0])
-            exchange_infos.append(exchange_info["result"]["instruments"][0])
-        return exchange_infos
+    async def _make_trading_rules_request(self) -> Any:
+        payload = {
+            "expired": False,
+            "instrument_type": "perp",
+            "page": 1,
+            "page_size": 1000,
+        }
+        exchange_info = await self._api_post(path_url=self.trading_pairs_request_path, data=(payload))
+        info: List[Dict[str, Any]] = exchange_info["result"]
+        return info
 
     async def get_all_pairs_prices(self) -> Dict[str, Any]:
         res = []
         tasks = []
         if len(self._instrument_ticker) == 0:
-            await self._make_trading_rules_request()
+            await self._make_trading_pairs_request()
         for token in self._instrument_ticker:
             payload = {"instrument_name": token["instrument_name"]}
             tasks.append(self._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, data=payload))
@@ -259,7 +218,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         self._set_trading_pair_symbol_map(mapping)
 
     async def _update_trading_rules(self):
-        exchange_info = await self._make_trading_rules_request()
+        exchange_info = await self._make_trading_pairs_request()
         trading_rules_list = await self._format_trading_rules(exchange_info)
         self._trading_rules.clear()
         for trading_rule in trading_rules_list:
@@ -513,7 +472,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         """
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         if len(self._instrument_ticker) == 0:
-            await self._make_trading_rules_request(self, trading_pair=symbol, fetch_pair=True)
+            await self._make_trading_pairs_request()
         instrument = next((pair for pair in self._instrument_ticker if symbol == pair["instrument_name"]), None)
         if order_type is OrderType.LIMIT and position_action == PositionAction.CLOSE:
             param_order_type = "gtc"
@@ -838,6 +797,8 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         trading_pair_rules = exchange_info_dict
         retval = []
         for rule in filter(web_utils.is_exchange_information_valid, trading_pair_rules):
+            if rule["instrument_type"] != "perp":
+                continue
             try:
                 trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule["instrument_name"])
                 min_order_size = rule["minimum_amount"]
@@ -954,8 +915,8 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         await self.trading_pair_symbol_map()
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         payload = {"instrument_name": exchange_symbol}
-        response = await self._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
-                                        data=payload)
+        response = await self._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, data=payload, is_auth_required=False,
+                                        limit_id=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL)
 
         return response["result"]["mark_price"]
 

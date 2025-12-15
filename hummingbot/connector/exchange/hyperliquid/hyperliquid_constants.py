@@ -9,6 +9,7 @@ MARKET_ORDER_SLIPPAGE = 0.05
 
 DOMAIN = EXCHANGE_NAME
 TESTNET_DOMAIN = "hyperliquid_testnet"
+DEFAULT_AGENT_NAME = "hbot-agent"
 
 BASE_URL = "https://api.hyperliquid.xyz"
 TESTNET_BASE_URL = "https://api.hyperliquid-testnet.xyz"
@@ -31,6 +32,7 @@ TICKER_PRICE_CHANGE_URL = "/info"
 SNAPSHOT_REST_URL = "/info"
 EXCHANGE_INFO_URL = "/info"
 CANCEL_ORDER_URL = "/exchange"
+APPROVE_AGENT_URL = "/exchange"
 CREATE_ORDER_URL = "/exchange"
 ACCOUNT_TRADE_LIST_URL = "/info"
 ORDER_URL = "/info"
@@ -68,6 +70,9 @@ HEARTBEAT_TIME_INTERVAL = 30.0
 MAX_REQUEST = 1_200
 ALL_ENDPOINTS_LIMIT = "All"
 
+ORDER_NOT_EXIST_MESSAGE = "order"
+UNKNOWN_ORDER_MESSAGE = "Order was never placed, already canceled, or filled"
+
 RATE_LIMITS = [
     RateLimit(ALL_ENDPOINTS_LIMIT, limit=MAX_REQUEST, time_interval=60),
 
@@ -95,5 +100,3 @@ RATE_LIMITS = [
               linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
 
 ]
-ORDER_NOT_EXIST_MESSAGE = "order"
-UNKNOWN_ORDER_MESSAGE = "Order was never placed, already canceled, or filled"

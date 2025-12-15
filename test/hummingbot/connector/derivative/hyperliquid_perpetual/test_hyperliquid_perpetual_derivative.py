@@ -33,9 +33,10 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.api_key = "someKey"
+        cls.api_address = "someAddress"
         cls.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
-        cls.use_vault = False  # noqa: mock
+        cls.hyperliquid_mode = "arb_wallet"  # noqa: mock
+        cls.use_vault = False
         cls.user_id = "someUserId"
         cls.base_asset = "BTC"
         cls.quote_asset = "USD"  # linear
@@ -385,9 +386,10 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     def create_exchange_instance(self):
         exchange = HyperliquidPerpetualDerivative(
-            hyperliquid_perpetual_api_secret=self.api_secret,
+            hyperliquid_perpetual_secret_key=self.api_secret,
+            hyperliquid_perpetual_mode=self.hyperliquid_mode,
+            hyperliquid_perpetual_address=self.api_address,
             use_vault=self.use_vault,
-            hyperliquid_perpetual_api_key=self.api_key,
             trading_pairs=[self.trading_pair],
         )
         return exchange
@@ -409,7 +411,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = json.loads(request_call.kwargs["data"])
-        self.assertEqual(self.api_key, request_params["user"])
+        self.assertEqual(self.api_address, request_params["user"])
 
     def configure_successful_cancelation_response(
             self,
@@ -787,8 +789,9 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     def test_supported_position_modes(self):
         linear_connector = HyperliquidPerpetualDerivative(
-            hyperliquid_perpetual_api_key=self.api_key,
-            hyperliquid_perpetual_api_secret=self.api_secret,
+            hyperliquid_perpetual_secret_key=self.api_secret,
+            hyperliquid_perpetual_mode=self.hyperliquid_mode,
+            hyperliquid_perpetual_address=self.api_address,
             use_vault=self.use_vault,
             trading_pairs=[self.trading_pair],
         )
