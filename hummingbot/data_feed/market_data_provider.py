@@ -143,7 +143,7 @@ class MarketDataProvider:
                                     base_asset=base,
                                     quote_asset=quote,
                                     amount=Decimal("1"),
-                                    side=TradeType.BUY
+                                    side=TradeType.SELL
                                 )
                                 gateway_tasks.append(task)
                                 gateway_task_metadata.append((connector_pair, connector_pair.trading_pair))
