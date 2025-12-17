@@ -2,7 +2,7 @@ import asyncio
 import importlib
 import inspect
 from decimal import Decimal
-from typing import TYPE_CHECKING, Callable, List
+from typing import TYPE_CHECKING, Callable, List, Optional
 
 from pydantic import ConfigDict, Field, field_validator
 
@@ -137,7 +137,7 @@ class ControllerBase(RunnableBase):
         self.config = config
         self.executors_info: List[ExecutorInfo] = []
         self.positions_held: List[PositionSummary] = []
-        self.performance_report: PerformanceReport = None
+        self.performance_report: Optional[PerformanceReport] = None
         self.market_data_provider: MarketDataProvider = market_data_provider
         self.actions_queue: asyncio.Queue = actions_queue
         self.processed_data = {}
