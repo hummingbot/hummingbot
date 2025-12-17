@@ -747,7 +747,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                 self._position_mode_set = True
             else:
                 success = False
-                msg = f"Unable to set position mode: Code {set_position_mode_code} - {set_position_mode["message"]}"
+                msg = f"Unable to set position mode: Code {set_position_mode_code} - {set_position_mode.get('message', 'Unknown error')}"
         else:
             success = True
             msg = "Position Mode already set."
