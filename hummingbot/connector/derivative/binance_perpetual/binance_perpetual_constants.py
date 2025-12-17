@@ -30,6 +30,7 @@ EXCHANGE_INFO_URL = "v1/exchangeInfo"
 RECENT_TRADES_URL = "v1/trades"
 PING_URL = "v1/ping"
 MARK_PRICE_URL = "v1/premiumIndex"
+FUNDING_INFO_URL = "v1/fundingInfo"
 SERVER_TIME_PATH_URL = "v1/time"
 
 # Private API v1 Endpoints
@@ -125,6 +126,8 @@ RATE_LIMITS = [
     RateLimit(limit_id=POSITION_INFORMATION_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=5,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=5)]),
     RateLimit(limit_id=MARK_PRICE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=1,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
+    RateLimit(limit_id=FUNDING_INFO_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=1,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
 ]
 

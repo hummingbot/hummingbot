@@ -60,12 +60,19 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             raise ValueError(f"Failed to get funding info for {trading_pair}")
         general_info = funding_info_response["result"]["list"][0]
 
+        interval_raw = general_info.get("fundingIntervalHour")
+        try:
+            funding_interval_hours = int(interval_raw) if interval_raw is not None else None
+        except (TypeError, ValueError):
+            funding_interval_hours = None
+
         funding_info = FundingInfo(
             trading_pair=trading_pair,
             index_price=Decimal(str(general_info["indexPrice"])),
             mark_price=Decimal(str(general_info["markPrice"])),
             next_funding_utc_timestamp=int(general_info["nextFundingTime"]) // 1000,
             rate=Decimal(str(general_info["fundingRate"])),
+            funding_interval_hours=funding_interval_hours,
         )
         return funding_info
 
@@ -244,6 +251,8 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 info_update.next_funding_utc_timestamp = int(entry["nextFundingTime"]) // 1e3
             if "fundingRate" in entry:
                 info_update.rate = Decimal(str(entry["fundingRate"]))
+            if "fundingIntervalHour" in entry:
+                info_update.funding_interval_hours = int(entry["fundingIntervalHour"])
             message_queue.put_nowait(info_update)
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:

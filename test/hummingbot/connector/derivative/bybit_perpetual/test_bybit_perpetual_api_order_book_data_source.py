@@ -241,7 +241,8 @@ class BybitPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                 "bid1Price": "17215.50",
                 "bid1Size": "84.489",
                 "ask1Price": "17216.00",
-                "ask1Size": "83.020"
+                "ask1Size": "83.020",
+                "fundingIntervalHour": "8",
             },
             "cs": 24987956059,
             "ts": 1673272861686
@@ -269,6 +270,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                         "turnover24h": "2352.94950046",
                         "volume24h": "49337318",
                         "fundingRate": "-0.001034",
+                        "fundingIntervalHour": "8",
                         "nextFundingTime": "1672387200000",
                         "predictedDeliveryPrice": "",
                         "basisRate": "",
@@ -678,6 +680,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(expected_mark_price, msg.mark_price)
         expected_funding_time = int(funding_update["nextFundingTime"]) // 1e3
         self.assertEqual(expected_funding_time, msg.next_funding_utc_timestamp)
+        self.assertEqual(8, msg.funding_interval_hours)
 
     @aioresponses()
     async def test_get_funding_info(self, mock_api):
@@ -695,3 +698,4 @@ class BybitPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(Decimal(str(general_info_result["markPrice"])), funding_info.mark_price)
         expected_utc_timestamp = int(general_info_result["nextFundingTime"]) // 1e3
         self.assertEqual(expected_utc_timestamp, funding_info.next_funding_utc_timestamp)
+        self.assertEqual(8, funding_info.funding_interval_hours)

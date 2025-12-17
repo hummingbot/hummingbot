@@ -19,7 +19,7 @@ from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_ord
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative import BinancePerpetualDerivative
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
-from hummingbot.core.data_type.funding_info import FundingInfo
+from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
@@ -199,6 +199,8 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
     async def test_get_funding_info_from_exchange_successful(self, mock_api):
         url = web_utils.public_rest_url(CONSTANTS.MARK_PRICE_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        funding_info_url = web_utils.public_rest_url(CONSTANTS.FUNDING_INFO_URL, domain=self.domain)
+        funding_info_regex_url = re.compile(f"^{funding_info_url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_response = {
             "symbol": self.ex_trading_pair,
@@ -211,6 +213,14 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
             "time": 1641288825000,
         }
         mock_api.get(regex_url, body=json.dumps(mock_response))
+
+        funding_info_response = [
+            {
+                "symbol": self.ex_trading_pair,
+                "fundingIntervalHours": 8,
+            }
+        ]
+        mock_api.get(funding_info_regex_url, body=json.dumps(funding_info_response))
 
         result = await self.data_source.get_funding_info(self.trading_pair)
 
@@ -220,11 +230,14 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
         self.assertEqual(result.mark_price, Decimal(mock_response["markPrice"]))
         self.assertEqual(result.next_funding_utc_timestamp, int(mock_response["nextFundingTime"] * 1e-3))
         self.assertEqual(result.rate, Decimal(mock_response["lastFundingRate"]))
+        self.assertEqual(8, result.funding_interval_hours)
 
     @aioresponses()
     async def test_get_funding_info(self, mock_api):
         url = web_utils.public_rest_url(CONSTANTS.MARK_PRICE_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        funding_info_url = web_utils.public_rest_url(CONSTANTS.FUNDING_INFO_URL, domain=self.domain)
+        funding_info_regex_url = re.compile(f"^{funding_info_url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_response = {
             "symbol": self.ex_trading_pair,
@@ -238,6 +251,14 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
         }
         mock_api.get(regex_url, body=json.dumps(mock_response))
 
+        funding_info_response = [
+            {
+                "symbol": self.ex_trading_pair,
+                "fundingIntervalHours": 8,
+            }
+        ]
+        mock_api.get(funding_info_regex_url, body=json.dumps(funding_info_response))
+
         result = await self.data_source.get_funding_info(trading_pair=self.trading_pair)
 
         self.assertIsInstance(result, FundingInfo)
@@ -246,6 +267,7 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
         self.assertEqual(result.mark_price, Decimal(mock_response["markPrice"]))
         self.assertEqual(result.next_funding_utc_timestamp, int(mock_response["nextFundingTime"] * 1e-3))
         self.assertEqual(result.rate, Decimal(mock_response["lastFundingRate"]))
+        self.assertEqual(8, result.funding_interval_hours)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
@@ -307,6 +329,7 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
         msg_queue_diffs: asyncio.Queue = asyncio.Queue()
         msg_queue_trades: asyncio.Queue = asyncio.Queue()
         msg_queue_funding: asyncio.Queue = asyncio.Queue()
+        self.data_source._funding_interval_hours_map[self.trading_pair] = 8
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         mock_ws.close.return_value = None
 
@@ -345,6 +368,11 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
         self.assertTrue(result.has_trade_id)
         self.assertEqual(result.trade_id, 817295132)
         self.assertEqual(self.trading_pair, result.content["trading_pair"])
+
+        funding_update = await msg_queue_funding.get()
+        self.assertIsInstance(funding_update, FundingInfoUpdate)
+        self.assertEqual(self.trading_pair, funding_update.trading_pair)
+        self.assertEqual(8, funding_update.funding_interval_hours)
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
