@@ -38,8 +38,11 @@ max_order_age: null
 # (Enter 1 to indicate 1%), value below 0, e.g. -1, is to disable this feature - not recommended.
 order_refresh_tolerance_pct: null
 
-# Size of your bid and ask order.
+# Size of your bid and ask order (base asset). Can be null if quote_order_amount is set.
 order_amount: null
+
+# Size of your bid and ask order (quote asset). Can be null if order_amount is set.
+quote_order_amount: null
 
 # Price band ceiling.
 price_ceiling: null
@@ -78,11 +81,41 @@ inventory_price: null
 # Number of levels of orders to place on each side of the order book.
 order_levels: null
 
-# Increase or decrease size of consecutive orders after the first order (if order_levels > 1).
+# Number of levels of orders to place on buy side of the order book (override for "order_levels").
+buy_levels: null
+
+# Number of levels of orders to place on sell side of the order book (override for "order_levels").
+sell_levels: null
+
+# Increase or decrease size of consecutive orders in base asset after the first order (if order_levels > 1).
 order_level_amount: null
+
+# Increase or decrease size of consecutive buy orders in base asset after the first order (if buy_levels > 1).
+buy_level_amount: null
+
+# Increase or decrease size of consecutive sell orders in base asset after the first order (if sell_levels > 1).
+sell_level_amount: null
+
+# Increase or decrease size of consecutive orders in quote asset after the first order
+# (if order_levels > 1 and quote_order_amount > 0).
+quote_order_level_amount: null
+
+# Increase or decrease size of consecutive buy orders in quote asset after the first order
+# (if buy_levels > 1 and quote_order_amount > 0).
+quote_buy_level_amount: null
+
+# Increase or decrease size of consecutive sell orders in quote asset after the first order
+# (if sell_levels > 1 and quote_order_amount > 0).
+quote_sell_level_amount: null
 
 # Order price space between orders (if order_levels > 1).
 order_level_spread: null
+
+# Order price space between buy orders (if buy_levels > 1).
+buy_level_spread: null
+
+# Order price space between sell orders (if sell_levels > 1).
+sell_level_spread: null
 
 # How long to wait before placing the next order in case your order gets filled.
 filled_order_delay: null
