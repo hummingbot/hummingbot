@@ -7,7 +7,10 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any, Dict, NamedTuple, Optional, Tuple
 
-from async_timeout import timeout
+try:
+    from asyncio import timeout
+except ImportError:
+    from async_timeout import timeout
 
 from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder

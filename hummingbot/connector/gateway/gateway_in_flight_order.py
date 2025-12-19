@@ -3,7 +3,10 @@ import copy
 from decimal import Decimal
 from typing import Any, Dict, Optional, Tuple
 
-from async_timeout import timeout
+try:
+    from asyncio import timeout
+except ImportError:
+    from async_timeout import timeout
 
 from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate

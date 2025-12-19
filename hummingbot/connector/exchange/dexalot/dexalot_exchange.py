@@ -4,7 +4,10 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
 import dateutil.parser as dp
-from async_timeout import timeout
+try:
+    from asyncio import timeout
+except ImportError:
+    from async_timeout import timeout
 from bidict import bidict
 
 from hummingbot.connector.constants import s_decimal_NaN

@@ -4,7 +4,10 @@ import asyncio
 import logging
 from typing import Callable, Coroutine, NamedTuple, Optional
 
-from async_timeout import timeout
+try:
+    from asyncio import timeout
+except ImportError:
+    from async_timeout import timeout
 
 import hummingbot
 from hummingbot.core.utils.async_utils import safe_ensure_future
