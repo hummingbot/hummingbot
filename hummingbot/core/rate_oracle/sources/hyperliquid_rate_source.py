@@ -16,7 +16,7 @@ class HyperliquidRateSource(RateSourceBase):
     def __init__(self):
         super().__init__()
         self._exchange: Optional[HyperliquidExchange] = None  # delayed because of circular reference
-        self._hypreliquid_perpetual_exchange: Optional[HyperliquidPerpetualDerivative] = None
+        self._hyperliquid_perpetual_exchange: Optional[HyperliquidPerpetualDerivative] = None
 
     @property
     def name(self) -> str:
@@ -24,7 +24,7 @@ class HyperliquidRateSource(RateSourceBase):
 
     @async_ttl_cache(ttl=30, maxsize=1)
     async def get_prices(self, quote_token: Optional[str] = None) -> Dict[str, Decimal]:
-        self._ensure_exchange()
+        await self._ensure_exchange()
         results = {}
         try:
             pairs_prices = await self._exchange.get_all_pairs_prices()
@@ -32,7 +32,7 @@ class HyperliquidRateSource(RateSourceBase):
                 pair = pair_price["symbol"]
                 try:
                     if ":" in pair:
-                        trading_pair = await self._hypreliquid_perpetual_exchange.trading_pair_associated_to_exchange_symbol(symbol=pair)
+                        trading_pair = await self._hyperliquid_perpetual_exchange.trading_pair_associated_to_exchange_symbol(symbol=pair)
                     else:
                         trading_pair = await self._exchange.trading_pair_associated_to_exchange_symbol(symbol=pair)
                 except KeyError:
@@ -50,9 +50,10 @@ class HyperliquidRateSource(RateSourceBase):
             )
         return results
 
-    def _ensure_exchange(self):
+    async def _ensure_exchange(self):
         if self._exchange is None:
             self._exchange = self._build_hyperliquid_connector_without_private_keys()
+        if self._hyperliquid_perpetual_exchange is None:
             self._hyperliquid_perpetual_exchange = self._build_hyperliquid_perpetual_connector_without_private_keys()
 
     @staticmethod

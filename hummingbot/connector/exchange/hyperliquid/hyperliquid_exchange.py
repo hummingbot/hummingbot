@@ -161,38 +161,38 @@ class HyperliquidExchange(ExchangePyBase):
             for perp_meta, asset_ctx in zip(perp_meta_list, asset_ctx_list):
                 hip_3_meta_to_ctx.append((perp_meta, asset_ctx))
 
-            res = []
+        res = []
 
-            spot_infos: list = exchange_info[1]
-            hip_result = []
+        spot_infos: list = exchange_info[1]
+        hip_result = []
 
-            for dex_info in exchange_info_dex:
-                if not dex_info:
-                    continue
+        for dex_info in exchange_info_dex:
+            if not dex_info:
+                continue
 
-                perp_meta_list = dex_info.get("perpMeta", []) or []
-                asset_ctx_list = dex_info.get("assetCtxs", []) or []
+            perp_meta_list = dex_info.get("perpMeta", []) or []
+            asset_ctx_list = dex_info.get("assetCtxs", []) or []
 
-                if len(perp_meta_list) != len(asset_ctx_list):
-                    print("WARN: perpMeta and assetCtxs length mismatch")
+            if len(perp_meta_list) != len(asset_ctx_list):
+                print("WARN: perpMeta and assetCtxs length mismatch")
 
-                for perp_meta, asset_ctx in zip(perp_meta_list, asset_ctx_list):
-                    merged_info = {**perp_meta, **asset_ctx}
-                    hip_result.append(merged_info)
+            for perp_meta, asset_ctx in zip(perp_meta_list, asset_ctx_list):
+                merged_info = {**perp_meta, **asset_ctx}
+                hip_result.append(merged_info)
 
-            # Spot markets
-            for spot_data in spot_infos:
-                res.append({
-                    "symbol": spot_data.get("coin"),
-                    "price": spot_data.get("markPx"),
-                })
+        # Spot markets
+        for spot_data in spot_infos:
+            res.append({
+                "symbol": spot_data.get("coin"),
+                "price": spot_data.get("markPx"),
+            })
 
-            # HIP-3 perp markets
-            for hip_3_data in hip_result:
-                res.append({
-                    "symbol": hip_3_data.get("name"),
-                    "price": hip_3_data.get("markPx"),
-                })
+        # HIP-3 perp markets
+        for hip_3_data in hip_result:
+            res.append({
+                "symbol": hip_3_data.get("name"),
+                "price": hip_3_data.get("markPx"),
+            })
         return res
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
