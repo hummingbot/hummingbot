@@ -130,15 +130,69 @@ class HyperliquidExchange(ExchangePyBase):
 
     async def get_all_pairs_prices(self) -> List[Dict[str, str]]:
         res = []
-        response = await self._api_post(
+        exchange_info = await self._api_post(
             path_url=CONSTANTS.TICKER_PRICE_CHANGE_URL,
             data={"type": CONSTANTS.ASSET_CONTEXT_TYPE})
-        for token in response[1]:
-            result = {}
-            price = token['midPx']
-            result["symbol"] = token['coin']
-            result["price"] = price
-            res.append(result)
+
+        exchange_info_dex = await self._api_post(
+            path_url=self.trading_pairs_request_path,
+            data={"type": CONSTANTS.DEX_ASSET_CONTEXT_TYPE})
+        # Remove any null entries
+        exchange_info_dex = [info for info in exchange_info_dex if info is not None]
+
+        for dex_info in exchange_info_dex:
+            dex_name = dex_info.get("name", "")
+            dex_meta = await self._api_post(
+                path_url=self.trading_pairs_request_path,
+                data={"type": "metaAndAssetCtxs", "dex": dex_name})
+            if "universe" in dex_meta[0]:
+                dex_info["perpMeta"] = dex_meta[0]["universe"]
+                dex_info["assetCtxs"] = dex_meta[1]
+        # Store DEX info separately for reference
+        self._dex_markets = exchange_info_dex
+
+        # spot_infos: list = response[0]
+        hip_3_meta_to_ctx: list = []
+        for dex_info in exchange_info_dex:
+            if dex_info is None:
+                continue
+            perp_meta_list = dex_info.get("perpMeta", []) or []
+            asset_ctx_list = dex_info.get("assetCtxs", "")
+            for perp_meta, asset_ctx in zip(perp_meta_list, asset_ctx_list):
+                hip_3_meta_to_ctx.append((perp_meta, asset_ctx))
+
+            res = []
+
+            spot_infos: list = exchange_info[1]
+            hip_result = []
+
+            for dex_info in exchange_info_dex:
+                if not dex_info:
+                    continue
+
+                perp_meta_list = dex_info.get("perpMeta", []) or []
+                asset_ctx_list = dex_info.get("assetCtxs", []) or []
+
+                if len(perp_meta_list) != len(asset_ctx_list):
+                    print("WARN: perpMeta and assetCtxs length mismatch")
+
+                for perp_meta, asset_ctx in zip(perp_meta_list, asset_ctx_list):
+                    merged_info = {**perp_meta, **asset_ctx}
+                    hip_result.append(merged_info)
+
+            # Spot markets
+            for spot_data in spot_infos:
+                res.append({
+                    "symbol": spot_data.get("coin"),
+                    "price": spot_data.get("markPx"),
+                })
+
+            # HIP-3 perp markets
+            for hip_3_data in hip_result:
+                res.append({
+                    "symbol": hip_3_data.get("name"),
+                    "price": hip_3_data.get("markPx"),
+                })
         return res
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):

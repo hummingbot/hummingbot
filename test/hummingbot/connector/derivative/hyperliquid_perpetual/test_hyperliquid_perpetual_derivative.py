@@ -2020,7 +2020,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         mock_api.post(self.trading_rules_url, body=json.dumps(dex_response))
 
         # Mock meta endpoint for DEX
-        dex_meta_response = {"universe": dex_response[0]["perpMeta"]}
+        dex_meta_response = [{"universe": dex_response[0]["perpMeta"]}, {}]
         mock_api.post(self.trading_rules_url, body=json.dumps(dex_meta_response))
 
         self.async_run_with_timeout(self.exchange._update_trading_rules())
@@ -2041,7 +2041,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         # Mock DEX response with null entries
         dex_response = [None, {"name": "xyz", "perpMeta": []}]
         mock_api.post(self.trading_rules_url, body=json.dumps(dex_response))
-        mock_api.post(self.trading_rules_url, body=json.dumps({"universe": []}))
+        mock_api.post(self.trading_rules_url, body=json.dumps([{"universe": []}, {}]))
 
         self.async_run_with_timeout(self.exchange._update_trading_rules())
 
@@ -2059,7 +2059,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             "perpMeta": [{"name": "xyz:AAPL", "szDecimals": 3}]
         }]
         mock_api.post(self.trading_rules_url, body=json.dumps(dex_response))
-        mock_api.post(self.trading_rules_url, body=json.dumps({"universe": dex_response[0]["perpMeta"]}))
+        mock_api.post(self.trading_rules_url, body=json.dumps([{"universe": dex_response[0]["perpMeta"]}]))
 
         self.async_run_with_timeout(self.exchange._initialize_trading_pair_symbol_map())
 
