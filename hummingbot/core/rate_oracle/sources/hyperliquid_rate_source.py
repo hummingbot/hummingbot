@@ -6,6 +6,9 @@ from hummingbot.core.rate_oracle.sources.rate_source_base import RateSourceBase
 from hummingbot.core.utils import async_ttl_cache
 
 if TYPE_CHECKING:
+    from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_derivative import (
+        HyperliquidPerpetualDerivative,
+    )
     from hummingbot.connector.exchange.hyperliquid.hyperliquid_exchange import HyperliquidExchange
 
 
@@ -13,6 +16,7 @@ class HyperliquidRateSource(RateSourceBase):
     def __init__(self):
         super().__init__()
         self._exchange: Optional[HyperliquidExchange] = None  # delayed because of circular reference
+        self._hypreliquid_perpetual_exchange: Optional[HyperliquidPerpetualDerivative] = None
 
     @property
     def name(self) -> str:
@@ -27,7 +31,10 @@ class HyperliquidRateSource(RateSourceBase):
             for pair_price in pairs_prices:
                 pair = pair_price["symbol"]
                 try:
-                    trading_pair = await self._exchange.trading_pair_associated_to_exchange_symbol(symbol=pair)
+                    if ":" in pair:
+                        trading_pair = await self._hypreliquid_perpetual_exchange.trading_pair_associated_to_exchange_symbol(symbol=pair)
+                    else:
+                        trading_pair = await self._exchange.trading_pair_associated_to_exchange_symbol(symbol=pair)
                 except KeyError:
                     continue  # skip pairs that we don't track
                 if quote_token is not None:
@@ -46,6 +53,7 @@ class HyperliquidRateSource(RateSourceBase):
     def _ensure_exchange(self):
         if self._exchange is None:
             self._exchange = self._build_hyperliquid_connector_without_private_keys()
+            self._hyperliquid_perpetual_exchange = self._build_hyperliquid_perpetual_connector_without_private_keys()
 
     @staticmethod
     def _build_hyperliquid_connector_without_private_keys() -> 'HyperliquidExchange':
@@ -57,5 +65,20 @@ class HyperliquidRateSource(RateSourceBase):
             use_vault=False,
             hyperliquid_mode = "arb_wallet",
             hyperliquid_address="",
+            trading_required=False,
+        )
+
+    @staticmethod
+    def _build_hyperliquid_perpetual_connector_without_private_keys() -> 'HyperliquidPerpetualDerivative':
+        from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_derivative import (
+            HyperliquidPerpetualDerivative,
+        )
+
+        return HyperliquidPerpetualDerivative(
+            hyperliquid_perpetual_secret_key="",
+            trading_pairs=[],
+            use_vault=False,
+            hyperliquid_perpetual_mode = "arb_wallet",
+            hyperliquid_perpetual_address="",
             trading_required=False,
         )
