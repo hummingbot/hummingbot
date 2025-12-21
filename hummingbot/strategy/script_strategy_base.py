@@ -186,10 +186,11 @@ class ScriptStrategyBase(StrategyPyBase):
         data: List[Any] = []
         for connector_name, connector in self.connectors.items():
             for asset in self.get_assets(connector_name):
-                data.append([connector_name,
-                             asset,
-                             float(connector.get_balance(asset)),
-                             float(connector.get_available_balance(asset))])
+                if connector.get_balance(asset) > Decimal('0'):
+                    data.append([connector_name,
+                                 asset,
+                                 float(connector.get_balance(asset)),
+                                 float(connector.get_available_balance(asset))])
         df = pd.DataFrame(data=data, columns=columns).replace(np.nan, '', regex=True)
         df.sort_values(by=["Exchange", "Asset"], inplace=True)
         return df
