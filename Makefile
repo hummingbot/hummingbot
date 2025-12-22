@@ -1,5 +1,5 @@
 .ONESHELL:
-.PHONY: test run run_coverage report_coverage development-diff-cover uninstall build install setup deploy
+.PHONY: test run run_coverage report_coverage development-diff-cover uninstall build install setup deploy down
 
 ifeq (, $(shell which conda))
   $(error "Conda is not found in PATH. Please install Conda or add it to your PATH.")
@@ -78,3 +78,6 @@ setup:
 deploy:
 	@set -a; . ./.compose.env 2>/dev/null || true; set +a; \
 	docker compose up -d
+
+down: 
+	docker compose --profile gateway down
