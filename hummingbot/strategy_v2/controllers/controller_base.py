@@ -207,3 +207,17 @@ class ControllerBase(RunnableBase):
         controller to be displayed in the UI.
         """
         return []
+
+    def get_custom_info(self) -> dict:
+        """
+        Override this method to provide custom controller-specific information that will be
+        published alongside the performance report via MQTT.
+
+        Note: This data is sent every performance_report_interval (default: 1 second),
+        so keep the payload small (recommended: < 1KB) to avoid excessive bandwidth usage.
+
+        Returns:
+            dict: Custom information to be included in the MQTT performance report.
+                  Empty dict by default.
+        """
+        return {}
