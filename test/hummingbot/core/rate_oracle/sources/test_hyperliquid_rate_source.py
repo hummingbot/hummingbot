@@ -25,7 +25,6 @@ class HyperliquidRateSourceTest(IsolatedAsyncioWrapperTestCase):
 
     def setup_hyperliquid_responses(self, mock_api, expected_rate: Decimal):
         pairs_url = web_utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_URL)
-
         symbols_response = [
             {
                 "tokens": [
@@ -164,11 +163,9 @@ class HyperliquidRateSourceTest(IsolatedAsyncioWrapperTestCase):
                 }
             ]
         ]
-
         # mock_api.get(pairs_us_url, body=json.dumps(symbols_response))
         mock_api.post(pairs_url, body=json.dumps(symbols_response))
         # mock_api.post(hyperliquid_prices_us_url, body=json.dumps(hyperliquid_prices_us_response))
-
         mock_api.post(hyperliquid_prices_global_url, body=json.dumps(hyperliquid_prices_global_response))
 
     @aioresponses()

@@ -134,8 +134,6 @@ class HyperliquidExchange(ExchangePyBase):
             path_url=CONSTANTS.TICKER_PRICE_CHANGE_URL,
             data={"type": CONSTANTS.ASSET_CONTEXT_TYPE})
         spot_infos: list = exchange_info[1]
-        res = []
-        # Spot markets
         for spot_data in spot_infos:
             res.append({
                 "symbol": spot_data.get("coin"),
