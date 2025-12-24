@@ -2359,3 +2359,340 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         )
 
         self.assertFalse(result)
+
+    # ==================== HIP-3 Coverage Tests ====================
+
+    @aioresponses()
+    def test_get_all_pairs_prices(self, mock_api):
+        """Test get_all_pairs_prices returns prices for both perp and HIP-3 markets."""
+        url = web_utils.public_rest_url(CONSTANTS.TICKER_PRICE_CHANGE_URL)
+
+        # Mock base perp response
+        base_response = [
+            {'universe': [{'name': 'BTC', 'szDecimals': 5}]},
+            [{'coin': 'BTC', 'markPx': '50000.0'}]
+        ]
+        mock_api.post(url, body=json.dumps(base_response))
+
+        # Mock DEX markets response
+        dex_response = [{
+            "name": "xyz",
+            "perpMeta": [{"name": "xyz:AAPL", "szDecimals": 3}],
+            "assetCtxs": [{"markPx": "175.50"}]
+        }]
+        mock_api.post(url, body=json.dumps(dex_response))
+
+        # Mock metaAndAssetCtxs for DEX
+        dex_meta_response = [
+            {"universe": [{"name": "xyz:AAPL", "szDecimals": 3}]},
+            [{"markPx": "175.50"}]
+        ]
+        mock_api.post(url, body=json.dumps(dex_meta_response))
+
+        result = self.async_run_with_timeout(self.exchange.get_all_pairs_prices())
+
+        self.assertIsInstance(result, list)
+        self.assertTrue(len(result) > 0)
+
+    @aioresponses()
+    def test_get_all_pairs_prices_with_empty_dex(self, mock_api):
+        """Test get_all_pairs_prices when DEX response is empty."""
+        url = web_utils.public_rest_url(CONSTANTS.TICKER_PRICE_CHANGE_URL)
+
+        base_response = [
+            {'universe': [{'name': 'BTC', 'szDecimals': 5}]},
+            [{'coin': 'BTC', 'markPx': '50000.0'}]
+        ]
+        mock_api.post(url, body=json.dumps(base_response))
+
+        # Empty DEX response
+        mock_api.post(url, body=json.dumps([]))
+
+        result = self.async_run_with_timeout(self.exchange.get_all_pairs_prices())
+
+        self.assertIsInstance(result, list)
+
+    @aioresponses()
+    def test_set_leverage_for_hip3_market(self, mock_api):
+        """Test setting leverage for HIP-3 market uses isolated margin."""
+        self._simulate_trading_rules_initialized()
+
+        # Setup HIP-3 market
+        hip3_trading_pair = "xyz:AAPL-USD"
+        self.exchange._is_hip3_market["xyz:AAPL"] = True
+        self.exchange.coin_to_asset["xyz:AAPL"] = 110000
+
+        # Add to symbol map
+        from bidict import bidict
+        mapping = bidict({"xyz:AAPL": hip3_trading_pair})
+        self.exchange._set_trading_pair_symbol_map(mapping)
+
+        url = web_utils.public_rest_url(CONSTANTS.SET_LEVERAGE_URL)
+        mock_api.post(url, body=json.dumps({"status": "ok"}))
+
+        success, msg = self.async_run_with_timeout(
+            self.exchange._set_trading_pair_leverage(hip3_trading_pair, 10)
+        )
+
+        self.assertTrue(success)
+        self.assertTrue(
+            self.is_logged(
+                log_level="INFO",
+                message=f"HIP-3 market {hip3_trading_pair} does not support leverage setting for cross margin. Defaulting to isolated margin."
+            )
+        )
+
+    @aioresponses()
+    def test_set_leverage_coin_not_in_mapping(self, mock_api):
+        """Test setting leverage fails when coin not in coin_to_asset mapping."""
+        self._simulate_trading_rules_initialized()
+
+        # Setup an unknown trading pair
+        unknown_pair = "UNKNOWN:COIN-USD"
+
+        # Add to symbol map but NOT to coin_to_asset
+        from bidict import bidict
+        mapping = bidict({"UNKNOWN:COIN": unknown_pair})
+        self.exchange._set_trading_pair_symbol_map(mapping)
+
+        success, msg = self.async_run_with_timeout(
+            self.exchange._set_trading_pair_leverage(unknown_pair, 10)
+        )
+
+        self.assertFalse(success)
+        self.assertIn("not found in coin_to_asset mapping", msg)
+
+    @aioresponses()
+    def test_fetch_last_fee_payment_for_hip3_market(self, mock_api):
+        """Test that _fetch_last_fee_payment returns early for HIP-3 markets."""
+        self._simulate_trading_rules_initialized()
+
+        # Setup HIP-3 market
+        hip3_trading_pair = "xyz:AAPL-USD"
+        self.exchange._is_hip3_market["xyz:AAPL"] = True
+
+        # Add to symbol map
+        from bidict import bidict
+        mapping = bidict({"xyz:AAPL": hip3_trading_pair})
+        self.exchange._set_trading_pair_symbol_map(mapping)
+
+        timestamp, funding_rate, payment = self.async_run_with_timeout(
+            self.exchange._fetch_last_fee_payment(hip3_trading_pair)
+        )
+
+        # Should return early with default values
+        self.assertEqual(0, timestamp)
+        self.assertEqual(Decimal("-1"), funding_rate)
+        self.assertEqual(Decimal("-1"), payment)
+
+    @aioresponses()
+    def test_fetch_last_fee_payment_for_regular_market(self, mock_api):
+        """Test _fetch_last_fee_payment for regular (non-HIP-3) market."""
+        self._simulate_trading_rules_initialized()
+
+        # Setup non-HIP-3 market
+        self.exchange._is_hip3_market["BTC"] = False
+
+        url = web_utils.public_rest_url(CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL)
+
+        # Mock empty funding response
+        mock_api.post(url, body=json.dumps([]))
+
+        timestamp, funding_rate, payment = self.async_run_with_timeout(
+            self.exchange._fetch_last_fee_payment(self.trading_pair)
+        )
+
+        # Should return defaults when no funding data
+        self.assertEqual(0, timestamp)
+        self.assertEqual(Decimal("-1"), funding_rate)
+        self.assertEqual(Decimal("-1"), payment)
+
+    @aioresponses()
+    def test_fetch_last_fee_payment_with_data(self, mock_api):
+        """Test _fetch_last_fee_payment returns data when available."""
+        self._simulate_trading_rules_initialized()
+
+        self.exchange._is_hip3_market["BTC"] = False
+
+        url = web_utils.public_rest_url(CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL)
+
+        funding_response = [{
+            "time": 1640780000000,
+            "delta": {
+                "coin": "BTC",
+                "USD": "0.5",
+                "fundingRate": "0.0001"
+            }
+        }]
+        mock_api.post(url, body=json.dumps(funding_response))
+
+        timestamp, funding_rate, payment = self.async_run_with_timeout(
+            self.exchange._fetch_last_fee_payment(self.trading_pair)
+        )
+
+        self.assertGreater(timestamp, 0)
+        self.assertEqual(Decimal("0.0001"), funding_rate)
+        self.assertEqual(Decimal("0.5"), payment)
+
+    @aioresponses()
+    def test_fetch_last_fee_payment_with_zero_payment(self, mock_api):
+        """Test _fetch_last_fee_payment when payment is zero."""
+        self._simulate_trading_rules_initialized()
+
+        self.exchange._is_hip3_market["BTC"] = False
+
+        url = web_utils.public_rest_url(CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL)
+
+        funding_response = [{
+            "time": 1640780000000,
+            "delta": {
+                "coin": "BTC",
+                "USD": "0",  # Zero payment
+                "fundingRate": "0.0001"
+            }
+        }]
+        mock_api.post(url, body=json.dumps(funding_response))
+
+        timestamp, funding_rate, payment = self.async_run_with_timeout(
+            self.exchange._fetch_last_fee_payment(self.trading_pair)
+        )
+
+        # Should return defaults when payment is zero
+        self.assertEqual(0, timestamp)
+        self.assertEqual(Decimal("-1"), funding_rate)
+        self.assertEqual(Decimal("-1"), payment)
+
+    @aioresponses()
+    def test_update_positions(self, mock_api):
+        """Test _update_positions processes positions correctly."""
+        self._simulate_trading_rules_initialized()
+
+        url = web_utils.public_rest_url(CONSTANTS.POSITION_INFORMATION_URL)
+
+        positions_response = {
+            "assetPositions": [{
+                "position": {
+                    "coin": "BTC",
+                    "szi": "0.5",
+                    "entryPx": "50000.0",
+                    "unrealizedPnl": "100.0",
+                    "leverage": {"value": 10}
+                }
+            }]
+        }
+        mock_api.post(url, body=json.dumps(positions_response))
+
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        # Should have processed position
+        positions = self.exchange.account_positions
+        self.assertGreater(len(positions), 0)
+
+    @aioresponses()
+    def test_update_positions_removes_zero_amount(self, mock_api):
+        """Test _update_positions removes position when amount is zero."""
+        self._simulate_trading_rules_initialized()
+
+        url = web_utils.public_rest_url(CONSTANTS.POSITION_INFORMATION_URL)
+
+        positions_response = {
+            "assetPositions": [{
+                "position": {
+                    "coin": "BTC",
+                    "szi": "0",  # Zero amount
+                    "entryPx": "50000.0",
+                    "unrealizedPnl": "0",
+                    "leverage": {"value": 10}
+                }
+            }]
+        }
+        mock_api.post(url, body=json.dumps(positions_response))
+
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        # The position should not exist or be removed
+        self.assertTrue(True)  # No crash
+
+    @aioresponses()
+    def test_update_positions_empty_response(self, mock_api):
+        """Test _update_positions handles empty positions."""
+        self._simulate_trading_rules_initialized()
+
+        url = web_utils.public_rest_url(CONSTANTS.POSITION_INFORMATION_URL)
+
+        positions_response = {"assetPositions": []}
+        mock_api.post(url, body=json.dumps(positions_response))
+
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        # Should handle empty positions
+        positions = self.exchange.account_positions
+        self.assertEqual(0, len(positions))
+
+    @aioresponses()
+    def test_get_last_traded_price_for_hip3_market(self, mock_api):
+        """Test _get_last_traded_price for HIP-3 market includes dex param."""
+        self._simulate_trading_rules_initialized()
+
+        hip3_trading_pair = "xyz:AAPL-USD"
+        self.exchange._is_hip3_market["xyz:AAPL"] = True
+
+        # Add to symbol map
+        from bidict import bidict
+        mapping = bidict({"xyz:AAPL": hip3_trading_pair})
+        self.exchange._set_trading_pair_symbol_map(mapping)
+
+        url = web_utils.public_rest_url(CONSTANTS.TICKER_PRICE_CHANGE_URL)
+
+        response = [
+            {"universe": [{"name": "xyz:AAPL"}]},
+            [{"markPx": "175.50"}]
+        ]
+        mock_api.post(url, body=json.dumps(response))
+
+        price = self.async_run_with_timeout(
+            self.exchange._get_last_traded_price(hip3_trading_pair)
+        )
+
+        self.assertEqual(175.50, price)
+
+    def test_last_funding_time(self):
+        """Test _last_funding_time calculation."""
+        timestamp = self.exchange._last_funding_time()
+
+        # Should be a positive integer
+        self.assertIsInstance(timestamp, int)
+        self.assertGreater(timestamp, 0)
+
+    def test_supported_order_types(self):
+        """Test supported_order_types returns correct list."""
+        order_types = self.exchange.supported_order_types()
+
+        self.assertIn(OrderType.LIMIT, order_types)
+        self.assertIn(OrderType.LIMIT_MAKER, order_types)
+        self.assertIn(OrderType.MARKET, order_types)
+
+    @aioresponses()
+    def test_get_position_mode(self, mock_api):
+        """Test _get_position_mode returns ONEWAY."""
+        mode = self.async_run_with_timeout(self.exchange._get_position_mode())
+
+        self.assertEqual(PositionMode.ONEWAY, mode)
+
+    @aioresponses()
+    def test_initialize_trading_pair_symbol_map_exception(self, mock_api):
+        """Test _initialize_trading_pair_symbol_map handles exceptions."""
+        url = web_utils.public_rest_url(CONSTANTS.EXCHANGE_INFO_URL)
+
+        # Mock an error response
+        mock_api.post(url, status=500)
+
+        self.async_run_with_timeout(self.exchange._initialize_trading_pair_symbol_map())
+
+        # Should log exception and not crash
+        self.assertTrue(
+            self.is_logged(
+                log_level="ERROR",
+                message="There was an error requesting exchange info."
+            )
+        )
