@@ -285,7 +285,6 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         )
 
     async def get_all_pairs_prices(self) -> List[Dict[str, str]]:
-        res = []
         exchange_info = await self._api_post(
             path_url=CONSTANTS.TICKER_PRICE_CHANGE_URL,
             data={"type": CONSTANTS.ASSET_CONTEXT_TYPE})
@@ -304,10 +303,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             if "universe" in dex_meta[0]:
                 dex_info["perpMeta"] = dex_meta[0]["universe"]
                 dex_info["assetCtxs"] = dex_meta[1]
-        # Store DEX info separately for reference
-        self._dex_markets = exchange_info_dex
 
-        # spot_infos: list = response[0]
         hip_3_meta_to_ctx: list = []
         for dex_info in exchange_info_dex:
             if dex_info is None:
@@ -317,10 +313,9 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             for perp_meta, asset_ctx in zip(perp_meta_list, asset_ctx_list):
                 hip_3_meta_to_ctx.append((perp_meta, asset_ctx))
 
-        res = []
-
         perps_infos: list = exchange_info[1]
         hip_result = []
+        res = []
 
         for dex_info in exchange_info_dex:
             if not dex_info:
@@ -330,7 +325,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             asset_ctx_list = dex_info.get("assetCtxs", []) or []
 
             if len(perp_meta_list) != len(asset_ctx_list):
-                print("WARN: perpMeta and assetCtxs length mismatch")
+                self.logger().info("WARN: perpMeta and assetCtxs length mismatch")
 
             for perp_meta, asset_ctx in zip(perp_meta_list, asset_ctx_list):
                 merged_info = {**perp_meta, **asset_ctx}
