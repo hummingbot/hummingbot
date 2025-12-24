@@ -10,6 +10,7 @@ repos:
       types: ['file']
       files: \.(py|pyx|pxd)$
     - id: detect-private-key
+      exclude: 'lambdaplex_auth\.py$'
 -   repo: https://github.com/hhatto/autopep8
     rev: v2.3.2
     hooks:
