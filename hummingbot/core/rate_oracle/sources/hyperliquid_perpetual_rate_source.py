@@ -22,7 +22,7 @@ class HyperliquidPerpetualRateSource(RateSourceBase):
 
     @async_ttl_cache(ttl=30, maxsize=1)
     async def get_prices(self, quote_token: Optional[str] = None) -> Dict[str, Decimal]:
-        await self._ensure_exchange()
+        self._ensure_exchange()
         results = {}
         try:
             pairs_prices = await self._exchange.get_all_pairs_prices()
@@ -45,7 +45,7 @@ class HyperliquidPerpetualRateSource(RateSourceBase):
             )
         return results
 
-    async def _ensure_exchange(self):
+    def _ensure_exchange(self):
         if self._exchange is None:
             self._exchange = self._build_hyperliquid_perpetual_connector_without_private_keys()
 
