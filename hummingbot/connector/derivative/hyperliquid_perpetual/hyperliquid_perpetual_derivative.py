@@ -894,19 +894,30 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         self._set_trading_pair_symbol_map(mapping)
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
-        exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+        exchange_symbol = await self.exchange_symbol_associated_to_pair(
+            trading_pair=trading_pair
+        )
+
         params = {"type": CONSTANTS.ASSET_CONTEXT_TYPE}
         if self._is_hip3_market.get(exchange_symbol, False):
             params["dex"] = exchange_symbol
 
-        response = await self._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_URL,
-                                        data=params)
+        response = await self._api_post(
+            path_url=CONSTANTS.TICKER_PRICE_CHANGE_URL,
+            data=params
+        )
 
-        price = 0
-        for index, i in enumerate(response[0]['universe']):
-            if i['name'] == exchange_symbol:
-                price = float(response[1][index]['markPx'])
-        return price
+        universe = response[0]["universe"]
+        asset_ctxs = response[1]
+
+        for meta, ctx in zip(universe, asset_ctxs):
+            if meta.get("name") == exchange_symbol:
+                return float(ctx["markPx"])
+
+        raise RuntimeError(
+            f"Price not found for trading_pair={trading_pair}, "
+            f"exchange_symbol={exchange_symbol}"
+        )
 
     def _resolve_trading_pair_symbols_duplicate(self, mapping: bidict, new_exchange_symbol: str, base: str, quote: str):
         """Resolves name conflicts provoked by futures contracts.
