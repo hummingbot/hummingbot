@@ -25,6 +25,8 @@ CURRENCY = "USD"
 META_INFO = "meta"
 
 ASSET_CONTEXT_TYPE = "metaAndAssetCtxs"
+DEX_ASSET_CONTEXT_TYPE = "perpDexs"
+
 
 TRADES_TYPE = "userFills"
 
@@ -59,6 +61,7 @@ PING_URL = "/info"
 
 TRADES_ENDPOINT_NAME = "trades"
 DEPTH_ENDPOINT_NAME = "l2Book"
+FUNDING_INFO_ENDPOINT_NAME = "activeAssetCtx"
 
 
 USER_ORDERS_ENDPOINT_NAME = "orderUpdates"
