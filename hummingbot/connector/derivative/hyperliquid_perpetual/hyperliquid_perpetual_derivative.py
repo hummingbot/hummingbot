@@ -285,65 +285,64 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         )
 
     async def get_all_pairs_prices(self) -> List[Dict[str, str]]:
+        res: List[Dict[str, str]] = []
+
+        # ===== Fetch main perp info =====
         exchange_info = await self._api_post(
             path_url=CONSTANTS.TICKER_PRICE_CHANGE_URL,
-            data={"type": CONSTANTS.ASSET_CONTEXT_TYPE})
+            data={"type": CONSTANTS.ASSET_CONTEXT_TYPE},
+        )
 
+        perp_universe = exchange_info[0].get("universe", [])
+        perp_asset_ctxs = exchange_info[1]
+
+        if len(perp_universe) != len(perp_asset_ctxs):
+            self.logger().info("WARN: perpMeta and assetCtxs length mismatch")
+
+        # Merge perpetual markets
+        for meta, ctx in zip(perp_asset_ctxs, perp_universe):
+            merged = {**meta, **ctx}
+            res.append({
+                "symbol": merged.get("name"),
+                "price": merged.get("markPx"),
+            })
+
+        # ===== Fetch DEX / HIP-3 markets =====
         exchange_info_dex = await self._api_post(
             path_url=self.trading_pairs_request_path,
-            data={"type": CONSTANTS.DEX_ASSET_CONTEXT_TYPE})
-        # Remove any null entries
-        exchange_info_dex = [info for info in exchange_info_dex if info is not None]
+            data={"type": CONSTANTS.DEX_ASSET_CONTEXT_TYPE},
+        )
+
+        exchange_info_dex = [info for info in exchange_info_dex if info]
 
         for dex_info in exchange_info_dex:
-            dex_name = dex_info.get("name", "")
+            dex_name = dex_info.get("name")
+            if not dex_name:
+                continue
+
             dex_meta = await self._api_post(
                 path_url=self.trading_pairs_request_path,
-                data={"type": "metaAndAssetCtxs", "dex": dex_name})
-            if "universe" in dex_meta[0]:
-                dex_info["perpMeta"] = dex_meta[0]["universe"]
-                dex_info["assetCtxs"] = dex_meta[1]
+                data={"type": "metaAndAssetCtxs", "dex": dex_name},
+            )
 
-        hip_3_meta_to_ctx: list = []
-        for dex_info in exchange_info_dex:
-            if dex_info is None:
-                continue
-            perp_meta_list = dex_info.get("perpMeta", []) or []
-            asset_ctx_list = dex_info.get("assetCtxs", "")
-            for perp_meta, asset_ctx in zip(perp_meta_list, asset_ctx_list):
-                hip_3_meta_to_ctx.append((perp_meta, asset_ctx))
-
-        perps_infos: list = exchange_info[1]
-        hip_result = []
-        res = []
-
-        for dex_info in exchange_info_dex:
-            if not dex_info:
+            if not dex_meta or "universe" not in dex_meta[0]:
                 continue
 
-            perp_meta_list = dex_info.get("perpMeta", []) or []
-            asset_ctx_list = dex_info.get("assetCtxs", []) or []
+            perp_meta_list = dex_meta[0]["universe"]
+            asset_ctx_list = dex_meta[1]
 
             if len(perp_meta_list) != len(asset_ctx_list):
-                self.logger().info("WARN: perpMeta and assetCtxs length mismatch")
+                self.logger().info(
+                    f"WARN: perpMeta and assetCtxs length mismatch for dex={dex_name}"
+                )
 
-            for perp_meta, asset_ctx in zip(perp_meta_list, asset_ctx_list):
-                merged_info = {**perp_meta, **asset_ctx}
-                hip_result.append(merged_info)
+            for meta, ctx in zip(perp_meta_list, asset_ctx_list):
+                merged = {**meta, **ctx}
+                res.append({
+                    "symbol": merged.get("name"),
+                    "price": merged.get("markPx"),
+                })
 
-        # Perpetual markets
-        for perp_data in perps_infos:
-            res.append({
-                "symbol": perp_data.get("coin"),
-                "price": perp_data.get("markPx"),
-            })
-
-        # HIP-3 perp markets
-        for hip_3_data in hip_result:
-            res.append({
-                "symbol": hip_3_data.get("name"),
-                "price": hip_3_data.get("markPx"),
-            })
         return res
 
     async def _status_polling_loop_fetch_updates(self):
