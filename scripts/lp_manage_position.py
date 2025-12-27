@@ -1,17 +1,49 @@
+"""
+lp_manage_position.py
+
+CLMM LP position manager that automatically rebalances positions.
+
+BEHAVIOR
+--------
+- If an existing position exists in the pool, monitors it (does NOT auto-create a new one)
+- Monitors price vs. active position's price bounds
+- When price is out-of-bounds for >= rebalance_seconds, fully closes the position and re-enters
+- First position can be double-sided (if both base_amount and quote_amount provided)
+- After first rebalance, all subsequent positions are SINGLE-SIDED (more capital efficient)
+- Single-sided positions provide only the token needed based on where price moved
+
+PARAMETERS
+----------
+- connector: CLMM connector in format 'name/type' (e.g. raydium/clmm, meteora/clmm)
+- trading_pair: Trading pair (e.g. SOL-USDC)
+- pool_address: Optional pool address (will fetch automatically if not provided)
+- base_amount: Initial base token amount (0 for quote-only position)
+- quote_amount: Initial quote token amount (0 for base-only position)
+  * If both are 0 and no existing position: monitoring only
+  * If both provided: creates double-sided initial position
+  * After rebalance: only one token provided based on price direction
+- position_width_pct: TOTAL position width as percentage of mid price (e.g. 2.0 = ±1%)
+- rebalance_seconds: Seconds price must stay out-of-bounds before rebalancing
+
+NOTES
+-----
+- All tick rounding and amount calculations delegated to Gateway
+- After first rebalance, automatically switches to single-sided positions
+"""
+
 import asyncio
 import logging
 import os
 import time
-from datetime import datetime
 from decimal import Decimal
-from typing import Dict, Union
+from typing import Dict, Optional
 
 from pydantic import Field
 
 from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway.common_types import ConnectorType, get_connector_type
-from hummingbot.connector.gateway.gateway_lp import AMMPoolInfo, AMMPositionInfo, CLMMPoolInfo, CLMMPositionInfo
+from hummingbot.connector.gateway.gateway_lp import CLMMPoolInfo, CLMMPositionInfo
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
@@ -19,34 +51,24 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 class LpPositionManagerConfig(BaseClientModel):
     script_file_name: str = os.path.basename(__file__)
     connector: str = Field("raydium/clmm", json_schema_extra={
-        "prompt": "AMM or CLMM connector in format 'name/type' (e.g. raydium/clmm, uniswap/amm)", "prompt_on_new": True})
+        "prompt": "CLMM connector in format 'name/type' (e.g. raydium/clmm, meteora/clmm)", "prompt_on_new": True})
     trading_pair: str = Field("SOL-USDC", json_schema_extra={
         "prompt": "Trading pair (e.g. SOL-USDC)", "prompt_on_new": True})
     pool_address: str = Field("", json_schema_extra={
         "prompt": "Pool address (optional - will fetch automatically if not provided)", "prompt_on_new": False})
-    target_price: Decimal = Field(150.0, json_schema_extra={
-        "prompt": "Target price to trigger position opening", "prompt_on_new": True})
-    trigger_above: bool = Field(True, json_schema_extra={
-        "prompt": "Trigger when price rises above target? (True for above/False for below)", "prompt_on_new": True})
-    upper_range_width_pct: Decimal = Field(10.0, json_schema_extra={
-        "prompt": "Upper range width in percentage from center price (e.g. 10.0 for +10%)", "prompt_on_new": True})
-    lower_range_width_pct: Decimal = Field(10.0, json_schema_extra={
-        "prompt": "Lower range width in percentage from center price (e.g. 10.0 for -10%)", "prompt_on_new": True})
-    base_token_amount: Decimal = Field(0.01, json_schema_extra={
-        "prompt": "Base token amount to add to position (0 for quote only)", "prompt_on_new": True})
-    quote_token_amount: Decimal = Field(2.0, json_schema_extra={
-        "prompt": "Quote token amount to add to position (0 for base only)", "prompt_on_new": True})
-    out_of_range_secs: int = Field(60, json_schema_extra={
-        "prompt": "Seconds price must be out of range before closing (e.g. 60 for 1 min)", "prompt_on_new": True})
-    check_interval: int = Field(10, json_schema_extra={
-        "prompt": "How often to check price in seconds (default: 10)", "prompt_on_new": False})
+    base_amount: Decimal = Field(Decimal("0"), json_schema_extra={
+        "prompt": "Initial base token amount (0 for quote-only initial position)", "prompt_on_new": True})
+    quote_amount: Decimal = Field(Decimal("0"), json_schema_extra={
+        "prompt": "Initial quote token amount (0 for base-only initial position)", "prompt_on_new": True})
+    position_width_pct: Decimal = Field(Decimal("2.0"), json_schema_extra={
+        "prompt": "TOTAL position width as percentage (e.g. 2.0 for ±1% around mid price)", "prompt_on_new": True})
+    rebalance_seconds: int = Field(60, json_schema_extra={
+        "prompt": "Seconds price must stay out-of-bounds before rebalancing", "prompt_on_new": True})
 
 
 class LpPositionManager(ScriptStrategyBase):
     """
-    This strategy shows how to use the Gateway LP connector to manage a AMM or CLMM position.
-    It monitors pool prices, opens a position when a target price is reached,
-    and closes the position if the price moves out of range for a specified duration.
+    CLMM LP position manager that automatically rebalances when price moves out of bounds.
     """
 
     @classmethod
@@ -56,94 +78,77 @@ class LpPositionManager(ScriptStrategyBase):
     def __init__(self, connectors: Dict[str, ConnectorBase], config: LpPositionManagerConfig):
         super().__init__(connectors)
         self.config = config
-        self.exchange = config.connector  # Now uses connector directly (e.g., "raydium/clmm")
+        self.exchange = config.connector
         self.connector_type = get_connector_type(config.connector)
         self.base_token, self.quote_token = self.config.trading_pair.split("-")
 
+        # Verify this is a CLMM connector
+        if self.connector_type != ConnectorType.CLMM:
+            raise ValueError(f"This script only supports CLMM connectors. Got: {config.connector}")
+
         # State tracking
-        self.position_opened = False
-        self.position_opening = False  # Track if position is being opened
-        self.pool_info: Union[AMMPoolInfo, CLMMPoolInfo] = None
-        self.position_info: Union[CLMMPositionInfo, AMMPositionInfo, None] = None
-        self.out_of_range_start_time = None
-        self.position_closing = False
-        self.position_closed = False  # Track if position has been closed
-        self.amm_position_open_price = None  # Track AMM position open price for monitoring
+        self.pool_info: Optional[CLMMPoolInfo] = None
+        self.position_info: Optional[CLMMPositionInfo] = None
+        self.current_position_id: Optional[str] = None
+        self.out_of_bounds_since: Optional[float] = None
+        self.has_rebalanced_once: bool = False  # Track if we've done first rebalance
 
         # Order tracking
-        self.open_position_order_id = None
-        self.close_position_order_id = None
-
-        # Price checking timing
-        self.last_price = None
-        self.last_price_update = None
-        self.last_check_time = None
+        self.pending_open_order_id: Optional[str] = None
+        self.pending_close_order_id: Optional[str] = None
+        self.pending_operation: Optional[str] = None  # "opening", "closing"
 
         # Log startup information
-        condition = "rises above" if self.config.trigger_above else "falls below"
-        if self.connector_type == ConnectorType.CLMM:
+        self.log_with_clock(logging.INFO,
+                            f"LP Position Manager initialized for {self.config.trading_pair} on {self.exchange}\n"
+                            f"Position width: ±{float(self.config.position_width_pct) / 2:.2f}% around mid price\n"
+                            f"Rebalance threshold: {self.config.rebalance_seconds} seconds out-of-bounds")
+
+        if self.config.base_amount > 0 or self.config.quote_amount > 0:
             self.log_with_clock(logging.INFO,
-                                f"Will open CLMM position when price {condition} target price: {self.config.target_price}\n"
-                                f"Position range: -{self.config.lower_range_width_pct}% to +{self.config.upper_range_width_pct}% from center price\n"
-                                f"Will close position if price is outside range for {self.config.out_of_range_secs} seconds")
+                                f"Initial amounts: {self.config.base_amount} {self.base_token} / "
+                                f"{self.config.quote_amount} {self.quote_token}")
         else:
-            self.log_with_clock(logging.INFO,
-                                f"Will open AMM position when price {condition} target price: {self.config.target_price}\n"
-                                f"Token amounts: {self.config.base_token_amount} {self.base_token} / {self.config.quote_token_amount} {self.quote_token}\n"
-                                f"Will close position if price moves -{self.config.lower_range_width_pct}% or +{self.config.upper_range_width_pct}% from open price\n"
-                                f"Will close position if price is outside range for {self.config.out_of_range_secs} seconds")
+            self.log_with_clock(logging.INFO, "No initial amounts - will only monitor existing positions")
 
-        self.log_with_clock(logging.INFO, f"Price will be checked every {self.config.check_interval} seconds")
+        # Check for existing positions on startup
+        safe_ensure_future(self.initialize_position())
 
-        # Check for existing positions on startup (delayed to allow connector initialization)
-        safe_ensure_future(self.check_and_use_existing_position())
-
-    async def check_and_use_existing_position(self):
-        """Check for existing positions on startup"""
+    async def initialize_position(self):
+        """Check for existing positions or create initial position on startup"""
         await asyncio.sleep(3)  # Wait for connector to initialize
 
         # Fetch pool info first
         await self.fetch_pool_info()
 
+        # Check if user has existing position in this pool
         if await self.check_existing_positions():
-            self.position_opened = True
-            # For AMM positions, store current price as reference for monitoring
-            if self.connector_type == ConnectorType.AMM and self.pool_info:
-                self.amm_position_open_price = float(self.pool_info.price)
-            self.logger().info("Using existing position for monitoring")
+            self.logger().info(f"Found existing position {self.current_position_id}, will monitor it")
+            return
+
+        # No existing position - create one if user provided amounts
+        if self.config.base_amount > 0 or self.config.quote_amount > 0:
+            self.logger().info("No existing position found, creating initial position...")
+            await self.create_initial_position()
+        else:
+            self.logger().info("No existing position and no initial amounts provided - monitoring only")
 
     def on_tick(self):
-        # Check price and position status on each tick
-        if self.position_closed:
-            # Position has been closed, do nothing more
+        """Called on each strategy tick"""
+        if self.pending_operation:
+            # Operation in progress, wait for confirmation
             return
-        elif self.position_opening:
-            # Position is being opened, wait for confirmation
-            return
-        elif self.position_closing:
-            # Position is being closed, wait for confirmation
-            return
-        elif not self.position_opened:
-            # Check if enough time has passed since last check
-            current_time = datetime.now()
-            if self.last_check_time is None or (current_time - self.last_check_time).total_seconds() >= self.config.check_interval:
-                self.last_check_time = current_time
-                # If no position is open, check price conditions (which includes fetching pool info)
-                safe_ensure_future(self.check_price_and_open_position())
+
+        if self.current_position_id:
+            # Monitor existing position
+            safe_ensure_future(self.monitor_and_rebalance())
         else:
-            # If position is open, monitor it
-            safe_ensure_future(self.update_position_info())
-            safe_ensure_future(self.monitor_position())
+            # No position yet, just update pool info
+            safe_ensure_future(self.fetch_pool_info())
 
     async def fetch_pool_info(self):
-        """Fetch pool information to get tokens and current price"""
-        if self.config.pool_address:
-            self.logger().info(f"Fetching pool info for pool {self.config.pool_address} on {self.config.connector}")
-        else:
-            self.logger().info(f"Fetching pool info for {self.config.trading_pair} on {self.config.connector}")
+        """Fetch pool information to get current price"""
         try:
-            # If pool address is provided, we can fetch pool info directly
-            # Otherwise, get_pool_info will fetch the pool address internally
             self.pool_info = await self.connectors[self.exchange].get_pool_info(
                 trading_pair=self.config.trading_pair
             )
@@ -152,7 +157,7 @@ class LpPositionManager(ScriptStrategyBase):
             self.logger().error(f"Error fetching pool info: {str(e)}")
             return None
 
-    async def get_pool_address(self):
+    async def get_pool_address(self) -> Optional[str]:
         """Get pool address from config or fetch from connector"""
         if self.config.pool_address:
             return self.config.pool_address
@@ -160,31 +165,23 @@ class LpPositionManager(ScriptStrategyBase):
             connector = self.connectors[self.exchange]
             return await connector.get_pool_address(self.config.trading_pair)
 
-    async def check_existing_positions(self):
+    async def check_existing_positions(self) -> bool:
         """Check if user has existing positions in this pool"""
         try:
             connector = self.connectors[self.exchange]
             pool_address = await self.get_pool_address()
 
-            if self.connector_type == ConnectorType.CLMM:
-                # For CLMM, fetch all user positions for this pool
-                positions = await connector.get_user_positions(pool_address=pool_address)
-                if positions and len(positions) > 0:
-                    # Use the first position found (could be enhanced to let user choose)
-                    self.position_info = positions[0]
-                    self.logger().info(f"Found existing CLMM position: {self.position_info.address}")
-                    return True
-            else:
-                # For AMM, check if user has position in this pool
-                if pool_address:
-                    position_info = await connector.get_position_info(
-                        trading_pair=self.config.trading_pair,
-                        position_address=pool_address
-                    )
-                    if position_info and position_info.lp_token_amount > 0:
-                        self.position_info = position_info
-                        self.logger().info(f"Found existing AMM position in pool {pool_address}")
-                        return True
+            if not pool_address:
+                return False
+
+            positions = await connector.get_user_positions(pool_address=pool_address)
+
+            if positions and len(positions) > 0:
+                # Use the first position found (could be enhanced to let user choose)
+                self.position_info = positions[0]
+                self.current_position_id = self.position_info.address
+                self.logger().info(f"Found existing position: {self.current_position_id}")
+                return True
 
             return False
         except Exception as e:
@@ -192,454 +189,426 @@ class LpPositionManager(ScriptStrategyBase):
             return False
 
     async def update_position_info(self):
-        """Fetch the latest position information if we have an open position"""
-        if not self.position_opened or not self.position_info:
+        """Fetch the latest position information"""
+        if not self.current_position_id:
             return
 
         try:
-            if isinstance(self.position_info, CLMMPositionInfo):
-                # For CLMM, use the position address
-                self.position_info = await self.connectors[self.exchange].get_position_info(
-                    trading_pair=self.config.trading_pair,
-                    position_address=self.position_info.address
+            self.position_info = await self.connectors[self.exchange].get_position_info(
+                trading_pair=self.config.trading_pair,
+                position_address=self.current_position_id
+            )
+
+            # Log position details
+            if self.position_info:
+                self.logger().info(
+                    f"{self.exchange} {self.config.trading_pair} position: {self.current_position_id[:8]}... "
+                    f"(price: {self.position_info.price:.2f}, "
+                    f"range: {self.position_info.lower_price:.2f}-{self.position_info.upper_price:.2f})"
                 )
-            else:  # AMM position
-                # For AMM, get the pool address
-                pool_address = await self.get_pool_address()
-                if pool_address:
-                    self.position_info = await self.connectors[self.exchange].get_position_info(
-                        trading_pair=self.config.trading_pair,
-                        position_address=pool_address
-                    )
+
             self.logger().debug(f"Updated position info: {self.position_info}")
         except Exception as e:
             self.logger().error(f"Error updating position info: {str(e)}")
 
-    async def check_price_and_open_position(self):
-        """Check current price and open position if target is reached"""
-        if self.position_opened:
+    async def create_initial_position(self):
+        """Create initial position (can be double-sided or single-sided)"""
+        if self.pending_operation:
             return
 
         try:
-            # Fetch current pool info to get the latest price
-            await self.fetch_pool_info()
+            if not self.pool_info:
+                await self.fetch_pool_info()
 
             if not self.pool_info:
-                self.logger().warning("Unable to get current price")
+                self.logger().error("Cannot create position without pool info")
                 return
 
-            current_price = Decimal(str(self.pool_info.price))
-
-            # Update last price tracking
-            self.last_price = current_price
-            self.last_price_update = datetime.now()
-
-            # Log current price vs target
-            price_diff = current_price - self.config.target_price
-            percentage_diff = (price_diff / self.config.target_price) * 100
-
-            if self.config.trigger_above:
-                status = "waiting for price to rise" if current_price < self.config.target_price else "ABOVE TARGET"
-                self.logger().info(f"Current price: {current_price:.6f} | Target: {self.config.target_price:.6f} | "
-                                   f"Difference: {price_diff:.6f} ({percentage_diff:+.2f}%) | Status: {status}")
-            else:
-                status = "waiting for price to fall" if current_price > self.config.target_price else "BELOW TARGET"
-                self.logger().info(f"Current price: {current_price:.6f} | Target: {self.config.target_price:.6f} | "
-                                   f"Difference: {price_diff:.6f} ({percentage_diff:+.2f}%) | Status: {status}")
-
-            # Check for existing positions in this pool
-            if not self.position_info:
-                await self.check_existing_positions()
-                if self.position_info:
-                    self.logger().info("Found existing position in pool, will monitor it instead of creating new one")
-                    self.position_opened = True
-                    # For AMM positions, store current price as reference for monitoring
-                    if self.connector_type == ConnectorType.AMM:
-                        self.amm_position_open_price = float(current_price)
-                    return
-
-            # Check if price condition is met
-            condition_met = False
-            if self.config.trigger_above and current_price > self.config.target_price:
-                condition_met = True
-                self.logger().info(f"Price rose above target: {current_price} > {self.config.target_price}")
-            elif not self.config.trigger_above and current_price < self.config.target_price:
-                condition_met = True
-                self.logger().info(f"Price fell below target: {current_price} < {self.config.target_price}")
-
-            if condition_met:
-                self.logger().info("Price condition met! Opening position...")
-                await self.open_position()
-
-        except Exception as e:
-            self.logger().error(f"Error in check_price_and_open_position: {str(e)}")
-
-    async def open_position(self):
-        """Open a liquidity position around the target price"""
-        # Prevent multiple open attempts
-        if self.position_opening or self.position_opened:
-            return
-
-        self.position_opening = True
-
-        try:
-            # Calculate position price range based on CURRENT pool price
             current_price = float(self.pool_info.price)
+            lower_pct, upper_pct = self._compute_width_percentages()
 
-            # Log different messages based on connector type
-            if self.connector_type == ConnectorType.CLMM:
-                self.logger().info(f"Submitting CLMM position order around current price {current_price} with range -{self.config.lower_range_width_pct}% to +{self.config.upper_range_width_pct}%")
-            else:  # AMM
-                self.logger().info(f"Submitting AMM position order at current price {current_price}")
+            base_amt = float(self.config.base_amount)
+            quote_amt = float(self.config.quote_amount)
 
-            # Use the connector's add_liquidity method
-            if self.connector_type == ConnectorType.CLMM:
-                # CLMM uses upper_width_pct and lower_width_pct parameters
-                order_id = self.connectors[self.exchange].add_liquidity(
-                    trading_pair=self.config.trading_pair,
-                    price=current_price,
-                    upper_width_pct=float(self.config.upper_range_width_pct),
-                    lower_width_pct=float(self.config.lower_range_width_pct),
-                    base_token_amount=float(self.config.base_token_amount),
-                    quote_token_amount=float(self.config.quote_token_amount),
-                )
-            else:  # AMM
-                # AMM doesn't use spread_pct, just token amounts
-                order_id = self.connectors[self.exchange].add_liquidity(
-                    trading_pair=self.config.trading_pair,
-                    price=current_price,
-                    base_token_amount=float(self.config.base_token_amount),
-                    quote_token_amount=float(self.config.quote_token_amount),
-                )
+            if base_amt > 0 and quote_amt > 0:
+                self.logger().info(f"Creating double-sided position at price {current_price:.6f} "
+                                   f"with range -{lower_pct}% to +{upper_pct}%")
+            elif base_amt > 0:
+                self.logger().info(f"Creating base-only position at price {current_price:.6f} "
+                                   f"with {base_amt} {self.base_token}")
+            elif quote_amt > 0:
+                self.logger().info(f"Creating quote-only position at price {current_price:.6f} "
+                                   f"with {quote_amt} {self.quote_token}")
+            else:
+                return
 
-            self.open_position_order_id = order_id
-            self.logger().info(f"Position opening order submitted with ID: {order_id} (awaiting confirmation)")
+            order_id = self.connectors[self.exchange].add_liquidity(
+                trading_pair=self.config.trading_pair,
+                price=current_price,
+                upper_width_pct=upper_pct,
+                lower_width_pct=lower_pct,
+                base_token_amount=base_amt,
+                quote_token_amount=quote_amt,
+            )
 
-            # For AMM positions, store the price for later use
-            if self.connector_type == ConnectorType.AMM:
-                self.amm_position_open_price = current_price
+            self.pending_open_order_id = order_id
+            self.pending_operation = "opening"
+            self.logger().info(f"Initial position order submitted with ID: {order_id}")
 
         except Exception as e:
-            self.logger().error(f"Error submitting position open order: {str(e)}")
-            self.position_opening = False
+            self.logger().error(f"Error creating initial position: {str(e)}")
+            self.pending_operation = None
 
-    async def monitor_position(self):
-        """Monitor the position and price to determine if position should be closed"""
-        if not self.position_info:
-            return
-
-        # Don't monitor if we're already closing
-        if self.position_closing:
+    async def monitor_and_rebalance(self):
+        """Monitor position and rebalance if needed"""
+        if not self.current_position_id:
             return
 
         try:
-            # Fetch current pool info to get the latest price
+            # Update position and pool info
+            await self.update_position_info()
             await self.fetch_pool_info()
 
             if not self.pool_info or not self.position_info:
                 return
 
             current_price = Decimal(str(self.pool_info.price))
+            lower_price = Decimal(str(self.position_info.lower_price))
+            upper_price = Decimal(str(self.position_info.upper_price))
 
-            # Initialize variables that will be used later
-            out_of_range = False
+            # Check if price is in bounds
+            in_bounds = self._price_in_bounds(current_price, lower_price, upper_price)
 
-            # Handle different types of position info based on connector type
-            if isinstance(self.position_info, CLMMPositionInfo):
-                # For CLMM positions, check if price is outside range
-                lower_price = Decimal(str(self.position_info.lower_price))
-                upper_price = Decimal(str(self.position_info.upper_price))
-
-                # Check if price is outside position range
-                if float(current_price) < float(lower_price):
-                    out_of_range = True
-                    out_of_range_amount = (float(lower_price) - float(current_price)) / float(lower_price) * 100
-                    self.logger().info(f"Price {current_price} is below position lower bound {lower_price} by {out_of_range_amount:.2f}%")
-                elif float(current_price) > float(upper_price):
-                    out_of_range = True
-                    out_of_range_amount = (float(current_price) - float(upper_price)) / float(upper_price) * 100
-                    self.logger().info(f"Price {current_price} is above position upper bound {upper_price} by {out_of_range_amount:.2f}%")
-
-            elif isinstance(self.position_info, AMMPositionInfo):
-                # For AMM positions, track deviation from the price when position was opened
-                if not hasattr(self, 'amm_position_open_price') or self.amm_position_open_price is None:
-                    self.logger().error("AMM position open price not set! Cannot monitor position properly.")
-                    return
-
-                reference_price = self.amm_position_open_price
-
-                # Calculate acceptable range based on separate upper and lower width percentages
-                lower_width_pct = float(self.config.lower_range_width_pct) / 100.0
-                upper_width_pct = float(self.config.upper_range_width_pct) / 100.0
-                lower_bound = reference_price * (1 - lower_width_pct)
-                upper_bound = reference_price * (1 + upper_width_pct)
-
-                if float(current_price) < lower_bound:
-                    out_of_range = True
-                    out_of_range_amount = (lower_bound - float(current_price)) / lower_bound * 100
-                    self.logger().info(f"Price {current_price} is below lower bound {lower_bound:.6f} by {out_of_range_amount:.2f}%")
-                elif float(current_price) > upper_bound:
-                    out_of_range = True
-                    out_of_range_amount = (float(current_price) - upper_bound) / upper_bound * 100
-                    self.logger().info(f"Price {current_price} is above upper bound {upper_bound:.6f} by {out_of_range_amount:.2f}%")
+            if in_bounds:
+                # Price is in bounds
+                if self.out_of_bounds_since is not None:
+                    self.logger().info("Price moved back into position bounds, resetting timer")
+                    self.out_of_bounds_since = None
             else:
-                self.logger().warning("Unknown position info type")
+                # Price is out of bounds
+                current_time = time.time()
+
+                if self.out_of_bounds_since is None:
+                    self.out_of_bounds_since = current_time
+                    if float(current_price) < float(lower_price):
+                        deviation = (float(lower_price) - float(current_price)) / float(lower_price) * 100
+                        self.logger().info(f"Price {current_price:.6f} moved below lower bound {lower_price:.6f} by {deviation:.2f}%")
+                    else:
+                        deviation = (float(current_price) - float(upper_price)) / float(upper_price) * 100
+                        self.logger().info(f"Price {current_price:.6f} moved above upper bound {upper_price:.6f} by {deviation:.2f}%")
+
+                elapsed_seconds = current_time - self.out_of_bounds_since
+
+                if elapsed_seconds >= self.config.rebalance_seconds:
+                    self.logger().info(f"Price out of bounds for {elapsed_seconds:.0f} seconds (threshold: {self.config.rebalance_seconds})")
+                    await self.rebalance_position(current_price, lower_price, upper_price)
+                else:
+                    self.logger().info(f"Price out of bounds for {elapsed_seconds:.0f}/{self.config.rebalance_seconds} seconds")
+
+        except Exception as e:
+            self.logger().error(f"Error in monitor_and_rebalance: {str(e)}")
+
+    async def rebalance_position(self, current_price: Decimal, old_lower: Decimal, old_upper: Decimal):
+        """Close current position and open new single-sided position"""
+        if self.pending_operation:
+            return
+
+        try:
+            self.logger().info("Starting rebalance: closing current position...")
+
+            # First, close the current position
+            order_id = self.connectors[self.exchange].remove_liquidity(
+                trading_pair=self.config.trading_pair,
+                position_address=self.current_position_id
+            )
+
+            self.pending_close_order_id = order_id
+            self.pending_operation = "closing"
+            self.logger().info(f"Position close order submitted with ID: {order_id}")
+
+            # Store rebalance info for when close completes
+            self._rebalance_info = {
+                "current_price": current_price,
+                "old_lower": old_lower,
+                "old_upper": old_upper,
+            }
+
+        except Exception as e:
+            self.logger().error(f"Error starting rebalance: {str(e)}")
+            self.pending_operation = None
+
+    async def open_rebalanced_position(self):
+        """Open new single-sided position after closing old one"""
+        try:
+            if not hasattr(self, '_rebalance_info'):
+                self.logger().error("No rebalance info available")
                 return
 
-            # Track out-of-range time
-            current_time = time.time()
-            if out_of_range:
-                if self.out_of_range_start_time is None:
-                    self.out_of_range_start_time = current_time
-                    self.logger().info("Price moved out of range. Starting timer...")
+            info = self._rebalance_info
+            current_price = info["current_price"]
+            old_lower = info["old_lower"]
+            old_upper = info["old_upper"]
 
-                # Check if price has been out of range for sufficient time
-                elapsed_seconds = current_time - self.out_of_range_start_time
-                if elapsed_seconds >= self.config.out_of_range_secs:
-                    self.logger().info(f"Price has been out of range for {elapsed_seconds:.0f} seconds (threshold: {self.config.out_of_range_secs} seconds)")
-                    self.logger().info("Closing position...")
-                    await self.close_position()
-                else:
-                    self.logger().info(f"Price out of range for {elapsed_seconds:.0f} seconds, waiting until {self.config.out_of_range_secs} seconds...")
-            else:
-                # Reset timer if price moves back into range
-                if self.out_of_range_start_time is not None:
-                    self.logger().info("Price moved back into range. Resetting timer.")
-                    self.out_of_range_start_time = None
+            # Determine which side to enter based on where price is relative to old range
+            side = self._determine_side(current_price, old_lower, old_upper)
 
-                # Add log statement when price is in range
-                if isinstance(self.position_info, AMMPositionInfo):
-                    self.logger().info(f"Price {current_price} is within monitoring range: {lower_bound:.6f} to {upper_bound:.6f}")
-                else:
-                    self.logger().info(f"Price {current_price} is within range: {lower_price:.6f} to {upper_price:.6f}")
+            # Get current pool info for latest price
+            await self.fetch_pool_info()
+            if not self.pool_info:
+                self.logger().error("Cannot open rebalanced position without pool info")
+                return
 
-        except Exception as e:
-            self.logger().error(f"Error monitoring position: {str(e)}")
+            new_mid_price = float(self.pool_info.price)
+            lower_pct, upper_pct = self._compute_width_percentages()
 
-    async def close_position(self):
-        """Close the liquidity position"""
-        if not self.position_info:
-            return
+            # For single-sided position, provide amount for only one side
+            if side == "base":
+                # Price is below range, provide base token only
+                # Use all available base tokens (would need to check balance in real implementation)
+                base_amt = float(self.config.base_amount)
+                quote_amt = 0.0
+                self.logger().info(f"Opening base-only position at {new_mid_price:.6f} (price below previous bounds)")
+            else:  # quote side
+                # Price is above bounds, provide quote token only
+                base_amt = 0.0
+                quote_amt = float(self.config.quote_amount)
+                self.logger().info(f"Opening quote-only position at {new_mid_price:.6f} (price above previous bounds)")
 
-        # Prevent multiple close attempts
-        if self.position_closing or self.position_closed:
-            self.logger().info("Position close already in progress or completed, skipping...")
-            return
+            order_id = self.connectors[self.exchange].add_liquidity(
+                trading_pair=self.config.trading_pair,
+                price=new_mid_price,
+                upper_width_pct=upper_pct,
+                lower_width_pct=lower_pct,
+                base_token_amount=base_amt,
+                quote_token_amount=quote_amt,
+            )
 
-        self.position_closing = True
+            self.pending_open_order_id = order_id
+            self.pending_operation = "opening"
+            self.has_rebalanced_once = True
+            self.logger().info(f"Rebalanced {side}-only position order submitted with ID: {order_id}")
 
-        try:
-            # Use the connector's remove_liquidity method
-            if isinstance(self.position_info, CLMMPositionInfo):
-                self.logger().info(f"Submitting order to close CLMM position {self.position_info.address}...")
-                order_id = self.connectors[self.exchange].remove_liquidity(
-                    trading_pair=self.config.trading_pair,
-                    position_address=self.position_info.address
-                )
-            else:  # AMM position
-                self.logger().info(f"Submitting order to close AMM position for {self.config.trading_pair}...")
-                order_id = self.connectors[self.exchange].remove_liquidity(
-                    trading_pair=self.config.trading_pair
-                )
-
-            self.close_position_order_id = order_id
-            self.logger().info(f"Position closing order submitted with ID: {order_id} (awaiting confirmation)")
+            # Clean up rebalance info
+            delattr(self, '_rebalance_info')
 
         except Exception as e:
-            self.logger().error(f"Error submitting position close order: {str(e)}")
-            self.position_closing = False
+            self.logger().error(f"Error opening rebalanced position: {str(e)}")
+            self.pending_operation = None
 
-    def _get_price_range_visualization(self, current_price: Decimal, lower_price: Decimal, upper_price: Decimal, width: int = 20) -> str:
-        """Generate ASCII visualization of price range"""
-        if not self.pool_info:
-            return ""
+    def _compute_width_percentages(self):
+        """Compute upper and lower width percentages from total position width"""
+        # position_width_pct is TOTAL width, so each side gets half
+        half_width = float(self.config.position_width_pct) / 2.0
+        return half_width, half_width
 
-        # Calculate the price range for visualization
-        price_range = float(upper_price) - float(lower_price)
-        if price_range == 0:
-            return ""
+    @staticmethod
+    def _price_in_bounds(price: Decimal, lower: Decimal, upper: Decimal) -> bool:
+        """Check if price is within position bounds"""
+        return lower <= price <= upper
 
-        # Calculate the position of current price in the range
-        position = (float(current_price) - float(lower_price)) / price_range
-        position = max(0, min(1, position))  # Clamp between 0 and 1
-
-        # Generate the visualization
-        bar = [' '] * width
-        bar[int(position * (width - 1))] = '|'  # Current price marker
-        bar[0] = '['  # Lower bound
-        bar[-1] = ']'  # Upper bound
-
-        return f"{lower_price:.2f} {''.join(bar)} {upper_price:.2f}"
+    @staticmethod
+    def _determine_side(price: Decimal, lower: Decimal, upper: Decimal) -> str:
+        """Determine which side to provide liquidity based on price position"""
+        if price < lower:
+            return "base"
+        elif price > upper:
+            return "quote"
+        else:
+            # Should not happen when rebalancing, but default to base
+            return "base"
 
     async def fetch_position_info_after_fill(self):
-        """Fetch position info after LP order is filled"""
+        """Fetch position info after position is created"""
         try:
-            # Wait a bit for the position to be fully created on-chain
-            await asyncio.sleep(2)
+            await asyncio.sleep(2)  # Wait for position to be created on-chain
 
             connector = self.connectors[self.exchange]
             pool_address = await self.get_pool_address()
 
-            if self.connector_type == ConnectorType.CLMM:
-                # For CLMM, fetch all user positions for this pool and get the latest one
+            if pool_address:
                 positions = await connector.get_user_positions(pool_address=pool_address)
                 if positions:
-                    # Get the most recent position (last in the list)
+                    # Get the most recent position
                     self.position_info = positions[-1]
-                    self.logger().info(f"CLMM position fetched: {self.position_info.address}")
-            else:
-                # For AMM, use the pool address to get position info
-                if pool_address:
-                    self.position_info = await connector.get_position_info(
-                        trading_pair=self.config.trading_pair,
-                        position_address=pool_address
-                    )
-                    self.logger().info(f"AMM position info fetched for pool {pool_address}")
+                    self.current_position_id = self.position_info.address
+                    self.logger().info(f"Position info fetched: {self.current_position_id}")
         except Exception as e:
             self.logger().error(f"Error fetching position info after fill: {str(e)}")
 
     def did_fill_order(self, event):
-        """
-        Called when an order is filled. We use this to confirm position opening/closing.
-        """
+        """Called when an order is filled"""
         # Check if this is our position opening order
-        if hasattr(event, 'order_id') and event.order_id == self.open_position_order_id:
+        if hasattr(event, 'order_id') and event.order_id == self.pending_open_order_id:
             self.logger().info(f"Position opening order {event.order_id} confirmed!")
-            self.position_opened = True
-            self.position_opening = False
 
-            # Log fill details if available
-            if hasattr(event, 'amount'):
-                actual_base = float(event.amount)
-                actual_quote = actual_base * float(event.price) if hasattr(event, 'price') else 0
-                self.logger().info(f"Position opened with amounts: {actual_base:.6f} {self.base_token} + {actual_quote:.6f} {self.quote_token}")
-
-            # Fetch position info after the order is filled
+            # Fetch the new position info
             safe_ensure_future(self.fetch_position_info_after_fill())
 
-            # Notify user
-            msg = f"LP position opened successfully on {self.exchange}"
+            # Clear pending state
+            self.pending_open_order_id = None
+            self.pending_operation = None
+            self.out_of_bounds_since = None  # Reset out-of-bounds timer
+
+            msg = f"LP position opened on {self.exchange}"
             self.notify_hb_app_with_timestamp(msg)
 
         # Check if this is our position closing order
-        elif hasattr(event, 'order_id') and event.order_id == self.close_position_order_id:
+        elif hasattr(event, 'order_id') and event.order_id == self.pending_close_order_id:
             self.logger().info(f"Position closing order {event.order_id} confirmed!")
 
-            # Mark position as closed
-            self.position_closed = True
-            self.position_opened = False
+            # Clear current position
+            self.current_position_id = None
             self.position_info = None
-            self.pool_info = None
-            self.out_of_range_start_time = None
-            self.position_closing = False
-            if hasattr(self, 'amm_position_open_price'):
-                self.amm_position_open_price = None
+            self.pending_close_order_id = None
+            self.pending_operation = None
+            self.out_of_bounds_since = None
 
-            # Log that the strategy has completed
-            self.logger().info("Position closed successfully. Strategy completed.")
-
-            # Notify user
-            msg = f"LP position closed successfully on {self.exchange}"
+            msg = f"LP position closed on {self.exchange}"
             self.notify_hb_app_with_timestamp(msg)
 
+            # If this was a rebalance, open the new position
+            if hasattr(self, '_rebalance_info'):
+                self.logger().info("Position closed, opening rebalanced position...")
+                safe_ensure_future(self.open_rebalanced_position())
+
+    def _create_price_range_visualization(self, lower_price: Decimal, current_price: Decimal,
+                                          upper_price: Decimal) -> str:
+        """Create visual representation of price range with current price marker"""
+        # Calculate position in range (0 to 1)
+        price_range = upper_price - lower_price
+        current_position = (current_price - lower_price) / price_range
+
+        # Create 50-character wide bar
+        bar_width = 50
+        current_pos = int(current_position * bar_width)
+
+        # Build price range bar
+        range_bar = ['─'] * bar_width
+        range_bar[0] = '├'
+        range_bar[-1] = '┤'
+
+        # Place marker inside or outside range
+        if current_pos < 0:
+            # Price below range
+            marker_line = '● ' + ''.join(range_bar)
+        elif current_pos >= bar_width:
+            # Price above range
+            marker_line = ''.join(range_bar) + ' ●'
+        else:
+            # Price within range
+            range_bar[current_pos] = '●'
+            marker_line = ''.join(range_bar)
+
+        viz_lines = []
+        viz_lines.append(marker_line)
+        viz_lines.append(f'{float(lower_price):.2f}' + ' ' * (bar_width - len(f'{float(lower_price):.2f}') - len(f'{float(upper_price):.2f}')) + f'{float(upper_price):.2f}')
+        viz_lines.append(f'Price: {float(current_price):.6f}')
+
+        return '\n'.join(viz_lines)
+
+    def _calculate_token_distribution(self, base_amount: Decimal, quote_amount: Decimal) -> str:
+        """Calculate token distribution percentages"""
+        total_value = base_amount + quote_amount
+        if total_value > 0:
+            base_pct = float(base_amount / total_value * 100)
+            quote_pct = float(quote_amount / total_value * 100)
+        else:
+            base_pct = quote_pct = 50.0
+
+        return f"Token Distribution: {base_pct:.1f}% {self.base_token} / {quote_pct:.1f}% {self.quote_token}"
+
     def format_status(self) -> str:
-        """Format status message for display in Hummingbot"""
+        """Format status message for display"""
         lines = []
 
-        if self.position_closed:
-            lines.append("Position has been closed. Strategy completed.")
-        elif self.position_closing:
-            lines.append(f"⏳ Position closing order submitted (ID: {self.close_position_order_id})")
+        if self.pending_operation == "opening":
+            lines.append(f"⏳ Opening position (order ID: {self.pending_open_order_id})")
             lines.append("Awaiting transaction confirmation...")
-        elif self.position_opening:
-            lines.append(f"⏳ Position opening order submitted (ID: {self.open_position_order_id})")
+        elif self.pending_operation == "closing":
+            lines.append(f"⏳ Closing position (order ID: {self.pending_close_order_id})")
             lines.append("Awaiting transaction confirmation...")
-        elif self.position_opened and self.position_info:
-            if isinstance(self.position_info, CLMMPositionInfo):
-                lines.append(f"Position: {self.position_info.address} ({self.config.trading_pair}) on {self.exchange}")
-            else:  # AMM position
-                lines.append(f"Position: {self.config.trading_pair} on {self.exchange}")
+        elif self.current_position_id and self.position_info:
+            # Active position
+            lines.append(f"Position: {self.current_position_id}")
 
-            # Common position info for both CLMM and AMM
+            # Pool info with address
+            pool_address = self.position_info.pool_address if hasattr(self.position_info, 'pool_address') else self.config.pool_address
+            if pool_address:
+                lines.append(f"Pool: {self.config.trading_pair} ({pool_address})")
+            else:
+                lines.append(f"Pool: {self.config.trading_pair}")
+
+            lines.append(f"Connector: {self.exchange}")
+
+            # Tokens and value section
             base_amount = Decimal(str(self.position_info.base_token_amount))
             quote_amount = Decimal(str(self.position_info.quote_token_amount))
-            total_quote_value = base_amount * Decimal(str(self.pool_info.price)) + quote_amount
+            base_fee = Decimal(str(self.position_info.base_fee_amount))
+            quote_fee = Decimal(str(self.position_info.quote_fee_amount))
 
-            lines.append(f"Tokens: {base_amount:.6f} {self.base_token} / {quote_amount:.6f} {self.quote_token}")
-            lines.append(f"Total Value: {total_quote_value:.2f} {self.quote_token}")
-
-            # Get price range visualization
-            if isinstance(self.position_info, CLMMPositionInfo):
-                lower_price = Decimal(str(self.position_info.lower_price))
-                upper_price = Decimal(str(self.position_info.upper_price))
-                lines.append(f"Position Range: {lower_price:.6f} - {upper_price:.6f}")
-            else:  # AMMPositionInfo
-                # For AMM, show the monitoring range based on open price
-                open_price = Decimal(str(self.amm_position_open_price))
-                lower_width_pct = Decimal(str(self.config.lower_range_width_pct)) / Decimal("100")
-                upper_width_pct = Decimal(str(self.config.upper_range_width_pct)) / Decimal("100")
-                lower_price = open_price * (1 - lower_width_pct)
-                upper_price = open_price * (1 + upper_width_pct)
-                lines.append(f"Position Opened At: {open_price:.6f}")
-                lines.append(f"Monitoring Range: {lower_price:.6f} - {upper_price:.6f} (-{self.config.lower_range_width_pct}% to +{self.config.upper_range_width_pct}% from open price)")
             if self.pool_info:
                 current_price = Decimal(str(self.pool_info.price))
-                price_visualization = self._get_price_range_visualization(current_price, lower_price, upper_price)
-                if price_visualization:
-                    lines.append(price_visualization)
-                lines.append(f"Current Price: {current_price}")
 
-            # Position-specific info
-            if isinstance(self.position_info, CLMMPositionInfo):
-                if self.position_info.base_fee_amount > 0 or self.position_info.quote_fee_amount > 0:
-                    lines.append(f"Fees: {self.position_info.base_fee_amount} {self.base_token} / {self.position_info.quote_fee_amount} {self.quote_token}")
+                # Calculate token value
+                token_value = base_amount * current_price + quote_amount
 
-            if self.out_of_range_start_time:
-                elapsed = time.time() - self.out_of_range_start_time
-                lines.append(f"Price out of range for {elapsed:.0f}/{self.config.out_of_range_secs} seconds")
-        else:
-            lines.append(f"Monitoring {self.base_token}-{self.quote_token} pool on {self.exchange}")
-            lines.append(f"Target Price: {self.config.target_price}")
-            condition = "rises above" if self.config.trigger_above else "falls below"
-            lines.append(f"Will open position when price {condition} target")
-            lines.append(f"Check Interval: Every {self.config.check_interval} seconds")
+                # Calculate fee value
+                fee_value = base_fee * current_price + quote_fee
 
-            if self.last_price is not None:
-                # Calculate price difference
-                price_diff = self.last_price - self.config.target_price
-                percentage_diff = (price_diff / self.config.target_price) * 100
+                # Calculate total value (tokens + fees)
+                total_value = token_value + fee_value
 
-                # Determine status
-                if self.config.trigger_above:
-                    if self.last_price < self.config.target_price:
-                        status_emoji = "⏳"
-                        status_text = f"Waiting (need {self.config.target_price - self.last_price:.6f} more)"
-                    else:
-                        status_emoji = "✅"
-                        status_text = "READY TO OPEN POSITION"
+                lines.append(f"Total Value: {total_value:.6f} {self.quote_token}")
+
+                # Calculate percentages
+                if total_value > 0:
+                    token_pct = float(token_value / total_value * 100)
+                    fee_pct = float(fee_value / total_value * 100)
                 else:
-                    if self.last_price > self.config.target_price:
-                        status_emoji = "⏳"
-                        status_text = f"Waiting (need {self.last_price - self.config.target_price:.6f} drop)"
-                    else:
-                        status_emoji = "✅"
-                        status_text = "READY TO OPEN POSITION"
+                    token_pct = fee_pct = 0.0
 
-                lines.append(f"\nCurrent Price: {self.last_price:.6f}")
-                lines.append(f"Target Price:  {self.config.target_price:.6f}")
-                lines.append(f"Difference:    {price_diff:.6f} ({percentage_diff:+.2f}%)")
-                lines.append(f"Status:        {status_emoji} {status_text}")
+                lines.append(f"Tokens: {base_amount:.6f} {self.base_token} / {quote_amount:.6f} {self.quote_token} ({token_pct:.2f}%)")
 
-                if self.last_price_update:
-                    seconds_ago = (datetime.now() - self.last_price_update).total_seconds()
-                    lines.append(f"\nLast update: {int(seconds_ago)}s ago")
-
-                # Show next check time
-                if self.last_check_time:
-                    next_check_in = self.config.check_interval - int((datetime.now() - self.last_check_time).total_seconds())
-                    if next_check_in > 0:
-                        lines.append(f"Next check in: {next_check_in}s")
+                if base_fee > 0 or quote_fee > 0:
+                    lines.append(f"Fees: {base_fee:.6f} {self.base_token} / {quote_fee:.6f} {self.quote_token} ({fee_pct:.2f}%)")
             else:
-                lines.append("\nStatus: ⏳ Waiting for first price update...")
+                lines.append(f"Tokens: {base_amount:.6f} {self.base_token} / {quote_amount:.6f} {self.quote_token}")
+
+                if base_fee > 0 or quote_fee > 0:
+                    lines.append(f"Fees: {base_fee:.6f} {self.base_token} / {quote_fee:.6f} {self.quote_token}")
+
+            lines.append("")  # Spacer
+
+            # Position range and width info
+            lower_price = Decimal(str(self.position_info.lower_price))
+            upper_price = Decimal(str(self.position_info.upper_price))
+
+            if self.pool_info:
+                current_price = Decimal(str(self.pool_info.price))
+
+                # Price range visualization
+                lines.append(self._create_price_range_visualization(lower_price, current_price, upper_price))
+
+                if self._price_in_bounds(current_price, lower_price, upper_price):
+                    lines.append("Status: ✅ In Bounds")
+                else:
+                    lines.append("Status: ⚠️ Out of Bounds")
+            else:
+                lines.append(f"Position Range: {lower_price:.6f} - {upper_price:.6f}")
+
+            if self.out_of_bounds_since:
+                elapsed = time.time() - self.out_of_bounds_since
+                lines.append(f"Out of bounds for: {elapsed:.0f}/{self.config.rebalance_seconds} seconds")
+
+        else:
+            lines.append(f"Monitoring {self.config.trading_pair} on {self.exchange}")
+            lines.append("Status: ⏳ No active position")
+
+            if self.config.base_amount > 0 or self.config.quote_amount > 0:
+                lines.append(f"Will create position with: {self.config.base_amount} {self.base_token} / "
+                             f"{self.config.quote_amount} {self.quote_token}")
+
+            if self.pool_info:
+                lines.append(f"Current Price: {self.pool_info.price:.6f}")
 
         return "\n".join(lines)

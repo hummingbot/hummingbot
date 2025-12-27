@@ -666,10 +666,8 @@ class GatewayLPCommand:
                 # 12. Estimate transaction fee
                 self.notify("\nEstimating transaction fees...")
                 fee_info = await self._get_gateway_instance().estimate_transaction_fee(
-
                     chain,
                     network,
-                    transaction_type="add_liquidity"
                 )
 
                 gas_fee_estimate = fee_info.get("fee_in_native", 0) if fee_info.get("success", False) else 0
@@ -946,12 +944,9 @@ class GatewayLPCommand:
 
                     # 13. Estimate transaction fee
                     self.notify("\nEstimating transaction fees...")
-                    tx_type = "close_position" if close_position else "remove_liquidity"
                     fee_info = await self._get_gateway_instance().estimate_transaction_fee(
-
                         chain,
                         network,
-                        transaction_type=tx_type
                     )
 
                     gas_fee_estimate = fee_info.get("fee_in_native", 0) if fee_info.get("success", False) else 0
@@ -1192,10 +1187,8 @@ class GatewayLPCommand:
                     # 11. Estimate transaction fee
                     self.notify("\nEstimating transaction fees...")
                     fee_info = await self._get_gateway_instance().estimate_transaction_fee(
-
                         chain,
                         network,
-                        transaction_type="collect_fees"
                     )
 
                     gas_fee_estimate = fee_info.get("fee_in_native", 0) if fee_info.get("success", False) else 0

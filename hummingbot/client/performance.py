@@ -18,6 +18,7 @@ s_decimal_nan = Decimal("NaN")
 @dataclass
 class PerformanceMetrics:
     _logger = None
+    _warned_rate_pairs: set = None  # Track pairs we've already warned about
 
     num_buys: int = 0
     num_sells: int = 0
@@ -55,6 +56,9 @@ class PerformanceMetrics:
     def __init__(self):
         # fees is a dictionary of token and total fee amount paid in that token.
         self.fees: Dict[str, Decimal] = defaultdict(lambda: s_decimal_0)
+        # Initialize warned pairs set at class level if not already done
+        if PerformanceMetrics._warned_rate_pairs is None:
+            PerformanceMetrics._warned_rate_pairs = set()
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -257,10 +261,13 @@ class PerformanceMetrics:
                 if last_price is not None:
                     self.fee_in_quote += fee_amount * last_price
                 else:
-                    self.logger().warning(
-                        f"Could not find exchange rate for {rate_pair} "
-                        f"using {RateOracle.get_instance()}. PNL value will be inconsistent."
-                    )
+                    # Only warn once per rate pair to avoid log spam
+                    if rate_pair not in PerformanceMetrics._warned_rate_pairs:
+                        PerformanceMetrics._warned_rate_pairs.add(rate_pair)
+                        self.logger().warning(
+                            f"Could not find exchange rate for {rate_pair} "
+                            f"using {RateOracle.get_instance()}. PNL value may be inconsistent."
+                        )
 
     def _calculate_trade_pnl(self, buys: list, sells: list):
         self.trade_pnl = self.cur_value - self.hold_value
