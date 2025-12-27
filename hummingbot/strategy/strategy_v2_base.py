@@ -312,6 +312,7 @@ class StrategyV2Base(ScriptStrategyBase):
                 controller_report = self.controller_reports.get(controller_id, {})
                 controller.executors_info = controller_report.get("executors", [])
                 controller.positions_held = controller_report.get("positions", [])
+                controller.performance_report = controller_report.get("performance", [])
                 controller.executors_update_event.set()
         except Exception as e:
             self.logger().error(f"Error updating controller reports: {e}", exc_info=True)
