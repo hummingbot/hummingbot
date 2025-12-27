@@ -264,15 +264,12 @@ class GatewaySwapCommand:
                 trading_pair = f"{base_token}-{quote_token}"
 
                 # Create a new GatewaySwap instance for this swap
-                # Use skip_init_tasks to avoid redundant polling tasks
-                # since we already have chain/network/wallet info from the quote phase
                 swap_connector = GatewaySwap(
                     connector_name=connector,  # DEX connector (e.g., 'uniswap/amm', 'raydium/clmm')
                     chain=chain,
                     network=network,
                     address=wallet_address,
                     trading_pairs=[trading_pair],
-                    skip_init_tasks=True,  # Skip polling tasks for one-off swap
                 )
 
                 # Start the network connection

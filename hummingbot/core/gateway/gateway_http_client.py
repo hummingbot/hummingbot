@@ -27,8 +27,8 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import build_config_namespace_keys
 from hummingbot.logger import HummingbotLogger
 
-POLL_INTERVAL = 5.0
-POLL_TIMEOUT = 3.0
+POLL_INTERVAL = 2.0
+POLL_TIMEOUT = 1.0
 
 
 class GatewayStatus(Enum):
@@ -127,13 +127,12 @@ class GatewayHttpClient:
                     password=password
                 )
 
-                # Create connector with connection pooling for stability
+                # Create connector with explicit timeout settings
                 conn = aiohttp.TCPConnector(
                     ssl=ssl_ctx,
-                    force_close=False,  # Allow connection reuse for better stability
+                    force_close=True,  # Don't reuse connections for debugging
                     limit=100,
                     limit_per_host=30,
-                    keepalive_timeout=30,  # Keep connections alive for 30 seconds
                 )
             else:
                 # Non-SSL connection for development
@@ -204,12 +203,9 @@ class GatewayHttpClient:
 
     async def _monitor_loop(self):
         """Monitor gateway status and update connector/chain lists when online"""
-        consecutive_failures = 0
-        FAILURE_THRESHOLD = 2  # Only mark offline after 2 consecutive failures
         while True:
             try:
                 if await asyncio.wait_for(self.ping_gateway(), timeout=POLL_TIMEOUT):
-                    consecutive_failures = 0  # Reset on success
                     if self.gateway_status is GatewayStatus.OFFLINE:
                         # Clear all collections
                         GATEWAY_CONNECTORS.clear()
@@ -270,8 +266,7 @@ class GatewayHttpClient:
 
                     self._gateway_status = GatewayStatus.ONLINE
                 else:
-                    consecutive_failures += 1
-                    if self._gateway_status is GatewayStatus.ONLINE and consecutive_failures >= FAILURE_THRESHOLD:
+                    if self._gateway_status is GatewayStatus.ONLINE:
                         self.logger().info("Connection to Gateway container lost...")
                         self._gateway_status = GatewayStatus.OFFLINE
 
@@ -485,34 +480,14 @@ class GatewayHttpClient:
     # Gateway Status and Restart Methods
     # ============================================
 
-    async def ping_gateway(self, retries: int = 2) -> bool:
-        """
-        Ping gateway with retry logic for better resilience on servers.
-
-        :param retries: Number of retry attempts (default: 2)
-        :return: True if gateway responds successfully
-        """
-        for attempt in range(retries + 1):
-            try:
-                response: Dict[str, Any] = await self.api_request("get", "", fail_silently=True)
-                success = response.get("status") == "ok"
-                if success:
-                    return True
-                # If response received but status not ok, don't retry
-                if response:
-                    return False
-            except asyncio.TimeoutError:
-                if attempt < retries:
-                    await asyncio.sleep(0.5)  # Brief delay before retry
-                    continue
-                return False
-            except Exception as e:
-                if attempt < retries:
-                    await asyncio.sleep(0.5)
-                    continue
-                self.logger().debug(f"Failed to ping gateway after {retries + 1} attempts: {type(e).__name__}: {e}")
-                return False
-        return False
+    async def ping_gateway(self) -> bool:
+        try:
+            response: Dict[str, Any] = await self.api_request("get", "", fail_silently=True)
+            success = response.get("status") == "ok"
+            return success
+        except Exception as e:
+            self.logger().error(f"✗ Failed to ping gateway: {type(e).__name__}: {e}", exc_info=True)
+            return False
 
     async def get_gateway_status(self, fail_silently: bool = False) -> List[Dict[str, Any]]:
         """
