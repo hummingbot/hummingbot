@@ -72,9 +72,8 @@ class AevoPerpetualDerivative(DerivativeBase):
             "reduce_only": kwargs.get("reduce_only", False),
             "time_in_force": kwargs.get("time_in_force", "GTC"),
             # "client_order_id": order_id 
-            # TODO: details on client_order_id support in Aevo docs are sparse, 
-            # might need to pass it in a different field or it might be auto-generated.
-            # Keeping it commented out for now until we can verify with live keys. 
+            # NOTE: client_order_id support in Aevo docs is sparse.
+            # Keeping it commented out until verified with live keys. 
         }
         
         # Determine endpoint based on order type if needed, or just standard /orders

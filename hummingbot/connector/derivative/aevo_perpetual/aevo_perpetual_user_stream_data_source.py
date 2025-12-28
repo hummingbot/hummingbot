@@ -47,7 +47,7 @@ class AevoPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                print(f"User Stream WS Error: {e}")
+                self.logger().error(f"User Stream WS Error: {e}", exc_info=True)
                 await asyncio.sleep(5)
             finally:
                 if ws:

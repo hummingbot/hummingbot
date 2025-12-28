@@ -132,7 +132,7 @@ class AevoPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 raise
             except Exception as e:
                 # Log error and reconnect
-                print(f"WS Error: {e}") # "Human mode" print (to be replaced by logger later)
+                self.logger().error(f"WS Error: {e}", exc_info=True)
                 await asyncio.sleep(5)
             finally:
                 if ws:
