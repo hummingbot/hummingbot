@@ -4,36 +4,14 @@ from unittest.mock import MagicMock, patch
 from types import ModuleType
 
 # --- MOCKING DEPENDENCIES START ---
-# Create mock modules to bypass heavy imports (aiohttp, ujson, pydantic, etc.)
-mock_auth_module = ModuleType("hummingbot.core.web_assistant.auth")
-mock_data_types_module = ModuleType("hummingbot.core.web_assistant.connections.data_types")
-
-class MockAuthBase:
-    pass
-
-class MockRESTRequest:
-    def __init__(self, method, url, data=None, headers=None):
-        self.method = method
-        self.url = url
-        self.data = data
-        self.headers = headers or {}
-
-class MockWSRequest:
-    pass
-
-# Enum mocking
-class MockRESTMethod:
-    GET = "GET"
-    POST = "POST"
-
-mock_auth_module.AuthBase = MockAuthBase
-mock_data_types_module.RESTRequest = MockRESTRequest
-mock_data_types_module.WSRequest = MockWSRequest
-mock_data_types_module.RESTMethod = MockRESTMethod
-
-# Inject mocks into sys.modules
-sys.modules["hummingbot.core.web_assistant.auth"] = mock_auth_module
-sys.modules["hummingbot.core.web_assistant.connections.data_types"] = mock_data_types_module
+import test.hummingbot.connector.derivative.aevo_perpetual.mock_utils as mock_utils
+from test.hummingbot.connector.derivative.aevo_perpetual.mock_utils import (
+    MockRESTRequest, 
+    MockWSRequest, 
+    MockWSResponse, 
+    MockRESTResponse, 
+    MockAuthBase
+)
 # --- MOCKING DEPENDENCIES END ---
 
 # Now safe to import the class under test (it will use the mocks above)

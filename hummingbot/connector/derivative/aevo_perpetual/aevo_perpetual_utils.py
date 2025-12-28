@@ -27,6 +27,14 @@ def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
     side = "B" if is_buy else "S"
     return f"{side}-{trading_pair}-{get_tracking_nonce()}"
 
+def convert_to_exchange_symbol(hb_symbol: str) -> str:
+    # ETH-USD -> ETH-PERP
+    return hb_symbol.replace("-USD", "-PERP")
+
+def convert_to_hb_symbol(exchange_symbol: str) -> str:
+    # ETH-PERP -> ETH-USD
+    return exchange_symbol.replace("-PERP", "-USD")
+
 def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     # TODO: Implement validation logic based on Aevo API response
     return True

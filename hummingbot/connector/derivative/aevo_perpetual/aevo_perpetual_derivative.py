@@ -2,6 +2,7 @@ from hummingbot.connector.derivative.derivative_base import DerivativeBase
 from hummingbot.connector.derivative.aevo_perpetual import aevo_perpetual_constants as CONSTANTS
 from hummingbot.connector.derivative.aevo_perpetual.aevo_perpetual_api_order_book_data_source import AevoPerpetualAPIOrderBookDataSource
 from hummingbot.connector.derivative.aevo_perpetual.aevo_perpetual_user_stream_data_source import AevoPerpetualUserStreamDataSource
+from hummingbot.connector.derivative.aevo_perpetual import aevo_perpetual_utils as utils
 import asyncio
 
 
@@ -61,8 +62,9 @@ class AevoPerpetualDerivative(DerivativeBase):
                            order_type: str,
                            price: float,
                            **kwargs) -> Tuple[str, float]:
+        exchange_symbol = utils.convert_to_exchange_symbol(trading_pair)
         params = {
-            "instrument_name": trading_pair,
+            "instrument_name": exchange_symbol,
             "is_buy": trade_type.upper() == "BUY",
             "limit_price": str(price),
             "quantity": str(amount),

@@ -46,3 +46,27 @@ class AevoPerpetualAuth(AuthBase):
             payload.encode("utf-8"),
             hashlib.sha256
         ).hexdigest()
+
+    def get_ws_auth_payload(self) -> Dict[str, Any]:
+        # WebSocket Auth (Standard Aevo Pattern)
+        timestamp = str(int(self.time_provider.time() * 1e9))
+        
+        # Signing value often differs for WS. 
+        # Checking similar exchanges, often it's just timestamp or specific string.
+        # For Aevo, let's assume it signs the timestamp similar to REST but without method/url.
+        # If docs say otherwise, we adjust. 
+        # Payload for sig: timestamp
+        signature = hmac.new(
+            self.api_secret.encode("utf-8"),
+            timestamp.encode("utf-8"),
+            hashlib.sha256
+        ).hexdigest()
+
+        return {
+            "op": "auth",
+            "data": {
+                "key": self.api_key,
+                "sig": signature,
+                "timestamp": timestamp
+            }
+        }

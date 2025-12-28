@@ -6,23 +6,15 @@ import sys
 from types import ModuleType
 
 # --- MOCKING DEPENDENCIES START ---
-# (Reusing valid mocks from previous successful test)
+import test.hummingbot.connector.derivative.aevo_perpetual.mock_utils
+from test.hummingbot.connector.derivative.aevo_perpetual.mock_utils import MockOrderBookMessageType
+from unittest.mock import MagicMock
+
+# Additional specific mocks for OrderBook
 mock_ob_msg_module = ModuleType("hummingbot.core.data_type.order_book_message")
 mock_ob_tracker_module = ModuleType("hummingbot.core.data_type.order_book_tracker_data_source")
 mock_throttler_module = ModuleType("hummingbot.core.api_throttler.async_throttler")
-mock_constants_module = ModuleType("hummingbot.connector.derivative.aevo_perpetual.aevo_perpetual_constants")
 mock_ob_module = ModuleType("hummingbot.core.data_type.order_book")
-mock_auth_module = ModuleType("hummingbot.core.web_assistant.auth")
-mock_data_types_module = ModuleType("hummingbot.core.web_assistant.connections.data_types")
-
-class MockAuthBase:
-    pass
-
-class MockRESTRequest:
-    pass
-
-class MockWSRequest:
-    pass
 
 class MockOrderBook:
     pass
@@ -46,25 +38,11 @@ mock_ob_msg_module.OrderBookMessageType = MockOrderBookMessageType
 mock_ob_tracker_module.OrderBookTrackerDataSource = MockOrderBookTrackerDataSource
 mock_throttler_module.AsyncThrottler = MagicMock
 mock_ob_module.OrderBook = MockOrderBook
-mock_auth_module.AuthBase = MockAuthBase
-mock_data_types_module.RESTRequest = MockRESTRequest
-mock_data_types_module.WSRequest = MockWSRequest
 
-# Inject
 sys.modules["hummingbot.core.data_type.order_book_message"] = mock_ob_msg_module
 sys.modules["hummingbot.core.data_type.order_book_tracker_data_source"] = mock_ob_tracker_module
 sys.modules["hummingbot.core.api_throttler.async_throttler"] = mock_throttler_module
 sys.modules["hummingbot.core.data_type.order_book"] = mock_ob_module
-sys.modules["hummingbot.core.web_assistant.auth"] = mock_auth_module
-sys.modules["hummingbot.core.web_assistant.connections.data_types"] = mock_data_types_module
-
-# We need actual constants or mock them
-# Since we import CONSTANTS in the file, we can let it import the real file if available, 
-# or mock it if it has heavy imports. 
-# The real constants file only imports RateLimit from core, so we should mock that too.
-mock_throttler_dtypes = ModuleType("hummingbot.core.api_throttler.data_types")
-mock_throttler_dtypes.RateLimit = MagicMock
-sys.modules["hummingbot.core.api_throttler.data_types"] = mock_throttler_dtypes
 # --- MOCKING END ---
 
 from hummingbot.connector.derivative.aevo_perpetual.aevo_perpetual_api_order_book_data_source import AevoPerpetualAPIOrderBookDataSource

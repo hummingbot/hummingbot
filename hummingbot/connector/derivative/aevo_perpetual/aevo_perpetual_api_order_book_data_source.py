@@ -3,6 +3,8 @@ from typing import Any, Dict, List, Optional
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.connector.derivative.aevo_perpetual import aevo_perpetual_constants as CONSTANTS
+from hummingbot.connector.derivative.aevo_perpetual import aevo_perpetual_utils as utils
+
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.connector.derivative.aevo_perpetual.aevo_perpetual_auth import AevoPerpetualAuth
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -33,16 +35,15 @@ class AevoPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         results = {}
         for market in res:
             name = market.get("instrument_name", "") # e.g., ETH-PERP
-            # Important: We need to map Aevo symbol to Hummingbot pair format. 
-            # For now assuming they match or we use raw names.
-            # TODO: Add a proper symbol mapping utils function if they diverge (e.g. ETH-USD vs ETH-PERP)
+            hb_name = utils.convert_to_hb_symbol(name)
             if "mark_price" in market:
-                results[name] = float(market["mark_price"])
+                results[hb_name] = float(market["mark_price"])
         return results
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         # Aevo Orderbook Endpoint: /order_book?instrument_name=...
-        params = {"instrument_name": trading_pair}
+        exchange_symbol = utils.convert_to_exchange_symbol(trading_pair)
+        params = {"instrument_name": exchange_symbol}
         snapshot = await self._api_factory.call_rest(
             method="GET",
             url=f"{CONSTANTS.AEVO_BASE_URL}{CONSTANTS.SNAPSHOT_PATH_URL}",

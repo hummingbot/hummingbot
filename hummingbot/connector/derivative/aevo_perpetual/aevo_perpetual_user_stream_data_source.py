@@ -1,3 +1,4 @@
+import asyncio
 from typing import List, Optional
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
@@ -24,13 +25,8 @@ class AevoPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 await ws.connect()
                 
                 # Authenticate
-                # Construct auth payload
-                # Note: Aevo WS Auth typically involves sending an 'auth' op with key/secret/sig
-                # We can leverage AevoPerpetualAuth if it supports 'get_ws_auth_payload' or similar
-                # For now, let's assume we send a manual auth message or the factory handles it if configured.
-                # If factory doesn't auto-auth, we do it here:
-                # payload = self._auth.get_ws_auth_data() 
-                # await ws.send_json(payload)
+                auth_payload = self._auth.get_ws_auth_payload()
+                await ws.send_json(auth_payload)
                 
                 # Subscribe to private channels
                 channels = [
