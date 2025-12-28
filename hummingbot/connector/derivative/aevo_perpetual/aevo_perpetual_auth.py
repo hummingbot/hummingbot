@@ -37,7 +37,15 @@ class AevoPerpetualAuth(AuthBase):
     def _generate_signature(self, timestamp: str, method: str, url: str, data: Optional[Dict[str, Any]]) -> str:
         # Aevo specific signature generation (check docs for exact format)
         # Typically: HMAC-SHA256(secret, timestamp + method + path + body)
-        payload = f"{timestamp}{method.upper()}{url}"
+        # Aevo expects: timestamp + method + path + body
+        # URL parsing to extract path + query
+        path = url
+        if "https://" in url:
+             path = "/" + url.split("https://")[-1].split("/", 1)[-1]
+        elif "http://" in url:
+             path = "/" + url.split("http://")[-1].split("/", 1)[-1]
+        
+        payload = f"{timestamp}{method.upper()}{path}"
         if data:
             payload += json.dumps(data, separators=(',', ':'))
             
