@@ -83,24 +83,6 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
                 "stepSize": "0.0001",
                 "minNotional": "1",
             },
-            {
-                "symbol": "SOL_USDC",
-                "baseSymbol": "SOL",
-                "quoteSymbol": "USDC",
-                "minOrderSize": "0.01",
-                "tickSize": "0.001",
-                "stepSize": "0.01",
-                "minNotional": "1",
-            },
-            {
-                "symbol": "ETH_USDC",
-                "baseSymbol": "ETH",
-                "quoteSymbol": "USDC",
-                "minOrderSize": "0.001",
-                "tickSize": "0.01",
-                "stepSize": "0.001",
-                "minNotional": "1",
-            },
         ]
 
     @property
@@ -158,7 +140,7 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         return {
             "id": self.expected_exchange_order_id,
             "orderId": self.expected_exchange_order_id,
-            "clientId": "test_order_id",
+            "clientId": 12345,
             "symbol": self.exchange_symbol,
             "side": "Bid",
             "orderType": "Limit",
@@ -189,6 +171,11 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
                 "locked": "5.0",
             },
         }
+
+    @property
+    def balance_event_websocket_update(self):
+        # Backpack does not provide balance updates through websocket
+        self.fail()
 
     @property
     def expected_latest_price(self) -> float:
@@ -267,10 +254,17 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         )
         return exchange
 
+    def validate_auth_credentials_present(self, request_call: RequestCall):
+        request_headers = request_call.kwargs["headers"]
+        expected_headers = ["X-API-Key", "X-Signature", "X-Timestamp", "X-Window"]
+        self.assertEqual(self.api_key, request_headers["X-API-Key"])
+        for header in expected_headers:
+            self.assertIn(header, request_headers)
+
     def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = json.loads(request_call.kwargs["data"])
         self.assertEqual(order.amount, abs(Decimal(str(request_data["quantity"]))))
-        self.assertEqual(order.client_order_id, request_data["clientId"])
+        self.assertEqual(int(order.client_order_id), request_data["clientId"])
         expected_side = "Bid" if order.trade_type is TradeType.BUY else "Ask"
         self.assertEqual(expected_side, request_data["side"])
 
@@ -398,6 +392,17 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
         return url
 
+    def configure_http_error_order_status_response(
+        self,
+        order: InFlightOrder,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
+    ) -> str:
+        url = web_utils.rest_url(CONSTANTS.ORDER_URL, self.exchange.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        mock_api.get(regex_url, status=401, callback=callback)
+        return url
+
     def configure_partially_filled_order_status_response(
         self,
         order: InFlightOrder,
@@ -460,7 +465,7 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Dict[str, Any]:
         return {
             "id": order.exchange_order_id or self.expected_exchange_order_id,
-            "clientId": order.client_order_id,
+            "clientId": int(order.client_order_id),
             "symbol": self.exchange_symbol,
             "status": "Cancelled",
         }
@@ -468,7 +473,7 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
     def _order_status_request_completely_filled_mock_response(self, order: InFlightOrder) -> Dict[str, Any]:
         return {
             "id": order.exchange_order_id or self.expected_exchange_order_id,
-            "clientId": order.client_order_id,
+            "clientId": int(order.client_order_id),
             "symbol": self.exchange_symbol,
             "side": "Bid" if order.trade_type == TradeType.BUY else "Ask",
             "orderType": "Limit",
@@ -483,7 +488,7 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
     def _order_status_request_canceled_mock_response(self, order: InFlightOrder) -> Dict[str, Any]:
         return {
             "id": order.exchange_order_id or self.expected_exchange_order_id,
-            "clientId": order.client_order_id,
+            "clientId": int(order.client_order_id),
             "symbol": self.exchange_symbol,
             "side": "Bid" if order.trade_type == TradeType.BUY else "Ask",
             "orderType": "Limit",
@@ -498,7 +503,7 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
     def _order_status_request_open_mock_response(self, order: InFlightOrder) -> Dict[str, Any]:
         return {
             "id": order.exchange_order_id or self.expected_exchange_order_id,
-            "clientId": order.client_order_id,
+            "clientId": int(order.client_order_id),
             "symbol": self.exchange_symbol,
             "side": "Bid" if order.trade_type == TradeType.BUY else "Ask",
             "orderType": "Limit",
@@ -513,7 +518,7 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
     def _order_status_request_partially_filled_mock_response(self, order: InFlightOrder) -> Dict[str, Any]:
         return {
             "id": order.exchange_order_id or self.expected_exchange_order_id,
-            "clientId": order.client_order_id,
+            "clientId": int(order.client_order_id),
             "symbol": self.exchange_symbol,
             "side": "Bid" if order.trade_type == TradeType.BUY else "Ask",
             "orderType": "Limit",
@@ -561,17 +566,17 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         return {
             "stream": "account.orderUpdate",
             "data": {
-                "e": "orderUpdate",
-                "id": order.exchange_order_id or self.expected_exchange_order_id,
-                "clientId": order.client_order_id,
-                "symbol": self.exchange_symbol,
-                "side": "Bid" if order.trade_type == TradeType.BUY else "Ask",
-                "orderType": "Limit",
-                "price": str(order.price),
-                "quantity": str(order.amount),
-                "executedQuantity": "0",
-                "status": "New",
-                "updatedAt": 1234567890000,
+                "e": "orderAccepted",
+                "i": order.exchange_order_id or self.expected_exchange_order_id,
+                "c": int(order.client_order_id),
+                "s": self.exchange_symbol,
+                "S": "Bid" if order.trade_type == TradeType.BUY else "Ask",
+                "o": "Limit",
+                "p": str(order.price),
+                "q": str(order.amount),
+                "z": "0",
+                "X": "New",
+                "T": 1234567890000000,
             },
         }
 
@@ -579,17 +584,17 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         return {
             "stream": "account.orderUpdate",
             "data": {
-                "e": "orderUpdate",
-                "id": order.exchange_order_id or self.expected_exchange_order_id,
-                "clientId": order.client_order_id,
-                "symbol": self.exchange_symbol,
-                "side": "Bid" if order.trade_type == TradeType.BUY else "Ask",
-                "orderType": "Limit",
-                "price": str(order.price),
-                "quantity": str(order.amount),
-                "executedQuantity": "0",
-                "status": "Cancelled",
-                "updatedAt": 1234567891000,
+                "e": "orderCancelled",
+                "i": order.exchange_order_id or self.expected_exchange_order_id,
+                "c": int(order.client_order_id),
+                "s": self.exchange_symbol,
+                "S": "Bid" if order.trade_type == TradeType.BUY else "Ask",
+                "o": "Limit",
+                "p": str(order.price),
+                "q": str(order.amount),
+                "z": "0",
+                "X": "Cancelled",
+                "T": 1234567891000000,
             },
         }
 
@@ -597,38 +602,27 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         return {
             "stream": "account.orderUpdate",
             "data": {
-                "e": "orderUpdate",
-                "id": order.exchange_order_id or self.expected_exchange_order_id,
-                "clientId": order.client_order_id,
-                "symbol": self.exchange_symbol,
-                "side": "Bid" if order.trade_type == TradeType.BUY else "Ask",
-                "orderType": "Limit",
-                "price": str(order.price),
-                "quantity": str(order.amount),
-                "executedQuantity": str(order.amount),
-                "status": "Filled",
-                "updatedAt": 1234567891000,
+                "e": "orderFill",
+                "t": self.expected_fill_trade_id,
+                "i": order.exchange_order_id or self.expected_exchange_order_id,
+                "c": int(order.client_order_id),
+                "s": self.exchange_symbol,
+                "S": "Bid" if order.trade_type == TradeType.BUY else "Ask",
+                "o": "Limit",
+                "p": str(order.price),
+                "q": str(order.amount),
+                "l": str(order.amount),
+                "L": str(order.price),
+                "n": "21.0",
+                "N": self.quote_asset,
+                "m": True,
+                "X": "Filled",
+                "T": 1234567891000000,
             },
         }
 
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder) -> Dict[str, Any]:
-        return {
-            "stream": "account.fill",
-            "data": {
-                "e": "fill",
-                "tradeId": self.expected_fill_trade_id,
-                "orderId": order.exchange_order_id or self.expected_exchange_order_id,
-                "clientId": order.client_order_id,
-                "symbol": self.exchange_symbol,
-                "side": "Bid" if order.trade_type == TradeType.BUY else "Ask",
-                "price": str(order.price),
-                "quantity": str(order.amount),
-                "fee": "21.0",
-                "feeSymbol": self.quote_asset,
-                "isMaker": True,
-                "timestamp": 1234567891000,
-            },
-        }
+        return None
 
     @aioresponses()
     def test_update_balances(self, mock_api):

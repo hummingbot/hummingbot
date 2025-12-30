@@ -1,4 +1,5 @@
 import asyncio
+from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from hummingbot.connector.exchange.backpack import (
@@ -9,6 +10,7 @@ from hummingbot.connector.exchange.backpack.backpack_order_book import BackpackO
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -54,8 +56,11 @@ class BackpackAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._connector = connector
         self._trade_messages_queue_key = CONSTANTS.TRADE_EVENT_TYPE
         self._diff_messages_queue_key = CONSTANTS.DIFF_EVENT_TYPE
+        self._ticker_messages_queue_key = CONSTANTS.WS_TICKER_CHANNEL
         self._domain = domain
         self._api_factory = api_factory
+        self._last_traded_prices: Dict[str, float] = defaultdict(lambda: 0.0)
+        self._ticker_listener_task: Optional[asyncio.Task] = None
 
     async def get_last_traded_prices(
         self,
@@ -72,7 +77,15 @@ class BackpackAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Returns:
             Dict mapping trading pair to last price
         """
-        return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
+        prices: Dict[str, float] = {
+            trading_pair: self._last_traded_prices.get(trading_pair, 0.0) for trading_pair in trading_pairs
+        }
+        if any(price == 0.0 for price in prices.values()):
+            rest_prices = await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
+            for trading_pair in trading_pairs:
+                if prices[trading_pair] == 0.0:
+                    prices[trading_pair] = rest_prices.get(trading_pair, 0.0)
+        return prices
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         """
@@ -146,9 +159,10 @@ class BackpackAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 symbol = await self._connector.exchange_symbol_associated_to_pair(
                     trading_pair=trading_pair
                 )
-                # Add depth and trade streams
+                # Add depth, trade, and ticker streams
                 streams.append(f"{CONSTANTS.WS_DEPTH_CHANNEL}.{symbol}")
                 streams.append(f"{CONSTANTS.WS_TRADE_CHANNEL}.{symbol}")
+                streams.append(f"{CONSTANTS.WS_TICKER_CHANNEL}.{symbol}")
 
             # Subscribe to all streams in one message
             subscribe_payload = {
@@ -259,6 +273,12 @@ class BackpackAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 {"trading_pair": trading_pair},
             )
             message_queue.put_nowait(trade_message)
+            try:
+                self._last_traded_prices[trading_pair] = float(
+                    trade_data.get("p", trade_data.get("price", 0))
+                )
+            except Exception:
+                pass
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
         """
@@ -271,12 +291,70 @@ class BackpackAPIOrderBookDataSource(OrderBookTrackerDataSource):
             Channel key string
         """
         channel = ""
+        data = event_message.get("data", event_message)
         stream = event_message.get("stream", "")
+        event_type = data.get("e") if isinstance(data, dict) else ""
 
         if stream:
             if stream.startswith(CONSTANTS.WS_DEPTH_CHANNEL):
                 channel = self._diff_messages_queue_key
             elif stream.startswith(CONSTANTS.WS_TRADE_CHANNEL):
                 channel = self._trade_messages_queue_key
+            elif stream.startswith(CONSTANTS.WS_TICKER_CHANNEL) or stream.startswith(CONSTANTS.WS_BOOK_TICKER_CHANNEL):
+                channel = self._ticker_messages_queue_key
+        elif event_type:
+            if event_type == CONSTANTS.DIFF_EVENT_TYPE:
+                channel = self._diff_messages_queue_key
+            elif event_type == CONSTANTS.TRADE_EVENT_TYPE:
+                channel = self._trade_messages_queue_key
+            elif event_type in (CONSTANTS.WS_TICKER_CHANNEL, CONSTANTS.WS_BOOK_TICKER_CHANNEL):
+                channel = self._ticker_messages_queue_key
 
         return channel
+
+    def _get_messages_queue_keys(self) -> List[str]:
+        return [
+            self._snapshot_messages_queue_key,
+            self._diff_messages_queue_key,
+            self._trade_messages_queue_key,
+            self._ticker_messages_queue_key,
+        ]
+
+    async def listen_for_tickers(self):
+        message_queue = self._message_queue[self._ticker_messages_queue_key]
+        while True:
+            try:
+                ticker_event = await message_queue.get()
+                await self._parse_ticker_message(raw_message=ticker_event)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().exception("Unexpected error when processing public ticker updates from exchange")
+
+    async def _parse_ticker_message(self, raw_message: Dict[str, Any]):
+        data = raw_message.get("data", raw_message)
+        symbol = data.get("s", data.get("symbol", ""))
+        if not symbol:
+            return
+        try:
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
+        except Exception:
+            return
+        last_price = data.get(
+            "l",
+            data.get("c", data.get("lastPrice", data.get("lastPx", data.get("price", 0)))),
+        )
+        try:
+            self._last_traded_prices[trading_pair] = float(last_price)
+        except Exception:
+            pass
+
+    async def listen_for_subscriptions(self):
+        if self._ticker_listener_task is None or self._ticker_listener_task.done():
+            self._ticker_listener_task = safe_ensure_future(self.listen_for_tickers())
+        try:
+            await super().listen_for_subscriptions()
+        finally:
+            if self._ticker_listener_task is not None:
+                self._ticker_listener_task.cancel()
+                self._ticker_listener_task = None

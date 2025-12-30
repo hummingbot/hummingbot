@@ -28,8 +28,8 @@ class BackpackPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetua
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.api_key = "test_api_key"
-        cls.api_secret = "dGVzdF9zZWNyZXRfNjRfYnl0ZXNfb2ZfZGF0YV9lZDI1NTE5X2tleV9mb3JfdGVzdGluZw=="  # noqa: mock
+        cls.api_key = "YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY="  # noqa: mock
+        cls.api_secret = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYwMTIzNDU2Nzg5YWJjZGVmMDEyMzQ1Njc4OWFiY2RlZg=="  # noqa: mock
         cls.base_asset = "BTC"
         cls.quote_asset = "USDC"
         cls.trading_pair = combine_to_hb_trading_pair(cls.base_asset, cls.quote_asset)
@@ -42,7 +42,7 @@ class BackpackPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetua
 
     @property
     def latest_prices_url(self):
-        url = web_utils.rest_url(CONSTANTS.TICKERS_URL)
+        url = web_utils.rest_url(CONSTANTS.TICKER_URL)
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
@@ -71,9 +71,72 @@ class BackpackPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetua
 
     @property
     def funding_info_url(self):
-        url = web_utils.rest_url(CONSTANTS.FUNDING_RATES_URL)
-        url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        base_url = web_utils.rest_url("")
+        url = re.compile(
+            f"^{base_url}({CONSTANTS.FUNDING_RATES_URL}|{CONSTANTS.MARK_PRICES_URL})"
+            .replace(".", r"\.")
+            .replace("?", r"\?")
+            + ".*"
+        )
         return url
+
+    @aioresponses()
+    @patch("asyncio.Queue.get")
+    def test_listen_for_funding_info_update_initializes_funding_info(self, mock_api, mock_queue_get):
+        funding_rates_url = re.compile(
+            f"^{web_utils.rest_url(CONSTANTS.FUNDING_RATES_URL)}".replace(".", r"\.").replace("?", r"\?") + ".*"
+        )
+        mark_prices_url = re.compile(
+            f"^{web_utils.rest_url(CONSTANTS.MARK_PRICES_URL)}".replace(".", r"\.").replace("?", r"\?") + ".*"
+        )
+
+        response = self.funding_info_mock_response
+        mock_api.get(funding_rates_url, body=json.dumps(response))
+        mock_api.get(mark_prices_url, body=json.dumps(response))
+
+        event_messages = [asyncio.CancelledError]
+        mock_queue_get.side_effect = event_messages
+
+        try:
+            self.async_run_with_timeout(self.exchange._listen_for_funding_info())
+        except asyncio.CancelledError:
+            pass
+
+        funding_info = self.exchange.get_funding_info(self.trading_pair)
+
+        self.assertEqual(self.trading_pair, funding_info.trading_pair)
+        self.assertEqual(self.target_funding_info_index_price, funding_info.index_price)
+        self.assertEqual(self.target_funding_info_mark_price, funding_info.mark_price)
+        self.assertEqual(
+            self.target_funding_info_next_funding_utc_timestamp, funding_info.next_funding_utc_timestamp
+        )
+        self.assertEqual(self.target_funding_info_rate, funding_info.rate)
+
+    @aioresponses()
+    @patch("asyncio.Queue.get")
+    def test_listen_for_funding_info_update_updates_funding_info(self, mock_api, mock_queue_get):
+        funding_rates_url = re.compile(
+            f"^{web_utils.rest_url(CONSTANTS.FUNDING_RATES_URL)}".replace(".", r"\.").replace("?", r"\?") + ".*"
+        )
+        mark_prices_url = re.compile(
+            f"^{web_utils.rest_url(CONSTANTS.MARK_PRICES_URL)}".replace(".", r"\.").replace("?", r"\?") + ".*"
+        )
+
+        response = self.funding_info_mock_response
+        mock_api.get(funding_rates_url, body=json.dumps(response), repeat=True)
+        mock_api.get(mark_prices_url, body=json.dumps(response), repeat=True)
+
+        funding_info_event = self.funding_info_event_for_websocket_update()
+
+        event_messages = [funding_info_event, asyncio.CancelledError]
+        mock_queue_get.side_effect = event_messages
+
+        try:
+            self.async_run_with_timeout(self.exchange._listen_for_funding_info())
+        except asyncio.CancelledError:
+            pass
+
+        self.assertEqual(1, self.exchange._perpetual_trading.funding_info_stream.qsize())
 
     @property
     def funding_payment_url(self):
@@ -95,27 +158,16 @@ class BackpackPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetua
                 "stepSize": "0.0001",
                 "minNotional": "10",
             },
-            {
-                "symbol": "SOL_USDC_PERP",
-                "baseSymbol": "SOL",
-                "quoteSymbol": "USDC",
-                "minOrderSize": "0.01",
-                "tickSize": "0.001",
-                "stepSize": "0.01",
-                "minNotional": "1",
-            },
         ]
 
     @property
     def latest_prices_request_mock_response(self):
-        return [
-            {
-                "symbol": "BTC_USDC_PERP",
-                "lastPrice": str(self.expected_latest_price),
-                "markPrice": str(self.expected_latest_price),
-                "indexPrice": str(self.expected_latest_price),
-            }
-        ]
+        return {
+            "symbol": "BTC_USDC_PERP",
+            "lastPrice": str(self.expected_latest_price),
+            "markPrice": str(self.expected_latest_price),
+            "indexPrice": str(self.expected_latest_price),
+        }
 
     @property
     def all_symbols_including_invalid_pair_mock_response(self) -> Tuple[str, List[Dict[str, Any]]]:
@@ -166,7 +218,7 @@ class BackpackPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetua
     def order_creation_request_successful_mock_response(self):
         return {
             "id": self.expected_exchange_order_id,
-            "clientId": None,
+            "clientId": 12345,
             "symbol": "BTC_USDC_PERP",
             "side": "Bid",
             "orderType": "Limit",
@@ -220,6 +272,33 @@ class BackpackPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetua
     ):
         pass
 
+    def configure_failed_set_leverage(
+        self,
+        leverage: PositionMode,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
+    ) -> Tuple[str, str]:
+        url = web_utils.rest_url(CONSTANTS.LEVERAGE_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+
+        error_payload = {"error": "Unable to set leverage"}
+        mock_api.post(regex_url, status=400, body=json.dumps(error_payload), callback=callback)
+
+        message = (
+            f"Error executing request POST {url}. HTTP status is 400. Error: {json.dumps(error_payload)}"
+        )
+        return url, message
+
+    def configure_successful_set_leverage(
+        self,
+        leverage: int,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
+    ):
+        url = web_utils.rest_url(CONSTANTS.LEVERAGE_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        mock_api.post(regex_url, body=json.dumps({"success": True}), callback=callback)
+
     @aioresponses()
     def test_set_position_mode_failure(self, mock_api):
         self.exchange.set_position_mode(PositionMode.HEDGE)
@@ -241,6 +320,26 @@ class BackpackPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetua
             self.is_logged(
                 log_level="DEBUG",
                 message=f"Position mode switched to {PositionMode.ONEWAY}.",
+            )
+        )
+
+    @aioresponses()
+    def test_set_leverage_failure(self, mock_api):
+        request_sent_event = asyncio.Event()
+        target_leverage = 2
+        _, message = self.configure_failed_set_leverage(
+            leverage=target_leverage,
+            mock_api=mock_api,
+            callback=lambda *args, **kwargs: request_sent_event.set(),
+        )
+        self.exchange.set_leverage(trading_pair=self.trading_pair, leverage=target_leverage)
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        expected_prefix = f"Error setting leverage {target_leverage} for {self.trading_pair}:"
+        self.assertTrue(
+            any(
+                record.levelname == "NETWORK" and expected_prefix in record.getMessage()
+                for record in self.log_records
             )
         )
 
@@ -281,6 +380,11 @@ class BackpackPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetua
         ]
 
     @property
+    def balance_event_websocket_update(self):
+        # Backpack does not provide balance updates through websocket
+        self.fail()
+
+    @property
     def expected_supported_order_types(self):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
@@ -300,8 +404,8 @@ class BackpackPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetua
 
     @property
     def expected_logged_error_for_erroneous_trading_rule(self):
-        erroneous_rule = self.trading_rules_request_erroneous_mock_response
-        return f"Error parsing the trading pair rule {erroneous_rule}. Skipping."
+        erroneous_rule = self.trading_rules_request_erroneous_mock_response[0]
+        return f"Error parsing trading rule for {erroneous_rule}. Skipping."
 
     @property
     def expected_exchange_order_id(self):
@@ -353,10 +457,17 @@ class BackpackPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetua
         )
         return exchange
 
+    def validate_auth_credentials_present(self, request_call: RequestCall):
+        request_headers = request_call.kwargs["headers"]
+        expected_headers = ["X-API-Key", "X-Signature", "X-Timestamp", "X-Window"]
+        self.assertEqual(self.api_key, request_headers["X-API-Key"])
+        for header in expected_headers:
+            self.assertIn(header, request_headers)
+
     def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = json.loads(request_call.kwargs["data"])
         self.assertEqual("Bid" if order.trade_type is TradeType.BUY else "Ask", request_data.get("side"))
-        self.assertEqual(str(order.amount), request_data.get("quantity"))
+        self.assertEqual(Decimal(str(order.amount)), Decimal(str(request_data.get("quantity"))))
 
     def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs.get("params", {})
@@ -370,6 +481,13 @@ class BackpackPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetua
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs.get("params", {})
         self.assertIsNotNone(request_params)
+
+    def test_get_buy_and_sell_collateral_tokens(self):
+        self._simulate_trading_rules_initialized()
+        buy_collateral_token = self.exchange.get_buy_collateral_token(self.trading_pair)
+        sell_collateral_token = self.exchange.get_sell_collateral_token(self.trading_pair)
+        self.assertEqual(self.quote_asset, buy_collateral_token)
+        self.assertEqual(self.quote_asset, sell_collateral_token)
 
     def configure_successful_cancelation_response(
         self,
@@ -560,9 +678,9 @@ class BackpackPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetua
         return {
             "stream": "account.orderUpdate",
             "data": {
-                "e": "orderUpdate",
+                "e": "orderAccepted",
                 "i": order.exchange_order_id or self.expected_exchange_order_id,
-                "c": order.client_order_id or "",
+                "c": int(order.client_order_id) if order.client_order_id else 0,
                 "s": "BTC_USDC_PERP",
                 "S": "Bid" if order.trade_type is TradeType.BUY else "Ask",
                 "o": "Limit",
@@ -577,9 +695,9 @@ class BackpackPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetua
         return {
             "stream": "account.orderUpdate",
             "data": {
-                "e": "orderUpdate",
+                "e": "orderCancelled",
                 "i": order.exchange_order_id or self.expected_exchange_order_id,
-                "c": order.client_order_id or "",
+                "c": int(order.client_order_id) if order.client_order_id else 0,
                 "s": "BTC_USDC_PERP",
                 "S": "Bid" if order.trade_type is TradeType.BUY else "Ask",
                 "o": "Limit",
@@ -594,35 +712,28 @@ class BackpackPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetua
         return {
             "stream": "account.orderUpdate",
             "data": {
-                "e": "orderUpdate",
+                "e": "orderFill",
+                "t": self.expected_fill_trade_id,
                 "i": order.exchange_order_id or self.expected_exchange_order_id,
-                "c": order.client_order_id or "",
+                "c": int(order.client_order_id) if order.client_order_id else 0,
                 "s": "BTC_USDC_PERP",
                 "S": "Bid" if order.trade_type is TradeType.BUY else "Ask",
                 "o": "Limit",
                 "q": str(order.amount),
                 "p": str(order.price),
                 "z": str(order.amount),  # executedQuantity
+                "l": str(order.amount),
+                "L": str(order.price),
+                "n": "0.01",
+                "N": self.quote_asset,
+                "m": True,
                 "X": "Filled",
                 "T": 1700000000000000,
             },
         }
 
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
-        return {
-            "stream": "account.fill",
-            "data": {
-                "e": "fill",
-                "t": self.expected_fill_trade_id,
-                "i": order.exchange_order_id or self.expected_exchange_order_id,
-                "s": "BTC_USDC_PERP",
-                "S": "Bid" if order.trade_type is TradeType.BUY else "Ask",
-                "p": str(self.expected_partial_fill_price),
-                "q": str(order.amount),
-                "f": "0.01",  # fee
-                "T": 1700000000000000,
-            },
-        }
+        return None
 
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder):
         return {
@@ -633,7 +744,7 @@ class BackpackPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetua
     def _order_status_request_completely_filled_mock_response(self, order: InFlightOrder):
         return {
             "id": order.exchange_order_id,
-            "clientId": order.client_order_id,
+            "clientId": int(order.client_order_id),
             "symbol": "BTC_USDC_PERP",
             "side": "Bid" if order.trade_type is TradeType.BUY else "Ask",
             "orderType": "Limit",
@@ -647,7 +758,7 @@ class BackpackPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetua
     def _order_status_request_canceled_mock_response(self, order: InFlightOrder):
         return {
             "id": order.exchange_order_id,
-            "clientId": order.client_order_id,
+            "clientId": int(order.client_order_id),
             "symbol": "BTC_USDC_PERP",
             "side": "Bid" if order.trade_type is TradeType.BUY else "Ask",
             "orderType": "Limit",
@@ -661,7 +772,7 @@ class BackpackPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetua
     def _order_status_request_open_mock_response(self, order: InFlightOrder):
         return {
             "id": order.exchange_order_id,
-            "clientId": order.client_order_id,
+            "clientId": int(order.client_order_id),
             "symbol": "BTC_USDC_PERP",
             "side": "Bid" if order.trade_type is TradeType.BUY else "Ask",
             "orderType": "Limit",
@@ -675,7 +786,7 @@ class BackpackPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetua
     def _order_status_request_partially_filled_mock_response(self, order: InFlightOrder):
         return {
             "id": order.exchange_order_id,
-            "clientId": order.client_order_id,
+            "clientId": int(order.client_order_id),
             "symbol": "BTC_USDC_PERP",
             "side": "Bid" if order.trade_type is TradeType.BUY else "Ask",
             "orderType": "Limit",
@@ -722,22 +833,23 @@ class BackpackPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetua
             "data": {
                 "e": "positionUpdate",
                 "s": "BTC_USDC_PERP",
-                "pa": str(order.amount),
-                "ep": str(order.price),
-                "up": str(unrealized_pnl),
-                "ps": "Long" if order.trade_type is TradeType.BUY else "Short",
+                "q": str(order.amount if order.trade_type is TradeType.BUY else -order.amount),
+                "B": str(order.price),
+                "P": str(unrealized_pnl),
+                "M": str(self.target_funding_info_mark_price_ws_updated),
                 "T": 1700000000000000,
             },
         }
 
     def funding_info_event_for_websocket_update(self):
         return {
-            "stream": "fundingRate.BTC_USDC_PERP",
+            "stream": "markPrice.BTC_USDC_PERP",
             "data": {
+                "e": "markPrice",
                 "s": "BTC_USDC_PERP",
-                "r": str(self.target_funding_info_rate),
-                "T": self.target_funding_info_next_funding_utc_timestamp_ws_updated * 1000,
-                "mp": str(self.target_funding_info_mark_price_ws_updated),
-                "ip": str(self.target_funding_info_index_price_ws_updated),
+                "f": str(self.target_funding_info_rate),
+                "n": self.target_funding_info_next_funding_utc_timestamp_ws_updated * 1000,
+                "p": str(self.target_funding_info_mark_price_ws_updated),
+                "i": str(self.target_funding_info_index_price_ws_updated),
             },
         }

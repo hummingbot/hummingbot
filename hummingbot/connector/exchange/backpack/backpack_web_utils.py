@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional
 import hummingbot.connector.exchange.backpack.backpack_constants as CONSTANTS
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.auth import AuthBase
-from hummingbot.core.web_assistant.connections.data_types import RESTRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
@@ -118,9 +118,36 @@ async def get_current_server_time(
     Returns:
         Server timestamp as float
     """
-    # TODO: Implement actual API call to /api/v1/time
-    # For now, return local time (Backpack seems to be lenient on time sync)
-    return time.time()
+    throttler = throttler or create_throttler()
+    api_factory = build_api_factory_without_time_synchronizer_pre_processor(throttler=throttler)
+    rest_assistant = await api_factory.get_rest_assistant()
+    response = await rest_assistant.execute_request(
+        url=public_rest_url(path_url=CONSTANTS.TIME_URL, domain=domain),
+        method=RESTMethod.GET,
+        throttler_limit_id=CONSTANTS.TIME_URL,
+    )
+
+    server_time = None
+    if isinstance(response, dict):
+        for key in ("serverTime", "server_time", "time", "timestamp", "ts"):
+            if key in response:
+                server_time = response[key]
+                break
+    else:
+        server_time = response
+
+    try:
+        server_time = float(server_time)
+    except Exception:
+        server_time = time.time() * 1e3
+
+    # Normalize to milliseconds
+    if server_time > 1e14:
+        server_time /= 1000.0  # microseconds to milliseconds
+    elif server_time < 1e11:
+        server_time *= 1000.0  # seconds to milliseconds
+
+    return server_time
 
 
 def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:

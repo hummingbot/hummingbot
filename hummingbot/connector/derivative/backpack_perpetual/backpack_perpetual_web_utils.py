@@ -22,6 +22,14 @@ def rest_url(path_url: str, domain: str = CONSTANTS.DOMAIN) -> str:
     return f"{CONSTANTS.BASE_URL}{path_url}"
 
 
+def public_rest_url(path_url: str, domain: str = CONSTANTS.DOMAIN) -> str:
+    return rest_url(path_url=path_url, domain=domain)
+
+
+def private_rest_url(path_url: str, domain: str = CONSTANTS.DOMAIN) -> str:
+    return rest_url(path_url=path_url, domain=domain)
+
+
 def wss_url(domain: str = CONSTANTS.DOMAIN) -> str:
     """
     Build WebSocket URL for the given domain.

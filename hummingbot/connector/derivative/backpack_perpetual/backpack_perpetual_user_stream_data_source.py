@@ -109,14 +109,13 @@ class BackpackPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             return
 
         stream = event_message.get("stream", "")
+        data = event_message.get("data", event_message)
+        event_type = data.get("e") if isinstance(data, dict) else None
         if stream.startswith("account."):
             # Order updates, position updates, etc.
             queue.put_nowait(event_message)
-        elif "data" in event_message:
-            data = event_message.get("data", {})
-            event_type = data.get("e", "")
-            if event_type in ["orderUpdate", "positionUpdate", "executionReport", "outboundAccountPosition"]:
-                queue.put_nowait(event_message)
+        elif event_type and (event_type.startswith("order") or event_type.startswith("position")):
+            queue.put_nowait(event_message)
 
     async def _ping_thread(self, websocket_assistant: WSAssistant):
         try:

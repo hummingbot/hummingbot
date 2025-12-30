@@ -19,14 +19,15 @@ from hummingbot.connector.derivative.backpack_perpetual.backpack_perpetual_user_
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_numeric_client_order_id
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.utils.tracking_nonce import NonceCreator
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
@@ -57,8 +58,10 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
         self._domain = domain
         self._position_mode = PositionMode.ONEWAY
         self._last_trade_history_timestamp = None
+        self._client_order_id_nonce_provider = NonceCreator.for_microseconds()
 
         super().__init__()
+        self.real_time_balance_update = False
 
     @property
     def name(self) -> str:
@@ -69,7 +72,7 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
         if self._trading_required:
             return BackpackPerpetualAuth(
                 api_key=self._backpack_api_key,
-                secret_key=self._backpack_api_secret,
+                api_secret=self._backpack_api_secret,
             )
         return None
 
@@ -88,6 +91,57 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
     @property
     def client_order_id_prefix(self) -> str:
         return CONSTANTS.BROKER_ID
+
+    def _new_numeric_client_order_id(self) -> str:
+        client_id = get_new_numeric_client_order_id(
+            nonce_creator=self._client_order_id_nonce_provider,
+            max_id_bit_count=32,
+        )
+        return str(client_id)
+
+    def buy(
+        self,
+        trading_pair: str,
+        amount: Decimal,
+        order_type: OrderType = OrderType.LIMIT,
+        price: Decimal = s_decimal_NaN,
+        **kwargs,
+    ) -> str:
+        order_id = self._new_numeric_client_order_id()
+        safe_ensure_future(
+            self._create_order(
+                trade_type=TradeType.BUY,
+                order_id=order_id,
+                trading_pair=trading_pair,
+                amount=amount,
+                order_type=order_type,
+                price=price,
+                **kwargs,
+            )
+        )
+        return order_id
+
+    def sell(
+        self,
+        trading_pair: str,
+        amount: Decimal,
+        order_type: OrderType = OrderType.LIMIT,
+        price: Decimal = s_decimal_NaN,
+        **kwargs,
+    ) -> str:
+        order_id = self._new_numeric_client_order_id()
+        safe_ensure_future(
+            self._create_order(
+                trade_type=TradeType.SELL,
+                order_id=order_id,
+                trading_pair=trading_pair,
+                amount=amount,
+                order_type=order_type,
+                price=price,
+                **kwargs,
+            )
+        )
+        return order_id
 
     @property
     def trading_rules_request_path(self) -> str:
@@ -169,7 +223,11 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
         return exchange_info
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
-        return CONSTANTS.ORDER_NOT_EXIST_MESSAGE in str(status_update_exception)
+        message = str(status_update_exception)
+        return (
+            CONSTANTS.ORDER_NOT_EXIST_MESSAGE in message
+            or CONSTANTS.UNKNOWN_ORDER_MESSAGE in message
+        )
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
         return CONSTANTS.UNKNOWN_ORDER_MESSAGE in str(cancelation_exception)
@@ -236,6 +294,7 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
                     continue
 
                 if not base_symbol or not quote_symbol:
+                    self.logger().error(f"Error parsing trading rule for {market}. Skipping.")
                     continue
 
                 trading_pair = combine_to_hb_trading_pair(base_symbol, quote_symbol)
@@ -317,7 +376,7 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
             "side": side,
             "orderType": backpack_order_type,
             "quantity": str(amount),
-            "clientId": order_id,
+            "clientId": int(order_id),
         }
 
         if order_type != OrderType.MARKET:
@@ -351,7 +410,7 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
 
         api_params = {
             "symbol": symbol,
-            "clientId": order_id,
+            "clientId": int(order_id),
         }
 
         if tracked_order.exchange_order_id:
@@ -365,9 +424,6 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
 
         if "error" in cancel_result:
             error_msg = cancel_result.get("error", "Unknown error")
-            if "not found" in error_msg.lower() or "does not exist" in error_msg.lower():
-                self.logger().debug(f"Order {order_id} does not exist on Backpack. No cancellation needed.")
-                await self._order_tracker.process_order_not_found(order_id)
             raise IOError(f"Error cancelling order {order_id}: {error_msg}")
 
         return True
@@ -382,15 +438,28 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
         )
 
         if isinstance(account_info, dict):
-            for asset_name, balance_data in account_info.items():
-                if isinstance(balance_data, dict):
-                    available = Decimal(str(balance_data.get("available", "0")))
-                    locked = Decimal(str(balance_data.get("locked", "0")))
-                    total = available + locked
+            if "balances" in account_info and isinstance(account_info.get("balances"), list):
+                for balance_entry in account_info.get("balances", []):
+                    asset_name = balance_entry.get("asset")
+                    if not asset_name:
+                        continue
+                    available = Decimal(str(balance_entry.get("available", "0")))
+                    locked = Decimal(str(balance_entry.get("locked", "0")))
+                    total = Decimal(str(balance_entry.get("total", available + locked)))
 
                     self._account_available_balances[asset_name] = available
                     self._account_balances[asset_name] = total
                     remote_asset_names.add(asset_name)
+            else:
+                for asset_name, balance_data in account_info.items():
+                    if isinstance(balance_data, dict):
+                        available = Decimal(str(balance_data.get("available", "0")))
+                        locked = Decimal(str(balance_data.get("locked", "0")))
+                        total = available + locked
+
+                        self._account_available_balances[asset_name] = available
+                        self._account_balances[asset_name] = total
+                        remote_asset_names.add(asset_name)
 
         asset_names_to_remove = local_asset_names.difference(remote_asset_names)
         for asset_name in asset_names_to_remove:
@@ -401,7 +470,7 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
         """Update perpetual positions from the exchange."""
         try:
             positions_data = await self._api_get(
-                path_url=CONSTANTS.POSITIONS_URL,
+                path_url=CONSTANTS.POSITION_URL,
                 is_auth_required=True,
             )
 
@@ -418,26 +487,29 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
     async def _process_position_data(self, position_data: Dict[str, Any]):
         """Process individual position data."""
         try:
-            symbol = position_data.get("symbol", "")
+            symbol = position_data.get("symbol", position_data.get("s", ""))
             if not symbol or "_PERP" not in symbol:
                 return
 
             trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol)
 
-            position_side_str = position_data.get("side", "")
+            position_side_str = position_data.get("side", position_data.get("ps", ""))
             if position_side_str == CONSTANTS.POSITION_SIDE_LONG:
                 position_side = PositionSide.LONG
             elif position_side_str == CONSTANTS.POSITION_SIDE_SHORT:
                 position_side = PositionSide.SHORT
             else:
                 # Determine from quantity
-                quantity = Decimal(str(position_data.get("quantity", "0")))
+                quantity = Decimal(str(position_data.get("quantity", position_data.get("q", position_data.get("pa", "0")))))
                 position_side = PositionSide.LONG if quantity > 0 else PositionSide.SHORT
 
-            amount = abs(Decimal(str(position_data.get("quantity", "0"))))
-            entry_price = Decimal(str(position_data.get("entryPrice", "0")))
-            unrealized_pnl = Decimal(str(position_data.get("unrealizedPnl", "0")))
-            leverage = Decimal(str(position_data.get("leverage", "1")))
+            amount = abs(Decimal(str(position_data.get("quantity", position_data.get("q", position_data.get("pa", "0"))))))
+            entry_price = Decimal(str(position_data.get("entryPrice", position_data.get("B", position_data.get("ep", "0")))))
+            unrealized_pnl = Decimal(str(position_data.get("unrealizedPnl", position_data.get("P", position_data.get("up", "0")))))
+            leverage_value = position_data.get("leverage")
+            if leverage_value is None:
+                leverage_value = self._perpetual_trading.get_leverage(trading_pair)
+            leverage = Decimal(str(leverage_value))
 
             if amount == Decimal("0"):
                 # No position
@@ -453,7 +525,8 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
                     amount=amount if position_side == PositionSide.LONG else -amount,
                     leverage=leverage,
                 )
-                self._perpetual_trading.set_position(trading_pair, position_side, position)
+                pos_key = self._perpetual_trading.position_key(trading_pair, position_side)
+                self._perpetual_trading.set_position(pos_key, position)
 
         except Exception:
             self.logger().warning(f"Error processing position data: {position_data}", exc_info=True)
@@ -476,14 +549,21 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
         async for event_message in self._iter_user_event_queue():
             try:
                 if not isinstance(event_message, dict):
-                    continue
+                    raise ValueError("Invalid user stream event format")
 
                 stream = event_message.get("stream", "")
-                data = event_message.get("data", {})
+                data = event_message.get("data", event_message)
+                if not isinstance(data, dict):
+                    continue
 
-                if stream.startswith("account.orderUpdate") or "orderUpdate" in stream:
+                event_type = data.get("e", "")
+
+                if event_type == "orderFill":
+                    await self._process_trade_message(data)
                     await self._process_order_update(data)
-                elif stream.startswith("account.position") or "positionUpdate" in stream:
+                elif event_type.startswith("order") or stream.startswith("account.orderUpdate"):
+                    await self._process_order_update(data)
+                elif event_type.startswith("position") or stream.startswith("account.position"):
                     await self._process_position_update(data)
                 elif stream.startswith("account.fill") or "fill" in stream:
                     await self._process_trade_message(data)
@@ -498,24 +578,33 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
                 await self._sleep(5.0)
 
     async def _process_order_update(self, order_data: Dict[str, Any]):
-        client_order_id = order_data.get("clientId", order_data.get("clientOrderId", ""))
+        client_order_id = str(order_data.get("clientId", order_data.get("clientOrderId", order_data.get("c", ""))))
         tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
 
+        if not tracked_order:
+            exchange_order_id = str(order_data.get("id", order_data.get("orderId", order_data.get("i", ""))))
+            if exchange_order_id:
+                for order in self._order_tracker.all_updatable_orders.values():
+                    if order.exchange_order_id == exchange_order_id:
+                        tracked_order = order
+                        client_order_id = order.client_order_id
+                        break
         if not tracked_order:
             self.logger().debug(f"Ignoring order message with id {client_order_id}: not in in_flight_orders.")
             return
 
-        status = order_data.get("status", order_data.get("orderStatus", ""))
+        status = order_data.get("status", order_data.get("orderStatus", order_data.get("X", "")))
         new_state = CONSTANTS.ORDER_STATE.get(status)
+        if new_state is None and order_data.get("e") == "orderFill":
+            new_state = OrderState.PARTIALLY_FILLED
 
         if new_state is None:
             self.logger().warning(f"Unknown order status: {status}")
             return
 
-        exchange_order_id = str(order_data.get("id", order_data.get("orderId", "")))
-        update_timestamp = float(order_data.get("updatedAt", order_data.get("timestamp", 0)))
-        if update_timestamp > 1e12:
-            update_timestamp = update_timestamp / 1000.0
+        exchange_order_id = str(order_data.get("id", order_data.get("orderId", order_data.get("i", ""))))
+        update_timestamp = order_data.get("updatedAt", order_data.get("timestamp", order_data.get("T", order_data.get("E", 0))))
+        update_timestamp = self._safe_timestamp_to_seconds(update_timestamp)
 
         order_update = OrderUpdate(
             trading_pair=tracked_order.trading_pair,
@@ -531,37 +620,65 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
         await self._process_position_data(position_data)
 
     async def _process_trade_message(self, trade_data: Dict[str, Any]):
-        client_order_id = trade_data.get("clientId", trade_data.get("clientOrderId", ""))
+        client_order_id = str(trade_data.get("clientId", trade_data.get("clientOrderId", trade_data.get("c", ""))))
         tracked_order = self._order_tracker.all_fillable_orders.get(client_order_id)
 
         if tracked_order is None:
+            exchange_order_id = str(trade_data.get("orderId", trade_data.get("id", trade_data.get("i", ""))))
+            if exchange_order_id:
+                for order in self._order_tracker.all_fillable_orders.values():
+                    if order.exchange_order_id == exchange_order_id:
+                        tracked_order = order
+                        client_order_id = order.client_order_id
+                        break
+        if tracked_order is None:
             return
 
-        fee_asset = trade_data.get("feeSymbol", trade_data.get("feeCurrency", ""))
-        fee_amount = Decimal(str(trade_data.get("fee", "0")))
+        fee_asset = trade_data.get("feeSymbol", trade_data.get("feeCurrency", trade_data.get("N", tracked_order.quote_asset)))
+        fee_amount = Decimal(str(trade_data.get("fee", trade_data.get("n", "0"))))
+
+        position_action = tracked_order.position
+        if position_action == PositionAction.NIL:
+            position_action = PositionAction.OPEN
 
         fee = TradeFeeBase.new_perpetual_fee(
             fee_schema=self.trade_fee_schema(),
-            position_action=tracked_order.position,
+            position_action=position_action,
             percent_token=fee_asset,
             flat_fees=[TokenAmount(amount=fee_amount, token=fee_asset)],
         )
 
-        fill_price = Decimal(str(trade_data.get("price", trade_data.get("px", "0"))))
-        fill_amount = Decimal(str(trade_data.get("quantity", trade_data.get("sz", "0"))))
+        fill_price = Decimal(str(trade_data.get("price", trade_data.get("px", trade_data.get("L", "0")))))
+        fill_amount = Decimal(str(trade_data.get("quantity", trade_data.get("sz", trade_data.get("l", "0")))))
+        is_maker = trade_data.get("m")
 
         trade_update = TradeUpdate(
-            trade_id=str(trade_data.get("tradeId", trade_data.get("id", ""))),
+            trade_id=str(trade_data.get("tradeId", trade_data.get("id", trade_data.get("t", "")))),
             client_order_id=tracked_order.client_order_id,
-            exchange_order_id=str(trade_data.get("orderId", "")),
+            exchange_order_id=str(trade_data.get("orderId", trade_data.get("i", ""))),
             trading_pair=tracked_order.trading_pair,
             fee=fee,
             fill_base_amount=fill_amount,
             fill_quote_amount=fill_price * fill_amount,
             fill_price=fill_price,
-            fill_timestamp=float(trade_data.get("timestamp", 0)) / 1000.0,
+            fill_timestamp=self._safe_timestamp_to_seconds(
+                trade_data.get("timestamp", trade_data.get("T", trade_data.get("E", 0)))
+            ),
+            is_taker=(not is_maker) if is_maker is not None else True,
         )
         self._order_tracker.process_trade_update(trade_update)
+
+    @staticmethod
+    def _safe_timestamp_to_seconds(timestamp: Any) -> float:
+        try:
+            ts = float(timestamp)
+        except Exception:
+            return 0
+        if ts > 1e14:
+            return ts / 1e6
+        if ts > 1e12:
+            return ts / 1000.0
+        return ts
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
@@ -571,13 +688,15 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
         if tracked_order.exchange_order_id:
             params["orderId"] = tracked_order.exchange_order_id
         else:
-            params["clientId"] = tracked_order.client_order_id
+            params["clientId"] = int(tracked_order.client_order_id)
 
         order_info = await self._api_get(
             path_url=CONSTANTS.ORDER_URL,
             params=params,
             is_auth_required=True,
         )
+        if isinstance(order_info, dict) and "error" in order_info:
+            raise IOError(order_info.get("error", "Unknown error"))
 
         status = order_info.get("status", order_info.get("orderStatus", ""))
         new_state = CONSTANTS.ORDER_STATE.get(status)

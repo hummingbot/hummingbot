@@ -75,7 +75,6 @@ WS_FUNDING_RATE_CHANNEL = "fundingRate"
 # WebSocket Channels - Private
 WS_ORDER_UPDATE_CHANNEL = "account.orderUpdate"
 WS_POSITION_UPDATE_CHANNEL = "account.positionUpdate"
-WS_FILL_CHANNEL = "account.fill"
 
 # WebSocket Event Types
 DIFF_EVENT_TYPE = "depth"
