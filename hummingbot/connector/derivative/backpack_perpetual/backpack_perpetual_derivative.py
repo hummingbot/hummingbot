@@ -44,14 +44,18 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
         rate_limits_share_pct: Decimal = Decimal("100"),
         backpack_perpetual_api_key: str = None,
         backpack_perpetual_secret_key: str = None,
-        backpack_perpetual_passphrase: str = None,
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = True,
     ) -> None:
+        """
+        Initialize Backpack Perpetual connector.
 
+        Args:
+            backpack_perpetual_api_key: Base64-encoded ED25519 public key
+            backpack_perpetual_secret_key: Base64-encoded ED25519 private key
+        """
         self.backpack_perpetual_api_key = backpack_perpetual_api_key
         self.backpack_perpetual_secret_key = backpack_perpetual_secret_key
-        self.backpack_perpetual_passphrase = backpack_perpetual_passphrase
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._last_trade_history_timestamp = None
@@ -69,7 +73,6 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
         return BackpackPerpetualAuth(
             api_key=self.backpack_perpetual_api_key,
             secret_key=self.backpack_perpetual_secret_key,
-            passphrase=self.backpack_perpetual_passphrase,
             time_provider=self._time_synchronizer
         )
 
@@ -91,11 +94,11 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def trading_rules_request_path(self) -> str:
-        return CONSTANTS.PUBLIC_CONTRACTS_ENDPOINT
+        return CONSTANTS.PUBLIC_MARKETS_ENDPOINT
 
     @property
     def trading_pairs_request_path(self) -> str:
-        return CONSTANTS.PUBLIC_CONTRACTS_ENDPOINT
+        return CONSTANTS.PUBLIC_MARKETS_ENDPOINT
 
     @property
     def check_network_request_path(self) -> str:
