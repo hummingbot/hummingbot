@@ -19,6 +19,7 @@ class TestAevoPerpetualUserStreamDataSource(unittest.TestCase):
             trading_pairs=self.trading_pairs,
             api_factory=self.mock_api_factory
         )
+        self.user_stream.logger = MagicMock()
 
     @patch("hummingbot.connector.derivative.aevo_perpetual.aevo_perpetual_user_stream_data_source.AevoPerpetualUserStreamDataSource._sleep")
     def test_listen_to_user_messages_authenticates_and_subscribes(self, mock_sleep):
@@ -36,9 +37,12 @@ class TestAevoPerpetualUserStreamDataSource(unittest.TestCase):
         
         # Run the method
         try:
-            asyncio.get_event_loop().run_until_complete(
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(
                 self.user_stream._listen_to_user_messages(output_queue)
             )
+            loop.close()
         except asyncio.CancelledError:
             pass
 

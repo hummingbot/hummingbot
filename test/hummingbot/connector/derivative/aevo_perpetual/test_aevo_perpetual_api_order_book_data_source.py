@@ -62,6 +62,7 @@ class AevoDataSourceTest(unittest.TestCase):
             throttler=self.throttler,
             time_synchronizer=self.time_synchronizer
         )
+        self.data_source.logger = MagicMock()
         self.data_source._message_queue = asyncio.Queue()
 
     def test_parse_order_book_snapshot(self):

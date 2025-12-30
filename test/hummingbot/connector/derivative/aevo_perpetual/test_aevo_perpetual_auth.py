@@ -39,7 +39,10 @@ class AevoPerpetualAuthTest(unittest.TestCase):
             data=params,
         )
         
-        authenticated_request = asyncio.get_event_loop().run_until_complete(self.auth.rest_authenticate(request))
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        authenticated_request = loop.run_until_complete(self.auth.rest_authenticate(request))
+        loop.close()
         
         headers = authenticated_request.headers
         self.assertIn("AEVO-ACCESS-KEY", headers)
