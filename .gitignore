@@ -96,3 +96,9 @@ coverage.xml
 .env
 
 **/.claude/settings.local.json
+
+# Local scratch files
+controllers/directional_trading/donchian_breakout_v1.py
+controllers/directional_trading/mean_reversion.py
+controllers/directional_trading/momentum_scalper.py
+scripts/v2_donchian_breakout.py
