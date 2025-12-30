@@ -1,8 +1,13 @@
+from typing import Tuple, Any, Dict, Optional, List
 from hummingbot.connector.derivative.derivative_base import DerivativeBase
 from hummingbot.connector.derivative.aevo_perpetual import aevo_perpetual_constants as CONSTANTS
 from hummingbot.connector.derivative.aevo_perpetual.aevo_perpetual_api_order_book_data_source import AevoPerpetualAPIOrderBookDataSource
 from hummingbot.connector.derivative.aevo_perpetual.aevo_perpetual_user_stream_data_source import AevoPerpetualUserStreamDataSource
 from hummingbot.connector.derivative.aevo_perpetual import aevo_perpetual_utils as utils
+from hummingbot.connector.derivative.aevo_perpetual.aevo_perpetual_auth import AevoPerpetualAuth
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
+from hummingbot.core.data_type.common import OrderType
 import asyncio
 
 
@@ -10,10 +15,34 @@ class AevoPerpetualDerivative(DerivativeBase):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._domain = "aevo"
-    
+        self._auth: AevoPerpetualAuth = None
+        self._web_assistants_factory: WebAssistantsFactory = None
+
     @property
     def name(self) -> str:
         return "aevo_perpetual"
+
+    @property
+    def supported_order_types(self) -> List[OrderType]:
+        return [OrderType.LIMIT, OrderType.MARKET]
+
+    def _create_web_assistants_factory(self) -> WebAssistantsFactory:
+        return WebAssistantsFactory(
+            throttler=self._throttler,
+            auth=self._auth
+        )
+
+    async def _make_trading_rules_request(self) -> Any:
+        return await self._api_factory.call_rest(
+            method="GET",
+            url=f"{CONSTANTS.AEVO_BASE_URL}{CONSTANTS.INSTRUMENT_PATH_URL}"
+        )
+
+    async def _make_trading_pairs_request(self) -> Any:
+        return await self._api_factory.call_rest(
+            method="GET",
+            url=f"{CONSTANTS.AEVO_BASE_URL}{CONSTANTS.INSTRUMENT_PATH_URL}"
+        )
 
     @property
     def authenticator(self):

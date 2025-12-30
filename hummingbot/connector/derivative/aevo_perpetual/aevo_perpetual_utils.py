@@ -36,5 +36,4 @@ def convert_to_hb_symbol(exchange_symbol: str) -> str:
     return exchange_symbol.replace("-PERP", "-USD")
 
 def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
-    pass
     return True
