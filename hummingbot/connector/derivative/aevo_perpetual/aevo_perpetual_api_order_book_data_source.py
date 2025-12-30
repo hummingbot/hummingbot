@@ -118,7 +118,7 @@ class AevoPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                     OrderBookMessageType.TRADE,
                                     {
                                         "trading_pair": channel.split(":")[-1],
-                                        "trade_type": float(trade.get("amount", 0)) > 0 and 1 or 2, # 1 for Buy, 2 for Sell (approx)
+                                        "trade_type": 1.0 if trade.get("side", "").lower() == "buy" else 2.0,
                                         "trade_id": trade.get("trade_id"),
                                         "update_id": int(trade.get("timestamp", 0)),
                                         "price": trade.get("price"),

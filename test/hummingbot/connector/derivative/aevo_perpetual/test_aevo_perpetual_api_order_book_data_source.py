@@ -98,7 +98,10 @@ class AevoDataSourceTest(unittest.TestCase):
 
         # Run listener
         try:
-            asyncio.run(self.data_source.listen_for_subscriptions())
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(self.data_source.listen_for_subscriptions())
+            loop.close()
         except asyncio.CancelledError:
             pass
             
@@ -122,6 +125,7 @@ class AevoDataSourceTest(unittest.TestCase):
                     "trade_id": "123",
                     "price": "2000.5",
                     "amount": "0.1",
+                    "side": "buy",
                     "timestamp": 1600000000000000000
                 }
             ]
@@ -138,7 +142,10 @@ class AevoDataSourceTest(unittest.TestCase):
         mock_ws.connect = AsyncMock()
 
         try:
-            asyncio.run(self.data_source.listen_for_subscriptions())
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(self.data_source.listen_for_subscriptions())
+            loop.close()
         except asyncio.CancelledError:
             pass
             
