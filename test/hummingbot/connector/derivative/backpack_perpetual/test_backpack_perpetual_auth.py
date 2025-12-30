@@ -30,7 +30,7 @@ class TestBackpackPerpetualAuth(unittest.TestCase):
     def test_auth_methods_exist(self):
         """Test that auth methods are available (inherited from BackpackAuth)."""
         # Check that the class has expected methods from parent
-        self.assertTrue(hasattr(BackpackPerpetualAuth, "add_auth_to_params"))
+        self.assertTrue(hasattr(BackpackPerpetualAuth, "generate_auth_headers"))
         self.assertTrue(hasattr(BackpackPerpetualAuth, "generate_ws_auth_payload"))
 
 
