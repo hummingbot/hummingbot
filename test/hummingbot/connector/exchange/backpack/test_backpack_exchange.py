@@ -18,6 +18,7 @@ from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.event.events import MarketOrderFailureEvent
 
 
 class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
@@ -268,13 +269,74 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         expected_side = "Bid" if order.trade_type is TradeType.BUY else "Ask"
         self.assertEqual(expected_side, request_data["side"])
 
-    def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
-        request_params = request_call.kwargs.get("params", {})
-        # Check that either clientId or orderId is in params
-        self.assertTrue(
-            "clientId" in request_params or "orderId" in request_params,
-            "Cancel request should include clientId or orderId"
+    @aioresponses()
+    async def test_create_order_fails_and_raises_failure_event(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+        url = self.order_creation_url
+        mock_api.post(url, status=400, callback=lambda *args, **kwargs: request_sent_event.set())
+
+        order_id = self.place_buy_order()
+        await request_sent_event.wait()
+        await asyncio.sleep(0.1)
+
+        order_requests = self._all_executed_requests(mock_api, url)
+        self.assertTrue(order_requests, "No order creation request captured")
+
+        order_request = order_requests[0]
+        if len(order_requests) > 1:
+            target_client_id = int(order_id)
+            for candidate in order_requests:
+                try:
+                    data = json.loads(candidate.kwargs.get("data") or "{}")
+                except Exception:
+                    data = {}
+                if data.get("clientId") == target_client_id:
+                    order_request = candidate
+                    break
+
+        self.validate_auth_credentials_present(order_request)
+        self.assertNotIn(order_id, self.exchange.in_flight_orders)
+        order_to_validate_request = InFlightOrder(
+            client_order_id=order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("100"),
+            creation_timestamp=self.exchange.current_timestamp,
+            price=Decimal("10000"),
         )
+        self.validate_order_creation_request(order=order_to_validate_request, request_call=order_request)
+
+        self.assertEqual(0, len(self.buy_order_created_logger.event_log))
+        failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
+        self.assertEqual(OrderType.LIMIT, failure_event.order_type)
+        self.assertEqual(order_id, failure_event.order_id)
+
+        self.assertTrue(
+            self.is_logged(
+                "NETWORK",
+                f"Error submitting buy LIMIT order to Backpack for 100.000000 {self.trading_pair} 10000.0000.",
+            )
+        )
+
+    def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
+        request_data = request_call.kwargs.get("data")
+        if request_data is not None:
+            if isinstance(request_data, str):
+                request_data = json.loads(request_data)
+            self.assertTrue(
+                "clientId" in request_data or "orderId" in request_data,
+                "Cancel request should include clientId or orderId"
+            )
+        else:
+            request_params = request_call.kwargs.get("params", {})
+            self.assertTrue(
+                "clientId" in request_params or "orderId" in request_params,
+                "Cancel request should include clientId or orderId"
+            )
 
     def validate_order_status_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs.get("params", {})

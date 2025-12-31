@@ -470,9 +470,14 @@ class BackpackPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetua
         self.assertEqual(Decimal(str(order.amount)), Decimal(str(request_data.get("quantity"))))
 
     def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
-        request_params = request_call.kwargs.get("params", {})
-        # Backpack uses DELETE with params
-        self.assertIsNotNone(request_params)
+        request_data = request_call.kwargs.get("data")
+        if request_data is not None:
+            if isinstance(request_data, str):
+                request_data = json.loads(request_data)
+            self.assertIsNotNone(request_data)
+        else:
+            request_params = request_call.kwargs.get("params", {})
+            self.assertIsNotNone(request_params)
 
     def validate_order_status_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs.get("params", {})

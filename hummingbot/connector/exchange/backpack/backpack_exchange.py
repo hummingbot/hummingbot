@@ -333,11 +333,20 @@ class BackpackExchange(ExchangePyBase):
 
                 trading_pair = combine_to_hb_trading_pair(base_symbol, quote_symbol)
 
-                # Parse trading rule parameters
-                min_order_size = Decimal(str(market.get("minOrderSize", "0.00001")))
-                tick_size = Decimal(str(market.get("tickSize", "0.01")))
-                step_size = Decimal(str(market.get("stepSize", "0.00001")))
-                min_notional = Decimal(str(market.get("minNotional", "1")))
+                # Parse trading rule parameters (Backpack exposes filters nested under "filters")
+                filters = market.get("filters", {}) if isinstance(market.get("filters"), dict) else {}
+                price_filter = filters.get("price", {}) if isinstance(filters.get("price"), dict) else {}
+                quantity_filter = filters.get("quantity", {}) if isinstance(filters.get("quantity"), dict) else {}
+
+                min_order_size = Decimal(str(quantity_filter.get("minQuantity", market.get("minOrderSize", "0.00001"))))
+                tick_size = Decimal(str(price_filter.get("tickSize", market.get("tickSize", "0.01"))))
+                step_size = Decimal(str(quantity_filter.get("stepSize", market.get("stepSize", "0.00001"))))
+
+                min_notional = Decimal(str(market.get("minNotional", price_filter.get("minNotional", "0"))))
+                if min_notional == 0:
+                    min_price = Decimal(str(price_filter.get("minPrice", "0")))
+                    if min_price > 0 and min_order_size > 0:
+                        min_notional = min_price * min_order_size
 
                 trading_rules.append(
                     TradingRule(
@@ -465,13 +474,12 @@ class BackpackExchange(ExchangePyBase):
             "clientId": int(order_id),
         }
 
-        # If we have exchange order ID, use it instead
-        if tracked_order.exchange_order_id:
-            api_params["orderId"] = tracked_order.exchange_order_id
+        # Backpack expects either clientId or orderId (not both). Use clientId for consistency.
 
+        # Backpack expects a JSON payload for cancel requests
         cancel_result = await self._api_delete(
             path_url=CONSTANTS.ORDER_URL,
-            params=api_params,
+            data=api_params,
             is_auth_required=True,
         )
 

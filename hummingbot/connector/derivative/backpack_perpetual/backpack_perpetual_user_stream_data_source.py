@@ -121,8 +121,8 @@ class BackpackPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         try:
             while True:
                 await asyncio.sleep(CONSTANTS.HEARTBEAT_TIME_INTERVAL)
-                ping_request = WSJSONRequest(payload={"method": "PING"})
-                await websocket_assistant.send(ping_request)
+                # Use websocket ping frames (Backpack WS does not accept JSON PING messages)
+                await websocket_assistant.ping()
         except asyncio.CancelledError:
             pass
         except Exception as e:
@@ -140,8 +140,8 @@ class BackpackPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                     queue=queue,
                 )
             except asyncio.TimeoutError:
-                ping_request = WSJSONRequest(payload={"method": "PING"})
-                await websocket_assistant.send(ping_request)
+                # Send ping frame on timeout to keep connection alive
+                await websocket_assistant.ping()
 
     async def listen_for_user_stream(self, output: asyncio.Queue):
         while True:
