@@ -1,7 +1,11 @@
 import unittest
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase, async_to_sync
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from hummingbot.connector.exchange.backpack import backpack_constants as CONSTANTS
 from hummingbot.connector.exchange.backpack import backpack_web_utils as web_utils
+from hummingbot.connector.exchange.backpack.backpack_web_utils import BackpackRESTPreProcessor
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 
 
 class TestBackpackWebUtils(unittest.TestCase):
@@ -51,6 +55,38 @@ class TestBackpackWebUtils(unittest.TestCase):
             url = web_utils.rest_url(endpoint, CONSTANTS.DOMAIN)
             self.assertTrue(url.startswith(CONSTANTS.BASE_URL))
             self.assertTrue(url.endswith(endpoint))
+
+    def test_rest_pre_processor_sets_content_type(self):
+        request = RESTRequest(method=RESTMethod.GET, url="https://example.com")
+        processor = BackpackRESTPreProcessor()
+        processed = async_to_sync(processor.pre_process)(request)
+        self.assertEqual("application/json", processed.headers["Content-Type"])
+
+
+class TestBackpackWebUtilsAsync(IsolatedAsyncioWrapperTestCase):
+    async def test_get_current_server_time_from_seconds(self):
+        rest_assistant = AsyncMock()
+        rest_assistant.execute_request = AsyncMock(return_value={"serverTime": "1700000000"})
+        api_factory = MagicMock()
+        api_factory.get_rest_assistant = AsyncMock(return_value=rest_assistant)
+        with patch(
+            "hummingbot.connector.exchange.backpack.backpack_web_utils.build_api_factory_without_time_synchronizer_pre_processor",
+            return_value=api_factory,
+        ):
+            result = await web_utils.get_current_server_time()
+        self.assertEqual(1_700_000_000_000.0, result)
+
+    async def test_get_current_server_time_from_microseconds(self):
+        rest_assistant = AsyncMock()
+        rest_assistant.execute_request = AsyncMock(return_value=1_700_000_000_000_000)
+        api_factory = MagicMock()
+        api_factory.get_rest_assistant = AsyncMock(return_value=rest_assistant)
+        with patch(
+            "hummingbot.connector.exchange.backpack.backpack_web_utils.build_api_factory_without_time_synchronizer_pre_processor",
+            return_value=api_factory,
+        ):
+            result = await web_utils.get_current_server_time()
+        self.assertEqual(1_700_000_000_000.0, result)
 
 
 if __name__ == "__main__":

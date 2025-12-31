@@ -1,4 +1,6 @@
 import unittest
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from hummingbot.connector.derivative.backpack_perpetual import (
     backpack_perpetual_constants as CONSTANTS,
@@ -64,6 +66,32 @@ class TestBackpackPerpetualWebUtils(unittest.TestCase):
                 url = web_utils.rest_url(endpoint)
                 self.assertTrue(url.startswith(CONSTANTS.BASE_URL))
                 self.assertTrue(endpoint in url)
+
+
+class TestBackpackPerpetualWebUtilsAsync(IsolatedAsyncioWrapperTestCase):
+    async def test_get_current_server_time_from_seconds(self):
+        rest_assistant = AsyncMock()
+        rest_assistant.execute_request = AsyncMock(return_value={"serverTime": "1700000000"})
+        api_factory = MagicMock()
+        api_factory.get_rest_assistant = AsyncMock(return_value=rest_assistant)
+        with patch(
+            "hummingbot.connector.derivative.backpack_perpetual.backpack_perpetual_web_utils.build_api_factory_without_time_synchronizer_pre_processor",
+            return_value=api_factory,
+        ):
+            result = await web_utils.get_current_server_time()
+        self.assertEqual(1_700_000_000_000.0, result)
+
+    async def test_get_current_server_time_from_microseconds(self):
+        rest_assistant = AsyncMock()
+        rest_assistant.execute_request = AsyncMock(return_value=1_700_000_000_000_000)
+        api_factory = MagicMock()
+        api_factory.get_rest_assistant = AsyncMock(return_value=rest_assistant)
+        with patch(
+            "hummingbot.connector.derivative.backpack_perpetual.backpack_perpetual_web_utils.build_api_factory_without_time_synchronizer_pre_processor",
+            return_value=api_factory,
+        ):
+            result = await web_utils.get_current_server_time()
+        self.assertEqual(1_700_000_000_000.0, result)
 
 
 if __name__ == "__main__":
