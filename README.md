@@ -1,4 +1,20 @@
-![Hummingbot](https://github.com/user-attachments/assets/3213d7f8-414b-4df8-8c1b-a0cd142a82d8)
+# Backpack Connector Feature Implementation
+
+This project implements a Backpack connector feature using Python and Flask.
+
+## Requirements
+- Python 3.8 or higher
+- Flask 2.0.1
+
+## Installation
+```bash
+pip install -r requirements.txt
+```
+
+## Running the Application
+```bash
+python app.py
+```![Hummingbot](https://github.com/user-attachments/assets/3213d7f8-414b-4df8-8c1b-a0cd142a82d8)
 
 ----
 [![License](https://img.shields.io/badge/License-Apache%202.0-informational.svg)](https://github.com/hummingbot/hummingbot/blob/master/LICENSE)
