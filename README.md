@@ -1,4 +1,20 @@
-# Backpack Connector Feature Implementation
+# Backpack Connector Implementation in Python
+
+This project provides a simple Flask application to implement the Backpack connector feature as described.
+
+## Requirements
+- Python 3.8 or higher
+- Flask 2.0.1
+
+## Installation
+```bash
+pip install -r requirements.txt
+```
+
+## Running the Application
+```bash
+python app.py
+```# Backpack Connector Feature Implementation
 
 This project implements a Backpack connector feature using Python and Flask.
 
