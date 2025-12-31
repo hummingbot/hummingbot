@@ -44,6 +44,13 @@ class TestBackpackPerpetualWebUtils(unittest.TestCase):
         throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
         factory = web_utils.build_api_factory(throttler=throttler)
         self.assertIsNotNone(factory)
+        self.assertTrue(hasattr(factory, "get_rest_assistant"))
+
+    def test_build_api_factory_without_time_sync(self):
+        from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+        throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
+        factory = web_utils.build_api_factory_without_time_synchronizer_pre_processor(throttler=throttler)
+        self.assertIsNotNone(factory)
 
     def test_rest_url_with_all_endpoints(self):
         """Test REST URL generation for all defined endpoints."""
@@ -92,6 +99,22 @@ class TestBackpackPerpetualWebUtilsAsync(IsolatedAsyncioWrapperTestCase):
         ):
             result = await web_utils.get_current_server_time()
         self.assertEqual(1_700_000_000_000.0, result)
+
+    async def test_get_current_server_time_invalid_value_fallback(self):
+        rest_assistant = AsyncMock()
+        rest_assistant.execute_request = AsyncMock(return_value={"serverTime": "not-a-number"})
+        api_factory = MagicMock()
+        api_factory.get_rest_assistant = AsyncMock(return_value=rest_assistant)
+        with patch(
+            "hummingbot.connector.derivative.backpack_perpetual.backpack_perpetual_web_utils.build_api_factory_without_time_synchronizer_pre_processor",
+            return_value=api_factory,
+        ):
+            with patch(
+                "hummingbot.connector.derivative.backpack_perpetual.backpack_perpetual_web_utils.time.time",
+                return_value=2,
+            ):
+                result = await web_utils.get_current_server_time()
+        self.assertEqual(2_000_000.0, result)
 
 
 if __name__ == "__main__":

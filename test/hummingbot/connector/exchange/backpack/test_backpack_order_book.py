@@ -180,6 +180,14 @@ class TestBackpackOrderBook(unittest.TestCase):
         self.assertEqual(1, len(message.content["asks"]))
         self.assertEqual(1, len(message.content["bids"]))
 
+    def test_parse_orders_with_dict_entries(self):
+        orders = [
+            {"price": "100", "quantity": "1.5"},
+            {"px": "101", "sz": "2"},
+        ]
+        parsed = BackpackOrderBook._parse_orders(orders)
+        self.assertEqual([[100.0, 1.5], [101.0, 2.0]], parsed)
+
 
 if __name__ == "__main__":
     unittest.main()

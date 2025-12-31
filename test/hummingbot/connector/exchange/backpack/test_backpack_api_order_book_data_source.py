@@ -18,6 +18,7 @@ class BackpackAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.connector.exchange_symbol_associated_to_pair = AsyncMock(return_value=self.exchange_symbol)
         self.connector.trading_pair_associated_to_exchange_symbol = AsyncMock(return_value=self.trading_pair)
         self.connector.get_last_traded_prices = AsyncMock(return_value={self.trading_pair: 123.45})
+        self.connector._api_get = AsyncMock()
         self.api_factory = MagicMock()
         self.data_source = BackpackAPIOrderBookDataSource(
             trading_pairs=[self.trading_pair],
@@ -40,6 +41,31 @@ class BackpackAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.assertIn(f"{CONSTANTS.WS_DEPTH_CHANNEL}.{self.exchange_symbol}", params)
         self.assertIn(f"{CONSTANTS.WS_TRADE_CHANNEL}.{self.exchange_symbol}", params)
         self.assertIn(f"{CONSTANTS.WS_TICKER_CHANNEL}.{self.exchange_symbol}", params)
+
+    async def test_request_order_book_snapshot_calls_api(self):
+        self.connector._api_get = AsyncMock(return_value={"bids": [], "asks": []})
+        result = await self.data_source._request_order_book_snapshot(self.trading_pair)
+        self.assertEqual({"bids": [], "asks": []}, result)
+        self.connector._api_get.assert_awaited_once()
+        kwargs = self.connector._api_get.call_args.kwargs
+        self.assertEqual(CONSTANTS.DEPTH_URL, kwargs["path_url"])
+        self.assertEqual({"symbol": self.exchange_symbol, "limit": 1000}, kwargs["params"])
+
+    async def test_order_book_snapshot_returns_message(self):
+        self.connector._api_get = AsyncMock(
+            return_value={"lastUpdateId": 5, "bids": [["1", "2"]], "asks": [["3", "4"]]}
+        )
+        msg = await self.data_source._order_book_snapshot(self.trading_pair)
+        self.assertEqual(OrderBookMessageType.SNAPSHOT, msg.type)
+        self.assertEqual(self.trading_pair, msg.content["trading_pair"])
+        self.assertEqual(5, msg.content["update_id"])
+
+    async def test_connected_websocket_assistant_connects(self):
+        ws = AsyncMock()
+        self.api_factory.get_ws_assistant = AsyncMock(return_value=ws)
+        result = await self.data_source._connected_websocket_assistant()
+        self.assertEqual(ws, result)
+        ws.connect.assert_awaited_once()
 
     async def test_parse_order_book_diff_message_puts_message(self):
         queue = asyncio.Queue()

@@ -40,6 +40,14 @@ class TestBackpackWebUtils(unittest.TestCase):
         factory = web_utils.build_api_factory(throttler=None, auth=None)
 
         self.assertIsNotNone(factory)
+        self.assertTrue(hasattr(factory, "get_rest_assistant"))
+
+    def test_build_api_factory_without_time_sync(self):
+        from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+
+        throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        factory = web_utils.build_api_factory_without_time_synchronizer_pre_processor(throttler=throttler)
+        self.assertIsNotNone(factory)
 
     def test_rest_url_with_various_endpoints(self):
         """Test REST URL generation for various endpoints."""
@@ -61,6 +69,14 @@ class TestBackpackWebUtils(unittest.TestCase):
         processor = BackpackRESTPreProcessor()
         processed = async_to_sync(processor.pre_process)(request)
         self.assertEqual("application/json", processed.headers["Content-Type"])
+
+    def test_symbol_helpers(self):
+        self.assertTrue(web_utils.is_exchange_information_valid({"any": "thing"}))
+        self.assertEqual("BTC_USDC", web_utils.convert_to_exchange_symbol("BTC-USDC"))
+        self.assertEqual("BTC-USDC", web_utils.convert_from_exchange_symbol("BTC_USDC"))
+        self.assertEqual(("BTC", "USDC"), web_utils.get_base_quote_from_symbol("BTC_USDC"))
+        with self.assertRaises(ValueError):
+            web_utils.get_base_quote_from_symbol("INVALID")
 
 
 class TestBackpackWebUtilsAsync(IsolatedAsyncioWrapperTestCase):
@@ -87,6 +103,22 @@ class TestBackpackWebUtilsAsync(IsolatedAsyncioWrapperTestCase):
         ):
             result = await web_utils.get_current_server_time()
         self.assertEqual(1_700_000_000_000.0, result)
+
+    async def test_get_current_server_time_invalid_value_fallback(self):
+        rest_assistant = AsyncMock()
+        rest_assistant.execute_request = AsyncMock(return_value={"serverTime": "not-a-number"})
+        api_factory = MagicMock()
+        api_factory.get_rest_assistant = AsyncMock(return_value=rest_assistant)
+        with patch(
+            "hummingbot.connector.exchange.backpack.backpack_web_utils.build_api_factory_without_time_synchronizer_pre_processor",
+            return_value=api_factory,
+        ):
+            with patch(
+                "hummingbot.connector.exchange.backpack.backpack_web_utils.time.time",
+                return_value=1,
+            ):
+                result = await web_utils.get_current_server_time()
+        self.assertEqual(1_000_000.0, result)
 
 
 if __name__ == "__main__":

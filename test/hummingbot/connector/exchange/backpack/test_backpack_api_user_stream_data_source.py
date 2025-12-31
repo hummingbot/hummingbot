@@ -33,9 +33,41 @@ class BackpackAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(["account.orderUpdate"], sent_request.payload["params"])
         self.assertTrue(sent_request.is_auth_required)
 
+    def test_last_recv_time(self):
+        ws = MagicMock()
+        ws.last_recv_time = 123.0
+        self.data_source._ws_assistant = ws
+        self.assertEqual(123.0, self.data_source.last_recv_time)
+
+    async def test_get_ws_assistant_uses_factory(self):
+        ws = AsyncMock()
+        self.api_factory.get_ws_assistant = AsyncMock(return_value=ws)
+        result = await self.data_source._get_ws_assistant()
+        self.assertEqual(ws, result)
+
+    async def test_connected_websocket_assistant_connects(self):
+        ws = AsyncMock()
+        self.api_factory.get_ws_assistant = AsyncMock(return_value=ws)
+        async def _noop_ping_thread(*args, **kwargs):
+            return None
+        with patch.object(self.data_source, "_ping_thread", side_effect=_noop_ping_thread):
+            with patch(
+                "hummingbot.connector.exchange.backpack.backpack_api_user_stream_data_source.safe_ensure_future",
+                side_effect=lambda coro: asyncio.create_task(coro),
+            ):
+                result = await self.data_source._connected_websocket_assistant()
+        self.assertEqual(ws, result)
+        ws.connect.assert_awaited_once()
+
     async def test_process_event_message_raises_on_error(self):
         queue = asyncio.Queue()
         event_message = {"error": {"message": "boom"}}
+        with self.assertRaises(IOError):
+            await self.data_source._process_event_message(event_message, queue)
+
+    async def test_process_event_message_raises_on_error_string(self):
+        queue = asyncio.Queue()
+        event_message = {"error": "boom"}
         with self.assertRaises(IOError):
             await self.data_source._process_event_message(event_message, queue)
 
@@ -78,3 +110,13 @@ class BackpackAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         ):
             await self.data_source._ping_thread(ws)
         ws.ping.assert_awaited_once()
+
+    async def test_ping_thread_logs_exception(self):
+        ws = AsyncMock()
+        ws.ping = AsyncMock(side_effect=Exception("boom"))
+        with patch(
+            "hummingbot.connector.exchange.backpack.backpack_api_user_stream_data_source.asyncio.sleep",
+            new_callable=AsyncMock,
+            return_value=None,
+        ):
+            await self.data_source._ping_thread(ws)

@@ -64,8 +64,12 @@ class TestBackpackUtils(unittest.TestCase):
     def test_ws_subscription_formatters(self):
         sub_msg = utils.format_ws_subscription_message("depth", "BTC_USDC")
         self.assertEqual({"method": "SUBSCRIBE", "params": ["depth.BTC_USDC"]}, sub_msg)
+        sub_msg_no_symbol = utils.format_ws_subscription_message("depth")
+        self.assertEqual({"method": "SUBSCRIBE", "params": ["depth"]}, sub_msg_no_symbol)
         unsub_msg = utils.format_ws_unsubscription_message("trade")
         self.assertEqual({"method": "UNSUBSCRIBE", "params": ["trade"]}, unsub_msg)
+        unsub_msg_with_symbol = utils.format_ws_unsubscription_message("trade", "BTC_USDC")
+        self.assertEqual({"method": "UNSUBSCRIBE", "params": ["trade.BTC_USDC"]}, unsub_msg_with_symbol)
 
 
 if __name__ == "__main__":

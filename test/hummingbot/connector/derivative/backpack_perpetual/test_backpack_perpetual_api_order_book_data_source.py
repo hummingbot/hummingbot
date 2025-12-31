@@ -96,6 +96,19 @@ class BackpackPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCas
         self.assertEqual(Decimal("0.002"), info.rate)
         self.assertEqual(Decimal("100.5"), info.mark_price)
 
+    async def test_order_book_snapshot_returns_message(self):
+        self.connector._api_get = AsyncMock(
+            return_value={"lastUpdateId": 11, "bids": [["1", "2"]], "asks": [["3", "4"]]}
+        )
+        msg = await self.data_source._order_book_snapshot(self.trading_pair)
+        self.assertEqual(OrderBookMessageType.SNAPSHOT, msg.type)
+        self.assertEqual(11, msg.content["update_id"])
+
+    async def test_get_last_traded_prices_uses_rest_when_empty(self):
+        self.data_source._last_traded_prices[self.trading_pair] = 0.0
+        prices = await self.data_source.get_last_traded_prices([self.trading_pair])
+        self.assertEqual(456.78, prices[self.trading_pair])
+
     async def test_get_funding_info_uses_next_funding_fallback(self):
         self.connector._api_get = AsyncMock(side_effect=[[], []])
         with patch.object(self.data_source, "_next_funding_time", return_value=123456):
