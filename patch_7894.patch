@@ -1,0 +1,13 @@
+diff --git a/hummingbot/core/execution/order_tracker.py b/hummingbot/core/execution/order_tracker.py
+index somehash..anotherhash 100644
+--- a/hummingbot/core/execution/order_tracker.py
++++ b/hummingbot/core/execution/order_tracker.py
+@@ -123,7 +123,7 @@ class OrderTracker:
+                 self._order_books[order.client_order_id] = order_book
+             except Exception as e:
+                 self.logger().network(
+-                    f"Error tracking order {order.client_order_id}: {e}",
++                    f"Failed to track order {order.client_order_id} due to error: {str(e)}",
+                     exc_info=True,
+                     app_warning_msg=f"Could not track order {order.client_order_id}."
+                 )
