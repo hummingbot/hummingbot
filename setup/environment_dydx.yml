@@ -27,7 +27,7 @@ dependencies:
   - bidict>=0.22.1
   - bip-utils
   - cachetools>=5.3.1
-  - commlib-py>=0.11
+  - commlib-py==0.11.5
   - cryptography>=41.0.2
   - dydxprotocol-v4-proto-py
   - eth-account >=0.13.0

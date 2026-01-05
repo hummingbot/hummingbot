@@ -354,7 +354,7 @@ class DeriveExchange(ExchangePyBase):
         """
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         if len(self._instrument_ticker) == 0:
-            await self._make_trading_rules_request(self, trading_pair=symbol, fetch_pair=True)
+            await self._make_trading_rules_request()
         instrument = [next((pair for pair in self._instrument_ticker if symbol == pair["instrument_name"]), None)]
         param_order_type = "gtc"
         if order_type is OrderType.LIMIT_MAKER:
@@ -666,6 +666,8 @@ class DeriveExchange(ExchangePyBase):
         trading_pair_rules = exchange_info_dict
         retval = []
         for rule in filter(web_utils.is_exchange_information_valid, trading_pair_rules):
+            if rule["instrument_type"] != "erc20":
+                continue
             try:
                 trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule["instrument_name"])
                 min_order_size = rule["minimum_amount"]
@@ -892,8 +894,8 @@ class DeriveExchange(ExchangePyBase):
         await self.trading_pair_symbol_map()
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         payload = {"instrument_name": exchange_symbol}
-        response = await self._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
-                                        data=payload)
+        response = await self._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, data=payload, is_auth_required=False,
+                                        limit_id=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL)
 
         return response["result"]["mark_price"]
 
@@ -915,72 +917,34 @@ class DeriveExchange(ExchangePyBase):
             instrument_name = ticker["result"]["instrument_name"]
             if instrument_name in symbol_map.keys():
                 mapped_name = await self.trading_pair_associated_to_exchange_symbol(instrument_name)
-                last_traded_prices[mapped_name] = float(ticker["result"]["mark_price"])
+                last_traded_prices[mapped_name] = Decimal(ticker["result"]["mark_price"])
         return last_traded_prices
 
     async def _make_network_check_request(self):
         await self._api_get(path_url=self.check_network_request_path)
 
-    async def _make_currency_request(self) -> Any:
-        currencies = await self._api_post(path_url=self.trading_pairs_request_path, data={
-            "instrument_type": "erc20",
-        })
-        self.currencies.append(currencies)
-        return currencies
-
-    async def _make_trading_rules_request(self, trading_pair: Optional[str] = None, fetch_pair: Optional[bool] = False) -> Any:
-        self._instrument_ticker = []
-        exchange_infos = []
-        if not fetch_pair:
-            if len(self.currencies) == 0:
-                self.currencies.append(await self._make_currency_request())
-            for currency in self.currencies[0]["result"]:
-                payload = {
-                    "expired": True,
-                    "instrument_type": "erc20",
-                    "currency": currency["currency"],
-                }
-
-                exchange_info = await self._api_post(path_url=self.trading_currencies_request_path, data=payload)
-                if "error" in exchange_info:
-                    if 'Instrument not found' in exchange_info['error']['message']:
-                        self.logger().debug(f"Ignoring currency {currency['currency']}: not supported sport.")
-                        continue
-                    self.logger().warning(f"Error: {exchange_info['error']['message']}")
-                    raise
-
-                exchange_info["result"]["instruments"][0]["spot_price"] = currency["spot_price"]
-                self._instrument_ticker.append(exchange_info["result"]["instruments"][0])
-                exchange_infos.append(exchange_info["result"]["instruments"][0])
-        else:
-            exchange_info = await self._api_post(path_url=self.trading_pairs_request_path, data={
-                "expired": True,
-                "instrument_type": "erc20",
-                "currency": trading_pair.split("-")[0],
-            })
-            exchange_info["result"]["instruments"][0]["spot_price"] = currency["spot_price"]
-            self._instrument_ticker.append(exchange_info["result"]["instruments"][0])
-            exchange_infos.append(exchange_info["result"]["instruments"][0])
-        return exchange_infos
-
     async def _make_trading_pairs_request(self) -> Any:
-        exchange_infos = []
-        if len(self.currencies) == 0:
-            self.currencies.append(await self._make_currency_request())
-        for currency in self.currencies[0]["result"]:
+        payload = {
+            "expired": True,
+            "instrument_type": "erc20",
+            "page": 1,
+            "page_size": 1000,
+        }
 
-            payload = {
-                "expired": True,
-                "instrument_type": "erc20",
-                "currency": currency["currency"],
-            }
+        exchange_info = await self._api_post(path_url=self.trading_currencies_request_path, data=payload)
+        info = exchange_info["result"]["instruments"]
+        self._instrument_ticker = info
+        return info
 
-            exchange_info = await self._api_post(path_url=self.trading_currencies_request_path, data=payload)
-            if "error" in exchange_info:
-                if 'Instrument not found' in exchange_info['error']['message']:
-                    self.logger().debug(f"Ignoring currency {currency['currency']}: not supported sport.")
-                    continue
-                self.logger().error(f"Error: {currency['message']}")
-                raise
-            exchange_infos.append(exchange_info["result"]["instruments"][0])
-        return exchange_infos
+    async def _make_trading_rules_request(self) -> Any:
+        payload = {
+            "expired": True,
+            "instrument_type": "erc20",
+            "page": 1,
+            "page_size": 1000,
+        }
+
+        exchange_info = await self._api_post(path_url=self.trading_currencies_request_path, data=payload)
+        info = exchange_info["result"]["instruments"]
+        self._instrument_ticker = info
+        return info

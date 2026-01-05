@@ -91,6 +91,12 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
         status = self.controller.to_format_status()
         self.assertIsInstance(status, list)
 
+    def test_get_custom_info(self):
+        # Test the get_custom_info method returns empty dict by default
+        custom_info = self.controller.get_custom_info()
+        self.assertIsInstance(custom_info, dict)
+        self.assertEqual(custom_info, {})
+
     def test_controller_parse_candles_config_str_with_valid_input(self):
         # Test the parse_candles_config_str method
 
