@@ -1,0 +1,32 @@
+--- a/hummingbot/hummingbot/auth.py
++++ b/hummingbot/hummingbot/auth.py
+@@ -23,10 +23,14 @@
+         self._client = None
+ 
+     async def authenticate(self) -> bool:
++        # 清理之前的认证状态
++        await self.logout()
++
+         try:
+             if not (self.api_key and self.secret_key):
+                 raise AuthenticationError("API keys are required for authentication.")
+ 
+-            response = await self._client.post("/auth/login", json={"api_key": self.api_key, "secret_key": self.secret_key})
++            # 使用正确的API端点进行登录
++            response = await self._client.post("/auth/login", json={"api_key": self.api_key, "secret_key": self.secret_key})
+             if response.status == 200:
+                 self.authenticated = True
+                 return True
+@@ -38,6 +42,12 @@
+             raise AuthenticationError("Invalid API keys.")
+ 
+         except Exception as e:
++            # 捕获所有异常并提供更详细的错误信息
++            if isinstance(e, aiohttp.ClientResponseError):
++                error_msg = f"HTTP error occurred: {e.status}, {e.message}"
++            else:
++                error_msg = str(e)
++            raise AuthenticationError(error_msg) from e
+ 
+     async def logout(self):
+         # 清理认证状态
