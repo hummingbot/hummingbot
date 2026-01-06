@@ -46,10 +46,12 @@ class DeepcoinPerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestC
 
         self.emulated_time = 1640001112.223
         self.connector = DeepcoinPerpetualDerivative(
-            deepcoin_perpetual_api_key=self.api_key, deepcoin_perpetual_api_secret=self.secret_key, deepcoin_perpetual_passphrase=self.pass_phrase, domain=self.domain, trading_pairs=[]
+            deepcoin_perpetual_api_key=self.api_key, deepcoin_perpetual_secret_key=self.secret_key,
+            deepcoin_perpetual_passphrase=self.pass_phrase, domain=self.domain, trading_pairs=[]
         )
 
-        self.auth = DeepcoinPerpetualAuth(api_key=self.api_key, secret_key=self.secret_key, passphrase=self.pass_phrase, time_provider=self.mock_time_provider)
+        self.auth = DeepcoinPerpetualAuth(api_key=self.api_key, secret_key=self.secret_key, passphrase=self.pass_phrase,
+                                          time_provider=self.mock_time_provider)
         self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
@@ -58,7 +60,7 @@ class DeepcoinPerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestC
             auth=self.auth,
             domain=self.domain,
             api_factory=api_factory,
-            connector=self.connector,
+            # connector=self.connector,
         )
 
         self.data_source.logger().setLevel(1)
@@ -188,7 +190,8 @@ class DeepcoinPerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestC
     @aioresponses()
     async def test_manage_listen_key_task_loop_keep_alive_successful(self, mock_api):
         url = web_utils.public_rest_url(CONSTANTS.USER_STREAM_EXTEND_ENDPOINT, domain=self.domain)
-        mock_api.get(url + f"?listenkey={self.listen_key}", body=ujson.dumps({"code": "0"}), callback=self._mock_responses_done_callback)
+        mock_api.get(url + f"?listenkey={self.listen_key}", body=ujson.dumps({"code": "0"}),
+                     callback=self._mock_responses_done_callback)
 
         self.data_source._current_listen_key = self.listen_key
         # Simulate LISTEN_KEY_KEEP_ALIVE_INTERVAL reached

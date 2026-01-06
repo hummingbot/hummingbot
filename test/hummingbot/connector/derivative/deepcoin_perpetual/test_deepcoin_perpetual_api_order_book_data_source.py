@@ -18,7 +18,6 @@ from hummingbot.connector.derivative.deepcoin_perpetual import (
 from hummingbot.connector.derivative.deepcoin_perpetual.deepcoin_perpetual_api_order_book_data_source import (
     DeepcoinPerpetualAPIOrderBookDataSource,
 )
-from hummingbot.connector.derivative.deepcoin_perpetual.deepcoin_perpetual_auth import DeepcoinPerpetualAuth
 from hummingbot.connector.derivative.deepcoin_perpetual.deepcoin_perpetual_derivative import DeepcoinPerpetualDerivative
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.data_type.funding_info import FundingInfo
@@ -52,17 +51,17 @@ class DeepcoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCas
         self.connector = DeepcoinPerpetualDerivative(
             client_config_map,
             deepcoin_perpetual_api_key="",
-            deepcoin_perpetual_api_secret="",
+            deepcoin_perpetual_secret_key="",
             deepcoin_perpetual_passphrase="",
             trading_pairs=[self.trading_pair],
             trading_required=False,
             domain=self.domain,
         )
-        auth = DeepcoinPerpetualAuth(api_key="test", secret_key="test", passphrase="123",
-                                     time_provider=self.mock_time_provider)
+        # auth = DeepcoinPerpetualAuth(api_key="test", secret_key="test", passphrase="123",
+        #                             time_provider=self.mock_time_provider)
 
         self.data_source = DeepcoinPerpetualAPIOrderBookDataSource(
-            auth=auth,
+            # auth=auth,
             trading_pairs=[self.trading_pair],
             connector=self.connector,
             api_factory=self.connector._web_assistants_factory,

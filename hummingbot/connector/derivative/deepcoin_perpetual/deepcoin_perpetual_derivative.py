@@ -3,7 +3,7 @@ import time
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-import bidict as bidict
+from bidict import bidict
 
 import hummingbot.connector.derivative.deepcoin_perpetual.deepcoin_perpetual_utils as deepcoin_utils
 from hummingbot.connector.derivative.deepcoin_perpetual import (
@@ -237,8 +237,8 @@ class DeepcoinPerpetualDerivative(PerpetualDerivativePyBase):
             is_auth_required=True,
         )
         data = cancel_result["data"]
-        ret_code_ok = data["sCode"] == CONSTANTS.RET_CODE_OK
-        if ret_code_ok:
+        # ret_code_ok = data["sCode"] == CONSTANTS.RET_CODE_OK
+        if data["sCode"] != "0":
             final_result = True
         else:
             raise IOError(f"Error cancelling order {order_id}: {cancel_result}")

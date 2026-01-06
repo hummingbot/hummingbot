@@ -467,24 +467,22 @@ class DeepcoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetua
         return {
             "code": "0",
             "msg": "",
-            "data": [
-                {
-                    "clOrdId": order.client_order_id,
-                    "ordId": order.exchange_order_id or "dummyOrdId",
-                    "sCode": str(response_scode),
-                    "sMsg": ""
-                }
-            ]
+            "data": {
+                "clOrdId": order.client_order_id,
+                "ordId": order.exchange_order_id or "dummyOrdId",
+                "sCode": str(response_scode),
+                "sMsg": ""
+            }
         }
 
     def validate_auth_credentials_present(self, request_call: RequestCall):
         request_headers = request_call.kwargs["headers"]
-        self.assertIn("OK-ACCESS-KEY", request_headers)
-        self.assertEqual(self.api_key, request_headers["OK-ACCESS-KEY"])
-        self.assertIn("OK-ACCESS-TIMESTAMP", request_headers)
-        self.assertIn("OK-ACCESS-SIGN", request_headers)
-        self.assertIn("OK-ACCESS-PASSPHRASE", request_headers)
-        self.assertEqual(self.passphrase, request_headers["OK-ACCESS-PASSPHRASE"])
+        self.assertIn("DC-ACCESS-KEY", request_headers)
+        self.assertEqual(self.api_key, request_headers["DC-ACCESS-KEY"])
+        self.assertIn("DC-ACCESS-TIMESTAMP", request_headers)
+        self.assertIn("DC-ACCESS-SIGN", request_headers)
+        self.assertIn("DC-ACCESS-PASSPHRASE", request_headers)
+        self.assertEqual(self.passphrase, request_headers["DC-ACCESS-PASSPHRASE"])
 
     def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
         self._simulate_trading_rules_initialized()
@@ -502,13 +500,13 @@ class DeepcoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetua
         request_data = json.loads(request_call.kwargs["data"])
         self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
                          request_data["instId"])
-        self.assertEqual(order.client_order_id, request_data["clOrdId"])
+        self.assertEqual(order.client_order_id, request_data["ordId"])
 
     def validate_order_status_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
         self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
                          request_params["instId"])
-        self.assertEqual(order.client_order_id, request_params["clOrdId"])
+        self.assertEqual(order.client_order_id, request_params["ordId"])
 
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
         self.validate_order_status_request(order, request_call)
@@ -544,14 +542,12 @@ class DeepcoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetua
         response = {
             "code": "0",
             "msg": "",
-            "data": [
-                {
-                    "clOrdId": order.client_order_id,
-                    "ordId": order.exchange_order_id or "dummyExchangeOrderId",
-                    "sCode": "1",
-                    "sMsg": "Error"
-                }
-            ]
+            "data": {
+                "clOrdId": order.client_order_id,
+                "ordId": order.exchange_order_id or "dummyExchangeOrderId",
+                "sCode": "1",
+                "sMsg": "Error"
+            }
         }
         mock_api.post(regex_url, body=json.dumps(response), callback=callback)
         return url

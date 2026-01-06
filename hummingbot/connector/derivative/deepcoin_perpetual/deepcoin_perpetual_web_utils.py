@@ -77,6 +77,14 @@ def public_rest_url(endpoint: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> st
     return CONSTANTS.REST_URLS.get(variant) + endpoint
 
 
+def private_rest_url(endpoint: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
+    """
+    Get private REST URL for endpoint
+    """
+    variant = domain if domain else CONSTANTS.DEFAULT_DOMAIN
+    return CONSTANTS.REST_URLS.get(variant) + endpoint
+
+
 def public_wss_url(domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
     """
     Get public WebSocket URL
@@ -97,8 +105,8 @@ def payload_from_message(message: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 def get_rest_url_for_endpoint(
-    endpoint: str,
-    domain: str = CONSTANTS.DEFAULT_DOMAIN
+        endpoint: str,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN
 ):
     variant = domain if domain else CONSTANTS.DEFAULT_DOMAIN
     return CONSTANTS.REST_URLS.get(variant) + endpoint
