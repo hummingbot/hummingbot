@@ -536,7 +536,7 @@ class BingXExchange(ExchangePyBase):
         # return request_result
         for _ in range(2):
             try:
-                # Replacing the execute_request method in the rest_assistant object to work with text/plain content type.
+                # Replacing the execute_request method in the rest_assistant object to work with text/html content type.
                 rest_assistant.execute_request = MethodType(execute_request_with_content_type_none, rest_assistant)
 
                 request_result = await rest_assistant.execute_request(
@@ -585,6 +585,6 @@ async def execute_request_with_content_type_none(
         timeout=timeout,
         headers=headers,
     )
-    # Modifying so the method works with valid JSON's but with content type text/plain too.
+    # Modifying so the method works with valid JSON's but with content type text/html too.
     response_json = await response._aiohttp_response.json(content_type=None)
     return response_json
