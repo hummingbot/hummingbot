@@ -117,7 +117,12 @@ class RESTResponse:
             byte_string = await self._aiohttp_response.read()
             if isinstance(byte_string, bytes):
                 decoded_string = byte_string.decode('utf-8')
-                json_ = json.loads(decoded_string)
+                try:
+                    json_ = json.loads(decoded_string)
+                except json.JSONDecodeError:
+                    # Response is valid text but not valid JSON (e.g., "pong")
+                    # Return the raw string to allow callers to handle it
+                    json_ = decoded_string
             else:
                 json_ = await self._aiohttp_response.json()
         else:
