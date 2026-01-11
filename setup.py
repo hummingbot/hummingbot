@@ -68,7 +68,7 @@ def main():
         "pandas>=2.3.2",
         "pandas-ta>=0.4.71b",
         "prompt_toolkit>=3.0.39",
-        "protobuf>=4.23.3",
+        "protobuf>=5.28.0",
         "psutil>=5.9.5",
         "pydantic>=2",
         "pyjwt>=2.3.0",
