@@ -36,6 +36,7 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 
 class DexalotExchange(ExchangePyBase):
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
+    DEFAULT_ORDERS_PROCESSING_DELTA_TIME = 0.5  # Default sleep time when clock is not available
 
     web_utils = web_utils
 
@@ -852,7 +853,7 @@ class DexalotExchange(ExchangePyBase):
                 await asyncio.shield(task)
                 sleep_time = (self.clock.tick_size * 0.5
                               if self.clock is not None
-                              else self._orders_processing_delta_time)
+                              else self.DEFAULT_ORDERS_PROCESSING_DELTA_TIME)
                 await self._sleep(sleep_time)
             except NotImplementedError:
                 raise
@@ -860,7 +861,10 @@ class DexalotExchange(ExchangePyBase):
                 raise
             except Exception:
                 self.logger().exception("Unexpected error while processing queued individual orders", exc_info=True)
-                await self._sleep(self.clock.tick_size * 0.5)
+                sleep_time = (self.clock.tick_size * 0.5
+                              if self.clock is not None
+                              else self.DEFAULT_ORDERS_PROCESSING_DELTA_TIME)
+                await self._sleep(sleep_time)
 
     async def _cancel_and_create_queued_orders(self):
         if len(self._orders_queued_to_cancel) > 0 or len(self._orders_queued_to_create) > 0:
