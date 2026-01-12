@@ -19,7 +19,7 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
 if TYPE_CHECKING:
-    from hummingbot.connector.derivative.backpack.backpack_derivative import BackpackDerivative
+    from hummingbot.connector.derivative.backpack_perpetual.backpack_derivative import BackpackDerivative
 
 
 class BackpackAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):

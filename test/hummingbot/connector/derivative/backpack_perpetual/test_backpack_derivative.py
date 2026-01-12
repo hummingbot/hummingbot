@@ -10,9 +10,9 @@ import pandas as pd
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 
-import hummingbot.connector.derivative.backpack.backpack_constants as CONSTANTS
-import hummingbot.connector.derivative.backpack.backpack_web_utils as web_utils
-from hummingbot.connector.derivative.backpack.backpack_derivative import BackpackDerivative
+import hummingbot.connector.derivative.backpack_perpetual.backpack_constants as CONSTANTS
+import hummingbot.connector.derivative.backpack_perpetual.backpack_web_utils as web_utils
+from hummingbot.connector.derivative.backpack_perpetual.backpack_derivative import BackpackDerivative
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.test_support.perpetual_derivative_test import AbstractPerpetualDerivativeTests
 from hummingbot.connector.trading_rule import TradingRule
@@ -1500,7 +1500,7 @@ class BackpackDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDerivati
         self.assertEqual(True, request_data["postOnly"])
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.backpack.backpack_derivative.BackpackDerivative.get_price")
+    @patch("hummingbot.connector.derivative.backpack_perpetual.backpack_derivative.BackpackDerivative.get_price")
     def test_create_buy_market_order_successfully(self, mock_api, get_price_mock):
         get_price_mock.return_value = Decimal(10000)
         self._simulate_trading_rules_initialized()

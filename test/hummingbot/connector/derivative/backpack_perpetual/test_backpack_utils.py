@@ -1,6 +1,6 @@
 import unittest
 
-import hummingbot.connector.derivative.backpack.backpack_utils as utils
+import hummingbot.connector.derivative.backpack_perpetual.backpack_utils as utils
 
 
 class TradingPairUtilsTest(unittest.TestCase):

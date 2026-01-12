@@ -8,7 +8,7 @@ from unittest import TestCase
 from unittest.mock import MagicMock
 
 from hummingbot.connector.derivative.backpack import backpack_constants as CONSTANTS
-from hummingbot.connector.derivative.backpack.backpack_auth import BackpackAuth
+from hummingbot.connector.derivative.backpack_perpetual.backpack_auth import BackpackAuth
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSJSONRequest
 
 

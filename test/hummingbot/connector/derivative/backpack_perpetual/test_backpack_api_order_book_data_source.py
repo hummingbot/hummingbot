@@ -11,14 +11,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses import aioresponses
 from bidict import bidict
 
-import hummingbot.connector.derivative.backpack.backpack_web_utils as web_utils
+import hummingbot.connector.derivative.backpack_perpetual.backpack_web_utils as web_utils
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.backpack import backpack_constants as CONSTANTS
-from hummingbot.connector.derivative.backpack.backpack_api_order_book_data_source import (
+from hummingbot.connector.derivative.backpack_perpetual.backpack_api_order_book_data_source import (
     BackpackAPIOrderBookDataSource,
 )
-from hummingbot.connector.derivative.backpack.backpack_derivative import BackpackDerivative
+from hummingbot.connector.derivative.backpack_perpetual.backpack_derivative import BackpackDerivative
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.funding_info import FundingInfo
@@ -160,7 +160,7 @@ class BackpackAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    @patch("hummingbot.connector.derivative.backpack.backpack_web_utils.next_message_id")
+    @patch("hummingbot.connector.derivative.backpack_perpetual.backpack_web_utils.next_message_id")
     async def test_listen_for_subscriptions_subscribes_to_trades_order_diffs_and_instruments(self, mock_api, id_mock,
                                                                                              mock_ws):
         id_mock.side_effect = [1, 2, 3]
@@ -446,7 +446,7 @@ class BackpackAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
             await self.data_source.listen_for_order_book_snapshots(self.local_event_loop, asyncio.Queue())
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.backpack.backpack_api_order_book_data_source"
+    @patch("hummingbot.connector.derivative.backpack_perpetual.backpack_api_order_book_data_source"
            ".BackpackAPIOrderBookDataSource._sleep")
     async def test_listen_for_order_book_snapshots_log_exception(self, mock_api, sleep_mock):
         msg_queue: asyncio.Queue = asyncio.Queue()

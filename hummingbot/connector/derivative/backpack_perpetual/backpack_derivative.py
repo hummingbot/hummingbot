@@ -5,16 +5,16 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import pandas as pd
 from bidict import ValueDuplicationError, bidict
 
-import hummingbot.connector.derivative.backpack.backpack_constants as CONSTANTS
-import hummingbot.connector.derivative.backpack.backpack_utils as backpack_utils
+import hummingbot.connector.derivative.backpack_perpetual.backpack_constants as CONSTANTS
+import hummingbot.connector.derivative.backpack_perpetual.backpack_utils as backpack_utils
 from hummingbot.connector.derivative.backpack import backpack_web_utils as web_utils
-from hummingbot.connector.derivative.backpack.backpack_api_order_book_data_source import (
+from hummingbot.connector.derivative.backpack_perpetual.backpack_api_order_book_data_source import (
     BackpackAPIOrderBookDataSource,
 )
-from hummingbot.connector.derivative.backpack.backpack_api_user_stream_data_source import (
+from hummingbot.connector.derivative.backpack_perpetual.backpack_api_user_stream_data_source import (
     BackpackAPIUserStreamDataSource,
 )
-from hummingbot.connector.derivative.backpack.backpack_auth import BackpackAuth
+from hummingbot.connector.derivative.backpack_perpetual.backpack_auth import BackpackAuth
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativePyBase
 from hummingbot.connector.trading_rule import TradingRule
