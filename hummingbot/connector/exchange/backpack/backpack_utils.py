@@ -47,7 +47,7 @@ def compress_ws_message(message):
 
 
 class BackpackConfigMap(BaseConnectorConfigMap):
-    connector: str = "backpack_perpetual"
+    connector: str = "backpack"
     backpack_api_key: SecretStr = Field(
         default=...,
         json_schema_extra={

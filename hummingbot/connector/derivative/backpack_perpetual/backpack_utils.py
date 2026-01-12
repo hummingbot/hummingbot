@@ -6,7 +6,7 @@ from pydantic import ConfigDict, Field, SecretStr
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
-# Backpack Futures fees: https://www.backpack.com/vip/level
+# Backpack Futures fees: https://backpack.exchange/fees
 DEFAULT_FEES = TradeFeeSchema(
     maker_percent_fee_decimal=Decimal("0.0002"),
     taker_percent_fee_decimal=Decimal("0.0006"),
