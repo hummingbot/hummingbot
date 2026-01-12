@@ -4,10 +4,9 @@ from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.in_flight_order import OrderState
 
 EXCHANGE_NAME = "backpack"
-# TODO: Update with actual backpack API URL
-REST_URL = "https://api-cloud.backpack.com"
-WSS_PUBLIC_URL = "wss://ws-manager-compress.backpack.com/api?protocol=1.1"
-WSS_PRIVATE_URL = "wss://ws-manager-compress.backpack.com/user?protocol=1.1"
+REST_URL = "https://api.backpack.exchange"
+WSS_PUBLIC_URL = "wss://ws.backpack.exchange/stream"
+WSS_PRIVATE_URL = "wss://ws.backpack.exchange/stream"
 WS_PING_TIMEOUT = 20 * 0.8
 
 DEFAULT_DOMAIN = ""

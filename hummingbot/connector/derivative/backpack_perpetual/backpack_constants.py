@@ -10,10 +10,9 @@ DEFAULT_DOMAIN = "backpack_main"
 
 DEFAULT_TIME_IN_FORCE = "GTC"
 
-# TODO: Update with actual backpack API URL
-REST_URLS = {"backpack_main": "https://api-futures.backpack.com/"}
-WSS_PUBLIC_URLS = {"backpack_main": "wss://stream.backpack.com/realtime_public"}
-WSS_PRIVATE_URLS = {"backpack_main": "wss://stream.backpack.com/realtime_private"}
+REST_URLS = {"backpack_main": "https://api.backpack.exchange/"}
+WSS_PUBLIC_URLS = {"backpack_main": "wss://ws.backpack.exchange/stream"}
+WSS_PRIVATE_URLS = {"backpack_main": "wss://ws.backpack.exchange/stream"}
 REST_API_VERSION = "api/v1"
 
 HB_PARTNER_ID = "Hummingbot"
