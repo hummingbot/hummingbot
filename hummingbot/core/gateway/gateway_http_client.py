@@ -1649,14 +1649,12 @@ class GatewayHttpClient:
         self,
         chain: str,
         network: str,
-        transaction_type: str = "swap"
     ) -> Dict[str, Any]:
         """
         Estimate transaction fee using gateway's estimate-gas endpoint.
 
         :param chain: Chain name (e.g., "ethereum", "solana")
         :param network: Network name
-        :param transaction_type: Type of transaction ("swap" or "approve")
         :return: Dictionary with fee estimation details
         """
         try:

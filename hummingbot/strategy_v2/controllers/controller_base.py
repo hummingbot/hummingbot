@@ -2,7 +2,7 @@ import asyncio
 import importlib
 import inspect
 from decimal import Decimal
-from typing import TYPE_CHECKING, Callable, List
+from typing import TYPE_CHECKING, Callable, List, Optional
 
 from pydantic import ConfigDict, Field, field_validator
 
@@ -13,7 +13,7 @@ from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
 from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executor_actions import ExecutorAction
-from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
+from hummingbot.strategy_v2.models.executors_info import ExecutorInfo, PerformanceReport
 from hummingbot.strategy_v2.models.position_config import InitialPositionConfig
 from hummingbot.strategy_v2.runnable_base import RunnableBase
 from hummingbot.strategy_v2.utils.common import generate_unique_id
@@ -137,6 +137,7 @@ class ControllerBase(RunnableBase):
         self.config = config
         self.executors_info: List[ExecutorInfo] = []
         self.positions_held: List[PositionSummary] = []
+        self.performance_report: Optional[PerformanceReport] = None
         self.market_data_provider: MarketDataProvider = market_data_provider
         self.actions_queue: asyncio.Queue = actions_queue
         self.processed_data = {}
@@ -206,3 +207,17 @@ class ControllerBase(RunnableBase):
         controller to be displayed in the UI.
         """
         return []
+
+    def get_custom_info(self) -> dict:
+        """
+        Override this method to provide custom controller-specific information that will be
+        published alongside the performance report via MQTT.
+
+        Note: This data is sent every performance_report_interval (default: 1 second),
+        so keep the payload small (recommended: < 1KB) to avoid excessive bandwidth usage.
+
+        Returns:
+            dict: Custom information to be included in the MQTT performance report.
+                  Empty dict by default.
+        """
+        return {}

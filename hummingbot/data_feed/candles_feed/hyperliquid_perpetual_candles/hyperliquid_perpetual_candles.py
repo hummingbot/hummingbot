@@ -1,8 +1,11 @@
+import asyncio
 import logging
 from typing import Any, Dict, List, Optional
 
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod
+from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
+from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
 from hummingbot.data_feed.candles_feed.hyperliquid_spot_candles import constants as CONSTANTS
 from hummingbot.logger import HummingbotLogger
@@ -19,9 +22,16 @@ class HyperliquidPerpetualCandles(CandlesBase):
 
     def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 150):
         self._tokens = None
-        self._base_asset = trading_pair.split("-")[0]
+        self._base = trading_pair.split("-")[0]
+        # For HIP-3 markets, convert dex prefix to lowercase (e.g., "XYZ:XYZ100" -> "xyz:XYZ100")
+        if ":" in self._base:
+            deployer, coin = self._base.split(":")
+            self._base_asset = f"{deployer.lower()}:{coin}"
+        else:
+            self._base_asset = self._base
         super().__init__(trading_pair, interval, max_records)
         self._ping_timeout = CONSTANTS.PING_TIMEOUT
+        self._ping_task: Optional[asyncio.Task] = None
 
     @property
     def name(self):
@@ -143,3 +153,38 @@ class HyperliquidPerpetualCandles(CandlesBase):
     @property
     def _ping_payload(self):
         return CONSTANTS.PING_PAYLOAD
+
+    async def _ping_loop(self, websocket_assistant: WSAssistant):
+        """
+        Sends ping messages at regular intervals to keep the WebSocket connection alive.
+        Hyperliquid requires proactive pinging - the server will close the connection
+        if it doesn't receive a ping within a certain time window.
+        """
+        try:
+            while True:
+                await asyncio.sleep(self._ping_timeout)
+                ping_request = WSJSONRequest(payload=self._ping_payload)
+                await websocket_assistant.send(request=ping_request)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger().debug(f"Ping loop error: {e}")
+
+    async def _subscribe_channels(self, ws: WSAssistant):
+        """
+        Subscribes to the candles events and starts the ping loop.
+        """
+        await super()._subscribe_channels(ws)
+        # Start the ping loop to keep the connection alive
+        if self._ping_task is not None:
+            self._ping_task.cancel()
+        self._ping_task = safe_ensure_future(self._ping_loop(ws))
+
+    async def _on_order_stream_interruption(self, websocket_assistant: Optional[WSAssistant] = None):
+        """
+        Clean up the ping task when the WebSocket connection is interrupted.
+        """
+        if self._ping_task is not None:
+            self._ping_task.cancel()
+            self._ping_task = None
+        await super()._on_order_stream_interruption(websocket_assistant)
