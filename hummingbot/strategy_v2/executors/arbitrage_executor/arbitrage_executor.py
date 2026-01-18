@@ -33,6 +33,11 @@ class ArbitrageExecutor(ExecutorBase):
             {"WPOL", "POL"},
             {"WAVAX", "AVAX"},
             {"WONE", "ONE"},
+            {"USDC", "USDC.E"},
+            {"WBTC", "BTC"},
+            {"USOL", "SOL"},
+            {"UETH", "ETH"},
+            {"UBTC", "BTC"}
         ]
         same_token_condition = first_token == second_token
         tokens_interchangeable_condition = any(({first_token, second_token} <= interchangeable_pair

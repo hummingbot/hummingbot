@@ -6,8 +6,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from bidict import bidict
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.dexalot import dexalot_constants as CONSTANTS
 from hummingbot.connector.exchange.dexalot.dexalot_api_user_stream_data_source import DexalotAPIUserStreamDataSource
 from hummingbot.connector.exchange.dexalot.dexalot_auth import DexalotAuth
@@ -47,9 +45,7 @@ class TestDexalotAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = DexalotExchange(
-            client_config_map=client_config_map,
             dexalot_api_key=self.api_key,
             dexalot_api_secret=self.api_secret_key,
             trading_pairs=[self.trading_pair])

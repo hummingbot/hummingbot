@@ -57,7 +57,6 @@ class KucoinExchangeTests(unittest.TestCase):
         self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         self.exchange = KucoinExchange(
-            client_config_map=self.client_config_map,
             kucoin_api_key=self.api_key,
             kucoin_passphrase=self.api_passphrase,
             kucoin_secret_key=self.api_secret_key,
@@ -375,10 +374,9 @@ class KucoinExchangeTests(unittest.TestCase):
     @aioresponses()
     def test_fee_request_for_multiple_pairs(self, mocked_api):
         self.exchange = KucoinExchange(
-            self.client_config_map,
-            self.api_key,
-            self.api_passphrase,
-            self.api_secret_key,
+            kucoin_api_key=self.api_key,
+            kucoin_passphrase=self.api_passphrase,
+            kucoin_secret_key=self.api_secret_key,
             trading_pairs=[self.trading_pair, "BTC-USDT"]
         )
 

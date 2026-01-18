@@ -13,8 +13,6 @@ from aioresponses.core import RequestCall
 
 import hummingbot.connector.derivative.gate_io_perpetual.gate_io_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.gate_io_perpetual.gate_io_perpetual_web_utils as web_utils
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.gate_io_perpetual.gate_io_perpetual_derivative import GateIoPerpetualDerivative
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.test_support.perpetual_derivative_test import AbstractPerpetualDerivativeTests
@@ -584,12 +582,10 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return f"{base_token}_{quote_token}"
 
     def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         exchange = GateIoPerpetualDerivative(
-            client_config_map,
-            self.api_key,
-            self.api_secret,
-            self.user_id,
+            gate_io_perpetual_api_key=self.api_key,
+            gate_io_perpetual_secret_key=self.api_secret,
+            gate_io_perpetual_user_id=self.user_id,
             trading_pairs=[self.trading_pair],
         )
         # exchange._last_trade_history_timestamp = self.latest_trade_hist_timestamp
@@ -1208,9 +1204,7 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertTrue(order.is_open)
 
     def test_user_stream_balance_update(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         connector = GateIoPerpetualDerivative(
-            client_config_map=client_config_map,
             gate_io_perpetual_api_key=self.api_key,
             gate_io_perpetual_secret_key=self.api_secret,
             gate_io_perpetual_user_id=self.user_id,
@@ -1233,9 +1227,7 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(Decimal("15"), self.exchange.get_balance(self.quote_asset))
 
     def test_user_stream_position_update(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         connector = GateIoPerpetualDerivative(
-            client_config_map=client_config_map,
             gate_io_perpetual_api_key=self.api_key,
             gate_io_perpetual_secret_key=self.api_secret,
             gate_io_perpetual_user_id=self.user_id,
@@ -1269,9 +1261,7 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(pos.amount, 3 * amount_precision)
 
     def test_user_stream_remove_position_update(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         connector = GateIoPerpetualDerivative(
-            client_config_map=client_config_map,
             gate_io_perpetual_api_key=self.api_key,
             gate_io_perpetual_secret_key=self.api_secret,
             gate_io_perpetual_user_id=self.user_id,
@@ -1300,9 +1290,7 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(len(self.exchange.account_positions), 0)
 
     def test_supported_position_modes(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         linear_connector = GateIoPerpetualDerivative(
-            client_config_map=client_config_map,
             gate_io_perpetual_api_key=self.api_key,
             gate_io_perpetual_secret_key=self.api_secret,
             gate_io_perpetual_user_id=self.user_id,

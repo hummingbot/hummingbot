@@ -66,7 +66,7 @@ class QGAConfig(ControllerConfigBase):
     activation_bounds: Decimal = Field(
         default=Decimal("0.0002"),  # Activation bounds for orders
         json_schema_extra={"is_updatable": True})
-    bb_lenght: int = 100
+    bb_length: int = 100
     bb_std_dev: float = 2.0
     interval: str = "1s"
     dynamic_grid_range: bool = Field(default=False, json_schema_extra={"is_updatable": True})
@@ -113,7 +113,7 @@ class QuantumGridAllocator(ControllerBase):
             connector=config.connector_name,
             trading_pair=trading_pair + "-" + config.quote_asset,
             interval=config.interval,
-            max_records=config.bb_lenght + 100
+            max_records=config.bb_length + 100
         ) for trading_pair in config.portfolio_allocation.keys()]
         super().__init__(config, *args, **kwargs)
         self.initialize_rate_sources()
@@ -130,13 +130,13 @@ class QuantumGridAllocator(ControllerBase):
                 connector_name=self.config.connector_name,
                 trading_pair=trading_pair,
                 interval=self.config.interval,
-                max_records=self.config.bb_lenght + 100
+                max_records=self.config.bb_length + 100
             )
             if len(candles) == 0:
                 bb_width = self.config.grid_range
             else:
-                bb = ta.bbands(candles["close"], length=self.config.bb_lenght, std=self.config.bb_std_dev)
-                bb_width = bb[f"BBB_{self.config.bb_lenght}_{self.config.bb_std_dev}"].iloc[-1] / 100
+                bb = ta.bbands(candles["close"], length=self.config.bb_length, std=self.config.bb_std_dev)
+                bb_width = bb[f"BBB_{self.config.bb_length}_{self.config.bb_std_dev}"].iloc[-1] / 100
             self.processed_data[trading_pair] = {
                 "bb_width": bb_width
             }

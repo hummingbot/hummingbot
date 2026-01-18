@@ -1,22 +1,20 @@
-import unittest.mock
 from decimal import Decimal
 from test.hummingbot.strategy import assign_config_default
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 
 import hummingbot.strategy.perpetual_market_making.start as strategy_start
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.strategy.perpetual_market_making.perpetual_market_making_config_map import (
     perpetual_market_making_config_map as c_map,
 )
 
 
-class PerpetualMarketMakingStartTest(unittest.TestCase):
+class PerpetualMarketMakingStartTest(IsolatedAsyncioWrapperTestCase):
 
     def setUp(self) -> None:
         super().setUp()
         self.strategy = None
-        self.markets = {"binance": ExchangeBase(client_config_map=ClientConfigAdapter(ClientConfigMap()))}
+        self.markets = {"binance": ExchangeBase()}
         self.notifications = []
         self.log_errors = []
         assign_config_default(c_map)
@@ -32,7 +30,7 @@ class PerpetualMarketMakingStartTest(unittest.TestCase):
     def _initialize_market_assets(self, market, trading_pairs):
         return [("ETH", "USDT")]
 
-    def initialize_markets(self, market_names):
+    async def initialize_markets(self, market_names):
         pass
 
     def _notify(self, message):
@@ -44,8 +42,8 @@ class PerpetualMarketMakingStartTest(unittest.TestCase):
     def error(self, message, exc_info):
         self.log_errors.append(message)
 
-    def test_strategy_creation(self):
-        strategy_start.start(self)
+    async def test_strategy_creation(self):
+        await strategy_start.start(self)
         self.assertEqual(self.strategy.order_amount, Decimal("1"))
         self.assertEqual(self.strategy.order_refresh_time, 60.)
         self.assertEqual(self.strategy.bid_spread, Decimal("0.01"))

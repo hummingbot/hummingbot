@@ -15,7 +15,7 @@ from hummingbot.client.hummingbot_application import HummingbotApplication
 
 class CreateCommandTest(IsolatedAsyncioWrapperTestCase):
     @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher")
-    @patch("hummingbot.core.gateway.gateway_status_monitor.GatewayStatusMonitor.start")
+    @patch("hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.start_monitor")
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication.mqtt_start")
     async def asyncSetUp(self, mock_mqtt_start, mock_gateway_start, mock_trading_pair_fetcher):
         await read_system_configs_from_yml()

@@ -7,8 +7,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses import aioresponses
 from bidict import bidict
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS, ascend_ex_web_utils as web_utils
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source import AscendExAPIOrderBookDataSource
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_exchange import AscendExExchange
@@ -35,9 +33,7 @@ class AscendExAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.listening_task = None
         self.mocking_assistant = NetworkMockingAssistant()
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = AscendExExchange(
-            client_config_map=client_config_map,
             ascend_ex_api_key="",
             ascend_ex_secret_key="",
             ascend_ex_group_id="",

@@ -29,3 +29,6 @@ MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST = 500
 RATE_LIMITS = [
     RateLimit(REST_URL, limit=1200, time_interval=60, linked_limits=[LinkedLimitWeightPair("raw", 1)])
 ]
+
+PING_TIMEOUT = 30.0
+PING_PAYLOAD = {"method": "ping"}

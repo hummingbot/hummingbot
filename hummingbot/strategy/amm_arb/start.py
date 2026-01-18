@@ -8,7 +8,7 @@ from hummingbot.strategy.amm_arb.amm_arb_config_map import amm_arb_config_map
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 
-def start(self):
+async def start(self):
     connector_1 = amm_arb_config_map.get("connector_1").value.lower()
     market_1 = amm_arb_config_map.get("market_1").value
     connector_2 = amm_arb_config_map.get("connector_2").value.lower()
@@ -23,7 +23,7 @@ def start(self):
     gas_token = amm_arb_config_map.get("gas_token").value
     gas_price = amm_arb_config_map.get("gas_price").value
 
-    self.initialize_markets([(connector_1, [market_1]), (connector_2, [market_2])])
+    await self.initialize_markets([(connector_1, [market_1]), (connector_2, [market_2])])
     base_1, quote_1 = market_1.split("-")
     base_2, quote_2 = market_2.split("-")
 

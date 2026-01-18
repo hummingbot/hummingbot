@@ -11,8 +11,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses import aioresponses
 from bidict import bidict
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.coinbase_advanced_trade import (
     coinbase_advanced_trade_constants as CONSTANTS,
     coinbase_advanced_trade_web_utils as web_utils,
@@ -49,9 +47,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
         super().setUp()
         self.listening_task = None
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = CoinbaseAdvancedTradeExchange(
-            client_config_map=client_config_map,
             coinbase_advanced_trade_api_key="",
             coinbase_advanced_trade_api_secret="",
             trading_pairs=[],

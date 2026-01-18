@@ -6,7 +6,9 @@ REST_URL = "https://api.mexc.com"
 HEALTH_CHECK_ENDPOINT = "/api/v3/ping"
 CANDLES_ENDPOINT = "/api/v3/klines"
 
-WSS_URL = "wss://wbs.mexc.com/ws"
+WSS_URL = "wss://wbs-api.mexc.com/ws"
+
+KLINE_ENDPOINT_NAME = "spot@public.kline.v3.api.pb"
 
 INTERVALS = bidict({
     "1m": "1m",

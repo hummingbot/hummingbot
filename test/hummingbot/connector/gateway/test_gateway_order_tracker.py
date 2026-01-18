@@ -1,8 +1,6 @@
 import unittest
 from decimal import Decimal
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.gateway.gateway_order_tracker import GatewayOrderTracker
@@ -25,7 +23,7 @@ class GatewayOrderTrackerTest(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
 
-        self.connector = MockExchange(client_config_map=ClientConfigAdapter(ClientConfigMap()))
+        self.connector = MockExchange()
         self.connector._set_current_timestamp(1640000000.0)
         self.tracker = GatewayOrderTracker(connector=self.connector)
 

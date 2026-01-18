@@ -7,8 +7,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses.core import aioresponses
 from bidict import bidict
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.dexalot.dexalot_api_order_book_data_source import DexalotAPIOrderBookDataSource
 from hummingbot.connector.exchange.dexalot.dexalot_exchange import DexalotExchange
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
@@ -36,9 +34,7 @@ class DexalotAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.listening_task = None
         self.mocking_assistant = NetworkMockingAssistant()
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = DexalotExchange(
-            client_config_map=client_config_map,
             dexalot_api_key="testkey",
             dexalot_api_secret="13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930",  # noqa: mock
             trading_pairs=[self.trading_pair],

@@ -129,9 +129,7 @@ class StrategyBaseUnitTests(unittest.TestCase):
 
         self.assertEqual(1, len(self.strategy.active_markets))
 
-        new_market: MockPaperExchange = MockPaperExchange(
-            client_config_map=ClientConfigAdapter(ClientConfigMap())
-        )
+        new_market: MockPaperExchange = MockPaperExchange()
         self.strategy.add_markets([new_market])
 
         self.assertEqual(2, len(self.strategy.active_markets))

@@ -77,7 +77,7 @@ class HyperliquidAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 "method": "subscribe",
                 "subscription": {
                     "type": "orderUpdates",
-                    "user": self._connector.hyperliquid_api_key,
+                    "user": self._connector.hyperliquid_address,
                 }
             }
             subscribe_order_change_request: WSJSONRequest = WSJSONRequest(
@@ -87,8 +87,8 @@ class HyperliquidAPIUserStreamDataSource(UserStreamTrackerDataSource):
             trades_payload = {
                 "method": "subscribe",
                 "subscription": {
-                    "type": "user",
-                    "user": self._connector.hyperliquid_api_key,
+                    "type": "userFills",
+                    "user": self._connector.hyperliquid_address,
                 }
             }
             subscribe_trades_request: WSJSONRequest = WSJSONRequest(

@@ -8,8 +8,6 @@ from unittest.mock import AsyncMock
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.bitstamp import bitstamp_constants as CONSTANTS, bitstamp_web_utils as web_utils
 from hummingbot.connector.exchange.bitstamp.bitstamp_exchange import BitstampExchange
 from hummingbot.connector.exchange.bitstamp.bitstamp_utils import DEFAULT_FEES
@@ -280,9 +278,7 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         return f"{base_token.lower()}{quote_token.lower()}"
 
     def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         return BitstampExchange(
-            client_config_map=client_config_map,
             bitstamp_api_key="testAPIKey",
             bitstamp_api_secret="testSecret",
             trading_pairs=[self.trading_pair],

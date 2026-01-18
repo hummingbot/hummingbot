@@ -28,8 +28,8 @@ class ExitCommand:
             # Freeze screen 1 second for better UI
             await asyncio.sleep(1)
 
-        if self._gateway_monitor is not None:
-            self._gateway_monitor.stop()
+        if self.trading_core.gateway_monitor is not None:
+            self.trading_core.gateway_monitor.stop_monitor()
 
         self.notify("Winding down notifiers...")
         for notifier in self.trading_core.notifiers:

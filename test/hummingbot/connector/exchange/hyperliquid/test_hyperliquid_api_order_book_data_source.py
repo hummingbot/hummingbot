@@ -43,8 +43,9 @@ class HyperliquidAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = HyperliquidExchange(
             client_config_map,
-            hyperliquid_api_key="testkey",
-            hyperliquid_api_secret="13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930",  # noqa: mock
+            hyperliquid_address="testaddress",
+            hyperliquid_secret_key="13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930",  # noqa: mock
+            hyperliquid_mode="arb_wallet",
             use_vault=False,
             trading_pairs=[self.trading_pair],
         )

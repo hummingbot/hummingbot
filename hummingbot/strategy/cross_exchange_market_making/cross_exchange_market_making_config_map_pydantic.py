@@ -2,9 +2,8 @@ from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import Dict, Tuple, Union
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, field_validator
 
-import hummingbot.client.settings as settings
 from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.client.config.config_validators import validate_bool
 from hummingbot.client.config.strategy_config_data_types import BaseTradingStrategyMakerTakerConfigMap
@@ -16,7 +15,7 @@ from hummingbot.strategy.maker_taker_market_pair import MakerTakerMarketPair
 class ConversionRateModel(BaseClientModel, ABC):
     @abstractmethod
     def get_conversion_rates(
-        self, market_pair: MakerTakerMarketPair
+            self, market_pair: MakerTakerMarketPair
     ) -> Tuple[str, str, Decimal, str, str, Decimal]:
         pass
 
@@ -25,7 +24,7 @@ class OracleConversionRateMode(ConversionRateModel):
     model_config = ConfigDict(title="rate_oracle_conversion_rate")
 
     def get_conversion_rates(
-        self, market_pair: MakerTakerMarketPair
+            self, market_pair: MakerTakerMarketPair
     ) -> Tuple[str, str, Decimal, str, str, Decimal]:
         """
         Find conversion rates from taker market to maker market
@@ -104,7 +103,7 @@ class TakerToMakerConversionRateMode(ConversionRateModel):
     model_config = ConfigDict(title="fixed_conversion_rate")
 
     def get_conversion_rates(
-        self, market_pair: MakerTakerMarketPair
+            self, market_pair: MakerTakerMarketPair
     ) -> Tuple[str, str, Decimal, str, str, Decimal]:
         """
         Find conversion rates from taker market to maker market
@@ -241,7 +240,8 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
         default=60.0,
         description="Minimum time limit between two subsequent order adjustments.",
         gt=0.0,
-        json_schema_extra={"prompt": "What is the minimum time interval you want limit orders to be adjusted? (in seconds)"}
+        json_schema_extra={
+            "prompt": "What is the minimum time interval you want limit orders to be adjusted? (in seconds)"}
     )
     order_size_taker_volume_factor: Decimal = Field(
         default=Decimal("25.0"),
@@ -347,23 +347,3 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
             if ret is not None:
                 raise ValueError(ret)
         return v
-
-    @model_validator(mode="after")
-    def post_validations(self):
-        # Add the maker and taker markets to the required exchanges
-        settings.required_exchanges.add(self.maker_market)
-        settings.required_exchanges.add(self.taker_market)
-
-        first_base, first_quote = self.maker_market_trading_pair.split("-")
-        second_base, second_quote = self.taker_market_trading_pair.split("-")
-        if first_base != second_base or first_quote != second_quote:
-            settings.required_rate_oracle = True
-            settings.rate_oracle_pairs = []
-            if first_base != second_base:
-                settings.rate_oracle_pairs.append(f"{second_base}-{first_base}")
-            if first_quote != second_quote:
-                settings.rate_oracle_pairs.append(f"{second_quote}-{first_quote}")
-        else:
-            settings.required_rate_oracle = False
-            settings.rate_oracle_pairs = []
-        return self

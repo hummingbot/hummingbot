@@ -13,8 +13,6 @@ from aioresponses.core import RequestCall
 
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_web_utils as web_utils
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_derivative import BybitPerpetualDerivative
 from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.connector.test_support.perpetual_derivative_test import AbstractPerpetualDerivativeTests
@@ -716,11 +714,9 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         return f"{base_token}{quote_token}"
 
     def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         exchange = BybitPerpetualDerivative(
-            client_config_map,
-            self.api_key,
-            self.api_secret,
+            bybit_perpetual_api_key=self.api_key,
+            bybit_perpetual_secret_key=self.api_secret,
             trading_pairs=[self.trading_pair],
         )
         exchange._last_trade_history_timestamp = self.latest_trade_hist_timestamp
@@ -1371,15 +1367,12 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         self.is_logged("network", f"Error fetching status update for {self.trading_pair}: {resp}.")
 
     def test_supported_position_modes(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         linear_connector = BybitPerpetualDerivative(
-            client_config_map=client_config_map,
             bybit_perpetual_api_key=self.api_key,
             bybit_perpetual_secret_key=self.api_secret,
             trading_pairs=[self.trading_pair],
         )
         non_linear_connector = BybitPerpetualDerivative(
-            client_config_map=client_config_map,
             bybit_perpetual_api_key=self.api_key,
             bybit_perpetual_secret_key=self.api_secret,
             trading_pairs=[self.non_linear_trading_pair],
@@ -1392,9 +1385,7 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         self.assertEqual(expected_result, non_linear_connector.supported_position_modes())
 
     def test_set_position_mode_nonlinear(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         non_linear_connector = BybitPerpetualDerivative(
-            client_config_map=client_config_map,
             bybit_perpetual_api_key=self.api_key,
             bybit_perpetual_secret_key=self.api_secret,
             trading_pairs=[self.non_linear_trading_pair],

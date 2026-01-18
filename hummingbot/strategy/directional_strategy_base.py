@@ -130,7 +130,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
     def candles_formatted_list(self, candles_df: pd.DataFrame, columns_to_show: List):
         lines = []
         candles_df = candles_df.copy()
-        candles_df["timestamp"] = pd.to_datetime(candles_df["timestamp"], unit="ms")
+        candles_df["timestamp"] = pd.to_datetime(candles_df["timestamp"], unit="s")
         lines.extend(["    " + line for line in candles_df[columns_to_show].tail().to_string(index=False).split("\n")])
         lines.extend(["\n-----------------------------------------------------------------------------------------------------------\n"])
         return lines

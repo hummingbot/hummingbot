@@ -15,7 +15,7 @@ from hummingbot.client.hummingbot_application import HummingbotApplication
 
 class ConfigCommandTest(IsolatedAsyncioWrapperTestCase):
     @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher")
-    @patch("hummingbot.core.gateway.gateway_status_monitor.GatewayStatusMonitor.start")
+    @patch("hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.start_monitor")
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication.mqtt_start")
     async def asyncSetUp(self, mock_mqtt_start, mock_gateway_start, mock_trading_pair_fetcher):
         await read_system_configs_from_yml()
@@ -74,6 +74,7 @@ class ConfigCommandTest(IsolatedAsyncioWrapperTestCase):
                            "    | gateway                           |                      |\n"
                            "    | ∟ gateway_api_host                | localhost            |\n"
                            "    | ∟ gateway_api_port                | 15888                |\n"
+                           "    | ∟ gateway_use_ssl                 | False                |\n"
                            "    | rate_oracle_source                | binance              |\n"
                            "    | global_token                      |                      |\n"
                            "    | ∟ global_token_name               | USDT                 |\n"

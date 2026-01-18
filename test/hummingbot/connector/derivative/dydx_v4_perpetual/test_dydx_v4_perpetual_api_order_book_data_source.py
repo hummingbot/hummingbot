@@ -11,8 +11,6 @@ from bidict import bidict
 
 import hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_web_utils as web_utils
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_api_order_book_data_source import (
     DydxV4PerpetualAPIOrderBookDataSource,
 )
@@ -40,9 +38,7 @@ class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestC
         self.log_records = []
         self.async_task: Optional[asyncio.Task] = None
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = DydxV4PerpetualDerivative(
-            client_config_map,
             dydx_v4_perpetual_secret_phrase="mirror actor skill push coach wait confirm orchard "
                                             "lunch mobile athlete gossip awake miracle matter "
                                             "bus reopen team ladder lazy list timber render wait",

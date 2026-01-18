@@ -6,8 +6,6 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
@@ -53,9 +51,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         self.order_fill_logger: EventLogger = EventLogger()
         self.cancel_order_logger: EventLogger = EventLogger()
         self.clock: Clock = Clock(ClockMode.BACKTEST, 1, self.start_timestamp, self.end_timestamp)
-        self.spot_connector: MockPaperExchange = MockPaperExchange(
-            client_config_map=ClientConfigAdapter(ClientConfigMap())
-        )
+        self.spot_connector: MockPaperExchange = MockPaperExchange()
         self.spot_connector.set_balanced_order_book(trading_pair=trading_pair,
                                                     mid_price=100,
                                                     min_price=1,
@@ -72,9 +68,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         self.spot_market_info = MarketTradingPairTuple(self.spot_connector, trading_pair,
                                                        base_asset, quote_asset)
 
-        self.perp_connector: MockPerpConnector = MockPerpConnector(
-            client_config_map=ClientConfigAdapter(ClientConfigMap())
-        )
+        self.perp_connector: MockPerpConnector = MockPerpConnector()
         self.perp_connector.set_leverage(trading_pair, 5)
         self.perp_connector.set_balanced_order_book(trading_pair=trading_pair,
                                                     mid_price=110,

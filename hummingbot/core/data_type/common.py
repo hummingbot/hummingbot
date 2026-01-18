@@ -1,6 +1,6 @@
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Callable, Generic, NamedTuple, Set, TypeVar, override
+from typing import Any, Callable, Generic, NamedTuple, Set, TypeVar
 
 from pydantic_core import core_schema
 
@@ -118,7 +118,6 @@ class LazyDict(dict[_KT, _VT], Generic[_KT, _VT]):
         self[key] = self.default_value_factory(key)
         return self[key]
 
-    @override
     def get(self, key: _KT) -> _VT:
         if key in self:
             return self[key]

@@ -46,7 +46,6 @@ class BitmartAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
             time_provider=self.time_synchronizer)
 
         self.connector = BitmartExchange(
-            client_config_map=self.client_config_map,
             bitmart_api_key="test_api_key",
             bitmart_secret_key="test_secret_key",
             bitmart_memo="test_memo",

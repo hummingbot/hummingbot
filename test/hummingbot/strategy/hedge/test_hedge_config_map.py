@@ -103,7 +103,7 @@ class HedgeConfigMapPydanticTest(unittest.TestCase):
         self.config_map.value_mode = False
         self.assertEqual(
             self.config_map.hedge_offsets_prompt(self.config_map),
-            "Enter the offsets to use to hedge the markets comma seperated. "
+            "Enter the offsets to use to hedge the markets comma separated. "
             "(Example: 0.1,-0.2 = +0.1BTC,-0.2ETH, 0LTC will be offset for the exchange amount "
             "if markets is BTC-USDT,ETH-USDT,LTC-USDT)"
         )

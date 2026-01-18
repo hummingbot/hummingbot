@@ -9,8 +9,6 @@ from unittest.mock import AsyncMock, patch
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.htx import htx_constants as CONSTANTS, htx_web_utils as web_utils
 from hummingbot.connector.exchange.htx.htx_exchange import HtxExchange
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
@@ -420,7 +418,6 @@ class HtxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
     def create_exchange_instance(self):
 
         instance = HtxExchange(
-            client_config_map=ClientConfigAdapter(ClientConfigMap()),
             htx_api_key="testAPIKey",
             htx_secret_key="testSecret",
             trading_pairs=[self.trading_pair],

@@ -336,7 +336,7 @@ class DCAExecutor(ExecutorBase):
         This method is responsible for controlling the trailing stop. In order to activated the trailing stop the net
         pnl must be higher than the activation price delta. Once the trailing stop is activated, the trailing stop trigger
         will be the activation price delta minus the trailing delta and the stop loss will be triggered if the net pnl
-        is lower than the trailing stop trigger. the value of hte trailing stop trigger will be updated if the net pnl
+        is lower than the trailing stop trigger. the value of the trailing stop trigger will be updated if the net pnl
         minus the trailing delta is higher than the current value of the trailing stop trigger.
         """
         if self.config.trailing_stop:

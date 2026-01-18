@@ -7,8 +7,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses.core import aioresponses
 from bidict import bidict
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.bitrue import bitrue_constants as CONSTANTS, bitrue_web_utils as web_utils
 from hummingbot.connector.exchange.bitrue.bitrue_api_order_book_data_source import BitrueAPIOrderBookDataSource
 from hummingbot.connector.exchange.bitrue.bitrue_exchange import BitrueExchange
@@ -36,9 +34,7 @@ class BitrueAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.listening_task = None
         self.mocking_assistant = NetworkMockingAssistant(self.local_event_loop)
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = BitrueExchange(
-            client_config_map=client_config_map,
             bitrue_api_key="",
             bitrue_api_secret="",
             trading_pairs=[],

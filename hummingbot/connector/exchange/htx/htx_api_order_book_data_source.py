@@ -50,7 +50,6 @@ class HtxAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def snapshot_message_from_exchange(self,
                                        msg: Dict[str, Any],
                                        metadata: Optional[Dict] = None) -> OrderBookMessage:
-
         """
         Creates a snapshot message with the order book snapshot message
         :param msg: the response from the exchange when requesting the order book snapshot

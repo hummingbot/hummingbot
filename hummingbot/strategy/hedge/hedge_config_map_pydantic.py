@@ -50,7 +50,7 @@ class MarketConfigMap(BaseClientModel):
         default=Decimal("0.0"),
         description="The offsets for each trading pair.",
         json_schema_extra={
-            "prompt": "Enter the offsets to use to hedge the markets comma seperated, the remainder will be assumed as 0 if no inputs. "
+            "prompt": "Enter the offsets to use to hedge the markets comma separated, the remainder will be assumed as 0 if no inputs. "
                       "e.g if markets is BTC-USDT,ETH-USDT,LTC-USDT, and offsets is 0.1, -0.2. "
                       "then the offset amount that will be added is 0.1 BTC, -0.2 ETH and 0 LTC. ",
             "prompt_on_new": True,
@@ -64,7 +64,7 @@ class MarketConfigMap(BaseClientModel):
             return ""
         example = AllConnectorSettings.get_example_pairs().get(exchange)
         return (
-            f"Enter the token trading pair you would like to hedge/monitor on comma seperated"
+            f"Enter the token trading pair you would like to hedge/monitor on comma separated"
             f" {exchange}{f' (e.g. {example})' if example else ''}"
         )
     model_config = ConfigDict(title="y")
@@ -174,7 +174,7 @@ class HedgeConfigMap(BaseStrategyConfigMap):
             base = trading_pair.split("-")[0]
             return f"Enter the offset for {base}. (Example: 0.1 = +0.1{base} used in calculation of hedged value)"
         return (
-            "Enter the offsets to use to hedge the markets comma seperated. "
+            "Enter the offsets to use to hedge the markets comma separated. "
             "(Example: 0.1,-0.2 = +0.1BTC,-0.2ETH, 0LTC will be offset for the exchange amount "
             "if markets is BTC-USDT,ETH-USDT,LTC-USDT)"
         )

@@ -10,6 +10,7 @@ class ArbProposalSide:
     """
     An arbitrage proposal side which contains info needed for order submission.
     """
+
     def __init__(self,
                  market_info: MarketTradingPairTuple,
                  is_buy: bool,
@@ -35,6 +36,7 @@ class ArbProposal:
     """
     An arbitrage proposal which contains 2 sides of the proposal - one on spot market and one on perpetual market.
     """
+
     def __init__(self,
                  spot_side: ArbProposalSide,
                  perp_side: ArbProposalSide,

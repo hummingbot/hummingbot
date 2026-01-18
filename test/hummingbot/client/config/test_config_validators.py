@@ -44,10 +44,18 @@ class ConfigValidatorsTests(unittest.TestCase):
         self.assertIsNone(config_validators.validate_connector(connector))
 
     def test_validate_connector_connector_does_not_exist(self):
+        from hummingbot.client.settings import GATEWAY_CONNECTORS
         non_existant_connector = "TEST_NON_EXISTANT_CONNECTOR"
 
         validation_error = config_validators.validate_connector(non_existant_connector)
-        self.assertEqual(validation_error, f"Invalid connector, please choose value from {AllConnectorSettings.get_connector_settings().keys()}")
+
+        # The validator returns a sorted list of all valid connectors
+        valid_connectors = set(AllConnectorSettings.get_connector_settings().keys())
+        valid_connectors.update(AllConnectorSettings.paper_trade_connectors_names)
+        valid_connectors.update(GATEWAY_CONNECTORS)
+        all_options = sorted(valid_connectors)
+
+        self.assertEqual(validation_error, f"Invalid connector, please choose value from {all_options}")
 
     def test_validate_bool_succeed(self):
         valid_values = ['true', 'yes', 'y', 'false', 'no', 'n']

@@ -37,8 +37,10 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
         self._connector = connector
         self._api_factory = api_factory
         self._domain = domain
+        self._dex_markets = []
         self._trading_pairs: List[str] = trading_pairs
         self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
+        self._funding_info_messages_queue_key = "funding_info"
         self._snapshot_messages_queue_key = "order_book_snapshot"
 
     async def get_last_traded_prices(self,
@@ -47,49 +49,84 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
-        response: List = await self._request_complete_funding_info(trading_pair)
         ex_trading_pair = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        coin = ex_trading_pair.split("-")[0]
-        for index, i in enumerate(response[0]['universe']):
-            if i['name'] == coin:
-                funding_info = FundingInfo(
-                    trading_pair=trading_pair,
-                    index_price=Decimal(response[1][index]['oraclePx']),
-                    mark_price=Decimal(response[1][index]['markPx']),
-                    next_funding_utc_timestamp=self._next_funding_time(),
-                    rate=Decimal(response[1][index]['funding']),
-                )
-                return funding_info
+
+        # Check if this is a HIP-3 market (contains ":")
+        if ":" in ex_trading_pair:
+            # HIP-3 markets: Use REST API with dex parameter
+            dex_name = ex_trading_pair.split(':')[0]
+            try:
+                response = await self._connector._api_post(
+                    path_url=CONSTANTS.EXCHANGE_INFO_URL,
+                    data={"type": "metaAndAssetCtxs", "dex": dex_name})
+
+                universe = response[0]["universe"]
+                asset_ctxs = response[1]
+
+                for meta, ctx in zip(universe, asset_ctxs):
+                    if meta.get("name") == ex_trading_pair:
+                        return FundingInfo(
+                            trading_pair=trading_pair,
+                            index_price=Decimal(str(ctx.get("oraclePx", "0"))),
+                            mark_price=Decimal(str(ctx.get("markPx", "0"))),
+                            next_funding_utc_timestamp=self._next_funding_time(),
+                            rate=Decimal(str(ctx.get("funding", "0"))),
+                        )
+            except Exception:
+                self.logger().exception(f"Error fetching funding info for HIP-3 market {trading_pair}")
+
+            # If not found, return placeholder
+            return FundingInfo(
+                trading_pair=trading_pair,
+                index_price=Decimal('0'),
+                mark_price=Decimal('0'),
+                next_funding_utc_timestamp=self._next_funding_time(),
+                rate=Decimal('0'),
+            )
+        else:
+            # Base perpetual market: Use REST API
+            response: List = await self._request_complete_funding_info(trading_pair)
+
+            for index, i in enumerate(response[0]['universe']):
+                if i['name'] == ex_trading_pair:
+                    funding_info = FundingInfo(
+                        trading_pair=trading_pair,
+                        index_price=Decimal(response[1][index]['oraclePx']),
+                        mark_price=Decimal(response[1][index]['markPx']),
+                        next_funding_utc_timestamp=self._next_funding_time(),
+                        rate=Decimal(response[1][index]['funding']),
+                    )
+                    return funding_info
+
+            # Base market not found, return placeholder
+            return FundingInfo(
+                trading_pair=trading_pair,
+                index_price=Decimal('0'),
+                mark_price=Decimal('0'),
+                next_funding_utc_timestamp=self._next_funding_time(),
+                rate=Decimal('0'),
+            )
 
     async def listen_for_funding_info(self, output: asyncio.Queue):
         """
-        Reads the funding info events queue and updates the local funding info information.
+        Reads the funding info events from WebSocket queue and updates the local funding info information.
         """
+        message_queue = self._message_queue[self._funding_info_messages_queue_key]
         while True:
             try:
-                for trading_pair in self._trading_pairs:
-                    funding_info = await self.get_funding_info(trading_pair)
-                    funding_info_update = FundingInfoUpdate(
-                        trading_pair=trading_pair,
-                        index_price=funding_info.index_price,
-                        mark_price=funding_info.mark_price,
-                        next_funding_utc_timestamp=funding_info.next_funding_utc_timestamp,
-                        rate=funding_info.rate,
-                    )
-                    output.put_nowait(funding_info_update)
-                await self._sleep(CONSTANTS.FUNDING_RATE_UPDATE_INTERNAL_SECOND)
+                funding_info_event = await message_queue.get()
+                await self._parse_funding_info_message(funding_info_event, output)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().exception("Unexpected error when processing public funding info updates from exchange")
-                await self._sleep(CONSTANTS.FUNDING_RATE_UPDATE_INTERNAL_SECOND)
+                await self._sleep(5)
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         ex_trading_pair = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        coin = ex_trading_pair.split("-")[0]
         params = {
             "type": 'l2Book',
-            "coin": coin
+            "coin": ex_trading_pair
         }
 
         data = await self._connector._api_post(
@@ -123,12 +160,12 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
         try:
             for trading_pair in self._trading_pairs:
                 symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                coin = symbol.split("-")[0]
+
                 trades_payload = {
                     "method": "subscribe",
                     "subscription": {
                         "type": CONSTANTS.TRADES_ENDPOINT_NAME,
-                        "coin": coin,
+                        "coin": symbol,
                     }
                 }
                 subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trades_payload)
@@ -137,15 +174,25 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
                     "method": "subscribe",
                     "subscription": {
                         "type": CONSTANTS.DEPTH_ENDPOINT_NAME,
-                        "coin": coin,
+                        "coin": symbol,
                     }
                 }
                 subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=order_book_payload)
 
+                funding_info_payload = {
+                    "method": "subscribe",
+                    "subscription": {
+                        "type": CONSTANTS.FUNDING_INFO_ENDPOINT_NAME,
+                        "coin": symbol,
+                    }
+                }
+                subscribe_funding_info_request: WSJSONRequest = WSJSONRequest(payload=funding_info_payload)
+
                 await ws.send(subscribe_trade_request)
                 await ws.send(subscribe_orderbook_request)
+                await ws.send(subscribe_funding_info_request)
 
-                self.logger().info("Subscribed to public order book, trade channels...")
+                self.logger().info("Subscribed to public order book, trade, and funding info channels...")
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -160,12 +207,22 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
                 channel = self._snapshot_messages_queue_key
             elif "trades" in stream_name:
                 channel = self._trade_messages_queue_key
+            elif "activeAssetCtx" in stream_name:
+                channel = self._funding_info_messages_queue_key
         return channel
 
+    def parse_symbol(self, raw_message) -> str:
+        if isinstance(raw_message["data"], list) and len(raw_message["data"]) > 0:
+            exchange_symbol = raw_message["data"][0]["coin"]
+        else:
+            exchange_symbol = raw_message["data"]["coin"]
+        return exchange_symbol
+
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
+        exchange_symbol = self.parse_symbol(raw_message)
         timestamp: float = raw_message["data"]["time"] * 1e-3
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-            raw_message["data"]["coin"] + '-' + CONSTANTS.CURRENCY)
+            exchange_symbol)
         data = raw_message["data"]
         order_book_message: OrderBookMessage = OrderBookMessage(OrderBookMessageType.DIFF, {
             "trading_pair": trading_pair,
@@ -176,9 +233,10 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
         message_queue.put_nowait(order_book_message)
 
     async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
+        exchange_symbol = self.parse_symbol(raw_message)
         timestamp: float = raw_message["data"]["time"] * 1e-3
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-            raw_message["data"]["coin"] + '-' + CONSTANTS.CURRENCY)
+            exchange_symbol)
         data = raw_message["data"]
         order_book_message: OrderBookMessage = OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": trading_pair,
@@ -189,10 +247,11 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
         message_queue.put_nowait(order_book_message)
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
+        exchange_symbol = self.parse_symbol(raw_message)
         data = raw_message["data"]
         for trade_data in data:
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-                trade_data["coin"] + '-' + CONSTANTS.CURRENCY)
+                exchange_symbol)
             trade_message: OrderBookMessage = OrderBookMessage(OrderBookMessageType.TRADE, {
                 "trading_pair": trading_pair,
                 "trade_type": float(TradeType.SELL.value) if trade_data["side"] == "A" else float(
@@ -205,9 +264,32 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
             message_queue.put_nowait(trade_message)
 
     async def _parse_funding_info_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        pass
+        try:
+            data: Dict[str, Any] = raw_message["data"]
+            # ticker_slim.ETH-PERP.1000
+
+            symbol = data["coin"]
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
+
+            if trading_pair not in self._trading_pairs:
+                return
+
+            # Handle both regular and HIP-3 market formats
+            ctx = data.get("ctx", data)  # Fallback to data itself if ctx doesn't exist
+            funding_info = FundingInfoUpdate(
+                trading_pair=trading_pair,
+                index_price=Decimal(str(ctx.get("oraclePx", "0"))),
+                mark_price=Decimal(str(ctx.get("markPx", "0"))),
+                next_funding_utc_timestamp=self._next_funding_time(),
+                rate=Decimal(str(ctx.get("openInterest", ctx.get("funding", "0")))),
+            )
+
+            message_queue.put_nowait(funding_info)
+        except Exception as e:
+            self.logger().debug(f"Error parsing funding info message: {e}")
 
     async def _request_complete_funding_info(self, trading_pair: str):
+
         data = await self._connector._api_post(path_url=CONSTANTS.EXCHANGE_INFO_URL,
                                                data={"type": CONSTANTS.ASSET_CONTEXT_TYPE})
         return data

@@ -1,5 +1,5 @@
-import unittest.mock
 from decimal import Decimal
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 
 import hummingbot.strategy.cross_exchange_market_making.start as strategy_start
 from hummingbot.client.config.client_config_map import ClientConfigMap
@@ -11,7 +11,7 @@ from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_maki
 )
 
 
-class XEMMStartTest(unittest.TestCase):
+class XEMMStartTest(IsolatedAsyncioWrapperTestCase):
 
     def setUp(self) -> None:
         super().setUp()
@@ -19,8 +19,8 @@ class XEMMStartTest(unittest.TestCase):
         self.client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.client_config_map.strategy_report_interval = 60.
         self.markets = {
-            "binance": ExchangeBase(client_config_map=self.client_config_map),
-            "kucoin": ExchangeBase(client_config_map=self.client_config_map)}
+            "binance": ExchangeBase(),
+            "kucoin": ExchangeBase()}
         self.notifications = []
         self.log_errors = []
 
@@ -42,7 +42,7 @@ class XEMMStartTest(unittest.TestCase):
     def _initialize_market_assets(self, market, trading_pairs):
         return [("ETH", "USDT")]
 
-    def initialize_markets(self, market_names):
+    async def initialize_markets(self, market_names):
         pass
 
     def _notify(self, message):
@@ -54,7 +54,7 @@ class XEMMStartTest(unittest.TestCase):
     def error(self, message, exc_info):
         self.log_errors.append(message)
 
-    def test_strategy_creation(self):
-        strategy_start.start(self)
+    async def test_strategy_creation(self):
+        await strategy_start.start(self)
         self.assertEqual(self.strategy.order_amount, Decimal("1"))
         self.assertEqual(self.strategy.min_profitability, Decimal("0.02"))

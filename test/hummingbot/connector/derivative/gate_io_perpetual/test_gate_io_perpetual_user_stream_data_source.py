@@ -6,8 +6,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from bidict import bidict
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.gate_io_perpetual import gate_io_perpetual_constants as CONSTANTS
 from hummingbot.connector.derivative.gate_io_perpetual.gate_io_perpetual_auth import GateIoPerpetualAuth
 from hummingbot.connector.derivative.gate_io_perpetual.gate_io_perpetual_derivative import GateIoPerpetualDerivative
@@ -48,9 +46,7 @@ class TestGateIoPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = GateIoPerpetualDerivative(
-            client_config_map=client_config_map,
             gate_io_perpetual_api_key="",
             gate_io_perpetual_secret_key="",
             gate_io_perpetual_user_id="",

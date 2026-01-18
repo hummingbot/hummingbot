@@ -76,6 +76,7 @@ class PMMDynamicController(MarketMakingControllerBase):
     This is a dynamic version of the PMM controller.It uses the MACD to shift the mid-price and the NATR
     to make the spreads dynamic. It also uses the Triple Barrier Strategy to manage the risk.
     """
+
     def __init__(self, config: PMMDynamicControllerConfig, *args, **kwargs):
         self.config = config
         self.max_records = max(config.macd_slow, config.macd_fast, config.macd_signal, config.natr_length) + 100

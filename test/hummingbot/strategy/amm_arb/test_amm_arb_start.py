@@ -1,13 +1,14 @@
 import unittest.mock
 from decimal import Decimal
 from test.hummingbot.strategy import assign_config_default
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 
 import hummingbot.strategy.amm_arb.start as amm_arb_start
 from hummingbot.strategy.amm_arb.amm_arb import AmmArbStrategy
 from hummingbot.strategy.amm_arb.amm_arb_config_map import amm_arb_config_map
 
 
-class AMMArbStartTest(unittest.TestCase):
+class AMMArbStartTest(IsolatedAsyncioWrapperTestCase):
 
     def setUp(self) -> None:
         super().setUp()
@@ -29,7 +30,7 @@ class AMMArbStartTest(unittest.TestCase):
     def _initialize_market_assets(self, market, trading_pairs):
         pass
 
-    def initialize_markets(self, market_names):
+    async def initialize_markets(self, market_names):
         pass
 
     def _notify(self, message):
@@ -42,7 +43,7 @@ class AMMArbStartTest(unittest.TestCase):
         self.log_errors.append(message)
 
     @unittest.mock.patch('hummingbot.strategy.amm_arb.amm_arb.AmmArbStrategy.add_markets')
-    def test_amm_arb_strategy_creation(self, mock):
-        amm_arb_start.start(self)
+    async def test_amm_arb_strategy_creation(self, mock):
+        await amm_arb_start.start(self)
         self.assertEqual(self.strategy._order_amount, Decimal(1))
         self.assertEqual(self.strategy._min_profitability, Decimal("10") / Decimal("100"))

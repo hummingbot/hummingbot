@@ -9,8 +9,6 @@ from bidict import bidict
 
 import hummingbot.connector.exchange.okx.okx_constants as CONSTANTS
 import hummingbot.connector.exchange.okx.okx_web_utils as web_utils
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.okx.okx_api_order_book_data_source import OkxAPIOrderBookDataSource
 from hummingbot.connector.exchange.okx.okx_exchange import OkxExchange
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
@@ -36,9 +34,7 @@ class OkxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.listening_task = None
         self.mocking_assistant = NetworkMockingAssistant(self.local_event_loop)
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = OkxExchange(
-            client_config_map=client_config_map,
             okx_api_key="",
             okx_secret_key="",
             okx_passphrase="",

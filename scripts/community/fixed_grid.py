@@ -79,7 +79,7 @@ class FixedGrid(ScriptStrategyBase):
                         min_diff = abs(self.price_levels[i] - price)
                         self.current_level = i
 
-                msg = (f"Current price {price}, Initial level {self.current_level+1}")
+                msg = (f"Current price {price}, Initial level {self.current_level + 1}")
                 self.log_with_clock(logging.INFO, msg)
                 self.notify_hb_app_with_timestamp(msg)
 
@@ -98,11 +98,11 @@ class FixedGrid(ScriptStrategyBase):
 
             if base_balance < self.base_inv_levels[self.current_level]:
                 self.inv_correct = False
-                msg = (f"WARNING: Insuffient {base_asset} balance for grid bot. Will attempt to rebalance")
+                msg = (f"WARNING: Insufficient {base_asset} balance for grid bot. Will attempt to rebalance")
                 self.log_with_clock(logging.WARNING, msg)
                 self.notify_hb_app_with_timestamp(msg)
                 if base_balance + quote_balance < self.base_inv_levels[self.current_level] + self.quote_inv_levels_current_price[self.current_level]:
-                    msg = (f"WARNING: Insuffient {base_asset} and {quote_asset} balance for grid bot. Unable to rebalance."
+                    msg = (f"WARNING: Insufficient {base_asset} and {quote_asset} balance for grid bot. Unable to rebalance."
                            f"Please add funds or change grid parameters")
                     self.log_with_clock(logging.WARNING, msg)
                     self.notify_hb_app_with_timestamp(msg)
@@ -114,11 +114,11 @@ class FixedGrid(ScriptStrategyBase):
                     self.rebalance_order_amount = Decimal(base_required)
             elif quote_balance < self.quote_inv_levels_current_price[self.current_level]:
                 self.inv_correct = False
-                msg = (f"WARNING: Insuffient {quote_asset} balance for grid bot. Will attempt to rebalance")
+                msg = (f"WARNING: Insufficient {quote_asset} balance for grid bot. Will attempt to rebalance")
                 self.log_with_clock(logging.WARNING, msg)
                 self.notify_hb_app_with_timestamp(msg)
                 if base_balance + quote_balance < self.base_inv_levels[self.current_level] + self.quote_inv_levels_current_price[self.current_level]:
-                    msg = (f"WARNING: Insuffient {base_asset} and {quote_asset} balance for grid bot. Unable to rebalance."
+                    msg = (f"WARNING: Insufficient {base_asset} and {quote_asset} balance for grid bot. Unable to rebalance."
                            f"Please add funds or change grid parameters")
                     self.log_with_clock(logging.WARNING, msg)
                     self.notify_hb_app_with_timestamp(msg)

@@ -135,3 +135,23 @@ class HummingbotCLITest(unittest.TestCase):
 
         mock_init_logging.assert_called()
         handler.mock.assert_called()
+
+    def test_toggle_right_pane(self):
+        # Setup layout components
+        self.app.layout_components = {
+            "pane_right": MagicMock(),
+            "item_top_toggle": MagicMock()
+        }
+
+        # Test when pane is visible (hide it)
+        self.app.layout_components["pane_right"].filter = lambda: True
+        self.app.toggle_right_pane()
+        # Should be hidden now (filter returns False)
+        self.assertFalse(self.app.layout_components["pane_right"].filter())
+        self.assertEqual(self.app.layout_components["item_top_toggle"].text, '< Ctrl+T')
+
+        # Test when pane is hidden (show it)
+        self.app.toggle_right_pane()
+        # Should be visible now (filter returns True)
+        self.assertTrue(self.app.layout_components["pane_right"].filter())
+        self.assertEqual(self.app.layout_components["item_top_toggle"].text, '> Ctrl+T')

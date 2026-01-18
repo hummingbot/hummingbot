@@ -27,7 +27,7 @@ from hummingbot.core.event.events import (
 class AbstractPerpetualDerivativeTests:
     """
     We need to create the abstract TestCase class inside another class not inheriting from TestCase to prevent test
-    frameworks from discovering and tyring to run the abstract class
+    frameworks from discovering and trying to run the abstract class
     """
 
     class PerpetualDerivativeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):

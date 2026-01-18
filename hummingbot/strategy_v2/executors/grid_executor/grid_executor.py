@@ -677,6 +677,7 @@ class GridExecutor(ExecutorBase):
         ])
 
         return {
+            "side": self.config.side,
             "levels_by_state": {key.name: value for key, value in self.levels_by_state.items()},
             "filled_orders": self._filled_orders,
             "held_position_orders": self._held_position_orders,

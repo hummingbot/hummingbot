@@ -25,7 +25,7 @@ from hummingbot.strategy.pure_market_making.pure_market_making import PureMarket
 
 
 # Update the orderbook so that the top bids and asks are lower than actual for a wider bid ask spread
-# this basially removes the orderbook entries above top bid and below top ask
+# this basically removes the orderbook entries above top bid and below top ask
 def simulate_order_book_widening(order_book: OrderBook, top_bid: float, top_ask: float):
     bid_diffs: List[OrderBookRow] = []
     ask_diffs: List[OrderBookRow] = []
@@ -55,9 +55,7 @@ class PMMUnitTest(unittest.TestCase):
     def setUp(self):
         self.clock_tick_size = 1
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
-        self.market: MockPaperExchange = MockPaperExchange(
-            client_config_map=ClientConfigAdapter(ClientConfigMap())
-        )
+        self.market: MockPaperExchange = MockPaperExchange()
         self.mid_price = 100
         self.bid_spread = 0.01
         self.ask_spread = 0.01
@@ -142,9 +140,7 @@ class PMMUnitTest(unittest.TestCase):
             price_type="custom",
         )
 
-        self.ext_market: MockPaperExchange = MockPaperExchange(
-            client_config_map=ClientConfigAdapter(ClientConfigMap())
-        )
+        self.ext_market: MockPaperExchange = MockPaperExchange()
         self.ext_market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             self.ext_market, self.trading_pair, self.base_asset, self.quote_asset
         )
@@ -1213,9 +1209,7 @@ class PureMarketMakingMinimumSpreadUnitTest(unittest.TestCase):
     def setUp(self):
         self.clock_tick_size = 1
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
-        self.market: MockPaperExchange = MockPaperExchange(
-            client_config_map=ClientConfigAdapter(ClientConfigMap())
-        )
+        self.market: MockPaperExchange = MockPaperExchange()
         self.mid_price = 100
         self.market.set_balanced_order_book(trading_pair=self.trading_pair,
                                             mid_price=self.mid_price, min_price=1,

@@ -35,7 +35,6 @@ TICKER_PRICE_CHANGE_PATH_URL = "/public/get_ticker"
 EXCHANGE_INFO_PATH_URL = "/public/get_all_currencies"
 EXCHANGE_CURRENCIES_PATH_URL = "/public/get_all_instruments"
 PING_PATH_URL = "/public/get_time"
-SNAPSHOT_PATH_URL = "/public/get_ticker"
 
 # Private API endpoints or DerivePerpetualClient function
 ACCOUNTS_PATH_URL = "/private/get_subaccount"
@@ -96,7 +95,6 @@ ENDPOINTS = {
             ORDER_STATUS_PAATH_URL,
             PING_PATH_URL,
             POSITION_INFORMATION_URL,
-            SNAPSHOT_PATH_URL,
             TICKER_PRICE_CHANGE_PATH_URL
         ],
     },
@@ -116,6 +114,7 @@ ORDER_STATE = {
 DIFF_EVENT_TYPE = "depthUpdate"
 SNAPSHOT_EVENT_TYPE = "depthUpdate"
 TRADE_EVENT_TYPE = "trade"
+FUNDING_INFO_STREAM_ID = "ticker"
 
 USER_ORDERS_ENDPOINT_NAME = "orders"
 USEREVENT_ENDPOINT_NAME = "trades"
@@ -158,12 +157,6 @@ RATE_LIMITS = [
     ),
     RateLimit(
         limit_id=EXCHANGE_CURRENCIES_PATH_URL,
-        limit=MARKET_MAKER_NON_MATCHING,
-        time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)],
-    ),
-    RateLimit(
-        limit_id=SNAPSHOT_PATH_URL,
         limit=MARKET_MAKER_NON_MATCHING,
         time_interval=SECOND,
         linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)],

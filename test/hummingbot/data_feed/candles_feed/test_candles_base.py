@@ -395,7 +395,6 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
             self.assertTrue(all(result["timestamp"] <= config.end_time))
 
     async def test_get_historical_candles_with_zero_missing_records(self):
-        """Test get_historical_candles when missing_records == 0"""
         from hummingbot.data_feed.candles_feed.data_types import HistoricalCandlesConfig
 
         # Mock the specific class's methods instead of base class
@@ -414,8 +413,6 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
                 start_time=1622505600,
                 end_time=1622505600  # Same as start_time
             )
-
             result = await self.data_feed.get_historical_candles(config)
-
             self.assertIsInstance(result, pd.DataFrame)
             mock_fetch_candles.assert_called_once()

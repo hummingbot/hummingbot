@@ -8,8 +8,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses import aioresponses
 from bidict import bidict
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.mexc import mexc_constants as CONSTANTS, mexc_web_utils as web_utils
 from hummingbot.connector.exchange.mexc.mexc_api_user_stream_data_source import MexcAPIUserStreamDataSource
 from hummingbot.connector.exchange.mexc.mexc_auth import MexcAuth
@@ -26,8 +24,8 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.base_asset = "COINALPHA"
-        cls.quote_asset = "HBOT"
+        cls.base_asset = "BTC"
+        cls.quote_asset = "USDC"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = cls.base_asset + cls.quote_asset
         cls.domain = "com"
@@ -47,9 +45,7 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = MexcExchange(
-            client_config_map=client_config_map,
             mexc_api_key="",
             mexc_api_secret="",
             trading_pairs=[],
@@ -105,17 +101,19 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
     def _user_update_event(self):
         # Balance Update
         resp = {
-            "c": "spot@private.account.v3.api",
-            "d": {
-                "a": "BTC",
-                "c": 1678185928428,
-                "f": "302.185113007893322435",
-                "fd": "-4.990689704",
-                "l": "4.990689704",
-                "ld": "4.990689704",
-                "o": "ENTRUST_PLACE"
-            },
-            "t": 1678185928435
+            "channel": "spot@private.account.v3.api.pb",
+            "createTime": 1736417034305,
+            "sendTime": 1736417034307,
+            "privateAccount": {
+                "vcoinName": "USDC",
+                "coinId": "128f589271cb4951b03e71e6323eb7be",
+                "balanceAmount": "21.94210356004384",
+                "balanceAmountChange": "10",
+                "frozenAmount": "0",
+                "frozenAmountChange": "0",
+                "type": "CONTRACT_TRANSFER",
+                "time": 1736416910000
+            }
         }
         return json.dumps(resp)
 

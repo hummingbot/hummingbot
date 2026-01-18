@@ -43,14 +43,9 @@ class KucoinRateSource(RateSourceBase):
 
     @staticmethod
     def _build_kucoin_connector_without_private_keys() -> 'KucoinExchange':
-        from hummingbot.client.hummingbot_application import HummingbotApplication
         from hummingbot.connector.exchange.kucoin.kucoin_exchange import KucoinExchange
 
-        app = HummingbotApplication.main_application()
-        client_config_map = app.client_config_map
-
         return KucoinExchange(
-            client_config_map=client_config_map,
             kucoin_api_key="",
             kucoin_passphrase="",
             kucoin_secret_key="",

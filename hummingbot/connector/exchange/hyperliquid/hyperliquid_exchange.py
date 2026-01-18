@@ -1,7 +1,7 @@
 import asyncio
 import hashlib
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional, Tuple
+from typing import Any, AsyncIterable, Dict, List, Literal, Optional, Tuple
 
 from bidict import bidict
 
@@ -30,9 +30,6 @@ from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
-if TYPE_CHECKING:
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
-
 
 class HyperliquidExchange(ExchangePyBase):
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
@@ -40,21 +37,24 @@ class HyperliquidExchange(ExchangePyBase):
     web_utils = web_utils
 
     SHORT_POLL_INTERVAL = 5.0
-    LONG_POLL_INTERVAL = 12.0
+    LONG_POLL_INTERVAL = 120.0
 
     def __init__(
             self,
-            client_config_map: "ClientConfigAdapter",
-            hyperliquid_api_secret: str = None,
+            balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
+            rate_limits_share_pct: Decimal = Decimal("100"),
+            hyperliquid_secret_key: str = None,
+            hyperliquid_address: str = None,
             use_vault: bool = False,
-            hyperliquid_api_key: str = None,
+            hyperliquid_mode: Literal["arb_wallet", "api_wallet"] = "arb_wallet",
             trading_pairs: Optional[List[str]] = None,
             trading_required: bool = True,
             domain: str = CONSTANTS.DOMAIN,
     ):
-        self.hyperliquid_api_key = hyperliquid_api_key
-        self.hyperliquid_secret_key = hyperliquid_api_secret
+        self.hyperliquid_address = hyperliquid_address
+        self.hyperliquid_secret_key = hyperliquid_secret_key
         self._use_vault = use_vault
+        self._connection_mode = hyperliquid_mode
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._domain = domain
@@ -62,7 +62,7 @@ class HyperliquidExchange(ExchangePyBase):
         self._last_trades_poll_timestamp = 1.0
         self.coin_to_asset: Dict[str, int] = {}
         self.name_to_coin: Dict[str, str] = {}
-        super().__init__(client_config_map)
+        super().__init__(balance_asset_limit, rate_limits_share_pct)
 
     @property
     def name(self) -> str:
@@ -72,8 +72,11 @@ class HyperliquidExchange(ExchangePyBase):
     @property
     def authenticator(self) -> Optional[HyperliquidAuth]:
         if self._trading_required:
-            return HyperliquidAuth(self.hyperliquid_api_key, self.hyperliquid_secret_key,
-                                   self._use_vault)
+            return HyperliquidAuth(
+                self.hyperliquid_address,
+                self.hyperliquid_secret_key,
+                self._use_vault
+            )
         return None
 
     @property
@@ -116,10 +119,6 @@ class HyperliquidExchange(ExchangePyBase):
     def is_trading_required(self) -> bool:
         return self._trading_required
 
-    @property
-    def funding_fee_poll_interval(self) -> int:
-        return 120
-
     async def _make_network_check_request(self):
         await self._api_post(path_url=self.check_network_request_path, data={"type": CONSTANTS.META_INFO})
 
@@ -131,15 +130,16 @@ class HyperliquidExchange(ExchangePyBase):
 
     async def get_all_pairs_prices(self) -> List[Dict[str, str]]:
         res = []
-        response = await self._api_post(
+        exchange_info = await self._api_post(
             path_url=CONSTANTS.TICKER_PRICE_CHANGE_URL,
             data={"type": CONSTANTS.ASSET_CONTEXT_TYPE})
-        for token in response[1]:
-            result = {}
-            price = token['midPx']
-            result["symbol"] = token['coin']
-            result["price"] = price
-            res.append(result)
+        spot_infos: list = exchange_info[1]
+        for spot_data in spot_infos:
+            res.append({
+                "symbol": spot_data.get("coin"),
+                "price": spot_data.get("markPx"),
+            })
+
         return res
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
@@ -256,8 +256,8 @@ class HyperliquidExchange(ExchangePyBase):
             self.logger().debug(f"The order {order_id} does not exist on Hyperliquid s. "
                                 f"No cancelation needed.")
             await self._order_tracker.process_order_not_found(order_id)
-            raise IOError(f'{cancel_result["response"]["data"]["statuses"][0]["error"]}')
-        if "success" in cancel_result["response"]["data"]["statuses"][0]:
+            raise IOError(f'{cancel_result["response"]}')
+        if cancel_result["status"] == "ok" and "success" in cancel_result["response"]["data"]["statuses"][0]:
             return True
         return False
 
@@ -289,10 +289,8 @@ class HyperliquidExchange(ExchangePyBase):
         md5.update(order_id.encode('utf-8'))
         hex_order_id = f"0x{md5.hexdigest()}"
         if order_type is OrderType.MARKET:
-            mid_price = self.get_mid_price(trading_pair)
-            slippage = CONSTANTS.MARKET_ORDER_SLIPPAGE
-            market_price = mid_price * Decimal(1 + slippage)
-            price = self.quantize_order_price(trading_pair, market_price)
+            reference_price = self.get_mid_price(trading_pair) if price.is_nan() else price
+            price = self.quantize_order_price(trading_pair, reference_price * Decimal(1 + CONSTANTS.MARKET_ORDER_SLIPPAGE))
 
         safe_ensure_future(self._create_order(
             trade_type=TradeType.BUY,
@@ -328,10 +326,8 @@ class HyperliquidExchange(ExchangePyBase):
         md5.update(order_id.encode('utf-8'))
         hex_order_id = f"0x{md5.hexdigest()}"
         if order_type is OrderType.MARKET:
-            mid_price = self.get_mid_price(trading_pair)
-            slippage = CONSTANTS.MARKET_ORDER_SLIPPAGE
-            market_price = mid_price * Decimal(1 - slippage)
-            price = self.quantize_order_price(trading_pair, market_price)
+            reference_price = self.get_mid_price(trading_pair) if price.is_nan() else price
+            price = self.quantize_order_price(trading_pair, reference_price * Decimal(1 - CONSTANTS.MARKET_ORDER_SLIPPAGE))
 
         safe_ensure_future(self._create_order(
             trade_type=TradeType.SELL,
@@ -398,7 +394,7 @@ class HyperliquidExchange(ExchangePyBase):
                     path_url = CONSTANTS.ACCOUNT_TRADE_LIST_URL,
                     data = {
                         "type": CONSTANTS.TRADES_TYPE,
-                        "user": self.hyperliquid_api_key,
+                        "user": self.hyperliquid_address,
                     })
             except asyncio.CancelledError:
                 raise
@@ -479,7 +475,8 @@ class HyperliquidExchange(ExchangePyBase):
                 elif channel == CONSTANTS.USEREVENT_ENDPOINT_NAME:
                     if "fills" in results:
                         for trade_msg in results["fills"]:
-                            await self._process_trade_message(trade_msg)
+                            client_order_id = str(trade_msg.get("cloid", ""))
+                            await self._process_trade_message(trade_msg, client_order_id)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -489,43 +486,35 @@ class HyperliquidExchange(ExchangePyBase):
 
     async def _process_trade_message(self, trade: Dict[str, Any], client_order_id: Optional[str] = None):
         """
-        Updates in-flight order and trigger order filled event for trade message received. Triggers order completed
+        Updates in-flight order and trigger order filled event for a trade message received. Triggers order completedim
         event if the total executed amount equals to the specified order amount.
         Example Trade:
         """
-        exchange_order_id = str(trade.get("oid", ""))
-        tracked_order = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(exchange_order_id)
+        tracked_order = self._order_tracker.all_fillable_orders.get(client_order_id)
 
-        if tracked_order is None:
-            all_orders = self._order_tracker.all_fillable_orders
-            for k, v in all_orders.items():
-                await v.get_exchange_order_id()
-            _cli_tracked_orders = [o for o in all_orders.values() if exchange_order_id == o.exchange_order_id]
-            if not _cli_tracked_orders:
-                self.logger().debug(f"Ignoring trade message with id {client_order_id}: not in in_flight_orders.")
-                return
-            tracked_order = _cli_tracked_orders[0]
-        trading_pair_base_coin = tracked_order.base_asset
-        if trade["coin"] == trading_pair_base_coin:
-            fee_asset = trade["feeToken"]
-            fee = TradeFeeBase.new_spot_fee(
-                fee_schema=self.trade_fee_schema(),
-                trade_type=tracked_order.trade_type,
-                percent_token=fee_asset,
-                flat_fees=[TokenAmount(amount=Decimal(trade["fee"]), token=fee_asset)]
-            )
-            trade_update: TradeUpdate = TradeUpdate(
-                trade_id=str(trade["tid"]),
-                client_order_id=tracked_order.client_order_id,
-                exchange_order_id=str(trade["oid"]),
-                trading_pair=tracked_order.trading_pair,
-                fill_timestamp=trade["time"] * 1e-3,
-                fill_price=Decimal(trade["px"]),
-                fill_base_amount=Decimal(trade["sz"]),
-                fill_quote_amount=Decimal(trade["px"]) * Decimal(trade["sz"]),
-                fee=fee,
-            )
-            self._order_tracker.process_trade_update(trade_update)
+        if tracked_order is not None:
+            trading_pair_base_coin = tracked_order.trading_pair
+            exchange_symbol = await self.trading_pair_associated_to_exchange_symbol(symbol=trade["coin"])
+            if exchange_symbol == trading_pair_base_coin:
+                fee_asset = trade["feeToken"]
+                fee = TradeFeeBase.new_spot_fee(
+                    fee_schema=self.trade_fee_schema(),
+                    trade_type=tracked_order.trade_type,
+                    percent_token=fee_asset,
+                    flat_fees=[TokenAmount(amount=Decimal(trade["fee"]), token=fee_asset)]
+                )
+                trade_update: TradeUpdate = TradeUpdate(
+                    trade_id=str(trade["tid"]),
+                    client_order_id=tracked_order.client_order_id,
+                    exchange_order_id=str(trade["oid"]),
+                    trading_pair=tracked_order.trading_pair,
+                    fill_timestamp=trade["time"] * 1e-3,
+                    fill_price=Decimal(trade["px"]),
+                    fill_base_amount=Decimal(trade["sz"]),
+                    fill_quote_amount=Decimal(trade["px"]) * Decimal(trade["sz"]),
+                    fee=fee,
+                )
+                self._order_tracker.process_trade_update(trade_update)
 
     def _process_order_message(self, order_msg: Dict[str, Any]):
         """
@@ -586,6 +575,7 @@ class HyperliquidExchange(ExchangePyBase):
                 return_val.append(
                     TradingRule(
                         trading_pair,
+                        min_order_size=step_size,  # asset_price,
                         min_base_amount_increment=step_size,
                         min_price_increment=price_size
                     )
@@ -650,7 +640,7 @@ class HyperliquidExchange(ExchangePyBase):
 
         account_info = await self._api_post(path_url=CONSTANTS.ACCOUNT_INFO_URL,
                                             data={"type": CONSTANTS.USER_STATE_TYPE,
-                                                  "user": self.hyperliquid_api_key},
+                                                  "user": self.hyperliquid_address},
                                             )
         balances = account_info["balances"]
         for balance_entry in balances:
@@ -672,7 +662,7 @@ class HyperliquidExchange(ExchangePyBase):
             path_url=CONSTANTS.ORDER_URL,
             data={
                 "type": CONSTANTS.ORDER_STATUS_TYPE,
-                "user": self.hyperliquid_api_key,
+                "user": self.hyperliquid_address,
                 "oid": int(tracked_order.exchange_order_id) if tracked_order.exchange_order_id else client_order_id
             })
         current_state = order_update["order"]["status"]
@@ -712,7 +702,7 @@ class HyperliquidExchange(ExchangePyBase):
             for trading_pair in trading_pairs:
                 params = {
                     'type': CONSTANTS.TRADES_TYPE,
-                    'user': self.hyperliquid_api_key,
+                    'user': self.hyperliquid_address,
                 }
                 if self._last_poll_timestamp > 0:
                     params['type'] = 'userFillsByTime'
@@ -794,7 +784,7 @@ class HyperliquidExchange(ExchangePyBase):
                 path_url=CONSTANTS.MY_TRADES_PATH_URL,
                 params={
                     "type": "userFills",
-                    'user': self.hyperliquid_api_key,
+                    'user': self.hyperliquid_address,
                 },
                 is_auth_required=True,
                 limit_id=CONSTANTS.MY_TRADES_PATH_URL)

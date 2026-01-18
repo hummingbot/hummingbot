@@ -85,6 +85,32 @@ class UserStreamTrackerDataSource(metaclass=ABCMeta):
     async def _on_user_stream_interruption(self, websocket_assistant: Optional[WSAssistant]):
         websocket_assistant and await websocket_assistant.disconnect()
 
+    async def stop(self):
+        """
+        Stop the user stream data source and clean up any running tasks.
+        This method should be overridden by subclasses to handle specific cleanup logic.
+        """
+        # Cancel listen key task if it exists (for exchanges that use listen keys)
+        if hasattr(self, '_manage_listen_key_task') and self._manage_listen_key_task is not None:
+            if not self._manage_listen_key_task.done():
+                self._manage_listen_key_task.cancel()
+                try:
+                    await self._manage_listen_key_task
+                except asyncio.CancelledError:
+                    pass
+            self._manage_listen_key_task = None
+
+        # Clear listen key state if it exists
+        if hasattr(self, '_current_listen_key'):
+            self._current_listen_key = None
+        if hasattr(self, '_listen_key_initialized_event'):
+            self._listen_key_initialized_event.clear()
+
+        # Disconnect websocket if connected
+        if self._ws_assistant:
+            await self._ws_assistant.disconnect()
+            self._ws_assistant = None
+
     async def _send_ping(self, websocket_assistant: WSAssistant):
         await websocket_assistant.ping()
 

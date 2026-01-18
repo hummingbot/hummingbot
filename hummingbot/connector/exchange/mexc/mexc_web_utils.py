@@ -1,6 +1,7 @@
 from typing import Callable, Optional
 
 import hummingbot.connector.exchange.mexc.mexc_constants as CONSTANTS
+from hummingbot.connector.exchange.mexc.mexc_post_processor import MexcPostProcessor
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.utils import TimeSynchronizerRESTPreProcessor
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -46,12 +47,17 @@ def build_api_factory(
         auth=auth,
         rest_pre_processors=[
             TimeSynchronizerRESTPreProcessor(synchronizer=time_synchronizer, time_provider=time_provider),
-        ])
+        ],
+        ws_post_processors=[MexcPostProcessor]
+    )
     return api_factory
 
 
 def build_api_factory_without_time_synchronizer_pre_processor(throttler: AsyncThrottler) -> WebAssistantsFactory:
-    api_factory = WebAssistantsFactory(throttler=throttler)
+    api_factory = WebAssistantsFactory(
+        throttler=throttler,
+        ws_post_processors=[MexcPostProcessor]
+    )
     return api_factory
 
 

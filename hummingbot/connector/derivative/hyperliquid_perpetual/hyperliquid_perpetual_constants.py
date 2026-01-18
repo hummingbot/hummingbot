@@ -25,6 +25,8 @@ CURRENCY = "USD"
 META_INFO = "meta"
 
 ASSET_CONTEXT_TYPE = "metaAndAssetCtxs"
+DEX_ASSET_CONTEXT_TYPE = "perpDexs"
+
 
 TRADES_TYPE = "userFills"
 
@@ -59,6 +61,7 @@ PING_URL = "/info"
 
 TRADES_ENDPOINT_NAME = "trades"
 DEPTH_ENDPOINT_NAME = "l2Book"
+FUNDING_INFO_ENDPOINT_NAME = "activeAssetCtx"
 
 
 USER_ORDERS_ENDPOINT_NAME = "orderUpdates"
@@ -71,8 +74,13 @@ ORDER_STATE = {
     "filled": OrderState.FILLED,
     "canceled": OrderState.CANCELED,
     "rejected": OrderState.FAILED,
+    "badAloPxRejected": OrderState.FAILED,
     "reduceOnlyCanceled": OrderState.CANCELED,
     "perpMarginRejected": OrderState.FAILED,
+    "selfTradeCanceled": OrderState.CANCELED,
+    "siblingFilledCanceled": OrderState.CANCELED,
+    "delistedCanceled": OrderState.CANCELED,
+    "liquidatedCanceled": OrderState.CANCELED,
 }
 
 HEARTBEAT_TIME_INTERVAL = 30.0

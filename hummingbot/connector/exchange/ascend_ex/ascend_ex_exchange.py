@@ -1,6 +1,6 @@
 import asyncio
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from bidict import bidict
 
@@ -27,9 +27,6 @@ from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
-if TYPE_CHECKING:
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
-
 
 class AscendExExchange(ExchangePyBase):
     """
@@ -43,10 +40,11 @@ class AscendExExchange(ExchangePyBase):
 
     def __init__(
         self,
-        client_config_map: "ClientConfigAdapter",
         ascend_ex_api_key: str,
         ascend_ex_secret_key: str,
         ascend_ex_group_id: str,
+        balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
+        rate_limits_share_pct: Decimal = Decimal("100"),
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = True,
     ):
@@ -62,7 +60,7 @@ class AscendExExchange(ExchangePyBase):
         self.ascend_ex_group_id = ascend_ex_group_id
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        super().__init__(client_config_map=client_config_map)
+        super().__init__(balance_asset_limit, rate_limits_share_pct)
 
         self._last_known_sequence_number = 0
 

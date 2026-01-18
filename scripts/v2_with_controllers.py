@@ -4,6 +4,7 @@ from typing import Dict, List, Optional, Set
 
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.core.event.events import MarketOrderFailureEvent
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
 from hummingbot.strategy_v2.models.base import RunnableStatus
@@ -87,10 +88,20 @@ class V2WithControllers(StrategyV2Base):
                 self._is_stop_triggered = True
                 HummingbotApplication.main_application().stop()
 
+    def get_controller_report(self, controller_id: str) -> dict:
+        """
+        Get the full report for a controller including performance and custom info.
+        """
+        performance_report = self.controller_reports.get(controller_id, {}).get("performance")
+        return {
+            "performance": performance_report.dict() if performance_report else {},
+            "custom_info": self.controllers[controller_id].get_custom_info()
+        }
+
     def send_performance_report(self):
         if self.current_timestamp - self._last_performance_report_timestamp >= self.performance_report_interval and self._pub:
-            performance_reports = {controller_id: self.get_performance_report(controller_id).dict() for controller_id in self.controllers.keys()}
-            self._pub(performance_reports)
+            controller_reports = {controller_id: self.get_controller_report(controller_id) for controller_id in self.controllers.keys()}
+            self._pub(controller_reports)
             self._last_performance_report_timestamp = self.current_timestamp
 
     def check_manual_kill_switch(self):
@@ -140,8 +151,24 @@ class V2WithControllers(StrategyV2Base):
                 if self.is_perpetual(config_dict["connector_name"]):
                     if "position_mode" in config_dict:
                         connectors_position_mode[config_dict["connector_name"]] = config_dict["position_mode"]
-                    if "leverage" in config_dict:
-                        self.connectors[config_dict["connector_name"]].set_leverage(leverage=config_dict["leverage"],
-                                                                                    trading_pair=config_dict["trading_pair"])
+                    if "leverage" in config_dict and "trading_pair" in config_dict:
+                        self.connectors[config_dict["connector_name"]].set_leverage(
+                            leverage=config_dict["leverage"],
+                            trading_pair=config_dict["trading_pair"])
         for connector_name, position_mode in connectors_position_mode.items():
             self.connectors[connector_name].set_position_mode(position_mode)
+
+    def did_fail_order(self, order_failed_event: MarketOrderFailureEvent):
+        """
+        Handle order failure events by logging the error and stopping the strategy if necessary.
+        """
+        if order_failed_event.error_message and "position side" in order_failed_event.error_message.lower():
+            connectors_position_mode = {}
+            for controller_id, controller in self.controllers.items():
+                config_dict = controller.config.model_dump()
+                if "connector_name" in config_dict:
+                    if self.is_perpetual(config_dict["connector_name"]):
+                        if "position_mode" in config_dict:
+                            connectors_position_mode[config_dict["connector_name"]] = config_dict["position_mode"]
+            for connector_name, position_mode in connectors_position_mode.items():
+                self.connectors[connector_name].set_position_mode(position_mode)

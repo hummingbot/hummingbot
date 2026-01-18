@@ -8,8 +8,6 @@ from unittest.mock import AsyncMock
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.cube import cube_constants as CONSTANTS, cube_web_utils as web_utils
 from hummingbot.connector.exchange.cube.cube_exchange import CubeExchange
 from hummingbot.connector.exchange.cube.cube_ws_protobufs import trade_pb2
@@ -605,9 +603,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return f"{base_token}{quote_token}"
 
     def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         return CubeExchange(
-            client_config_map=client_config_map,
             cube_api_key="1111111111-11111-11111-11111-1111111111",
             cube_api_secret="111111111111111111111111111111",
             cube_subaccount_id="1",

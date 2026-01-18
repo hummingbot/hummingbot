@@ -605,7 +605,7 @@ class HedgeStrategy(StrategyPyBase):
         self, market_pair: MarketTradingPairTuple, orders: Union[List[OrderCandidate], List[PerpetualOrderCandidate]]
     ) -> None:
         """
-        Place an order refering the order candidates.
+        Place an order referring the order candidates.
         :params market_pair: The market pair to place the order.
         :params orders: The list of orders to place.
         """

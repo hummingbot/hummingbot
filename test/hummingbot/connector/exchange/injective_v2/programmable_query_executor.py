@@ -1,9 +1,9 @@
 import asyncio
 from typing import Any, Callable, Dict, List, Optional
 
-from pyinjective.core.market import DerivativeMarket, SpotMarket
+from pyinjective.core.market_v2 import DerivativeMarket, SpotMarket
 from pyinjective.core.token import Token
-from pyinjective.proto.injective.stream.v1beta1 import query_pb2 as chain_stream_query
+from pyinjective.proto.injective.stream.v2 import query_pb2 as chain_stream_query
 
 from hummingbot.connector.exchange.injective_v2.injective_query_executor import BaseInjectiveQueryExecutor
 
@@ -167,6 +167,7 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
         derivative_orderbooks_filter: Optional[chain_stream_query.OrderbookFilter] = None,
         positions_filter: Optional[chain_stream_query.PositionsFilter] = None,
         oracle_price_filter: Optional[chain_stream_query.OraclePriceFilter] = None,
+        order_failures_filter: Optional[chain_stream_query.OrderFailuresFilter] = None,
     ):
         while True:
             next_event = await self._chain_stream_events.get()

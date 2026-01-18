@@ -4,8 +4,6 @@ from decimal import Decimal
 from typing import Awaitable, Dict
 from unittest.mock import patch
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -48,7 +46,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         super().setUp()
         self.log_records = []
 
-        self.connector = MockExchange(client_config_map=ClientConfigAdapter(ClientConfigMap()))
+        self.connector = MockExchange()
         self.connector._set_current_timestamp(1640000000.0)
         self.tracker = ClientOrderTracker(connector=self.connector)
 

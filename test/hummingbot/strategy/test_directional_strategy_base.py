@@ -3,8 +3,6 @@ from unittest.mock import MagicMock, PropertyMock, patch
 
 import pandas as pd
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock
@@ -36,9 +34,7 @@ class DirectionalStrategyBaseTest(unittest.TestCase):
         self.initial_mid_price: int = 100
         self.clock_tick_size = 1
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
-        self.connector: MockPaperExchange = MockPaperExchange(
-            client_config_map=ClientConfigAdapter(ClientConfigMap())
-        )
+        self.connector: MockPaperExchange = MockPaperExchange()
         self.connector.set_balanced_order_book(trading_pair=self.trading_pair,
                                                mid_price=100,
                                                min_price=50,

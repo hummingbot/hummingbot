@@ -4,8 +4,6 @@ from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCa
 from typing import Any, AsyncIterable, Dict
 from unittest.mock import AsyncMock, Mock
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.xrpl.xrpl_api_user_stream_data_source import XRPLAPIUserStreamDataSource
 from hummingbot.connector.exchange.xrpl.xrpl_auth import XRPLAuth
 from hummingbot.connector.exchange.xrpl.xrpl_exchange import XrplExchange
@@ -28,9 +26,7 @@ class XRPLUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.log_records = []
         self.listening_task = None
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = XrplExchange(
-            client_config_map=client_config_map,
             xrpl_secret_key="",
             wss_node_urls=["wss://sample.com"],
             max_request_per_minute=100,

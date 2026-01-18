@@ -44,12 +44,6 @@ binance_perpetual_testnet_percent_fee_token:
 binance_perpetual_testnet_taker_fixed_fees:
 binance_perpetual_testnet_taker_percent_fee:
 binance_taker_fixed_fees:
-binance_us_buy_percent_fee_deducted_from_returns:
-binance_us_maker_fixed_fees:
-binance_us_maker_percent_fee:
-binance_us_percent_fee_token:
-binance_us_taker_fixed_fees:
-binance_us_taker_percent_fee:
 bitmart_buy_percent_fee_deducted_from_returns:
 bitmart_maker_fixed_fees:
 bitmart_maker_percent_fee:
@@ -63,9 +57,9 @@ bitstamp_percent_fee_token:
 bitstamp_taker_fixed_fees:
 bitstamp_taker_percent_fee:
 btc_markets_percent_fee_token:
-btc_markets_maker_percent_fee:  
-btc_markets_taker_percent_fee:  
-btc_markets_buy_percent_fee_deducted_from_returns: 
+btc_markets_maker_percent_fee:
+btc_markets_taker_percent_fee:
+btc_markets_buy_percent_fee_deducted_from_returns:
 bybit_perpetual_buy_percent_fee_deducted_from_returns:
 bybit_perpetual_maker_fixed_fees:
 bybit_perpetual_maker_percent_fee:
