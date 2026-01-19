@@ -75,6 +75,15 @@ class HyperliquidPerpetualConfigMap(BaseConnectorConfigMap):
             "prompt_on_new": True,
         }
     )
+    enable_hip3_markets: bool = Field(
+        default=False,
+        json_schema_extra={
+            "prompt": "Do you want to Enable HIP-3 (DEX) markets? (Yes/No)",
+            "is_secure": False,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
+    )
     hyperliquid_perpetual_address: SecretStr = Field(
         default=...,
         json_schema_extra={
@@ -111,6 +120,12 @@ class HyperliquidPerpetualConfigMap(BaseConnectorConfigMap):
     @field_validator("use_vault", mode="before")
     @classmethod
     def validate_use_vault(cls, value: str):
+        """Used for client-friendly error output."""
+        return validate_bool(value)
+
+    @field_validator("enable_hip3_markets", mode="before")
+    @classmethod
+    def validate_enable_hip3_markets(cls, value: str):
         """Used for client-friendly error output."""
         return validate_bool(value)
 
@@ -153,6 +168,15 @@ class HyperliquidPerpetualTestnetConfigMap(BaseConnectorConfigMap):
             "prompt_on_new": True,
         }
     )
+    enable_hip3_markets: bool = Field(
+        default=False,
+        json_schema_extra={
+            "prompt": "Do you want to Enable HIP-3 (DEX) markets? (Yes/No)",
+            "is_secure": False,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
+    )
     hyperliquid_perpetual_testnet_address: SecretStr = Field(
         default=...,
         json_schema_extra={
@@ -189,6 +213,12 @@ class HyperliquidPerpetualTestnetConfigMap(BaseConnectorConfigMap):
     @field_validator("use_vault", mode="before")
     @classmethod
     def validate_use_vault(cls, value: str):
+        """Used for client-friendly error output."""
+        return validate_bool(value)
+
+    @field_validator("enable_hip3_markets", mode="before")
+    @classmethod
+    def validate_enable_hip3_markets(cls, value: str):
         """Used for client-friendly error output."""
         return validate_bool(value)
 

@@ -20,6 +20,7 @@ exclude = '''
 
 [build-system]
 requires = ["setuptools", "wheel", "numpy>=2.2.6", "cython>=3.0.12"]
+build-backend = "setuptools.build_meta"
 
 [tool.isort]
 line_length = 120

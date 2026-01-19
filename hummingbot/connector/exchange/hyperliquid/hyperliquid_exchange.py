@@ -130,15 +130,16 @@ class HyperliquidExchange(ExchangePyBase):
 
     async def get_all_pairs_prices(self) -> List[Dict[str, str]]:
         res = []
-        response = await self._api_post(
+        exchange_info = await self._api_post(
             path_url=CONSTANTS.TICKER_PRICE_CHANGE_URL,
             data={"type": CONSTANTS.ASSET_CONTEXT_TYPE})
-        for token in response[1]:
-            result = {}
-            price = token['midPx']
-            result["symbol"] = token['coin']
-            result["price"] = price
-            res.append(result)
+        spot_infos: list = exchange_info[1]
+        for spot_data in spot_infos:
+            res.append({
+                "symbol": spot_data.get("coin"),
+                "price": spot_data.get("markPx"),
+            })
+
         return res
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):

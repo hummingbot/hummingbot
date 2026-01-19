@@ -33,9 +33,7 @@ class GatewayBase(ConnectorBase):
     Defines basic functions common to all Gateway connectors
     """
 
-    API_CALL_TIMEOUT = 10.0
     POLL_INTERVAL = 1.0
-    UPDATE_BALANCE_INTERVAL = 30.0
     APPROVAL_ORDER_ID_PATTERN = re.compile(r"approve-(\w+)-(\w+)")
 
     _connector_name: str
@@ -93,7 +91,6 @@ class GatewayBase(ConnectorBase):
         [self._tokens.update(set(trading_pair.split("_")[0].split("-"))) for trading_pair in trading_pairs]
         self._trading_required = trading_required
         self._last_poll_timestamp = 0.0
-        self._last_balance_poll_timestamp = time.time()
         self._last_est_gas_cost_reported = 0
         self._chain_info = {}
         self._status_polling_task = None
@@ -246,6 +243,9 @@ class GatewayBase(ConnectorBase):
         self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
         # Load token data to populate amount quantum dict
         await self.load_token_data()
+        # Fetch initial balances
+        if self._trading_required:
+            await self.update_balances()
 
     async def stop_network(self):
         if self._status_polling_task is not None:
@@ -259,15 +259,11 @@ class GatewayBase(ConnectorBase):
             self._get_gas_estimate_task = None
 
     async def _status_polling_loop(self):
-        await self.update_balances(on_interval=False)
         while True:
             try:
                 self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
-                await safe_gather(
-                    self.update_balances(on_interval=True),
-                    self.update_order_status(self.gateway_orders)
-                )
+                await self.update_order_status(self.gateway_orders)
                 self._last_poll_timestamp = self.current_timestamp
             except asyncio.CancelledError:
                 raise
@@ -418,37 +414,33 @@ class GatewayBase(ConnectorBase):
             if self._poll_notifier is not None and not self._poll_notifier.is_set():
                 self._poll_notifier.set()
 
-    async def update_balances(self, on_interval: bool = False):
+    async def update_balances(self):
         """
-        Calls Solana API to update total and available balances.
+        Calls Gateway API to update total and available balances.
         """
         if self._native_currency is None:
             await self.get_chain_info()
-        last_tick = self._last_balance_poll_timestamp
-        current_tick = self.current_timestamp
-        if not on_interval or (current_tick - last_tick) > self.UPDATE_BALANCE_INTERVAL:
-            self._last_balance_poll_timestamp = current_tick
-            local_asset_names = set(self._account_balances.keys())
-            remote_asset_names = set()
-            token_list = list(self._tokens)
-            if self._native_currency:
-                token_list.append(self._native_currency)
-            resp_json: Dict[str, Any] = await self._get_gateway_instance().get_balances(
-                chain=self.chain,
-                network=self.network,
-                address=self.address,
-                token_symbols=token_list
-            )
-            for token, bal in resp_json["balances"].items():
-                self._account_available_balances[token] = Decimal(str(bal))
-                self._account_balances[token] = Decimal(str(bal))
-                remote_asset_names.add(token)
-            asset_names_to_remove = local_asset_names.difference(remote_asset_names)
-            for asset_name in asset_names_to_remove:
-                del self._account_available_balances[asset_name]
-                del self._account_balances[asset_name]
-            self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._order_tracker.all_orders.items()}
-            self._in_flight_orders_snapshot_timestamp = self.current_timestamp
+        local_asset_names = set(self._account_balances.keys())
+        remote_asset_names = set()
+        token_list = list(self._tokens)
+        if self._native_currency:
+            token_list.append(self._native_currency)
+        resp_json: Dict[str, Any] = await self._get_gateway_instance().get_balances(
+            chain=self.chain,
+            network=self.network,
+            address=self.address,
+            token_symbols=token_list
+        )
+        for token, bal in resp_json["balances"].items():
+            self._account_available_balances[token] = Decimal(str(bal))
+            self._account_balances[token] = Decimal(str(bal))
+            remote_asset_names.add(token)
+        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+        for asset_name in asset_names_to_remove:
+            del self._account_available_balances[asset_name]
+            del self._account_balances[asset_name]
+        self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._order_tracker.all_orders.items()}
+        self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 
     async def _update_balances(self):
         """

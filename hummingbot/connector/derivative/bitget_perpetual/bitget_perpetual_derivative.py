@@ -895,7 +895,7 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         if trade_id is not None:
             trade_id = str(trade_id)
             fee_asset = trade_msg["fillFeeCoin"]
-            fee_amount = Decimal(trade_msg["fillFee"])
+            fee_amount = -Decimal(trade_msg["fillFee"])
             position_actions = {
                 "open": PositionAction.OPEN,
                 "close": PositionAction.CLOSE,
