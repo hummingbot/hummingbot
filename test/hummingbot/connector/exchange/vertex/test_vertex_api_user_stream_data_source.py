@@ -210,4 +210,35 @@ class TestVertexAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
         }
         self.assertEqual(expected_message, sent_messages[-2])
 
-    # TODO: Need to assert that we send a ws.ping() frame on 30 s...
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch(
+        "hummingbot.connector.exchange.vertex.vertex_api_user_stream_data_source.VertexAPIUserStreamDataSource._time"
+    )
+    async def test_listen_for_user_stream_sends_ping_after_heartbeat_interval(self, time_mock, ws_connect_mock):
+        """Test that ws.ping() is sent after the heartbeat interval (30 seconds) elapses."""
+        # Initial time: 1000, then time advances beyond the ping interval (30s)
+        # First call: subscription time, second call: check if ping is due (returns time > 30s later)
+        time_mock.side_effect = [1000, 1000, 1031, 1031, 1062]  # Time advances past ping interval
+
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        ws_connect_mock.return_value.ping = AsyncMock()
+
+        # Add a message that will be processed, then the receive will hang causing timeout
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps({})
+        )
+
+        output_queue = asyncio.Queue()
+
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(output=output_queue)
+        )
+
+        # Wait for messages to be processed and ping to be triggered
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+
+        # Allow some time for the ping to be triggered after timeout
+        await asyncio.sleep(0.1)
+
+        # Verify ping was called
+        ws_connect_mock.return_value.ping.assert_called()
