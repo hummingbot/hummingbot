@@ -1,4 +1,4 @@
-from hummingbot.core.api_throttler.data_types import RateLimit
+from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.data_type.in_flight_order import OrderState
 
 EXCHANGE_NAME = "weex"
@@ -83,19 +83,35 @@ FILLS_LIMIT_ID = "FILLS"
 MY_TRADES_LIMIT_ID = "MY_TRADES"
 TICKER_PRICE_CHANGE_LIMIT_ID = "TICKER_PRICE_CHANGE"
 
+# Time intervals
+ONE_MINUTE = 60
+MAX_REQUEST = 5000
+
 RATE_LIMITS = [
-    RateLimit(limit_id=GLOBAL_LIMIT_ID, limit=1200, time_interval=60),
-
-    RateLimit(limit_id=TRADING_RULES_LIMIT_ID, limit=300, time_interval=60),
-    RateLimit(limit_id=TRADING_PAIRS_LIMIT_ID, limit=300, time_interval=60),
-    RateLimit(limit_id=ORDER_BOOK_SNAPSHOT_LIMIT_ID, limit=300, time_interval=60),
-    RateLimit(limit_id=ACCOUNTS_LIMIT_ID, limit=300, time_interval=60),
-
-    RateLimit(limit_id=CREATE_ORDER_LIMIT_ID, limit=120, time_interval=60),
-    RateLimit(limit_id=CANCEL_ORDER_LIMIT_ID, limit=120, time_interval=60),
-    RateLimit(limit_id=ORDER_STATUS_LIMIT_ID, limit=300, time_interval=60),
-    RateLimit(limit_id=OPEN_ORDERS_LIMIT_ID, limit=300, time_interval=60),
-    RateLimit(limit_id=FILLS_LIMIT_ID, limit=300, time_interval=60),
-    RateLimit(limit_id=MY_TRADES_LIMIT_ID, limit=300, time_interval=60),
-    RateLimit(limit_id=TICKER_PRICE_CHANGE_LIMIT_ID, limit=300, time_interval=60),
+    # Pool limits
+    RateLimit(limit_id=GLOBAL_LIMIT_ID, limit=1200, time_interval=ONE_MINUTE),
+    
+    # Weighted limits
+    RateLimit(limit_id=TRADING_RULES_LIMIT_ID, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 1)]),
+    RateLimit(limit_id=TRADING_PAIRS_LIMIT_ID, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 1)]),
+    RateLimit(limit_id=ORDER_BOOK_SNAPSHOT_LIMIT_ID, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 1)]),
+    RateLimit(limit_id=ACCOUNTS_LIMIT_ID, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 1)]),
+    RateLimit(limit_id=CREATE_ORDER_LIMIT_ID, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 1)]),
+    RateLimit(limit_id=CANCEL_ORDER_LIMIT_ID, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 1)]),
+    RateLimit(limit_id=ORDER_STATUS_LIMIT_ID, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 1)]),
+    RateLimit(limit_id=OPEN_ORDERS_LIMIT_ID, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 1)]),
+    RateLimit(limit_id=FILLS_LIMIT_ID, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 1)]),
+    RateLimit(limit_id=MY_TRADES_LIMIT_ID, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 1)]),
+    RateLimit(limit_id=TICKER_PRICE_CHANGE_LIMIT_ID, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 1)]),
 ]
