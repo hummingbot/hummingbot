@@ -1,8 +1,6 @@
-from abc import (
-    ABCMeta,
-    abstractmethod,
-)
-from typing import TYPE_CHECKING, Dict, Any
+from abc import ABCMeta, abstractmethod
+from typing import TYPE_CHECKING, Any, Dict
+
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 

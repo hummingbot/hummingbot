@@ -64,7 +64,7 @@ cd hummingbot
 make setup
 
 # Answer `y` when prompted
-Include Gateway? [y/N] 
+Include Gateway? [y/N]
 ```
 
 Then run:

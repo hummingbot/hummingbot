@@ -1,7 +1,7 @@
 import unittest
 from decimal import Decimal
 
-from hummingbot.client import format_decimal, FLOAT_PRINTOUT_PRECISION
+from hummingbot.client import FLOAT_PRINTOUT_PRECISION, format_decimal
 
 
 class FormatterTest(unittest.TestCase):

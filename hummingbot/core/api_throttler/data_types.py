@@ -1,8 +1,5 @@
 from dataclasses import dataclass
-from typing import (
-    List,
-    Optional,
-)
+from typing import List, Optional
 
 DEFAULT_PATH = ""
 DEFAULT_WEIGHT = 1

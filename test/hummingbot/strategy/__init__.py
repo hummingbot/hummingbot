@@ -1,4 +1,5 @@
 from typing import Dict
+
 from hummingbot.client.config.config_var import ConfigVar
 
 

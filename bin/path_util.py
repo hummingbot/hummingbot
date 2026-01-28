@@ -11,6 +11,6 @@ if "hummingbot-dist" in __file__:
     hummingbot.set_prefix_path(os.getcwd())
 else:
     # Dev environment.
-    from os.path import join, realpath
     import sys
+    from os.path import join, realpath
     sys.path.insert(0, realpath(join(__file__, "../../")))

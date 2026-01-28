@@ -1,13 +1,7 @@
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import (
-    Column,
-    Integer,
-    Numeric,
-    String,
-    UniqueConstraint,
-)
+from sqlalchemy import Column, Integer, Numeric, String, UniqueConstraint
 from sqlalchemy.orm import Session
 
 from hummingbot.model import HummingbotBase

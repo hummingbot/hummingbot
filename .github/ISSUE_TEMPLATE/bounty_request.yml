@@ -21,14 +21,11 @@ body:
      required: true
  - type: textarea
    id: bounty-info
-   attributes: 
+   attributes:
      label: Bounty
      value: |
-       - Sponsor: 
-       - Bounty amount: 
-       - Developer portion: 
-   validations: 
+       - Sponsor:
+       - Bounty amount:
+       - Developer portion:
+   validations:
      required: true
-   
-     
-  

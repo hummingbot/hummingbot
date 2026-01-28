@@ -1,10 +1,10 @@
+from test.hummingbot.strategy import assign_config_default
 from unittest import TestCase
 
 import hummingbot.strategy.liquidity_mining.liquidity_mining_config_map as liquidity_mining_config_map_module
 from hummingbot.strategy.liquidity_mining.liquidity_mining_config_map import (
-    liquidity_mining_config_map as strategy_cmap
+    liquidity_mining_config_map as strategy_cmap,
 )
-from test.hummingbot.strategy import assign_config_default
 
 
 class LiquidityMiningConfigMapTests(TestCase):
