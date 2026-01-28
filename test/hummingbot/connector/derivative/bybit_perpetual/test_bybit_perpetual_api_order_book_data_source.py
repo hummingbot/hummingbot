@@ -695,3 +695,156 @@ class BybitPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(Decimal(str(general_info_result["markPrice"])), funding_info.mark_price)
         expected_utc_timestamp = int(general_info_result["nextFundingTime"]) // 1e3
         self.assertEqual(expected_utc_timestamp, funding_info.next_funding_utc_timestamp)
+
+    # Dynamic subscription tests
+
+    async def test_subscribe_to_trading_pair_successful_linear(self):
+        """Test successful subscription to a new linear trading pair."""
+        new_pair = "ETH-USDT"  # Linear because quote is USDT
+        ex_new_pair = "ETHUSDT"
+        self.connector._set_trading_pair_symbol_map(
+            bidict({self.ex_trading_pair: self.trading_pair, ex_new_pair: new_pair})
+        )
+
+        mock_ws = AsyncMock()
+        self.data_source._linear_ws_assistant = mock_ws
+
+        result = await self.data_source.subscribe_to_trading_pair(new_pair)
+
+        self.assertTrue(result)
+        self.assertIn(new_pair, self.data_source._trading_pairs)
+        self.assertEqual(3, mock_ws.send.call_count)  # 3 channels: trades, orderbook, instruments
+        self.assertTrue(
+            self._is_logged("INFO", f"Subscribed to {new_pair} order book, trade and funding info channels")
+        )
+
+    async def test_subscribe_to_trading_pair_successful_non_linear(self):
+        """Test successful subscription to a new non-linear trading pair."""
+        new_pair = "BTC-USD"  # Non-linear because quote is not USDT
+        ex_new_pair = "BTCUSD"
+        self.connector._set_trading_pair_symbol_map(
+            bidict({self.ex_trading_pair: self.trading_pair, ex_new_pair: new_pair})
+        )
+
+        mock_ws = AsyncMock()
+        self.data_source._non_linear_ws_assistant = mock_ws
+
+        result = await self.data_source.subscribe_to_trading_pair(new_pair)
+
+        self.assertTrue(result)
+        self.assertIn(new_pair, self.data_source._trading_pairs)
+        self.assertEqual(3, mock_ws.send.call_count)  # 3 channels: trades, orderbook, instruments
+        self.assertTrue(
+            self._is_logged("INFO", f"Subscribed to {new_pair} order book, trade and funding info channels")
+        )
+
+    async def test_subscribe_to_trading_pair_websocket_not_connected(self):
+        """Test subscription when websocket is not connected."""
+        new_pair = "ETH-USDT"
+        self.data_source._linear_ws_assistant = None
+
+        result = await self.data_source.subscribe_to_trading_pair(new_pair)
+
+        self.assertFalse(result)
+        self.assertTrue(
+            self._is_logged(
+                "WARNING",
+                f"Cannot subscribe to {new_pair}: linear (USDT-margined) WebSocket not connected. "
+                f"To dynamically add linear (USDT-margined) pairs, include at least one in your initial configuration."
+            )
+        )
+
+    async def test_subscribe_to_trading_pair_raises_cancel_exception(self):
+        """Test that CancelledError is properly propagated."""
+        new_pair = "ETH-USDT"
+        ex_new_pair = "ETHUSDT"
+        self.connector._set_trading_pair_symbol_map(
+            bidict({self.ex_trading_pair: self.trading_pair, ex_new_pair: new_pair})
+        )
+
+        mock_ws = AsyncMock()
+        mock_ws.send.side_effect = asyncio.CancelledError
+        self.data_source._linear_ws_assistant = mock_ws
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source.subscribe_to_trading_pair(new_pair)
+
+    async def test_subscribe_to_trading_pair_raises_exception_and_logs_error(self):
+        """Test that other exceptions are caught and logged."""
+        new_pair = "ETH-USDT"
+        ex_new_pair = "ETHUSDT"
+        self.connector._set_trading_pair_symbol_map(
+            bidict({self.ex_trading_pair: self.trading_pair, ex_new_pair: new_pair})
+        )
+
+        mock_ws = AsyncMock()
+        mock_ws.send.side_effect = Exception("Test Error")
+        self.data_source._linear_ws_assistant = mock_ws
+
+        result = await self.data_source.subscribe_to_trading_pair(new_pair)
+
+        self.assertFalse(result)
+        self.assertTrue(
+            self._is_logged("ERROR", f"Error subscribing to {new_pair}")
+        )
+
+    async def test_unsubscribe_from_trading_pair_successful(self):
+        """Test successful unsubscription from a trading pair."""
+        # Use a linear pair (USDT quote)
+        mock_ws = AsyncMock()
+        self.data_source._linear_ws_assistant = mock_ws
+        self.data_source._trading_pairs.append("ETH-USDT")
+        self.connector._set_trading_pair_symbol_map(
+            bidict({self.ex_trading_pair: self.trading_pair, "ETHUSDT": "ETH-USDT"})
+        )
+
+        result = await self.data_source.unsubscribe_from_trading_pair("ETH-USDT")
+
+        self.assertTrue(result)
+        self.assertNotIn("ETH-USDT", self.data_source._trading_pairs)
+        self.assertEqual(1, mock_ws.send.call_count)  # 1 message with all topics
+        self.assertTrue(
+            self._is_logged("INFO", "Unsubscribed from ETH-USDT order book, trade and funding info channels")
+        )
+
+    async def test_unsubscribe_from_trading_pair_websocket_not_connected(self):
+        """Test unsubscription when websocket is not connected."""
+        self.data_source._linear_ws_assistant = None
+
+        result = await self.data_source.unsubscribe_from_trading_pair("ETH-USDT")
+
+        self.assertFalse(result)
+        self.assertTrue(
+            self._is_logged(
+                "WARNING",
+                "Cannot unsubscribe from ETH-USDT: linear (USDT-margined) WebSocket not connected"
+            )
+        )
+
+    async def test_unsubscribe_from_trading_pair_raises_cancel_exception(self):
+        """Test that CancelledError is properly propagated during unsubscription."""
+        mock_ws = AsyncMock()
+        mock_ws.send.side_effect = asyncio.CancelledError
+        self.data_source._linear_ws_assistant = mock_ws
+        self.connector._set_trading_pair_symbol_map(
+            bidict({self.ex_trading_pair: self.trading_pair, "ETHUSDT": "ETH-USDT"})
+        )
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source.unsubscribe_from_trading_pair("ETH-USDT")
+
+    async def test_unsubscribe_from_trading_pair_raises_exception_and_logs_error(self):
+        """Test that other exceptions are caught and logged during unsubscription."""
+        mock_ws = AsyncMock()
+        mock_ws.send.side_effect = Exception("Test Error")
+        self.data_source._linear_ws_assistant = mock_ws
+        self.connector._set_trading_pair_symbol_map(
+            bidict({self.ex_trading_pair: self.trading_pair, "ETHUSDT": "ETH-USDT"})
+        )
+
+        result = await self.data_source.unsubscribe_from_trading_pair("ETH-USDT")
+
+        self.assertFalse(result)
+        self.assertTrue(
+            self._is_logged("ERROR", "Error unsubscribing from ETH-USDT")
+        )

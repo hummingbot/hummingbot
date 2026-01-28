@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 
-from sqlalchemy import (
-    Column,
-    Text,
-)
+from sqlalchemy import Column, Text
 
 from . import HummingbotBase
 

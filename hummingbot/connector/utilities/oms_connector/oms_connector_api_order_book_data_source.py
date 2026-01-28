@@ -165,6 +165,83 @@ class OMSConnectorAPIOrderBookDataSource(OrderBookTrackerDataSource):
             self.logger().exception("Unexpected error occurred subscribing to order book trading and delta streams...")
             raise
 
+    async def subscribe_to_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Subscribe to order book channel for a single trading pair.
+
+        :param trading_pair: the trading pair to subscribe to
+        :return: True if successful, False otherwise
+        """
+        if self._ws_assistant is None:
+            self.logger().warning("Cannot subscribe: WebSocket connection not established")
+            return False
+
+        try:
+            instrument_id = await self._connector.exchange_symbol_associated_to_pair(trading_pair)
+            req_params = {
+                CONSTANTS.OMS_ID_FIELD: self._oms_id,
+                CONSTANTS.INSTRUMENT_ID_FIELD: int(instrument_id),
+                CONSTANTS.DEPTH_FIELD: CONSTANTS.MAX_L2_SNAPSHOT_DEPTH,
+            }
+            payload = {
+                CONSTANTS.MSG_ENDPOINT_FIELD: CONSTANTS.WS_L2_SUB_ENDPOINT,
+                CONSTANTS.MSG_DATA_FIELD: req_params,
+            }
+            subscribe_request = WSJSONRequest(payload=payload)
+
+            async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_REQ_LIMIT_ID):
+                await self._ws_assistant.send(subscribe_request)
+
+            self.add_trading_pair(trading_pair)
+            self.logger().info(f"Subscribed to public order book channel of {trading_pair}...")
+            return True
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().error(
+                f"Unexpected error occurred subscribing to {trading_pair}...",
+                exc_info=True
+            )
+            return False
+
+    async def unsubscribe_from_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Unsubscribe from order book channel for a single trading pair.
+
+        :param trading_pair: the trading pair to unsubscribe from
+        :return: True if successful, False otherwise
+        """
+        if self._ws_assistant is None:
+            self.logger().warning("Cannot unsubscribe: WebSocket connection not established")
+            return False
+
+        try:
+            instrument_id = await self._connector.exchange_symbol_associated_to_pair(trading_pair)
+            req_params = {
+                CONSTANTS.OMS_ID_FIELD: self._oms_id,
+                CONSTANTS.INSTRUMENT_ID_FIELD: int(instrument_id),
+            }
+            payload = {
+                CONSTANTS.MSG_ENDPOINT_FIELD: CONSTANTS.WS_L2_UNSUB_ENDPOINT,
+                CONSTANTS.MSG_DATA_FIELD: req_params,
+            }
+            unsubscribe_request = WSJSONRequest(payload=payload)
+
+            async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_REQ_LIMIT_ID):
+                await self._ws_assistant.send(unsubscribe_request)
+
+            self.remove_trading_pair(trading_pair)
+            self.logger().info(f"Unsubscribed from public order book channel of {trading_pair}...")
+            return True
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().error(
+                f"Unexpected error occurred unsubscribing from {trading_pair}...",
+                exc_info=True
+            )
+            return False
+
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
         channel = ""
         if event_message[CONSTANTS.MSG_TYPE_FIELD] != CONSTANTS.ERROR_MSG_TYPE:

@@ -1,0 +1,10 @@
+include pyproject.toml
+include setup.py
+include README.md
+include LICENSE
+
+# Recursively include all Cython and C++ source files
+recursive-include hummingbot *.pyx *.pxd *.h *.cpp *.c
+
+# Include any other data files you might need
+recursive-include hummingbot *.json *.yml

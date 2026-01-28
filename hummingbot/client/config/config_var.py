@@ -4,12 +4,8 @@ of the bot. The client provides a screen prompt to the user, then the user provi
 by ConfigVar.
 """
 
-from typing import (
-    Optional,
-    Callable,
-    Union,
-)
 import inspect
+from typing import Callable, Optional, Union
 
 # function types passed into ConfigVar
 RequiredIf = Callable[[str], Optional[bool]]

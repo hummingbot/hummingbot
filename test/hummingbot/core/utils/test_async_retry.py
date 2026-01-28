@@ -3,8 +3,9 @@ Unit tests for hummingbot.core.utils.async_retry
 """
 
 import asyncio
-from hummingbot.core.utils.async_retry import AllTriesFailedException, async_retry
 import unittest
+
+from hummingbot.core.utils.async_retry import AllTriesFailedException, async_retry
 
 
 class FooException(Exception):

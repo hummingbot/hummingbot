@@ -23,6 +23,9 @@ if TYPE_CHECKING:
 
 
 class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
+    _DYNAMIC_SUBSCRIBE_ID_START = 100
+    _next_subscribe_id: int = _DYNAMIC_SUBSCRIBE_ID_START
+
     def __init__(
             self,
             trading_pairs: List[str],
@@ -295,3 +298,126 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         await ws.connect(ws_url=f"{ws_url}?token={token}", ping_timeout=self._ping_interval)
         # await ws.connect(ws_url=f"{ws_url}?token={token}", ping_timeout=self._ping_interval, message_timeout=message_timeout)
         return ws
+
+    async def subscribe_to_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Subscribes to order book, trade, and funding info channels for a single trading pair
+        on the existing WebSocket connection.
+
+        :param trading_pair: the trading pair to subscribe to
+        :return: True if subscription was successful, False otherwise
+        """
+        if self._ws_assistant is None:
+            self.logger().warning(
+                f"Cannot subscribe to {trading_pair}: WebSocket not connected"
+            )
+            return False
+
+        try:
+            symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+
+            trades_payload = {
+                "id": web_utils.next_message_id(),
+                "type": "subscribe",
+                "topic": f"/contractMarket/ticker:{symbol}",
+                "privateChannel": False,
+                "response": False,
+            }
+            subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trades_payload)
+
+            order_book_payload = {
+                "id": web_utils.next_message_id(),
+                "type": "subscribe",
+                "topic": f"/contractMarket/level2:{symbol}",
+                "privateChannel": False,
+                "response": False,
+            }
+            subscribe_orderbook_request = WSJSONRequest(payload=order_book_payload)
+
+            instrument_payload = {
+                "id": web_utils.next_message_id(),
+                "type": "subscribe",
+                "topic": f"/contract/instrument:{symbol}",
+                "privateChannel": False,
+                "response": False,
+            }
+            subscribe_instruments_request = WSJSONRequest(payload=instrument_payload)
+
+            await self._ws_assistant.send(subscribe_trade_request)
+            await self._ws_assistant.send(subscribe_orderbook_request)
+            await self._ws_assistant.send(subscribe_instruments_request)
+
+            self.add_trading_pair(trading_pair)
+            self.logger().info(f"Subscribed to {trading_pair} order book, trade and funding info channels")
+            return True
+
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().exception(f"Error subscribing to {trading_pair}")
+            return False
+
+    async def unsubscribe_from_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Unsubscribes from order book, trade, and funding info channels for a single trading pair
+        on the existing WebSocket connection.
+
+        :param trading_pair: the trading pair to unsubscribe from
+        :return: True if unsubscription was successful, False otherwise
+        """
+        if self._ws_assistant is None:
+            self.logger().warning(
+                f"Cannot unsubscribe from {trading_pair}: WebSocket not connected"
+            )
+            return False
+
+        try:
+            symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+
+            trades_payload = {
+                "id": web_utils.next_message_id(),
+                "type": "unsubscribe",
+                "topic": f"/contractMarket/ticker:{symbol}",
+                "privateChannel": False,
+                "response": False,
+            }
+            unsubscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trades_payload)
+
+            order_book_payload = {
+                "id": web_utils.next_message_id(),
+                "type": "unsubscribe",
+                "topic": f"/contractMarket/level2:{symbol}",
+                "privateChannel": False,
+                "response": False,
+            }
+            unsubscribe_orderbook_request = WSJSONRequest(payload=order_book_payload)
+
+            instrument_payload = {
+                "id": web_utils.next_message_id(),
+                "type": "unsubscribe",
+                "topic": f"/contract/instrument:{symbol}",
+                "privateChannel": False,
+                "response": False,
+            }
+            unsubscribe_instruments_request = WSJSONRequest(payload=instrument_payload)
+
+            await self._ws_assistant.send(unsubscribe_trade_request)
+            await self._ws_assistant.send(unsubscribe_orderbook_request)
+            await self._ws_assistant.send(unsubscribe_instruments_request)
+
+            self.remove_trading_pair(trading_pair)
+            self.logger().info(f"Unsubscribed from {trading_pair} order book, trade and funding info channels")
+            return True
+
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().exception(f"Error unsubscribing from {trading_pair}")
+            return False
+
+    @classmethod
+    def _get_next_subscribe_id(cls) -> int:
+        """Returns the next subscription ID and increments the counter."""
+        current_id = cls._next_subscribe_id
+        cls._next_subscribe_id += 1
+        return current_id

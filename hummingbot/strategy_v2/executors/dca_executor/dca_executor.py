@@ -231,7 +231,7 @@ class DCAExecutor(ExecutorBase):
         """
         return all([order.is_done for order in self._open_orders]) and len(self._open_orders) == self.n_levels
 
-    def validate_sufficient_balance(self):
+    async def validate_sufficient_balance(self):
         """
         This method is responsible for checking the budget
         """

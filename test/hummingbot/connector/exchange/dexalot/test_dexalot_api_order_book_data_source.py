@@ -281,3 +281,147 @@ class DexalotAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             'USDT-USDC': {'base_coin': 'USDT', 'base_evmdecimals': Decimal('6'), 'quote_coin': 'USDC', 'quote_evmdecimals': Decimal('6')},
             'WBTC-ETH': {'base_coin': 'WBTC', 'base_evmdecimals': Decimal('18'), 'quote_coin': 'ETH', 'quote_evmdecimals': Decimal('8')},
             'WBTC-USDC': {'base_coin': 'WBTC', 'base_evmdecimals': Decimal('6'), 'quote_coin': 'USDC', 'quote_evmdecimals': Decimal('8')}}
+
+    # Dynamic subscription tests
+    async def test_subscribe_to_trading_pair_successful(self):
+        """Test successful subscription to a new trading pair."""
+        self._simulate_trading_rules_initialized()
+        new_pair = "ETH-USDC"
+        ex_new_pair = "ETH/USDC"
+        self.connector._set_trading_pair_symbol_map(
+            bidict({self.ex_trading_pair: self.trading_pair, ex_new_pair: new_pair})
+        )
+        self.connector._evm_params[new_pair] = {'base_coin': 'ETH', 'base_evmdecimals': Decimal('6'), 'quote_coin': 'USDC', 'quote_evmdecimals': Decimal('18')}
+        self.connector._trading_rules[new_pair] = TradingRule(
+            trading_pair=new_pair,
+            min_order_size=Decimal("0.001"),
+            min_price_increment=Decimal("0.01"),
+            min_base_amount_increment=Decimal("0.001")
+        )
+
+        mock_ws = AsyncMock()
+        self.data_source._ws_assistant = mock_ws
+
+        result = await self.data_source.subscribe_to_trading_pair(new_pair)
+
+        self.assertTrue(result)
+        self.assertIn(new_pair, self.data_source._trading_pairs)
+        self.assertEqual(1, mock_ws.send.call_count)  # 1 message
+        self.assertTrue(
+            self._is_logged("INFO", f"Subscribed to public order book and trade channels of {new_pair}...")
+        )
+
+    async def test_subscribe_to_trading_pair_websocket_not_connected(self):
+        """Test subscription when websocket is not connected."""
+        new_pair = "ETH-USDC"
+        self.data_source._ws_assistant = None
+
+        result = await self.data_source.subscribe_to_trading_pair(new_pair)
+
+        self.assertFalse(result)
+        self.assertTrue(
+            self._is_logged("WARNING", "Cannot subscribe: WebSocket connection not established")
+        )
+
+    async def test_subscribe_to_trading_pair_raises_cancel_exception(self):
+        """Test that CancelledError is properly propagated."""
+        self._simulate_trading_rules_initialized()
+        new_pair = "ETH-USDC"
+        ex_new_pair = "ETH/USDC"
+        self.connector._set_trading_pair_symbol_map(
+            bidict({self.ex_trading_pair: self.trading_pair, ex_new_pair: new_pair})
+        )
+        self.connector._evm_params[new_pair] = {'base_coin': 'ETH', 'base_evmdecimals': Decimal('6'), 'quote_coin': 'USDC', 'quote_evmdecimals': Decimal('18')}
+        self.connector._trading_rules[new_pair] = TradingRule(
+            trading_pair=new_pair,
+            min_order_size=Decimal("0.001"),
+            min_price_increment=Decimal("0.01"),
+            min_base_amount_increment=Decimal("0.001")
+        )
+
+        mock_ws = AsyncMock()
+        mock_ws.send.side_effect = asyncio.CancelledError
+        self.data_source._ws_assistant = mock_ws
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source.subscribe_to_trading_pair(new_pair)
+
+    async def test_subscribe_to_trading_pair_raises_exception_and_logs_error(self):
+        """Test that other exceptions are caught and logged."""
+        self._simulate_trading_rules_initialized()
+        new_pair = "ETH-USDC"
+        ex_new_pair = "ETH/USDC"
+        self.connector._set_trading_pair_symbol_map(
+            bidict({self.ex_trading_pair: self.trading_pair, ex_new_pair: new_pair})
+        )
+        self.connector._evm_params[new_pair] = {'base_coin': 'ETH', 'base_evmdecimals': Decimal('6'), 'quote_coin': 'USDC', 'quote_evmdecimals': Decimal('18')}
+        self.connector._trading_rules[new_pair] = TradingRule(
+            trading_pair=new_pair,
+            min_order_size=Decimal("0.001"),
+            min_price_increment=Decimal("0.01"),
+            min_base_amount_increment=Decimal("0.001")
+        )
+
+        mock_ws = AsyncMock()
+        mock_ws.send.side_effect = Exception("Test Error")
+        self.data_source._ws_assistant = mock_ws
+
+        result = await self.data_source.subscribe_to_trading_pair(new_pair)
+
+        self.assertFalse(result)
+        self.assertTrue(
+            self._is_logged("ERROR", f"Unexpected error occurred subscribing to {new_pair}...")
+        )
+
+    async def test_unsubscribe_from_trading_pair_successful(self):
+        """Test successful unsubscription from a trading pair."""
+        self._simulate_trading_rules_initialized()
+
+        mock_ws = AsyncMock()
+        self.data_source._ws_assistant = mock_ws
+
+        result = await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
+
+        self.assertTrue(result)
+        self.assertNotIn(self.trading_pair, self.data_source._trading_pairs)
+        self.assertEqual(1, mock_ws.send.call_count)  # 1 message
+        self.assertTrue(
+            self._is_logged("INFO", f"Unsubscribed from public order book and trade channels of {self.trading_pair}...")
+        )
+
+    async def test_unsubscribe_from_trading_pair_websocket_not_connected(self):
+        """Test unsubscription when websocket is not connected."""
+        self.data_source._ws_assistant = None
+
+        result = await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
+
+        self.assertFalse(result)
+        self.assertTrue(
+            self._is_logged("WARNING", "Cannot unsubscribe: WebSocket connection not established")
+        )
+
+    async def test_unsubscribe_from_trading_pair_raises_cancel_exception(self):
+        """Test that CancelledError is properly propagated during unsubscription."""
+        self._simulate_trading_rules_initialized()
+
+        mock_ws = AsyncMock()
+        mock_ws.send.side_effect = asyncio.CancelledError
+        self.data_source._ws_assistant = mock_ws
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
+
+    async def test_unsubscribe_from_trading_pair_raises_exception_and_logs_error(self):
+        """Test that other exceptions are caught and logged during unsubscription."""
+        self._simulate_trading_rules_initialized()
+
+        mock_ws = AsyncMock()
+        mock_ws.send.side_effect = Exception("Test Error")
+        self.data_source._ws_assistant = mock_ws
+
+        result = await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
+
+        self.assertFalse(result)
+        self.assertTrue(
+            self._is_logged("ERROR", f"Unexpected error occurred unsubscribing from {self.trading_pair}...")
+        )

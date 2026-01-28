@@ -432,3 +432,24 @@ class CubeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         self.assertEqual(1710840543845664276, msg.content["update_id"])
         self.assertEqual("SOL-USDC", msg.content["trading_pair"])
+
+    # Dynamic subscription tests (not supported for this connector)
+    async def test_subscribe_to_trading_pair_not_supported(self):
+        """Test that dynamic subscription is not supported."""
+        new_pair = "ETH-USDT"
+
+        result = await self.data_source.subscribe_to_trading_pair(new_pair)
+
+        self.assertFalse(result)
+        self.assertTrue(
+            self._is_logged("WARNING", "Dynamic subscription not supported for CubeAPIOrderBookDataSource")
+        )
+
+    async def test_unsubscribe_from_trading_pair_not_supported(self):
+        """Test that dynamic unsubscription is not supported."""
+        result = await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
+
+        self.assertFalse(result)
+        self.assertTrue(
+            self._is_logged("WARNING", "Dynamic unsubscription not supported for CubeAPIOrderBookDataSource")
+        )

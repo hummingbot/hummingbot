@@ -22,6 +22,8 @@ if TYPE_CHECKING:
 class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     _logger: Optional[HummingbotLogger] = None
+    _DYNAMIC_SUBSCRIBE_ID_START = 100
+    _next_subscribe_id: int = _DYNAMIC_SUBSCRIBE_ID_START
 
     def __init__(self,
                  trading_pairs: List[str],
@@ -220,3 +222,95 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 ws_url=CONSTANTS.WSS_PUBLIC_URL,
                 ping_timeout=CONSTANTS.WS_PING_TIMEOUT)
         return ws
+
+    @classmethod
+    def _get_next_subscribe_id(cls) -> int:
+        subscribe_id = cls._next_subscribe_id
+        cls._next_subscribe_id += 1
+        return subscribe_id
+
+    async def subscribe_to_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Subscribe to order book and trade channels for a single trading pair.
+
+        :param trading_pair: the trading pair to subscribe to
+        :return: True if successful, False otherwise
+        """
+        if self._ws_assistant is None:
+            self.logger().warning("Cannot subscribe: WebSocket connection not established")
+            return False
+
+        try:
+            symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+
+            payload = {
+                "op": "subscribe",
+                "args": [f"{CONSTANTS.PUBLIC_TRADE_CHANNEL_NAME}:{symbol}"]
+            }
+            subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=payload)
+
+            payload = {
+                "op": "subscribe",
+                "args": [f"{CONSTANTS.PUBLIC_DEPTH_CHANNEL_NAME}:{symbol}"]
+            }
+            subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=payload)
+
+            async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_SUBSCRIBE):
+                await self._ws_assistant.send(subscribe_trade_request)
+            async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_SUBSCRIBE):
+                await self._ws_assistant.send(subscribe_orderbook_request)
+
+            self.add_trading_pair(trading_pair)
+            self.logger().info(f"Subscribed to public order book and trade channels of {trading_pair}...")
+            return True
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().error(
+                f"Unexpected error occurred subscribing to {trading_pair}...",
+                exc_info=True
+            )
+            return False
+
+    async def unsubscribe_from_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Unsubscribe from order book and trade channels for a single trading pair.
+
+        :param trading_pair: the trading pair to unsubscribe from
+        :return: True if successful, False otherwise
+        """
+        if self._ws_assistant is None:
+            self.logger().warning("Cannot unsubscribe: WebSocket connection not established")
+            return False
+
+        try:
+            symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+
+            payload = {
+                "op": "unsubscribe",
+                "args": [f"{CONSTANTS.PUBLIC_TRADE_CHANNEL_NAME}:{symbol}"]
+            }
+            unsubscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=payload)
+
+            payload = {
+                "op": "unsubscribe",
+                "args": [f"{CONSTANTS.PUBLIC_DEPTH_CHANNEL_NAME}:{symbol}"]
+            }
+            unsubscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=payload)
+
+            async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_SUBSCRIBE):
+                await self._ws_assistant.send(unsubscribe_trade_request)
+            async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_SUBSCRIBE):
+                await self._ws_assistant.send(unsubscribe_orderbook_request)
+
+            self.remove_trading_pair(trading_pair)
+            self.logger().info(f"Unsubscribed from public order book and trade channels of {trading_pair}...")
+            return True
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().error(
+                f"Unexpected error occurred unsubscribing from {trading_pair}...",
+                exc_info=True
+            )
+            return False

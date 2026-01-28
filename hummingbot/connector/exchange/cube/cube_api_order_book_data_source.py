@@ -244,3 +244,17 @@ class CubeAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         tasks = [handle_subscription(trading_pair) for trading_pair in self._trading_pairs]
         await safe_gather(*tasks)
+
+    async def subscribe_to_trading_pair(self, trading_pair: str) -> bool:
+        """Dynamic subscription not supported for this connector."""
+        self.logger().warning(
+            f"Dynamic subscription not supported for {self.__class__.__name__}"
+        )
+        return False
+
+    async def unsubscribe_from_trading_pair(self, trading_pair: str) -> bool:
+        """Dynamic unsubscription not supported for this connector."""
+        self.logger().warning(
+            f"Dynamic unsubscription not supported for {self.__class__.__name__}"
+        )
+        return False

@@ -1,19 +1,14 @@
 #!/usr/bin/env python
 
-import aiohttp
 import asyncio
-from aiohttp.test_utils import TestClient
 import logging
-import pandas as pd
 import time
-from typing import (
-    Any,
-    AsyncIterable,
-    Dict,
-    List,
-    Optional
-)
+from typing import Any, AsyncIterable, Dict, List, Optional
+
+import aiohttp
+import pandas as pd
 import websockets
+from aiohttp.test_utils import TestClient
 from websockets.exceptions import ConnectionClosed
 
 from hummingbot.core.data_type.order_book import OrderBook

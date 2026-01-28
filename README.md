@@ -24,11 +24,11 @@ The Hummingbot codebase is free and publicly available under the Apache 2.0 open
 
 The easiest way to get started with Hummingbot is using Docker:
 
-* To install the web-based [Dashboard](https://github.com/hummingbot/dashboard), follow the instructions in the [Deploy](https://github.com/hummingbot/deploy) repo.
+* To install the Telegram Bot [Condor](https://github.com/hummingbot/condor), follow the instructions in the [Hummingbot Docs](https://hummingbot.org/condor/installation/) site.
 
 * To install the CLI-based Hummingbot client, follow the instructions below.
 
-Alternatively, if you are building new connectors/strategies or adding custom code, see the [Install from Source](https://hummingbot.org/installation/source/) section in the documentation.
+Alternatively, if you are building new connectors/strategies or adding custom code, see the [Install from Source](https://hummingbot.org/client/installation/#source-installation) section in the documentation.
 
 ### Install Hummingbot with Docker
 
@@ -41,8 +41,9 @@ Clone the repo and use the provided `docker-compose.yml` file:
 git clone https://github.com/hummingbot/hummingbot.git
 cd hummingbot
 
-# Launch Hummingbot
-docker compose up -d
+# Run Setup & Deploy
+make setup
+make deploy
 
 # Attach to the running instance
 docker attach hummingbot
@@ -52,33 +53,23 @@ docker attach hummingbot
 
 Gateway provides standardized connectors for interacting with automatic market maker (AMM) decentralized exchanges (DEXs) across different blockchain networks.
 
-To run Hummingbot with Gateway, clone the repo and uncomment the Gateway service lines in `docker-compose.yml`:
+To run Hummingbot with Gateway, clone the repo and answer `y` when prompted after running `make setup`
 
 ```yaml
 # Clone the repository
 git clone https://github.com/hummingbot/hummingbot.git
 cd hummingbot
+```
+```bash
+make setup
 
-# Uncomment the following lines in docker-compose.yml:
-  gateway:
-   restart: always
-   container_name: gateway
-   image: hummingbot/gateway:latest
-   ports:
-     - "15888:15888"
-   volumes:
-     - "./gateway-files/conf:/home/gateway/conf"
-     - "./gateway-files/logs:/home/gateway/logs"
-     - "./certs:/home/gateway/certs"
-   environment:
-     - GATEWAY_PASSPHRASE=admin
-     - DEV=true
+# Answer `y` when prompted
+Include Gateway? [y/N]
 ```
 
 Then run:
 ```bash
-# Launch Hummingbot
-docker compose up -d
+make deploy
 
 # Attach to the running instance
 docker attach hummingbot
@@ -129,6 +120,7 @@ We are grateful for the following exchanges that support the development and mai
 |------|------|------|-------|----------|
 | [Binance](https://hummingbot.org/exchanges/binance/) | CLOB CEX | Spot, Perpetual | `binance`, `binance_perpetual` | [![Sign up for Binance using Hummingbot's referral link for a 10% discount!](https://img.shields.io/static/v1?label=Fee&message=%2d10%25&color=orange)](https://accounts.binance.com/register?ref=CBWO4LU6) |
 | [BitMart](https://hummingbot.org/exchanges/bitmart/) | CLOB CEX | Spot, Perpetual | `bitmart`, `bitmart_perpetual` | [![Sign up for BitMart using Hummingbot's referral link!](https://img.shields.io/static/v1?label=Sponsor&message=Link&color=orange)](https://www.bitmart.com/invite/Hummingbot/en) |
+| [Bitget](https://hummingbot.org/exchanges/bitget/) | CLOB CEX | Spot, Perpetual | `bitget`, `bitget_perpetual` | [![Sign up for Bitget using Hummingbot's referral link!](https://img.shields.io/static/v1?label=Sponsor&message=Link&color=orange)](https://www.bitget.com/expressly?channelCode=v9cb&vipCode=26rr&languageType=0) |
 | [Derive](https://hummingbot.org/exchanges/derive/) | CLOB DEX | Spot, Perpetual | `derive`, `derive_perpetual` | [![Sign up for Derive using Hummingbot's referral link!](https://img.shields.io/static/v1?label=Sponsor&message=Link&color=orange)](https://www.derive.xyz/invite/7SA0V) |
 | [dYdX](https://hummingbot.org/exchanges/dydx/) | CLOB DEX | Perpetual | `dydx_v4_perpetual` | - |
 | [Gate.io](https://hummingbot.org/exchanges/gate-io/) | CLOB CEX | Spot, Perpetual | `gate_io`, `gate_io_perpetual` | [![Sign up for Gate.io using Hummingbot's referral link for a 20% discount!](https://img.shields.io/static/v1?label=Fee&message=%2d20%25&color=orange)](https://www.gate.io/referral/invite/HBOTGATE_0_103) |
@@ -148,7 +140,6 @@ Currently, the master branch of Hummingbot also includes the following exchange 
 | [AscendEx](https://hummingbot.org/exchanges/ascendex/) | CLOB CEX | Spot | `ascend_ex` | - |
 | [Balancer](https://hummingbot.org/exchanges/gateway/balancer/) | AMM DEX | AMM | `balancer` | - |
 | [BingX](https://hummingbot.org/exchanges/bing_x/) | CLOB CEX | Spot | `bing_x` | - |
-| [Bitget](https://hummingbot.org/exchanges/bitget-perpetual/) | CLOB CEX | Perpetual | `bitget_perpetual` | - |
 | [Bitrue](https://hummingbot.org/exchanges/bitrue/) | CLOB CEX | Spot | `bitrue` | - |
 | [Bitstamp](https://hummingbot.org/exchanges/bitstamp/) | CLOB CEX | Spot | `bitstamp` | - |
 | [BTC Markets](https://hummingbot.org/exchanges/btc-markets/) | CLOB CEX | Spot | `btc_markets` | - |
@@ -172,8 +163,9 @@ Currently, the master branch of Hummingbot also includes the following exchange 
 
 ## Other Hummingbot Repos
 
-* [Deploy](https://github.com/hummingbot/deploy): Deploy Hummingbot in various configurations with Docker
-* [Dashboard](https://github.com/hummingbot/dashboard): Web app that helps you create, backtest, deploy, and manage Hummingbot instances
+* [Condor](https://github.com/hummingbot/condor): Telegram Interface for Hummingbot
+* [Hummingbot API](https://github.com/hummingbot/hummingbot-api): The central hub for running Hummingbot trading bots
+* [Hummingbot MCP](https://github.com/hummingbot/mcp): Enables AI assistants like Claude and Gemini to interact with Hummingbot for automated cryptocurrency trading across multiple exchanges.
 * [Quants Lab](https://github.com/hummingbot/quants-lab): Jupyter notebooks that enable you to fetch data and perform research using Hummingbot
 * [Gateway](https://github.com/hummingbot/gateway): Typescript based API client for DEX connectors
 * [Hummingbot Site](https://github.com/hummingbot/hummingbot-site): Official documentation for Hummingbot - we welcome contributions here too!
@@ -184,7 +176,7 @@ The Hummingbot architecture features modular components that can be maintained a
 
 We welcome contributions from the community! Please review these [guidelines](./CONTRIBUTING.md) before submitting a pull request.
 
-To have your exchange connector or other pull request merged into the codebase, please submit a New Connector Proposal or Pull Request Proposal, following these [guidelines](https://hummingbot.org/governance/proposals/). Note that you will need some amount of [HBOT tokens](https://etherscan.io/token/0xe5097d9baeafb89f9bcb78c9290d545db5f9e9cb) in your Ethereum wallet to submit a proposal.
+To have your exchange connector or other pull request merged into the codebase, please submit a New Connector Proposal or Pull Request Proposal, following these [guidelines](https://hummingbot.org/about/proposals/). Note that you will need some amount of [HBOT tokens](https://etherscan.io/token/0xe5097d9baeafb89f9bcb78c9290d545db5f9e9cb) in your Ethereum wallet to submit a proposal.
 
 ## Legal
 

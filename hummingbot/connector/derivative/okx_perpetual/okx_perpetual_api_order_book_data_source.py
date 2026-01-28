@@ -21,6 +21,9 @@ if TYPE_CHECKING:
 
 
 class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
+    _DYNAMIC_SUBSCRIBE_ID_START = 100
+    _next_subscribe_id: int = _DYNAMIC_SUBSCRIBE_ID_START
+
     def __init__(
         self,
         trading_pairs: List[str],
@@ -447,3 +450,98 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             elif event_channel == CONSTANTS.WS_INDEX_TICKERS_CHANNEL:
                 channel = self._index_price_queue_key
         return channel
+
+    async def subscribe_to_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Subscribes to order book, trade, and funding info channels for a single trading pair
+        on the existing WebSocket connection.
+
+        :param trading_pair: the trading pair to subscribe to
+        :return: True if subscription was successful, False otherwise
+        """
+        if self._ws_assistant is None:
+            self.logger().warning(
+                f"Cannot subscribe to {trading_pair}: WebSocket not connected"
+            )
+            return False
+
+        try:
+            ex_trading_pair = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+
+            # Subscribe to all required channels for this trading pair
+            channels = [
+                CONSTANTS.WS_TRADES_CHANNEL,
+                CONSTANTS.WS_ORDER_BOOK_400_DEPTH_100_MS_EVENTS_CHANNEL,
+                CONSTANTS.WS_FUNDING_INFO_CHANNEL,
+                CONSTANTS.WS_MARK_PRICE_CHANNEL,
+                CONSTANTS.WS_INDEX_TICKERS_CHANNEL,
+            ]
+
+            for channel in channels:
+                payload = {
+                    "op": "subscribe",
+                    "args": [{"channel": channel, "instId": ex_trading_pair}],
+                }
+                subscribe_request = WSJSONRequest(payload=payload)
+                await self._ws_assistant.send(subscribe_request)
+
+            self.add_trading_pair(trading_pair)
+            self.logger().info(f"Subscribed to {trading_pair} order book, trade and funding info channels")
+            return True
+
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().exception(f"Error subscribing to {trading_pair}")
+            return False
+
+    async def unsubscribe_from_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Unsubscribes from order book, trade, and funding info channels for a single trading pair
+        on the existing WebSocket connection.
+
+        :param trading_pair: the trading pair to unsubscribe from
+        :return: True if unsubscription was successful, False otherwise
+        """
+        if self._ws_assistant is None:
+            self.logger().warning(
+                f"Cannot unsubscribe from {trading_pair}: WebSocket not connected"
+            )
+            return False
+
+        try:
+            ex_trading_pair = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+
+            # Unsubscribe from all channels for this trading pair
+            channels = [
+                CONSTANTS.WS_TRADES_CHANNEL,
+                CONSTANTS.WS_ORDER_BOOK_400_DEPTH_100_MS_EVENTS_CHANNEL,
+                CONSTANTS.WS_FUNDING_INFO_CHANNEL,
+                CONSTANTS.WS_MARK_PRICE_CHANNEL,
+                CONSTANTS.WS_INDEX_TICKERS_CHANNEL,
+            ]
+
+            unsubscribe_args = [{"channel": channel, "instId": ex_trading_pair} for channel in channels]
+            payload = {
+                "op": "unsubscribe",
+                "args": unsubscribe_args,
+            }
+            unsubscribe_request = WSJSONRequest(payload=payload)
+            await self._ws_assistant.send(unsubscribe_request)
+
+            self.remove_trading_pair(trading_pair)
+            self.logger().info(f"Unsubscribed from {trading_pair} order book, trade and funding info channels")
+            return True
+
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().exception(f"Error unsubscribing from {trading_pair}")
+            return False
+
+    @classmethod
+    def _get_next_subscribe_id(cls) -> int:
+        """Returns the next subscription ID and increments the counter."""
+        current_id = cls._next_subscribe_id
+        cls._next_subscribe_id += 1
+        return current_id

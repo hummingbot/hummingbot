@@ -653,6 +653,11 @@ class HyperliquidRateSourceMode(ExchangeRateSourceModeBase):
     model_config = ConfigDict(title="hyperliquid")
 
 
+class HyperliquidPerpetualRateSourceMode(ExchangeRateSourceModeBase):
+    name: str = Field(default="hyperliquid_perpetual")
+    model_config = ConfigDict(title="hyperliquid_perpetual")
+
+
 class DeriveRateSourceMode(ExchangeRateSourceModeBase):
     name: str = Field(default="derive")
     model_config = ConfigDict(title="derive")
@@ -669,6 +674,7 @@ RATE_SOURCE_MODES = {
     CoinbaseAdvancedTradeRateSourceMode.model_config["title"]: CoinbaseAdvancedTradeRateSourceMode,
     CubeRateSourceMode.model_config["title"]: CubeRateSourceMode,
     HyperliquidRateSourceMode.model_config["title"]: HyperliquidRateSourceMode,
+    HyperliquidPerpetualRateSourceMode.model_config["title"]: HyperliquidPerpetualRateSourceMode,
     DeriveRateSourceMode.model_config["title"]: DeriveRateSourceMode,
     MexcRateSourceMode.model_config["title"]: MexcRateSourceMode,
 }

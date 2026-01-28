@@ -191,6 +191,34 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         if self._domain == CONSTANTS.DEFAULT_DOMAIN and self.is_trading_required:
             self.set_position_mode(PositionMode.HEDGE)
 
+    async def start_network(self):
+        """
+        Override to ensure pair-specific rate limits are registered before starting network.
+        This handles the case where trading pairs are added to _trading_pairs directly
+        (e.g., by market_data_provider) without going through add_trading_pair.
+        """
+        # Register rate limits for all current trading pairs before network starts
+        if self._trading_pairs:
+            pair_rate_limits = web_utils._build_private_pair_specific_rate_limits(self._trading_pairs)
+            self._throttler.add_rate_limits(pair_rate_limits)
+
+        await super().start_network()
+
+    async def add_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Dynamically adds a trading pair to the OKX perpetual connector.
+        Overrides base method to register pair-specific rate limits before adding the pair.
+
+        :param trading_pair: the trading pair to add (e.g., "BTC-USDT")
+        :return: True if the pair was added successfully, False otherwise
+        """
+        # Register pair-specific rate limits for the new trading pair
+        pair_rate_limits = web_utils._build_private_pair_specific_rate_limits([trading_pair])
+        self._throttler.add_rate_limits(pair_rate_limits)
+
+        # Call the parent implementation
+        return await super().add_trading_pair(trading_pair)
+
     def _get_fee(self,
                  base_currency: str,
                  quote_currency: str,

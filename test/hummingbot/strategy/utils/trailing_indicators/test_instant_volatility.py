@@ -1,5 +1,7 @@
 import unittest
+
 import numpy as np
+
 from hummingbot.strategy.__utils__.trailing_indicators.instant_volatility import InstantVolatilityIndicator
 
 

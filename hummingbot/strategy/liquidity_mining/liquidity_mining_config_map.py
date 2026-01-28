@@ -31,7 +31,7 @@ def market_validate(value: str) -> Optional[str]:
             # Check allowed ticker lengths
             if len(token.strip()) == 0:
                 return f"Invalid market. Ticker {token} has an invalid length."
-            if(bool(re.search('^[a-zA-Z0-9]*$', token)) is False):
+            if (bool(re.search('^[a-zA-Z0-9]*$', token)) is False):
                 return f"Invalid market. Ticker {token} contains invalid characters."
         # The pair is valid
         pair = f"{tokens[0]}-{tokens[1]}"
