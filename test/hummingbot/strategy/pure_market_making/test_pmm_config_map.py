@@ -3,13 +3,13 @@ from copy import deepcopy
 
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.strategy.pure_market_making.pure_market_making_config_map import (
-    pure_market_making_config_map as pmm_config_map,
-    on_validate_price_source,
-    validate_price_type,
-    order_amount_prompt,
     maker_trading_pair_prompt,
+    on_validate_price_source,
+    order_amount_prompt,
+    pure_market_making_config_map as pmm_config_map,
+    validate_decimal_list,
     validate_price_source_exchange,
-    validate_decimal_list
+    validate_price_type,
 )
 
 

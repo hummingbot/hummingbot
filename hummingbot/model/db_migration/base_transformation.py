@@ -1,9 +1,8 @@
+import functools
 import logging
 from abc import ABC, abstractmethod
-import functools
-from sqlalchemy import (
-    Column,
-)
+
+from sqlalchemy import Column
 
 
 @functools.total_ordering

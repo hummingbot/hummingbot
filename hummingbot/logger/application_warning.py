@@ -1,10 +1,6 @@
 #!/usr/bin/env python
 
-from typing import (
-    NamedTuple,
-    Tuple,
-    Optional
-)
+from typing import NamedTuple, Optional, Tuple
 
 
 class ApplicationWarning(NamedTuple):

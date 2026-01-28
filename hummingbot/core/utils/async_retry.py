@@ -5,13 +5,7 @@ Tools for running asynchronous functions multiple times.
 import asyncio
 import functools
 import logging
-from typing import (
-    Dict,
-    Optional,
-    List,
-    Any,
-    Type,
-)
+from typing import Any, Dict, List, Optional, Type
 
 
 class AllTriesFailedException(EnvironmentError):

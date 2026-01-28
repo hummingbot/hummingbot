@@ -1,12 +1,11 @@
 import unittest
-
 from copy import deepcopy
 
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.strategy.spot_perpetual_arbitrage.spot_perpetual_arbitrage_config_map import (
-    spot_perpetual_arbitrage_config_map,
-    spot_market_prompt,
     perpetual_market_prompt,
+    spot_market_prompt,
+    spot_perpetual_arbitrage_config_map,
 )
 
 
