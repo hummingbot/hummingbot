@@ -73,6 +73,7 @@ ORDER_STATE = {
 GLOBAL_LIMIT_ID = "GLOBAL"
 TRADING_RULES_LIMIT_ID = "TRADING_RULES"
 TRADING_PAIRS_LIMIT_ID = "TRADING_PAIRS"
+EXCHANGE_INFO_LIMIT_ID = "EXCHANGE_INFO"
 ORDER_BOOK_SNAPSHOT_LIMIT_ID = "ORDER_BOOK_SNAPSHOT"
 ACCOUNTS_LIMIT_ID = "ACCOUNTS"
 CREATE_ORDER_LIMIT_ID = "CREATE_ORDER"
@@ -92,6 +93,8 @@ RATE_LIMITS = [
     RateLimit(limit_id=GLOBAL_LIMIT_ID, limit=1200, time_interval=ONE_MINUTE, weight=1),
     
     # Weighted limits
+    RateLimit(limit_id=EXCHANGE_INFO_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=1,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 1)]),
     RateLimit(limit_id=TRADING_RULES_LIMIT_ID, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=1,
               linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 1)]),
     RateLimit(limit_id=TRADING_PAIRS_LIMIT_ID, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=1,
