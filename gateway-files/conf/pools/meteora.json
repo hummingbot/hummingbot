@@ -1,0 +1,23 @@
+[
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "SOL",
+    "quoteSymbol": "USDC",
+    "address": "2sf5NYcY4zUPXUSmG6f66mskb24t5F8S11pC1Nz5nQT3"
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "TRUMP",
+    "quoteSymbol": "USDC",
+    "address": "9d9mb8kooFfaD3SctgZtkxQypkshx6ezhbKio89ixyy2"
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "JUP",
+    "quoteSymbol": "USDC",
+    "address": "7HR1ouGwPsCyPScUCx4WJCPyktXMoLitrGkLczd7Vabx"
+  }
+]

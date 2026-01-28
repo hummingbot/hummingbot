@@ -1,0 +1,303 @@
+[
+  {
+    "type": "amm",
+    "network": "base",
+    "baseSymbol": "AERO",
+    "quoteSymbol": "USDC",
+    "address": "0x6cdcb1c4a4d1c3c6d054b27ac5b77e89eafb971d"
+  },
+  {
+    "type": "amm",
+    "network": "arbitrum",
+    "baseSymbol": "ARB",
+    "quoteSymbol": "USDC",
+    "address": "0xcda53b1f66614552f834ceef361a8d12a0b8dad8"
+  },
+  {
+    "type": "amm",
+    "network": "base",
+    "baseSymbol": "cbETH",
+    "quoteSymbol": "WETH",
+    "address": "0x8f9eec1f47f96e82ad454c070bbf7f3e1e4f3c75"
+  },
+  {
+    "type": "amm",
+    "network": "optimism",
+    "baseSymbol": "OP",
+    "quoteSymbol": "USDC",
+    "address": "0x1c3140ab59d6caf9fa7459c6f83d4b52ba881d36"
+  },
+  {
+    "type": "amm",
+    "network": "mainnet",
+    "baseSymbol": "USDC",
+    "quoteSymbol": "USDT",
+    "address": "0x3416cf6c708da44db2624d63ea0aaef7113527c6"
+  },
+  {
+    "type": "amm",
+    "network": "mainnet",
+    "baseSymbol": "WBTC",
+    "quoteSymbol": "WETH",
+    "address": "0xbb2b8038a1640196fbe3e38816f3e67cba72d940"
+  },
+  {
+    "type": "amm",
+    "network": "arbitrum",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "ARB",
+    "address": "0xc24f7d8e51a64dc1238880bd00bb961d54cbeb29"
+  },
+  {
+    "type": "amm",
+    "network": "mainnet",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "DAI",
+    "address": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11"
+  },
+  {
+    "type": "amm",
+    "network": "optimism",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "OP",
+    "address": "0x68f5c0a2de713a54991e01858fd27a3832401849"
+  },
+  {
+    "type": "amm",
+    "network": "base",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDbC",
+    "address": "0xc9034c3e7f58003e6ae0c8438e7c8f4598d5acaa"
+  },
+  {
+    "type": "amm",
+    "network": "mainnet",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDC",
+    "address": "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640"
+  },
+  {
+    "type": "amm",
+    "network": "arbitrum",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDC",
+    "address": "0xc24f7d8e51a64dc1238880bd00bb961d54cbeb29"
+  },
+  {
+    "type": "amm",
+    "network": "optimism",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDC",
+    "address": "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+  },
+  {
+    "type": "amm",
+    "network": "polygon",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDC",
+    "address": "0x45dda9cb7c25131df268515131f647d726f50608"
+  },
+  {
+    "type": "amm",
+    "network": "base",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDC",
+    "address": "0x88A43bbDF9D098eEC7bCEda4e2494615dfD9bB9C"
+  },
+  {
+    "type": "amm",
+    "network": "mainnet",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDT",
+    "address": "0x0d4a11d5eeaac28ec3f61d100daf4d40471f1852"
+  },
+  {
+    "type": "amm",
+    "network": "arbitrum",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDT",
+    "address": "0x641c00a822e8b671738d32a431a4fb6074e5c79d"
+  },
+  {
+    "type": "amm",
+    "network": "polygon",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDT",
+    "address": "0x4ccdabe6fe4a5f9f01f39142fdadafb07fc3e766"
+  },
+  {
+    "type": "amm",
+    "network": "polygon",
+    "baseSymbol": "WMATIC",
+    "quoteSymbol": "USDC",
+    "address": "0xa374094527e1673a86de625aa59517c5de346d32"
+  },
+  {
+    "type": "amm",
+    "network": "polygon",
+    "baseSymbol": "WMATIC",
+    "quoteSymbol": "WETH",
+    "address": "0x86f1d8390222a3691c28938ec7404a1661e618e0"
+  },
+  {
+    "type": "clmm",
+    "network": "base",
+    "baseSymbol": "AERO",
+    "quoteSymbol": "WETH",
+    "address": "0x8909f73188c4fe68b298a5c6dca21444c6d5ee20"
+  },
+  {
+    "type": "clmm",
+    "network": "arbitrum",
+    "baseSymbol": "ARB",
+    "quoteSymbol": "USDC",
+    "address": "0xfb29e74d955f10ba95e70bb9c6da3055d1635c34"
+  },
+  {
+    "type": "clmm",
+    "network": "arbitrum",
+    "baseSymbol": "ARB",
+    "quoteSymbol": "WETH",
+    "address": "0xc6f780497a95e246eb9449f5e4770916dcd6396a"
+  },
+  {
+    "type": "clmm",
+    "network": "base",
+    "baseSymbol": "cbETH",
+    "quoteSymbol": "WETH",
+    "address": "0x44e44b28bd8aa6e37ba298c8217103fec8ed99aa"
+  },
+  {
+    "type": "clmm",
+    "network": "optimism",
+    "baseSymbol": "OP",
+    "quoteSymbol": "USDC",
+    "address": "0x0df83a3da7763b6c8dc84bfb84db8fb0dd5b7316"
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet",
+    "baseSymbol": "USDC",
+    "quoteSymbol": "USDT",
+    "address": "0x7858e59e0c01ea06df3af3d20ac7b0003275d4bf"
+  },
+  {
+    "type": "clmm",
+    "network": "base",
+    "baseSymbol": "VIRTUAL",
+    "quoteSymbol": "WETH",
+    "address": "0x5500721a44b0e25f45a9c30044624a12b5586760"
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet",
+    "baseSymbol": "WBTC",
+    "quoteSymbol": "WETH",
+    "address": "0xcbcdf9626bc03e24f779434178a73a0b4bad62ed"
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "DAI",
+    "address": "0x60594a405d53811d3bc4766596efd80fd545a270"
+  },
+  {
+    "type": "clmm",
+    "network": "arbitrum",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "GMX",
+    "address": "0x80a9ae39310abf666a87c743d6ebbd0e8c42158e"
+  },
+  {
+    "type": "clmm",
+    "network": "optimism",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "OP",
+    "address": "0xfc1f3296458f9b2a27a0b91dd7681c4020e09d05"
+  },
+  {
+    "type": "clmm",
+    "network": "base",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDbC",
+    "address": "0x4c36388be6f416a29c8d8eee81c771ce6be14b18"
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDC",
+    "address": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8"
+  },
+  {
+    "type": "clmm",
+    "network": "arbitrum",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDC",
+    "address": "0xc473e2aee3441bf9240be85eb122abb059a3b57c"
+  },
+  {
+    "type": "clmm",
+    "network": "optimism",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDC",
+    "address": "0xac53e1ccc953502726f4b5f672faaaa65dcf618a"
+  },
+  {
+    "type": "clmm",
+    "network": "polygon",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDC",
+    "address": "0x45dda9cb7c25131df268515131f647d726f50608"
+  },
+  {
+    "type": "clmm",
+    "network": "base",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDC",
+    "address": "0xd0b53d9277642d899df5c87a3966a349a798f224"
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDT",
+    "address": "0x4e68ccd3e89f51c3074ca5072bbac773960dfa36"
+  },
+  {
+    "type": "clmm",
+    "network": "arbitrum",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDT",
+    "address": "0xc82819f72a9e77e2c0c3a69b3196478f44303cf4"
+  },
+  {
+    "type": "clmm",
+    "network": "optimism",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDT",
+    "address": "0xd9e08e2d1d0a3354b1dc3cf09fe9ff3d90027b96"
+  },
+  {
+    "type": "clmm",
+    "network": "polygon",
+    "baseSymbol": "WETH",
+    "quoteSymbol": "USDT",
+    "address": "0x3b3f747c4c5e22d0cf31eec7832e5dc1dd98e421"
+  },
+  {
+    "type": "clmm",
+    "network": "polygon",
+    "baseSymbol": "WMATIC",
+    "quoteSymbol": "USDC",
+    "address": "0xa374094527e1673a86de625aa59517c5de346d32"
+  },
+  {
+    "type": "clmm",
+    "network": "polygon",
+    "baseSymbol": "WMATIC",
+    "quoteSymbol": "WETH",
+    "address": "0x86f1d8390222a3691c28938ec7404a1661e618e0"
+  }
+]

@@ -1,0 +1,4 @@
+chainID: 42161
+nodeURL: https://arb1.arbitrum.io/rpc
+nativeCurrencySymbol: ETH
+minGasPrice: 0.1

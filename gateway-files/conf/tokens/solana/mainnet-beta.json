@@ -1,0 +1,79 @@
+[
+  {
+    "chainId": 101,
+    "name": "Bonk",
+    "symbol": "BONK",
+    "address": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+    "decimals": 5
+  },
+  {
+    "chainId": 101,
+    "name": "Ethereum (Wormhole)",
+    "symbol": "ETH",
+    "address": "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs",
+    "decimals": 8
+  },
+  {
+    "chainId": 101,
+    "name": "Helium",
+    "symbol": "HNT",
+    "address": "hntyVP6YFm1Hg25TN9WGLqM12b8TQmcknKrdu1oxWux",
+    "decimals": 8
+  },
+  {
+    "chainId": 101,
+    "name": "Jupiter",
+    "symbol": "JUP",
+    "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+    "decimals": 6
+  },
+  {
+    "chainId": 101,
+    "name": "Marinade Staked SOL",
+    "symbol": "MSOL",
+    "address": "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So",
+    "decimals": 9
+  },
+  {
+    "chainId": 101,
+    "name": "Pyth Network",
+    "symbol": "PYTH",
+    "address": "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3",
+    "decimals": 6
+  },
+  {
+    "chainId": 101,
+    "name": "Raydium",
+    "symbol": "RAY",
+    "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+    "decimals": 6
+  },
+  {
+    "chainId": 101,
+    "name": "Wrapped Solana",
+    "symbol": "SOL",
+    "address": "So11111111111111111111111111111111111111112",
+    "decimals": 9
+  },
+  {
+    "chainId": 101,
+    "name": "tBTC",
+    "symbol": "TBTC",
+    "address": "6DNSN2BJsaPFdFFc1zP37kkeNe4Usc1Sqkzr9C9vPWcU",
+    "decimals": 8
+  },
+  {
+    "chainId": 101,
+    "name": "USDC",
+    "symbol": "USDC",
+    "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "decimals": 6
+  },
+  {
+    "chainId": 101,
+    "name": "Tether",
+    "symbol": "USDT",
+    "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+    "decimals": 6
+  }
+]

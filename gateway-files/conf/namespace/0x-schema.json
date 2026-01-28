@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "slippagePct": {
+      "type": "number",
+      "description": "Allowed slippage for swap transactions (as a decimal)",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "apiKey": {
+      "type": "string",
+      "description": "API key for 0x API"
+    },
+    "gasPriceBuffer": {
+      "type": "number",
+      "description": "Gas price buffer multiplier",
+      "minimum": 1
+    },
+    "retryOptions": {
+      "type": "object",
+      "properties": {
+        "retries": {
+          "type": "integer",
+          "description": "Number of retries for failed requests",
+          "minimum": 0
+        },
+        "minTimeout": {
+          "type": "integer",
+          "description": "Minimum wait time between retries (ms)",
+          "minimum": 0
+        },
+        "maxTimeout": {
+          "type": "integer",
+          "description": "Maximum wait time between retries (ms)",
+          "minimum": 0
+        }
+      },
+      "required": ["retries", "minTimeout", "maxTimeout"]
+    },
+    "requestTimeout": {
+      "type": "integer",
+      "description": "Request timeout for API calls (ms)",
+      "minimum": 0
+    },
+    "enableLogging": {
+      "type": "boolean",
+      "description": "Enable/disable request logging"
+    }
+  },
+  "required": ["slippagePct"],
+  "additionalProperties": false
+}

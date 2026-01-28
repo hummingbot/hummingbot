@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "nodeURL": { "type": "string" },
+    "nativeCurrencySymbol": { "type": "string" },
+    "defaultComputeUnits": { "type": "number" },
+    "confirmRetryInterval": { "type": "number" },
+    "confirmRetryCount": { "type": "number" },
+    "minPriorityFeePerCU": { "type": "number" }
+  },
+  "required": ["nodeURL", "nativeCurrencySymbol"],
+  "additionalProperties": false
+}

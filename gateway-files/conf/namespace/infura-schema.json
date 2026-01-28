@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "properties": {
+    "apiKey": {
+      "type": "string",
+      "description": "Infura API key"
+    },
+    "useWebSocket": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable WebSocket connections for real-time events"
+    }
+  },
+  "required": ["apiKey"],
+  "additionalProperties": false
+}

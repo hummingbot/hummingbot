@@ -1,0 +1,51 @@
+[
+  {
+    "chainId": 137,
+    "name": "Balancer",
+    "symbol": "BAL",
+    "address": "0x9a71012b13ca4d3d0cdc72a177df3ef03b0e76a3",
+    "decimals": 18
+  },
+  {
+    "chainId": 137,
+    "name": "Ether - PoS",
+    "symbol": "ETH",
+    "address": "0x7ceb23fd6bc0add59e62ac25578270cff1b9f619",
+    "decimals": 18
+  },
+  {
+    "chainId": 137,
+    "name": "USD Coin",
+    "symbol": "USDC",
+    "address": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+    "decimals": 6
+  },
+  {
+    "chainId": 137,
+    "name": "USD Coin (PoS)",
+    "symbol": "USDC.e",
+    "address": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
+    "decimals": 6
+  },
+  {
+    "chainId": 137,
+    "name": "Tether USD",
+    "symbol": "USDT",
+    "address": "0xc2132d05d31c914a87c6611c10748aeb04b58e8f",
+    "decimals": 6
+  },
+  {
+    "chainId": 137,
+    "name": "Wrapped BTC",
+    "symbol": "WBTC",
+    "address": "0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6",
+    "decimals": 8
+  },
+  {
+    "chainId": 137,
+    "name": "Wrapped Polygon Ecosystem Token",
+    "symbol": "WPOL",
+    "address": "0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270",
+    "decimals": 18
+  }
+]

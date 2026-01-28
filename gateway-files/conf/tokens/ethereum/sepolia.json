@@ -1,0 +1,23 @@
+[
+  {
+    "chainId": 11155111,
+    "address": "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14",
+    "name": "Wrapped Ether",
+    "symbol": "WETH",
+    "decimals": 18
+  },
+  {
+    "chainId": 11155111,
+    "address": "0xff34b3d4aee8ddcd6f9afffb6fe49bd371b8a357",
+    "name": "Dai Stablecoin",
+    "symbol": "DAI",
+    "decimals": 18
+  },
+  {
+    "chainId": 11155111,
+    "address": "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984",
+    "name": "Uniswap",
+    "symbol": "UNI",
+    "decimals": 18
+  }
+]

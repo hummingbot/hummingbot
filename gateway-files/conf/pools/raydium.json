@@ -1,0 +1,282 @@
+[
+  {
+    "type": "amm",
+    "network": "mainnet-beta",
+    "baseSymbol": "BONK",
+    "quoteSymbol": "SOL",
+    "address": "Hs1X5YtXwZACueUtS9azZyXFDWVxAMLvm3tttubpK7ph"
+  },
+  {
+    "type": "amm",
+    "network": "mainnet-beta",
+    "baseSymbol": "HNT",
+    "quoteSymbol": "SOL",
+    "address": "CnUuRHkn1yAaL274bWJ7kJN3CQQhcHkh1frZC6YUb6UA"
+  },
+  {
+    "type": "amm",
+    "network": "mainnet-beta",
+    "baseSymbol": "JITOSOL",
+    "quoteSymbol": "SOL",
+    "address": "7TbGqz32RsuwXbXY7EyBCiAnMbJq1gm1wKmfjQjuwVma"
+  },
+  {
+    "type": "amm",
+    "network": "mainnet-beta",
+    "baseSymbol": "JTO",
+    "quoteSymbol": "SOL",
+    "address": "GJvWJL7k3CSBvK71cX1Eo3DgTb1JVDNTft8DWqeXfpah"
+  },
+  {
+    "type": "amm",
+    "network": "mainnet-beta",
+    "baseSymbol": "JUP",
+    "quoteSymbol": "SOL",
+    "address": "BqnpCdDLPV2pFdAaLnVidmn3G93RP2p5oRdGEY2sJGez"
+  },
+  {
+    "type": "amm",
+    "network": "mainnet-beta",
+    "baseSymbol": "MSOL",
+    "quoteSymbol": "SOL",
+    "address": "EWy2hPdVT4uG6QahQ6o4uXGLpzEEQgpF2gZWPpYsrmzS"
+  },
+  {
+    "type": "amm",
+    "network": "mainnet-beta",
+    "baseSymbol": "PENGU",
+    "quoteSymbol": "SOL",
+    "address": "FAqh648xeeaTqL7du49sztp9nfj5PjRQrfvaMccyd9cz"
+  },
+  {
+    "type": "amm",
+    "network": "mainnet-beta",
+    "baseSymbol": "POPCAT",
+    "quoteSymbol": "SOL",
+    "address": "FRhB8L7Y9Qq41qZXYLtC2nw8An1RJfLLxRF2x9RwLLMo"
+  },
+  {
+    "type": "amm",
+    "network": "mainnet-beta",
+    "baseSymbol": "PYTH",
+    "quoteSymbol": "SOL",
+    "address": "84npwQqQAZmB3wwFHKJsDCgxnd7b6uLpK9wyDZgW5xJX"
+  },
+  {
+    "type": "amm",
+    "network": "mainnet-beta",
+    "baseSymbol": "RAY",
+    "quoteSymbol": "SOL",
+    "address": "AVs9TA4nWDzfPJE9gGVNJMVhcQy3V9PGazuz33BfG2RA"
+  },
+  {
+    "type": "amm",
+    "network": "mainnet-beta",
+    "baseSymbol": "RAY",
+    "quoteSymbol": "USDC",
+    "address": "6UmmUiYoBjSrhakAobJw8BvkmJtDVxaeBtbt7rxWo1mg"
+  },
+  {
+    "type": "amm",
+    "network": "mainnet-beta",
+    "baseSymbol": "RAY",
+    "quoteSymbol": "USDT",
+    "address": "C4z32zw9WKaGPhNuU54FN8DQ3jFkCnbvPKE63RVVoVtt"
+  },
+  {
+    "type": "amm",
+    "network": "mainnet-beta",
+    "baseSymbol": "RENDER",
+    "quoteSymbol": "SOL",
+    "address": "AtNnsY1AyRERWJ8xCskfz38YdvruWVJQUVXgScC1iPb"
+  },
+  {
+    "type": "amm",
+    "network": "mainnet-beta",
+    "baseSymbol": "SOL",
+    "quoteSymbol": "USDC",
+    "address": "58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2"
+  },
+  {
+    "type": "amm",
+    "network": "mainnet-beta",
+    "baseSymbol": "SOL",
+    "quoteSymbol": "USDT",
+    "address": "7XawhbbxtsRcQA8FJ1pd41rbmkrYXMpK6Ns6YWnmUfVW"
+  },
+  {
+    "type": "amm",
+    "network": "mainnet-beta",
+    "baseSymbol": "STSOL",
+    "quoteSymbol": "SOL",
+    "address": "2QdhepnKRTLjjSqPL1PtKNwqrUkoLee5Gqs8bvZhRdMv"
+  },
+  {
+    "type": "amm",
+    "network": "mainnet-beta",
+    "baseSymbol": "TRUMP",
+    "quoteSymbol": "SOL",
+    "address": "HKuJrP5tYQLbEUdjKwjgnHs2957QKjR2iWhJKTtMa1xs"
+  },
+  {
+    "type": "amm",
+    "network": "mainnet-beta",
+    "baseSymbol": "USDC",
+    "quoteSymbol": "PYUSD",
+    "address": "AUXCBLyRWuHJ93xJSbQiGBhJeMWvR1UBxxYTy2hzfGNu"
+  },
+  {
+    "type": "amm",
+    "network": "mainnet-beta",
+    "baseSymbol": "USDC",
+    "quoteSymbol": "USDT",
+    "address": "77quYg4MGneUdjgXCunt9GgM1usmrxKY31twEy3WHwcS"
+  },
+  {
+    "type": "amm",
+    "network": "mainnet-beta",
+    "baseSymbol": "WIF",
+    "quoteSymbol": "SOL",
+    "address": "EP2ib6dYdEeqD8MfE2ezHCxX3kP3K2eLKkirfPm5eyMx"
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "BONK",
+    "quoteSymbol": "USDC",
+    "address": "3ne4mWqdYuNiYrYZC9TrA3FcfuFdErghH97vNPbjicr1"
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "HNT",
+    "quoteSymbol": "USDC",
+    "address": "5HQhuhoRGAYs9amq4bzsaVGJYpKQq1ETCZmxWdMMjPr1"
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "JTO",
+    "quoteSymbol": "USDC",
+    "address": "DGnU5hTf9FgEqN5s5C8RJmCGWFvSrNfY7CqHHetquLYJ"
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "JUP",
+    "quoteSymbol": "USDC",
+    "address": "7o3FJ2VBsq9n4Pz3J9FqoF7kMSjqVe5KHXaJqLqNWxWt"
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "PENGU",
+    "quoteSymbol": "SOL",
+    "address": "2giZ8bfaq2yZRxvvJrwJmVstVr4WXb5GWxh5cPvCz3KH"
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "POPCAT",
+    "quoteSymbol": "USDC",
+    "address": "EJKqF4p7xVhXkcDNCrVQJE4osow6DgS2X9Q1kaVBFnUY"
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "PYTH",
+    "quoteSymbol": "USDC",
+    "address": "FT4tqtU5XiJPhbM5nGnbS5Mh5zr9KD1KCtcgmwa2fHBh"
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "RAY",
+    "quoteSymbol": "USDC",
+    "address": "61R1ndXxvsWXXkWSyNkCxnzwd3zUNB8Q2ibmkiLPC8ht"
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "RENDER",
+    "quoteSymbol": "USDC",
+    "address": "6a1CsrpeZubDjEJE9s1CMVheB6HWM5d7m1cj2jkhyXhj"
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "SOL",
+    "quoteSymbol": "JITOSOL",
+    "address": "2uoKbPEidR7KAMYtY4x7xdkHXWqYib5k4CutJauSL3Mc"
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "SOL",
+    "quoteSymbol": "MSOL",
+    "address": "DfgCnzaiTXfPkAH1C1Z441b5MzjjTCEh134ioxqRZxYf"
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "SOL",
+    "quoteSymbol": "RAY",
+    "address": "2AXXcN6oN9bBT5owwmTH53C7QHUXvhLeu718Kqt8rvY2"
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "SOL",
+    "quoteSymbol": "STSOL",
+    "address": "HnDJ5n2XC2UqYbPrG6TyTzfN7WQ1ctudQPeDUfWgrFmP"
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "SOL",
+    "quoteSymbol": "TRUMP",
+    "address": "GQsPr4RJk9AZkkfWHud7v4MtotcxhaYzZHdsPCg9vNvW"
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "SOL",
+    "quoteSymbol": "USDC",
+    "address": "3ucNos4NbumPLZNWztqGHNFFgkHeRMBQAVemeeomsUxv"
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "SOL",
+    "quoteSymbol": "USDT",
+    "address": "3nMFwZXwY1s1M5s8vYAHqd4wGs4iSxXE4LRoUMMYqEgF"
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "TRUMP",
+    "quoteSymbol": "USDC",
+    "address": "7XzVsjqTebULfkUofTDH5gDdZDmxacPmPuTfHa1n9kuh"
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "USDC",
+    "quoteSymbol": "PYUSD",
+    "address": "2YP2zSKjqcKm6NQeKiiwHYJTh9xCgHywKupTF8TdHCfm"
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "USDC",
+    "quoteSymbol": "USDT",
+    "address": "BZtgQEyS6eXUXicYPHecYQ7PybqodXQMvkjUbP4R8mUU"
+  },
+  {
+    "type": "clmm",
+    "network": "mainnet-beta",
+    "baseSymbol": "WIF",
+    "quoteSymbol": "USDC",
+    "address": "Bq25CEmFVfhqA1b4FGPWQKaUoYPiHorPFeBZPRFpump"
+  }
+]

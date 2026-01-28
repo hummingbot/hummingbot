@@ -1,0 +1,16 @@
+[
+  {
+    "type": "amm",
+    "network": "bsc",
+    "baseSymbol": "WBNB",
+    "quoteSymbol": "USDT",
+    "address": "0x16b9a82891338f9ba80e2d6970fdda79d1eb0dae"
+  },
+  {
+    "type": "clmm",
+    "network": "bsc",
+    "baseSymbol": "WBNB",
+    "quoteSymbol": "USDT",
+    "address": "0x36696169c63e42cd08ce11f5deebbcebae652050"
+  }
+]

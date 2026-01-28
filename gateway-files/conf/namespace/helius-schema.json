@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "apiKey": {
+      "type": "string",
+      "description": "Helius API key from https://helius.dev"
+    },
+    "useWebSocketRPC": {
+      "type": "boolean",
+      "description": "Use Helius WebSocket for transaction monitoring"
+    },
+    "useSender": {
+      "type": "boolean",
+      "description": "Use Helius Sender endpoint for faster transaction delivery"
+    },
+    "regionCode": {
+      "type": "string",
+      "enum": ["slc", "ewr", "lon", "fra", "ams", "sg", "tyo"],
+      "description": "Regional endpoint for Helius Sender"
+    },
+    "jitoTipSOL": {
+      "type": "number",
+      "minimum": 0.001,
+      "description": "Jito tip amount in SOL for bundle inclusion"
+    }
+  },
+  "required": ["apiKey"],
+  "additionalProperties": false
+}

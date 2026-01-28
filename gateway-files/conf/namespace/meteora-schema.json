@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "slippagePct": {
+      "type": "number",
+      "description": "Default slippage percentage (e.g., 1 for 1%)"
+    },
+    "strategyType": {
+      "type": "number",
+      "description": "Default DLMM strategy type for positions"
+    }
+  },
+  "additionalProperties": false,
+  "required": ["slippagePct", "strategyType"]
+}

@@ -1,0 +1,4 @@
+chainID: 43114
+nodeURL: https://api.avax.network/ext/bc/C/rpc
+nativeCurrencySymbol: AVAX
+minGasPrice: 0.1

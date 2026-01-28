@@ -1,0 +1,4 @@
+chainID: 10
+nodeURL: https://mainnet.optimism.io
+nativeCurrencySymbol: OETH
+minGasPrice: 0.1

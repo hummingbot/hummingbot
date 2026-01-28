@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "chainID": { "type": "integer" },
+    "nodeURL": { "type": "string" },
+    "nativeCurrencySymbol": { "type": "string" },
+    "minGasPrice": {
+      "type": "number",
+      "description": "Minimum gas price in GWEI"
+    }
+  },
+  "required": ["chainID", "nodeURL", "nativeCurrencySymbol"],
+  "additionalProperties": false
+}

@@ -1,0 +1,6 @@
+# Global settings for Uniswap
+# Default slippage percentage for swaps (2%)
+slippagePct: 2
+
+# For each swap, the maximum number of hops to consider
+maximumHops: 4

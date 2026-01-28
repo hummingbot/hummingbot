@@ -92,7 +92,7 @@ class WeexExchange(ExchangePyBase):
 
     @property
     def trading_pairs_request_path(self):
-        return CONSTANTS.TRADING_PAIRS_PATH_URL
+        return CONSTANTS.EXCHANGE_INFO_PATH_URL
 
     @property
     def trading_rules_request_path(self):

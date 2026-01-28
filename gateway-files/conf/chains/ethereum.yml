@@ -1,0 +1,4 @@
+defaultNetwork: mainnet
+defaultWallet: '<ethereum-wallet-address>'
+# RPC provider: 'url' uses nodeURL from network config, 'infura' uses Infura service for all networks
+rpcProvider: url

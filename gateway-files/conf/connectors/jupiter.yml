@@ -1,0 +1,23 @@
+# Default slippage percentage for swaps (as a decimal, e.g., 1 = 1%)
+slippagePct: 1
+
+# Priority level for swap transaction processing
+# Options: medium, high, veryHigh
+priorityLevel: 'veryHigh'
+
+# Maximum priority fee in lamports (for dynamic priority fees)
+# Used when priorityLevel is set and no explicit priorityFeeLamports is provided
+maxLamports: 1000000
+
+# Restrict routing to only go through 1 market
+# Default: false (allows multi-hop routes for better prices)
+onlyDirectRoutes: false
+
+# Restrict routing through highly liquid intermediate tokens only
+# Default: true (for better price and stability)
+restrictIntermediateTokens: true
+
+# Jupiter API key (optional)
+# For free tier, leave empty (uses https://lite-api.jup.ag)
+# For paid plans, generate key at https://portal.jup.ag (uses https://api.jup.ag)
+apiKey: ''
