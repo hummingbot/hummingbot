@@ -139,3 +139,35 @@ class WeexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             channel = (self._diff_messages_queue_key if event_type == CONSTANTS.DIFF_EVENT_TYPE
                        else self._trade_messages_queue_key)
         return channel
+
+    async def _subscribe_from_trading_pair(self, ws: WSAssistant, trading_pair: str):
+        """
+        Subscribe to a single trading pair's channels (for dynamic trading pair updates).
+        """
+        try:
+            symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+            
+            # Subscribe to trades
+            trade_payload = {
+                "method": "SUBSCRIBE",
+                "params": [f"{symbol.lower()}@trade"],
+                "id": int(time.time() * 1000)
+            }
+            await ws.send(WSJSONRequest(payload=trade_payload))
+            
+            # Subscribe to order book depth
+            depth_payload = {
+                "method": "SUBSCRIBE",
+                "params": [f"{symbol.lower()}@depth@100ms"],
+                "id": int(time.time() * 1000) + 1
+            }
+            await ws.send(WSJSONRequest(payload=depth_payload))
+            
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().error(
+                f"Unexpected error occurred subscribing to {trading_pair}...",
+                exc_info=True
+            )
+            raise
