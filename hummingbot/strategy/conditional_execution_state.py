@@ -16,7 +16,7 @@ class ConditionalExecutionState(ABC):
     _time_left: int = None
 
     def __eq__(self, other):
-        return type(self) == type(other)
+        return type(self) is type(other)
 
     @property
     def time_left(self):
@@ -78,7 +78,7 @@ class RunInTimeConditionalExecutionState(ConditionalExecutionState):
                 return f"run daily between {self._start_timestamp} and {self._end_timestamp}"
 
     def __eq__(self, other):
-        return type(self) == type(other) and \
+        return type(self) is type(other) and \
             self._start_timestamp == other._start_timestamp and \
             self._end_timestamp == other._end_timestamp
 

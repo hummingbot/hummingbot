@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
+from datetime import datetime
 from logging import StreamHandler
 from typing import Optional
-from datetime import datetime
 
 
 class CLIHandler(StreamHandler):

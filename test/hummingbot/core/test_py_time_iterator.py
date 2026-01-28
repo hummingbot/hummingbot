@@ -1,11 +1,9 @@
-import unittest
 import math
+import unittest
+
 import pandas as pd
 
-from hummingbot.core.clock import (
-    Clock,
-    ClockMode
-)
+from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.py_time_iterator import PyTimeIterator
 
 NaN = float("nan")

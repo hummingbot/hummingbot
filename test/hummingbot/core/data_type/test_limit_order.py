@@ -1,6 +1,7 @@
+import time
 import unittest
 from decimal import Decimal
-import time
+
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.event.events import LimitOrderStatus
 
