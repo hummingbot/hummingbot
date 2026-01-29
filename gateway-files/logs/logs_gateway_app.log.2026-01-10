@@ -1,6 +1,0 @@
-2026-01-10 15:50:12 | info | 	⚡️ Gateway version 2.9.0 starting at http://localhost:15888
-2026-01-10 15:50:12 | info | 	🔧 Log level configured as: debug
-2026-01-10 15:50:12 | info | 	Checking for processes using port 15888...
-2026-01-10 15:50:12 | info | 	No process found using port 15888
-2026-01-10 15:50:12 | info | 	🔴 Running in development mode with (unsafe!) HTTP endpoints
-2026-01-10 15:50:13 | info | 	📓 Documentation available at http://localhost:15888/docs
