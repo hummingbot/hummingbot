@@ -1,6 +1,7 @@
 import asyncio
+import os
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from bidict import bidict
 
@@ -11,19 +12,34 @@ from hummingbot.connector.exchange.weex.weex_api_user_stream_data_source import 
 from hummingbot.connector.exchange.weex.weex_auth import WeexAuth
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.market_order import MarketOrder
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
 class WeexExchange(ExchangePyBase):
-    UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
+    # WEEX has VERY strict rate limits with dual-tier enforcement:
+    # - 500 weight per 10 seconds (documented)
+    # - ~50 weight per 1 second (burst limit, discovered in testing)
+    #
+    # CRITICAL: With 8 orders, parallel REST polling creates bursts:
+    #   8 orders × (5 weight fills + 2 weight status) = 56 weight burst → EXCEEDS 50/second limit
+    #
+    # SOLUTION: Rely on WebSockets for real-time updates, disable REST polling
+    # WebSocket channels (orders, fills, account) provide instant updates with zero API weight
+    UPDATE_ORDER_STATUS_MIN_INTERVAL = float('inf')  # DISABLED - use WebSocket order updates only
+    SHORT_POLL_INTERVAL = 300.0  # Balance reconciliation every 5 minutes (fallback only)
+    LONG_POLL_INTERVAL = 300.0  # Keep at 5 minutes
+    DISABLE_REST_ORDER_POLLING = True
 
     web_utils = web_utils
 
@@ -45,8 +61,16 @@ class WeexExchange(ExchangePyBase):
         self._trading_pairs = trading_pairs
         self._last_trades_poll_weex_timestamp = 1.0
         super().__init__(balance_asset_limit, rate_limits_share_pct)
+        self._disable_rest_order_polling = self._get_disable_rest_order_polling()
         # DEBUG: Log initialization
         self.logger().info(f"[WEEX_DEBUG] WeexExchange.__init__() completed. trading_pairs={trading_pairs}, trading_required={trading_required}")
+
+    @classmethod
+    def _get_disable_rest_order_polling(cls) -> bool:
+        env_value = os.getenv("WEEX_DISABLE_REST_ORDER_POLLING")
+        if env_value is None:
+            return cls.DISABLE_REST_ORDER_POLLING
+        return env_value.strip().lower() in {"1", "true", "yes", "y", "on"}
 
     @staticmethod
     def weex_order_type(order_type: OrderType) -> str:
@@ -245,6 +269,259 @@ class WeexExchange(ExchangePyBase):
             return True
         return False
 
+    def batch_order_create(self, orders_to_create: List[Union[MarketOrder, LimitOrder]]) -> List[Union[MarketOrder, LimitOrder]]:
+        """
+        Issues a batch order creation as a single API request. This is significantly more efficient
+        than individual order placement for WEEX due to rate limiting:
+        - Individual: 8 orders × 5 weight = 40 weight
+        - Batch: 1 request × 10 weight = 10 weight (75% reduction)
+
+        Note: WEEX batch orders must all be for the same symbol.
+
+        :param orders_to_create: A list of LimitOrder or MarketOrder objects. The order IDs can be blank.
+        :returns: A list of the same order objects with generated client order IDs.
+        """
+        orders_with_ids_to_create = []
+        for order in orders_to_create:
+            client_order_id = get_new_client_order_id(
+                is_buy=order.is_buy,
+                trading_pair=order.trading_pair,
+                hbot_order_id_prefix=self.client_order_id_prefix,
+                max_id_len=self.client_order_id_max_length,
+            )
+            orders_with_ids_to_create.append(order.copy_with_id(client_order_id=client_order_id))
+        safe_ensure_future(self._execute_batch_order_create(orders_to_create=orders_with_ids_to_create))
+        return orders_with_ids_to_create
+
+    async def _execute_batch_order_create(self, orders_to_create: List[Union[MarketOrder, LimitOrder]]):
+        """
+        Execute batch order creation - validate orders, make API call, process results.
+        Per WEEX API: POST /api/v2/trade/batch-orders with {"symbol": "...", "orderList": [...]}
+        Response: {"data": {"resultList": [{"orderId": ..., "clientOrderId": ...}]}}
+        """
+        if len(orders_to_create) == 0:
+            return
+
+        # Validate and track orders FIRST (like Injective does)
+        inflight_orders_to_create = []
+        for order in orders_to_create:
+            valid_order = await self._start_tracking_and_validate_order(
+                trade_type=TradeType.BUY if order.is_buy else TradeType.SELL,
+                order_id=order.client_order_id,
+                trading_pair=order.trading_pair,
+                amount=order.quantity,
+                order_type=order.order_type(),
+                price=order.price,
+            )
+            if valid_order is not None:
+                inflight_orders_to_create.append(valid_order)
+
+        if len(inflight_orders_to_create) == 0:
+            return
+
+        # Group orders by symbol (WEEX batch orders must be for single symbol)
+        orders_by_symbol = {}
+        for order in inflight_orders_to_create:
+            symbol = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
+            if symbol not in orders_by_symbol:
+                orders_by_symbol[symbol] = []
+            orders_by_symbol[symbol].append(order)
+
+        # Process each symbol separately
+        for symbol, symbol_orders in orders_by_symbol.items():
+            # Build batch request payload
+            order_list = []
+            for order in symbol_orders:
+                order_type_str = "limit" if order.order_type in (OrderType.LIMIT, OrderType.LIMIT_MAKER) else "market"
+                side_str = CONSTANTS.SIDE_BUY if order.trade_type == TradeType.BUY else CONSTANTS.SIDE_SELL
+
+                order_params = {
+                    "side": side_str,
+                    "orderType": order_type_str,
+                    "quantity": f"{order.amount:f}",
+                    "clientOrderId": order.client_order_id,
+                }
+
+                if order.order_type in (OrderType.LIMIT, OrderType.LIMIT_MAKER):
+                    order_params["price"] = f"{order.price:f}"
+                    order_params["force"] = (
+                        CONSTANTS.FORCE_POST_ONLY if order.order_type is OrderType.LIMIT_MAKER
+                        else CONSTANTS.FORCE_NORMAL
+                    )
+
+                order_list.append(order_params)
+
+            # Make single batch API call per symbol
+            try:
+                batch_result = await self._api_post(
+                    path_url=CONSTANTS.BATCH_ORDERS_PATH_URL,
+                    data={"symbol": symbol, "orderList": order_list},
+                    is_auth_required=True,
+                    limit_id=CONSTANTS.BATCH_ORDERS_LIMIT_ID
+                )
+
+                # Process results - WEEX returns {"data": {"resultList": [...]}}
+                result_data = batch_result.get("data", {}) if isinstance(batch_result, dict) else {}
+                result_list = result_data.get("resultList", [])
+
+                # Map results back to orders by clientOrderId
+                client_order_id_to_order = {order.client_order_id: order for order in symbol_orders}
+
+                # Process results (all successful if in resultList)
+                for result_item in result_list:
+                    client_order_id = result_item.get("clientOrderId")
+                    if client_order_id in client_order_id_to_order:
+                        order = client_order_id_to_order[client_order_id]
+                        exchange_order_id = str(result_item.get("orderId", ""))
+                        self._update_order_after_creation_success(
+                            exchange_order_id=exchange_order_id,
+                            order=order,
+                            update_timestamp=self.current_timestamp,
+                            misc_updates={}
+                        )
+                        self.logger().info(
+                            f"Batch order created successfully: {client_order_id} "
+                            f"(exchange ID: {exchange_order_id})"
+                        )
+
+                # Check if any orders weren't in the result (failed)
+                result_client_ids = {item.get("clientOrderId") for item in result_list}
+                for client_order_id, order in client_order_id_to_order.items():
+                    if client_order_id not in result_client_ids:
+                        self._on_order_creation_failure(
+                            order_id=client_order_id,
+                            trading_pair=order.trading_pair,
+                            amount=order.amount,
+                            trade_type=order.trade_type,
+                            order_type=order.order_type,
+                            price=order.price,
+                            exception=IOError("Order not in batch result")
+                        )
+                        self.logger().warning(
+                            f"Batch order creation failed for {client_order_id}: not in result"
+                        )
+
+            except Exception as ex:
+                self.logger().error(f"Batch order create failed with exception: {str(ex)}", exc_info=True)
+                # Mark all orders for this symbol as failed
+                for order in symbol_orders:
+                    self._on_order_creation_failure(
+                        order_id=order.client_order_id,
+                        trading_pair=order.trading_pair,
+                        amount=order.amount,
+                        trade_type=order.trade_type,
+                        order_type=order.order_type,
+                        price=order.price,
+                        exception=ex
+                    )
+
+    def batch_order_cancel(self, orders_to_cancel: List[LimitOrder]):
+        """
+        Issues a batch order cancelation as a single API request. More efficient than individual cancels:
+        - Individual: 8 cancels × 3 weight = 24 weight
+        - Batch: 1 request × 10 weight = 10 weight (58% reduction)
+
+        :param orders_to_cancel: A list of the orders to cancel.
+        """
+        safe_ensure_future(coro=self._execute_batch_cancel(orders_to_cancel=orders_to_cancel))
+
+    async def _execute_batch_cancel(self, orders_to_cancel: List[LimitOrder]) -> List[CancellationResult]:
+        """
+        Execute batch order cancelation - make API call, process results.
+        Per WEEX API: POST /api/v2/trade/cancel-batch-orders with {\"symbol\": \"...\", \"clientOids\": [...]}
+        Response: {\"data\": {\"successList\": [...], \"failureList\": [{\"orderId\": ..., \"errMsg\": ...}]}}
+        """
+        if len(orders_to_cancel) == 0:
+            return []
+
+        results = []
+
+        # Group orders by symbol (WEEX batch cancel must be for single symbol)
+        orders_by_symbol = {}
+        for order in orders_to_cancel:
+            tracked_order = self._order_tracker.fetch_order(client_order_id=order.client_order_id)
+            if tracked_order is not None:
+                symbol = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
+                if symbol not in orders_by_symbol:
+                    orders_by_symbol[symbol] = []
+                orders_by_symbol[symbol].append((order, tracked_order))
+
+        # Process each symbol separately
+        for symbol, symbol_orders in orders_by_symbol.items():
+            # Build lists of client order IDs and order IDs
+            client_oids = []
+            order_ids = []
+            client_to_order_map = {}
+
+            for order, tracked_order in symbol_orders:
+                client_oids.append(order.client_order_id)
+                client_to_order_map[order.client_order_id] = order
+                if tracked_order.exchange_order_id:
+                    order_ids.append(tracked_order.exchange_order_id)
+
+            # Make single batch API call per symbol
+            try:
+                # WEEX API accepts either clientOids or orderIds
+                request_data = {"symbol": symbol}
+                if client_oids:
+                    request_data["clientOids"] = client_oids
+                if order_ids:
+                    request_data["orderIds"] = order_ids
+
+                batch_result = await self._api_post(
+                    path_url=CONSTANTS.BATCH_CANCEL_ORDERS_PATH_URL,
+                    data=request_data,
+                    is_auth_required=True,
+                    limit_id=CONSTANTS.BATCH_CANCEL_ORDERS_LIMIT_ID
+                )
+
+                # Process results - WEEX returns {"data": {"successList": [...], "failureList": [...]}}
+                result_data = batch_result.get("data", {}) if isinstance(batch_result, dict) else {}
+                success_list = result_data.get("successList", [])
+                failure_list = result_data.get("failureList", [])
+
+                # Process successful cancellations (successList contains order IDs as strings)
+                for order_id_str in success_list:
+                    # Try to match by exchange order ID or client order ID
+                    matched_client_id = None
+                    for client_id, order in client_to_order_map.items():
+                        tracked = self._order_tracker.fetch_order(client_order_id=client_id)
+                        if tracked and (str(tracked.exchange_order_id) == order_id_str or client_id == order_id_str):
+                            matched_client_id = client_id
+                            break
+
+                    if matched_client_id:
+                        results.append(CancellationResult(matched_client_id, True))
+                        self.logger().info(f"Batch order canceled successfully: {matched_client_id}")
+
+                # Process failed cancellations
+                for failure_item in failure_list:
+                    # failureList items have orderId and/or clientOid and errMsg
+                    order_id = failure_item.get("orderId", "")
+                    client_oid = failure_item.get("clientOid", "")
+                    error_msg = failure_item.get("errMsg", "Unknown error")
+
+                    # Try to find the client order ID
+                    matched_client_id = client_oid if client_oid in client_to_order_map else None
+                    if not matched_client_id and order_id:
+                        for client_id in client_to_order_map:
+                            tracked = self._order_tracker.fetch_order(client_order_id=client_id)
+                            if tracked and str(tracked.exchange_order_id) == order_id:
+                                matched_client_id = client_id
+                                break
+
+                    if matched_client_id:
+                        results.append(CancellationResult(matched_client_id, False))
+                        self.logger().warning(f"Batch order cancelation failed for {matched_client_id}: {error_msg}")
+
+            except Exception as ex:
+                self.logger().error(f"Batch order cancel failed for symbol {symbol}: {str(ex)}", exc_info=True)
+                # All cancellations for this symbol failed
+                for order, _ in symbol_orders:
+                    results.append(CancellationResult(order.client_order_id, False))
+
+        return results
+
     async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         self.logger().info(f"[WEEX_DEBUG] _format_trading_rules() called with {len(exchange_info_dict.get('data', []))} trading pairs")
         rules: List[TradingRule] = []
@@ -270,6 +547,8 @@ class WeexExchange(ExchangePyBase):
         return rules
 
     async def _status_polling_loop_fetch_updates(self):
+        if self._disable_rest_order_polling:
+            return
         await self._update_order_fills_from_trades()
         await super()._status_polling_loop_fetch_updates()
 
@@ -559,6 +838,9 @@ class WeexExchange(ExchangePyBase):
     #                     self.logger().info(f"Recreating missing trade in TradeFill: {trade}")
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
+        if self._disable_rest_order_polling:
+            return []
+
         trade_updates = []
 
         if order.exchange_order_id is not None:

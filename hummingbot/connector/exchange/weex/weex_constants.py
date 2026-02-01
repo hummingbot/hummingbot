@@ -25,7 +25,9 @@ ORDER_BOOK_SNAPSHOT_PATH_URL = "/api/v2/market/depth"
 ACCOUNTS_PATH_URL = "/api/v2/account/assets"
 
 CREATE_ORDER_PATH_URL = "/api/v2/trade/orders"
+BATCH_ORDERS_PATH_URL = "/api/v2/trade/batch-orders"
 CANCEL_ORDER_PATH_URL = "/api/v2/trade/cancel-order"
+BATCH_CANCEL_ORDERS_PATH_URL = "/api/v2/trade/cancel-batch-orders"
 ORDER_STATUS_PATH_URL = "/api/v2/trade/orderInfo"
 OPEN_ORDERS_PATH_URL = "/api/v2/trade/open-orders"
 FILLS_PATH_URL = "/api/v2/trade/fills"
@@ -74,13 +76,16 @@ ORDER_STATE = {
 # Throttle IDs (recommended strategy)
 
 GLOBAL_LIMIT_ID = "GLOBAL"
+GLOBAL_BURST_LIMIT_ID = "GLOBAL_BURST"  # 1-second burst protection
 TRADING_RULES_LIMIT_ID = "TRADING_RULES"
 TRADING_PAIRS_LIMIT_ID = "TRADING_PAIRS"
 EXCHANGE_INFO_LIMIT_ID = "EXCHANGE_INFO"
 ORDER_BOOK_SNAPSHOT_LIMIT_ID = "ORDER_BOOK_SNAPSHOT"
 ACCOUNTS_LIMIT_ID = "ACCOUNTS"
 CREATE_ORDER_LIMIT_ID = "CREATE_ORDER"
+BATCH_ORDERS_LIMIT_ID = "BATCH_ORDERS"
 CANCEL_ORDER_LIMIT_ID = "CANCEL_ORDER"
+BATCH_CANCEL_ORDERS_LIMIT_ID = "BATCH_CANCEL_ORDERS"
 ORDER_STATUS_LIMIT_ID = "ORDER_STATUS"
 OPEN_ORDERS_LIMIT_ID = "OPEN_ORDERS"
 FILLS_LIMIT_ID = "FILLS"
@@ -88,53 +93,93 @@ MY_TRADES_LIMIT_ID = "MY_TRADES"
 TICKER_PRICE_CHANGE_LIMIT_ID = "TICKER_PRICE_CHANGE"
 
 # Time intervals
+# WEEX Rate Limit: Weight-based system with 500 weight units per 10 seconds per endpoint
+# Each endpoint has individual Weight(IP) and Weight(UID) values
+# Default fallback: 10 requests/second unless endpoint specifies otherwise
+# Source: https://www.weex.com/api-doc/spot/QuickStart/LIMITS
+# Source: https://www.weex.com/api-doc/spot/QuickStart/AccessRestrictions
+ONE_SECOND = 1
 TWO_SECONDS = 2
 TEN_SECONDS = 10
-PUBLIC_MAX_REQUEST = 20   # 20 requests per 2 seconds (public endpoints)
-PRIVATE_MAX_REQUEST = 500  # 500 requests per 10 seconds (private endpoints)
+PUBLIC_MAX_REQUEST = 500   # 500 weight units per 10 seconds (public endpoints)
+PRIVATE_MAX_REQUEST = 500  # 500 weight units per 10 seconds (private endpoints)
 
 RATE_LIMITS = [
-    # Global pool limit: mirror public rate limit
-    RateLimit(limit_id=GLOBAL_LIMIT_ID, limit=PUBLIC_MAX_REQUEST, time_interval=TWO_SECONDS, weight=1),
+    # Global UID weight pool: 500 weight units per 10 seconds (applies to ALL authenticated endpoints)
+    # Based on official WEEX documentation: "Each endpoint with UID limits has an independent 500 every 10 second limit"
+    RateLimit(limit_id=GLOBAL_LIMIT_ID, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=1),
 
-    # Public endpoints (IP-based)
-    RateLimit(limit_id=TRADING_PAIRS_PATH_URL, limit=PUBLIC_MAX_REQUEST, time_interval=TWO_SECONDS, weight=1,
-              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 1)]),
-    RateLimit(limit_id=EXCHANGE_INFO_PATH_URL, limit=PUBLIC_MAX_REQUEST, time_interval=TWO_SECONDS, weight=1,
-              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 1)]),
-    RateLimit(limit_id=ORDER_BOOK_SNAPSHOT_PATH_URL, limit=PUBLIC_MAX_REQUEST, time_interval=TWO_SECONDS, weight=1,
-              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 1)]),
-    RateLimit(limit_id=TICKER_PRICE_CHANGE_PATH_URL, limit=PUBLIC_MAX_REQUEST, time_interval=TWO_SECONDS, weight=1,
-              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 1)]),
-    RateLimit(limit_id=TICKERS_PATH_URL, limit=PUBLIC_MAX_REQUEST, time_interval=TWO_SECONDS, weight=1,
-              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 1)]),
-    RateLimit(limit_id=SNAPSHOT_PATH_URL, limit=PUBLIC_MAX_REQUEST, time_interval=TWO_SECONDS, weight=1,
-              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 1)]),
-    RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=PUBLIC_MAX_REQUEST, time_interval=TWO_SECONDS, weight=1,
-              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 1)]),
-    RateLimit(limit_id=TRADING_RULES_LIMIT_ID, limit=PUBLIC_MAX_REQUEST, time_interval=TWO_SECONDS, weight=1,
-              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 1)]),
-    RateLimit(limit_id=TRADING_PAIRS_LIMIT_ID, limit=PUBLIC_MAX_REQUEST, time_interval=TWO_SECONDS, weight=1,
-              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 1)]),
-    RateLimit(limit_id=ORDER_BOOK_SNAPSHOT_LIMIT_ID, limit=PUBLIC_MAX_REQUEST, time_interval=TWO_SECONDS, weight=1,
-              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 1)]),
+    # CRITICAL: WEEX also enforces a burst limit (evidenced by 429 errors after ~50 weight in 3 seconds)
+    # The "10 requests/second" statement implies ~50 weight/second burst limit (10 requests × avg weight 5)
+    # This prevents rapid-fire API calls from exhausting the pool
+    RateLimit(limit_id=GLOBAL_BURST_LIMIT_ID, limit=50, time_interval=ONE_SECOND, weight=1),
 
-    # Private endpoints (UID-based)
-    RateLimit(limit_id=ACCOUNTS_PATH_URL, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=1),
-    RateLimit(limit_id=CREATE_ORDER_PATH_URL, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=1),
-    RateLimit(limit_id=CANCEL_ORDER_PATH_URL, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=1),
-    RateLimit(limit_id=ORDER_STATUS_PATH_URL, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=1),
-    RateLimit(limit_id=OPEN_ORDERS_PATH_URL, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=1),
-    RateLimit(limit_id=FILLS_PATH_URL, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=1),
-    RateLimit(limit_id=MY_TRADES_PATH_URL, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=1),
-    RateLimit(limit_id=HISTORY_PATH_URL, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=1),
-    RateLimit(limit_id=ACCOUNTS_LIMIT_ID, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=1),
-    RateLimit(limit_id=CREATE_ORDER_LIMIT_ID, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=1),
-    RateLimit(limit_id=CANCEL_ORDER_LIMIT_ID, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=1),
-    RateLimit(limit_id=ORDER_STATUS_LIMIT_ID, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=1),
-    RateLimit(limit_id=OPEN_ORDERS_LIMIT_ID, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=1),
-    RateLimit(limit_id=FILLS_LIMIT_ID, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=1),
-    RateLimit(limit_id=MY_TRADES_LIMIT_ID, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=1),
-    RateLimit(limit_id=TICKER_PRICE_CHANGE_LIMIT_ID, limit=PUBLIC_MAX_REQUEST, time_interval=TWO_SECONDS, weight=1,
-              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 1)]),
+    # Public endpoints (assumed weight=1 each, no specific weights documented)
+    RateLimit(limit_id=TRADING_PAIRS_PATH_URL, limit=PUBLIC_MAX_REQUEST, time_interval=TEN_SECONDS, weight=1),
+    RateLimit(limit_id=EXCHANGE_INFO_PATH_URL, limit=PUBLIC_MAX_REQUEST, time_interval=TEN_SECONDS, weight=1),
+    RateLimit(limit_id=ORDER_BOOK_SNAPSHOT_PATH_URL, limit=PUBLIC_MAX_REQUEST, time_interval=TEN_SECONDS, weight=1),
+    RateLimit(limit_id=TICKER_PRICE_CHANGE_PATH_URL, limit=PUBLIC_MAX_REQUEST, time_interval=TEN_SECONDS, weight=1),
+    RateLimit(limit_id=TICKERS_PATH_URL, limit=PUBLIC_MAX_REQUEST, time_interval=TEN_SECONDS, weight=1),
+    RateLimit(limit_id=SNAPSHOT_PATH_URL, limit=PUBLIC_MAX_REQUEST, time_interval=TEN_SECONDS, weight=1),
+    RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=PUBLIC_MAX_REQUEST, time_interval=TEN_SECONDS, weight=1),
+    RateLimit(limit_id=TRADING_RULES_LIMIT_ID, limit=PUBLIC_MAX_REQUEST, time_interval=TEN_SECONDS, weight=1),
+    RateLimit(limit_id=TRADING_PAIRS_LIMIT_ID, limit=PUBLIC_MAX_REQUEST, time_interval=TEN_SECONDS, weight=1),
+    RateLimit(limit_id=ORDER_BOOK_SNAPSHOT_LIMIT_ID, limit=PUBLIC_MAX_REQUEST, time_interval=TEN_SECONDS, weight=1),
+
+    # Private endpoints - Weight(UID) values from official WEEX API documentation
+    # Each endpoint linked to BOTH:
+    #   - GLOBAL_LIMIT_ID: 500 weight/10s pool
+    #   - GLOBAL_BURST_LIMIT_ID: 50 weight/1s burst protection
+
+    # GET /api/v2/account/assets - Weight(UID): 5
+    RateLimit(limit_id=ACCOUNTS_PATH_URL, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=5,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 5), LinkedLimitWeightPair(GLOBAL_BURST_LIMIT_ID, 5)]),
+    # POST /api/v2/trade/orders - Weight(UID): 5
+    RateLimit(limit_id=CREATE_ORDER_PATH_URL, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=5,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 5), LinkedLimitWeightPair(GLOBAL_BURST_LIMIT_ID, 5)]),
+    # POST /api/v2/trade/batch-orders - Weight(UID): 10
+    RateLimit(limit_id=BATCH_ORDERS_PATH_URL, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=10,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 10), LinkedLimitWeightPair(GLOBAL_BURST_LIMIT_ID, 10)]),
+    # POST /api/v2/trade/cancel-order - Weight(UID): 3
+    RateLimit(limit_id=CANCEL_ORDER_PATH_URL, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=3,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 3), LinkedLimitWeightPair(GLOBAL_BURST_LIMIT_ID, 3)]),
+    # POST /api/v2/trade/cancel-batch-orders - Weight(UID): 10
+    RateLimit(limit_id=BATCH_CANCEL_ORDERS_PATH_URL, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=10,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 10), LinkedLimitWeightPair(GLOBAL_BURST_LIMIT_ID, 10)]),
+    # POST /api/v2/trade/orderInfo - Weight(UID): 2
+    RateLimit(limit_id=ORDER_STATUS_PATH_URL, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=2,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 2), LinkedLimitWeightPair(GLOBAL_BURST_LIMIT_ID, 2)]),
+    # POST /api/v2/trade/open-orders - Weight(UID): 3
+    RateLimit(limit_id=OPEN_ORDERS_PATH_URL, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=3,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 3), LinkedLimitWeightPair(GLOBAL_BURST_LIMIT_ID, 3)]),
+    # POST /api/v2/trade/fills - Weight(UID): 5
+    RateLimit(limit_id=FILLS_PATH_URL, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=5,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 5), LinkedLimitWeightPair(GLOBAL_BURST_LIMIT_ID, 5)]),
+    # POST /api/v2/trade/fills (same endpoint for my_trades)
+    RateLimit(limit_id=MY_TRADES_PATH_URL, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=5,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 5), LinkedLimitWeightPair(GLOBAL_BURST_LIMIT_ID, 5)]),
+    # POST /api/v2/trade/history - Weight(UID): 10
+    RateLimit(limit_id=HISTORY_PATH_URL, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=10,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 10), LinkedLimitWeightPair(GLOBAL_BURST_LIMIT_ID, 10)]),
+
+    # Limit ID aliases (for backward compatibility with code using these IDs)
+    RateLimit(limit_id=ACCOUNTS_LIMIT_ID, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=5,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 5), LinkedLimitWeightPair(GLOBAL_BURST_LIMIT_ID, 5)]),
+    RateLimit(limit_id=CREATE_ORDER_LIMIT_ID, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=5,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 5), LinkedLimitWeightPair(GLOBAL_BURST_LIMIT_ID, 5)]),
+    RateLimit(limit_id=BATCH_ORDERS_LIMIT_ID, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=10,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 10), LinkedLimitWeightPair(GLOBAL_BURST_LIMIT_ID, 10)]),
+    RateLimit(limit_id=CANCEL_ORDER_LIMIT_ID, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=3,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 3), LinkedLimitWeightPair(GLOBAL_BURST_LIMIT_ID, 3)]),
+    RateLimit(limit_id=BATCH_CANCEL_ORDERS_LIMIT_ID, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=10,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 10), LinkedLimitWeightPair(GLOBAL_BURST_LIMIT_ID, 10)]),
+    RateLimit(limit_id=ORDER_STATUS_LIMIT_ID, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=2,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 2), LinkedLimitWeightPair(GLOBAL_BURST_LIMIT_ID, 2)]),
+    RateLimit(limit_id=OPEN_ORDERS_LIMIT_ID, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=3,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 3), LinkedLimitWeightPair(GLOBAL_BURST_LIMIT_ID, 3)]),
+    RateLimit(limit_id=FILLS_LIMIT_ID, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=5,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 5), LinkedLimitWeightPair(GLOBAL_BURST_LIMIT_ID, 5)]),
+    RateLimit(limit_id=MY_TRADES_LIMIT_ID, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=5,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 5), LinkedLimitWeightPair(GLOBAL_BURST_LIMIT_ID, 5)]),
+    RateLimit(limit_id=TICKER_PRICE_CHANGE_LIMIT_ID, limit=PUBLIC_MAX_REQUEST, time_interval=TEN_SECONDS, weight=1),
 ]
