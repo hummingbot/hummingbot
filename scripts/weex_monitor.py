@@ -92,11 +92,11 @@ class WeexMonitor(ScriptStrategyBase):
 
         # Wait for connector to be ready
         if not weex.ready:
-            if hasattr(self, '_ready_wait_logged'):
-                return  # Already logged, just wait silently
-            self.logger().info("⏳ Waiting for WEEX connector to initialize...")
-            self.logger().info(f"   Status: {weex.status_dict}")
-            self._ready_wait_logged = True
+            # Log waiting message periodically (every 5 seconds)
+            if not hasattr(self, '_ready_wait_last_log') or current_time - self._ready_wait_last_log > 5:
+                self.logger().info("⏳ Waiting for WEEX connector to initialize...")
+                self.logger().info(f"   Status: {weex.status_dict}")
+                self._ready_wait_last_log = current_time
             return
 
         # Check if enough time has passed (or first run)
