@@ -76,7 +76,8 @@ class WeexAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
         # Set last_recv_time to indicate user stream is initialized
         # WEEX doesn't send unsolicited messages, so we mark it as active after subscription
-        self._last_recv_time = self._time()
+        # Update the websocket assistant's last_recv_time
+        websocket_assistant._last_recv_time = self._time()
 
     async def _send_ping(self, websocket_assistant: WSAssistant):
         """Send periodic ping to keep connection alive"""
