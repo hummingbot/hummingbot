@@ -234,6 +234,7 @@ class WeexExchange(ExchangePyBase):
         return False
 
     async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
+        self.logger().info(f"[WEEX_DEBUG] _format_trading_rules() called with {len(exchange_info_dict.get('data', []))} trading pairs")
         rules: List[TradingRule] = []
 
         for item in exchange_info_dict.get("data", []):
@@ -253,6 +254,7 @@ class WeexExchange(ExchangePyBase):
                 )
             )
 
+        self.logger().info(f"[WEEX_DEBUG] _format_trading_rules() returning {len(rules)} trading rules")
         return rules
 
     async def _status_polling_loop_fetch_updates(self):
@@ -263,7 +265,9 @@ class WeexExchange(ExchangePyBase):
         """
         Update fees information from the exchange
         """
+        self.logger().info("[WEEX_DEBUG] _update_trading_fees() called")
         self._trade_fee_schema = weex_utils.DEFAULT_FEES
+        self.logger().info("[WEEX_DEBUG] _update_trading_fees() completed")
 
     async def _user_stream_event_listener(self):
         async for event_message in self._iter_user_event_queue():
@@ -620,13 +624,16 @@ class WeexExchange(ExchangePyBase):
         return order_update
 
     async def _update_balances(self):
+        self.logger().info("[WEEX_DEBUG] _update_balances() called")
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
+        self.logger().info(f"[WEEX_DEBUG] Fetching account info from {CONSTANTS.ACCOUNTS_PATH_URL}")
         account_info = await self._api_get(
             path_url=CONSTANTS.ACCOUNTS_PATH_URL,
             is_auth_required=True,
             limit_id=CONSTANTS.ACCOUNTS_LIMIT_ID)
+        self.logger().info(f"[WEEX_DEBUG] Account info received: {len(account_info.get('data', []))} entries")
 
         balances = account_info["data"]
         for balance_entry in balances:
@@ -637,10 +644,14 @@ class WeexExchange(ExchangePyBase):
             self._account_balances[asset_name] = total_balance
             remote_asset_names.add(asset_name)
 
+        self.logger().info(f"[WEEX_DEBUG] Updated {len(remote_asset_names)} balances: {list(remote_asset_names)}")
+
         asset_names_to_remove = local_asset_names.difference(remote_asset_names)
         for asset_name in asset_names_to_remove:
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
+
+        self.logger().info("[WEEX_DEBUG] _update_balances() completed")
 
     KNOWN_QUOTES = ("USDT", "USDC", "BTC", "ETH", "EUR", "TRY", "BRL")
 
@@ -656,12 +667,15 @@ class WeexExchange(ExchangePyBase):
         raise ValueError(f"Cannot infer quote from WEEX symbol: {symbol}")
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
+        self.logger().info("[WEEX_DEBUG] _initialize_trading_pair_symbols_from_exchange_info() called")
         mapping = bidict()
         for item in exchange_info.get("data", []):
             symbol = item["symbol"]
             hb_pair = combine_to_hb_trading_pair(base=item["baseCoin"], quote=item["quoteCoin"])
             mapping[symbol] = hb_pair
+        self.logger().info(f"[WEEX_DEBUG] Created {len(mapping)} trading pair mappings")
         self._set_trading_pair_symbol_map(mapping)
+        self.logger().info("[WEEX_DEBUG] Trading pair symbol map set")
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         params = {
