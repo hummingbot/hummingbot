@@ -26,7 +26,7 @@ class WeexVccPMMConfig(BaseClientModel):
 
     # Exchange Configuration
     exchange: str = Field(default="weex", description="Exchange name")
-    trading_pair: str = Field(default="VCCUSDT-SPBL", description="Trading pair")
+    trading_pair: str = Field(default="VCC-USDT", description="Trading pair")
 
     # Order Configuration
     order_amount: Decimal = Field(default=Decimal("12500"), description="Order amount in VCC per level (~$1.88 at $0.00015)")
@@ -227,8 +227,8 @@ class WeexVccPMM(ScriptStrategyBase):
         lines.append(f"  Reference Price: {ref_price:.8f} USDT")
 
         # Balance info
-        base_asset = self.config.trading_pair.split("-")[0].replace("USDT", "")
-        quote_asset = "USDT"
+        base_asset = self.config.trading_pair.split("-")[0]
+        quote_asset = self.config.trading_pair.split("-")[1]
         base_balance = self.connectors[self.config.exchange].get_available_balance(base_asset)
         quote_balance = self.connectors[self.config.exchange].get_available_balance(quote_asset)
 

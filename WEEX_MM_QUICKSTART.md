@@ -174,6 +174,108 @@ exit
 - Market may be illiquid
 - Adjust spreads in config
 
+## Volume Generation Strategy
+
+### When to Use Volume Generator vs Market Maker
+
+**Use Market Maker (`weex_vcc_pmm`)** when:
+- You want to profit from bid-ask spreads
+- Organic market activity provides fills
+- You're providing liquidity and waiting for counterparties
+
+**Use Volume Generator (`weex_volume_generator`)** when:
+- You need to guarantee minimum daily volume (e.g., 10k USDT)
+- Volume requirements must be met regardless of market activity
+- You need predictable, consistent trading volume
+
+### Running the Volume Generator
+
+The volume generator actively trades to ensure minimum daily volume targets are met.
+
+#### Step 1: Import the Strategy
+```
+import weex_volume_generator
+```
+
+#### Step 2: Configure Volume Target
+Edit `conf/scripts/weex_volume_generator.yml`:
+```yml
+daily_volume_target_usdt: 10000  # $10k per day
+trade_interval_seconds: 300      # Trade every 5 minutes (288 trades/day)
+order_size_usdt: 35             # ~$35 per trade
+```
+
+#### Step 3: Start
+```
+start
+```
+
+#### How It Works
+1. **Automated Trading**: Places trades every 5 minutes (configurable)
+2. **Volume Target**: Ensures 10k USDT volume per day minimum
+3. **Inventory Neutral**: Alternates BUY/SELL to maintain balanced inventory
+4. **Spread Crossing**: Orders cross the spread to guarantee fills
+5. **Daily Reset**: Volume counter resets at midnight
+
+#### Balance Requirements
+For 10k daily volume target:
+- **USDT**: ~$200-300 (for buy orders)
+- **VCC**: ~1,000,000 VCC (~$150-200 at $0.00015)
+- Recommended: 2-3x minimum for safety buffer
+
+#### Expected Costs
+- Trading fees: ~0.2-0.4% of volume (~$20-40 per $10k)
+- Spread crossing: ~0.2% (~$20 per $10k)
+- **Total**: ~$40-60 per $10k volume
+
+#### Monitoring
+```
+status  # Shows volume progress and inventory
+```
+
+Output shows:
+- Today's volume vs target
+- Trades completed
+- Estimated time to target
+- Inventory deviation
+- Next trade timing
+
+#### Key Configuration Options
+
+**Trading Frequency**:
+```yml
+trade_interval_seconds: 180  # 480 trades/day (~$21/trade)
+trade_interval_seconds: 300  # 288 trades/day (~$35/trade) - Default
+trade_interval_seconds: 600  # 144 trades/day (~$70/trade)
+```
+
+**Order Type**:
+```yml
+order_type: limit_cross_spread  # Recommended - crosses spread with limit orders
+order_type: market              # Alternative - uses market orders
+```
+
+**Inventory Management**:
+```yml
+rebalance_threshold: 150000     # Auto-rebalance when inventory deviates by 150k VCC
+```
+
+### Running Both Strategies Simultaneously
+
+You can run volume generator AND market maker together:
+
+**Option 1: Same Instance (Same Trading Pair)**
+⚠️ Not recommended - strategies may conflict
+
+**Option 2: Different Instances (Recommended)**
+- Instance 1: Volume generator on VCC-USDT
+- Instance 2: Market maker on VCC-USDT or other pairs
+- Each maintains its own inventory and tracks separately
+
+**Option 3: Different Trading Pairs**
+- Instance 1: Volume generator on VCC-USDT
+- Same instance: Market maker on WXT-USDT, etc.
+
 ## Advanced: Multiple Trading Pairs
 
 To market make on multiple pairs, create copies:

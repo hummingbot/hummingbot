@@ -1,10 +1,11 @@
 import asyncio
 import json
-from typing import TYPE_CHECKING, List, Optional, Any
+from typing import TYPE_CHECKING, Any, List, Optional
 
 from hummingbot.connector.exchange.weex import weex_constants as CONSTANTS, weex_web_utils as web_utils
 from hummingbot.connector.exchange.weex.weex_auth import WeexAuth
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -52,6 +53,7 @@ class WeexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         await ws.connect(
             ws_url=url,
             ping_timeout=self.HEARTBEAT_TIME_INTERVAL,
+            ws_headers=self._auth.build_ws_headers(),
         )
         self.logger().info("Connected to WEEX private user stream")
         return ws
@@ -64,11 +66,11 @@ class WeexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         subs = [
             {"event": "subscribe", "channel": "account"},
             {"event": "subscribe", "channel": "orders"},
-            {"event": "subscribe", "channel": "fills"},
+            {"event": "subscribe", "channel": "fill"},
         ]
 
         for payload in subs:
-            await websocket_assistant.send(json.dumps(payload))
+            await websocket_assistant.send(WSJSONRequest(payload=payload))
         self.logger().info("Subscribed to WEEX private channels: account, orders, fills")
 
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant, queue: asyncio.Queue):
@@ -98,7 +100,7 @@ class WeexAPIUserStreamDataSource(UserStreamTrackerDataSource):
             # WEEX ping/pong handling
             if isinstance(data, dict) and data.get("event") == "ping":
                 pong = {"event": "pong", "time": data.get("time")}
-                await websocket_assistant.send(json.dumps(pong))
+                await websocket_assistant.send(WSJSONRequest(payload=pong))
                 continue
 
             # Forward everything else to the user stream queue

@@ -5,7 +5,7 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
 class WeexStatus(ScriptStrategyBase):
-    markets = {"weex": {"VCCUSDT-SPBL"}}
+    markets = {"weex": {"VCC-USDT"}}
 
     def on_tick(self):
         weex = self.connectors["weex"]
@@ -14,7 +14,7 @@ class WeexStatus(ScriptStrategyBase):
 
         if weex.ready:
             try:
-                mid_price = weex.get_mid_price("VCCUSDT-SPBL")
+                mid_price = weex.get_mid_price("VCC-USDT")
                 self.logger().info(f"✓ VCC-USDT Mid Price: {mid_price}")
             except Exception as e:
                 self.logger().error(f"✗ Error getting price: {e}")

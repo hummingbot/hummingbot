@@ -6,13 +6,12 @@ import base64
 import hashlib
 import hmac
 import json
-import time
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
-from urllib.parse import urlencode
+from typing import Any, Dict, Optional, Union
+from urllib.parse import urlencode, urlsplit
 
-from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.connector.exchange.weex import weex_constants as CONSTANTS
+from hummingbot.core.web_assistant.auth import AuthBase
 
 
 @dataclass
@@ -47,7 +46,7 @@ class WeexAuth(AuthBase):
         method: str,
         request_path: str,
         params: Optional[Dict[str, Any]] = None,
-        body: Optional[Dict[str, Any]] = None,
+        body: Optional[Union[Dict[str, Any], list, str]] = None,
     ) -> str:
         # Handle RESTMethod enum - get the value and uppercase it
         method_str = method.value.upper() if hasattr(method, 'value') else str(method).upper()
@@ -58,8 +57,11 @@ class WeexAuth(AuthBase):
 
         body_str = ""
         if body is not None:
-            # Stable JSON; do not pretty-print
-            body_str = json.dumps(body, separators=(",", ":"), ensure_ascii=False)
+            if isinstance(body, str):
+                body_str = body
+            else:
+                # Stable JSON; do not pretty-print
+                body_str = json.dumps(body, separators=(",", ":"), ensure_ascii=False)
 
         payload = f"{timestamp_ms}{method_str}{request_path}{query}{body_str}"
         return self._sign(payload)
@@ -68,6 +70,21 @@ class WeexAuth(AuthBase):
         payload = f"{timestamp_ms}{CONSTANTS.WS_PRIVATE_REQUEST_PATH}"
         return self._sign(payload)
 
+    def build_ws_headers(self) -> Dict[str, str]:
+        timestamp_ms = self._now_ms()
+        signature = self.generate_ws_signature(timestamp_ms)
+
+        headers = {
+            "ACCESS-KEY": self.api_key,
+            "ACCESS-TIMESTAMP": timestamp_ms,
+            "ACCESS-SIGN": signature,
+            "Content-Type": "application/json",
+            "User-Agent": "hummingbot",
+            "locale": "en-US",
+        }
+        headers["ACCESS-PASSPHRASE"] = self.passphrase or ""
+        return headers
+
     async def rest_authenticate(self, request):
         """
         Adds ACCESS-* headers for private REST endpoints.
@@ -75,47 +92,38 @@ class WeexAuth(AuthBase):
         """
         timestamp_ms = self._now_ms()
 
-        # Extract path and query from request.url
+        # Extract path from request.url and use request.params for signature
         url = str(request.url)
         base = CONSTANTS.REST_URLS[CONSTANTS.DEFAULT_DOMAIN]
-        if not url.startswith(base):
-            # if somehow a different base is used, fall back to path parsing
-            path_and_query = url
+        if url.startswith(base):
+            request_path = url[len(base):]
         else:
-            path_and_query = url[len(base):]
+            request_path = urlsplit(url).path
 
-        if "?" in path_and_query:
-            request_path, query_str = path_and_query.split("?", 1)
-            params = dict([kv.split("=", 1) for kv in query_str.split("&") if "=" in kv])
-        else:
-            request_path = path_and_query
-            params = None
+        params = request.params or None
 
         body = None
         if request.data is not None:
-            # request.data may already be a dict, or raw JSON string. Normalize to dict if possible.
+            # request.data can be raw JSON string or already structured
             if isinstance(request.data, (dict, list)):
                 body = request.data
             else:
-                try:
-                    body = json.loads(request.data)
-                except Exception:
-                    body = None
+                body = request.data
 
         signature = self.generate_rest_signature(
             timestamp_ms=timestamp_ms,
             method=request.method,
             request_path=request_path,
             params=params,
-            body=body if isinstance(body, dict) else None,
+            body=body,
         )
-
 
         headers = {
             "ACCESS-KEY": self.api_key,
             "ACCESS-TIMESTAMP": timestamp_ms,
             "ACCESS-SIGN": signature,
             "Content-Type": "application/json",
+            "locale": "en-US",
         }
         if self.passphrase:
             headers["ACCESS-PASSPHRASE"] = self.passphrase
@@ -144,8 +152,7 @@ class WeexAuth(AuthBase):
         }
         if self.passphrase:
             headers["ACCESS-PASSPHRASE"] = self.passphrase
-        # headers = request.headers or {}
-        # headers.update({
+            headers["ACCESS-PASSPHRASE"] = self.passphrase or ""
         #     "ACCESS-KEY": self.api_key,
         #     "ACCESS-PASSPHRASE": self.passphrase,
         #     "ACCESS-TIMESTAMP": timestamp_ms,

@@ -5,23 +5,18 @@ from typing import Any, Dict, List, Optional, Tuple
 from bidict import bidict
 
 from hummingbot.connector.constants import s_decimal_NaN
-from hummingbot.connector.exchange.weex import (
-    weex_constants as CONSTANTS,
-    weex_utils,
-    weex_web_utils as web_utils,
-)
+from hummingbot.connector.exchange.weex import weex_constants as CONSTANTS, weex_utils, weex_web_utils as web_utils
 from hummingbot.connector.exchange.weex.weex_api_order_book_data_source import WeexAPIOrderBookDataSource
 from hummingbot.connector.exchange.weex.weex_api_user_stream_data_source import WeexAPIUserStreamDataSource
 from hummingbot.connector.exchange.weex.weex_auth import WeexAuth
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import TradeFillOrderDetails, combine_to_hb_trading_pair
+from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
@@ -50,6 +45,8 @@ class WeexExchange(ExchangePyBase):
         self._trading_pairs = trading_pairs
         self._last_trades_poll_weex_timestamp = 1.0
         super().__init__(balance_asset_limit, rate_limits_share_pct)
+        # DEBUG: Log initialization
+        self.logger().info(f"[WEEX_DEBUG] WeexExchange.__init__() completed. trading_pairs={trading_pairs}, trading_required={trading_required}")
 
     @staticmethod
     def weex_order_type(order_type: OrderType) -> str:
@@ -102,7 +99,6 @@ class WeexExchange(ExchangePyBase):
     def check_network_request_path(self):
         return CONSTANTS.TRADING_PAIRS_PATH_URL
 
-
     @property
     def trading_pairs(self):
         return self._trading_pairs
@@ -119,28 +115,24 @@ class WeexExchange(ExchangePyBase):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
     async def get_all_pairs_prices(self) -> List[Dict[str, str]]:
-        pass
-    #     pairs_prices = await self._api_get(path_url=CONSTANTS.TICKER_BOOK_PATH_URL)
-    #     return pairs_prices
+        pairs_prices = await self._api_get(path_url=CONSTANTS.TICKERS_PATH_URL)
+        return pairs_prices.get("data", []) if isinstance(pairs_prices, dict) else pairs_prices
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
-        pass
-    #     error_description = str(request_exception)
-    #     is_time_synchronizer_related = ("-1021" in error_description
-    #                                     and "Timestamp for this request" in error_description)
-    #     return is_time_synchronizer_related
+        error_description = str(request_exception).lower()
+        return (
+            "timestamp" in error_description
+            or "access-timestamp" in error_description
+            or "time" in error_description and "invalid" in error_description
+        )
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
-        pass
-    #     return str(CONSTANTS.ORDER_NOT_EXIST_ERROR_CODE) in str(
-    #         status_update_exception
-    #     ) and CONSTANTS.ORDER_NOT_EXIST_MESSAGE in str(status_update_exception)
+        msg = str(status_update_exception).lower()
+        return "order not found" in msg or "order does not exist" in msg or "order not exist" in msg
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
-        pass
-    #     return str(CONSTANTS.UNKNOWN_ORDER_ERROR_CODE) in str(
-    #         cancelation_exception
-    #     ) and CONSTANTS.UNKNOWN_ORDER_MESSAGE in str(cancelation_exception)
+        msg = str(cancelation_exception).lower()
+        return "order not found" in msg or "order does not exist" in msg or "order not exist" in msg
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
@@ -148,7 +140,6 @@ class WeexExchange(ExchangePyBase):
             domain=self._domain,   # harmless if absorbed
             auth=self._auth
         )
-
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         return WeexAPIOrderBookDataSource(
@@ -187,19 +178,21 @@ class WeexExchange(ExchangePyBase):
                            **kwargs) -> Tuple[str, float]:
         order_result = None
         amount_str = f"{amount:f}"
-        type_str = WeexExchange.weex_order_type(order_type)
         side_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        api_params = {"symbol": symbol,
-                      "side": side_str,
-                      "quantity": amount_str,
-                      "type": type_str,
-                      "newClientOrderId": order_id}
-        if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
-            price_str = f"{price:f}"
-            api_params["price"] = price_str
-        if order_type == OrderType.LIMIT:
-            api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_GTC
+        order_type_str = "limit" if order_type in (OrderType.LIMIT, OrderType.LIMIT_MAKER) else "market"
+        api_params = {
+            "symbol": symbol,
+            "side": side_str,
+            "orderType": order_type_str,
+            "quantity": amount_str,
+            "clientOrderId": order_id,
+        }
+        if order_type in (OrderType.LIMIT, OrderType.LIMIT_MAKER):
+            api_params["price"] = f"{price:f}"
+            api_params["force"] = (
+                CONSTANTS.FORCE_POST_ONLY if order_type is OrderType.LIMIT_MAKER else CONSTANTS.FORCE_NORMAL
+            )
 
         try:
             order_result = await self._api_post(
@@ -207,8 +200,9 @@ class WeexExchange(ExchangePyBase):
                 data=api_params,
                 is_auth_required=True,
                 limit_id=CONSTANTS.CREATE_ORDER_LIMIT_ID)
-            o_id = str(order_result["orderId"])
-            transact_time = order_result["transactTime"] * 1e-3
+            order_data = order_result.get("data", {}) if isinstance(order_result, dict) else {}
+            o_id = str(order_data.get("orderId"))
+            transact_time = float(order_result.get("requestTime", self._time_synchronizer.time() * 1e3)) * 1e-3
         except IOError as e:
             error_description = str(e)
             is_server_overloaded = ("status is 503" in error_description
@@ -224,14 +218,18 @@ class WeexExchange(ExchangePyBase):
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
         api_params = {
             "symbol": symbol,
-            "origClientOrderId": order_id,
+            "clientOrderId": order_id,
         }
-        cancel_result = await self._api_delete(
+        if tracked_order.exchange_order_id is not None:
+            api_params["orderId"] = tracked_order.exchange_order_id
+        cancel_response = await self._api_post(
             path_url=CONSTANTS.CANCEL_ORDER_PATH_URL,
-            params=api_params,
+            data=api_params,
             is_auth_required=True,
             limit_id=CONSTANTS.CANCEL_ORDER_LIMIT_ID)
-        if cancel_result.get("status") == "CANCELED":
+
+        cancel_data = cancel_response.get("data", {}) if isinstance(cancel_response, dict) else {}
+        if cancel_data.get("result") is True:
             return True
         return False
 
@@ -257,8 +255,6 @@ class WeexExchange(ExchangePyBase):
 
         return rules
 
-
-
     async def _status_polling_loop_fetch_updates(self):
         await self._update_order_fills_from_trades()
         await super()._status_polling_loop_fetch_updates()
@@ -267,10 +263,108 @@ class WeexExchange(ExchangePyBase):
         """
         Update fees information from the exchange
         """
-        pass
+        self._trade_fee_schema = weex_utils.DEFAULT_FEES
 
     async def _user_stream_event_listener(self):
-        pass
+        async for event_message in self._iter_user_event_queue():
+            try:
+                if not isinstance(event_message, dict):
+                    continue
+
+                if event_message.get("event") != "payload":
+                    continue
+
+                channel = event_message.get("channel", "")
+                data = event_message.get("data")
+                if data is None:
+                    continue
+
+                payloads = data if isinstance(data, list) else [data]
+
+                if channel.startswith("account"):
+                    for balance_entry in payloads:
+                        asset_name = balance_entry.get("coinName") or balance_entry.get("coin") or balance_entry.get("currency")
+                        if asset_name is None:
+                            continue
+                        free_balance = Decimal(str(balance_entry.get("available", "0")))
+                        frozen_balance = Decimal(str(balance_entry.get("frozen", "0")))
+                        total_balance = free_balance + frozen_balance
+                        self._account_available_balances[asset_name] = free_balance
+                        self._account_balances[asset_name] = total_balance
+
+                elif channel.startswith("fill"):
+                    for fill in payloads:
+                        client_order_id = (
+                            fill.get("clientOrderId")
+                            or fill.get("clientOid")
+                            or fill.get("clientOrderID")
+                        )
+                        if client_order_id is None:
+                            continue
+
+                        tracked_order = self._order_tracker.all_fillable_orders.get(client_order_id)
+                        if tracked_order is None:
+                            continue
+
+                        fee_amount = Decimal(str(fill.get("fillFee") or fill.get("fee") or fill.get("fees") or "0"))
+                        fee_token = fill.get("feeCoin") or fill.get("quoteCoin") or fill.get("feeAsset")
+                        fee = TradeFeeBase.new_spot_fee(
+                            fee_schema=self.trade_fee_schema(),
+                            trade_type=tracked_order.trade_type,
+                            percent_token=fee_token,
+                            flat_fees=[TokenAmount(amount=fee_amount, token=fee_token)] if fee_token else [],
+                        )
+
+                        trade_update = TradeUpdate(
+                            trade_id=str(fill.get("fillId") or fill.get("tradeId") or fill.get("id")),
+                            client_order_id=client_order_id,
+                            exchange_order_id=str(fill.get("orderId")),
+                            trading_pair=tracked_order.trading_pair,
+                            fee=fee,
+                            fill_base_amount=Decimal(str(fill.get("fillQuantity") or fill.get("size") or fill.get("quantity") or "0")),
+                            fill_quote_amount=Decimal(str(fill.get("fillTotalAmount") or fill.get("value") or "0")),
+                            fill_price=Decimal(str(fill.get("fillPrice") or fill.get("price") or "0")),
+                            fill_timestamp=float(fill.get("cTime") or fill.get("time") or self.current_timestamp) * 1e-3,
+                        )
+                        self._order_tracker.process_trade_update(trade_update)
+
+                elif channel.startswith("orders"):
+                    for order_update in payloads:
+                        client_order_id = (
+                            order_update.get("clientOrderId")
+                            or order_update.get("clientOid")
+                            or order_update.get("clientOrderID")
+                        )
+                        if client_order_id is None:
+                            continue
+
+                        tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
+                        if tracked_order is None:
+                            continue
+
+                        new_state = CONSTANTS.ORDER_STATE.get(order_update.get("status", "PENDING"), OrderState.PENDING_CREATE)
+                        update_time = (
+                            order_update.get("uTime")
+                            or order_update.get("updateTime")
+                            or order_update.get("cTime")
+                            or order_update.get("time")
+                            or self.current_timestamp * 1e3
+                        )
+
+                        order_update_obj = OrderUpdate(
+                            trading_pair=tracked_order.trading_pair,
+                            update_timestamp=float(update_time) * 1e-3,
+                            new_state=new_state,
+                            client_order_id=client_order_id,
+                            exchange_order_id=str(order_update.get("orderId")),
+                        )
+                        self._order_tracker.process_order_update(order_update=order_update_obj)
+
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
+                await self._sleep(5.0)
     #     """
     #     This functions runs in background continuously processing the events received from the exchange by the user
     #     stream data source. It keeps reading events from the queue until the task is interrupted.
@@ -337,7 +431,21 @@ class WeexExchange(ExchangePyBase):
     #             await self._sleep(5.0)
 
     async def _update_order_fills_from_trades(self):
-        pass
+        if not self.in_flight_orders:
+            return
+
+        tracked_orders = list(self._order_tracker.all_fillable_orders.values())
+        if not tracked_orders:
+            return
+
+        tasks = [self._all_trade_updates_for_order(order) for order in tracked_orders]
+        results = await safe_gather(*tasks, return_exceptions=True)
+
+        for updates in results:
+            if isinstance(updates, Exception):
+                continue
+            for trade_update in updates:
+                self._order_tracker.process_trade_update(trade_update)
     #     """
     #     This is intended to be a backup measure to get filled events with trade ID for orders,
     #     in case Weex's user stream events are not working.
@@ -440,55 +548,72 @@ class WeexExchange(ExchangePyBase):
         if order.exchange_order_id is not None:
             exchange_order_id = int(order.exchange_order_id)
             trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
-            all_fills_response = await self._api_get(
+            all_fills_response = await self._api_post(
                 path_url=CONSTANTS.MY_TRADES_PATH_URL,
-                params={
+                data={
                     "symbol": trading_pair,
                     "orderId": exchange_order_id
                 },
                 is_auth_required=True,
                 limit_id=CONSTANTS.MY_TRADES_LIMIT_ID)
 
-            for trade in all_fills_response:
-                exchange_order_id = str(trade["orderId"])
+            fills_data = all_fills_response.get("data", {}) if isinstance(all_fills_response, dict) else {}
+            fills_list = fills_data.get("fillsOrderResultList", []) if isinstance(fills_data, dict) else []
+
+            for trade in fills_list:
+                exchange_order_id = str(trade.get("orderId"))
+                fee_amount = Decimal(trade.get("fees", "0"))
+                fee_token = trade.get("quoteCoin")
                 fee = TradeFeeBase.new_spot_fee(
                     fee_schema=self.trade_fee_schema(),
                     trade_type=order.trade_type,
-                    percent_token=trade["commissionAsset"],
-                    flat_fees=[TokenAmount(amount=Decimal(trade["commission"]), token=trade["commissionAsset"])]
+                    percent_token=fee_token,
+                    flat_fees=[TokenAmount(amount=fee_amount, token=fee_token)] if fee_token else []
                 )
                 trade_update = TradeUpdate(
-                    trade_id=str(trade["id"]),
+                    trade_id=str(trade.get("fillId")),
                     client_order_id=order.client_order_id,
                     exchange_order_id=exchange_order_id,
                     trading_pair=trading_pair,
                     fee=fee,
-                    fill_base_amount=Decimal(trade["qty"]),
-                    fill_quote_amount=Decimal(trade["quoteQty"]),
-                    fill_price=Decimal(trade["price"]),
-                    fill_timestamp=trade["time"] * 1e-3,
+                    fill_base_amount=Decimal(trade.get("fillQuantity", "0")),
+                    fill_quote_amount=Decimal(trade.get("fillTotalAmount", "0")),
+                    fill_price=Decimal(trade.get("fillPrice", "0")),
+                    fill_timestamp=float(trade.get("cTime", 0)) * 1e-3,
                 )
                 trade_updates.append(trade_update)
 
         return trade_updates
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
-        trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
-        updated_order_data = await self._api_get(
+        updated_order_response = await self._api_post(
             path_url=CONSTANTS.ORDER_STATUS_PATH_URL,
-            params={
-                "symbol": trading_pair,
-                "origClientOrderId": tracked_order.client_order_id},
+            data={
+                "clientOrderId": tracked_order.client_order_id
+            },
             is_auth_required=True,
             limit_id=CONSTANTS.ORDER_STATUS_LIMIT_ID)
 
-        new_state = CONSTANTS.ORDER_STATE[updated_order_data["status"]]
+        data = updated_order_response.get("data") if isinstance(updated_order_response, dict) else None
+        if isinstance(data, list) and len(data) > 0:
+            updated_order_data = data[0]
+        elif isinstance(data, dict):
+            updated_order_data = data
+        else:
+            updated_order_data = {}
+
+        new_state = CONSTANTS.ORDER_STATE[updated_order_data.get("status", "PENDING")]
+        update_time = (
+            updated_order_data.get("uTime")
+            or updated_order_data.get("updateTime")
+            or updated_order_response.get("requestTime", 0)
+        )
 
         order_update = OrderUpdate(
             client_order_id=tracked_order.client_order_id,
-            exchange_order_id=str(updated_order_data["orderId"]),
+            exchange_order_id=str(updated_order_data.get("orderId")),
             trading_pair=tracked_order.trading_pair,
-            update_timestamp=updated_order_data["updateTime"] * 1e-3,
+            update_timestamp=float(update_time) * 1e-3,
             new_state=new_state,
         )
 
@@ -519,16 +644,16 @@ class WeexExchange(ExchangePyBase):
 
     KNOWN_QUOTES = ("USDT", "USDC", "BTC", "ETH", "EUR", "TRY", "BRL")
 
+    @staticmethod
     def weex_symbol_to_hb_pair(symbol: str) -> str:
         # BTCUSDT_SPBL -> BTCUSDT
         core = symbol[:-5]  # drop "_SPBL"
-        for q in KNOWN_QUOTES:
+        for q in WeexExchange.KNOWN_QUOTES:
             if core.endswith(q) and len(core) > len(q):
                 base = core[:-len(q)]
                 quote = q
                 return f"{base}-{quote}"
         raise ValueError(f"Cannot infer quote from WEEX symbol: {symbol}")
-
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
@@ -538,9 +663,6 @@ class WeexExchange(ExchangePyBase):
             mapping[symbol] = hb_pair
         self._set_trading_pair_symbol_map(mapping)
 
-
-
-
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         params = {
             "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
@@ -548,9 +670,9 @@ class WeexExchange(ExchangePyBase):
 
         resp_json = await self._api_request(
             method=RESTMethod.GET,
-            path_url=CONS,
-            limit_id=CONSTANTS.TICKER_PRICE_CHANGE_LIMIT_IDTANTS.TICKER_PRICE_CHANGE_PATH_URL,
+            path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
+            limit_id=CONSTANTS.TICKER_PRICE_CHANGE_LIMIT_ID,
             params=params
         )
 
-        return float(resp_json["lastPrice"])
+        return float(resp_json["data"]["lastPrice"])

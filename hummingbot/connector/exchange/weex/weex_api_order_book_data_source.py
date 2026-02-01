@@ -50,7 +50,8 @@ class WeexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         params = {
             "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
-            "limit": "1000"
+            "type": "step0",
+            "limit": "15"
         }
 
         rest_assistant = await self._api_factory.get_rest_assistant()
@@ -69,28 +70,18 @@ class WeexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :param ws: the websocket assistant used to connect to the exchange
         """
         try:
-            trade_params = []
-            depth_params = []
             for trading_pair in self._trading_pairs:
                 symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                trade_params.append(f"{symbol.lower()}@trade")
-                depth_params.append(f"{symbol.lower()}@depth@100ms")
-            payload = {
-                "method": "SUBSCRIBE",
-                "params": trade_params,
-                "id": 1
-            }
-            subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=payload)
-
-            payload = {
-                "method": "SUBSCRIBE",
-                "params": depth_params,
-                "id": 2
-            }
-            subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=payload)
-
-            await ws.send(subscribe_trade_request)
-            await ws.send(subscribe_orderbook_request)
+                trade_payload = {
+                    "event": "subscribe",
+                    "channel": f"trades.{symbol}"
+                }
+                depth_payload = {
+                    "event": "subscribe",
+                    "channel": f"depth.{symbol}.15"
+                }
+                await ws.send(WSJSONRequest(payload=trade_payload))
+                await ws.send(WSJSONRequest(payload=depth_payload))
 
             self.logger().info("Subscribed to public order book and trade channels...")
         except asyncio.CancelledError:
@@ -105,7 +96,8 @@ class WeexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _connected_websocket_assistant(self) -> WSAssistant:
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
         await ws.connect(ws_url=web_utils.ws_public_url(self._domain),
-                         ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+                         ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL,
+                         ws_headers={"User-Agent": "hummingbot"})
         return ws
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
@@ -119,25 +111,45 @@ class WeexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return snapshot_msg
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        if "result" not in raw_message:
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["s"])
+        if raw_message.get("event") != "payload" or "data" not in raw_message:
+            return
+
+        channel = raw_message.get("channel", "")
+        if not channel.startswith("trades."):
+            return
+
+        symbol = channel.split(".", 1)[1]
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=symbol)
+        for trade in raw_message.get("data", []):
             trade_message = WeexOrderBook.trade_message_from_exchange(
-                raw_message, {"trading_pair": trading_pair})
+                trade, {"trading_pair": trading_pair})
             message_queue.put_nowait(trade_message)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        if "result" not in raw_message:
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["s"])
+        if raw_message.get("event") != "payload" or "data" not in raw_message:
+            return
+
+        channel = raw_message.get("channel", "")
+        if not channel.startswith("depth."):
+            return
+
+        for depth_update in raw_message.get("data", []):
+            symbol = depth_update.get("symbol")
+            if symbol is None:
+                continue
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=symbol)
             order_book_message: OrderBookMessage = WeexOrderBook.diff_message_from_exchange(
-                raw_message, time.time(), {"trading_pair": trading_pair})
+                depth_update, time.time(), {"trading_pair": trading_pair})
             message_queue.put_nowait(order_book_message)
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
         channel = ""
-        if "result" not in event_message:
-            event_type = event_message.get("e")
-            channel = (self._diff_messages_queue_key if event_type == CONSTANTS.DIFF_EVENT_TYPE
-                       else self._trade_messages_queue_key)
+        if event_message.get("event") == "payload":
+            ws_channel = event_message.get("channel", "")
+            if ws_channel.startswith("depth."):
+                channel = self._diff_messages_queue_key
+            elif ws_channel.startswith("trades."):
+                channel = self._trade_messages_queue_key
         return channel
 
     async def _subscribe_from_trading_pair(self, ws: WSAssistant, trading_pair: str):
@@ -146,23 +158,21 @@ class WeexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         try:
             symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-            
+
             # Subscribe to trades
             trade_payload = {
-                "method": "SUBSCRIBE",
-                "params": [f"{symbol.lower()}@trade"],
-                "id": int(time.time() * 1000)
+                "event": "subscribe",
+                "channel": f"trades.{symbol}"
             }
             await ws.send(WSJSONRequest(payload=trade_payload))
-            
+
             # Subscribe to order book depth
             depth_payload = {
-                "method": "SUBSCRIBE",
-                "params": [f"{symbol.lower()}@depth@100ms"],
-                "id": int(time.time() * 1000) + 1
+                "event": "subscribe",
+                "channel": f"depth.{symbol}.15"
             }
             await ws.send(WSJSONRequest(payload=depth_payload))
-            
+
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -191,21 +201,17 @@ class WeexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
             # Subscribe to trade stream
             trade_payload = {
-                "method": "SUBSCRIBE",
-                "params": [f"{symbol.lower()}@trade"],
-                "id": int(time.time() * 1000)
+                "event": "subscribe",
+                "channel": f"trades.{symbol}"
             }
-            trade_request: WSJSONRequest = WSJSONRequest(payload=trade_payload)
-            await self._ws_assistant.send(trade_request)
+            await self._ws_assistant.send(WSJSONRequest(payload=trade_payload))
 
             # Subscribe to depth stream
             depth_payload = {
-                "method": "SUBSCRIBE",
-                "params": [f"{symbol.lower()}@depth@100ms"],
-                "id": int(time.time() * 1000) + 1
+                "event": "subscribe",
+                "channel": f"depth.{symbol}.15"
             }
-            depth_request: WSJSONRequest = WSJSONRequest(payload=depth_payload)
-            await self._ws_assistant.send(depth_request)
+            await self._ws_assistant.send(WSJSONRequest(payload=depth_payload))
 
             # Add to trading pairs list
             self.add_trading_pair(trading_pair)
@@ -239,16 +245,16 @@ class WeexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
 
             # Unsubscribe from both trade and depth streams
-            unsubscribe_payload = {
-                "method": "UNSUBSCRIBE",
-                "params": [
-                    f"{symbol.lower()}@trade",
-                    f"{symbol.lower()}@depth@100ms"
-                ],
-                "id": int(time.time() * 1000)
+            unsubscribe_trade_payload = {
+                "event": "unsubscribe",
+                "channel": f"trades.{symbol}"
             }
-            unsubscribe_request: WSJSONRequest = WSJSONRequest(payload=unsubscribe_payload)
-            await self._ws_assistant.send(unsubscribe_request)
+            unsubscribe_depth_payload = {
+                "event": "unsubscribe",
+                "channel": f"depth.{symbol}.15"
+            }
+            await self._ws_assistant.send(WSJSONRequest(payload=unsubscribe_trade_payload))
+            await self._ws_assistant.send(WSJSONRequest(payload=unsubscribe_depth_payload))
 
             # Remove from trading pairs list
             self.remove_trading_pair(trading_pair)

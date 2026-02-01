@@ -2,10 +2,7 @@ from typing import Dict, Optional
 
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_message import (
-    OrderBookMessage,
-    OrderBookMessageType
-)
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
 
 class WeexOrderBook(OrderBook):
@@ -26,9 +23,9 @@ class WeexOrderBook(OrderBook):
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": msg["trading_pair"],
-            "update_id": msg["lastUpdateId"],
-            "bids": msg["bids"],
-            "asks": msg["asks"]
+            "update_id": int(msg["requestTime"]),
+            "bids": msg["data"]["bids"],
+            "asks": msg["data"]["asks"]
         }, timestamp=timestamp)
 
     @classmethod
@@ -45,12 +42,14 @@ class WeexOrderBook(OrderBook):
         """
         if metadata:
             msg.update(metadata)
+        bids = [[entry["price"], entry["size"]] for entry in msg.get("bids", [])]
+        asks = [[entry["price"], entry["size"]] for entry in msg.get("asks", [])]
         return OrderBookMessage(OrderBookMessageType.DIFF, {
             "trading_pair": msg["trading_pair"],
-            "first_update_id": msg["U"],
-            "update_id": msg["u"],
-            "bids": msg["b"],
-            "asks": msg["a"]
+            "first_update_id": int(msg.get("startVersion", 0)),
+            "update_id": int(msg.get("endVersion", 0)),
+            "bids": bids,
+            "asks": asks
         }, timestamp=timestamp)
 
     @classmethod
@@ -63,12 +62,12 @@ class WeexOrderBook(OrderBook):
         """
         if metadata:
             msg.update(metadata)
-        ts = msg["E"]
+        ts = int(msg["time"])
         return OrderBookMessage(OrderBookMessageType.TRADE, {
             "trading_pair": msg["trading_pair"],
-            "trade_type": float(TradeType.SELL.value) if msg["m"] else float(TradeType.BUY.value),
-            "trade_id": msg["t"],
+            "trade_type": float(TradeType.SELL.value) if msg.get("buyerMaker") else float(TradeType.BUY.value),
+            "trade_id": msg.get("tradeId", ts),
             "update_id": ts,
-            "price": msg["p"],
-            "amount": msg["q"]
+            "price": msg["price"],
+            "amount": msg["size"]
         }, timestamp=ts * 1e-3)
