@@ -93,12 +93,57 @@ class WeexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             )
             raise
 
+    async def _send_ping(self, ws: WSAssistant):
+        """Send periodic ping to keep public WebSocket connection alive"""
+        while True:
+            try:
+                await asyncio.sleep(20)  # Ping every 20s (WEEX times out at ~30s)
+                ping_payload = {"event": "ping", "time": int(time.time() * 1000)}
+                await ws.send(WSJSONRequest(payload=ping_payload))
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                self.logger().warning(f"Error sending ping on public WS: {e}")
+                break
+
     async def _connected_websocket_assistant(self) -> WSAssistant:
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
         await ws.connect(ws_url=web_utils.ws_public_url(self._domain),
                          ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL,
                          ws_headers={"User-Agent": "hummingbot"})
         return ws
+
+    async def listen_for_subscriptions(self):
+        """
+        Override to add periodic ping for WEEX public WebSocket
+        """
+        ws: Optional[WSAssistant] = None
+        ping_task = None
+        while True:
+            try:
+                ws: WSAssistant = await self._connected_websocket_assistant()
+                self._ws_assistant = ws
+                await self._subscribe_channels(ws)
+
+                # Start periodic ping to keep connection alive
+                ping_task = asyncio.create_task(self._send_ping(ws))
+
+                await self._process_websocket_messages(websocket_assistant=ws)
+            except asyncio.CancelledError:
+                raise
+            except ConnectionError as connection_exception:
+                self.logger().warning(f"The websocket connection was closed ({connection_exception})")
+            except Exception:
+                self.logger().exception(
+                    "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds...",
+                )
+                await self._sleep(1.0)
+            finally:
+                if ping_task is not None:
+                    ping_task.cancel()
+                    ping_task = None
+                self._ws_assistant = None
+                await self._on_order_stream_interruption(websocket_assistant=ws)
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
