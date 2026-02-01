@@ -308,14 +308,15 @@ class WeexExchange(ExchangePyBase):
             trading_rule = self._trading_rules[order.trading_pair]
             quantized_price = self.quantize_order_price(order.trading_pair, order.price)
             quantized_amount = self.quantize_order_amount(order.trading_pair, order.quantity)
+            order_type_enum = order.order_type()
 
             # Validate order before tracking
-            if order.order_type not in self.supported_order_types():
-                self.logger().error(f"{order.order_type} is not in the list of supported order types")
+            if order_type_enum not in self.supported_order_types():
+                self.logger().error(f"{order_type_enum} is not in the list of supported order types")
                 self._update_order_after_failure(
                     order_id=order.client_order_id,
                     trading_pair=order.trading_pair,
-                    exception=ValueError(f"{order.order_type} is not in the list of supported order types"))
+                    exception=ValueError(f"{order_type_enum} is not in the list of supported order types"))
                 continue
             elif quantized_amount < trading_rule.min_order_size:
                 self._update_order_after_failure(
@@ -335,7 +336,7 @@ class WeexExchange(ExchangePyBase):
                 order_id=order.client_order_id,
                 exchange_order_id=None,
                 trading_pair=order.trading_pair,
-                order_type=order.order_type(),
+                order_type=order_type_enum,
                 trade_type=TradeType.BUY if order.is_buy else TradeType.SELL,
                 price=quantized_price,
                 amount=quantized_amount,
