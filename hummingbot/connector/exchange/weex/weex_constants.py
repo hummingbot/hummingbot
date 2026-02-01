@@ -135,4 +135,6 @@ RATE_LIMITS = [
     RateLimit(limit_id=OPEN_ORDERS_LIMIT_ID, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=1),
     RateLimit(limit_id=FILLS_LIMIT_ID, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=1),
     RateLimit(limit_id=MY_TRADES_LIMIT_ID, limit=PRIVATE_MAX_REQUEST, time_interval=TEN_SECONDS, weight=1),
+    RateLimit(limit_id=TICKER_PRICE_CHANGE_LIMIT_ID, limit=PUBLIC_MAX_REQUEST, time_interval=TWO_SECONDS, weight=1,
+              linked_limits=[LinkedLimitWeightPair(GLOBAL_LIMIT_ID, 1)]),
 ]

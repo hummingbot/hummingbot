@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 from typing import TYPE_CHECKING, Any, List, Optional
 
 from hummingbot.connector.exchange.weex import weex_constants as CONSTANTS, weex_web_utils as web_utils
@@ -73,6 +74,19 @@ class WeexAPIUserStreamDataSource(UserStreamTrackerDataSource):
             await websocket_assistant.send(WSJSONRequest(payload=payload))
         self.logger().info("Subscribed to WEEX private channels: account, orders, fills")
 
+    async def _send_ping(self, websocket_assistant: WSAssistant):
+        """Send periodic ping to keep connection alive"""
+        while True:
+            try:
+                await asyncio.sleep(20)  # Ping every 20s (WEEX times out at ~30s)
+                ping_payload = {"event": "ping", "time": int(time.time() * 1000)}
+                await websocket_assistant.send(WSJSONRequest(payload=ping_payload))
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                self.logger().warning(f"Error sending ping: {e}")
+                break
+
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant, queue: asyncio.Queue):
         """
         Read messages from WS, respond to ping, forward user events.
@@ -111,9 +125,14 @@ class WeexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         Hummingbot calls this to start the user stream listener.
         """
         ws: Optional[WSAssistant] = None
+        ping_task = None
         try:
             ws = await self._connected_websocket_assistant()
             await self._subscribe_channels(ws)
+
+            # Start periodic ping to keep connection alive
+            ping_task = asyncio.create_task(self._send_ping(ws))
+
             await self._process_websocket_messages(ws, output)
         except asyncio.CancelledError:
             raise
@@ -121,6 +140,8 @@ class WeexAPIUserStreamDataSource(UserStreamTrackerDataSource):
             self.logger().exception("Unexpected error in WEEX user stream listener: %s", e)
             raise
         finally:
+            if ping_task is not None:
+                ping_task.cancel()
             if ws is not None:
                 await ws.disconnect()
 
