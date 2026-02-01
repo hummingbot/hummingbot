@@ -887,6 +887,7 @@ class ExchangePyBase(ExchangeBase, ABC):
         self._trading_rules.clear()
         for trading_rule in trading_rules_list:
             self._trading_rules[trading_rule.trading_pair] = trading_rule
+        self.logger().info(f"[DEBUG] _update_trading_rules completed: {len(self._trading_rules)} rules stored")
         self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
 
     async def _api_get(self, *args, **kwargs):
