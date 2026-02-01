@@ -596,7 +596,7 @@ class WeexExchange(ExchangePyBase):
 
                 channel = event_message.get("channel", "")
                 data = event_message.get("data")
-                self.logger().info(f"[WEEX_DEBUG] WebSocket payload received on channel '{channel}' with data type: {type(data)}")
+                self.logger().info(f"[WEEX_DEBUG] WebSocket payload: channel='{channel}', data={data}, full msg={event_message}")
                 if data is None:
                     continue
 
