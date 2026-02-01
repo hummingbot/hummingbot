@@ -114,6 +114,18 @@ class WeexExchange(ExchangePyBase):
     def supported_order_types(self):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
+    def _is_user_stream_initialized(self):
+        """
+        Override to handle WEEX's behavior: private WebSocket doesn't send unsolicited messages.
+        If the user stream tracker is running and we have a connected websocket, consider it initialized.
+        """
+        if not self.is_trading_required:
+            return True
+        # Check if user stream tracker task exists and is not done (still running)
+        if self._user_stream_tracker_task is not None and not self._user_stream_tracker_task.done():
+            return True
+        return False
+
     async def get_all_pairs_prices(self) -> List[Dict[str, str]]:
         pairs_prices = await self._api_get(path_url=CONSTANTS.TICKERS_PATH_URL)
         return pairs_prices.get("data", []) if isinstance(pairs_prices, dict) else pairs_prices
