@@ -302,19 +302,46 @@ class WeexExchange(ExchangePyBase):
         if len(orders_to_create) == 0:
             return
 
-        # Validate and track orders FIRST (like Injective does)
+        # Track orders first (using standard start_tracking_order)
         inflight_orders_to_create = []
         for order in orders_to_create:
-            valid_order = await self._start_tracking_and_validate_order(
-                trade_type=TradeType.BUY if order.is_buy else TradeType.SELL,
+            trading_rule = self._trading_rules[order.trading_pair]
+            quantized_price = self.quantize_order_price(order.trading_pair, order.price)
+            quantized_amount = self.quantize_order_amount(order.trading_pair, order.quantity)
+
+            # Validate order before tracking
+            if order.order_type not in self.supported_order_types():
+                self.logger().error(f"{order.order_type} is not in the list of supported order types")
+                self._update_order_after_failure(
+                    order_id=order.client_order_id,
+                    trading_pair=order.trading_pair,
+                    exception=ValueError(f"{order.order_type} is not in the list of supported order types"))
+                continue
+            elif quantized_amount < trading_rule.min_order_size:
+                self._update_order_after_failure(
+                    order_id=order.client_order_id,
+                    trading_pair=order.trading_pair,
+                    exception=ValueError(f"Order amount {order.quantity} is lower than minimum order size {trading_rule.min_order_size}"))
+                continue
+            elif quantized_price * quantized_amount < trading_rule.min_notional_size:
+                self._update_order_after_failure(
+                    order_id=order.client_order_id,
+                    trading_pair=order.trading_pair,
+                    exception=ValueError(f"Order notional {quantized_price * quantized_amount} is lower than minimum notional size {trading_rule.min_notional_size}"))
+                continue
+
+            # Start tracking the order
+            self.start_tracking_order(
                 order_id=order.client_order_id,
+                exchange_order_id=None,
                 trading_pair=order.trading_pair,
-                amount=order.quantity,
                 order_type=order.order_type(),
-                price=order.price,
+                trade_type=TradeType.BUY if order.is_buy else TradeType.SELL,
+                price=quantized_price,
+                amount=quantized_amount,
             )
-            if valid_order is not None:
-                inflight_orders_to_create.append(valid_order)
+            inflight_order = self._order_tracker.active_orders[order.client_order_id]
+            inflight_orders_to_create.append(inflight_order)
 
         if len(inflight_orders_to_create) == 0:
             return

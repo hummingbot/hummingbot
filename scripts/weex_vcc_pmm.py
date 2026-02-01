@@ -257,10 +257,31 @@ class WeexVccPMM(ScriptStrategyBase):
 
     def cancel_all_orders(self):
         """
-        Cancels all active orders on the exchange.
+        Cancels all active orders on the exchange using batch cancel.
+        Reduces API weight from 8 cancels × 3 weight = 24 to 1 batch × 10 weight = 10.
         """
-        for order in self.get_active_orders(connector_name=self.config.exchange):
-            self.cancel(self.config.exchange, order.trading_pair, order.client_order_id)
+        active_orders = self.get_active_orders(connector_name=self.config.exchange)
+        if not active_orders:
+            return
+
+        # Convert to LimitOrder objects for batch cancel
+        limit_orders = []
+        for order in active_orders:
+            limit_order = LimitOrder(
+                client_order_id=order.client_order_id,
+                trading_pair=order.trading_pair,
+                is_buy=order.is_buy,
+                base_currency=order.trading_pair.split("-")[0],
+                quote_currency=order.trading_pair.split("-")[1],
+                price=order.price,
+                quantity=order.quantity,
+            )
+            limit_orders.append(limit_order)
+
+        # Use batch cancel
+        connector = self.connectors[self.config.exchange]
+        connector.batch_order_cancel(orders_to_cancel=limit_orders)
+        self.logger().info(f"Batch cancel initiated for {len(limit_orders)} orders")
 
     def did_fill_order(self, event: OrderFilledEvent):
         """
