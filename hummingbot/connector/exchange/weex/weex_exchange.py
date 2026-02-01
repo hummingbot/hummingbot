@@ -401,12 +401,15 @@ class WeexExchange(ExchangePyBase):
                     if client_order_id in client_order_id_to_order:
                         order = client_order_id_to_order[client_order_id]
                         exchange_order_id = str(result_item.get("orderId", ""))
-                        self._update_order_after_creation_success(
+                        # Create OrderUpdate to mark order as OPEN with exchange ID
+                        order_update = OrderUpdate(
+                            client_order_id=client_order_id,
                             exchange_order_id=exchange_order_id,
-                            order=order,
+                            trading_pair=order.trading_pair,
                             update_timestamp=self.current_timestamp,
-                            misc_updates={}
+                            new_state=OrderState.OPEN,
                         )
+                        self._order_tracker.process_order_update(order_update)
                         self.logger().info(
                             f"Batch order created successfully: {client_order_id} "
                             f"(exchange ID: {exchange_order_id})"
@@ -416,13 +419,9 @@ class WeexExchange(ExchangePyBase):
                 result_client_ids = {item.get("clientOrderId") for item in result_list}
                 for client_order_id, order in client_order_id_to_order.items():
                     if client_order_id not in result_client_ids:
-                        self._on_order_creation_failure(
+                        self._update_order_after_failure(
                             order_id=client_order_id,
                             trading_pair=order.trading_pair,
-                            amount=order.amount,
-                            trade_type=order.trade_type,
-                            order_type=order.order_type,
-                            price=order.price,
                             exception=IOError("Order not in batch result")
                         )
                         self.logger().warning(
@@ -433,13 +432,9 @@ class WeexExchange(ExchangePyBase):
                 self.logger().error(f"Batch order create failed with exception: {str(ex)}", exc_info=True)
                 # Mark all orders for this symbol as failed
                 for order in symbol_orders:
-                    self._on_order_creation_failure(
+                    self._update_order_after_failure(
                         order_id=order.client_order_id,
                         trading_pair=order.trading_pair,
-                        amount=order.amount,
-                        trade_type=order.trade_type,
-                        order_type=order.order_type,
-                        price=order.price,
                         exception=ex
                     )
 
