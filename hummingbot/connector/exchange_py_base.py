@@ -678,13 +678,15 @@ class ExchangePyBase(ExchangeBase, ABC):
         if self.is_trading_required:
             # Eagerly fetch trading rules and balances on startup before polling loops
             # This ensures status_dict reflects initialized state quickly
+            self.logger().info("[DEBUG] start_network: Beginning eager initialization")
             try:
                 await safe_gather(
                     self._update_trading_rules(),
                     self._update_balances()
                 )
+                self.logger().info("[DEBUG] start_network: Eager initialization completed")
             except Exception as e:
-                self.logger().warning(f"Error during eager initialization: {e}")
+                self.logger().warning(f"[DEBUG] Error during eager initialization: {e}")
 
             self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
             self._trading_fees_polling_task = safe_ensure_future(self._trading_fees_polling_loop())
