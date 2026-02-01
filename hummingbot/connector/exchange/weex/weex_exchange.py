@@ -590,10 +590,13 @@ class WeexExchange(ExchangePyBase):
                     continue
 
                 if event_message.get("event") != "payload":
+                    if event_message.get("event") == "subscribe":
+                        self.logger().debug(f"[WEEX_DEBUG] WebSocket subscription: {event_message.get('channel')}")
                     continue
 
                 channel = event_message.get("channel", "")
                 data = event_message.get("data")
+                self.logger().debug(f"[WEEX_DEBUG] WebSocket payload received on channel '{channel}' with data type: {type(data)}")
                 if data is None:
                     continue
 
@@ -647,17 +650,20 @@ class WeexExchange(ExchangePyBase):
                         self._order_tracker.process_trade_update(trade_update)
 
                 elif channel.startswith("orders"):
+                    self.logger().debug(f"[WEEX_DEBUG] Processing orders channel with {len(payloads)} payload(s)")
                     for order_update in payloads:
                         client_order_id = (
                             order_update.get("clientOrderId")
                             or order_update.get("clientOid")
                             or order_update.get("clientOrderID")
                         )
+                        self.logger().debug(f"[WEEX_DEBUG] Order update: clientOrderId={client_order_id}, status={order_update.get('status')}, orderId={order_update.get('orderId')}")
                         if client_order_id is None:
                             continue
 
                         tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
                         if tracked_order is None:
+                            self.logger().debug(f"[WEEX_DEBUG] Order {client_order_id} not found in all_updatable_orders. Active orders: {list(self._order_tracker.active_orders.keys())}")
                             continue
 
                         new_state = CONSTANTS.ORDER_STATE.get(order_update.get("status", "PENDING"), OrderState.PENDING_CREATE)
@@ -668,6 +674,7 @@ class WeexExchange(ExchangePyBase):
                             or order_update.get("time")
                             or self.current_timestamp * 1e3
                         )
+                        self.logger().debug(f"[WEEX_DEBUG] Updating order {client_order_id} to state {new_state}")
 
                         order_update_obj = OrderUpdate(
                             trading_pair=tracked_order.trading_pair,
