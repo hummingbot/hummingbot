@@ -2,8 +2,9 @@ import json
 from typing import Any, Dict
 
 from eth_account import Account
-from eth_account.messages import encode_structured_data
+from eth_account.messages import encode_typed_data
 from hummingbot.connector.exchange.evedex import evedex_constants as CONSTANTS
+
 
 class EvedexAuth:
     def __init__(self, private_key: str):
@@ -14,7 +15,7 @@ class EvedexAuth:
         Signs a request using EIP-712 structured data.
         """
         typed_data = self._construct_eip712_message(method, endpoint, params)
-        encoded = encode_structured_data(typed_data)
+        encoded = encode_typed_data(full_message=typed_data)
         signature = self._account.sign_message(encoded)
         return signature.signature.hex()
 
@@ -25,7 +26,7 @@ class EvedexAuth:
         # Ensure params are sorted keys for consistent stringification if needed,
         # but EVEDEX might treat 'params' as a JSON string field in the struct.
         params_str = json.dumps(params, sort_keys=True)
-        
+
         return {
             "types": {
                 "EIP712Domain": [

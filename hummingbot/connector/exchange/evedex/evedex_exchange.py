@@ -1,4 +1,3 @@
-import asyncio
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -6,15 +5,14 @@ from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativ
 from hummingbot.connector.exchange.evedex import evedex_constants as CONSTANTS
 from hummingbot.connector.exchange.evedex.evedex_auth import EvedexAuth
 from hummingbot.connector.exchange.evedex.evedex_api_order_book_data_source import EvedexAPIOrderBookDataSource
-from hummingbot.connector.exchange.evedex.evedex_user_stream_tracker import EvedexUserStreamTracker
 from hummingbot.connector.exchange.evedex.evedex_api_user_stream_data_source import EvedexAPIUserStreamDataSource
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, PositionMode, PositionAction, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, OrderState
+from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
-from hummingbot.core.utils.async_utils import safe_ensure_future
+
 
 class EvedexExchange(PerpetualDerivativePyBase):
     def __init__(self,
@@ -100,7 +98,7 @@ class EvedexExchange(PerpetualDerivativePyBase):
             api_factory=self._web_assistants_factory,
             domain=self._domain
         )
-    
+
     def _get_fee(self,
                  base_currency: str,
                  quote_currency: str,
@@ -124,7 +122,7 @@ class EvedexExchange(PerpetualDerivativePyBase):
         position_action: PositionAction = PositionAction.NIL,
         **kwargs,
     ) -> Tuple[str, float]:
-        
+
         side = "BUY" if trade_type == TradeType.BUY else "SELL"
         api_params = {
             "instrument": trading_pair,
@@ -142,7 +140,7 @@ class EvedexExchange(PerpetualDerivativePyBase):
         # Assuming rest_assistant uses auth to sign headers or payload.
         # But for EIP-712 we likely need to sign payload and send signature in body or header.
         # Our EvedexAuth.sign_request() returns a signature.
-        
+
         # Here we manually sign for now
         signature = self._auth.sign_request(method="POST", endpoint=CONSTANTS.ORDER_PATH_URL, params=api_params)
         api_params["signature"] = signature
@@ -156,10 +154,10 @@ class EvedexExchange(PerpetualDerivativePyBase):
             throttler_limit_id=CONSTANTS.ORDER_PATH_URL,
         )
         data = await response.json()
-        
+
         # Evedex usually returns the order object
         exchange_order_id = str(data.get("id"))
-        
+
         return exchange_order_id, self.current_timestamp
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
@@ -190,7 +188,7 @@ class EvedexExchange(PerpetualDerivativePyBase):
             min_size = Decimal(instrument.get("minQuantity", "0.001"))
             step_size = Decimal(instrument.get("quantityIncrement", "0.001"))
             tick_size = Decimal(instrument.get("priceIncrement", "0.01"))
-            
+
             rules.append(
                 TradingRule(
                     trading_pair=name,
@@ -211,7 +209,7 @@ class EvedexExchange(PerpetualDerivativePyBase):
         # I haven't implemented automatic token refreshing for REST in EvedexExchange yet.
         # This is a complexity.
         # For now, let's assume we can fetch balance via signed request directly if supported, OR we reuse the token logic.
-        
+
         # Simplification: Just Stub
         pass
 

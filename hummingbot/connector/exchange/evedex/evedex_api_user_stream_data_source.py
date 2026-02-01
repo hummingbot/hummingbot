@@ -1,7 +1,7 @@
 import asyncio
+import logging
 import time
-import uuid
-from typing import Optional, Dict, Any, List
+from typing import Optional
 
 from eth_account.messages import encode_defunct
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -12,7 +12,7 @@ from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.connector.exchange.evedex.evedex_auth import EvedexAuth
 from hummingbot.connector.exchange.evedex import evedex_constants as CONSTANTS
 from hummingbot.logger import HummingbotLogger
-import logging
+
 
 class EvedexAPIUserStreamDataSource(UserStreamTrackerDataSource):
     _logger: Optional[HummingbotLogger] = None
@@ -109,7 +109,7 @@ class EvedexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         uri = "https://evedex.com"
         statement = "Sign in to evedex.com"
         issued_at = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())
-        
+
         # Format matches SiweMessage (EIP-4361)
         message = f"""{domain} wants you to sign in with your Ethereum account:
 {address}
@@ -134,7 +134,7 @@ Issued At: {issued_at}"""
             "nonce": nonce,
             "signature": signature
         }
-        
+
         login_response = await rest_assistant.execute_request(
             url=f"{CONSTANTS.AUTH_URL}/auth/signin",
             method=RESTMethod.POST,
@@ -146,17 +146,17 @@ Issued At: {issued_at}"""
     async def _process_websocket_messages(self, output: asyncio.Queue):
         async for ws_response in self._ws_assistant.iter_messages():
             data = ws_response.data
-            
+
             if data == {}:
                 await self._ws_assistant.send(WSRequest(payload={}))
                 continue
 
             if "push" in data:
                 push = data["push"]
-                channel = push.get("channel", "")
+                # channel = push.get("channel", "")  # Unused variable
                 pub = push.get("pub", {})
                 content = pub.get("data", {})
-                
+
                 output.put_nowait(content)
 
     def _get_next_message_id(self) -> int:
