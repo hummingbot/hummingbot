@@ -44,3 +44,6 @@ RATE_LIMITS = [
 ]
 
 WS_PING_TIMEOUT = 20.0
+
+# Centrifuge channel prefix (from SDK params.ts)
+CENTRIFUGE_PREFIX = "futures-perp"

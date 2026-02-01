@@ -100,11 +100,12 @@ class EvedexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 # Subscribe to channels
                 for trading_pair in self._trading_pairs:
                     # Using trading pair as symbol directly for now
+                    # Channel format: {prefix}:{channel_type}:{instrument}
                     subscribe_payload = {
                         "id": self._get_next_message_id(),
                         "method": "subscribe",
                         "params": {
-                            "channel": f"order:book:{trading_pair}"
+                            "channel": f"{CONSTANTS.CENTRIFUGE_PREFIX}:order_book:{trading_pair}"
                         }
                     }
                     await self._ws_assistant.send(WSRequest(payload=subscribe_payload))
@@ -113,7 +114,7 @@ class EvedexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         "id": self._get_next_message_id(),
                         "method": "subscribe",
                         "params": {
-                            "channel": f"trades:{trading_pair}"
+                            "channel": f"{CONSTANTS.CENTRIFUGE_PREFIX}:trades:{trading_pair}"
                         }
                     }
                     await self._ws_assistant.send(WSRequest(payload=trades_payload))
@@ -145,12 +146,14 @@ class EvedexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 pub = push.get("pub", {})
                 content = pub.get("data", {})
 
-                if channel.startswith("order:book:"):
+                # Channel format: {prefix}:order_book:{instrument} or {prefix}:trades:{instrument}
+                if ":order_book:" in channel:
                     self._process_order_book_update(channel, content)
-                elif channel.startswith("trades:"):
+                elif ":trades:" in channel:
                     self._process_trades_update(channel, content)
 
     def _process_order_book_update(self, channel: str, content: Dict[str, Any]):
+        # Channel format: {prefix}:order_book:{instrument}
         trading_pair = channel.split(":")[-1]
         # Content format: { "bids": [...], "asks": [...], "u": 12345 }
         # "u" is update ID / sequence
@@ -168,6 +171,7 @@ class EvedexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._message_queue.put_nowait(order_book_message)
 
     def _process_trades_update(self, channel: str, content: Dict[str, Any]):
+        # Channel format: {prefix}:trades:{instrument}
         trading_pair = channel.split(":")[-1]
         # content might be a list of trades or single trade
         # { "price": "...", "amount": "...", "side": "...", "id": ... }
