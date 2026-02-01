@@ -270,25 +270,24 @@ class WeexMonitor(ScriptStrategyBase):
         self.logger().info("-" * 70)
 
         try:
-            trading_pair = self.config.trading_pair
-            weex_symbol = to_weex_symbol(trading_pair)
+            trading_pair = self.config.trading_pair  # VCC-USDT (Hummingbot format)
 
-            # Get current price
-            mid_price = weex.get_mid_price(weex_symbol)
+            # Get current price (use Hummingbot format)
+            mid_price = weex.get_mid_price(trading_pair)
 
             if mid_price:
                 self.logger().info(f"  {trading_pair} Mid Price: ${mid_price:.6f}")
 
-            # Get trading rules
-            trading_rule = weex.trading_rules.get(weex_symbol)
+            # Get trading rules (use Hummingbot format)
+            trading_rule = weex.trading_rules.get(trading_pair)
             if trading_rule:
                 self.logger().info(f"  Min Order Size:     {trading_rule.min_order_size:.2f} VCC")
                 self.logger().info(f"  Max Order Size:     {trading_rule.max_order_size:.2f} VCC")
                 self.logger().info(f"  Min Notional:       ${trading_rule.min_notional_size:.2f}")
 
-            # Get order book info if available
+            # Get order book info if available (use Hummingbot format)
             try:
-                order_book = weex.get_order_book(weex_symbol)
+                order_book = weex.get_order_book(trading_pair)
                 if order_book:
                     self.logger().info(f"  Best Bid:           ${order_book.get_price(False):.6f}")
                     self.logger().info(f"  Best Ask:           ${order_book.get_price(True):.6f}")
