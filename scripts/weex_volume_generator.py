@@ -1,3 +1,4 @@
+import json
 import os
 from datetime import datetime
 from decimal import Decimal
@@ -9,7 +10,7 @@ from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PriceType, TradeType
 from hummingbot.core.data_type.order_candidate import OrderCandidate
-from hummingbot.core.event.events import BuyOrderCompletedEvent, SellOrderCompletedEvent
+from hummingbot.core.event.events import BuyOrderCompletedEvent, OrderFilledEvent, SellOrderCompletedEvent
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -82,21 +83,7 @@ class WeexVolumeGenerator(ScriptStrategyBase):
     This is designed for volume requirements, not profit generation.
     """
 
-    create_timestamp = 0
     price_source = PriceType.MidPrice
-
-    # Volume tracking
-    daily_volume_usdt = Decimal("0")
-    last_reset_date = None
-    total_volume_usdt = Decimal("0")
-
-    # Inventory tracking
-    starting_base_balance = None
-    current_inventory_deviation = Decimal("0")
-
-    # Trade alternation
-    next_trade_is_buy = True
-    trades_today = 0
 
     @classmethod
     def init_markets(cls, config: WeexVolumeGeneratorConfig):
@@ -105,12 +92,37 @@ class WeexVolumeGenerator(ScriptStrategyBase):
     def __init__(self, connectors: Dict[str, ConnectorBase], config: WeexVolumeGeneratorConfig):
         super().__init__(connectors)
         self.config = config
+        # Initialize timestamps as instance variables to avoid class-level sharing
+        self.create_timestamp = 0.0
         self.last_reset_date = datetime.now().date()
+
+        # Volume tracking (instance variables)
+        self.daily_volume_usdt = Decimal("0")
+        self.total_volume_usdt = Decimal("0")
+        self.trades_today = 0
+        self._filled_order_ids = set()
+        self._order_meta = {}
+
+        # Inventory tracking (instance variables)
+        self.starting_base_balance = None
+        self.current_inventory_deviation = Decimal("0")
+
+        # Trade alternation (instance variable)
+        self.next_trade_is_buy = True
+
+        # Monitor health file path
+        self.monitor_health_file = "/tmp/weex_mm_health.json"
+        self.last_health_check = 0.0
+        self.health_check_interval = 5.0  # Check health every 5 seconds
 
     def on_tick(self):
         """
         Called every tick. Places trades at configured intervals to meet volume targets.
         """
+        # Check monitor health status
+        if not self._check_monitor_health():
+            return  # Skip this tick if monitor signals pause
+
         # Reset daily counters at midnight
         self._check_daily_reset()
 
@@ -130,7 +142,27 @@ class WeexVolumeGenerator(ScriptStrategyBase):
             if self.ready_to_trade:
                 order = self._create_volume_order(trade_side)
                 if order:
-                    self.place_orders([order])
+                    if trade_side == TradeType.BUY:
+                        order_id = self.buy(
+                            connector_name=self.config.exchange,
+                            trading_pair=self.config.trading_pair,
+                            amount=order.amount,
+                            order_type=order.order_type,
+                            price=order.price
+                        )
+                    else:
+                        order_id = self.sell(
+                            connector_name=self.config.exchange,
+                            trading_pair=self.config.trading_pair,
+                            amount=order.amount,
+                            order_type=order.order_type,
+                            price=order.price
+                        )
+                    if order_id:
+                        self._order_meta[order_id] = {
+                            "amount": order.amount,
+                            "price": order.price,
+                        }
                     self.trades_today += 1
                     self.logger().info(
                         f"Placed volume generation order #{self.trades_today}: "
@@ -249,6 +281,34 @@ class WeexVolumeGenerator(ScriptStrategyBase):
         # For now, just check if price is positive and not zero
         return current_price > 0
 
+    def _check_monitor_health(self) -> bool:
+        """
+        Check if the external monitor is signaling to pause trading.
+        Returns True if trading should continue, False if it should pause.
+        """
+        # Only check periodically to avoid excessive file reads
+        if self.current_timestamp - self.last_health_check < self.health_check_interval:
+            return True  # Assume healthy if recently checked
+
+        self.last_health_check = self.current_timestamp
+
+        try:
+            if os.path.exists(self.monitor_health_file):
+                with open(self.monitor_health_file, 'r') as f:
+                    health_data = json.load(f)
+
+                if health_data.get("status") == "paused":
+                    self.logger().warning("[MONITOR] Trading paused by external monitor")
+                    return False
+
+                if health_data.get("status") == "error":
+                    self.logger().error(f"[MONITOR] Error state: {health_data.get('message', 'Unknown error')}")
+                    return False
+        except Exception as e:
+            self.logger().debug(f"Could not read monitor health file: {e}")
+
+        return True  # Continue trading by default
+
     def _check_sufficient_balance(self, trade_side: TradeType, amount: Decimal, price: Decimal) -> bool:
         """Check if we have enough balance for the trade"""
         connector = self.connectors[self.config.exchange]
@@ -267,26 +327,55 @@ class WeexVolumeGenerator(ScriptStrategyBase):
 
     def did_complete_buy_order(self, event: BuyOrderCompletedEvent):
         """Track volume when buy orders complete"""
+        if event.order_id in self._filled_order_ids:
+            return
         volume_usdt = event.quote_asset_amount
-        self.daily_volume_usdt += volume_usdt
-        self.total_volume_usdt += volume_usdt
+        if volume_usdt <= 0:
+            meta = self._order_meta.pop(event.order_id, None)
+            if meta is not None and meta["price"] is not None:
+                volume_usdt = meta["amount"] * meta["price"]
+        if volume_usdt > 0:
+            self.daily_volume_usdt += volume_usdt
+            self.total_volume_usdt += volume_usdt
 
-        progress = (self.daily_volume_usdt / self.config.daily_volume_target_usdt) * 100
-        self.logger().info(
-            f"Buy completed: ${float(volume_usdt):.2f} | "
-            f"Daily: ${float(self.daily_volume_usdt):.2f} / ${float(self.config.daily_volume_target_usdt):.2f} "
-            f"({float(progress):.1f}%)"
-        )
+            progress = (self.daily_volume_usdt / self.config.daily_volume_target_usdt) * 100
+            self.logger().info(
+                f"Buy completed: ${float(volume_usdt):.2f} | "
+                f"Daily: ${float(self.daily_volume_usdt):.2f} / ${float(self.config.daily_volume_target_usdt):.2f} "
+                f"({float(progress):.1f}%)"
+            )
 
     def did_complete_sell_order(self, event: SellOrderCompletedEvent):
         """Track volume when sell orders complete"""
+        if event.order_id in self._filled_order_ids:
+            return
         volume_usdt = event.quote_asset_amount
+        if volume_usdt <= 0:
+            meta = self._order_meta.pop(event.order_id, None)
+            if meta is not None and meta["price"] is not None:
+                volume_usdt = meta["amount"] * meta["price"]
+        if volume_usdt > 0:
+            self.daily_volume_usdt += volume_usdt
+            self.total_volume_usdt += volume_usdt
+
+            progress = (self.daily_volume_usdt / self.config.daily_volume_target_usdt) * 100
+            self.logger().info(
+                f"Sell completed: ${float(volume_usdt):.2f} | "
+                f"Daily: ${float(self.daily_volume_usdt):.2f} / ${float(self.config.daily_volume_target_usdt):.2f} "
+                f"({float(progress):.1f}%)"
+            )
+
+    def did_fill_order(self, event: OrderFilledEvent):
+        """Track volume from fills (more reliable than completed events on WEEX)."""
+        volume_usdt = event.amount * event.price
         self.daily_volume_usdt += volume_usdt
         self.total_volume_usdt += volume_usdt
+        self._filled_order_ids.add(event.order_id)
+        self._order_meta.pop(event.order_id, None)
 
         progress = (self.daily_volume_usdt / self.config.daily_volume_target_usdt) * 100
         self.logger().info(
-            f"Sell completed: ${float(volume_usdt):.2f} | "
+            f"{'Buy' if event.trade_type == TradeType.BUY else 'Sell'} fill: ${float(volume_usdt):.2f} | "
             f"Daily: ${float(self.daily_volume_usdt):.2f} / ${float(self.config.daily_volume_target_usdt):.2f} "
             f"({float(progress):.1f}%)"
         )

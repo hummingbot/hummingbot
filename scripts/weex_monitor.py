@@ -11,6 +11,7 @@ Usage:
     2. Run: import weex_monitor
     3. The script will display account status and exit
 """
+import json
 import os
 from datetime import datetime
 from decimal import Decimal
@@ -68,6 +69,7 @@ class WeexMonitor(ScriptStrategyBase):
         self._initial_balances = {}
         self._trade_count = 0
         self._volume_24h = Decimal("0")
+        self._health_file = "/tmp/weex_mm_health.json"
         # Bypass ready check - we'll check manually
         self.ready_to_trade = True
 
@@ -119,6 +121,7 @@ class WeexMonitor(ScriptStrategyBase):
 
         if not weex:
             self.logger().warning("⚠️  WEEX connector not found in connectors dict")
+            self._write_health_file(healthy=False, issues=["Connector not found"])
             return
 
         # Display header
@@ -127,6 +130,9 @@ class WeexMonitor(ScriptStrategyBase):
         self.logger().info("  " + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         self.logger().info(f"  Connector ready: {weex.ready}")
         self.logger().info("=" * 70)
+
+        # Collect health info
+        issues = []
 
         # 1. Check balances
         self._display_balances(weex)
@@ -139,6 +145,10 @@ class WeexMonitor(ScriptStrategyBase):
 
         # 4. Check market status
         self._display_market_status(weex)
+
+        # Write health file
+        healthy = weex.ready and len(issues) == 0
+        self._write_health_file(healthy=healthy, issues=issues)
 
         self.logger().info("=" * 70 + "\n")
 
@@ -189,33 +199,86 @@ class WeexMonitor(ScriptStrategyBase):
         self.logger().info("-" * 70)
 
         try:
-            # Get in-flight orders (open orders)
-            open_orders = list(weex.in_flight_orders.values()) if hasattr(weex, 'in_flight_orders') else []
+            import time
 
-            if not open_orders:
+            from hummingbot.core.utils.async_utils import safe_ensure_future
+
+            # Initialize cache variables
+            if not hasattr(self, '_orders_task'):
+                self._orders_task = None
+                self._orders_cache = None
+                self._orders_fetch_time = 0
+                self.logger().info("  DEBUG: Initialized cache variables")
+
+            current_time = time.time()
+            cache_age = current_time - self._orders_fetch_time
+            self.logger().info(f"  DEBUG: Cache age: {cache_age:.1f}s, has cache: {self._orders_cache is not None}, task exists: {self._orders_task is not None}")
+
+            # First, check if we have a completed task to cache
+            if self._orders_task is not None and self._orders_task.done() and self._orders_cache is None:
+                self.logger().info("  DEBUG: Caching completed task result")
+                self._orders_cache = self._orders_task.result()
+                self.logger().info(f"  DEBUG: Cached {len(self._orders_cache) if self._orders_cache else 0} orders")
+
+            # Refresh every 60 seconds or if no cache
+            if self._orders_cache is None or cache_age > 60:
+                self.logger().info(f"  DEBUG: Need refresh (cache={'None' if self._orders_cache is None else 'exists'}, age={cache_age:.1f}s)")
+                # Create new task if needed
+                if self._orders_task is None or (self._orders_task.done() and cache_age > 60):
+                    self.logger().info("  DEBUG: Creating new task")
+                    self._orders_task = safe_ensure_future(self._fetch_open_orders(weex))
+                    self._orders_fetch_time = current_time
+
+                # Check if result is ready
+                if not self._orders_task.done():
+                    self.logger().info("  Fetching orders from API...")
+                    if self._orders_cache:
+                        self.logger().info("  (Using cached data below)")
+                        orders_data = self._orders_cache
+                    else:
+                        self.logger().info("  DEBUG: No cache available, returning early")
+                        return
+                else:
+                    # Task just completed, use the result
+                    orders_data = self._orders_cache
+            else:
+                # Use cached data
+                self.logger().info(f"  DEBUG: Using cached data ({cache_age:.1f}s old)")
+                orders_data = self._orders_cache
+
+            if not orders_data or len(orders_data) == 0:
                 self.logger().info("  No open orders")
                 return
 
-            buy_orders = [o for o in open_orders if o.trade_type == TradeType.BUY]
-            sell_orders = [o for o in open_orders if o.trade_type == TradeType.SELL]
+            self.logger().info(f"  DEBUG: Processing {len(orders_data)} orders")
+            self.logger().info(f"  DEBUG: First order sample: {orders_data[0] if orders_data else 'N/A'}")
 
-            self.logger().info(f"  Total Orders: {len(open_orders)} ({len(buy_orders)} BUY, {len(sell_orders)} SELL)")
+            buy_orders = [o for o in orders_data if o.get("side") == "buy"]
+            sell_orders = [o for o in orders_data if o.get("side") == "sell"]
+
+            self.logger().info(f"  DEBUG: Buy orders found: {len(buy_orders)}, Sell orders found: {len(sell_orders)}")
+
+            self.logger().info(f"  Total Orders: {len(orders_data)} ({len(buy_orders)} BUY, {len(sell_orders)} SELL)")
             self.logger().info("")
 
             # Display buy orders
             if buy_orders:
                 self.logger().info("  BUY ORDERS:")
-                for order in sorted(buy_orders, key=lambda x: x.price, reverse=True):
+                for order in sorted(buy_orders, key=lambda x: float(x.get("price", 0)), reverse=True):
+                    price = float(order.get("price", 0))
+                    quantity = float(order.get("quantity", 0))
                     self.logger().info(
-                        f"    {order.price:.6f} × {order.quantity:.2f} = {order.price * order.quantity:.2f} USDT"
+                        f"    {price:.6f} × {quantity:.2f} = {price * quantity:.2f} USDT"
                     )
 
             # Display sell orders
             if sell_orders:
                 self.logger().info("  SELL ORDERS:")
-                for order in sorted(sell_orders, key=lambda x: x.price):
+                for order in sorted(sell_orders, key=lambda x: float(x.get("price", 0))):
+                    price = float(order.get("price", 0))
+                    quantity = float(order.get("quantity", 0))
                     self.logger().info(
-                        f"    {order.price:.6f} × {order.quantity:.2f} = {order.price * order.quantity:.2f} USDT"
+                        f"    {price:.6f} × {quantity:.2f} = {price * quantity:.2f} USDT"
                     )
 
         except Exception as e:
@@ -337,6 +400,99 @@ class WeexMonitor(ScriptStrategyBase):
             lines.append("  Mode: One-time check")
 
         return "\n".join(lines)
+
+    async def _fetch_open_orders(self, weex):
+        """Async helper to fetch open orders from API"""
+        from hummingbot.connector.exchange.weex import weex_constants as CONSTANTS
+
+        try:
+            symbol = await weex.exchange_symbol_associated_to_pair(trading_pair=self.config.trading_pair)
+            self.logger().info(f"Fetching orders for symbol: {symbol}")
+
+            response = await weex._api_post(
+                path_url=CONSTANTS.OPEN_ORDERS_PATH_URL,
+                data={"symbol": symbol, "limit": 100, "pageNo": 0},
+                is_auth_required=True,
+                limit_id=CONSTANTS.OPEN_ORDERS_LIMIT_ID
+            )
+
+            self.logger().info(f"API response: {response}")
+
+            if response:
+                orders = response.get("data", {}).get("orderInfoResultList", [])
+                self.logger().info(f"Extracted {len(orders)} orders from response")
+                return orders
+            else:
+                self.logger().warning("API response was None or empty")
+                return []
+        except Exception as e:
+            self.logger().error(f"Error fetching open orders: {e}", exc_info=True)
+            return []
+
+    def _write_health_file(self, healthy: bool, issues: list):
+        """Write health status to JSON file for monitoring dashboard"""
+        try:
+            import time
+
+            from hummingbot.core.utils.async_utils import safe_ensure_future
+
+            weex = self.connectors.get("weex")
+            open_orders = []
+            balances = {}
+
+            if weex:
+                # Fetch open orders directly from API - use task that persists across ticks
+                try:
+                    # Initialize cache variables
+                    if not hasattr(self, '_health_orders_task'):
+                        self._health_orders_task = None
+                        self._health_orders_cache = None
+                        self._health_fetch_time = 0
+
+                    current_time = time.time()
+                    cache_age = current_time - self._health_fetch_time
+
+                    # First, check if we have a completed task to cache
+                    if self._health_orders_task is not None and self._health_orders_task.done() and self._health_orders_cache is None:
+                        self._health_orders_cache = self._health_orders_task.result()
+
+                    # Refresh every 60 seconds or if no cache
+                    if self._health_orders_cache is None or cache_age > 60:
+                        # Create new task if needed
+                        if self._health_orders_task is None or (self._health_orders_task.done() and cache_age > 60):
+                            self._health_orders_task = safe_ensure_future(self._fetch_open_orders(weex))
+                            self._health_fetch_time = current_time
+
+                    # Use cached data (may be None on first run)
+                    if self._health_orders_cache:
+                        for order in self._health_orders_cache:
+                            open_orders.append({
+                                "side": order.get("side", "").upper(),
+                                "price": float(order.get("price", 0)),
+                                "amount": float(order.get("quantity", 0)),
+                                "trading_pair": self.config.trading_pair
+                            })
+                except Exception as e:
+                    self.logger().warning(f"Failed to fetch orders for health file: {e}")
+
+                # Get balances
+                if hasattr(weex, 'available_balances'):
+                    balances = {k: float(v) for k, v in weex.available_balances.items() if v > 0}
+
+            health_data = {
+                "healthy": healthy,
+                "last_update": datetime.now().timestamp(),
+                "issues": issues,
+                "timestamp": datetime.now().isoformat(),
+                "open_orders": open_orders,
+                "open_orders_count": len(open_orders),
+                "balances": balances
+            }
+            with open(self._health_file, "w", encoding="utf-8") as f:
+                json.dump(health_data, f, indent=2)
+            self.logger().debug(f"Health file written to {self._health_file} with {len(open_orders)} orders")
+        except Exception as e:
+            self.logger().error(f"Failed to write health file: {e}")
 
 
 # For standalone execution (outside Hummingbot)

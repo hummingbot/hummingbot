@@ -484,11 +484,12 @@ class WeexExchange(ExchangePyBase):
 
             # Make single batch API call per symbol
             try:
-                # WEEX API accepts either clientOids or orderIds
+                # WEEX API accepts either clientOids or orderIds (not both).
+                # Prefer clientOids to avoid mismatches when orderIds are stale.
                 request_data = {"symbol": symbol}
                 if client_oids:
                     request_data["clientOids"] = client_oids
-                if order_ids:
+                elif order_ids:
                     request_data["orderIds"] = order_ids
 
                 batch_result = await self._api_post(
@@ -515,6 +516,16 @@ class WeexExchange(ExchangePyBase):
 
                     if matched_client_id:
                         results.append(CancellationResult(matched_client_id, True))
+                        # Update order tracker to reflect cancellation
+                        tracked = self._order_tracker.fetch_order(client_order_id=matched_client_id)
+                        if tracked:
+                            order_update = OrderUpdate(
+                                client_order_id=matched_client_id,
+                                trading_pair=tracked.trading_pair,
+                                update_timestamp=self.current_timestamp,
+                                new_state=OrderState.CANCELED,
+                            )
+                            self._order_tracker.process_order_update(order_update)
                         self.logger().info(f"Batch order canceled successfully: {matched_client_id}")
 
                 # Process failed cancellations
@@ -533,6 +544,23 @@ class WeexExchange(ExchangePyBase):
                                 matched_client_id = client_id
                                 break
 
+                    # If exchange says order is not found, drop it from tracker as canceled
+                    if matched_client_id and "NOT_FOUND" in error_msg.upper():
+                        results.append(CancellationResult(matched_client_id, True))
+                        tracked = self._order_tracker.fetch_order(client_order_id=matched_client_id)
+                        if tracked:
+                            order_update = OrderUpdate(
+                                client_order_id=matched_client_id,
+                                trading_pair=tracked.trading_pair,
+                                update_timestamp=self.current_timestamp,
+                                new_state=OrderState.CANCELED,
+                            )
+                            self._order_tracker.process_order_update(order_update)
+                        self.logger().warning(
+                            f"Batch cancel reported NOT_FOUND; removing tracked order: {matched_client_id}"
+                        )
+                        continue
+
                     if matched_client_id:
                         results.append(CancellationResult(matched_client_id, False))
                         self.logger().warning(f"Batch order cancelation failed for {matched_client_id}: {error_msg}")
@@ -544,6 +572,63 @@ class WeexExchange(ExchangePyBase):
                     results.append(CancellationResult(order.client_order_id, False))
 
         return results
+
+    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
+        """
+        Override to use batch cancel instead of individual cancels to avoid WEEX rate limits.
+
+        WEEX rate limits are aggressive (~50 weight/second burst limit), so:
+        - Individual: 8 orders × 3 weight each in parallel → Hits rate limits → HTTP 429
+        - Batch: 1 request × 10 weight = 10 weight → WITHIN limit
+
+        This override replaces the framework's default parallel individual cancels with batch cancel.
+        Framework's cancel_all() loops through orders calling _execute_order_cancel() individually.
+        This override calls _execute_batch_cancel() instead for ALL orders at once.
+
+        :param timeout_seconds: the maximum time (in seconds) the cancel logic should run
+        :return: a list of CancellationResult instances
+        """
+        incomplete_orders = [o for o in self.in_flight_orders.values() if not o.is_done]
+
+        if not incomplete_orders:
+            self.logger().info("[WEEX_BATCH_CANCEL] No incomplete orders to cancel")
+            return []
+
+        self.logger().info(f"[WEEX_BATCH_CANCEL] Initiating batch cancel for {len(incomplete_orders)} orders (using batch API instead of individual cancels)")
+
+        # Convert InFlightOrder to LimitOrder for batch cancel
+        limit_orders = []
+        for order in incomplete_orders:
+            limit_order = LimitOrder(
+                client_order_id=order.client_order_id,
+                trading_pair=order.trading_pair,
+                is_buy=order.trade_type == TradeType.BUY,
+                base_currency=order.trading_pair.split("-")[0],
+                quote_currency=order.trading_pair.split("-")[1],
+                price=order.price,
+                quantity=order.amount,
+            )
+            limit_orders.append(limit_order)
+
+        # Call the async batch cancel implementation directly
+        try:
+            results = await self._execute_batch_cancel(orders_to_cancel=limit_orders)
+
+            successful = sum(1 for r in results if r.success)
+            self.logger().info(f"[WEEX_BATCH_CANCEL] Batch cancel complete: {successful}/{len(results)} successful")
+
+            return results
+        except Exception as ex:
+            self.logger().error(f"[WEEX_BATCH_CANCEL] Batch cancel failed: {str(ex)}", exc_info=True)
+            # Return all as failed
+            return [CancellationResult(o.client_order_id, False) for o in incomplete_orders]
+
+    async def cancel_all_orders(self, timeout_seconds: float) -> List[CancellationResult]:
+        """
+        Legacy method - delegates to cancel_all() for backward compatibility.
+        This is called by ScriptStrategyBase framework.
+        """
+        return await self.cancel_all(timeout_seconds=timeout_seconds)
 
     async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         self.logger().info(f"[WEEX_DEBUG] _format_trading_rules() called with {len(exchange_info_dict.get('data', []))} trading pairs")
@@ -703,6 +788,25 @@ class WeexExchange(ExchangePyBase):
                             or order_update.get("time")
                             or self.current_timestamp * 1e3
                         )
+
+                        # Capture cancellation reason if order was cancelled
+                        cancel_reason = (
+                            order_update.get("cancelReason")
+                            or order_update.get("reason")
+                            or order_update.get("errMsg")
+                            or order_update.get("error")
+                            or order_update.get("message")
+                        )
+
+                        if new_state == OrderState.CANCELED:
+                            if cancel_reason:
+                                self.logger().info(f"[WEEX_CANCELLATION_REASON] Order {client_order_id} (exchange ID: {exchange_order_id}) cancelled. Reason: {cancel_reason}")
+                            else:
+                                self.logger().info(f"[WEEX_ORDER_CANCELLED] Order {client_order_id} (exchange ID: {exchange_order_id}) cancelled with status CANCELED (no explicit reason)")
+
+                        # Log full order update for debugging cancelled orders
+                        if new_state == OrderState.CANCELED:
+                            self.logger().debug(f"[WEEX_DEBUG] Full order update for cancelled order {client_order_id}: {order_update}")
 
                         order_update_obj = OrderUpdate(
                             trading_pair=tracked_order.trading_pair,
