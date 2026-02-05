@@ -223,12 +223,14 @@ class WeexExchange(ExchangePyBase):
             "orderType": order_type_str,
             "quantity": amount_str,
             "clientOrderId": order_id,
+            "price": f"{price:f}",  # WEEX requires price even for market orders
         }
         if order_type in (OrderType.LIMIT, OrderType.LIMIT_MAKER):
-            api_params["price"] = f"{price:f}"
             api_params["force"] = (
                 CONSTANTS.FORCE_POST_ONLY if order_type is OrderType.LIMIT_MAKER else CONSTANTS.FORCE_NORMAL
             )
+
+        self.logger().info(f"[WEEX_ORDER_DEBUG] Placing {side_str} order: trading_pair={trading_pair}, symbol={symbol}, api_params={api_params}")
 
         try:
             order_result = await self._api_post(
@@ -368,10 +370,10 @@ class WeexExchange(ExchangePyBase):
                     "orderType": order_type_str,
                     "quantity": f"{order.amount:f}",
                     "clientOrderId": order.client_order_id,
+                    "price": f"{order.price:f}",  # WEEX requires price even for market orders
                 }
 
                 if order.order_type in (OrderType.LIMIT, OrderType.LIMIT_MAKER):
-                    order_params["price"] = f"{order.price:f}"
                     order_params["force"] = (
                         CONSTANTS.FORCE_POST_ONLY if order.order_type is OrderType.LIMIT_MAKER
                         else CONSTANTS.FORCE_NORMAL
@@ -380,6 +382,7 @@ class WeexExchange(ExchangePyBase):
                 order_list.append(order_params)
 
             # Make single batch API call per symbol
+            self.logger().info(f"[WEEX_BATCH_DEBUG] Submitting batch orders for symbol={symbol}: {len(order_list)} orders, payload={{'symbol': {symbol}, 'orderList': {order_list}}}")
             try:
                 batch_result = await self._api_post(
                     path_url=CONSTANTS.BATCH_ORDERS_PATH_URL,
