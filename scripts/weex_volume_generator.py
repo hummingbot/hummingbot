@@ -1,5 +1,6 @@
 import json
 import os
+import random
 from datetime import datetime
 from decimal import Decimal
 from typing import Dict
@@ -40,11 +41,21 @@ class WeexVolumeGeneratorConfig(BaseClientModel):
     # Order Configuration
     order_size_usdt: Decimal = Field(
         default=Decimal("35"),  # 10000 / 288 ≈ 35
-        description="Order size in USDT per trade"
+        description="Target order size in USDT per trade (before randomization)"
+    )
+    order_size_variance: Decimal = Field(
+        default=Decimal("0.3"),  # 30%
+        description="Random variance in order size (0.3 = ±30% from target)"
     )
     order_type: str = Field(
-        default="limit_cross_spread",
-        description="Order type: 'limit_cross_spread' or 'market'"
+        default="market",
+        description="Order type: 'market' (recommended) or 'limit_cross_spread'"
+    )
+
+    # Interval Randomization
+    trade_interval_jitter: Decimal = Field(
+        default=Decimal("0.4"),  # 40%
+        description="Random jitter on trade interval (0.4 = ±40% variation)"
     )
 
     # Spread Crossing Configuration (for limit orders that ensure fill)
@@ -115,6 +126,9 @@ class WeexVolumeGenerator(ScriptStrategyBase):
         self.last_health_check = 0.0
         self.health_check_interval = 5.0  # Check health every 5 seconds
 
+        # Stochastic behavior tracking
+        self._last_scheduled_interval = self.config.trade_interval_seconds
+
     def on_tick(self):
         """
         Called every tick. Places trades at configured intervals to meet volume targets.
@@ -170,8 +184,8 @@ class WeexVolumeGenerator(ScriptStrategyBase):
                         f"${float(self.config.order_size_usdt):.2f}"
                     )
 
-            # Schedule next trade
-            self.create_timestamp = self.current_timestamp + self.config.trade_interval_seconds
+            # Schedule next trade with stochastic jitter
+            self.create_timestamp = self.current_timestamp + self._get_randomized_interval()
 
     def _check_daily_reset(self):
         """Reset volume counters at midnight"""
@@ -204,7 +218,7 @@ class WeexVolumeGenerator(ScriptStrategyBase):
         """
         Determine whether to buy or sell based on:
         1. Inventory deviation (prioritize rebalancing)
-        2. Alternating pattern (default behavior)
+        2. Probabilistic alternation with stochastic bias (default behavior)
         """
         # If inventory deviation is large, prioritize rebalancing
         if abs(self.current_inventory_deviation) > self.config.rebalance_threshold:
@@ -215,20 +229,24 @@ class WeexVolumeGenerator(ScriptStrategyBase):
                 # Too little base asset, need to buy
                 return TradeType.BUY
 
-        # Otherwise, alternate to maintain neutral position
-        if self.next_trade_is_buy:
-            self.next_trade_is_buy = False
-            return TradeType.BUY
+        # Otherwise, use probabilistic alternation to avoid obvious patterns
+        # Slight bias toward next_trade_is_buy, but sometimes break the pattern
+        if random.random() < 0.85:  # 85% of the time follow pattern, 15% time break it for randomness
+            if self.next_trade_is_buy:
+                self.next_trade_is_buy = False
+                return TradeType.BUY
+            else:
+                self.next_trade_is_buy = True
+                return TradeType.SELL
         else:
-            self.next_trade_is_buy = True
-            return TradeType.SELL
+            # Break the pattern occasionally for more natural behavior
+            trade = TradeType.SELL if self.next_trade_is_buy else TradeType.BUY
+            return trade
 
     def _create_volume_order(self, trade_side: TradeType) -> OrderCandidate:
         """
-        Create an order that will execute immediately to generate volume.
-
-        For limit orders: crosses the spread with a buffer to ensure fill
-        For market orders: uses market price
+        Create a market order that hits the MM orders on the other side.
+        Uses randomized amounts and market execution for natural trading patterns.
         """
         connector = self.connectors[self.config.exchange]
 
@@ -240,8 +258,10 @@ class WeexVolumeGenerator(ScriptStrategyBase):
             self.logger().warning(f"Price {mid_price} seems abnormal, skipping this trade")
             return None
 
-        # Calculate order amount in base asset
-        order_amount = self.config.order_size_usdt / mid_price
+        # Calculate randomized order amount to avoid obvious patterns
+        # Keep amounts comparable to MM order sizes (typically 200k-250k VCC)
+        randomized_size_usdt = self._get_randomized_order_size()
+        order_amount = randomized_size_usdt / mid_price
         order_amount = connector.quantize_order_amount(self.config.trading_pair, order_amount)
 
         # Check if we have sufficient balance
@@ -249,21 +269,21 @@ class WeexVolumeGenerator(ScriptStrategyBase):
             self.logger().warning(f"Insufficient balance for {'buy' if trade_side == TradeType.BUY else 'sell'} order")
             return None
 
-        # Determine order price and type
-        if self.config.order_type == "market":
-            order_type = OrderType.MARKET
-            price = mid_price  # Market orders use mid price for tracking
-        else:  # limit_cross_spread
-            order_type = OrderType.LIMIT
+        # Use market orders to hit the MM orders naturally
+        # This is more realistic trading behavior vs. crossing the spread
+        order_type = OrderType.MARKET if self.config.order_type == "market" else OrderType.LIMIT
+
+        if order_type == OrderType.MARKET:
+            # Market orders: use mid price for reference
+            price = mid_price
+        else:
+            # Limit orders: cross spread for guaranteed fill
             if trade_side == TradeType.BUY:
-                # Buy above current ask to ensure fill
                 best_ask = connector.get_price_by_type(self.config.trading_pair, PriceType.BestAsk)
                 price = best_ask * (Decimal("1") + self.config.cross_spread_buffer)
             else:
-                # Sell below current bid to ensure fill
                 best_bid = connector.get_price_by_type(self.config.trading_pair, PriceType.BestBid)
                 price = best_bid * (Decimal("1") - self.config.cross_spread_buffer)
-
             price = connector.quantize_order_price(self.config.trading_pair, price)
 
         return OrderCandidate(
@@ -280,6 +300,31 @@ class WeexVolumeGenerator(ScriptStrategyBase):
         # TODO: Could store a reference price and check deviation
         # For now, just check if price is positive and not zero
         return current_price > 0
+
+    def _get_randomized_order_size(self) -> Decimal:
+        """
+        Return randomized order size to avoid obvious alternating pattern.
+        Keeps amounts comparable to MM order sizes.
+        """
+        variance_factor = Decimal(str(random.uniform(
+            float(1 - self.config.order_size_variance),
+            float(1 + self.config.order_size_variance)
+        )))
+        randomized_size = self.config.order_size_usdt * variance_factor
+        return randomized_size
+
+    def _get_randomized_interval(self) -> int:
+        """
+        Return randomized trade interval with stochastic jitter.
+        Adds variation to make trades less predictable.
+        """
+        jitter_factor = random.uniform(
+            float(1 - self.config.trade_interval_jitter),
+            float(1 + self.config.trade_interval_jitter)
+        )
+        randomized_interval = int(self.config.trade_interval_seconds * jitter_factor)
+        # Ensure minimum 10 second interval to avoid too-frequent trades
+        return max(10, randomized_interval)
 
     def _check_monitor_health(self) -> bool:
         """
