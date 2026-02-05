@@ -223,12 +223,12 @@ class WeexExchange(ExchangePyBase):
             "orderType": order_type_str,
             "quantity": amount_str,
             "clientOrderId": order_id,
-            "price": f"{price:f}",  # WEEX requires price even for market orders
+            "force": CONSTANTS.FORCE_NORMAL,  # force is required even for market orders
         }
         if order_type in (OrderType.LIMIT, OrderType.LIMIT_MAKER):
-            api_params["force"] = (
-                CONSTANTS.FORCE_POST_ONLY if order_type is OrderType.LIMIT_MAKER else CONSTANTS.FORCE_NORMAL
-            )
+            api_params["price"] = f"{price:f}"
+            if order_type is OrderType.LIMIT_MAKER:
+                api_params["force"] = CONSTANTS.FORCE_POST_ONLY
 
         self.logger().info(f"[WEEX_ORDER_DEBUG] Placing {side_str} order: trading_pair={trading_pair}, symbol={symbol}, api_params={api_params}")
 
@@ -370,14 +370,13 @@ class WeexExchange(ExchangePyBase):
                     "orderType": order_type_str,
                     "quantity": f"{order.amount:f}",
                     "clientOrderId": order.client_order_id,
-                    "price": f"{order.price:f}",  # WEEX requires price even for market orders
+                    "force": CONSTANTS.FORCE_NORMAL,  # force is required even for market orders
                 }
 
                 if order.order_type in (OrderType.LIMIT, OrderType.LIMIT_MAKER):
-                    order_params["force"] = (
-                        CONSTANTS.FORCE_POST_ONLY if order.order_type is OrderType.LIMIT_MAKER
-                        else CONSTANTS.FORCE_NORMAL
-                    )
+                    order_params["price"] = f"{order.price:f}"
+                    if order.order_type is OrderType.LIMIT_MAKER:
+                        order_params["force"] = CONSTANTS.FORCE_POST_ONLY
 
                 order_list.append(order_params)
 
