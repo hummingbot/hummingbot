@@ -1,0 +1,28 @@
+diff --git a/hummingbot/core/data_type/order_book.py b/hummingbot/core/data_type/order_book.py
+index abcdef1..1234567 100644
+--- a/hummingbot/core/data_type/order_book.py
++++ b/hummingbot/core/data_type/order_book.py
+@@ -1,5 +1,7 @@
+ from typing import List, Optional, Dict, Any, Union, Set
++import decimal
+ 
+-class OrderBook:
++class OrderBook:
+     def __init__(self):
+         self._bids: Dict[str, List[Order]] = {}
+         self._asks: Dict[str, List[Order]] = {}
+@@ -12,7 +14,8 @@ class OrderBook:
+ 
+     def get_mid_price(self) -> Optional[float]:
+-        if not self._bids or not self._asks:
++        if not self._bids or not self._asks:
+             return None
+-        best_bid = max(self._bids.keys())
+-        best_ask = min(self._asks.keys())
+-        mid_price = (float(best_bid) + float(best_ask)) / 2
++        best_bid: str = max(self._bids.keys())
++        best_ask: str = min(self._asks.keys())
++        bid_decimal: decimal.Decimal = decimal.Decimal(best_bid)
++        ask_decimal: decimal.Decimal = decimal.Decimal(best_ask)
++        mid_price: float = (bid_decimal + ask_decimal) / 2
+         return mid_price
