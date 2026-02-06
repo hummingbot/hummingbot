@@ -1,0 +1,153 @@
+version: '3.8'
+
+services:
+  # Market Making Bot Instance
+  hummingbot-mm:
+    profiles: ["mm", "all"]
+    container_name: weex-market-maker
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./conf:/home/hummingbot/conf
+      - ./conf/connectors:/home/hummingbot/conf/connectors
+      - ./conf/strategies:/home/hummingbot/conf/strategies
+      - ./conf/controllers:/home/hummingbot/conf/controllers
+      - ./conf/scripts:/home/hummingbot/conf/scripts
+      - ./logs/mm:/home/hummingbot/logs
+      - ./data/mm:/home/hummingbot/data
+      - ./certs:/home/hummingbot/certs
+      - ./scripts:/home/hummingbot/scripts
+      - ./controllers:/home/hummingbot/controllers
+      - ./health:/home/hummingbot/health
+    environment:
+      - CONFIG_PASSWORD=${MM_CONFIG_PASSWORD:-admin}
+      - CONFIG_FILE_NAME=weex_vcc_pmm.py
+      - SCRIPT_CONFIG=${MM_SCRIPT_CONFIG:-conf_weex_vcc_pmm_1.yml}
+      - WEEX_API_KEY=${WEEX_MM_API_KEY}
+      - WEEX_API_SECRET=${WEEX_MM_API_SECRET}
+      - WEEX_PASSPHRASE=${WEEX_MM_PASSPHRASE}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "10"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "test", "-f", "/home/hummingbot/health/weex_mm_health.json"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    tty: true
+    stdin_open: true
+    networks:
+      - hummingbot-network
+
+  # Volume Generation Bot Instance
+  hummingbot-vol:
+    profiles: ["vol", "all"]
+    container_name: weex-volume-generator
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./conf:/home/hummingbot/conf
+      - ./conf/connectors:/home/hummingbot/conf/connectors
+      - ./conf/strategies:/home/hummingbot/conf/strategies
+      - ./conf/controllers:/home/hummingbot/conf/controllers
+      - ./conf/scripts:/home/hummingbot/conf/scripts
+      - ./logs/vol:/home/hummingbot/logs
+      - ./data/vol:/home/hummingbot/data
+      - ./certs:/home/hummingbot/certs
+      - ./scripts:/home/hummingbot/scripts
+      - ./controllers:/home/hummingbot/controllers
+      - ./health:/home/hummingbot/health
+    environment:
+      - CONFIG_PASSWORD=${VOL_CONFIG_PASSWORD:-admin}
+      - CONFIG_FILE_NAME=weex_volume_generator.py
+      - SCRIPT_CONFIG=${VOL_SCRIPT_CONFIG:-conf_weex_volume_generator_1.yml}
+      - WEEX_API_KEY=${WEEX_VOL_API_KEY}
+      - WEEX_API_SECRET=${WEEX_VOL_API_SECRET}
+      - WEEX_PASSPHRASE=${WEEX_VOL_PASSPHRASE}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "10"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "test", "-f", "/home/hummingbot/health/weex_vol_health.json"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    tty: true
+    stdin_open: true
+    networks:
+      - hummingbot-network
+
+  # Monitoring Dashboard (Streamlit)
+  monitor-dashboard:
+    profiles: ["mm", "vol", "all"]
+    container_name: weex-monitor-dashboard
+    build:
+      context: .
+      dockerfile: Dockerfile.monitor
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./logs:/app/logs:ro
+      - ./health:/app/health:ro
+      - ./monitor_dashboard.py:/app/monitor_dashboard.py:ro
+    environment:
+      - HEALTH_FILE_MM=/app/health/weex_mm_health.json
+      - HEALTH_FILE_VOL=/app/health/weex_vol_health.json
+      - LOG_FILE_MM=/app/logs/mm/logs_hummingbot.log
+      - LOG_FILE_VOL=/app/logs/vol/logs_hummingbot.log
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - hummingbot-network
+
+  # Standalone Monitoring Service
+  monitor-api:
+    profiles: ["mm", "vol", "all"]
+    container_name: weex-monitor-api
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: bash -c "source /opt/conda/etc/profile.d/conda.sh && conda activate hummingbot && python3 /home/hummingbot/weex_monitor_standalone.py"
+    volumes:
+      - ./weex_monitor_standalone.py:/home/hummingbot/weex_monitor_standalone.py:ro
+      - ./health:/home/hummingbot/health
+    environment:
+      - WEEX_MM_API_KEY=${WEEX_MM_MONITOR_API_KEY}
+      - WEEX_MM_API_SECRET=${WEEX_MM_MONITOR_API_SECRET}
+      - WEEX_MM_PASSPHRASE=${WEEX_MM_MONITOR_PASSPHRASE}
+      - WEEX_VOL_API_KEY=${WEEX_VOL_MONITOR_API_KEY}
+      - WEEX_VOL_API_SECRET=${WEEX_VOL_MONITOR_API_SECRET}
+      - WEEX_VOL_PASSPHRASE=${WEEX_VOL_MONITOR_PASSPHRASE}
+    restart: unless-stopped
+    networks:
+      - hummingbot-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+networks:
+  hummingbot-network:
+    driver: bridge
+
+volumes:
+  mm-logs:
+  vol-logs:
+  mm-data:
+  vol-data:
+  health:
