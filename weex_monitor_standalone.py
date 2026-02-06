@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3 -u
 """
 WEEX Account Monitoring Dashboard (Standalone)
 ================================================
@@ -98,6 +98,8 @@ class WeexMonitorClient:
             print(f"  Signature: {signature}")
             print(f"  API Key: {self.api_key[:10]}...")
             print(f"  Passphrase: {self.passphrase[:3] if self.passphrase else 'NONE'}...")
+            import sys
+            sys.stdout.flush()
 
         headers = {
             "ACCESS-KEY": self.api_key,
