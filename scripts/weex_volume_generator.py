@@ -122,7 +122,7 @@ class WeexVolumeGenerator(ScriptStrategyBase):
         self.next_trade_is_buy = True
 
         # Monitor health file path
-        self.monitor_health_file = "/tmp/weex_mm_health.json"
+        self.monitor_health_file = "/home/hummingbot/health/weex_vol_health.json"
         self.last_health_check = 0.0
         self.health_check_interval = 5.0  # Check health every 5 seconds
 

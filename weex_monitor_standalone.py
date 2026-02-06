@@ -29,7 +29,7 @@ import requests
 # ============================================================================
 
 BASE_URL = "https://api-spot.weex.com"
-TRADING_PAIR = "VCCUSDT-SPBL"
+TRADING_PAIR = os.getenv("WEEX_MONITOR_SYMBOL", "VCCUSDT_SPBL")
 
 # Market Making Account (read-only monitoring keys)
 MM_ACCOUNT = {
@@ -127,12 +127,12 @@ class WeexMonitorClient:
     def get_open_orders(self, symbol):
         """Get open/unfinished orders"""
         path = "/api/v2/trade/open-orders"
-        params = {"symbol": symbol}
-        headers = self._get_headers("GET", path, params=params)
+        body = {"symbol": symbol}
+        headers = self._get_headers("POST", path, body=body)
 
-        response = requests.get(
+        response = requests.post(
             f"{self.base_url}{path}",
-            params=params,
+            json=body,
             headers=headers
         )
         return response.json()
@@ -140,12 +140,12 @@ class WeexMonitorClient:
     def get_fills(self, symbol, limit=20):
         """Get recent fills/trades"""
         path = "/api/v2/trade/fills"
-        params = {"symbol": symbol, "limit": limit}
-        headers = self._get_headers("GET", path, params=params)
+        body = {"symbol": symbol, "limit": limit}
+        headers = self._get_headers("POST", path, body=body)
 
-        response = requests.get(
+        response = requests.post(
             f"{self.base_url}{path}",
-            params=params,
+            json=body,
             headers=headers
         )
         return response.json()
@@ -297,7 +297,7 @@ def main():
 
     # Check if credentials are configured
     if not MM_ACCOUNT["api_key"] or not VOL_ACCOUNT["api_key"]:
-        print("\n⚠️  WARNING: API credentials not configured!")
+        print("\nWARNING: API credentials not configured!")
         print("\nPlease set environment variables:")
         print("  - WEEX_MM_API_KEY, WEEX_MM_API_SECRET, WEEX_MM_PASSPHRASE")
         print("  - WEEX_VOL_API_KEY, WEEX_VOL_API_SECRET, WEEX_VOL_PASSPHRASE")
@@ -317,13 +317,20 @@ def main():
         VOL_ACCOUNT["passphrase"]
     )
 
-    # Display dashboards
-    display_account_dashboard(MM_ACCOUNT["name"], mm_client)
-    display_account_dashboard(VOL_ACCOUNT["name"], vol_client)
+    interval_seconds = int(os.getenv("WEEX_MONITOR_INTERVAL", "20"))
 
-    print("\n" + "=" * 80)
-    print("  Monitoring complete!")
-    print("=" * 80 + "\n")
+    try:
+        while True:
+            # Display dashboards
+            display_account_dashboard(MM_ACCOUNT["name"], mm_client)
+            display_account_dashboard(VOL_ACCOUNT["name"], vol_client)
+
+            print("\n" + "=" * 80)
+            print("  Monitoring complete!")
+            print("=" * 80 + "\n")
+            time.sleep(max(interval_seconds, 5))
+    except KeyboardInterrupt:
+        print("\nExiting monitor.")
 
 
 if __name__ == "__main__":

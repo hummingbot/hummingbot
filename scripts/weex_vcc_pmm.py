@@ -103,7 +103,7 @@ class WeexVccPMM(ScriptStrategyBase):
         self.create_timestamp = 0.0
         self.last_order_timestamp = 0.0
         # Monitor health file path
-        self.monitor_health_file = "/tmp/weex_mm_health.json"
+        self.monitor_health_file = "/home/hummingbot/health/weex_mm_health.json"
         self.last_health_check = 0.0
         self.health_check_interval = 5.0  # Check health every 5 seconds
         # Track cancellation state to prevent placing new orders before async cancels complete
