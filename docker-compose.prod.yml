@@ -23,7 +23,7 @@ services:
     environment:
       - CONFIG_PASSWORD=${MM_CONFIG_PASSWORD:-admin}
       - CONFIG_FILE_NAME=weex_vcc_pmm.py
-      - SCRIPT_CONFIG=${MM_SCRIPT_CONFIG:-conf_weex_vcc_pmm_1.yml}
+      - SCRIPT_CONFIG=${MM_SCRIPT_CONFIG}
       - WEEX_API_KEY=${WEEX_MM_API_KEY}
       - WEEX_API_SECRET=${WEEX_MM_API_SECRET}
       - WEEX_PASSPHRASE=${WEEX_MM_PASSPHRASE}
@@ -66,7 +66,7 @@ services:
     environment:
       - CONFIG_PASSWORD=${VOL_CONFIG_PASSWORD:-admin}
       - CONFIG_FILE_NAME=weex_volume_generator.py
-      - SCRIPT_CONFIG=${VOL_SCRIPT_CONFIG:-conf_weex_volume_generator_1.yml}
+      - SCRIPT_CONFIG=${VOL_SCRIPT_CONFIG}
       - WEEX_API_KEY=${WEEX_VOL_API_KEY}
       - WEEX_API_SECRET=${WEEX_VOL_API_SECRET}
       - WEEX_PASSPHRASE=${WEEX_VOL_PASSPHRASE}
@@ -103,8 +103,8 @@ services:
     environment:
       - HEALTH_FILE_MM=/app/health/weex_mm_health.json
       - HEALTH_FILE_VOL=/app/health/weex_vol_health.json
-      - LOG_FILE_MM=/app/logs/mm/logs_hummingbot.log
-      - LOG_FILE_VOL=/app/logs/vol/logs_hummingbot.log
+      - LOG_FILE_MM=/app/logs/mm/logs_weex_vcc_pmm.log
+      - LOG_FILE_VOL=/app/logs/vol/logs_weex_volume_generator.log
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
@@ -126,12 +126,12 @@ services:
       - ./weex_monitor_standalone.py:/home/hummingbot/weex_monitor_standalone.py:ro
       - ./health:/home/hummingbot/health
     environment:
-      - WEEX_MM_API_KEY=${WEEX_MM_MONITOR_API_KEY}
-      - WEEX_MM_API_SECRET=${WEEX_MM_MONITOR_API_SECRET}
-      - WEEX_MM_PASSPHRASE=${WEEX_MM_MONITOR_PASSPHRASE}
-      - WEEX_VOL_API_KEY=${WEEX_VOL_MONITOR_API_KEY}
-      - WEEX_VOL_API_SECRET=${WEEX_VOL_MONITOR_API_SECRET}
-      - WEEX_VOL_PASSPHRASE=${WEEX_VOL_MONITOR_PASSPHRASE}
+      - WEEX_MM_API_KEY=${WEEX_MM_API_KEY}
+      - WEEX_MM_API_SECRET=${WEEX_MM_API_SECRET}
+      - WEEX_MM_PASSPHRASE=${WEEX_MM_PASSPHRASE}
+      - WEEX_VOL_API_KEY=${WEEX_VOL_API_KEY}
+      - WEEX_VOL_API_SECRET=${WEEX_VOL_API_SECRET}
+      - WEEX_VOL_PASSPHRASE=${WEEX_VOL_PASSPHRASE}
     restart: unless-stopped
     networks:
       - hummingbot-network

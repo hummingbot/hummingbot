@@ -7,8 +7,8 @@ from typing import List
 
 import streamlit as st
 
-DEFAULT_HEALTH_FILE = os.getenv("HEALTH_FILE_MM", "/tmp/weex_mm_health.json")
-DEFAULT_LOG_FILE = os.getenv("LOG_FILE_MM", "/home/jkovacs/git/hummingbot/logs/logs_weex_vcc_pmm.log")
+DEFAULT_HEALTH_FILE = os.getenv("HEALTH_FILE_MM", "/app/health/weex_mm_health.json")
+DEFAULT_LOG_FILE = os.getenv("LOG_FILE_MM", "/app/logs/mm/logs_weex_vcc_pmm.log")
 
 
 def _tail_lines(path: str, max_lines: int) -> List[str]:
