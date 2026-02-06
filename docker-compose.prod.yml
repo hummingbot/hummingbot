@@ -121,10 +121,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: bash -c "source /opt/conda/etc/profile.d/conda.sh && conda activate hummingbot && python3 /home/hummingbot/weex_monitor_standalone.py"
+    command: bash -c "source /opt/conda/etc/profile.d/conda.sh && conda activate hummingbot && python3 /home/hummingbot/weex_monitor_standalone.py >> /home/hummingbot/logs/monitor.log 2>&1"
     volumes:
       - ./weex_monitor_standalone.py:/home/hummingbot/weex_monitor_standalone.py:ro
       - ./health:/home/hummingbot/health
+      - ./logs/monitor:/home/hummingbot/logs/monitor
     environment:
       - WEEX_MM_API_KEY=${WEEX_MM_API_KEY}
       - WEEX_MM_API_SECRET=${WEEX_MM_API_SECRET}
