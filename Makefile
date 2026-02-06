@@ -81,3 +81,6 @@ deploy:
 
 down:
 	docker compose --profile gateway down
+# Production deployment targets (delegate to Makefile.prod)
+prod-%:
+	@$(MAKE) -f Makefile.prod $@

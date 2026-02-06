@@ -3,6 +3,7 @@ version: '3.8'
 services:
   # Market Making Bot Instance
   hummingbot-mm:
+    profiles: ["mm", "all"]
     container_name: weex-market-maker
     build:
       context: .
@@ -22,7 +23,7 @@ services:
     environment:
       - CONFIG_PASSWORD=${MM_CONFIG_PASSWORD:-admin}
       - CONFIG_FILE_NAME=weex_vcc_pmm.py
-      - SCRIPT_CONFIG=conf_weex_vcc_pmm_1.yml
+      - SCRIPT_CONFIG=${MM_SCRIPT_CONFIG:-conf_weex_vcc_pmm_1.yml}
       - WEEX_API_KEY=${WEEX_MM_API_KEY}
       - WEEX_API_SECRET=${WEEX_MM_API_SECRET}
       - WEEX_PASSPHRASE=${WEEX_MM_PASSPHRASE}
@@ -45,6 +46,7 @@ services:
 
   # Volume Generation Bot Instance
   hummingbot-vol:
+    profiles: ["vol", "all"]
     container_name: weex-volume-generator
     build:
       context: .
@@ -64,7 +66,7 @@ services:
     environment:
       - CONFIG_PASSWORD=${VOL_CONFIG_PASSWORD:-admin}
       - CONFIG_FILE_NAME=weex_volume_generator.py
-      - SCRIPT_CONFIG=conf_weex_volume_generator_1.yml
+      - SCRIPT_CONFIG=${VOL_SCRIPT_CONFIG:-conf_weex_volume_generator_1.yml}
       - WEEX_API_KEY=${WEEX_VOL_API_KEY}
       - WEEX_API_SECRET=${WEEX_VOL_API_SECRET}
       - WEEX_PASSPHRASE=${WEEX_VOL_PASSPHRASE}
@@ -87,6 +89,7 @@ services:
 
   # Monitoring Dashboard (Streamlit)
   monitor-dashboard:
+    profiles: ["mm", "vol", "all"]
     container_name: weex-monitor-dashboard
     build:
       context: .
@@ -110,17 +113,15 @@ services:
       retries: 3
     networks:
       - hummingbot-network
-    depends_on:
-      - hummingbot-mm
-      - hummingbot-vol
 
   # Standalone Monitoring Service
   monitor-api:
+    profiles: ["mm", "vol", "all"]
     container_name: weex-monitor-api
     build:
       context: .
       dockerfile: Dockerfile
-    command: conda activate hummingbot && python3 /home/hummingbot/weex_monitor_standalone.py
+    command: bash -c "source /opt/conda/etc/profile.d/conda.sh && conda activate hummingbot && python3 /home/hummingbot/weex_monitor_standalone.py"
     volumes:
       - ./weex_monitor_standalone.py:/home/hummingbot/weex_monitor_standalone.py:ro
       - ./health:/home/hummingbot/health

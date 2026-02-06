@@ -103,4 +103,7 @@ coverage.xml
 docker-compose.override.yml
 .compose.env
 
+# Gateway logs
+/gateway-files/logs/
+
 **/.claude/settings.local.json

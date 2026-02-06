@@ -403,15 +403,11 @@ class WeexExchange(ExchangePyBase):
                     if client_order_id in client_order_id_to_order:
                         order = client_order_id_to_order[client_order_id]
                         exchange_order_id = str(result_item.get("orderId", ""))
-                        # Create OrderUpdate to mark order as OPEN with exchange ID
-                        order_update = OrderUpdate(
-                            client_order_id=client_order_id,
-                            exchange_order_id=exchange_order_id,
-                            trading_pair=order.trading_pair,
-                            update_timestamp=self.current_timestamp,
-                            new_state=OrderState.OPEN,
-                        )
-                        self._order_tracker.process_order_update(order_update)
+                        # Store exchange order ID for tracking (don't fire event yet)
+                        # The WebSocket will send the order state update, preventing duplicate database records
+                        tracked_order = self._order_tracker.active_orders.get(client_order_id)
+                        if tracked_order:
+                            tracked_order.exchange_order_id = exchange_order_id
                         self.logger().info(
                             f"Batch order created successfully: {client_order_id} "
                             f"(exchange ID: {exchange_order_id})"

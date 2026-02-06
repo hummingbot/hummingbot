@@ -14,19 +14,19 @@ echo ""
 
 # Show container status
 echo -e "${YELLOW}Container Status:${NC}"
-docker-compose -f docker-compose.prod.yml ps
+sudo docker-compose -f docker-compose.prod.yml ps
 echo ""
 
 # Show health status
 echo -e "${YELLOW}Health Checks:${NC}"
-docker inspect weex-market-maker --format='{{.State.Health.Status}}' 2>/dev/null && echo "Market Maker: $(docker inspect weex-market-maker --format='{{.State.Health.Status}}')" || echo "Market Maker: Not running"
-docker inspect weex-volume-generator --format='{{.State.Health.Status}}' 2>/dev/null && echo "Volume Generator: $(docker inspect weex-volume-generator --format='{{.State.Health.Status}}')" || echo "Volume Generator: Not running"
-docker inspect weex-monitor-dashboard --format='{{.State.Health.Status}}' 2>/dev/null && echo "Dashboard: $(docker inspect weex-monitor-dashboard --format='{{.State.Health.Status}}')" || echo "Dashboard: Not running"
+sudo docker inspect weex-market-maker --format='{{.State.Health.Status}}' 2>/dev/null && echo "Market Maker: $(sudo docker inspect weex-market-maker --format='{{.State.Health.Status}}')" || echo "Market Maker: Not running"
+sudo docker inspect weex-volume-generator --format='{{.State.Health.Status}}' 2>/dev/null && echo "Volume Generator: $(sudo docker inspect weex-volume-generator --format='{{.State.Health.Status}}')" || echo "Volume Generator: Not running"
+sudo docker inspect weex-monitor-dashboard --format='{{.State.Health.Status}}' 2>/dev/null && echo "Dashboard: $(sudo docker inspect weex-monitor-dashboard --format='{{.State.Health.Status}}')" || echo "Dashboard: Not running"
 echo ""
 
 # Show resource usage
 echo -e "${YELLOW}Resource Usage:${NC}"
-docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}" weex-market-maker weex-volume-generator weex-monitor-dashboard weex-monitor-api 2>/dev/null || echo "No containers running"
+sudo docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}" weex-market-maker weex-volume-generator weex-monitor-dashboard weex-monitor-api 2>/dev/null || echo "No containers running"
 echo ""
 
 # Show recent logs

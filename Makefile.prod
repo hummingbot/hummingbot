@@ -1,20 +1,30 @@
 # WEEX Trading Bot - Production Deployment Makefile
 # Convenient commands for managing the containerized production deployment
 
-.PHONY: help prod-deploy prod-stop prod-restart prod-status prod-logs prod-clean prod-backup prod-update prod-build
+.PHONY: help prod-deploy prod-deploy-mm prod-deploy-vol prod-stop prod-restart prod-status prod-logs prod-logs-mm prod-logs-vol prod-logs-dashboard prod-shell-mm prod-shell-vol prod-backup prod-restore prod-update prod-build prod-clean prod-monitor prod-check
 
 # Default target
 help:
 	@echo "WEEX Trading Bot - Production Docker Management"
 	@echo ""
 	@echo "Available commands:"
+	@echo ""
+	@echo "  DEPLOYMENT:"
 	@echo "  make prod-deploy       Deploy all production services"
+	@echo "  make prod-deploy-mm    Deploy only market maker bot"
+	@echo "  make prod-deploy-vol   Deploy only volume generator bot"
+	@echo ""
+	@echo "  MANAGEMENT:"
 	@echo "  make prod-stop         Stop all production services"
 	@echo "  make prod-restart      Restart all production services"
 	@echo "  make prod-status       Show service status"
+	@echo ""
+	@echo "  MONITORING:"
 	@echo "  make prod-logs         Follow all logs"
 	@echo "  make prod-logs-mm      Follow market maker logs"
 	@echo "  make prod-logs-vol     Follow volume generator logs"
+	@echo ""
+	@echo "  UTILITIES:"
 	@echo "  make prod-shell-mm     Shell into market maker bot"
 	@echo "  make prod-shell-vol    Shell into volume generator bot"
 	@echo "  make prod-backup       Backup all data"
@@ -27,7 +37,15 @@ help:
 
 # Deploy all services
 prod-deploy:
-	@./deploy.sh
+	@./deploy.sh all
+
+# Deploy only market maker
+prod-deploy-mm:
+	@./deploy.sh mm
+
+# Deploy only volume generator
+prod-deploy-vol:
+	@./deploy.sh vol
 
 # Stop all services
 prod-stop:

@@ -1,5 +1,9 @@
 #!/bin/bash
 # WEEX Production Deployment Script
+# Usage: ./deploy.sh [mm|vol|all]
+#   mm  - Deploy only market maker bot
+#   vol - Deploy only volume generator bot
+#   all - Deploy all services (default)
 
 set -e
 
@@ -9,8 +13,21 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Parse profile argument
+PROFILE=${1:-all}
+case $PROFILE in
+  mm|vol|all)
+    ;;
+  *)
+    echo -e "${RED}Invalid profile: $PROFILE${NC}"
+    echo -e "Usage: ./deploy.sh [mm|vol|all]"
+    exit 1
+    ;;
+esac
+
 echo -e "${GREEN}=====================================${NC}"
 echo -e "${GREEN}WEEX Trading Bot Deployment${NC}"
+echo -e "${GREEN}Profile: ${YELLOW}${PROFILE}${GREEN}${NC}"
 echo -e "${GREEN}=====================================${NC}"
 echo ""
 
@@ -37,11 +54,11 @@ chmod 755 logs/mm logs/vol data/mm data/vol health
 
 # Build images
 echo -e "${GREEN}Building Docker images...${NC}"
-docker-compose -f docker-compose.prod.yml build
+sudo docker-compose -f docker-compose.prod.yml --profile $PROFILE build
 
 # Start services
 echo -e "${GREEN}Starting services...${NC}"
-docker-compose -f docker-compose.prod.yml up -d
+sudo docker-compose -f docker-compose.prod.yml --profile $PROFILE up -d
 
 # Wait for services to start
 echo -e "${GREEN}Waiting for services to start...${NC}"
@@ -52,7 +69,7 @@ echo ""
 echo -e "${GREEN}=====================================${NC}"
 echo -e "${GREEN}Deployment Status${NC}"
 echo -e "${GREEN}=====================================${NC}"
-docker-compose -f docker-compose.prod.yml ps
+sudo docker-compose -f docker-compose.prod.yml --profile $PROFILE ps
 
 echo ""
 echo -e "${GREEN}=====================================${NC}"
