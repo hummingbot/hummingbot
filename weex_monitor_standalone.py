@@ -97,6 +97,7 @@ class WeexMonitorClient:
         print(f"  Path: {path}", file=sys.stderr)
         print(f"  Body: {body}", file=sys.stderr)
         print(f"  Timestamp: {timestamp}", file=sys.stderr)
+        print(f"  Payload: {payload[:200]}" + (" (truncated)" if len(payload) > 200 else ""), file=sys.stderr)
         print(f"  Signature: {signature}", file=sys.stderr)
         sys.stderr.flush()
         sys.stdout.flush()
