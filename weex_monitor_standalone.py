@@ -90,16 +90,16 @@ class WeexMonitorClient:
         payload = f"{timestamp}{method.upper()}{path}{query}{body_str}"
         signature = self._sign(payload)
 
-        # DEBUG: Log signature details for POST requests with body
-        if method.upper() == "POST" and body:
-            print(f"[DEBUG] Signing {path}")
-            print(f"  Timestamp: {timestamp}")
-            print(f"  Payload: {payload}")
-            print(f"  Signature: {signature}")
-            print(f"  API Key: {self.api_key[:10]}...")
-            print(f"  Passphrase: {self.passphrase[:3] if self.passphrase else 'NONE'}...")
-            import sys
-            sys.stdout.flush()
+        # DEBUG: Log all authentication headers
+        import sys
+        print(f"[DEBUG] Auth headers for {method.upper()} {path}", file=sys.stderr)
+        print(f"  Method: {method.upper()}", file=sys.stderr)
+        print(f"  Path: {path}", file=sys.stderr)
+        print(f"  Body: {body}", file=sys.stderr)
+        print(f"  Timestamp: {timestamp}", file=sys.stderr)
+        print(f"  Signature: {signature}", file=sys.stderr)
+        sys.stderr.flush()
+        sys.stdout.flush()
 
         headers = {
             "ACCESS-KEY": self.api_key,
