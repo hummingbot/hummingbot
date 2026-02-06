@@ -1,13 +1,69 @@
+# Data and logs (runtime generated)
 /data
 /logs
+/health
+
+# Build artifacts
 /build
 /dist
+*.pyc
+__pycache__
+*.so
+*.egg-info
+
+# Version control and CI
 /.git
 /.github
+.gitignore
+
+# OS files
 .DS_Store
+Thumbs.db
+
+# Configuration backups and sensitive files
 /conf_backup
 /conf/strategies/*.yml
 /conf/*.yml
 /conf/gateway_connections.json
 /conf/.password_verification
 /conf/connectors/*.yml
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+/certs/*.pem
+/certs/*.key
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+/test
+/.pytest_cache
+.coverage
+htmlcov/
+
+# Documentation
+*.md
+!README.md
+
+# Gateway files (handled separately)
+/gateway-files
+
+# Scripts (copied separately if needed)
+deploy.sh
+stop.sh
+monitor.sh
+update.sh
+
+# Deployment files
+docker-compose*.yml
+!docker-compose.yml
+Dockerfile.*

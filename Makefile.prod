@@ -1,0 +1,109 @@
+# WEEX Trading Bot - Production Deployment Makefile
+# Convenient commands for managing the containerized production deployment
+
+.PHONY: help prod-deploy prod-stop prod-restart prod-status prod-logs prod-clean prod-backup prod-update prod-build
+
+# Default target
+help:
+	@echo "WEEX Trading Bot - Production Docker Management"
+	@echo ""
+	@echo "Available commands:"
+	@echo "  make prod-deploy       Deploy all production services"
+	@echo "  make prod-stop         Stop all production services"
+	@echo "  make prod-restart      Restart all production services"
+	@echo "  make prod-status       Show service status"
+	@echo "  make prod-logs         Follow all logs"
+	@echo "  make prod-logs-mm      Follow market maker logs"
+	@echo "  make prod-logs-vol     Follow volume generator logs"
+	@echo "  make prod-shell-mm     Shell into market maker bot"
+	@echo "  make prod-shell-vol    Shell into volume generator bot"
+	@echo "  make prod-backup       Backup all data"
+	@echo "  make prod-restore      Restore from backup"
+	@echo "  make prod-update       Update and redeploy"
+	@echo "  make prod-build        Build Docker images"
+	@echo "  make prod-clean        Remove all containers and volumes"
+	@echo "  make prod-monitor      Open monitoring dashboard"
+	@echo "  make prod-check        Quick health check"
+
+# Deploy all services
+prod-deploy:
+	@./deploy.sh
+
+# Stop all services
+prod-stop:
+	@./stop.sh
+
+# Restart all services
+prod-restart:
+	@docker-compose -f docker-compose.prod.yml restart
+
+# Show service status
+prod-status:
+	@./monitor.sh
+
+# Follow all logs
+prod-logs:
+	@docker-compose -f docker-compose.prod.yml logs -f
+
+# Follow market maker logs
+prod-logs-mm:
+	@docker-compose -f docker-compose.prod.yml logs -f hummingbot-mm
+
+# Follow volume generator logs
+prod-logs-vol:
+	@docker-compose -f docker-compose.prod.yml logs -f hummingbot-vol
+
+# Follow dashboard logs
+prod-logs-dashboard:
+	@docker-compose -f docker-compose.prod.yml logs -f monitor-dashboard
+
+# Shell into market maker
+prod-shell-mm:
+	@docker exec -it weex-market-maker bash
+
+# Shell into volume generator
+prod-shell-vol:
+	@docker exec -it weex-volume-generator bash
+
+# Backup data
+prod-backup:
+	@./backup.sh
+
+# Restore from latest backup
+prod-restore:
+	@./restore.sh backups/$$(ls -t backups/ | head -1)
+
+# Update and redeploy
+prod-update:
+	@./update.sh
+
+# Build Docker images
+prod-build:
+	@docker-compose -f docker-compose.prod.yml build
+
+# Clean everything
+prod-clean:
+	@echo "⚠️  This will remove all containers and volumes!"
+	@read -p "Are you sure? (yes/no): " confirm && [ "$$confirm" = "yes" ]
+	@docker-compose -f docker-compose.prod.yml down -v
+	@echo "Cleaned!"
+
+# Open monitoring dashboard
+prod-monitor:
+	@echo "Opening monitoring dashboard at http://localhost:8501"
+	@(command -v xdg-open > /dev/null && xdg-open http://localhost:8501) || \
+	 (command -v open > /dev/null && open http://localhost:8501) || \
+	 echo "Please navigate to http://localhost:8501 in your browser"
+
+# Quick health check
+prod-check:
+	@echo "Container Status:"
+	@docker-compose -f docker-compose.prod.yml ps
+	@echo ""
+	@echo "Health Status:"
+	@docker inspect weex-market-maker --format='Market Maker: {{.State.Health.Status}}' 2>/dev/null || echo "Market Maker: Not running"
+	@docker inspect weex-volume-generator --format='Volume Generator: {{.State.Health.Status}}' 2>/dev/null || echo "Volume Generator: Not running"
+	@docker inspect weex-monitor-dashboard --format='Dashboard: {{.State.Health.Status}}' 2>/dev/null || echo "Dashboard: Not running"
+	@echo ""
+	@echo "Resource Usage:"
+	@docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}" weex-market-maker weex-volume-generator weex-monitor-dashboard weex-monitor-api 2>/dev/null || echo "No containers running"

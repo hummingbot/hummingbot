@@ -1,0 +1,35 @@
+FROM python:3.10-slim
+
+LABEL maintainer="WEEX Trading Team"
+LABEL description="Monitoring Dashboard for WEEX Trading Bots"
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+RUN pip install --no-cache-dir \
+    streamlit==1.31.0 \
+    requests==2.31.0 \
+    pandas==2.1.4
+
+# Create directories
+RUN mkdir -p /app/logs /app/health
+
+# Copy monitoring scripts
+COPY monitor_dashboard.py /app/
+
+# Expose Streamlit port
+EXPOSE 8501
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8501/_stcore/health || exit 1
+
+# Run Streamlit dashboard
+CMD ["streamlit", "run", "monitor_dashboard.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.headless=true"]

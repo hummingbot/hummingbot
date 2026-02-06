@@ -94,5 +94,13 @@ coverage.xml
 /**/.injective_cookie
 
 .env
+.env.*
+!.env.example
+
+# Docker deployment
+/backups
+/health
+docker-compose.override.yml
+.compose.env
 
 **/.claude/settings.local.json
