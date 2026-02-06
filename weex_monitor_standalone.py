@@ -125,30 +125,12 @@ class WeexMonitorClient:
         return response.json()
 
     def get_open_orders(self, symbol):
-        """Get open/unfinished orders"""
-        path = "/api/v2/trade/open-orders"
-        body = {"symbol": symbol}
-        headers = self._get_headers("POST", path, body=body)
-
-        response = requests.post(
-            f"{self.base_url}{path}",
-            json=body,
-            headers=headers
-        )
-        return response.json()
+        """Open orders disabled - auth issues with WEEX API"""
+        return {"code": "disabled", "reason": "see logs for order details"}
 
     def get_fills(self, symbol, limit=20):
-        """Get recent fills/trades"""
-        path = "/api/v2/trade/fills"
-        body = {"symbol": symbol, "limit": limit}
-        headers = self._get_headers("POST", path, body=body)
-
-        response = requests.post(
-            f"{self.base_url}{path}",
-            json=body,
-            headers=headers
-        )
-        return response.json()
+        """Recent fills disabled - auth issues with WEEX API"""
+        return {"code": "disabled", "reason": "see logs for execution details"}
 
 
 # ============================================================================
