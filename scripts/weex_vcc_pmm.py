@@ -1,9 +1,8 @@
 import json
-
-# Disable rate oracle completely to prevent CoinGecko rate limit warnings
 import logging
 import os
 import random
+import time
 from decimal import Decimal
 from typing import Dict, List
 
@@ -106,6 +105,8 @@ class WeexVccPMM(ScriptStrategyBase):
         self.monitor_health_file = "/home/hummingbot/health/weex_mm_health.json"
         self.last_health_check = 0.0
         self.health_check_interval = 5.0  # Check health every 5 seconds
+        # Create health file on startup if monitor isn't running
+        self._initialize_health_file()
         # Track cancellation state to prevent placing new orders before async cancels complete
         self.pending_cancel_timestamp = 0.0
         self.min_cancel_wait = 2.0  # Wait at least 2 seconds after cancel before placing new orders
@@ -452,6 +453,26 @@ class WeexVccPMM(ScriptStrategyBase):
                 f"({len([o for o in limit_orders if o.is_buy])} buys, "
                 f"{len([o for o in limit_orders if not o.is_buy])} sells)"
             )
+
+    def _initialize_health_file(self):
+        """Create health file directory and initialize health file if it doesn't exist."""
+        try:
+            health_dir = os.path.dirname(self.monitor_health_file)
+            if not os.path.exists(health_dir):
+                os.makedirs(health_dir, exist_ok=True)
+
+            # Create initial health file if monitor hasn't created it
+            if not os.path.exists(self.monitor_health_file):
+                initial_health = {
+                    "healthy": True,
+                    "pause_requested": False,
+                    "issues": [],
+                    "last_update": int(time.time())
+                }
+                with open(self.monitor_health_file, 'w') as f:
+                    json.dump(initial_health, f)
+        except Exception as e:
+            self.logger().warning(f"Could not initialize health file: {e}")
 
     def _check_monitor_health(self) -> bool:
         """

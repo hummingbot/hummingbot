@@ -1,6 +1,7 @@
 import json
 import os
 import random
+import time
 from datetime import datetime
 from decimal import Decimal
 from typing import Dict
@@ -125,6 +126,8 @@ class WeexVolumeGenerator(ScriptStrategyBase):
         self.monitor_health_file = "/home/hummingbot/health/weex_vol_health.json"
         self.last_health_check = 0.0
         self.health_check_interval = 5.0  # Check health every 5 seconds
+        # Create health file on startup if monitor isn't running
+        self._initialize_health_file()
 
         # Stochastic behavior tracking
         self._last_scheduled_interval = self.config.trade_interval_seconds
@@ -325,6 +328,26 @@ class WeexVolumeGenerator(ScriptStrategyBase):
         randomized_interval = int(self.config.trade_interval_seconds * jitter_factor)
         # Ensure minimum 10 second interval to avoid too-frequent trades
         return max(10, randomized_interval)
+
+    def _initialize_health_file(self):
+        """Create health file directory and initialize health file if it doesn't exist."""
+        try:
+            health_dir = os.path.dirname(self.monitor_health_file)
+            if not os.path.exists(health_dir):
+                os.makedirs(health_dir, exist_ok=True)
+
+            # Create initial health file if monitor hasn't created it
+            if not os.path.exists(self.monitor_health_file):
+                initial_health = {
+                    "healthy": True,
+                    "pause_requested": False,
+                    "issues": [],
+                    "last_update": int(time.time())
+                }
+                with open(self.monitor_health_file, 'w') as f:
+                    json.dump(initial_health, f)
+        except Exception as e:
+            self.logger().warning(f"Could not initialize health file: {e}")
 
     def _check_monitor_health(self) -> bool:
         """
