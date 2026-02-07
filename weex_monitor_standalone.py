@@ -75,6 +75,49 @@ VOL_ACCOUNT = {
     "passphrase": os.getenv("WEEX_VOL_PASSPHRASE", ""),
 }
 
+# Health file paths
+MM_HEALTH_FILE = "/home/hummingbot/health/weex_mm_health.json"
+VOL_HEALTH_FILE = "/home/hummingbot/health/weex_vol_health.json"
+
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+
+def update_health_file(health_file_path: str, balances: dict, open_orders: list):
+    """Update health file with current balances and orders for dashboard"""
+    try:
+        # Read existing health data
+        health_data = {}
+        if os.path.exists(health_file_path):
+            try:
+                with open(health_file_path, "r") as f:
+                    health_data = json.load(f)
+            except (json.JSONDecodeError, IOError):
+                logger.warning(f"Could not read existing health file: {health_file_path}")
+                health_data = {}
+
+        # Update with monitoring data
+        health_data["balances"] = balances
+        health_data["open_orders"] = open_orders
+        health_data["last_update"] = time.time()
+
+        # Ensure other fields exist
+        if "healthy" not in health_data:
+            health_data["healthy"] = True
+        if "pause_requested" not in health_data:
+            health_data["pause_requested"] = False
+        if "issues" not in health_data:
+            health_data["issues"] = []
+
+        # Write updated data
+        os.makedirs(os.path.dirname(health_file_path), exist_ok=True)
+        with open(health_file_path, "w") as f:
+            json.dump(health_data, f, indent=2)
+
+    except Exception as e:
+        logger.error(f"Failed to update health file {health_file_path}: {e}")
+
 # ============================================================================
 # WEEX API CLIENT
 # ============================================================================
@@ -236,12 +279,16 @@ class WeexMonitorClient:
 # DASHBOARD DISPLAY
 # ============================================================================
 
-def display_account_dashboard(account_name, client):
-    """Display monitoring dashboard for one account"""
+def display_account_dashboard(account_name, client, health_file_path=None):
+    """Display monitoring dashboard for one account and optionally update health file"""
     logger.info("\n" + "=" * 80)
     logger.info(f"  {account_name.upper()} ACCOUNT")
     logger.info(f"  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     logger.info("=" * 80)
+
+    # Collect data for health file
+    balances_dict = {}
+    orders_list = []
 
     # 1. Account Balances
     logger.info("\n📊 ACCOUNT BALANCES")
@@ -253,13 +300,16 @@ def display_account_dashboard(account_name, client):
             if balances:
                 total_usd = Decimal("0")
                 for asset_data in balances:
-                    coin = asset_data.get("currency", "")
+                    coin = asset_data.get("currency") or asset_data.get("coinName") or ""
                     available = Decimal(asset_data.get("available", "0"))
                     frozen = Decimal(asset_data.get("frozen", "0"))
                     total = available + frozen
 
                     if total > 0:
                         logger.info(f"  {coin:10s}  Available: {available:>20.8f}  Frozen: {frozen:>15.8f}")
+                        # Store for health file
+                        if coin:  # Only add if coin name is not empty
+                            balances_dict[coin] = float(total)
 
                         # Estimate USD value
                         if coin == "USDT":
@@ -320,6 +370,14 @@ def display_account_dashboard(account_name, client):
                 for order in orders:
                     side = order.get("side", "")
                     order["_side_norm"] = str(side).upper()
+
+                    # Collect for health file
+                    orders_list.append({
+                        "side": str(side).upper(),
+                        "price": float(order.get("price", 0)),
+                        "amount": float(order.get("quantity", 0)),
+                        "filled": float(order.get("fillQuantity", 0))
+                    })
 
                 buy_orders = [o for o in orders if o.get("_side_norm") == "BUY"]
                 sell_orders = [o for o in orders if o.get("_side_norm") == "SELL"]
@@ -426,6 +484,10 @@ def display_account_dashboard(account_name, client):
     except Exception as e:
         logger.error(f"  ✗ Error fetching fills: {e}")
 
+    # Update health file if path provided
+    if health_file_path:
+        update_health_file(health_file_path, balances_dict, orders_list)
+
 
 def main():
     """Main monitoring loop"""
@@ -459,9 +521,9 @@ def main():
 
     try:
         while True:
-            # Display dashboards
-            display_account_dashboard(MM_ACCOUNT["name"], mm_client)
-            display_account_dashboard(VOL_ACCOUNT["name"], vol_client)
+            # Display dashboards and update health files
+            display_account_dashboard(MM_ACCOUNT["name"], mm_client, MM_HEALTH_FILE)
+            display_account_dashboard(VOL_ACCOUNT["name"], vol_client, VOL_HEALTH_FILE)
 
             logger.info("\n" + "=" * 80)
             logger.info("  Monitoring complete!")
