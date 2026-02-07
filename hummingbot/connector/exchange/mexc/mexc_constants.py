@@ -42,13 +42,20 @@ TIME_IN_FORCE_FOK = "FOK"  # Fill or kill
 # Rate Limit Type
 IP_REQUEST_WEIGHT = "IP_REQUEST_WEIGHT"
 UID_REQUEST_WEIGHT = "UID_REQUEST_WEIGHT"
+GENERAL_ANTISPAM_CEX_THRESHHOULD = "GENERAL_ANTISPAM_CEX_THRESHHOULD"
+
+# Separately Specified Endpoint Rate Limits for different methods
+GET_ORDER_LIMIT_ID = f"GET {ORDER_PATH_URL}"
+POST_OR_DELETE_ORDER_LIMIT_ID = f"(POST or DELETE) {ORDER_PATH_URL}"
 
 # Rate Limit time intervals
 ONE_MINUTE = 60
+TEN_SECONDS = 10
 ONE_SECOND = 1
 ONE_DAY = 86400
 
-MAX_REQUEST = 5000
+# IP or UID Rate limit per 10 sec
+MAX_REQUEST = 500
 
 # Order States
 ORDER_STATE = {
@@ -84,31 +91,35 @@ USER_ORDERS_ENDPOINT_NAME = "spot@private.orders.v3.api.pb"
 USER_BALANCE_ENDPOINT_NAME = "spot@private.account.v3.api.pb"
 WS_CONNECTION_TIME_INTERVAL = 20
 RATE_LIMITS = [
-    RateLimit(limit_id=IP_REQUEST_WEIGHT, limit=20000, time_interval=ONE_MINUTE),
-    RateLimit(limit_id=UID_REQUEST_WEIGHT, limit=240000, time_interval=ONE_MINUTE),
-    # Weighted Limits
-    RateLimit(limit_id=TICKER_PRICE_CHANGE_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(IP_REQUEST_WEIGHT, 1)]),
-    RateLimit(limit_id=TICKER_BOOK_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(IP_REQUEST_WEIGHT, 2)]),
-    RateLimit(limit_id=EXCHANGE_INFO_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(IP_REQUEST_WEIGHT, 10)]),
-    RateLimit(limit_id=SUPPORTED_SYMBOL_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(IP_REQUEST_WEIGHT, 10)]),
-    RateLimit(limit_id=SNAPSHOT_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(IP_REQUEST_WEIGHT, 50)]),
-    RateLimit(limit_id=MEXC_USER_STREAM_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(UID_REQUEST_WEIGHT, 1)]),
-    RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(IP_REQUEST_WEIGHT, 1)]),
-    RateLimit(limit_id=PING_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(IP_REQUEST_WEIGHT, 1)]),
-    RateLimit(limit_id=ACCOUNTS_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(UID_REQUEST_WEIGHT, 10)]),
-    RateLimit(limit_id=MY_TRADES_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(UID_REQUEST_WEIGHT, 10)]),
-    RateLimit(limit_id=ORDER_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(UID_REQUEST_WEIGHT, 2)])
+    # MexC Infrastructure-level rate limiting: ≈ 300-500 per sec (observed in tests)
+    RateLimit(limit_id=GENERAL_ANTISPAM_CEX_THRESHHOULD, limit=400, time_interval=ONE_SECOND),
+    # Weighted Limits (UID / IP for each endpoint)
+    RateLimit(limit_id=TICKER_PRICE_CHANGE_PATH_URL, limit=MAX_REQUEST, time_interval=TEN_SECONDS, weight=1,
+              linked_limits=[LinkedLimitWeightPair(GENERAL_ANTISPAM_CEX_THRESHHOULD)]),
+    RateLimit(limit_id=TICKER_BOOK_PATH_URL, limit=MAX_REQUEST, time_interval=TEN_SECONDS, weight=1,
+              linked_limits=[LinkedLimitWeightPair(GENERAL_ANTISPAM_CEX_THRESHHOULD)]),
+    RateLimit(limit_id=EXCHANGE_INFO_PATH_URL, limit=MAX_REQUEST, time_interval=TEN_SECONDS, weight=10,
+              linked_limits=[LinkedLimitWeightPair(GENERAL_ANTISPAM_CEX_THRESHHOULD)]),
+    RateLimit(limit_id=SUPPORTED_SYMBOL_PATH_URL, limit=MAX_REQUEST, time_interval=TEN_SECONDS, weight=1,
+              linked_limits=[LinkedLimitWeightPair(GENERAL_ANTISPAM_CEX_THRESHHOULD)]),
+    RateLimit(limit_id=SNAPSHOT_PATH_URL, limit=MAX_REQUEST, time_interval=TEN_SECONDS, weight=1,
+              linked_limits=[LinkedLimitWeightPair(GENERAL_ANTISPAM_CEX_THRESHHOULD)]),
+    # There are no limits specified for this endpoint in the documentation
+    # so this can be assumed to use a UID pool.
+    RateLimit(limit_id=MEXC_USER_STREAM_PATH_URL, limit=MAX_REQUEST, time_interval=TEN_SECONDS, weight=1,
+              linked_limits=[LinkedLimitWeightPair(GENERAL_ANTISPAM_CEX_THRESHHOULD)]),
+    RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=MAX_REQUEST, time_interval=TEN_SECONDS, weight=1,
+              linked_limits=[LinkedLimitWeightPair(GENERAL_ANTISPAM_CEX_THRESHHOULD)]),
+    RateLimit(limit_id=PING_PATH_URL, limit=MAX_REQUEST, time_interval=TEN_SECONDS, weight=1,
+              linked_limits=[LinkedLimitWeightPair(GENERAL_ANTISPAM_CEX_THRESHHOULD)]),
+    RateLimit(limit_id=ACCOUNTS_PATH_URL, limit=MAX_REQUEST, time_interval=TEN_SECONDS, weight=10,
+              linked_limits=[LinkedLimitWeightPair(GENERAL_ANTISPAM_CEX_THRESHHOULD)]),
+    RateLimit(limit_id=MY_TRADES_PATH_URL, limit=MAX_REQUEST, time_interval=TEN_SECONDS, weight=10,
+              linked_limits=[LinkedLimitWeightPair(GENERAL_ANTISPAM_CEX_THRESHHOULD)]),
+    RateLimit(limit_id=POST_OR_DELETE_ORDER_LIMIT_ID, limit=MAX_REQUEST, time_interval=TEN_SECONDS, weight=1,
+              linked_limits=[LinkedLimitWeightPair(GENERAL_ANTISPAM_CEX_THRESHHOULD)]),
+    RateLimit(limit_id=GET_ORDER_LIMIT_ID, limit=MAX_REQUEST, time_interval=TEN_SECONDS, weight=2,
+              linked_limits=[LinkedLimitWeightPair(GENERAL_ANTISPAM_CEX_THRESHHOULD)])
 ]
 
 ORDER_NOT_EXIST_ERROR_CODE = -2013

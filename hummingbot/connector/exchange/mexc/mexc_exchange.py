@@ -188,6 +188,7 @@ class MexcExchange(ExchangePyBase):
         try:
             order_result = await self._api_post(
                 path_url=CONSTANTS.ORDER_PATH_URL,
+                limit_id=CONSTANTS.POST_OR_DELETE_ORDER_LIMIT_ID,
                 data=api_params,
                 is_auth_required=True)
             o_id = str(order_result["orderId"])
@@ -211,6 +212,7 @@ class MexcExchange(ExchangePyBase):
         }
         cancel_result = await self._api_delete(
             path_url=CONSTANTS.ORDER_PATH_URL,
+            limit_id=CONSTANTS.POST_OR_DELETE_ORDER_LIMIT_ID,
             params=api_params,
             is_auth_required=True)
         if cancel_result.get("status") == "NEW":
@@ -487,6 +489,7 @@ class MexcExchange(ExchangePyBase):
         trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
         updated_order_data = await self._api_get(
             path_url=CONSTANTS.ORDER_PATH_URL,
+            limit_id=CONSTANTS.GET_ORDER_LIMIT_ID,
             params={
                 "symbol": trading_pair,
                 "origClientOrderId": tracked_order.client_order_id},
