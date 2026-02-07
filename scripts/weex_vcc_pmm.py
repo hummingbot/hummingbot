@@ -510,9 +510,22 @@ class WeexVccPMM(ScriptStrategyBase):
 
             # Check staleness (monitor should update every ~60s)
             last_update = health.get('last_update', 0)
-            if last_update > 0 and self.current_timestamp - last_update > 300:
-                self.logger().warning(f"Monitor health file is stale (last update: {int(self.current_timestamp - last_update)}s ago)")
-                # Continue anyway - don't auto-pause if monitor goes down
+            if last_update > 0:
+                age_seconds = self.current_timestamp - last_update
+                if age_seconds > 60 and not health.get('pause_requested', False):
+                    # Touch the timestamp so we don't warn forever when monitor is absent
+                    health['last_update'] = int(self.current_timestamp)
+                    try:
+                        with open(self.monitor_health_file, 'w') as f:
+                            json.dump(health, f)
+                    except Exception as e:
+                        self.logger().debug(f"Could not update health timestamp: {e}")
+
+                if age_seconds > 300:
+                    self.logger().warning(
+                        f"Monitor health file is stale (last update: {int(age_seconds)}s ago)"
+                    )
+                    # Continue anyway - don't auto-pause if monitor goes down
 
             return True
 

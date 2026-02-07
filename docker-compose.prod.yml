@@ -125,6 +125,7 @@ services:
     volumes:
       - ./weex_monitor_standalone.py:/home/hummingbot/weex_monitor_standalone.py:ro
       - ./health:/home/hummingbot/health
+      - ./logs/monitor:/home/hummingbot/logs
     environment:
       - WEEX_MM_API_KEY=${WEEX_MM_API_KEY}
       - WEEX_MM_API_SECRET=${WEEX_MM_API_SECRET}
@@ -132,6 +133,7 @@ services:
       - WEEX_VOL_API_KEY=${WEEX_VOL_API_KEY}
       - WEEX_VOL_API_SECRET=${WEEX_VOL_API_SECRET}
       - WEEX_VOL_PASSPHRASE=${WEEX_VOL_PASSPHRASE}
+      - WEEX_MONITOR_CONSOLE_LEVEL=${WEEX_MONITOR_CONSOLE_LEVEL:-INFO}
     restart: unless-stopped
     networks:
       - hummingbot-network
