@@ -48,12 +48,18 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             symbol_info = funding_info_response["data"]
         else:
             symbol_info = funding_info_response["data"][0]
+
+        index_price = symbol_info.get("indexPrice")
+        mark_price = symbol_info.get("markPrice")
+        next_funding_time = symbol_info.get("nextFundingRateTime")
+        rate = symbol_info.get("predictedFundingFeeRate")
+
         funding_info = FundingInfo(
             trading_pair=trading_pair,
-            index_price=Decimal(str(symbol_info["indexPrice"])),
-            mark_price=Decimal(str(symbol_info["markPrice"])),
-            next_funding_utc_timestamp=int(pd.Timestamp(symbol_info["nextFundingRateTime"]).timestamp()),
-            rate=Decimal(str(symbol_info["predictedFundingFeeRate"])),
+            index_price=Decimal(str(index_price)) if index_price else Decimal("0"),
+            mark_price=Decimal(str(mark_price)) if mark_price else Decimal("0"),
+            next_funding_utc_timestamp=int(pd.Timestamp(next_funding_time).timestamp()) if next_funding_time else 0,
+            rate=Decimal(str(rate)) if rate else Decimal("0"),
         )
         return funding_info
 
