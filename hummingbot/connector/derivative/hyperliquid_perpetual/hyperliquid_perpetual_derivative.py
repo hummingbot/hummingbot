@@ -1127,7 +1127,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             timestamp, funding_rate, payment = 0, Decimal("-1"), Decimal("-1")
             return timestamp, funding_rate, payment
         funding_payment = sorted_payment_response[0]
-        _payment = Decimal(funding_payment["delta"]["USD"])
+        _payment = Decimal(funding_payment["delta"]["usdc"])
         funding_rate = Decimal(funding_payment["delta"]["fundingRate"])
         timestamp = funding_payment["time"] * 1e-3
         if _payment != Decimal("0"):

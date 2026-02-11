@@ -2510,7 +2510,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             "time": 1640780000000,
             "delta": {
                 "coin": "BTC",
-                "USD": "0.5",
+                "usdc": "0.5",
                 "fundingRate": "0.0001"
             }
         }]
@@ -2537,7 +2537,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             "time": 1640780000000,
             "delta": {
                 "coin": "BTC",
-                "USD": "0",  # Zero payment
+                "usdc": "0",  # Zero payment
                 "fundingRate": "0.0001"
             }
         }]
