@@ -549,3 +549,39 @@ class BinanceExchange(ExchangePyBase):
         )
 
         return float(resp_json["lastPrice"])
+
+    def get_price(self, trading_pair: str, is_buy: bool) -> Decimal:
+        """
+        Get price for the market trading pair.
+        
+        Overrides parent implementation to handle trading pair format correctly.
+        Ensures trading pair symbol map is initialized before accessing order book.
+        
+        :param trading_pair: The market trading pair (e.g., "BTC-USDT")
+        :param is_buy: Whether to get bid (False) or ask (True) price
+        :returns: The best price as a Decimal
+        """
+        try:
+            # Try parent implementation first
+            return super().get_price(trading_pair, is_buy)
+        except (ValueError, KeyError) as e:
+            # If order book not found, try to get price via last traded price
+            self.logger().warning(f"Order book not found for {trading_pair}: {e}. Trying alternative method.")
+            
+            # Ensure trading pair symbol map is initialized
+            if not self.trading_pair_symbol_map_ready():
+                self.logger().error(f"Trading pair symbol map not ready for {trading_pair}")
+                return s_decimal_NaN
+            
+            # Try to get price from order book tracker directly
+            if trading_pair in self.order_book_tracker.order_books:
+                order_book = self.order_book_tracker.order_books[trading_pair]
+                try:
+                    price = order_book.get_price(is_buy)
+                    return Decimal(str(price))
+                except Exception as ob_e:
+                    self.logger().warning(f"Error getting price from order book: {ob_e}")
+                    return s_decimal_NaN
+            else:
+                self.logger().warning(f"Trading pair {trading_pair} not in order books")
+                return s_decimal_NaN
