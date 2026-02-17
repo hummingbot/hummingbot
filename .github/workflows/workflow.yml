@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
       - uses: technote-space/get-diff-action@v6
         with:
           PATTERNS: |
@@ -34,14 +34,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       # Use cache's hashFiles function to check for changes in core code
       - name: Check for code changes
         id: program-changes
-        uses: actions/cache@v3
+        uses: actions/cache@v5
         env:
           # Increase this value to manually reset cache if program files have not changed
           CACHE_NUMBER: 0
@@ -52,7 +52,7 @@ jobs:
       # Check for setup/environment.yml changes
       - name: Cache conda dependencies
         id: conda-dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v5
         env:
           # Increase this value to manually reset cache if setup/environment.yml has not changed
           CONDA_CACHE_NUMBER: 0
