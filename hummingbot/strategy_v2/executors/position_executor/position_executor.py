@@ -334,8 +334,12 @@ class PositionExecutor(ExecutorBase):
             elif self.open_and_close_volume_match():
                 self.stop()
             else:
-                await self.control_close_order()
-                self._current_retries += 1
+                # Only place close orders if we're not holding the position
+                if self.close_type != CloseType.POSITION_HOLD:
+                    await self.control_close_order()
+                    self._current_retries += 1
+                else:
+                    self.stop()
         else:
             self.cancel_open_orders()
         await self._sleep(5.0)
