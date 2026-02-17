@@ -287,15 +287,18 @@ class ExecutorOrchestrator:
                 self.logger().info(f"Created initial position for controller {controller_id}: {position_config.amount} "
                                    f"{position_config.side.name} {position_config.trading_pair} on {position_config.connector_name}")
 
-    async def stop(self, max_executors_close_attempts: int = 3):
+    async def stop(self, max_executors_close_attempts: int = 3, keep_position: bool = False):
         """
         Stop the orchestrator task and all active executors.
+        
+        :param max_executors_close_attempts: Maximum number of attempts to close executors
+        :param keep_position: If True, executors will hold positions instead of closing them
         """
         # first we stop all active executors
         for controller_id, executors_list in self.active_executors.items():
             for executor in executors_list:
                 if not executor.is_closed:
-                    executor.early_stop()
+                    executor.early_stop(keep_position=keep_position)
         for i in range(max_executors_close_attempts):
             if all([executor.executor_info.is_done for executors_list in self.active_executors.values()
                     for executor in executors_list]):

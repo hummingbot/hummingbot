@@ -169,6 +169,7 @@ class StrategyV2Base(ScriptStrategyBase):
     _last_config_update_ts: float = 0
     closed_executors_buffer: int = 100
     max_executors_close_attempts: int = 10
+    keep_position_on_stop: bool = False  # If True, positions will be held when strategy stops
     config_update_interval: int = 10
 
     @classmethod
@@ -324,7 +325,7 @@ class StrategyV2Base(ScriptStrategyBase):
     async def on_stop(self):
         self._is_stop_triggered = True
         self.listen_to_executor_actions_task.cancel()
-        await self.executor_orchestrator.stop(self.max_executors_close_attempts)
+        await self.executor_orchestrator.stop(self.max_executors_close_attempts, keep_position=self.keep_position_on_stop)
         for controller in self.controllers.values():
             controller.stop()
         self.market_data_provider.stop()
