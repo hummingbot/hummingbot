@@ -110,7 +110,7 @@ jobs:
         id: discord-direct-webhook
         if: always() && github.event_name == 'pull_request'
         continue-on-error: true
-        uses: tsickert/discord-webhook@v5.2.0
+        uses: tsickert/discord-webhook@v7.0.0
         with:
           webhook-url: ${{ secrets.WEBHOOK_URL }}
           raw-data: ${{ matrix.target }}-build_report.json
