@@ -249,49 +249,41 @@ class GeminiExchange(ExchangePyBase):
         """
         Processes events from the Gemini Fast API user stream.
         Handles order updates and balance updates.
+
+        Gemini Fast API message formats:
+        - Order events: {"E": <ns>, "s": "BTCUSD", "i": <id>, "c": <client_id>,
+                         "S": "BUY", "o": "LIMIT", "X": "NEW", "p": "1.00",
+                         "q": "0.001", "z": "0", "T": <ns>}
+        - Balance updates: {"e": "balanceUpdate", "E": <ms>, "B": [{"a": "USD", "f": "207.39"}]}
         """
         async for event_message in self._iter_user_event_queue():
             try:
                 event_type = event_message.get("e")
 
-                if event_type == CONSTANTS.WS_EVENT_ORDER_UPDATE:
+                if "X" in event_message:
+                    # Order event — identified by presence of "X" (order status) field
                     order_status = event_message.get("X", "")
                     client_order_id = event_message.get("c", "")
 
-                    # Handle trade fills
-                    execution_type = event_message.get("x", "")
-                    if execution_type == "TRADE":
+                    # When a fill occurs, fetch fill details via REST
+                    if order_status in ("PARTIALLY_FILLED", "FILLED"):
                         tracked_order = self._order_tracker.all_fillable_orders.get(client_order_id)
                         if tracked_order is not None:
-                            fee_asset = event_message.get("N", "")
-                            fee_amount = Decimal(event_message.get("n", "0"))
-                            fee = TradeFeeBase.new_spot_fee(
-                                fee_schema=self.trade_fee_schema(),
-                                trade_type=tracked_order.trade_type,
-                                percent_token=fee_asset,
-                                flat_fees=[TokenAmount(amount=fee_amount, token=fee_asset)]
-                            )
-                            fill_price = Decimal(event_message.get("L", "0"))
-                            fill_amount = Decimal(event_message.get("l", "0"))
-                            trade_update = TradeUpdate(
-                                trade_id=str(event_message.get("t", "")),
-                                client_order_id=client_order_id,
-                                exchange_order_id=str(event_message.get("i", "")),
-                                trading_pair=tracked_order.trading_pair,
-                                fee=fee,
-                                fill_base_amount=fill_amount,
-                                fill_quote_amount=fill_amount * fill_price,
-                                fill_price=fill_price,
-                                fill_timestamp=event_message.get("T", 0) * 1e-3,
-                            )
-                            self._order_tracker.process_trade_update(trade_update)
+                            try:
+                                trade_updates = await self._all_trade_updates_for_order(tracked_order)
+                                for trade_update in trade_updates:
+                                    self._order_tracker.process_trade_update(trade_update)
+                            except Exception:
+                                self.logger().warning(
+                                    f"Failed to fetch trade updates for {client_order_id}", exc_info=True)
 
-                    # Handle order status updates
+                    # Process order status update
                     tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
                     if tracked_order is not None and order_status in CONSTANTS.ORDER_STATE:
                         order_update = OrderUpdate(
                             trading_pair=tracked_order.trading_pair,
-                            update_timestamp=event_message.get("E", 0) * 1e-3,
+                            update_timestamp=CONSTANTS.convert_timestamp_to_seconds(
+                                event_message.get("E", 0)),
                             new_state=CONSTANTS.ORDER_STATE[order_status],
                             client_order_id=client_order_id,
                             exchange_order_id=str(event_message.get("i", "")),
@@ -299,12 +291,13 @@ class GeminiExchange(ExchangePyBase):
                         self._order_tracker.process_order_update(order_update=order_update)
 
                 elif event_type == CONSTANTS.WS_EVENT_BALANCE_UPDATE:
-                    # Balance update events
-                    asset_name = event_message.get("a", "")
-                    available = Decimal(event_message.get("d", "0"))
-                    if asset_name:
-                        self._account_available_balances[asset_name] = available
-                        self._account_balances[asset_name] = available
+                    # Balance update: {"e": "balanceUpdate", "B": [{"a": "USD", "f": "207.39"}]}
+                    for balance_entry in event_message.get("B", []):
+                        asset_name = balance_entry.get("a", "")
+                        available = Decimal(str(balance_entry.get("f", "0")))
+                        if asset_name:
+                            self._account_available_balances[asset_name] = available
+                            self._account_balances[asset_name] = available
 
             except asyncio.CancelledError:
                 raise
@@ -389,12 +382,17 @@ class GeminiExchange(ExchangePyBase):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
-        account_info = await self._api_post(
-            path_url=CONSTANTS.BALANCES_PATH_URL,
-            data={
-                "request": CONSTANTS.BALANCES_PATH_URL,
-            },
-            is_auth_required=True)
+        try:
+            account_info = await self._api_post(
+                path_url=CONSTANTS.BALANCES_PATH_URL,
+                data={
+                    "request": CONSTANTS.BALANCES_PATH_URL,
+                },
+                is_auth_required=True)
+            self.logger().info(f"Gemini balance response: {account_info}")
+        except Exception as e:
+            self.logger().error(f"Error fetching Gemini balances: {e}", exc_info=True)
+            raise
 
         for balance_entry in account_info:
             asset_name = balance_entry["currency"]

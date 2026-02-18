@@ -20,8 +20,10 @@ class GeminiAPIOrderBookDataSource(OrderBookTrackerDataSource):
     TRADE_STREAM_ID = 1
     DIFF_STREAM_ID = 2
     ONE_HOUR = 60 * 60
+    _DYNAMIC_SUBSCRIBE_ID_START = 100
 
     _logger: Optional[HummingbotLogger] = None
+    _next_subscribe_id: int = _DYNAMIC_SUBSCRIBE_ID_START
 
     def __init__(self,
                  trading_pairs: List[str],
@@ -122,9 +124,10 @@ class GeminiAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         # Skip subscription acknowledgment messages
-        if "result" in raw_message or "id" in raw_message and "e" not in raw_message:
+        if "result" in raw_message or ("id" in raw_message and "t" not in raw_message):
             return
-        if raw_message.get("e") == CONSTANTS.WS_EVENT_TRADE:
+        # Trade messages are identified by the "t" (trade ID) field, not by "e"
+        if "t" in raw_message and "s" in raw_message:
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
                 symbol=raw_message["s"])
             trade_message = GeminiOrderBook.trade_message_from_exchange(
@@ -148,6 +151,67 @@ class GeminiAPIOrderBookDataSource(OrderBookTrackerDataSource):
             event_type = event_message.get("e")
             if event_type == CONSTANTS.WS_EVENT_DEPTH_UPDATE:
                 channel = self._diff_messages_queue_key
-            elif event_type == CONSTANTS.WS_EVENT_TRADE:
+            elif "t" in event_message:
+                # Trade messages have a "t" (trade ID) field but no "e" field
                 channel = self._trade_messages_queue_key
         return channel
+
+    async def subscribe_to_trading_pair(self, trading_pair: str) -> bool:
+        if self._ws_assistant is None:
+            self.logger().warning(f"Cannot subscribe to {trading_pair}: WebSocket not connected")
+            return False
+        try:
+            symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+            payload = {
+                "id": str(self._get_next_subscribe_id()),
+                "method": CONSTANTS.WS_METHOD_SUBSCRIBE,
+                "params": {
+                    "streams": [
+                        CONSTANTS.WS_TRADE_STREAM.format(symbol.upper()),
+                        CONSTANTS.WS_DEPTH_STREAM.format(symbol.upper()),
+                    ]
+                }
+            }
+            subscribe_request: WSJSONRequest = WSJSONRequest(payload=payload)
+            await self._ws_assistant.send(subscribe_request)
+            self.add_trading_pair(trading_pair)
+            self.logger().info(f"Subscribed to {trading_pair} order book and trade channels")
+            return True
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().exception(f"Unexpected error subscribing to {trading_pair} channels")
+            return False
+
+    async def unsubscribe_from_trading_pair(self, trading_pair: str) -> bool:
+        if self._ws_assistant is None:
+            self.logger().warning(f"Cannot unsubscribe from {trading_pair}: WebSocket not connected")
+            return False
+        try:
+            symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+            payload = {
+                "id": str(self._get_next_subscribe_id()),
+                "method": CONSTANTS.WS_METHOD_UNSUBSCRIBE,
+                "params": {
+                    "streams": [
+                        CONSTANTS.WS_TRADE_STREAM.format(symbol.upper()),
+                        CONSTANTS.WS_DEPTH_STREAM.format(symbol.upper()),
+                    ]
+                }
+            }
+            unsubscribe_request: WSJSONRequest = WSJSONRequest(payload=payload)
+            await self._ws_assistant.send(unsubscribe_request)
+            self.remove_trading_pair(trading_pair)
+            self.logger().info(f"Unsubscribed from {trading_pair} order book and trade channels")
+            return True
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().exception(f"Unexpected error unsubscribing from {trading_pair} channels")
+            return False
+
+    @classmethod
+    def _get_next_subscribe_id(cls) -> int:
+        current_id = cls._next_subscribe_id
+        cls._next_subscribe_id += 1
+        return current_id

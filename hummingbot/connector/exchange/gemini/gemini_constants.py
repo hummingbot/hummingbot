@@ -85,6 +85,16 @@ ORDER_STATE = {
 ORDER_NOT_FOUND_ERROR = "OrderNotFound"
 INVALID_ORDER_ERROR = "InvalidOrderId"
 
+
+def convert_timestamp_to_seconds(ts: float) -> float:
+    """Convert a Gemini Fast API timestamp to seconds.
+    The Fast API uses nanoseconds for trade/order events and milliseconds for balance updates."""
+    if ts > 1e15:
+        return ts / 1e9
+    elif ts > 1e11:
+        return ts / 1e3
+    return ts
+
 RATE_LIMITS = [
     RateLimit(limit_id=REQUEST_WEIGHT, limit=600, time_interval=ONE_MINUTE),
     RateLimit(limit_id=ORDERS_RATE, limit=100, time_interval=ONE_MINUTE),

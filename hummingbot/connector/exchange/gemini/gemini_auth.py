@@ -106,5 +106,5 @@ class GeminiAuth(AuthBase):
 
     def _get_nonce(self) -> int:
         if self.time_provider is not None:
-            return int(self.time_provider.time() * 1e3)
-        return int(time.time() * 1e3)
+            return int(self.time_provider.time() * 1000)
+        return int(time.time() * 1000)

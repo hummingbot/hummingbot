@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 from typing_extensions import Awaitable
 
 from hummingbot.connector.exchange.gemini.gemini_auth import GeminiAuth
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 
 
 class GeminiAuthTests(TestCase):
@@ -63,7 +63,7 @@ class GeminiAuthTests(TestCase):
         # Verify payload contains nonce
         decoded_payload = json.loads(base64.b64decode(payload_b64))
         self.assertIn("nonce", decoded_payload)
-        self.assertEqual(int(now * 1e3), decoded_payload["nonce"])
+        self.assertEqual(int(now * 1000), decoded_payload["nonce"])
 
         # Verify body is cleared (Gemini uses headers, not body)
         self.assertIsNone(configured_request.data)
@@ -75,7 +75,8 @@ class GeminiAuthTests(TestCase):
 
         auth = GeminiAuth(api_key=self._api_key, secret_key=self._secret, time_provider=mock_time_provider)
 
-        request = WSRequest(url="wss://wsapi.fast.gemini.com")
+        request = MagicMock()
+        request.headers = None
         configured_request = self.async_run_with_timeout(auth.ws_authenticate(request))
 
         self.assertIn("X-GEMINI-APIKEY", configured_request.headers)

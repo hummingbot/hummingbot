@@ -1,5 +1,6 @@
 from typing import Dict, Optional
 
+from hummingbot.connector.exchange.gemini.gemini_constants import convert_timestamp_to_seconds
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
@@ -48,4 +49,4 @@ class GeminiOrderBook(OrderBook):
             "update_id": ts,
             "price": msg.get("p", "0"),
             "amount": msg.get("q", "0")
-        }, timestamp=ts * 1e-3 if ts > 1e10 else ts)
+        }, timestamp=convert_timestamp_to_seconds(ts))
