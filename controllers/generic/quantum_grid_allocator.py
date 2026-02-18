@@ -16,7 +16,6 @@ from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
 
 class QGAConfig(ControllerConfigBase):
     controller_name: str = "quantum_grid_allocator"
-    candles_config: List[CandlesConfig] = []
 
     # Portfolio allocation zones
     long_only_threshold: Decimal = Field(default=Decimal("0.2"), json_schema_extra={"is_updatable": True})
@@ -109,12 +108,6 @@ class QuantumGridAllocator(ControllerBase):
             }
             for asset in config.portfolio_allocation
         }
-        self.config.candles_config = [CandlesConfig(
-            connector=config.connector_name,
-            trading_pair=trading_pair + "-" + config.quote_asset,
-            interval=config.interval,
-            max_records=config.bb_length + 100
-        ) for trading_pair in config.portfolio_allocation.keys()]
         super().__init__(config, *args, **kwargs)
         self.initialize_rate_sources()
 
@@ -490,3 +483,11 @@ class QuantumGridAllocator(ControllerBase):
 
     def get_mid_price(self, trading_pair: str) -> Decimal:
         return self.market_data_provider.get_price_by_type(self.config.connector_name, trading_pair, PriceType.MidPrice)
+
+    def get_candles_config(self) -> List[CandlesConfig]:
+        return [CandlesConfig(
+            connector=self.config.connector_name,
+            trading_pair=trading_pair + "-" + self.config.quote_asset,
+            interval=self.config.interval,
+            max_records=self.config.bb_length + 100
+        ) for trading_pair in self.config.portfolio_allocation.keys()]

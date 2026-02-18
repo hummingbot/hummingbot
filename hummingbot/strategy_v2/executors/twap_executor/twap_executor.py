@@ -14,7 +14,7 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
 )
 from hummingbot.logger import HummingbotLogger
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.executor_base import ExecutorBase
 from hummingbot.strategy_v2.executors.twap_executor.data_types import TWAPExecutorConfig
 from hummingbot.strategy_v2.models.base import RunnableStatus
@@ -30,7 +30,7 @@ class TWAPExecutor(ExecutorBase):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, strategy: ScriptStrategyBase, config: TWAPExecutorConfig, update_interval: float = 1.0,
+    def __init__(self, strategy: StrategyV2Base, config: TWAPExecutorConfig, update_interval: float = 1.0,
                  max_retries: int = 15):
         super().__init__(strategy=strategy, connectors=[config.connector_name], config=config, update_interval=update_interval)
         self.config = config

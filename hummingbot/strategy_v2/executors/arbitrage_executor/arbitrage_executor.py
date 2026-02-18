@@ -8,7 +8,7 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketOrderFailureEvent, SellOrderCreatedEvent
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.logger import HummingbotLogger
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig
 from hummingbot.strategy_v2.executors.executor_base import ExecutorBase
 from hummingbot.strategy_v2.models.base import RunnableStatus
@@ -48,7 +48,7 @@ class ArbitrageExecutor(ExecutorBase):
         return same_token_condition or tokens_interchangeable_condition or stable_coins_condition
 
     def __init__(self,
-                 strategy: ScriptStrategyBase,
+                 strategy: StrategyV2Base,
                  config: ArbitrageExecutorConfig,
                  update_interval: float = 1.0,
                  max_retries: int = 3):

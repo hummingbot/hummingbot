@@ -30,9 +30,7 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.notifier.notifier_base import NotifierBase
-from hummingbot.strategy.directional_strategy_base import DirectionalStrategyBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
 
@@ -41,9 +39,8 @@ s_decimal_0 = Decimal("0")
 
 
 class StrategyType(Enum):
-    SCRIPT = "script"
-    REGULAR = "regular"
     V2 = "v2"
+    REGULAR = "regular"
 
 
 s_logger = None
@@ -317,26 +314,17 @@ class TradingCore:
 
     def detect_strategy_type(self, strategy_name: str) -> StrategyType:
         """Detect the type of strategy."""
-        if self.is_script_strategy(strategy_name):
-            # Check if it's a V2 strategy by examining the script
-            return StrategyType.V2 if self._is_v2_script_strategy(strategy_name) else StrategyType.SCRIPT
+        if self.is_v2_strategy(strategy_name):
+            return StrategyType.V2
         elif strategy_name in STRATEGIES:
             return StrategyType.REGULAR
         else:
             raise ValueError(f"Unknown strategy: {strategy_name}")
 
-    def is_script_strategy(self, strategy_name: str) -> bool:
-        """Check if the strategy is a script strategy."""
-        script_file = self.scripts_path / f"{strategy_name}.py"
-        return script_file.exists()
-
-    def _is_v2_script_strategy(self, strategy_name: str) -> bool:
-        """Check if a script strategy is a V2 strategy."""
-        try:
-            script_class, _ = self.load_script_class(strategy_name)
-            return issubclass(script_class, StrategyV2Base)
-        except Exception:
-            return False
+    def is_v2_strategy(self, strategy_name: str) -> bool:
+        """Check if the strategy is a V2 strategy."""
+        v2_file = self.scripts_path / f"{strategy_name}.py"
+        return v2_file.exists()
 
     def initialize_markets_recorder(self, db_name: str = None):
         """
@@ -346,9 +334,9 @@ class TradingCore:
             db_name: Database name (defaults to strategy file name)
         """
         if not db_name:
-            # For script strategies with config files, use the config source as db name
+            # For V2 strategies with config files, use the config source as db name
             # Otherwise use strategy file name
-            if self._config_source and self.is_script_strategy(self.strategy_name or ""):
+            if self._config_source and self.is_v2_strategy(self.strategy_name or ""):
                 db_name = self._config_source
             else:
                 db_name = self._strategy_file_name or "trades"
@@ -371,47 +359,49 @@ class TradingCore:
         self.markets_recorder.start()
         self.logger().info(f"Markets recorder initialized with database: {db_name}")
 
-    def load_script_class(self, script_name: str) -> Tuple[Type, Optional[BaseClientModel]]:
+    def load_v2_class(self, strategy_name: str) -> Tuple[Type, BaseClientModel]:
         """
-        Load script strategy class following Hummingbot's pattern.
+        Load V2 strategy class and its config.
+
+        Every V2 strategy must have a config class (subclass of StrategyV2ConfigBase).
+        Config is always loaded - either from a YAML file or with defaults.
 
         Args:
-            script_name: Name of the script strategy
+            strategy_name: Name of the V2 strategy
 
         Returns:
             Tuple of (strategy_class, config_object)
         """
-        config = None
-        module = sys.modules.get(f"{SCRIPT_STRATEGIES_MODULE}.{script_name}")
+        module = sys.modules.get(f"{SCRIPT_STRATEGIES_MODULE}.{strategy_name}")
 
         if module is not None:
-            script_module = importlib.reload(module)
+            strategy_module = importlib.reload(module)
         else:
-            script_module = importlib.import_module(f".{script_name}", package=SCRIPT_STRATEGIES_MODULE)
+            strategy_module = importlib.import_module(f".{strategy_name}", package=SCRIPT_STRATEGIES_MODULE)
 
         try:
-            script_class = next((member for member_name, member in inspect.getmembers(script_module)
-                                 if inspect.isclass(member) and
-                                 issubclass(member, ScriptStrategyBase) and
-                                 member not in [ScriptStrategyBase, DirectionalStrategyBase, StrategyV2Base]))
+            strategy_class = next((member for member_name, member in inspect.getmembers(strategy_module)
+                                   if inspect.isclass(member) and
+                                   issubclass(member, StrategyV2Base) and
+                                   member is not StrategyV2Base))
         except StopIteration:
-            raise InvalidScriptModule(f"The module {script_name} does not contain any subclass of ScriptStrategyBase")
+            raise InvalidScriptModule(f"The module {strategy_name} does not contain any subclass of StrategyV2Base")
 
-        # Load config if strategy and file names differ
-        if self.strategy_name != self._strategy_file_name and self._strategy_file_name:
-            try:
-                config_class = next((member for member_name, member in inspect.getmembers(script_module)
-                                     if inspect.isclass(member) and
-                                     issubclass(member, BaseClientModel) and
-                                     member not in [BaseClientModel, StrategyV2ConfigBase]))
-                # Load config from provided config dict or file
-                config_data = self._load_strategy_config()
-                config = config_class(**config_data)
-                script_class.init_markets(config)
-            except StopIteration:
-                raise InvalidScriptModule(f"The module {script_name} does not contain any subclass of BaseClientModel")
+        # Always load config class
+        try:
+            config_class = next((member for member_name, member in inspect.getmembers(strategy_module)
+                                 if inspect.isclass(member) and
+                                 issubclass(member, BaseClientModel) and
+                                 member not in [BaseClientModel, StrategyV2ConfigBase]))
+        except StopIteration:
+            raise InvalidScriptModule(f"The module {strategy_name} does not contain any subclass of StrategyV2ConfigBase")
 
-        return script_class, config
+        # Load config data from file or use defaults
+        config_data = self._load_strategy_config()
+        config = config_class(**config_data)
+        strategy_class.init_markets(config)
+
+        return strategy_class, config
 
     def _load_strategy_config(self) -> Dict[str, Any]:
         """
@@ -424,12 +414,12 @@ class TradingCore:
             return self._config_data
         elif self._config_source:
             # Load from YAML config file
-            return self._load_script_yaml_config(self._config_source)
+            return self._load_v2_yaml_config(self._config_source)
         else:
             return {}
 
-    def _load_script_yaml_config(self, config_file_path: str) -> Dict[str, Any]:
-        """Load YAML configuration file for script strategies."""
+    def _load_v2_yaml_config(self, config_file_path: str) -> Dict[str, Any]:
+        """Load YAML configuration file for V2 strategies."""
         import yaml
 
         from hummingbot.client.settings import SCRIPT_STRATEGY_CONF_DIR_PATH
@@ -439,7 +429,7 @@ class TradingCore:
             if "/" in config_file_path or "\\" in config_file_path:
                 config_path = Path(config_file_path)
             else:
-                # Assume it's in the script config directory
+                # Assume it's in the V2 strategy config directory
                 config_path = SCRIPT_STRATEGY_CONF_DIR_PATH / config_file_path
 
             with open(config_path, 'r') as file:
@@ -481,8 +471,8 @@ class TradingCore:
             # Initialize strategy based on type
             strategy_type = self.detect_strategy_type(strategy_name)
 
-            if strategy_type in [StrategyType.SCRIPT, StrategyType.V2]:
-                await self._initialize_script_strategy()
+            if strategy_type == StrategyType.V2:
+                await self._initialize_v2_strategy()
             else:
                 await self._initialize_regular_strategy()
 
@@ -504,23 +494,18 @@ class TradingCore:
             self.logger().error(f"Failed to start strategy {strategy_name}: {e}")
             return False
 
-    async def _initialize_script_strategy(self):
-        """Initialize a script strategy using consolidated approach."""
-        script_strategy_class, config = self.load_script_class(self.strategy_name)
+    async def _initialize_v2_strategy(self):
+        """Initialize a V2 strategy using consolidated approach."""
+        v2_strategy_class, config = self.load_v2_class(self.strategy_name)
 
-        # Get markets from script class
-        markets_list = []
-        for conn, pairs in script_strategy_class.markets.items():
-            markets_list.append((conn, list(pairs)))
+        # Get markets from V2 class
+        markets_list = [(conn, list(pairs)) for conn, pairs in v2_strategy_class.markets.items()]
 
         # Initialize markets using single method
         await self.initialize_markets(markets_list)
 
-        # Create strategy instance
-        if config:
-            self.strategy = script_strategy_class(self.markets, config)
-        else:
-            self.strategy = script_strategy_class(self.markets)
+        # Create strategy instance (config is always present)
+        self.strategy = v2_strategy_class(self.markets, config)
 
     async def _initialize_regular_strategy(self):
         """Initialize a regular strategy using starter file."""
@@ -796,8 +781,8 @@ class TradingCore:
             skip_order_cancellation: Whether to skip cancelling outstanding orders
         """
         try:
-            # Handle script strategy specific cleanup first
-            if self.strategy and isinstance(self.strategy, ScriptStrategyBase):
+            # Handle V2 strategy specific cleanup first
+            if self.strategy and isinstance(self.strategy, StrategyV2Base):
                 await self.strategy.on_stop()
 
             # Stop strategy if running

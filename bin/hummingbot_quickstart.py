@@ -26,12 +26,7 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.client.config.security import Security
 from hummingbot.client.hummingbot_application import HummingbotApplication
-from hummingbot.client.settings import (
-    SCRIPT_STRATEGIES_PATH,
-    SCRIPT_STRATEGY_CONF_DIR_PATH,
-    STRATEGIES_CONF_DIR_PATH,
-    AllConnectorSettings,
-)
+from hummingbot.client.settings import SCRIPT_STRATEGY_CONF_DIR_PATH, STRATEGIES_CONF_DIR_PATH, AllConnectorSettings
 from hummingbot.client.ui import login_prompt
 from hummingbot.client.ui.style import load_style
 from hummingbot.core.event.events import HummingbotUIEvent
@@ -46,10 +41,11 @@ class CmdlineParser(argparse.ArgumentParser):
                           type=str,
                           required=False,
                           help="Specify a file in `conf/` to load as the strategy config file.")
-        self.add_argument("--script-conf", "-c",
+        self.add_argument("--v2",
                           type=str,
                           required=False,
-                          help="Specify a file in `conf/scripts` to configure a script strategy.")
+                          dest="v2_conf",
+                          help="V2 strategy config file name (from conf/scripts/).")
         self.add_argument("--config-password", "-p",
                           type=str,
                           required=False,
@@ -114,7 +110,7 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
     hb = HummingbotApplication.main_application(client_config_map=client_config_map, headless_mode=args.headless)
 
     # Load and start strategy if provided
-    if args.config_file_name is not None:
+    if args.v2_conf is not None or args.config_file_name is not None:
         success = await load_and_start_strategy(hb, args)
         if not success:
             logging.getLogger().error("Failed to load strategy. Exiting.")
@@ -146,44 +142,42 @@ async def wait_for_gateway_ready(hb):
 
 async def load_and_start_strategy(hb: HummingbotApplication, args: argparse.Namespace,):
     """Load and start strategy based on file type and mode."""
-    if args.config_file_name.endswith(".py"):
-        # Script strategy
-        strategy_name = args.config_file_name.replace(".py", "")
-        strategy_config_file = args.script_conf  # Optional config file for script
+    import yaml
 
-        # Validate that the script file exists
-        script_file_path = SCRIPT_STRATEGIES_PATH / args.config_file_name
-        if not script_file_path.exists():
-            logging.getLogger().error(f"Script file not found: {script_file_path}")
+    if args.v2_conf:
+        # V2 config-driven start: derive script from config file
+        conf_path = SCRIPT_STRATEGY_CONF_DIR_PATH / args.v2_conf
+        if not conf_path.exists():
+            logging.getLogger().error(f"V2 config file not found: {conf_path}")
             return False
 
-        # Validate that the script config file exists if provided
-        if strategy_config_file:
-            script_config_path = SCRIPT_STRATEGY_CONF_DIR_PATH / strategy_config_file
-            if not script_config_path.exists():
-                logging.getLogger().error(f"Script config file not found: {script_config_path}")
-                return False
+        with open(conf_path) as f:
+            config_data = yaml.safe_load(f) or {}
+        script_file = config_data.get("script_file_name", "")
+        if not script_file:
+            logging.getLogger().error("Config file is missing 'script_file_name' field.")
+            return False
 
-        # Set strategy_file_name to config file if provided, otherwise script file (matching start_command logic)
-        hb.strategy_file_name = strategy_config_file.split(".")[0] if strategy_config_file else strategy_name
-        hb.strategy_name = strategy_name
+        strategy_name = script_file.replace(".py", "")
+        hb.strategy_file_name = args.v2_conf
+        hb.trading_core.strategy_name = strategy_name
 
         if args.headless:
-            logging.getLogger().info(f"Starting script strategy: {strategy_name}")
+            logging.getLogger().info(f"Starting V2 script strategy: {strategy_name}")
             success = await hb.trading_core.start_strategy(
                 strategy_name,
-                strategy_config_file,  # Pass config file path if provided
-                hb.strategy_file_name + (".yml" if strategy_config_file else ".py")  # Full file name for strategy
+                args.v2_conf,
+                args.v2_conf
             )
             if not success:
                 logging.getLogger().error("Failed to start strategy")
                 return False
         else:
-            # UI mode - set properties for UIStartListener
-            if strategy_config_file:
-                hb.script_config = strategy_config_file
-    else:
-        # Regular strategy with YAML config
+            # UI mode - trigger start via listener
+            hb.script_config = args.v2_conf
+
+    elif args.config_file_name is not None:
+        # Regular strategy with YAML config (V1 flow)
         hb.strategy_file_name = args.config_file_name.split(".")[0]  # Remove .yml extension
 
         try:
@@ -239,8 +233,8 @@ async def run_application(hb: HummingbotApplication, args: argparse.Namespace, c
         # Set up UI mode with start listener
         start_listener: UIStartListener = UIStartListener(
             hb,
-            is_script=args.config_file_name.endswith(".py") if args.config_file_name else False,
-            script_config=hb.script_config,
+            is_script=args.v2_conf is not None,
+            script_config=getattr(hb, 'script_config', None),
             is_quickstart=True
         )
         hb.app.add_listener(HummingbotUIEvent.Start, start_listener)
@@ -262,8 +256,8 @@ def main():
     if args.config_file_name is None and len(os.environ.get("CONFIG_FILE_NAME", "")) > 0:
         args.config_file_name = os.environ["CONFIG_FILE_NAME"]
 
-    if args.script_conf is None and len(os.environ.get("SCRIPT_CONFIG", "")) > 0:
-        args.script_conf = os.environ["SCRIPT_CONFIG"]
+    if args.v2_conf is None and len(os.environ.get("SCRIPT_CONFIG", "")) > 0:
+        args.v2_conf = os.environ["SCRIPT_CONFIG"]
 
     if args.config_password is None and len(os.environ.get("CONFIG_PASSWORD", "")) > 0:
         args.config_password = os.environ["CONFIG_PASSWORD"]

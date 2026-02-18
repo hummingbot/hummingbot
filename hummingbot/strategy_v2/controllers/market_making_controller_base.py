@@ -11,6 +11,7 @@ from hummingbot.strategy_v2.executors.order_executor.data_types import Execution
 from hummingbot.strategy_v2.executors.position_executor.data_types import TrailingStop, TripleBarrierConfig
 from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, ExecutorAction, StopExecutorAction
 from hummingbot.strategy_v2.models.executors import CloseType
+from hummingbot.strategy_v2.utils.common import parse_comma_separated_list, parse_enum_value
 
 
 class MarketMakingControllerConfigBase(ControllerConfigBase):
@@ -138,40 +139,21 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
     @field_validator('take_profit_order_type', mode="before")
     @classmethod
     def validate_order_type(cls, v) -> OrderType:
-        if isinstance(v, OrderType):
-            return v
-        elif v is None:
+        if v is None:
             return OrderType.MARKET
-        elif isinstance(v, str):
-            cleaned_str = v.replace("OrderType.", "").upper()
-            if cleaned_str in OrderType.__members__:
-                return OrderType[cleaned_str]
-        elif isinstance(v, int):
-            try:
-                return OrderType(v)
-            except ValueError:
-                pass
-        raise ValueError(f"Invalid order type: {v}. Valid options are: {', '.join(OrderType.__members__)}")
+        if isinstance(v, str):
+            v = v.replace("OrderType.", "")
+        return parse_enum_value(OrderType, v, "take_profit_order_type")
 
     @field_validator('position_mode', mode="before")
     @classmethod
     def validate_position_mode(cls, v: str) -> PositionMode:
-        if isinstance(v, str):
-            if v.upper() in PositionMode.__members__:
-                return PositionMode[v.upper()]
-            raise ValueError(f"Invalid position mode: {v}. Valid options are: {', '.join(PositionMode.__members__)}")
-        return v
+        return parse_enum_value(PositionMode, v, "position_mode")
 
     @field_validator('buy_spreads', 'sell_spreads', mode="before")
     @classmethod
     def parse_spreads(cls, v):
-        if v is None:
-            return []
-        if isinstance(v, str):
-            if v == "":
-                return []
-            return [float(x.strip()) for x in v.split(',')]
-        return v
+        return parse_comma_separated_list(v, "spreads")
 
     @field_validator('buy_amounts_pct', 'sell_amounts_pct', mode="before")
     @classmethod
@@ -180,12 +162,11 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
         if v is None or v == "":
             spread_field = field_name.replace('amounts_pct', 'spreads')
             return [1 for _ in validation_info.data[spread_field]]
-        if isinstance(v, str):
-            return [float(x.strip()) for x in v.split(',')]
-        elif isinstance(v, list) and len(v) != len(validation_info.data[field_name.replace('amounts_pct', 'spreads')]):
+        parsed = parse_comma_separated_list(v, field_name)
+        if isinstance(parsed, list) and len(parsed) != len(validation_info.data[field_name.replace('amounts_pct', 'spreads')]):
             raise ValueError(
                 f"The number of {field_name} must match the number of {field_name.replace('amounts_pct', 'spreads')}.")
-        return v
+        return parsed
 
     @property
     def triple_barrier_config(self) -> TripleBarrierConfig:

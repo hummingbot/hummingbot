@@ -4,7 +4,6 @@ from typing import Dict, List, Optional
 from pydantic import BaseModel, Field
 
 from hummingbot.core.data_type.common import MarketDict, OrderType, PositionMode, PriceType, TradeType
-from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.strategy_v2.controllers import ControllerBase, ControllerConfigBase
 from hummingbot.strategy_v2.executors.data_types import ConnectorPair
 from hummingbot.strategy_v2.executors.grid_executor.data_types import GridExecutorConfig
@@ -30,7 +29,6 @@ class MultiGridStrikeConfig(ControllerConfigBase):
     """
     controller_type: str = "generic"
     controller_name: str = "multi_grid_strike"
-    candles_config: List[CandlesConfig] = []
 
     # Account configuration
     leverage: int = 20

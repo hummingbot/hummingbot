@@ -16,7 +16,6 @@ from hummingbot.strategy_v2.executors.grid_executor.data_types import GridExecut
 
 class BollinGridControllerConfig(DirectionalTradingControllerConfigBase):
     controller_name: str = "bollingrid"
-    candles_config: List[CandlesConfig] = []
     candles_connector: str = Field(
         default=None,
         json_schema_extra={
@@ -84,13 +83,6 @@ class BollinGridController(DirectionalTradingControllerBase):
     def __init__(self, config: BollinGridControllerConfig, *args, **kwargs):
         self.config = config
         self.max_records = self.config.bb_length
-        if len(self.config.candles_config) == 0:
-            self.config.candles_config = [CandlesConfig(
-                connector=config.candles_connector,
-                trading_pair=config.candles_trading_pair,
-                interval=config.interval,
-                max_records=self.max_records
-            )]
         super().__init__(config, *args, **kwargs)
 
     async def update_processed_data(self):
@@ -158,3 +150,11 @@ class BollinGridController(DirectionalTradingControllerBase):
             min_order_amount_quote=self.config.min_order_amount_quote,
             max_open_orders=self.config.max_open_orders,
         )
+
+    def get_candles_config(self) -> List[CandlesConfig]:
+        return [CandlesConfig(
+            connector=self.config.candles_connector,
+            trading_pair=self.config.candles_trading_pair,
+            interval=self.config.interval,
+            max_records=self.max_records
+        )]
