@@ -63,7 +63,7 @@ from hummingbot.connector.exchange.xrpl.xrpl_utils import (  # AddLiquidityReque
 )
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule  # type: ignore
-from hummingbot.connector.utils import get_new_client_order_id
+from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
@@ -530,17 +530,23 @@ class XrplExchange(ExchangePyBase):
         price: Decimal = s_decimal_NaN,
         is_maker: Optional[bool] = None,
     ) -> AddedToCostTradeFee:
-        # TODO: Implement get fee, use the below implementation
-        # is_maker = is_maker or (order_type is OrderType.LIMIT_MAKER)
-        # trading_pair = combine_to_hb_trading_pair(base=base_currency, quote=quote_currency)
-        # if trading_pair in self._trading_fees:
-        #     fees_data = self._trading_fees[trading_pair]
-        #     fee_value = Decimal(fees_data["makerFeeRate"]) if is_maker else Decimal(fees_data["takerFeeRate"])
-        #     fee = AddedToCostTradeFee(percent=fee_value)
+        is_maker = is_maker or (order_type is OrderType.LIMIT_MAKER)
+        trading_pair = combine_to_hb_trading_pair(base=base_currency, quote=quote_currency)
+        fee_value = Decimal("0")
 
-        # TODO: Remove this fee implementation
-        is_maker = order_type is OrderType.LIMIT_MAKER
-        return AddedToCostTradeFee(percent=self.estimate_fee_pct(is_maker))
+        if trading_pair in self._trading_pair_fee_rules:
+            # XRPL has AMM fees if the trade executes against an AMM pool.
+            # Pure order book trades (Offers) generally have no trading fee (0%).
+            # Since we cannot know execution path (AMM vs Offer) beforehand easily without deep analysis,
+            # we assume worst-case fee (AMM fee) for Taker orders if an AMM exists for the pair.
+            # Maker orders are always 0% fee on XRPL.
+            fee_rules = self._trading_pair_fee_rules[trading_pair]
+            amm_fee = fee_rules.get("amm_pool_fee", Decimal("0"))
+            
+            if not is_maker:
+                fee_value = amm_fee
+
+        return AddedToCostTradeFee(percent=fee_value)
 
     async def _place_order(  # type: ignore
         self,
@@ -1066,9 +1072,10 @@ class XrplExchange(ExchangePyBase):
 
     async def _update_trading_fees(self):
         """
-        Update fees information from the exchange
+        Update fees information from the exchange.
+        Note: Fees are currently updated as part of _update_trading_rules 
+        which fetches all pair info including AMM fees.
         """
-        # TODO: Move fee update logic to this method
         pass
 
     def get_order_by_sequence(self, sequence) -> Optional[InFlightOrder]:
