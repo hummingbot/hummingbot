@@ -63,7 +63,7 @@ class GeminiAuthTests(TestCase):
         # Verify payload contains nonce
         decoded_payload = json.loads(base64.b64decode(payload_b64))
         self.assertIn("nonce", decoded_payload)
-        self.assertEqual(int(now * 1000), decoded_payload["nonce"])
+        self.assertEqual(int(now), decoded_payload["nonce"])
 
         # Verify body is cleared (Gemini uses headers, not body)
         self.assertIsNone(configured_request.data)

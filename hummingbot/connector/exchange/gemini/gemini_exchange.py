@@ -389,13 +389,16 @@ class GeminiExchange(ExchangePyBase):
                     "request": CONSTANTS.BALANCES_PATH_URL,
                 },
                 is_auth_required=True)
-            self.logger().info(f"Gemini balance response: {account_info}")
         except Exception as e:
             self.logger().error(f"Error fetching Gemini balances: {e}", exc_info=True)
             raise
 
         for balance_entry in account_info:
             asset_name = balance_entry["currency"]
+            # Skip derivative/contract currencies (e.g. "GEMI-BTC2602180800-HI70000")
+            # as they contain hyphens that break hummingbot's trading pair parsing
+            if "-" in asset_name:
+                continue
             available_balance = Decimal(str(balance_entry["available"]))
             total_balance = Decimal(str(balance_entry["amount"]))
             self._account_available_balances[asset_name] = available_balance

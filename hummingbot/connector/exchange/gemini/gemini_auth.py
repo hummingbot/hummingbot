@@ -104,7 +104,17 @@ class GeminiAuth(AuthBase):
             "X-GEMINI-SIGNATURE": signature,
         }
 
+    _last_nonce: int = 0
+
     def _get_nonce(self) -> int:
+        """Nonce must be in seconds and within 30s of Gemini server time.
+        We ensure monotonic increase to avoid collisions on rapid requests."""
         if self.time_provider is not None:
-            return int(self.time_provider.time() * 1000)
-        return int(time.time() * 1000)
+            nonce = int(self.time_provider.time())
+        else:
+            nonce = int(time.time())
+        # Ensure strictly increasing nonce for rapid sequential requests
+        if nonce <= GeminiAuth._last_nonce:
+            nonce = GeminiAuth._last_nonce + 1
+        GeminiAuth._last_nonce = nonce
+        return nonce
