@@ -88,6 +88,43 @@ class DataTypesTest(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(expected, actual)
         await (aiohttp_client_session.close())
 
+    @aioresponses()
+    async def test_rest_response_plain_text_returns_as_string(self, mocked_api):
+        """Test that plain text responses that can't be parsed as JSON return as strings"""
+        url = "https://some.url"
+        body = "pong"  # Plain text response
+        headers = {"content-type": "text/plain"}
+        mocked_api.get(url=url, body=body, headers=headers)
+        aiohttp_client_session = aiohttp.ClientSession()
+        aiohttp_response = await (aiohttp_client_session.get(url))
+
+        response = RESTResponse(aiohttp_response)
+
+        # json() should return the plain text string when JSONDecodeError occurs
+        result = await response.json()
+
+        self.assertEqual(body, result)
+        await (aiohttp_client_session.close())
+
+    @aioresponses()
+    async def test_rest_response_plain_text_with_valid_json_returns_parsed(self, mocked_api):
+        """Test that plain text responses containing valid JSON are parsed"""
+        url = "https://some.url"
+        body_dict = {"status": "ok"}
+        body = json.dumps(body_dict)  # Valid JSON in plain text
+        headers = {"content-type": "text/plain"}
+        mocked_api.get(url=url, body=body, headers=headers)
+        aiohttp_client_session = aiohttp.ClientSession()
+        aiohttp_response = await (aiohttp_client_session.get(url))
+
+        response = RESTResponse(aiohttp_response)
+
+        # json() should parse the JSON and return the dict
+        result = await response.json()
+
+        self.assertEqual(body_dict, result)
+        await (aiohttp_client_session.close())
+
 
 class EndpointRESTRequestDummy(EndpointRESTRequest):
     @property

@@ -9,7 +9,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
 from hummingbot.model.position import Position
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.arbitrage_executor.arbitrage_executor import ArbitrageExecutor
 from hummingbot.strategy_v2.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig
 from hummingbot.strategy_v2.executors.data_types import ConnectorPair
@@ -46,7 +46,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
         market_info = MagicMock()
         market_info.market = market
 
-        strategy = MagicMock(spec=ScriptStrategyBase)
+        strategy = MagicMock(spec=StrategyV2Base)
         type(strategy).market_info = PropertyMock(return_value=market_info)
         type(strategy).trading_pair = PropertyMock(return_value="ETH-USDT")
         connector = MagicMock(spec=ExchangePyBase)
@@ -226,6 +226,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
             amount=Decimal("1"),
             breakeven_price=Decimal("1000"),
             unrealized_pnl_quote=Decimal("50"),
+            realized_pnl_quote=Decimal("25"),
             cum_fees_quote=Decimal("5"),
             volume_traded_quote=Decimal("1000")
         )
@@ -240,6 +241,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
             amount=Decimal("0.1"),
             breakeven_price=Decimal("50000"),
             unrealized_pnl_quote=Decimal("-100"),
+            realized_pnl_quote=Decimal("-50"),
             cum_fees_quote=Decimal("10"),
             volume_traded_quote=Decimal("5000")
         )
@@ -344,14 +346,17 @@ class TestExecutorOrchestrator(unittest.TestCase):
         self.assertEqual(self.orchestrator.active_executors, {})
 
     @patch.object(ExecutorOrchestrator, "store_all_positions")
-    def test_stop(self, store_all_positions):
+    @patch.object(ExecutorOrchestrator, "store_all_executors")
+    def test_stop(self, store_all_executors, store_all_positions):
         async def test_async():
             store_all_positions.return_value = None
+            store_all_executors.return_value = None
             position_executor = MagicMock(spec=PositionExecutor)
             position_executor.is_closed = False
             position_executor.early_stop = MagicMock(return_value=None)
             position_executor.executor_info = MagicMock()
             position_executor.executor_info.is_done = True
+            position_executor.config = MagicMock()
             self.orchestrator.active_executors["test"] = [position_executor]
             await self.orchestrator.stop()
             position_executor.early_stop.assert_called_once()
@@ -384,6 +389,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
             amount=Decimal("2"),
             breakeven_price=Decimal("1000"),
             unrealized_pnl_quote=Decimal("100"),
+            realized_pnl_quote=Decimal("50"),
             cum_fees_quote=Decimal("10"),
             volume_traded_quote=Decimal("2000")
         )
@@ -429,6 +435,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
             amount=Decimal("5"),
             breakeven_price=Decimal("2000"),
             unrealized_pnl_quote=Decimal("0"),
+            realized_pnl_quote=Decimal("0"),
             cum_fees_quote=Decimal("0"),
             volume_traded_quote=Decimal("10000")
         )

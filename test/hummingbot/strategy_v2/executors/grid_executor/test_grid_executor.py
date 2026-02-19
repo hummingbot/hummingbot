@@ -16,7 +16,7 @@ from hummingbot.core.event.events import (
     OrderCancelledEvent,
     OrderFilledEvent,
 )
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.grid_executor.data_types import GridExecutorConfig, GridLevelStates
 from hummingbot.strategy_v2.executors.grid_executor.grid_executor import GridExecutor
 from hummingbot.strategy_v2.executors.position_executor.data_types import TrailingStop, TripleBarrierConfig
@@ -36,7 +36,7 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         market_info = MagicMock()
         market_info.market = market
 
-        strategy = MagicMock(spec=ScriptStrategyBase)
+        strategy = MagicMock(spec=StrategyV2Base)
         type(strategy).market_info = PropertyMock(return_value=market_info)
         type(strategy).trading_pair = PropertyMock(return_value="ETH-USDT")
         n_orders = 20

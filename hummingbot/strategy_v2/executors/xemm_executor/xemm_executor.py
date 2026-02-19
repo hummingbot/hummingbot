@@ -16,7 +16,7 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.logger import HummingbotLogger
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.executor_base import ExecutorBase
 from hummingbot.strategy_v2.executors.xemm_executor.data_types import XEMMExecutorConfig
 from hummingbot.strategy_v2.models.base import RunnableStatus
@@ -60,7 +60,7 @@ class XEMMExecutor(ExecutorBase):
         base_asset2, _ = split_hb_trading_pair(pair2)
         return self._are_tokens_interchangeable(base_asset1, base_asset2)
 
-    def __init__(self, strategy: ScriptStrategyBase, config: XEMMExecutorConfig, update_interval: float = 1.0,
+    def __init__(self, strategy: StrategyV2Base, config: XEMMExecutorConfig, update_interval: float = 1.0,
                  max_retries: int = 10):
         if not self.is_arbitrage_valid(pair1=config.buying_market.trading_pair,
                                        pair2=config.selling_market.trading_pair):

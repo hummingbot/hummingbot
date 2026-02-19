@@ -5,7 +5,6 @@ import pandas_ta as ta  # noqa: F401
 from pydantic import Field, field_validator
 
 from hummingbot.core.data_type.common import TradeType
-from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.strategy_v2.controllers.market_making_controller_base import (
     MarketMakingControllerBase,
     MarketMakingControllerConfigBase,
@@ -19,7 +18,6 @@ class DManMakerV2Config(MarketMakingControllerConfigBase):
     Configuration required to run the D-Man Maker V2 strategy.
     """
     controller_name: str = "dman_maker_v2"
-    candles_config: List[CandlesConfig] = []
 
     # DCA configuration
     dca_spreads: List[Decimal] = Field(

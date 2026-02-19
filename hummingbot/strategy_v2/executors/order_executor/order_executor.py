@@ -16,7 +16,7 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
 )
 from hummingbot.logger import HummingbotLogger
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.executor_base import ExecutorBase
 from hummingbot.strategy_v2.executors.order_executor.data_types import ExecutionStrategy, OrderExecutorConfig
 from hummingbot.strategy_v2.models.base import RunnableStatus
@@ -32,7 +32,7 @@ class OrderExecutor(ExecutorBase):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, strategy: ScriptStrategyBase, config: OrderExecutorConfig,
+    def __init__(self, strategy: StrategyV2Base, config: OrderExecutorConfig,
                  update_interval: float = 1.0, max_retries: int = 10):
         """
         Initialize the OrderExecutor instance.
@@ -122,8 +122,11 @@ class OrderExecutor(ExecutorBase):
                 self._held_position_orders.extend([order.order.to_json() for order in self._partial_filled_orders])
                 self.stop()
         else:
-            self._held_position_orders.extend([order.order.to_json() for order in self._partial_filled_orders])
-            self.close_type = CloseType.POSITION_HOLD
+            if self._partial_filled_orders:
+                self._held_position_orders.extend([order.order.to_json() for order in self._partial_filled_orders])
+                self.close_type = CloseType.POSITION_HOLD
+            else:
+                self.close_type = CloseType.EARLY_STOP
             self.stop()
         await self._sleep(5.0)
 
@@ -183,6 +186,17 @@ class OrderExecutor(ExecutorBase):
                 return max(self.config.price, self.current_market_price)
         else:
             return self.config.price
+
+    def get_price_for_balance_validation(self) -> Decimal:
+        """
+        Get the price to use for balance validation.
+        For MARKET orders, uses current market price since NaN cannot be used in calculations.
+
+        :return: The price for balance validation.
+        """
+        if self.config.execution_strategy == ExecutionStrategy.MARKET:
+            return self.current_market_price
+        return self.get_order_price()
 
     def renew_order(self):
         """
@@ -289,6 +303,7 @@ class OrderExecutor(ExecutorBase):
         return lines
 
     async def validate_sufficient_balance(self):
+        price_for_validation = self.get_price_for_balance_validation()
         if self.is_perpetual_connector(self.config.connector_name):
             order_candidate = PerpetualOrderCandidate(
                 trading_pair=self.config.trading_pair,
@@ -296,7 +311,7 @@ class OrderExecutor(ExecutorBase):
                 order_type=self.get_order_type(),
                 order_side=self.config.side,
                 amount=self.config.amount,
-                price=self.config.price,
+                price=price_for_validation,
                 leverage=Decimal(self.config.leverage),
             )
         else:
@@ -306,7 +321,7 @@ class OrderExecutor(ExecutorBase):
                 order_type=self.get_order_type(),
                 order_side=self.config.side,
                 amount=self.config.amount,
-                price=self.config.price,
+                price=price_for_validation,
             )
         adjusted_order_candidates = self.adjust_order_candidates(self.config.connector_name, [order_candidate])
         if adjusted_order_candidates[0].amount == Decimal("0"):

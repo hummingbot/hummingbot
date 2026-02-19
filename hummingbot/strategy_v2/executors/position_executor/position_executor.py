@@ -16,7 +16,7 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
 )
 from hummingbot.logger import HummingbotLogger
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.executor_base import ExecutorBase
 from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig
 from hummingbot.strategy_v2.models.base import RunnableStatus
@@ -32,7 +32,7 @@ class PositionExecutor(ExecutorBase):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, strategy: ScriptStrategyBase, config: PositionExecutorConfig,
+    def __init__(self, strategy: StrategyV2Base, config: PositionExecutorConfig,
                  update_interval: float = 1.0, max_retries: int = 10):
         """
         Initialize the PositionExecutor instance.

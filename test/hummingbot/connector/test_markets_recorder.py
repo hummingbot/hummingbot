@@ -28,7 +28,7 @@ from hummingbot.model.order import Order
 from hummingbot.model.position import Position
 from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLConnectionType
 from hummingbot.model.trade_fill import TradeFill
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig, TripleBarrierConfig
 from hummingbot.strategy_v2.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.strategy_v2.models.base import RunnableStatus
@@ -43,7 +43,7 @@ class MarketsRecorderTests(IsolatedAsyncioWrapperTestCase):
         market_info = MagicMock()
         market_info.market = market
 
-        strategy = MagicMock(spec=ScriptStrategyBase)
+        strategy = MagicMock(spec=StrategyV2Base)
         type(strategy).market_info = PropertyMock(return_value=market_info)
         type(strategy).trading_pair = PropertyMock(return_value="ETH-USDT")
         strategy.buy.side_effect = ["OID-BUY-1", "OID-BUY-2", "OID-BUY-3"]
@@ -457,7 +457,7 @@ class MarketsRecorderTests(IsolatedAsyncioWrapperTestCase):
 
         position = Position(id="123", timestamp=123, controller_id="test_controller", connector_name="binance",
                             trading_pair="ETH-USDT", side=TradeType.BUY.name, amount=Decimal("1"), breakeven_price=Decimal("1000"),
-                            unrealized_pnl_quote=Decimal("0"), cum_fees_quote=Decimal("0"),
+                            unrealized_pnl_quote=Decimal("0"), realized_pnl_quote=Decimal("0"), cum_fees_quote=Decimal("0"),
                             volume_traded_quote=Decimal("10"))
         recorder.store_position(position)
         with self.manager.get_new_session() as session:
@@ -489,6 +489,7 @@ class MarketsRecorderTests(IsolatedAsyncioWrapperTestCase):
             amount=Decimal("1"),
             breakeven_price=Decimal("1000"),
             unrealized_pnl_quote=Decimal("0"),
+            realized_pnl_quote=Decimal("0"),
             cum_fees_quote=Decimal("0"),
             volume_traded_quote=Decimal("10")
         )
@@ -513,6 +514,7 @@ class MarketsRecorderTests(IsolatedAsyncioWrapperTestCase):
             amount=Decimal("2"),  # Updated amount
             breakeven_price=Decimal("1100"),  # Updated price
             unrealized_pnl_quote=Decimal("100"),  # Updated PnL
+            realized_pnl_quote=Decimal("50"),  # Updated realized PnL
             cum_fees_quote=Decimal("5"),  # Updated fees
             volume_traded_quote=Decimal("30")  # Updated volume
         )
@@ -541,6 +543,7 @@ class MarketsRecorderTests(IsolatedAsyncioWrapperTestCase):
             amount=Decimal("0.5"),
             breakeven_price=Decimal("1200"),
             unrealized_pnl_quote=Decimal("-50"),
+            realized_pnl_quote=Decimal("-20"),
             cum_fees_quote=Decimal("2"),
             volume_traded_quote=Decimal("15")
         )
@@ -563,6 +566,7 @@ class MarketsRecorderTests(IsolatedAsyncioWrapperTestCase):
             amount=Decimal("0.1"),
             breakeven_price=Decimal("50000"),
             unrealized_pnl_quote=Decimal("500"),
+            realized_pnl_quote=Decimal("200"),
             cum_fees_quote=Decimal("10"),
             volume_traded_quote=Decimal("5000")
         )
@@ -598,6 +602,7 @@ class MarketsRecorderTests(IsolatedAsyncioWrapperTestCase):
             amount=Decimal("1"),
             breakeven_price=Decimal("1000"),
             unrealized_pnl_quote=Decimal("0"),
+            realized_pnl_quote=Decimal("0"),
             cum_fees_quote=Decimal("0"),
             volume_traded_quote=Decimal("10")
         )
@@ -611,6 +616,7 @@ class MarketsRecorderTests(IsolatedAsyncioWrapperTestCase):
             amount=Decimal("0.1"),
             breakeven_price=Decimal("50000"),
             unrealized_pnl_quote=Decimal("100"),
+            realized_pnl_quote=Decimal("50"),
             cum_fees_quote=Decimal("5"),
             volume_traded_quote=Decimal("5000")
         )
@@ -624,6 +630,7 @@ class MarketsRecorderTests(IsolatedAsyncioWrapperTestCase):
             amount=Decimal("2"),
             breakeven_price=Decimal("1100"),
             unrealized_pnl_quote=Decimal("-50"),
+            realized_pnl_quote=Decimal("-25"),
             cum_fees_quote=Decimal("2"),
             volume_traded_quote=Decimal("20")
         )

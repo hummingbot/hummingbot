@@ -18,7 +18,7 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
 )
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.data_types import ExecutorConfigBase
 from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executors import CloseType
@@ -31,7 +31,7 @@ class ExecutorBase(RunnableBase):
     Base class for all executors. Executors are responsible for executing orders based on the strategy.
     """
 
-    def __init__(self, strategy: ScriptStrategyBase, connectors: List[str], config: ExecutorConfigBase, update_interval: float = 0.5):
+    def __init__(self, strategy: StrategyV2Base, connectors: List[str], config: ExecutorConfigBase, update_interval: float = 0.5):
         """
         Initializes the executor with the given strategy, connectors and update interval.
 
@@ -43,7 +43,7 @@ class ExecutorBase(RunnableBase):
         self.config = config
         self.close_type: Optional[CloseType] = None
         self.close_timestamp: Optional[float] = None
-        self._strategy: ScriptStrategyBase = strategy
+        self._strategy: StrategyV2Base = strategy
         self._held_position_orders = []  # Keep track of orders that become held positions
         self.connectors = {connector_name: connector for connector_name, connector in strategy.connectors.items() if
                            connector_name in connectors}

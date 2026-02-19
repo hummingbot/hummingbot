@@ -1,20 +1,29 @@
 import asyncio
+import unittest
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+from typing import List
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pandas as pd
 
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock
 from hummingbot.core.clock_mode import ClockMode
 from hummingbot.core.data_type.common import PositionMode, TradeType
+from hummingbot.core.event.events import OrderType
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
 from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig, TripleBarrierConfig
 from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction
 from hummingbot.strategy_v2.models.executors import CloseType
 from hummingbot.strategy_v2.models.executors_info import ExecutorInfo, PerformanceReport
+
+
+class MockScriptStrategy(StrategyV2Base):
+    pass
 
 
 class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
@@ -28,8 +37,7 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
         self.connector: MockPaperExchange = MockPaperExchange()
         self.connector_name: str = "mock_paper_exchange"
         self.trading_pair: str = "HBOT-USDT"
-        self.strategy_config = StrategyV2ConfigBase(markets={self.connector_name: {self.trading_pair}},
-                                                    candles_config=[])
+        self.strategy_config = StrategyV2ConfigBase()
         with patch('asyncio.create_task', return_value=MagicMock()):
             # Initialize the strategy with mock components
             with patch("hummingbot.strategy.strategy_v2_base.StrategyV2Base.listen_to_executor_actions", return_value=AsyncMock()):
@@ -50,8 +58,8 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
 
     def test_init_markets(self):
         StrategyV2Base.init_markets(self.strategy_config)
-        self.assertIn(self.connector_name, StrategyV2Base.markets)
-        self.assertIn(self.trading_pair, StrategyV2Base.markets[self.connector_name])
+        # With no controllers configured, markets should be empty
+        self.assertEqual(StrategyV2Base.markets, {})
 
     def test_store_actions_proposal(self):
         # Setup test executors with all required fields
@@ -134,7 +142,8 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
 
     def test_filter_executors(self):
         executors = [MagicMock(status=RunnableStatus.RUNNING), MagicMock(status=RunnableStatus.TERMINATED)]
-        filtered = StrategyV2Base.filter_executors(executors, lambda x: x.status == RunnableStatus.RUNNING)
+        # Use existing strategy from setUp instead of creating a new one
+        filtered = self.strategy.filter_executors(executors, filter_func=lambda x: x.status == RunnableStatus.RUNNING)
         self.assertEqual(len(filtered), 1)
         self.assertEqual(filtered[0].status, RunnableStatus.RUNNING)
 
@@ -370,3 +379,142 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
                                       connector_name="binance",
                                       side=TradeType.SELL, entry_price=Decimal("100"), amount=Decimal("1"),
                                       triple_barrier_config=TripleBarrierConfig())
+
+
+class StrategyV2BaseBasicTest(unittest.TestCase):
+    """Legacy tests for basic StrategyV2Base functionality"""
+    level = 0
+
+    def handle(self, record):
+        self.log_records.append(record)
+
+    def _is_logged(self, log_level: str, message: str) -> bool:
+        return any(record.levelname == log_level and record.getMessage().startswith(message)
+                   for record in self.log_records)
+
+    def setUp(self):
+        self.log_records = []
+        self.start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
+        self.end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
+        self.start_timestamp: float = self.start.timestamp()
+        self.end_timestamp: float = self.end.timestamp()
+        self.connector_name: str = "mock_paper_exchange"
+        self.trading_pair: str = "HBOT-USDT"
+        self.base_asset, self.quote_asset = self.trading_pair.split("-")
+        self.base_balance: int = 500
+        self.quote_balance: int = 5000
+        self.initial_mid_price: int = 100
+        self.clock_tick_size = 1
+        self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
+        self.connector: MockPaperExchange = MockPaperExchange()
+        self.connector.set_balanced_order_book(trading_pair=self.trading_pair,
+                                               mid_price=100,
+                                               min_price=50,
+                                               max_price=150,
+                                               price_step_size=1,
+                                               volume_step_size=10)
+        self.connector.set_balance(self.base_asset, self.base_balance)
+        self.connector.set_balance(self.quote_asset, self.quote_balance)
+        self.connector.set_quantization_param(
+            QuantizationParams(
+                self.trading_pair, 6, 6, 6, 6
+            )
+        )
+        self.clock.add_iterator(self.connector)
+        StrategyV2Base.markets = {self.connector_name: {self.trading_pair}}
+        with patch('asyncio.create_task', return_value=MagicMock()):
+            with patch("hummingbot.strategy.strategy_v2_base.StrategyV2Base.listen_to_executor_actions", return_value=AsyncMock()):
+                with patch('hummingbot.strategy.strategy_v2_base.ExecutorOrchestrator'):
+                    with patch('hummingbot.strategy.strategy_v2_base.MarketDataProvider'):
+                        self.strategy = StrategyV2Base({self.connector_name: self.connector})
+        self.strategy.logger().setLevel(1)
+        self.strategy.logger().addHandler(self)
+
+    def test_start_basic(self):
+        self.assertFalse(self.strategy.ready_to_trade)
+        self.strategy.start(Clock(ClockMode.BACKTEST), self.start_timestamp)
+        self.strategy.tick(self.start_timestamp + 10)
+        self.assertTrue(self.strategy.ready_to_trade)
+
+    def test_get_assets_basic(self):
+        self.strategy.markets = {"con_a": {"HBOT-USDT", "BTC-USDT"}, "con_b": {"HBOT-BTC", "HBOT-ETH"}}
+        self.assertRaises(KeyError, self.strategy.get_assets, "con_c")
+        assets = self.strategy.get_assets("con_a")
+        self.assertEqual(3, len(assets))
+        self.assertEqual("BTC", assets[0])
+        self.assertEqual("HBOT", assets[1])
+        self.assertEqual("USDT", assets[2])
+
+        assets = self.strategy.get_assets("con_b")
+        self.assertEqual(3, len(assets))
+        self.assertEqual("BTC", assets[0])
+        self.assertEqual("ETH", assets[1])
+        self.assertEqual("HBOT", assets[2])
+
+    def test_get_market_trading_pair_tuples_basic(self):
+        market_infos: List[MarketTradingPairTuple] = self.strategy.get_market_trading_pair_tuples()
+        self.assertEqual(1, len(market_infos))
+        market_info = market_infos[0]
+        self.assertEqual(market_info.market, self.connector)
+        self.assertEqual(market_info.trading_pair, self.trading_pair)
+        self.assertEqual(market_info.base_asset, self.base_asset)
+        self.assertEqual(market_info.quote_asset, self.quote_asset)
+
+    def test_active_orders_basic(self):
+        self.clock.add_iterator(self.strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.strategy.buy(self.connector_name, self.trading_pair, Decimal("1"), OrderType.LIMIT, Decimal("90"))
+        self.strategy.sell(self.connector_name, self.trading_pair, Decimal("1.1"), OrderType.LIMIT, Decimal("110"))
+        orders = self.strategy.get_active_orders(self.connector_name)
+        self.assertEqual(2, len(orders))
+        self.assertTrue(orders[0].is_buy)
+        self.assertEqual(Decimal("1"), orders[0].quantity)
+        self.assertEqual(Decimal("90"), orders[0].price)
+        self.assertFalse(orders[1].is_buy)
+        self.assertEqual(Decimal("1.1"), orders[1].quantity)
+        self.assertEqual(Decimal("110"), orders[1].price)
+
+    def test_format_status_basic(self):
+        self.clock.add_iterator(self.strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.strategy.buy(self.connector_name, self.trading_pair, Decimal("1"), OrderType.LIMIT, Decimal("90"))
+        self.strategy.sell(self.connector_name, self.trading_pair, Decimal("1.1"), OrderType.LIMIT, Decimal("110"))
+        expected_status = """
+  Balances:
+               Exchange Asset  Total Balance  Available Balance
+    mock_paper_exchange  HBOT            500              498.9
+    mock_paper_exchange  USDT           5000               4910
+
+  Orders:
+               Exchange    Market Side  Price  Amount      Age
+    mock_paper_exchange HBOT-USDT  buy     90       1"""
+        self.assertTrue(expected_status in self.strategy.format_status())
+        self.assertTrue("mock_paper_exchange HBOT-USDT sell    110     1.1 " in self.strategy.format_status())
+
+    def test_cancel_buy_order_basic(self):
+        self.clock.add_iterator(self.strategy)
+        self.clock.backtest_til(self.start_timestamp)
+
+        order_id = self.strategy.buy(
+            connector_name=self.connector_name,
+            trading_pair=self.trading_pair,
+            amount=Decimal("100"),
+            order_type=OrderType.LIMIT,
+            price=Decimal("1000"),
+        )
+
+        self.assertIn(order_id,
+                      [order.client_order_id for order in self.strategy.get_active_orders(self.connector_name)])
+
+        self.strategy.cancel(
+            connector_name=self.connector_name,
+            trading_pair=self.trading_pair,
+            order_id=order_id
+        )
+
+        self.assertTrue(
+            self._is_logged(
+                log_level="INFO",
+                message=f"({self.trading_pair}) Canceling the limit order {order_id}."
+            )
+        )

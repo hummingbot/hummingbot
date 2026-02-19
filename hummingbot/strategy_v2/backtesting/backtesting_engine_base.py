@@ -84,6 +84,11 @@ class BacktestingEngineBase:
                               start: int, end: int,
                               backtesting_resolution: str = "1m",
                               trade_cost=0.0006):
+        # Generate unique ID if not set to avoid race conditions
+        if not controller_config.id or controller_config.id.strip() == "":
+            from hummingbot.strategy_v2.utils.common import generate_unique_id
+            controller_config.id = generate_unique_id()
+
         controller_class = self.__controller_class_cache.get_or_add(controller_config.controller_name, controller_config.get_controller_class)
         # controller_class = controller_config.get_controller_class()
         # Load historical candles
