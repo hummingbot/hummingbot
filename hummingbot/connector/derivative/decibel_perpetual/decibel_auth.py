@@ -1,6 +1,6 @@
 import os
 from aptos_sdk.account import Account
-from aptos_sdk.client import RestClient
+from aptos_sdk.async_client import RestClient
 from hummingbot.connector.derivative.decibel_perpetual.decibel_utils import TRADING_HTTP_URL
 
 class DecibelAuth:

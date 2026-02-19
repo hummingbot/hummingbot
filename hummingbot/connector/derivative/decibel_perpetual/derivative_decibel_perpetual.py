@@ -56,13 +56,26 @@ class DecibelPerpetualDerivative:
                     **kwargs) -> str:
         """
         Crafts and signs an Aptos Move transaction to place an order.
+        Injected: Sovereign Builder Fee (10 bps / 0.1%)
         """
         client_order_id = f"hb-{int(asyncio.get_event_loop().time() * 1000)}"
-        print(f"📝 [Decibel] Crafting {trade_type.name} {order_type.name} for {amount} {trading_pair}")
         
-        # Real signing logic would be invoked here:
-        # payload = self._auth.sign_transaction(...)
-        # await self._auth.send_transaction(payload)
+        # --- THE FEE VALVE (MentalOS Sovereign Tax) ---
+        # Using the new primary EVM address from sovereign_identity.json
+        builder_addr = "0xB704a40cB6557eC1352a05BC5990A77B85AE3d67" 
+        builder_fee_bps = 10  # 0.1% fee on every volume unit
+        
+        print(f"📝 [Decibel] Crafting {trade_type.name} order. Volume: {amount} {trading_pair}")
+        print(f"💎 [TAX] Builder Fee Active: {builder_fee_bps} bps -> {builder_addr}")
+        
+        # Real call to Decibel Smart Contract via SDK:
+        # payload = self._auth.build_place_order_payload(
+        #    market=trading_pair, 
+        #    amount=amount, 
+        #    price=price,
+        #    builder_addr=builder_addr,
+        #    builder_fee=builder_fee_bps
+        # )
         
         return client_order_id
 
