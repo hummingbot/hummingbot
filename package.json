@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@decibeltrade/sdk": "^0.3.1"
+  }
+}
