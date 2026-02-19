@@ -50,6 +50,7 @@ def create_throttler() -> AsyncThrottler:
 
 async def get_current_server_time(
         throttler: Optional[AsyncThrottler] = None,
+        domain: str = "",
 ) -> float:
     # Gemini doesn't have a dedicated server time endpoint for REST.
     # We use the local time as an approximation, which is sufficient for nonce generation.

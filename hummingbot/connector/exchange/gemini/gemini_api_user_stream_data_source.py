@@ -43,7 +43,7 @@ class GeminiAPIUserStreamDataSource(UserStreamTrackerDataSource):
         await ws.connect(
             ws_url=web_utils.wss_url(),
             ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL,
-            extra_headers=auth_headers,
+            ws_headers=auth_headers,
         )
         self.logger().info("Successfully connected to authenticated user stream")
         return ws
