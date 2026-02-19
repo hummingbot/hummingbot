@@ -11,8 +11,3 @@
 /conf/gateway_connections.json
 /conf/.password_verification
 /conf/connectors/*.yml
-/test
-/.claude
-/.compose.env
-*.pyc
-__pycache__
