@@ -815,14 +815,16 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         coin_infos: list = exchange_info_dict[0]['universe']
         price_infos: list = exchange_info_dict[1]
         return_val: list = []
+        min_notional = 10
         for coin_info, price_info in zip(coin_infos, price_infos):
             try:
                 ex_symbol = f'{coin_info["name"]}'
                 trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=ex_symbol)
-                step_size = Decimal(str(10 ** -coin_info.get("szDecimals")))
-
+                sz_decimals = coin_info.get("szDecimals")
+                step_size = Decimal(str(10 ** -sz_decimals))
+                price = float(price_info.get("markPx"))
                 price_size = Decimal(str(10 ** -len(price_info.get("markPx").split('.')[1])))
-                _min_order_size = Decimal(str(10 ** -len(price_info.get("openInterest").split('.')[1])))
+                _min_order_size = Decimal(str(round(min_notional / price, sz_decimals)))
                 collateral_token = CONSTANTS.CURRENCY
                 return_val.append(
                     TradingRule(
@@ -845,10 +847,11 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 self._is_hip3_market[coin_name] = True
                 quote = "USD"
                 trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=coin_name)
-
-                step_size = Decimal(str(10 ** -dex_info.get("szDecimals")))
+                sz_decimals = dex_info.get("szDecimals")
+                step_size = Decimal(str(10 ** -sz_decimals))
+                price = float(dex_info.get("markPx"))
                 price_size = Decimal(str(10 ** -len(dex_info.get("markPx").split('.')[1])))
-                _min_order_size = Decimal(str(10 ** -len(dex_info.get("openInterest").split('.')[1])))
+                _min_order_size = Decimal(str(round(min_notional / price, sz_decimals)))
                 collateral_token = quote
 
                 return_val.append(

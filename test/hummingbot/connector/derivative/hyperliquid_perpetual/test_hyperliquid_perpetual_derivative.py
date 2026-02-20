@@ -321,13 +321,15 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     @property
     def expected_trading_rule(self):
+        min_notional = 10
         price_info = self.trading_rules_request_mock_response[1][0]
         coin_info = self.trading_rules_request_mock_response[0]["universe"][0]
         collateral_token = self.quote_asset
-
-        step_size = Decimal(str(10 ** -coin_info.get("szDecimals")))
+        sz_decimals = coin_info.get("szDecimals")
+        step_size = Decimal(str(10 ** -sz_decimals))
+        price = float(price_info.get("markPx"))
         price_size = Decimal(str(10 ** -len(price_info.get("markPx").split('.')[1])))
-        _min_order_size = Decimal(str(10 ** -len(price_info.get("openInterest").split('.')[1])))
+        _min_order_size = Decimal(str(round(min_notional / price, sz_decimals)))
 
         return TradingRule(self.trading_pair,
                            min_base_amount_increment=step_size,
