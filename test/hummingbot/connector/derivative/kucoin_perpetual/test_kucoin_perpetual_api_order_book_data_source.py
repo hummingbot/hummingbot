@@ -625,6 +625,84 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         self.assertEqual(Decimal(str(future_info_response["data"]["indexPrice"])), funding_info.index_price)
         self.assertEqual(Decimal(str(future_info_response["data"]["markPrice"])), funding_info.mark_price)
 
+    @aioresponses()
+    async def test_get_funding_info_with_empty_predicted_rate(self, mock_api):
+        future_info_url = web_utils.get_rest_url_for_endpoint(
+            endpoint=CONSTANTS.GET_CONTRACT_INFO_PATH_URL.format(symbol=self.ex_trading_pair)
+        )
+        future_info_regex_url = re.compile(f"^{future_info_url}".replace(".", r"\.").replace("?", r"\?"))
+        future_info_response = {
+            "code": "200000",
+            "data": {
+                "symbol": self.ex_trading_pair,
+                "rootSymbol": "USDT",
+                "type": "FFWCSX",
+                "firstOpenDate": 1610697600000,
+                "baseCurrency": "HBOT",
+                "quoteCurrency": "USDT",
+                "settleCurrency": "USDT",
+                "maxOrderQty": 1000000,
+                "maxPrice": 1000000.0,
+                "lotSize": 1,
+                "tickSize": 0.01,
+                "indexPriceTickSize": 0.01,
+                "multiplier": 0.01,
+                "initialMargin": 0.05,
+                "maintainMargin": 0.025,
+                "maxRiskLimit": 100000,
+                "minRiskLimit": 100000,
+                "riskStep": 50000,
+                "makerFeeRate": 0.0002,
+                "takerFeeRate": 0.0006,
+                "takerFixFee": 0.0,
+                "makerFixFee": 0.0,
+                "isDeleverage": True,
+                "isQuanto": False,
+                "isInverse": False,
+                "markMethod": "FairPrice",
+                "fairMethod": "FundingRate",
+                "fundingBaseSymbol": ".HBOTINT8H",
+                "fundingQuoteSymbol": ".USDTINT8H",
+                "fundingRateSymbol": ".HBOTUSDTMFPI8H",
+                "indexSymbol": ".KHBOTUSDT",
+                "settlementSymbol": "",
+                "status": "Open",
+                "fundingFeeRate": 0.0001,
+                "predictedFundingFeeRate": None,
+                "openInterest": "2487402",
+                "turnoverOf24h": 3166644.36115288,
+                "volumeOf24h": 32299.4,
+                "markPrice": 101.6,
+                "indexPrice": 101.59,
+                "lastTradePrice": 101.54,
+                "nextFundingRateTime": 22646889,
+                "maxLeverage": 20,
+                "sourceExchanges": [
+                    "htx",
+                    "Okex",
+                    "Binance",
+                    "Kucoin",
+                    "Poloniex",
+                ],
+                "premiumsSymbol1M": ".HBOTUSDTMPI",
+                "premiumsSymbol8H": ".HBOTUSDTMPI8H",
+                "fundingBaseSymbol1M": ".HBOTINT",
+                "fundingQuoteSymbol1M": ".USDTINT",
+                "lowPrice": 88.88,
+                "highPrice": 102.21,
+                "priceChgPct": 0.1401,
+                "priceChg": 12.48
+            }
+        }
+        mock_api.get(future_info_regex_url, body=json.dumps(future_info_response))
+
+        funding_info: FundingInfo = await self.data_source.get_funding_info(self.trading_pair)
+
+        self.assertEqual(self.trading_pair, funding_info.trading_pair)
+        self.assertEqual(Decimal(str(future_info_response["data"]["indexPrice"])), funding_info.index_price)
+        self.assertEqual(Decimal(str(future_info_response["data"]["markPrice"])), funding_info.mark_price)
+        self.assertEqual(Decimal("0"), funding_info.rate)
+
     def _simulate_trading_rules_initialized(self):
         self.connector._trading_rules = {
             self.trading_pair: TradingRule(
