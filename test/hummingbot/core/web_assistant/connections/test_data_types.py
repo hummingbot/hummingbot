@@ -69,6 +69,22 @@ class DataTypesTest(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(body, json_)
 
     @aioresponses()
+    async def test_rest_response_with_non_json_text_plain_returns_raw_string(self, mocked_api):
+        url = "https://some.url"
+        body = "pong"
+        headers = {"content-type": "text/plain"}
+        mocked_api.get(url=url, body=body, headers=headers)
+        aiohttp_client_session = aiohttp.ClientSession()
+        aiohttp_response = await (aiohttp_client_session.get(url))
+
+        response = RESTResponse(aiohttp_response)
+
+        json_ = await (response.json())
+
+        self.assertEqual(body, json_)
+        await (aiohttp_client_session.close())
+
+    @aioresponses()
     async def test_rest_response_repr(self, mocked_api):
         url = "https://some.url"
         body = {"one": 1}
