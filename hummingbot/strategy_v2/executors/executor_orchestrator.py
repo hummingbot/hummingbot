@@ -295,7 +295,7 @@ class ExecutorOrchestrator:
         for controller_id, executors_list in self.active_executors.items():
             for executor in executors_list:
                 if not executor.is_closed:
-                    executor.early_stop()
+                    executor.early_stop(keep_position=True)
         for i in range(max_executors_close_attempts):
             if all([executor.executor_info.is_done for executors_list in self.active_executors.values()
                     for executor in executors_list]):
