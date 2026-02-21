@@ -234,7 +234,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
                     symbol=data["s"])
                 order_book_message: OrderBookMessage = BybitOrderBook.snapshot_message_from_exchange_websocket(
-                    data, json_msg["ts"], {"trading_pair": trading_pair})
+                    data, json_msg["ts"] * 1e-3, {"trading_pair": trading_pair})
                 snapshot_queue.put_nowait(order_book_message)
             except asyncio.CancelledError:
                 raise
