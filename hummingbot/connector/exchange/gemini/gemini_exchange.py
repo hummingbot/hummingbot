@@ -1,5 +1,4 @@
 import asyncio
-import json
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -96,7 +95,7 @@ class GeminiExchange(ExchangePyBase):
         return self._trading_required
 
     def supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.MARKET]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
     async def get_all_pairs_prices(self) -> List[Dict[str, str]]:
         # Gemini doesn't have a bulk ticker endpoint, so we return an empty list
@@ -160,9 +159,8 @@ class GeminiExchange(ExchangePyBase):
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         side = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
 
-        # Gemini does not support native market orders ("exchange market").
-        # Convert MARKET orders to limit orders at the provided price.
-        # They will fill immediately as taker orders if liquidity exists.
+        # Gemini REST API does not support "exchange market" order type.
+        # All orders are placed as "exchange limit" with an explicit price.
         gemini_order_type = CONSTANTS.ORDER_TYPE_LIMIT
 
         api_params = {
@@ -270,17 +268,30 @@ class GeminiExchange(ExchangePyBase):
                     order_status = event_message.get("X", "")
                     client_order_id = event_message.get("c", "")
 
-                    # When a fill occurs, fetch fill details via REST
+                    # When a fill occurs, extract fill details from WS event fields:
+                    # Z = fill quantity, L = fill price, t = trade ID
                     if order_status in ("PARTIALLY_FILLED", "FILLED"):
                         tracked_order = self._order_tracker.all_fillable_orders.get(client_order_id)
                         if tracked_order is not None:
-                            try:
-                                trade_updates = await self._all_trade_updates_for_order(tracked_order)
-                                for trade_update in trade_updates:
-                                    self._order_tracker.process_trade_update(trade_update)
-                            except Exception:
-                                self.logger().warning(
-                                    f"Failed to fetch trade updates for {client_order_id}", exc_info=True)
+                            fill_amount = Decimal(str(event_message["Z"]))
+                            fill_price = Decimal(str(event_message["L"]))
+                            trade_id = str(event_message["t"])
+                            fee = DeductedFromReturnsTradeFee(
+                                percent=self.estimate_fee_pct(
+                                    is_maker=tracked_order.order_type is OrderType.LIMIT))
+                            trade_update = TradeUpdate(
+                                trade_id=trade_id,
+                                client_order_id=client_order_id,
+                                exchange_order_id=str(event_message.get("i", "")),
+                                trading_pair=tracked_order.trading_pair,
+                                fee=fee,
+                                fill_base_amount=fill_amount,
+                                fill_quote_amount=fill_amount * fill_price,
+                                fill_price=fill_price,
+                                fill_timestamp=CONSTANTS.convert_timestamp_to_seconds(
+                                    event_message.get("E", 0)),
+                            )
+                            self._order_tracker.process_trade_update(trade_update)
 
                     # Process order status update
                     tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)

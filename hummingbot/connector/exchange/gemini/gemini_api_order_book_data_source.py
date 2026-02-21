@@ -70,16 +70,14 @@ class GeminiAPIOrderBookDataSource(OrderBookTrackerDataSource):
             depth_streams = []
             for trading_pair in self._trading_pairs:
                 symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                trade_streams.append(CONSTANTS.WS_TRADE_STREAM.format(symbol.upper()))
-                depth_streams.append(CONSTANTS.WS_DEPTH_STREAM.format(symbol.upper()))
+                trade_streams.append(CONSTANTS.WS_TRADE_STREAM.format(symbol))
+                depth_streams.append(CONSTANTS.WS_DEPTH_STREAM.format(symbol))
 
             # Subscribe to trade streams
             payload = {
                 "id": str(self.TRADE_STREAM_ID),
                 "method": CONSTANTS.WS_METHOD_SUBSCRIBE,
-                "params": {
-                    "streams": trade_streams
-                }
+                "params": trade_streams
             }
             subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
@@ -87,9 +85,7 @@ class GeminiAPIOrderBookDataSource(OrderBookTrackerDataSource):
             payload = {
                 "id": str(self.DIFF_STREAM_ID),
                 "method": CONSTANTS.WS_METHOD_SUBSCRIBE,
-                "params": {
-                    "streams": depth_streams
-                }
+                "params": depth_streams
             }
             subscribe_depth_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
@@ -165,12 +161,10 @@ class GeminiAPIOrderBookDataSource(OrderBookTrackerDataSource):
             payload = {
                 "id": str(self._get_next_subscribe_id()),
                 "method": CONSTANTS.WS_METHOD_SUBSCRIBE,
-                "params": {
-                    "streams": [
-                        CONSTANTS.WS_TRADE_STREAM.format(symbol.upper()),
-                        CONSTANTS.WS_DEPTH_STREAM.format(symbol.upper()),
-                    ]
-                }
+                "params": [
+                    CONSTANTS.WS_TRADE_STREAM.format(symbol),
+                    CONSTANTS.WS_DEPTH_STREAM.format(symbol),
+                ]
             }
             subscribe_request: WSJSONRequest = WSJSONRequest(payload=payload)
             await self._ws_assistant.send(subscribe_request)
@@ -192,12 +186,10 @@ class GeminiAPIOrderBookDataSource(OrderBookTrackerDataSource):
             payload = {
                 "id": str(self._get_next_subscribe_id()),
                 "method": CONSTANTS.WS_METHOD_UNSUBSCRIBE,
-                "params": {
-                    "streams": [
-                        CONSTANTS.WS_TRADE_STREAM.format(symbol.upper()),
-                        CONSTANTS.WS_DEPTH_STREAM.format(symbol.upper()),
-                    ]
-                }
+                "params": [
+                    CONSTANTS.WS_TRADE_STREAM.format(symbol),
+                    CONSTANTS.WS_DEPTH_STREAM.format(symbol),
+                ]
             }
             unsubscribe_request: WSJSONRequest = WSJSONRequest(payload=payload)
             await self._ws_assistant.send(unsubscribe_request)

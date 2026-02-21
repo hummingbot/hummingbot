@@ -51,7 +51,6 @@ MAX_ORDER_ID_LEN = 36
 SIDE_BUY = "buy"
 SIDE_SELL = "sell"
 ORDER_TYPE_LIMIT = "exchange limit"
-ORDER_TYPE_MARKET = "exchange market"
 
 # Time
 WS_HEARTBEAT_TIME_INTERVAL = 30
@@ -94,6 +93,7 @@ def convert_timestamp_to_seconds(ts: float) -> float:
     elif ts > 1e11:
         return ts / 1e3
     return ts
+
 
 RATE_LIMITS = [
     RateLimit(limit_id=REQUEST_WEIGHT, limit=600, time_interval=ONE_MINUTE),

@@ -57,9 +57,7 @@ class GeminiAPIUserStreamDataSource(UserStreamTrackerDataSource):
             payload = {
                 "id": "user_orders",
                 "method": CONSTANTS.WS_METHOD_SUBSCRIBE,
-                "params": {
-                    "streams": [CONSTANTS.WS_ORDER_EVENTS_STREAM]
-                }
+                "params": [CONSTANTS.WS_ORDER_EVENTS_STREAM]
             }
             subscribe_orders_request: WSJSONRequest = WSJSONRequest(payload=payload)
             await websocket_assistant.send(subscribe_orders_request)
@@ -68,9 +66,7 @@ class GeminiAPIUserStreamDataSource(UserStreamTrackerDataSource):
             payload = {
                 "id": "user_balances",
                 "method": CONSTANTS.WS_METHOD_SUBSCRIBE,
-                "params": {
-                    "streams": [CONSTANTS.WS_BALANCE_STREAM]
-                }
+                "params": [CONSTANTS.WS_BALANCE_STREAM]
             }
             subscribe_balances_request: WSJSONRequest = WSJSONRequest(payload=payload)
             await websocket_assistant.send(subscribe_balances_request)

@@ -21,7 +21,7 @@ class GeminiExchangeTests(TestCase):
     def test_supported_order_types(self):
         order_types = self.exchange.supported_order_types()
         self.assertIn(OrderType.LIMIT, order_types)
-        self.assertIn(OrderType.MARKET, order_types)
+        self.assertIn(OrderType.LIMIT_MAKER, order_types)
 
     def test_trading_pairs(self):
         self.assertEqual(["BTC-USD", "ETH-USD"], self.exchange.trading_pairs)
