@@ -104,8 +104,13 @@ class GeminiExchange(ExchangePyBase):
         return []
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
-        # Gemini uses nonces rather than timestamps, so time sync issues are rare
-        return False
+        error_str = str(request_exception)
+        return "InvalidNonce" in error_str or "not within" in error_str
+
+    async def _update_time_synchronizer(self, pass_on_non_cancelled_error: bool = False):
+        # Clear stale offset samples before re-syncing so one fresh fetch replaces drifted values
+        self._time_synchronizer.clear_time_offset_ms_samples()
+        await super()._update_time_synchronizer(pass_on_non_cancelled_error=pass_on_non_cancelled_error)
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
         return CONSTANTS.ORDER_NOT_FOUND_ERROR in str(status_update_exception)
@@ -155,10 +160,10 @@ class GeminiExchange(ExchangePyBase):
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         side = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
 
-        if order_type == OrderType.MARKET:
-            gemini_order_type = CONSTANTS.ORDER_TYPE_MARKET
-        else:
-            gemini_order_type = CONSTANTS.ORDER_TYPE_LIMIT
+        # Gemini does not support native market orders ("exchange market").
+        # Convert MARKET orders to limit orders at the provided price.
+        # They will fill immediately as taker orders if liquidity exists.
+        gemini_order_type = CONSTANTS.ORDER_TYPE_LIMIT
 
         api_params = {
             "request": CONSTANTS.NEW_ORDER_PATH_URL,
@@ -166,11 +171,9 @@ class GeminiExchange(ExchangePyBase):
             "amount": f"{amount:f}",
             "side": side,
             "type": gemini_order_type,
+            "price": f"{price:f}",
             "client_order_id": order_id,
         }
-
-        if order_type in (OrderType.LIMIT, OrderType.LIMIT_MAKER):
-            api_params["price"] = f"{price:f}"
 
         if order_type == OrderType.LIMIT_MAKER:
             api_params["options"] = ["maker-or-cancel"]
@@ -186,6 +189,8 @@ class GeminiExchange(ExchangePyBase):
         return o_id, transact_time
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
+        if tracked_order.exchange_order_id is None:
+            await tracked_order.get_exchange_order_id()
         api_params = {
             "request": CONSTANTS.CANCEL_ORDER_PATH_URL,
             "order_id": int(tracked_order.exchange_order_id),
@@ -350,6 +355,8 @@ class GeminiExchange(ExchangePyBase):
         return trade_updates
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
+        if tracked_order.exchange_order_id is None:
+            await tracked_order.get_exchange_order_id()
         updated_order_data = await self._api_post(
             path_url=CONSTANTS.ORDER_STATUS_PATH_URL,
             data={

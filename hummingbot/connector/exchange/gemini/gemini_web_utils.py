@@ -52,7 +52,26 @@ async def get_current_server_time(
         throttler: Optional[AsyncThrottler] = None,
         domain: str = "",
 ) -> float:
-    # Gemini doesn't have a dedicated server time endpoint for REST.
-    # We use the local time as an approximation, which is sufficient for nonce generation.
+    """Fetch server time from Gemini's API response Date header.
+    This ensures nonces stay valid even when the local clock (e.g., Podman VM) drifts."""
+    import logging
     import time
+    logger = logging.getLogger(__name__)
+    for attempt in range(3):
+        try:
+            import aiohttp
+            from email.utils import parsedate_to_datetime
+            async with aiohttp.ClientSession() as session:
+                async with session.head(CONSTANTS.REST_URL + "/v1/symbols", timeout=aiohttp.ClientTimeout(total=5)) as response:
+                    date_str = response.headers.get("Date", "")
+                    if date_str:
+                        server_dt = parsedate_to_datetime(date_str)
+                        return server_dt.timestamp() * 1e3
+        except Exception as e:
+            if attempt < 2:
+                import asyncio
+                await asyncio.sleep(0.5)
+            else:
+                logger.warning(f"Failed to fetch Gemini server time after 3 attempts ({e}), "
+                               f"falling back to local clock (may cause nonce errors if VM clock is drifted)")
     return time.time() * 1e3

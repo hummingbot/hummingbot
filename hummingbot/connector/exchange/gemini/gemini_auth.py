@@ -108,11 +108,15 @@ class GeminiAuth(AuthBase):
 
     def _get_nonce(self) -> int:
         """Nonce must be in seconds and within 30s of Gemini server time.
-        We ensure monotonic increase to avoid collisions on rapid requests."""
+        We ensure monotonic increase to avoid collisions on rapid requests,
+        but reset if the counter drifted too far ahead (e.g., after clock correction)."""
         if self.time_provider is not None:
             nonce = int(self.time_provider.time())
         else:
             nonce = int(time.time())
+        # Reset counter if it drifted more than 15 seconds ahead of current time
+        if GeminiAuth._last_nonce > nonce + 15:
+            GeminiAuth._last_nonce = 0
         # Ensure strictly increasing nonce for rapid sequential requests
         if nonce <= GeminiAuth._last_nonce:
             nonce = GeminiAuth._last_nonce + 1
