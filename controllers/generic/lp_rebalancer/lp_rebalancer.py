@@ -404,11 +404,41 @@ class LPRebalancer(ControllerBase):
         """
         Calculate base and quote amounts based on side and total_amount_quote.
 
+        Uses the minimum of the configured total and the actual available balance
+        to avoid order failures when the balance is slightly less than expected
+        (e.g. due to fees or impermanent loss after a rebalance).
+
         Side 0 (BOTH): split 50/50
         Side 1 (BUY): all quote
         Side 2 (SELL): all base
         """
         total = self.config.total_amount_quote
+
+        # Clamp to actual available balance to avoid order failures
+        try:
+            if side == 1:  # BUY - needs quote token
+                available_quote = self.market_data_provider.get_balance(
+                    self.config.connector_name, self._quote_token
+                )
+                if available_quote is not None and available_quote < total:
+                    self.logger().info(
+                        f"Clamping quote amount from {total} to available balance {available_quote} {self._quote_token}"
+                    )
+                    total = available_quote
+            elif side == 2:  # SELL - needs base token
+                available_base = self.market_data_provider.get_balance(
+                    self.config.connector_name, self._base_token
+                )
+                if available_base is not None:
+                    available_as_quote = available_base * current_price
+                    if available_as_quote < total:
+                        self.logger().info(
+                            f"Clamping total from {total} USDC to {available_as_quote:.4f} USDC "
+                            f"(available {available_base} {self._base_token})"
+                        )
+                        total = available_as_quote
+        except Exception as e:
+            self.logger().debug(f"Could not check available balance for amount clamping: {e}")
 
         if side == 0:  # BOTH
             quote_amt = total / Decimal("2")
