@@ -414,17 +414,27 @@ class LPRebalancer(ControllerBase):
         """
         total = self.config.total_amount_quote
 
-        # Clamp to actual available balance to avoid order failures
+        # Clamp to actual available balance to avoid order failures when the balance
+        # is slightly less than expected (e.g. due to fees or impermanent loss).
+        # Only clamp when available >= 80% of total — otherwise the balance cache
+        # is likely stale (e.g. just after a position close) and we should not clamp.
+        MIN_BALANCE_RATIO = Decimal("0.80")
         try:
             if side == 1:  # BUY - needs quote token
                 available_quote = self.market_data_provider.get_balance(
                     self.config.connector_name, self._quote_token
                 )
                 if available_quote is not None and available_quote < total:
-                    self.logger().info(
-                        f"Clamping quote amount from {total} to available balance {available_quote} {self._quote_token}"
-                    )
-                    total = available_quote
+                    if available_quote >= total * MIN_BALANCE_RATIO:
+                        self.logger().info(
+                            f"Clamping quote amount from {total} to available balance {available_quote} {self._quote_token}"
+                        )
+                        total = available_quote
+                    else:
+                        self.logger().debug(
+                            f"Skipping balance clamp: available {available_quote} {self._quote_token} "
+                            f"is below 80% of total {total} — balance cache likely stale"
+                        )
             elif side == 2:  # SELL - needs base token
                 available_base = self.market_data_provider.get_balance(
                     self.config.connector_name, self._base_token
@@ -432,11 +442,17 @@ class LPRebalancer(ControllerBase):
                 if available_base is not None:
                     available_as_quote = available_base * current_price
                     if available_as_quote < total:
-                        self.logger().info(
-                            f"Clamping total from {total} USDC to {available_as_quote:.4f} USDC "
-                            f"(available {available_base} {self._base_token})"
-                        )
-                        total = available_as_quote
+                        if available_as_quote >= total * MIN_BALANCE_RATIO:
+                            self.logger().info(
+                                f"Clamping total from {total} USDC to {available_as_quote:.4f} USDC "
+                                f"(available {available_base} {self._base_token})"
+                            )
+                            total = available_as_quote
+                        else:
+                            self.logger().debug(
+                                f"Skipping balance clamp: available {available_as_quote:.4f} USDC equivalent "
+                                f"is below 80% of total {total} — balance cache likely stale"
+                            )
         except Exception as e:
             self.logger().debug(f"Could not check available balance for amount clamping: {e}")
 
