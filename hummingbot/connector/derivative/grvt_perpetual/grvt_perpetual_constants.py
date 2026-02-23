@@ -45,7 +45,7 @@ TESTNET_CHAIN_ID = 326
 
 # ---------- Precision ----------
 
-PRICE_PRECISION = 10 ** 9  # multiply by 1e9 for signing
+PRICE_PRECISION = 10**9  # multiply by 1e9 for signing
 
 # ---------- Funding ----------
 
@@ -129,42 +129,96 @@ ALL_ENDPOINTS_LIMIT = "All"
 
 RATE_LIMITS = [
     RateLimit(ALL_ENDPOINTS_LIMIT, limit=MAX_REQUEST, time_interval=60),
-
     # Market Data endpoints
-    RateLimit(limit_id=ALL_INSTRUMENTS_URL, limit=MAX_REQUEST, time_interval=60,
-              linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
-    RateLimit(limit_id=ORDERBOOK_URL, limit=MAX_REQUEST, time_interval=60,
-              linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
-    RateLimit(limit_id=TICKER_URL, limit=MAX_REQUEST, time_interval=60,
-              linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
-    RateLimit(limit_id=RECENT_TRADES_URL, limit=MAX_REQUEST, time_interval=60,
-              linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
-    RateLimit(limit_id=FUNDING_RATE_URL, limit=MAX_REQUEST, time_interval=60,
-              linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
-
+    RateLimit(
+        limit_id=ALL_INSTRUMENTS_URL,
+        limit=MAX_REQUEST,
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=ORDERBOOK_URL,
+        limit=MAX_REQUEST,
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=TICKER_URL,
+        limit=MAX_REQUEST,
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=RECENT_TRADES_URL,
+        limit=MAX_REQUEST,
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=FUNDING_RATE_URL,
+        limit=MAX_REQUEST,
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+    ),
     # Trade Data endpoints
-    RateLimit(limit_id=CREATE_ORDER_URL, limit=MAX_REQUEST, time_interval=60,
-              linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
-    RateLimit(limit_id=CANCEL_ORDER_URL, limit=MAX_REQUEST, time_interval=60,
-              linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
-    RateLimit(limit_id=CANCEL_ALL_ORDERS_URL, limit=MAX_REQUEST, time_interval=60,
-              linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
-    RateLimit(limit_id=OPEN_ORDERS_URL, limit=MAX_REQUEST, time_interval=60,
-              linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
-    RateLimit(limit_id=ORDER_URL, limit=MAX_REQUEST, time_interval=60,
-              linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
-    RateLimit(limit_id=FILL_HISTORY_URL, limit=MAX_REQUEST, time_interval=60,
-              linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
-    RateLimit(limit_id=POSITIONS_URL, limit=MAX_REQUEST, time_interval=60,
-              linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
-    RateLimit(limit_id=ACCOUNT_SUMMARY_URL, limit=MAX_REQUEST, time_interval=60,
-              linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
-    RateLimit(limit_id=FUNDING_PAYMENT_HISTORY_URL, limit=MAX_REQUEST, time_interval=60,
-              linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
-
+    RateLimit(
+        limit_id=CREATE_ORDER_URL,
+        limit=MAX_REQUEST,
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=CANCEL_ORDER_URL,
+        limit=MAX_REQUEST,
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=CANCEL_ALL_ORDERS_URL,
+        limit=MAX_REQUEST,
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=OPEN_ORDERS_URL,
+        limit=MAX_REQUEST,
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=ORDER_URL,
+        limit=MAX_REQUEST,
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=FILL_HISTORY_URL,
+        limit=MAX_REQUEST,
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=POSITIONS_URL,
+        limit=MAX_REQUEST,
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=ACCOUNT_SUMMARY_URL,
+        limit=MAX_REQUEST,
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=FUNDING_PAYMENT_HISTORY_URL,
+        limit=MAX_REQUEST,
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+    ),
     # Auth endpoints
-    RateLimit(limit_id=AUTH_LOGIN_URL, limit=10, time_interval=60,
-              linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
+    RateLimit(
+        limit_id=AUTH_LOGIN_URL, limit=10, time_interval=60, linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]
+    ),
 ]
 
 ORDER_NOT_EXIST_MESSAGE = "order not found"

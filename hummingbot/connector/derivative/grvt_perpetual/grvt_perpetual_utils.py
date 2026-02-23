@@ -129,6 +129,4 @@ class GrvtPerpetualTestnetConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="grvt_perpetual_testnet")
 
 
-OTHER_DOMAINS_KEYS = {
-    "grvt_perpetual_testnet": GrvtPerpetualTestnetConfigMap.model_construct()
-}
+OTHER_DOMAINS_KEYS = {"grvt_perpetual_testnet": GrvtPerpetualTestnetConfigMap.model_construct()}

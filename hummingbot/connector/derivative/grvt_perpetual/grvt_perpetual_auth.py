@@ -98,9 +98,7 @@ class GrvtPerpetualAuth(AuthBase):
                     ) as response:
                         if response.status != 200:
                             body = await response.text()
-                            raise IOError(
-                                f"GRVT login failed (HTTP {response.status}): {body}"
-                            )
+                            raise IOError(f"GRVT login failed (HTTP {response.status}): {body}")
 
                         # Extract the gravity cookie
                         cookies = response.cookies
@@ -115,11 +113,7 @@ class GrvtPerpetualAuth(AuthBase):
                         if gravity_cookie is None:
                             raise IOError("GRVT login did not return gravity cookie")
 
-                        cookie_value = (
-                            gravity_cookie.value
-                            if hasattr(gravity_cookie, "value")
-                            else str(gravity_cookie)
-                        )
+                        cookie_value = gravity_cookie.value if hasattr(gravity_cookie, "value") else str(gravity_cookie)
 
                         # Extract account ID from response headers or body
                         self._account_id = response.headers.get("X-Grvt-Account-Id", "")

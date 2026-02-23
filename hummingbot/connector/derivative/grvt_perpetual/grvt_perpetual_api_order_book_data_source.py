@@ -62,9 +62,7 @@ class GrvtPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
         GRVT endpoint: POST /full/v1/funding
         """
-        instrument = await self._connector.exchange_symbol_associated_to_pair(
-            trading_pair=trading_pair
-        )
+        instrument = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
 
         try:
             response = await self._connector._api_post(
@@ -89,9 +87,7 @@ class GrvtPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 rate=Decimal(str(funding_data.get("funding_rate", "0"))),
             )
         except Exception:
-            self.logger().exception(
-                f"Error fetching funding info for {trading_pair}"
-            )
+            self.logger().exception(f"Error fetching funding info for {trading_pair}")
             return FundingInfo(
                 trading_pair=trading_pair,
                 index_price=Decimal("0"),
@@ -112,22 +108,16 @@ class GrvtPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().exception(
-                    "Unexpected error when processing public funding info updates from exchange"
-                )
+                self.logger().exception("Unexpected error when processing public funding info updates from exchange")
                 await self._sleep(5)
 
-    async def _request_order_book_snapshot(
-        self, trading_pair: str
-    ) -> Dict[str, Any]:
+    async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         """
         Fetches a full order book snapshot via REST.
 
         GRVT endpoint: POST /full/v1/book
         """
-        instrument = await self._connector.exchange_symbol_associated_to_pair(
-            trading_pair=trading_pair
-        )
+        instrument = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         params = {
             "instrument": instrument,
             "depth": 20,
@@ -138,12 +128,8 @@ class GrvtPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         )
         return data
 
-    async def _order_book_snapshot(
-        self, trading_pair: str
-    ) -> OrderBookMessage:
-        snapshot_response: Dict[str, Any] = await self._request_order_book_snapshot(
-            trading_pair
-        )
+    async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
+        snapshot_response: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
         result = snapshot_response.get("result", snapshot_response)
         timestamp = int(time.time() * 1e3)
 
@@ -156,16 +142,8 @@ class GrvtPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             {
                 "trading_pair": trading_pair,
                 "update_id": timestamp,
-                "bids": [
-                    [float(b.get("price", b.get("px", 0))),
-                     float(b.get("size", b.get("sz", 0)))]
-                    for b in bids
-                ],
-                "asks": [
-                    [float(a.get("price", a.get("px", 0))),
-                     float(a.get("size", a.get("sz", 0)))]
-                    for a in asks
-                ],
+                "bids": [[float(b.get("price", b.get("px", 0))), float(b.get("size", b.get("sz", 0)))] for b in bids],
+                "asks": [[float(a.get("price", a.get("px", 0))), float(a.get("size", a.get("sz", 0)))] for a in asks],
             },
             timestamp=timestamp,
         )
@@ -190,9 +168,7 @@ class GrvtPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         """
         try:
             for trading_pair in self._trading_pairs:
-                instrument = await self._connector.exchange_symbol_associated_to_pair(
-                    trading_pair=trading_pair
-                )
+                instrument = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
 
                 # Subscribe to trades
                 trades_payload = {
@@ -212,9 +188,7 @@ class GrvtPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                         "instrument": instrument,
                     },
                 }
-                subscribe_orderbook_request = WSJSONRequest(
-                    payload=order_book_payload
-                )
+                subscribe_orderbook_request = WSJSONRequest(payload=order_book_payload)
 
                 # Subscribe to ticker (for funding info)
                 funding_info_payload = {
@@ -224,29 +198,22 @@ class GrvtPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                         "instrument": instrument,
                     },
                 }
-                subscribe_funding_info_request = WSJSONRequest(
-                    payload=funding_info_payload
-                )
+                subscribe_funding_info_request = WSJSONRequest(payload=funding_info_payload)
 
                 await ws.send(subscribe_trade_request)
                 await ws.send(subscribe_orderbook_request)
                 await ws.send(subscribe_funding_info_request)
 
                 self.logger().info(
-                    f"Subscribed to public order book, trade, and ticker channels "
-                    f"for {instrument}..."
+                    f"Subscribed to public order book, trade, and ticker channels " f"for {instrument}..."
                 )
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().error(
-                "Unexpected error occurred subscribing to order book data streams."
-            )
+            self.logger().error("Unexpected error occurred subscribing to order book data streams.")
             raise
 
-    def _channel_originating_message(
-        self, event_message: Dict[str, Any]
-    ) -> str:
+    def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
         channel = ""
         if "error" not in event_message:
             stream_name = event_message.get("channel", "")
@@ -258,9 +225,7 @@ class GrvtPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 channel = self._funding_info_messages_queue_key
         return channel
 
-    def _parse_instrument_from_message(
-        self, raw_message: Dict[str, Any]
-    ) -> str:
+    def _parse_instrument_from_message(self, raw_message: Dict[str, Any]) -> str:
         """Extracts the instrument identifier from a WS message."""
         data = raw_message.get("data", {})
         if isinstance(data, dict):
@@ -278,9 +243,7 @@ class GrvtPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         data = raw_message.get("data", {})
         timestamp = float(data.get("timestamp", time.time() * 1e3))
 
-        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-            instrument
-        )
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(instrument)
 
         bids = data.get("bids", [])
         asks = data.get("asks", [])
@@ -290,16 +253,8 @@ class GrvtPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             {
                 "trading_pair": trading_pair,
                 "update_id": int(timestamp),
-                "bids": [
-                    [float(b.get("price", b.get("px", 0))),
-                     float(b.get("size", b.get("sz", 0)))]
-                    for b in bids
-                ],
-                "asks": [
-                    [float(a.get("price", a.get("px", 0))),
-                     float(a.get("size", a.get("sz", 0)))]
-                    for a in asks
-                ],
+                "bids": [[float(b.get("price", b.get("px", 0))), float(b.get("size", b.get("sz", 0)))] for b in bids],
+                "asks": [[float(a.get("price", a.get("px", 0))), float(a.get("size", a.get("sz", 0)))] for a in asks],
             },
             timestamp=timestamp * 1e-3,
         )
@@ -314,9 +269,7 @@ class GrvtPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         data = raw_message.get("data", {})
         timestamp = float(data.get("timestamp", time.time() * 1e3))
 
-        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-            instrument
-        )
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(instrument)
 
         bids = data.get("bids", [])
         asks = data.get("asks", [])
@@ -326,16 +279,8 @@ class GrvtPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             {
                 "trading_pair": trading_pair,
                 "update_id": int(timestamp),
-                "bids": [
-                    [float(b.get("price", b.get("px", 0))),
-                     float(b.get("size", b.get("sz", 0)))]
-                    for b in bids
-                ],
-                "asks": [
-                    [float(a.get("price", a.get("px", 0))),
-                     float(a.get("size", a.get("sz", 0)))]
-                    for a in asks
-                ],
+                "bids": [[float(b.get("price", b.get("px", 0))), float(b.get("size", b.get("sz", 0)))] for b in bids],
+                "asks": [[float(a.get("price", a.get("px", 0))), float(a.get("size", a.get("sz", 0)))] for a in asks],
             },
             timestamp=timestamp * 1e-3,
         )
@@ -353,9 +298,7 @@ class GrvtPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         trades = data if isinstance(data, list) else [data]
 
         for trade_data in trades:
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-                instrument
-            )
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(instrument)
 
             # GRVT uses "is_buyer_maker" or "side" for trade direction
             side = trade_data.get("side", "")
@@ -391,9 +334,7 @@ class GrvtPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             data = raw_message.get("data", {})
             instrument = data.get("instrument", "")
 
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-                instrument
-            )
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(instrument)
 
             if trading_pair not in self._trading_pairs:
                 return
@@ -422,15 +363,11 @@ class GrvtPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         Subscribe to order book channels for a single trading pair dynamically.
         """
         if self._ws_assistant is None:
-            self.logger().warning(
-                f"Cannot subscribe to {trading_pair}: WebSocket connection not established."
-            )
+            self.logger().warning(f"Cannot subscribe to {trading_pair}: WebSocket connection not established.")
             return False
 
         try:
-            instrument = await self._connector.exchange_symbol_associated_to_pair(
-                trading_pair=trading_pair
-            )
+            instrument = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
 
             trades_payload = {
                 "method": "subscribe",
@@ -448,9 +385,7 @@ class GrvtPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                     "instrument": instrument,
                 },
             }
-            subscribe_orderbook_request = WSJSONRequest(
-                payload=order_book_payload
-            )
+            subscribe_orderbook_request = WSJSONRequest(payload=order_book_payload)
 
             await self._ws_assistant.send(subscribe_trade_request)
             await self._ws_assistant.send(subscribe_orderbook_request)
@@ -470,15 +405,11 @@ class GrvtPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         Unsubscribe from order book channels for a single trading pair.
         """
         if self._ws_assistant is None:
-            self.logger().warning(
-                f"Cannot unsubscribe from {trading_pair}: WebSocket not connected."
-            )
+            self.logger().warning(f"Cannot unsubscribe from {trading_pair}: WebSocket not connected.")
             return False
 
         try:
-            instrument = await self._connector.exchange_symbol_associated_to_pair(
-                trading_pair=trading_pair
-            )
+            instrument = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
 
             trades_payload = {
                 "method": "unsubscribe",
@@ -496,23 +427,17 @@ class GrvtPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                     "instrument": instrument,
                 },
             }
-            unsubscribe_orderbook_request = WSJSONRequest(
-                payload=order_book_payload
-            )
+            unsubscribe_orderbook_request = WSJSONRequest(payload=order_book_payload)
 
             await self._ws_assistant.send(unsubscribe_trade_request)
             await self._ws_assistant.send(unsubscribe_orderbook_request)
 
             self.remove_trading_pair(trading_pair)
-            self.logger().info(
-                f"Successfully unsubscribed from {trading_pair}"
-            )
+            self.logger().info(f"Successfully unsubscribed from {trading_pair}")
             return True
 
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            self.logger().error(
-                f"Error unsubscribing from {trading_pair}: {e}"
-            )
+            self.logger().error(f"Error unsubscribing from {trading_pair}: {e}")
             return False

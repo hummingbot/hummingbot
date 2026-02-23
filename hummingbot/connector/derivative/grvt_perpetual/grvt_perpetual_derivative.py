@@ -164,9 +164,7 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
         trading_rule: TradingRule = self._trading_rules[trading_pair]
         return trading_rule.sell_order_collateral_token
 
-    def _is_request_exception_related_to_time_synchronizer(
-        self, request_exception: Exception
-    ) -> bool:
+    def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception) -> bool:
         return False
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
@@ -189,19 +187,13 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
         )
         return exchange_info
 
-    def _is_order_not_found_during_status_update_error(
-        self, status_update_exception: Exception
-    ) -> bool:
+    def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
         return CONSTANTS.ORDER_NOT_EXIST_MESSAGE in str(status_update_exception)
 
-    def _is_order_not_found_during_cancelation_error(
-        self, cancelation_exception: Exception
-    ) -> bool:
+    def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
         return CONSTANTS.UNKNOWN_ORDER_MESSAGE in str(cancelation_exception)
 
-    def quantize_order_price(
-        self, trading_pair: str, price: Decimal
-    ) -> Decimal:
+    def quantize_order_price(self, trading_pair: str, price: Decimal) -> Decimal:
         """
         Applies trading rule to quantize order price.
         GRVT uses 9 decimal precision for prices in signing.
@@ -214,9 +206,7 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
             path_url=self.trading_rules_request_path,
             data={"is_active": True},
         )
-        self._initialize_trading_pair_symbols_from_exchange_info(
-            exchange_info=exchange_info
-        )
+        self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
         trading_rules_list = await self._format_trading_rules(exchange_info)
         self._trading_rules.clear()
         for trading_rule in trading_rules_list:
@@ -228,13 +218,9 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
                 path_url=self.trading_pairs_request_path,
                 data={"is_active": True},
             )
-            self._initialize_trading_pair_symbols_from_exchange_info(
-                exchange_info=exchange_info
-            )
+            self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
         except Exception:
-            self.logger().exception(
-                "There was an error requesting exchange info."
-            )
+            self.logger().exception("There was an error requesting exchange info.")
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         return GrvtPerpetualAPIOrderBookDataSource(
@@ -293,9 +279,7 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
                     }
                 )
             except Exception:
-                self.logger().debug(
-                    f"Error fetching ticker for {instrument_name}"
-                )
+                self.logger().debug(f"Error fetching ticker for {instrument_name}")
                 continue
 
         return res
@@ -345,17 +329,13 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
         """
         pass
 
-    async def _place_cancel(
-        self, order_id: str, tracked_order: InFlightOrder
-    ):
+    async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         """
         Cancels an order on the GRVT exchange.
 
         GRVT endpoint: POST /full/v1/cancel_order
         """
-        instrument = await self.exchange_symbol_associated_to_pair(
-            trading_pair=tracked_order.trading_pair
-        )
+        instrument = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
 
         api_params = {
             "instrument": instrument,
@@ -374,10 +354,7 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
 
         if cancel_result.get("code") and cancel_result.get("code") != 0:
             error_msg = cancel_result.get("message", "Unknown cancel error")
-            self.logger().debug(
-                f"The order {order_id} does not exist on GRVT. "
-                f"No cancelation needed."
-            )
+            self.logger().debug(f"The order {order_id} does not exist on GRVT. " f"No cancelation needed.")
             await self._order_tracker.process_order_not_found(order_id)
             raise IOError(f"{error_msg}")
 
@@ -413,9 +390,7 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
         hex_order_id = f"0x{md5.hexdigest()}"
 
         if order_type is OrderType.MARKET:
-            reference_price = (
-                self.get_mid_price(trading_pair) if price.is_nan() else price
-            )
+            reference_price = self.get_mid_price(trading_pair) if price.is_nan() else price
             price = self.quantize_order_price(
                 trading_pair,
                 reference_price * Decimal(1 + CONSTANTS.MARKET_ORDER_SLIPPAGE),
@@ -462,9 +437,7 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
         hex_order_id = f"0x{md5.hexdigest()}"
 
         if order_type is OrderType.MARKET:
-            reference_price = (
-                self.get_mid_price(trading_pair) if price.is_nan() else price
-            )
+            reference_price = self.get_mid_price(trading_pair) if price.is_nan() else price
             price = self.quantize_order_price(
                 trading_pair,
                 reference_price * Decimal(1 - CONSTANTS.MARKET_ORDER_SLIPPAGE),
@@ -500,9 +473,7 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
         GRVT endpoint: POST /full/v1/create_order
         Orders use legs[] array (single leg for perps).
         """
-        instrument = await self.exchange_symbol_associated_to_pair(
-            trading_pair=trading_pair
-        )
+        instrument = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
 
         # Get instrument metadata for proper precision
         instrument_info = self._instrument_map.get(instrument, {})
@@ -583,15 +554,11 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
 
         # Check for errors
         if order_result.get("code") and order_result.get("code") != 0:
-            error_msg = order_result.get(
-                "message", order_result.get("error", "Unknown error")
-            )
+            error_msg = order_result.get("message", order_result.get("error", "Unknown error"))
             raise IOError(f"Error submitting order {order_id}: {error_msg}")
 
         result = order_result.get("result", order_result)
-        exchange_order_id = str(
-            result.get("order_id", result.get("oid", ""))
-        )
+        exchange_order_id = str(result.get("order_id", result.get("oid", "")))
 
         return (exchange_order_id, self.current_timestamp)
 
@@ -602,9 +569,7 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
         GRVT endpoint: POST /full/v1/fill_history
         """
         orders = list(self._order_tracker.all_fillable_orders.values())
-        all_fillable_orders = (
-            self._order_tracker.all_fillable_orders_by_exchange_order_id
-        )
+        all_fillable_orders = self._order_tracker.all_fillable_orders_by_exchange_order_id
         all_fills_response = []
 
         if len(orders) > 0:
@@ -618,9 +583,7 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
                 )
                 # Normalize response
                 if isinstance(all_fills_response, dict):
-                    all_fills_response = all_fills_response.get(
-                        "result", all_fills_response.get("fills", [])
-                    )
+                    all_fills_response = all_fills_response.get("result", all_fills_response.get("fills", []))
                 if not isinstance(all_fills_response, list):
                     all_fills_response = []
             except asyncio.CancelledError:
@@ -642,25 +605,17 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
         order_fill: Dict[str, Any],
         all_fillable_order: Dict[str, InFlightOrder],
     ):
-        exchange_order_id = str(
-            order_fill.get("order_id", order_fill.get("oid", ""))
-        )
+        exchange_order_id = str(order_fill.get("order_id", order_fill.get("oid", "")))
         fillable_order = all_fillable_order.get(exchange_order_id)
 
         if fillable_order is not None:
             fee_asset = fillable_order.quote_asset
 
             # Determine position action from fill data
-            is_close = order_fill.get("is_close", False) or order_fill.get(
-                "reduce_only", False
-            )
-            position_action = (
-                PositionAction.CLOSE if is_close else PositionAction.OPEN
-            )
+            is_close = order_fill.get("is_close", False) or order_fill.get("reduce_only", False)
+            position_action = PositionAction.CLOSE if is_close else PositionAction.OPEN
 
-            fee_amount = Decimal(
-                str(order_fill.get("fee", order_fill.get("trade_fee", "0")))
-            )
+            fee_amount = Decimal(str(order_fill.get("fee", order_fill.get("trade_fee", "0"))))
             fee = TradeFeeBase.new_perpetual_fee(
                 fee_schema=self.trade_fee_schema(),
                 position_action=position_action,
@@ -668,20 +623,10 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
                 flat_fees=[TokenAmount(amount=fee_amount, token=fee_asset)],
             )
 
-            fill_price = Decimal(
-                str(order_fill.get("price", order_fill.get("fill_price", "0")))
-            )
-            fill_size = Decimal(
-                str(order_fill.get("size", order_fill.get("fill_size", "0")))
-            )
-            trade_id = str(
-                order_fill.get(
-                    "trade_id", order_fill.get("fill_id", order_fill.get("tid", ""))
-                )
-            )
-            fill_timestamp = order_fill.get(
-                "timestamp", order_fill.get("time", time.time() * 1e3)
-            )
+            fill_price = Decimal(str(order_fill.get("price", order_fill.get("fill_price", "0"))))
+            fill_size = Decimal(str(order_fill.get("size", order_fill.get("fill_size", "0"))))
+            trade_id = str(order_fill.get("trade_id", order_fill.get("fill_id", order_fill.get("tid", ""))))
+            fill_timestamp = order_fill.get("timestamp", order_fill.get("time", time.time() * 1e3))
 
             trade_update = TradeUpdate(
                 trade_id=trade_id,
@@ -696,15 +641,11 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
             )
             self._order_tracker.process_trade_update(trade_update)
 
-    async def _all_trade_updates_for_order(
-        self, order: InFlightOrder
-    ) -> List[TradeUpdate]:
+    async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         # Handled by _update_trade_history instead
-        pass
+        return []
 
-    async def _handle_update_error_for_active_order(
-        self, order: InFlightOrder, error: Exception
-    ):
+    async def _handle_update_error_for_active_order(self, order: InFlightOrder, error: Exception):
         try:
             raise error
         except (asyncio.TimeoutError, KeyError):
@@ -712,23 +653,16 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
                 f"Tracked order {order.client_order_id} does not have an "
                 f"exchange id. Attempting fetch in next polling interval."
             )
-            await self._order_tracker.process_order_not_found(
-                order.client_order_id
-            )
+            await self._order_tracker.process_order_not_found(order.client_order_id)
         except asyncio.CancelledError:
             raise
         except Exception as request_error:
             self.logger().warning(
-                f"Error fetching status update for active order "
-                f"{order.client_order_id}: {request_error}.",
+                f"Error fetching status update for active order " f"{order.client_order_id}: {request_error}.",
             )
-            await self._order_tracker.process_order_not_found(
-                order.client_order_id
-            )
+            await self._order_tracker.process_order_not_found(order.client_order_id)
 
-    async def _request_order_status(
-        self, tracked_order: InFlightOrder
-    ) -> OrderUpdate:
+    async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         """
         Fetches the status of a single order.
 
@@ -758,22 +692,15 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
 
         current_state = order_data.get("status", "PENDING")
         _exchange_order_id = str(
-            tracked_order.exchange_order_id
-            or order_data.get("order_id", order_data.get("oid", ""))
+            tracked_order.exchange_order_id or order_data.get("order_id", order_data.get("oid", ""))
         )
-        update_timestamp = order_data.get(
-            "timestamp", order_data.get("updated_at", time.time() * 1e3)
-        )
+        update_timestamp = order_data.get("timestamp", order_data.get("updated_at", time.time() * 1e3))
 
         _order_update = OrderUpdate(
             trading_pair=tracked_order.trading_pair,
             update_timestamp=float(update_timestamp) * 1e-3,
-            new_state=CONSTANTS.ORDER_STATE.get(
-                current_state, CONSTANTS.ORDER_STATE.get("PENDING")
-            ),
-            client_order_id=order_data.get(
-                "client_order_id", client_order_id
-            ),
+            new_state=CONSTANTS.ORDER_STATE.get(current_state, CONSTANTS.ORDER_STATE.get("PENDING")),
+            client_order_id=order_data.get("client_order_id", client_order_id),
             exchange_order_id=_exchange_order_id,
         )
         return _order_update
@@ -788,10 +715,7 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
                 self.logger().network(
                     "Unknown error. Retrying after 1 seconds.",
                     exc_info=True,
-                    app_warning_msg=(
-                        "Could not fetch user events from GRVT. "
-                        "Check API key and network connection."
-                    ),
+                    app_warning_msg=("Could not fetch user events from GRVT. " "Check API key and network connection."),
                 )
                 await self._sleep(1.0)
 
@@ -860,42 +784,23 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
         Updates in-flight order and triggers order filled event for trade
         messages received via WebSocket.
         """
-        exchange_order_id = str(
-            trade.get("order_id", trade.get("oid", ""))
-        )
-        tracked_order = (
-            self._order_tracker.all_fillable_orders_by_exchange_order_id.get(
-                exchange_order_id
-            )
-        )
+        exchange_order_id = str(trade.get("order_id", trade.get("oid", "")))
+        tracked_order = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(exchange_order_id)
 
         if tracked_order is None:
             all_orders = self._order_tracker.all_fillable_orders
             for k, v in all_orders.items():
                 await v.get_exchange_order_id()
-            _cli_tracked_orders = [
-                o
-                for o in all_orders.values()
-                if exchange_order_id == o.exchange_order_id
-            ]
+            _cli_tracked_orders = [o for o in all_orders.values() if exchange_order_id == o.exchange_order_id]
             if not _cli_tracked_orders:
-                self.logger().debug(
-                    f"Ignoring trade message with id {exchange_order_id}: "
-                    f"not in in_flight_orders."
-                )
+                self.logger().debug(f"Ignoring trade message with id {exchange_order_id}: " f"not in in_flight_orders.")
                 return
             tracked_order = _cli_tracked_orders[0]
 
-        is_close = trade.get("is_close", False) or trade.get(
-            "reduce_only", False
-        )
-        position_action = (
-            PositionAction.CLOSE if is_close else PositionAction.OPEN
-        )
+        is_close = trade.get("is_close", False) or trade.get("reduce_only", False)
+        position_action = PositionAction.CLOSE if is_close else PositionAction.OPEN
         fee_asset = tracked_order.quote_asset
-        fee_amount = Decimal(
-            str(trade.get("fee", trade.get("trade_fee", "0")))
-        )
+        fee_amount = Decimal(str(trade.get("fee", trade.get("trade_fee", "0"))))
         fee = TradeFeeBase.new_perpetual_fee(
             fee_schema=self.trade_fee_schema(),
             position_action=position_action,
@@ -903,20 +808,10 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
             flat_fees=[TokenAmount(amount=fee_amount, token=fee_asset)],
         )
 
-        fill_price = Decimal(
-            str(trade.get("price", trade.get("fill_price", "0")))
-        )
-        fill_size = Decimal(
-            str(trade.get("size", trade.get("fill_size", "0")))
-        )
-        trade_id = str(
-            trade.get(
-                "trade_id", trade.get("fill_id", trade.get("tid", ""))
-            )
-        )
-        fill_timestamp = trade.get(
-            "timestamp", trade.get("time", time.time() * 1e3)
-        )
+        fill_price = Decimal(str(trade.get("price", trade.get("fill_price", "0"))))
+        fill_size = Decimal(str(trade.get("size", trade.get("fill_size", "0"))))
+        trade_id = str(trade.get("trade_id", trade.get("fill_id", trade.get("tid", ""))))
+        fill_timestamp = trade.get("timestamp", trade.get("time", time.time() * 1e3))
 
         trade_update = TradeUpdate(
             trade_id=trade_id,
@@ -936,23 +831,14 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
         Updates in-flight order and triggers cancelation or failure event
         if needed.
         """
-        client_order_id = str(
-            order_msg.get("client_order_id", order_msg.get("cloid", ""))
-        )
-        tracked_order = self._order_tracker.all_updatable_orders.get(
-            client_order_id
-        )
+        client_order_id = str(order_msg.get("client_order_id", order_msg.get("cloid", "")))
+        tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
         if not tracked_order:
-            self.logger().debug(
-                f"Ignoring order message with id {client_order_id}: "
-                f"not in in_flight_orders."
-            )
+            self.logger().debug(f"Ignoring order message with id {client_order_id}: " f"not in in_flight_orders.")
             return
 
         current_state = order_msg.get("status", "PENDING")
-        exchange_oid = str(
-            order_msg.get("order_id", order_msg.get("oid", ""))
-        )
+        exchange_oid = str(order_msg.get("order_id", order_msg.get("oid", "")))
         tracked_order.update_exchange_order_id(exchange_oid)
 
         update_timestamp = order_msg.get(
@@ -963,17 +849,13 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
         order_update = OrderUpdate(
             trading_pair=tracked_order.trading_pair,
             update_timestamp=float(update_timestamp) * 1e-3,
-            new_state=CONSTANTS.ORDER_STATE.get(
-                current_state, CONSTANTS.ORDER_STATE.get("PENDING")
-            ),
+            new_state=CONSTANTS.ORDER_STATE.get(current_state, CONSTANTS.ORDER_STATE.get("PENDING")),
             client_order_id=client_order_id,
             exchange_order_id=exchange_oid,
         )
         self._order_tracker.process_order_update(order_update=order_update)
 
-    async def _format_trading_rules(
-        self, exchange_info: Any
-    ) -> List[TradingRule]:
+    async def _format_trading_rules(self, exchange_info: Any) -> List[TradingRule]:
         """
         Parses the exchange instrument info and creates TradingRule objects.
 
@@ -996,19 +878,13 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
 
         for instrument_info in instruments:
             try:
-                instrument_name = instrument_info.get(
-                    "instrument", instrument_info.get("name", "")
-                )
+                instrument_name = instrument_info.get("instrument", instrument_info.get("name", ""))
                 if not instrument_name:
                     continue
 
                 # Store instrument metadata for order placement
-                base_decimals = int(
-                    instrument_info.get("base_decimals", 8)
-                )
-                quote_decimals = int(
-                    instrument_info.get("quote_decimals", 6)
-                )
+                base_decimals = int(instrument_info.get("base_decimals", 8))
+                quote_decimals = int(instrument_info.get("quote_decimals", 6))
                 asset_id = instrument_info.get("asset_id", 0)
 
                 self._instrument_map[instrument_name] = {
@@ -1019,9 +895,7 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
                     "min_size": instrument_info.get("min_size", "0.001"),
                 }
 
-                trading_pair = grvt_instrument_to_hb_trading_pair(
-                    instrument_name
-                )
+                trading_pair = grvt_instrument_to_hb_trading_pair(instrument_name)
 
                 # Calculate step sizes from decimals
                 step_size = Decimal(str(10**-base_decimals))
@@ -1033,9 +907,7 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
                         )
                     )
                 )
-                min_order_size = Decimal(
-                    str(instrument_info.get("min_size", str(step_size)))
-                )
+                min_order_size = Decimal(str(instrument_info.get("min_size", str(step_size))))
 
                 # Determine collateral token from instrument name
                 parts = instrument_name.replace("_Perp", "").split("_")
@@ -1059,9 +931,7 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
 
         return return_val
 
-    def _initialize_trading_pair_symbols_from_exchange_info(
-        self, exchange_info: Any
-    ):
+    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Any):
         """
         Initializes the bidict mapping between exchange symbols and
         hummingbot trading pairs.
@@ -1084,9 +954,7 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
         for instrument_info in instruments:
             if not web_utils.is_exchange_information_valid(instrument_info):
                 continue
-            instrument_name = instrument_info.get(
-                "instrument", instrument_info.get("name", "")
-            )
+            instrument_name = instrument_info.get("instrument", instrument_info.get("name", ""))
             if not instrument_name:
                 continue
 
@@ -1098,9 +966,7 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
                 quote = parts[1]
                 trading_pair = combine_to_hb_trading_pair(base, quote)
                 if trading_pair in mapping.inverse:
-                    self._resolve_trading_pair_symbols_duplicate(
-                        mapping, instrument_name, base, quote
-                    )
+                    self._resolve_trading_pair_symbols_duplicate(mapping, instrument_name, base, quote)
                 else:
                     mapping[instrument_name] = trading_pair
 
@@ -1113,9 +979,7 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
         GRVT endpoint: POST /full/v1/ticker
         """
         try:
-            instrument = await self.exchange_symbol_associated_to_pair(
-                trading_pair=trading_pair
-            )
+            instrument = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         except KeyError:
             instrument = hb_trading_pair_to_grvt_instrument(trading_pair)
 
@@ -1136,14 +1000,8 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
                 )
             )
         except Exception as e:
-            self.logger().error(
-                f"Error fetching last traded price for "
-                f"{trading_pair} ({instrument}): {e}"
-            )
-            raise RuntimeError(
-                f"Price not found for trading_pair={trading_pair}, "
-                f"instrument={instrument}"
-            )
+            self.logger().error(f"Error fetching last traded price for " f"{trading_pair} ({instrument}): {e}")
+            raise RuntimeError(f"Price not found for trading_pair={trading_pair}, " f"instrument={instrument}")
 
     def _resolve_trading_pair_symbols_duplicate(
         self,
@@ -1166,8 +1024,7 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
             mapping[new_exchange_symbol] = trading_pair
         else:
             self.logger().error(
-                f"Could not resolve the exchange symbols "
-                f"{new_exchange_symbol} and {current_exchange_symbol}"
+                f"Could not resolve the exchange symbols " f"{new_exchange_symbol} and {current_exchange_symbol}"
             )
             mapping.pop(current_exchange_symbol)
 
@@ -1186,9 +1043,7 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
         result = account_info.get("result", account_info)
 
         # Parse balance information
-        total_equity = Decimal(
-            str(result.get("total_equity", result.get("account_value", "0")))
-        )
+        total_equity = Decimal(str(result.get("total_equity", result.get("account_value", "0"))))
         available_balance = Decimal(
             str(
                 result.get(
@@ -1220,30 +1075,20 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
         processed_instruments = set()
 
         for position_data in positions:
-            instrument = position_data.get(
-                "instrument", position_data.get("coin", "")
-            )
+            instrument = position_data.get("instrument", position_data.get("coin", ""))
 
             if instrument in processed_instruments:
                 continue
             processed_instruments.add(instrument)
 
             try:
-                hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(
-                    instrument
-                )
+                hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(instrument)
             except KeyError:
-                self.logger().debug(
-                    f"Skipping position for unmapped instrument: {instrument}"
-                )
+                self.logger().debug(f"Skipping position for unmapped instrument: {instrument}")
                 continue
 
-            size = Decimal(
-                str(position_data.get("size", position_data.get("szi", "0")))
-            )
-            position_side = (
-                PositionSide.LONG if size > 0 else PositionSide.SHORT
-            )
+            size = Decimal(str(position_data.get("size", position_data.get("szi", "0"))))
+            position_side = PositionSide.LONG if size > 0 else PositionSide.SHORT
             unrealized_pnl = Decimal(
                 str(
                     position_data.get(
@@ -1260,13 +1105,9 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
                     )
                 )
             )
-            leverage = Decimal(
-                str(position_data.get("leverage", "1"))
-            )
+            leverage = Decimal(str(position_data.get("leverage", "1")))
 
-            pos_key = self._perpetual_trading.position_key(
-                hb_trading_pair, position_side
-            )
+            pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
 
             if size != 0:
                 _position = Position(
@@ -1289,9 +1130,7 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
     async def _get_position_mode(self) -> Optional[PositionMode]:
         return PositionMode.ONEWAY
 
-    async def _trading_pair_position_mode_set(
-        self, mode: PositionMode, trading_pair: str
-    ) -> Tuple[bool, str]:
+    async def _trading_pair_position_mode_set(self, mode: PositionMode, trading_pair: str) -> Tuple[bool, str]:
         msg = ""
         success = True
         initial_mode = await self._get_position_mode()
@@ -1300,9 +1139,7 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
             success = False
         return success, msg
 
-    async def _set_trading_pair_leverage(
-        self, trading_pair: str, leverage: int
-    ) -> Tuple[bool, str]:
+    async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:
         """
         GRVT sets leverage per-order via the order parameters, not via a
         separate API call. This method is a no-op that always succeeds.
@@ -1313,17 +1150,13 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
         )
         return True, ""
 
-    async def _fetch_last_fee_payment(
-        self, trading_pair: str
-    ) -> Tuple[int, Decimal, Decimal]:
+    async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
         """
         Fetches the last funding payment for a trading pair.
 
         GRVT endpoint: POST /full/v1/funding_payment_history
         """
-        instrument = await self.exchange_symbol_associated_to_pair(
-            trading_pair
-        )
+        instrument = await self.exchange_symbol_associated_to_pair(trading_pair)
 
         try:
             response = await self._api_post(
@@ -1349,12 +1182,8 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
             )
             latest = payments_sorted[0]
 
-            payment = Decimal(
-                str(latest.get("payment", latest.get("amount", "0")))
-            )
-            funding_rate = Decimal(
-                str(latest.get("funding_rate", latest.get("rate", "0")))
-            )
+            payment = Decimal(str(latest.get("payment", latest.get("amount", "0"))))
+            funding_rate = Decimal(str(latest.get("funding_rate", latest.get("rate", "0"))))
             timestamp = float(latest.get("timestamp", 0)) * 1e-3
 
             if payment != Decimal("0"):
@@ -1363,9 +1192,7 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
                 return 0, Decimal("-1"), Decimal("-1")
 
         except Exception as e:
-            self.logger().debug(
-                f"Error fetching funding payment for {trading_pair}: {e}"
-            )
+            self.logger().debug(f"Error fetching funding payment for {trading_pair}: {e}")
             return 0, Decimal("-1"), Decimal("-1")
 
     def _last_funding_time(self) -> int:

@@ -130,20 +130,14 @@ class GrvtPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             await websocket_assistant.send(subscribe_fills_request)
             await websocket_assistant.send(subscribe_positions_request)
 
-            self.logger().info(
-                "Subscribed to private order, fill, and position channels..."
-            )
+            self.logger().info("Subscribed to private order, fill, and position channels...")
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().exception(
-                "Unexpected error occurred subscribing to user streams..."
-            )
+            self.logger().exception("Unexpected error occurred subscribing to user streams...")
             raise
 
-    async def _process_event_message(
-        self, event_message: Dict[str, Any], queue: asyncio.Queue
-    ):
+    async def _process_event_message(self, event_message: Dict[str, Any], queue: asyncio.Queue):
         if event_message.get("error") is not None:
             err_msg = event_message.get("error", {})
             if isinstance(err_msg, dict):
