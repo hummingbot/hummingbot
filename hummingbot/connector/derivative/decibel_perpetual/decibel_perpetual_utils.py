@@ -1,10 +1,10 @@
 from decimal import Decimal
 from typing import Any, Dict
 
-from pydantic import Field, SecretStr
+from pydantic import ConfigDict, Field, SecretStr
 
 import hummingbot.connector.derivative.decibel_perpetual.decibel_perpetual_constants as CONSTANTS
-from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 DEFAULT_FEES = TradeFeeSchema(
@@ -22,28 +22,27 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
 
 class DecibelPerpetualConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="decibel_perpetual", const=True, client_data=None)
+    connector: str = "decibel_perpetual"
     decibel_perpetual_api_key: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Decibel Perpetual API key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter your Decibel Perpetual API key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        },
     )
     decibel_perpetual_api_secret: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Decibel Perpetual API secret",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter your Decibel Perpetual API secret",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        },
     )
 
-    class Config:
-        title = "decibel_perpetual"
+    model_config = ConfigDict(title="decibel_perpetual")
 
 
-KEYS = DecibelPerpetualConfigMap.construct()
+KEYS = DecibelPerpetualConfigMap.model_construct()

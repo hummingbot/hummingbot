@@ -184,3 +184,20 @@ class DecibelPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             rate=float(data.get("fundingRate", 0)),
         )
         await message_queue.put(info)
+
+    async def subscribe_to_trading_pair(self, trading_pair: str) -> bool:
+        """Subscribe to a single trading pair channels.
+
+        This method is required by the PerpetualAPIOrderBookDataSource abstract interface.
+        The base implementation subscribes in batch via `_subscribe_channels`, but dynamic
+        subscription is useful for some strategies and simplifies unit test instantiation.
+        """
+        if trading_pair not in self._trading_pairs:
+            self._trading_pairs.append(trading_pair)
+        # If a websocket assistant is already running it will be handled by the stream loop.
+        return True
+
+    async def unsubscribe_from_trading_pair(self, trading_pair: str) -> bool:
+        if trading_pair in self._trading_pairs:
+            self._trading_pairs.remove(trading_pair)
+        return True

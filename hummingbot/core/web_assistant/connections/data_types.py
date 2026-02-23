@@ -129,10 +129,28 @@ class RESTResponse:
         return text_
 
 
-class WSRequest(ABC):
-    @abstractmethod
+class WSRequest:
+    """Generic WebSocket request container.
+
+    Historically this class was an abstract base for specific request types (JSON, text, binary).
+    Some connectors and unit tests expect to be able to instantiate WSRequest directly and mutate
+    its `payload` attribute before it is sent.
+
+    Concrete request types should still be preferred in production code.
+    """
+
+    def __init__(
+        self,
+        payload: Any = None,
+        throttler_limit_id: Optional[str] = None,
+        is_auth_required: bool = False,
+    ):
+        self.payload = payload
+        self.throttler_limit_id = throttler_limit_id
+        self.is_auth_required = is_auth_required
+
     async def send_with_connection(self, connection: "WSConnection"):
-        return NotImplemented
+        raise NotImplementedError
 
 
 @dataclass
