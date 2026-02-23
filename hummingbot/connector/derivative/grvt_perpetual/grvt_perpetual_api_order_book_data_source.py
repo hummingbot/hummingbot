@@ -31,6 +31,14 @@ class GRVTPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._api_factory = api_factory
         self._domain = domain
 
+    async def subscribe_to_trading_pair(self, trading_pair: str):
+        if trading_pair not in self._trading_pairs:
+            self._trading_pairs.append(trading_pair)
+
+    async def unsubscribe_from_trading_pair(self, trading_pair: str):
+        if trading_pair in self._trading_pairs:
+            self._trading_pairs.remove(trading_pair)
+
     async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 

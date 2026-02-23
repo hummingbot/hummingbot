@@ -82,7 +82,8 @@ ORDER_STATE = {
     "OPEN": OrderState.OPEN,
     "FILLED": OrderState.FILLED,
     "PARTIAL_FILLED": OrderState.PARTIALLY_FILLED,
-    "CANCELED": OrderState.CANCELED,
+    "CANCELLED": OrderState.CANCELED,
+    "CANCELED": OrderState.CANCELED,  # backward compatibility / typo
     "REJECTED": OrderState.FAILED,
     "EXPIRED": OrderState.FAILED,
 }
