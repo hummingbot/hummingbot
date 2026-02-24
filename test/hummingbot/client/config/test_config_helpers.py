@@ -94,6 +94,17 @@ strategy: pure_market_making
 
         self.assertEqual(cm, cm_loaded)
 
+    def test_short_strategy_name_strips_script_extension(self):
+        strategy_name = config_helpers.short_strategy_name("v2_funding_rate_arb.py")
+        self.assertEqual("v2_funding_rate_arb", strategy_name)
+
+    def test_default_strategy_file_path_omits_script_extension(self):
+        with TemporaryDirectory() as temp_dir:
+            with patch.object(config_helpers, "STRATEGIES_CONF_DIR_PATH", Path(temp_dir)):
+                file_name = config_helpers.default_strategy_file_path("v2_funding_rate_arb.py")
+
+        self.assertEqual("conf_v2_funding_rate_arb_1.yml", file_name)
+
     def test_decrypt_config_map_secret_values(self):
         class DummySubModel(BaseClientModel):
             secret_attr: SecretStr

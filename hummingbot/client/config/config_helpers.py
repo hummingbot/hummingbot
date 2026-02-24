@@ -892,6 +892,9 @@ def default_strategy_file_path(strategy: str) -> str:
 
 
 def short_strategy_name(strategy: str) -> str:
+    # Script strategy names can be passed as "<name>.py". Normalize to bare module name
+    # so generated config files follow the expected conf_<name>_<n>.yml format.
+    strategy = Path(strategy).stem
     if strategy == "pure_market_making":
         return "pure_mm"
     elif strategy == "cross_exchange_market_making":

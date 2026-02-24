@@ -112,8 +112,15 @@ class CreateCommand:
     async def prompt_for_configuration_v2(self,  # type: HummingbotApplication
                                           script_to_config: str):
         try:
-            module = sys.modules.get(f"{settings.SCRIPT_STRATEGIES_MODULE}.{script_to_config}")
-            script_module = importlib.reload(module)
+            script_module_name = Path(script_to_config).stem
+            module = sys.modules.get(f"{settings.SCRIPT_STRATEGIES_MODULE}.{script_module_name}")
+            if module is not None:
+                script_module = importlib.reload(module)
+            else:
+                script_module = importlib.import_module(
+                    f".{script_module_name}",
+                    package=settings.SCRIPT_STRATEGIES_MODULE,
+                )
             config_class = next((member for member_name, member in inspect.getmembers(script_module)
                                  if
                                  inspect.isclass(member) and member not in [BaseClientModel, StrategyV2ConfigBase] and
@@ -122,7 +129,7 @@ class CreateCommand:
 
             await self.prompt_for_model_config(config_map)
             if not self.app.to_stop_config:
-                file_name = await self.save_config(script_to_config, config_map, SCRIPT_STRATEGY_CONF_DIR_PATH)
+                file_name = await self.save_config(script_module_name, config_map, SCRIPT_STRATEGY_CONF_DIR_PATH)
                 self.notify(f"A new config file has been created: {file_name}")
             self.app.change_prompt(prompt=">>> ")
             self.app.input_field.completer = load_completer(self)
@@ -130,7 +137,7 @@ class CreateCommand:
             self.app.hide_input = False
 
         except StopIteration:
-            raise InvalidScriptModule(f"The module {script_to_config} does not contain any subclass of BaseModel")
+            raise InvalidScriptModule(f"The module {script_module_name} does not contain any subclass of BaseModel")
         except Exception as e:
             self.notify(f"An error occurred: {str(e)}")
             self.reset_application_state()

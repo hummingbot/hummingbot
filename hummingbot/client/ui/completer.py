@@ -371,11 +371,35 @@ class HummingbotCompleter(Completer):
 
     def _complete_script_strategy_files(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
-        return text_before_cursor.startswith("start --script ") and "--conf" not in text_before_cursor and ".py" not in text_before_cursor
+        if not text_before_cursor.startswith("start --script ") or "--conf" in text_before_cursor:
+            return False
+
+        script_and_args = text_before_cursor[len("start --script "):]
+        stripped_script_and_args = script_and_args.strip()
+
+        if stripped_script_and_args == "":
+            return True
+
+        # Keep completing script names while the first positional argument is still being typed.
+        return " " not in stripped_script_and_args and not script_and_args.endswith(" ")
 
     def _complete_conf_param_script_strategy_config(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
-        return text_before_cursor.startswith("start --script ") and "--conf" not in text_before_cursor
+        if not text_before_cursor.startswith("start --script ") or "--conf" in text_before_cursor:
+            return False
+
+        script_and_args = text_before_cursor[len("start --script "):]
+        stripped_script_and_args = script_and_args.strip()
+        if stripped_script_and_args == "":
+            return False
+
+        parts = stripped_script_and_args.split()
+        script_name = parts[0]
+        if script_name.startswith("-"):
+            return False
+
+        # Suggest --conf once the script argument has been completed.
+        return len(parts) == 1 and script_and_args.endswith(" ")
 
     def _complete_script_strategy_config(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
