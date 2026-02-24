@@ -22,28 +22,120 @@ class GridStrikeConfig(ControllerConfigBase):
     candles_config: List[CandlesConfig] = []
 
     # Account configuration
-    leverage: int = 20
-    position_mode: PositionMode = PositionMode.HEDGE
+    leverage: int = Field(
+        default=20,
+        json_schema_extra={"prompt": "Enter leverage to use for GridStrike (e.g., 20): ", "prompt_on_new": True},
+    )
+    position_mode: PositionMode = Field(
+        default=PositionMode.HEDGE,
+        json_schema_extra={"prompt": "Enter position mode (HEDGE/ONEWAY): ", "prompt_on_new": True},
+    )
 
     # Boundaries
-    connector_name: str = "binance_perpetual"
-    trading_pair: str = "WLD-USDT"
-    side: TradeType = TradeType.BUY
-    start_price: Decimal = Field(default=Decimal("0.58"), json_schema_extra={"is_updatable": True})
-    end_price: Decimal = Field(default=Decimal("0.95"), json_schema_extra={"is_updatable": True})
-    limit_price: Decimal = Field(default=Decimal("0.55"), json_schema_extra={"is_updatable": True})
+    connector_name: str = Field(
+        default="binance_perpetual",
+        json_schema_extra={"prompt": "Enter connector name (e.g., binance_perpetual): ", "prompt_on_new": True},
+    )
+    trading_pair: str = Field(
+        default="WLD-USDT",
+        json_schema_extra={"prompt": "Enter trading pair (e.g., WLD-USDT): ", "prompt_on_new": True},
+    )
+    side: TradeType = Field(
+        default=TradeType.BUY,
+        json_schema_extra={"prompt": "Enter trade side (BUY/SELL): ", "prompt_on_new": True},
+    )
+    start_price: Decimal = Field(
+        default=Decimal("0.58"),
+        json_schema_extra={
+            "prompt": "Enter grid start price (e.g., 0.58): ",
+            "prompt_on_new": True,
+            "is_updatable": True,
+        },
+    )
+    end_price: Decimal = Field(
+        default=Decimal("0.95"),
+        json_schema_extra={
+            "prompt": "Enter grid end price (e.g., 0.95): ",
+            "prompt_on_new": True,
+            "is_updatable": True,
+        },
+    )
+    limit_price: Decimal = Field(
+        default=Decimal("0.55"),
+        json_schema_extra={
+            "prompt": "Enter grid limit price (e.g., 0.55): ",
+            "prompt_on_new": True,
+            "is_updatable": True,
+        },
+    )
 
     # Profiling
-    total_amount_quote: Decimal = Field(default=Decimal("1000"), json_schema_extra={"is_updatable": True})
-    min_spread_between_orders: Optional[Decimal] = Field(default=Decimal("0.001"), json_schema_extra={"is_updatable": True})
-    min_order_amount_quote: Optional[Decimal] = Field(default=Decimal("5"), json_schema_extra={"is_updatable": True})
+    total_amount_quote: Decimal = Field(
+        default=Decimal("1000"),
+        json_schema_extra={
+            "prompt": "Enter total quote amount allocated to the grid (e.g., 1000): ",
+            "prompt_on_new": True,
+            "is_updatable": True,
+        },
+    )
+    min_spread_between_orders: Optional[Decimal] = Field(
+        default=Decimal("0.001"),
+        json_schema_extra={
+            "prompt": "Enter minimum spread between orders (e.g., 0.001): ",
+            "prompt_on_new": True,
+            "is_updatable": True,
+        },
+    )
+    min_order_amount_quote: Optional[Decimal] = Field(
+        default=Decimal("5"),
+        json_schema_extra={
+            "prompt": "Enter minimum order amount in quote asset (e.g., 5): ",
+            "prompt_on_new": True,
+            "is_updatable": True,
+        },
+    )
 
     # Execution
-    max_open_orders: int = Field(default=2, json_schema_extra={"is_updatable": True})
-    max_orders_per_batch: Optional[int] = Field(default=1, json_schema_extra={"is_updatable": True})
-    order_frequency: int = Field(default=3, json_schema_extra={"is_updatable": True})
-    activation_bounds: Optional[Decimal] = Field(default=None, json_schema_extra={"is_updatable": True})
-    keep_position: bool = Field(default=False, json_schema_extra={"is_updatable": True})
+    max_open_orders: int = Field(
+        default=2,
+        json_schema_extra={
+            "prompt": "Enter maximum number of open orders (e.g., 2): ",
+            "prompt_on_new": True,
+            "is_updatable": True,
+        },
+    )
+    max_orders_per_batch: Optional[int] = Field(
+        default=1,
+        json_schema_extra={
+            "prompt": "Enter maximum number of orders per batch (e.g., 1): ",
+            "prompt_on_new": True,
+            "is_updatable": True,
+        },
+    )
+    order_frequency: int = Field(
+        default=3,
+        json_schema_extra={
+            "prompt": "Enter order frequency in seconds (e.g., 3): ",
+            "prompt_on_new": True,
+            "is_updatable": True,
+        },
+    )
+    activation_bounds: Optional[Decimal] = Field(
+        default=None,
+        json_schema_extra={
+            "prompt": "Enter activation bounds (optional, e.g., 0.01): ",
+            "prompt_on_new": True,
+            "is_updatable": True,
+        },
+    )
+    keep_position: bool = Field(
+        default=False,
+        json_schema_extra={
+            "prompt": "Keep residual position on strategy stop? (Yes/No): ",
+            "prompt_on_new": True,
+            "is_updatable": True,
+        },
+    )
 
     # Risk Management
     triple_barrier_config: TripleBarrierConfig = TripleBarrierConfig(
