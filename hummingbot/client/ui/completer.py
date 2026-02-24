@@ -183,9 +183,12 @@ class HummingbotCompleter(Completer):
 
     @property
     def _option_completer(self):
-        outer = re.compile(r"\((.+)\)")
-        inner_str = outer.search(self.prompt_text).group(1)
-        options = inner_str.split("/") if "/" in inner_str else []
+        options = []
+        groups = re.findall(r"\(([^()]*)\)", self.prompt_text)
+        for group in reversed(groups):
+            if "/" in group:
+                options = [option.strip() for option in group.split("/")]
+                break
         return WordCompleter(options, ignore_case=True)
 
     @property
