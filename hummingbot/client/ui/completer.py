@@ -209,10 +209,10 @@ class HummingbotCompleter(Completer):
                    if x in self.prompt_text.lower())
 
     def _complete_derivatives(self, document: Document) -> bool:
-        text_before_cursor: str = document.text_before_cursor
-        return "perpetual" in text_before_cursor or \
-               any(x for x in ("derivative connector", "derivative name", "name of derivative", "name of the derivative")
-                   if x in self.prompt_text.lower())
+        return any(
+            x in self.prompt_text.lower()
+            for x in ("derivative connector", "derivative name", "name of derivative", "name of the derivative")
+        )
 
     def _complete_connect_options(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
