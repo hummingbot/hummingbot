@@ -2,6 +2,7 @@
 
 import asyncio
 import base64
+import io
 import logging
 import pickle
 import time
@@ -17,6 +18,26 @@ from hummingbot.connector.exchange.binance.binance_order_book import BinanceOrde
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 from hummingbot.logger import HummingbotLogger
+
+
+class SafeOrderBookUnpickler(pickle.Unpickler):
+    _ALLOWED = {
+        ("pandas.core.frame", "DataFrame"),
+        ("builtins", "dict"),
+        ("builtins", "tuple"),
+        ("builtins", "list"),
+        ("builtins", "float"),
+        ("builtins", "int"),
+        ("builtins", "str"),
+        ("numpy", "ndarray"),
+        ("numpy.core.multiarray", "_reconstruct"),
+        ("numpy", "dtype"),
+    }
+
+    def find_class(self, module: str, name: str):
+        if (module, name) not in self._ALLOWED:
+            raise pickle.UnpicklingError(f"Blocked: {module}.{name}")
+        return super().find_class(module, name)
 
 
 class RemoteAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -62,7 +83,7 @@ class RemoteAPIOrderBookDataSource(OrderBookTrackerDataSource):
             raise EnvironmentError(f"Error fetching order book tracker snapshot from {self.SNAPSHOT_REST_URL}.")
 
         binary_data: bytes = await response.read()
-        order_book_tracker_data: Dict[str, Tuple[pd.DataFrame, pd.DataFrame]] = pickle.loads(binary_data)
+        order_book_tracker_data: Dict[str, Tuple[pd.DataFrame, pd.DataFrame]] = SafeOrderBookUnpickler(io.BytesIO(binary_data)).load()
         retval: Dict[str, OrderBookTrackerEntry] = {}
 
         for trading_pair, (bids_df, asks_df) in order_book_tracker_data.items():
