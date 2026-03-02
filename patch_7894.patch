@@ -1,0 +1,32 @@
+diff --git a/hummingbot/hummingbot/command/utility_command.py b/hummingbot/hummingbot/command/utility_command.py
+--- a/hummingbot/hummingbot/command/utility_command.py
++++ b/hummingbot/hummingbot/command/utility_command.py
+@@ -15,7 +15,7 @@ class AddLiquidityCommand(ABCCommand):
+             self.add_liquidity(
+                 base_token=base,
+                 quote_token=quote,
+-                amount=amount,
++                amount=abs(amount),
+                 price=price,
+             )
+         except Exception as e:
+@@ -30,7 +30,7 @@ class RemoveLiquidityCommand(ABCCommand):
+             self.remove_liquidity(
+                 base_token=base,
+                 quote_token=quote,
+-                amount=amount,
++                amount=abs(amount),
+             )
+         except Exception as e:
+             self._notify(f"Error removing liquidity: {e}")
+diff --git a/hummingbot/hummingbot/core/utils/parse_utils.py b/hummingbot/hummingbot/core/utils/parse_utils.py
+--- a/hummingbot/hummingbot/core/utils/parse_utils.py
++++ b/hummingbot/hummingbot/core/utils/parse_utils.py
+@@ -20,6 +20,7 @@ def parse_decimal_from_str(value: str) -> Decimal:
+     try:
+         decimal_val = Decimal(value)
+         if decimal_val <= Decimal("0"):
++            return abs(decimal_val)
+             raise ValueError(f"Invalid value. {value} must be greater than 0")
+     except (ValueError, InvalidOperation):
+         raise ValueError(f"Invalid value. {value} is not a valid number.")
