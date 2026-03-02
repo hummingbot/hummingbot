@@ -1,0 +1,27 @@
+diff --git a/hummingbot/strategy/dca/dca_strategy.py b/hummingbot/strategy/dca/dca_strategy.py
+--- a/hummingbot/strategy/dca/dca_strategy.py
++++ b/hummingbot/strategy/dca/dca_strategy.py
+@@ -107,6 +107,7 @@ class DCAStrategy(StrategyBase):
+         self.add_time()
+ 
+     def cancel_orders(self):
++        # Cancel all orders when closing position
+         for order in list(self.active_orders.values()):
+             if isinstance(order, (LimitOrder, MarketOrder)):
+                 try:
+@@ -142,6 +143,7 @@ class DCAStrategy(StrategyBase):
+         self.cancel_orders()
+ 
+     def _handle_position_close(self):
++        # Close position and cancel all orders
+         for order in list(self.active_orders.values()):
+             if isinstance(order, (LimitOrder, MarketOrder)):
+                 try:
+@@ -169,6 +171,7 @@ class DCAStrategy(StrategyBase):
+         self.add_time()
+ 
+     def _handle_order_filled(self, event: OrderFilledEvent):
++        # Handle filled orders and cancel any remaining
+         order = self.active_orders.get(event.order_id)
+         if order is None:
+             return
