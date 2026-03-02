@@ -1,0 +1,23 @@
+--- a/hummingbot/core/exchange_base.py
++++ b/hummingbot/core/exchange_base.py
+@@ -123,7 +123,8 @@ class ExchangeBase:
+             self._order_tracker.remove_order(order.client_order_id)
+ 
+-    async def _process_order(self, order: Order):
++    async def _process_order(self, order: Order,
++                              update_status: bool = True) -> None:
+         """
+         Updates the status of an order in the exchange.
+         """
+@@ -132,7 +133,8 @@ class ExchangeBase:
+             await self._order_tracker.process_order_update(order)
+ 
+-    async def _process_cancel(self, order: Order):
++    async def _process_cancel(self, order: Order) -> None:
++        await self._process_order(order, update_status=False)
+         """
+         Updates the status of a canceled order in the exchange.
+         """
+@@ -140,7 +142,6 @@ class ExchangeBase:
+             await self._order_tracker.process_order_cancelation(order)
+-
