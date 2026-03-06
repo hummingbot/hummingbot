@@ -977,3 +977,120 @@ class MarketsRecorderTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual("integration_test_market", orders[0].market)
         self.assertEqual("BTC-USDT", orders[0].symbol)
         self.assertEqual("NEW_MARKET_OID1", orders[0].id)
+
+    def test_did_update_range_position_add_liquidity(self):
+        """Test _did_update_range_position records ADD liquidity event"""
+        from hummingbot.core.event.events import RangePositionLiquidityAddedEvent
+
+        recorder = MarketsRecorder(
+            sql=self.manager,
+            markets=[self],
+            config_file_path=self.config_file_path,
+            strategy_name=self.strategy_name,
+            market_data_collection=MarketDataCollectionConfigMap(
+                market_data_collection_enabled=False,
+                market_data_collection_interval=60,
+                market_data_collection_depth=20,
+            ),
+        )
+
+        event = RangePositionLiquidityAddedEvent(
+            timestamp=int(time.time()),
+            order_id="range-SOL-USDC-001",
+            exchange_order_id="tx_sig_123",
+            trading_pair="SOL-USDC",
+            lower_price=Decimal("95.0"),
+            upper_price=Decimal("105.0"),
+            amount=Decimal("10.0"),
+            fee_tier="pool123",
+            creation_timestamp=int(time.time()),
+            trade_fee=AddedToCostTradeFee(),
+            position_address="pos_addr_123",
+            base_amount=Decimal("5.0"),
+            quote_amount=Decimal("500.0"),
+            mid_price=Decimal("100.0"),
+            position_rent=Decimal("0.002"),
+        )
+
+        recorder._did_update_range_position(
+            MarketEvent.RangePositionLiquidityAdded.value,
+            self,
+            event
+        )
+
+        from hummingbot.model.range_position_update import RangePositionUpdate
+        with self.manager.get_new_session() as session:
+            query = session.query(RangePositionUpdate)
+            records = query.all()
+
+        self.assertEqual(1, len(records))
+        record = records[0]
+        self.assertEqual("range-SOL-USDC-001", record.hb_id)
+        self.assertEqual("tx_sig_123", record.tx_hash)
+        self.assertEqual("ADD", record.order_action)
+        self.assertEqual("SOL-USDC", record.trading_pair)
+        self.assertEqual("pos_addr_123", record.position_address)
+        self.assertEqual(95.0, record.lower_price)
+        self.assertEqual(105.0, record.upper_price)
+        self.assertEqual(100.0, record.mid_price)
+        self.assertEqual(5.0, record.base_amount)
+        self.assertEqual(500.0, record.quote_amount)
+        self.assertEqual(0.002, record.position_rent)
+
+    def test_did_update_range_position_remove_liquidity(self):
+        """Test _did_update_range_position records REMOVE liquidity event"""
+        from hummingbot.core.event.events import RangePositionLiquidityRemovedEvent
+
+        recorder = MarketsRecorder(
+            sql=self.manager,
+            markets=[self],
+            config_file_path=self.config_file_path,
+            strategy_name=self.strategy_name,
+            market_data_collection=MarketDataCollectionConfigMap(
+                market_data_collection_enabled=False,
+                market_data_collection_interval=60,
+                market_data_collection_depth=20,
+            ),
+        )
+
+        event = RangePositionLiquidityRemovedEvent(
+            timestamp=int(time.time()),
+            order_id="range-SOL-USDC-002",
+            exchange_order_id="tx_sig_456",
+            trading_pair="SOL-USDC",
+            token_id="0",
+            creation_timestamp=int(time.time()),
+            trade_fee=AddedToCostTradeFee(),
+            position_address="pos_addr_456",
+            lower_price=Decimal("95.0"),
+            upper_price=Decimal("105.0"),
+            mid_price=Decimal("102.0"),
+            base_amount=Decimal("4.8"),
+            quote_amount=Decimal("520.0"),
+            base_fee=Decimal("0.05"),
+            quote_fee=Decimal("5.0"),
+            position_rent_refunded=Decimal("0.002"),
+        )
+
+        recorder._did_update_range_position(
+            MarketEvent.RangePositionLiquidityRemoved.value,
+            self,
+            event
+        )
+
+        from hummingbot.model.range_position_update import RangePositionUpdate
+        with self.manager.get_new_session() as session:
+            query = session.query(RangePositionUpdate)
+            records = query.all()
+
+        self.assertEqual(1, len(records))
+        record = records[0]
+        self.assertEqual("range-SOL-USDC-002", record.hb_id)
+        self.assertEqual("tx_sig_456", record.tx_hash)
+        self.assertEqual("REMOVE", record.order_action)
+        self.assertEqual("pos_addr_456", record.position_address)
+        self.assertEqual(4.8, record.base_amount)
+        self.assertEqual(520.0, record.quote_amount)
+        self.assertEqual(0.05, record.base_fee)
+        self.assertEqual(5.0, record.quote_fee)
+        self.assertEqual(0.002, record.position_rent_refunded)

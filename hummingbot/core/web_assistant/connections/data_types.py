@@ -16,6 +16,7 @@ class RESTMethod(Enum):
     GET = "GET"
     POST = "POST"
     PUT = "PUT"
+    PATCH = "PATCH"
     DELETE = "DELETE"
 
     def __str__(self):
@@ -68,16 +69,16 @@ class EndpointRESTRequest(RESTRequest, ABC):
                 self.url = f"{self.base_url}/{self.endpoint}"
 
     def _ensure_params(self):
-        if self.method == RESTMethod.POST:
+        if self.method in [RESTMethod.POST, RESTMethod.PUT, RESTMethod.PATCH]:
             if self.params is not None:
-                raise ValueError("POST requests should not use `params`. Use `data` instead.")
+                raise ValueError(f"{self.method.value} requests should not use `params`. Use `data` instead.")
 
     def _ensure_data(self):
-        if self.method == RESTMethod.POST:
+        if self.method in [RESTMethod.POST, RESTMethod.PUT, RESTMethod.PATCH]:
             if self.data is not None:
                 self.data = ujson.dumps(self.data)
         elif self.data is not None:
-            raise ValueError("The `data` field should be used only for POST requests. Use `params` instead.")
+            raise ValueError("The `data` field should be used only for POST, PUT, or PATCH requests. Use `params` instead.")
 
 
 @dataclass(init=False)

@@ -17,6 +17,7 @@ from hummingbot.strategy_v2.executors.arbitrage_executor.arbitrage_executor impo
 from hummingbot.strategy_v2.executors.data_types import PositionSummary
 from hummingbot.strategy_v2.executors.dca_executor.dca_executor import DCAExecutor
 from hummingbot.strategy_v2.executors.grid_executor.grid_executor import GridExecutor
+from hummingbot.strategy_v2.executors.lp_executor.lp_executor import LPExecutor
 from hummingbot.strategy_v2.executors.order_executor.order_executor import OrderExecutor
 from hummingbot.strategy_v2.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.strategy_v2.executors.twap_executor.twap_executor import TWAPExecutor
@@ -145,6 +146,7 @@ class ExecutorOrchestrator:
         "twap_executor": TWAPExecutor,
         "xemm_executor": XEMMExecutor,
         "order_executor": OrderExecutor,
+        "lp_executor": LPExecutor,
     }
 
     @classmethod
@@ -207,9 +209,13 @@ class ExecutorOrchestrator:
         """
         Update the cached performance for a specific controller with an executor's information.
         """
+        if controller_id not in self.cached_performance:
+            self.cached_performance[controller_id] = PerformanceReport()
         report = self.cached_performance[controller_id]
-        report.realized_pnl_quote += executor_info.net_pnl_quote
-        report.volume_traded += executor_info.filled_amount_quote
+        # Only add to realized PnL if not a position hold (consistent with generate_performance_report)
+        if executor_info.close_type != CloseType.POSITION_HOLD:
+            report.realized_pnl_quote += executor_info.net_pnl_quote
+            report.volume_traded += executor_info.filled_amount_quote
         if executor_info.close_type:
             report.close_type_counts[executor_info.close_type] = report.close_type_counts.get(executor_info.close_type,
                                                                                               0) + 1
@@ -353,6 +359,7 @@ class ExecutorOrchestrator:
             for executor in executors_list:
                 # Store the executor in the database
                 MarketsRecorder.get_instance().store_or_update_executor(executor)
+                self._update_cached_performance(controller_id, executor.executor_info)
         # Remove the executors from the list
         self.active_executors = {}
 
@@ -602,12 +609,15 @@ class ExecutorOrchestrator:
             executor_info = executor.executor_info
             if not executor_info.is_done:
                 report.unrealized_pnl_quote += executor_info.net_pnl_quote
+                report.volume_traded += executor_info.filled_amount_quote
             else:
-                report.realized_pnl_quote += executor_info.net_pnl_quote
+                # For done executors, only add to realized PnL if they're not already in position holds
+                # Position holds will be counted separately to avoid double counting
+                if executor_info.close_type != CloseType.POSITION_HOLD:
+                    report.realized_pnl_quote += executor_info.net_pnl_quote
+                    report.volume_traded += executor_info.filled_amount_quote
                 if executor_info.close_type:
                     report.close_type_counts[executor_info.close_type] = report.close_type_counts.get(executor_info.close_type, 0) + 1
-
-            report.volume_traded += executor_info.filled_amount_quote
 
         # Add data from positions held and collect position summaries
         positions_summary = []
@@ -623,7 +633,8 @@ class ExecutorOrchestrator:
             position_summary = position.get_position_summary(mid_price if not mid_price.is_nan() else Decimal("0"))
 
             # Update report with position data
-            report.realized_pnl_quote += position_summary.realized_pnl_quote - position_summary.cum_fees_quote
+            # Position summary realized_pnl_quote is already net of fees (calculated correctly in position logic)
+            report.realized_pnl_quote += position_summary.realized_pnl_quote
             report.volume_traded += position_summary.volume_traded_quote
             report.unrealized_pnl_quote += position_summary.unrealized_pnl_quote
             positions_summary.append(position_summary)

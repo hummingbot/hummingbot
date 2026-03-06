@@ -4,6 +4,7 @@ from hummingbot.core.data_type.in_flight_order import OrderState
 EXCHANGE_NAME = "hyperliquid_perpetual"
 BROKER_ID = "HBOT"
 MAX_ORDER_ID_LEN = None
+MIN_NOTIONAL_SIZE = 10
 
 MARKET_ORDER_SLIPPAGE = 0.05
 
@@ -25,7 +26,7 @@ CURRENCY = "USD"
 META_INFO = "meta"
 
 ASSET_CONTEXT_TYPE = "metaAndAssetCtxs"
-DEX_ASSET_CONTEXT_TYPE = "perpDexs"
+DEX_ASSET_CONTEXT_TYPE = "allPerpMetas"
 
 
 TRADES_TYPE = "userFills"
@@ -75,6 +76,7 @@ ORDER_STATE = {
     "canceled": OrderState.CANCELED,
     "rejected": OrderState.FAILED,
     "badAloPxRejected": OrderState.FAILED,
+    "minTradeNtlRejected": OrderState.FAILED,
     "reduceOnlyCanceled": OrderState.CANCELED,
     "perpMarginRejected": OrderState.FAILED,
     "selfTradeCanceled": OrderState.CANCELED,

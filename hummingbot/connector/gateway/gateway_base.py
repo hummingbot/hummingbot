@@ -18,6 +18,7 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeFeeBase, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
+from hummingbot.core.event.events import MarketEvent, MarketTransactionFailureEvent
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
@@ -34,6 +35,7 @@ class GatewayBase(ConnectorBase):
     """
 
     POLL_INTERVAL = 1.0
+    BALANCE_POLL_INTERVAL = 60.0  # Update balances every 60 seconds
     APPROVAL_ORDER_ID_PATTERN = re.compile(r"approve-(\w+)-(\w+)")
 
     _connector_name: str
@@ -46,6 +48,7 @@ class GatewayBase(ConnectorBase):
     _trading_required: bool
     _last_poll_timestamp: float
     _last_balance_poll_timestamp: float
+    _balance_polling_task: Optional[asyncio.Task]
     _last_est_gas_cost_reported: float
     _poll_notifier: Optional[asyncio.Event]
     _status_polling_task: Optional[asyncio.Task]
@@ -91,9 +94,11 @@ class GatewayBase(ConnectorBase):
         [self._tokens.update(set(trading_pair.split("_")[0].split("-"))) for trading_pair in trading_pairs]
         self._trading_required = trading_required
         self._last_poll_timestamp = 0.0
+        self._last_balance_poll_timestamp = 0.0
         self._last_est_gas_cost_reported = 0
         self._chain_info = {}
         self._status_polling_task = None
+        self._balance_polling_task = None
         self._get_chain_info_task = None
         self._get_gas_estimate_task = None
         self._network_transaction_fee = None
@@ -239,6 +244,7 @@ class GatewayBase(ConnectorBase):
 
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
+            self._balance_polling_task = safe_ensure_future(self._balance_polling_loop())
             self._get_gas_estimate_task = safe_ensure_future(self.get_gas_estimate())
         self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
         # Load token data to populate amount quantum dict
@@ -251,6 +257,9 @@ class GatewayBase(ConnectorBase):
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
             self._status_polling_task = None
+        if self._balance_polling_task is not None:
+            self._balance_polling_task.cancel()
+            self._balance_polling_task = None
         if self._get_chain_info_task is not None:
             self._get_chain_info_task.cancel()
             self._get_chain_info_task = None
@@ -269,6 +278,18 @@ class GatewayBase(ConnectorBase):
                 raise
             except Exception as e:
                 self.logger().error(str(e), exc_info=True)
+
+    async def _balance_polling_loop(self):
+        """Periodically update wallet balances."""
+        while True:
+            try:
+                await asyncio.sleep(self.BALANCE_POLL_INTERVAL)
+                await self.update_balances()
+                self._last_balance_poll_timestamp = self.current_timestamp
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().error(f"Error updating balances: {str(e)}", exc_info=True)
 
     async def load_token_data(self):
         tokens = await GatewayHttpClient.get_instance().get_tokens(self.chain, self.network)
@@ -448,6 +469,41 @@ class GatewayBase(ConnectorBase):
         """
         await self.update_balances()
 
+    async def _initialize_trading_pair_symbol_map(self):
+        """
+        Initialize chain/network info for gateway connectors.
+        This ensures chain is detected before _update_balances is called.
+        """
+        # Auto-detect chain and network if not provided
+        if not self._chain or not self._network:
+            chain, network, error = await self._get_gateway_instance().get_connector_chain_network(
+                self._connector_name
+            )
+            if error:
+                raise ValueError(f"Failed to get chain/network info: {error}")
+            if not self._chain:
+                self._chain = chain
+            if not self._network:
+                self._network = network
+            # Update name now that we have chain/network
+            self._name = f"{self._connector_name}_{self._chain}_{self._network}"
+
+        # Auto-detect wallet if not provided
+        if not self._wallet_address:
+            wallet_address, error = await self._get_gateway_instance().get_default_wallet(
+                self._chain
+            )
+            if error:
+                raise ValueError(f"Failed to get default wallet: {error}")
+            self._wallet_address = wallet_address
+
+    async def _update_trading_rules(self):
+        """
+        No-op for gateway connectors.
+        Gateway connectors don't have trading rules in the same way as exchange connectors.
+        """
+        pass
+
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         """
         This is intentionally left blank, because cancellation is expensive on blockchains. It's not worth it for
@@ -470,7 +526,8 @@ class GatewayBase(ConnectorBase):
                              price: Decimal = s_decimal_0,
                              amount: Decimal = s_decimal_0,
                              gas_price: Decimal = s_decimal_0,
-                             is_approval: bool = False):
+                             is_approval: bool = False,
+                             order_type: OrderType = OrderType.AMM_SWAP):
         """
         Starts tracking an order by simply adding it into _in_flight_orders dictionary in ClientOrderTracker.
         """
@@ -479,7 +536,7 @@ class GatewayBase(ConnectorBase):
                 client_order_id=order_id,
                 exchange_order_id=exchange_order_id,
                 trading_pair=trading_pair,
-                order_type=OrderType.AMM_SWAP,
+                order_type=order_type,
                 trade_type=trade_type,
                 price=price,
                 amount=amount,
@@ -593,6 +650,15 @@ class GatewayBase(ConnectorBase):
                 )
                 self._order_tracker.process_order_update(order_update)
 
+                # Trigger TransactionFailure event
+                self.trigger_event(
+                    MarketEvent.TransactionFailure,
+                    MarketTransactionFailureEvent(
+                        timestamp=self.current_timestamp,
+                        order_id=tracked_order.client_order_id,
+                    )
+                )
+
     def process_transaction_confirmation_update(self, tracked_order: GatewayInFlightOrder, fee: Decimal):
         fee_asset = tracked_order.fee_asset if tracked_order.fee_asset else self._native_currency
         trade_fee: TradeFeeBase = AddedToCostTradeFee(
@@ -638,75 +704,6 @@ class GatewayBase(ConnectorBase):
         )
         self._order_tracker.process_order_update(order_update)
 
-        # Start monitoring this specific transaction immediately
-        safe_ensure_future(self._monitor_transaction_status(order_id, transaction_hash))
-
-    async def _monitor_transaction_status(self, order_id: str, transaction_hash: str, check_interval: float = 2.0):
-        """
-        Monitor a specific transaction status until it's confirmed or failed.
-        This is useful for quick transactions that complete before the regular polling interval.
-        """
-        tracked_order = self._order_tracker.fetch_order(order_id)
-        if not tracked_order:
-            self.logger().warning(f"Order {order_id} not found in tracker, cannot monitor transaction status")
-            return
-
-        max_attempts = 30  # Maximum 60 seconds of monitoring
-        attempts = 0
-
-        while attempts < max_attempts and tracked_order.current_state not in [OrderState.FILLED, OrderState.FAILED, OrderState.CANCELED]:
-            try:
-                tx_details = await self._get_gateway_instance().get_transaction_status(
-                    self.chain,
-                    self.network,
-                    transaction_hash
-                )
-
-                if "signature" not in tx_details:
-                    self.logger().error(f"No signature field for transaction status of {order_id}: {tx_details}")
-                    break
-
-                tx_status = tx_details.get("txStatus", TransactionStatus.PENDING.value)
-                fee = tx_details.get("fee", 0)
-
-                # Transaction confirmed
-                if tx_status == TransactionStatus.CONFIRMED.value:
-                    self.process_transaction_confirmation_update(tracked_order=tracked_order, fee=Decimal(str(fee or 0)))
-
-                    order_update = OrderUpdate(
-                        client_order_id=order_id,
-                        trading_pair=tracked_order.trading_pair,
-                        update_timestamp=self.current_timestamp,
-                        new_state=OrderState.FILLED,
-                    )
-                    self._order_tracker.process_order_update(order_update)
-
-                    self.logger().info(f"Transaction {transaction_hash} confirmed for order {order_id}")
-                    break
-
-                # Transaction failed
-                elif tx_status == TransactionStatus.FAILED.value:
-                    self.logger().error(f"Transaction {transaction_hash} failed for order {order_id}")
-                    order_update = OrderUpdate(
-                        client_order_id=order_id,
-                        trading_pair=tracked_order.trading_pair,
-                        update_timestamp=self.current_timestamp,
-                        new_state=OrderState.FAILED
-                    )
-                    self._order_tracker.process_order_update(order_update)
-                    break
-
-                # Still pending, wait and try again
-                await asyncio.sleep(check_interval)
-                attempts += 1
-
-            except Exception as e:
-                self.logger().error(f"Error monitoring transaction status for {order_id}: {str(e)}", exc_info=True)
-                break
-
-        if attempts >= max_attempts:
-            self.logger().warning(f"Transaction monitoring timed out for order {order_id}, transaction {transaction_hash}")
-
     def get_balance(self, currency: str) -> Decimal:
         """
         Override the parent method to ensure we have fresh balances.
@@ -745,6 +742,45 @@ class GatewayBase(ConnectorBase):
                 self.logger().debug(f"Updated balance for {currency}: {balance}")
         except Exception as e:
             self.logger().error(f"Error updating balance for {currency}: {str(e)}", exc_info=True)
+
+    async def get_balance_by_address(self, token_address: str) -> Decimal:
+        """
+        Get balance for a token by its contract address.
+        Fetches directly from Gateway using the token address.
+
+        Gateway automatically converts addresses to symbols in the response
+        (e.g., wrapped SOL address returns balance keyed by "SOL").
+
+        :param token_address: The token contract address
+        :return: Balance for the token
+        """
+        try:
+            resp_json: Dict[str, Any] = await self._get_gateway_instance().get_balances(
+                chain=self.chain,
+                network=self.network,
+                address=self.address,
+                token_symbols=[token_address]
+            )
+
+            if "balances" in resp_json:
+                balances = resp_json["balances"]
+
+                # First try the address as key
+                if token_address in balances:
+                    return Decimal(str(balances[token_address]))
+
+                # Gateway may return balance keyed by symbol instead of address
+                # Since we requested one token, take the first (and only) balance
+                elif len(balances) == 1:
+                    symbol, balance_str = next(iter(balances.items()))
+                    return Decimal(str(balance_str))
+                else:
+                    return s_decimal_0
+            else:
+                return s_decimal_0
+        except Exception as e:
+            self.logger().error(f"Error fetching balance for token address {token_address}: {str(e)}", exc_info=True)
+            return s_decimal_0
 
     async def approve_token(self, token_symbol: str, spender: Optional[str] = None, amount: Optional[Decimal] = None) -> str:
         """

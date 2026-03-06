@@ -183,3 +183,57 @@ class EndpointRESTRequestTest(unittest.TestCase):
                 endpoint=endpoint,
                 data=data,
             )
+
+    def test_raises_on_params_supplied_to_put_request(self):
+        endpoint = "some/endpoint"
+        params = {"one": 1}
+
+        with self.assertRaises(ValueError):
+            EndpointRESTRequestDummy(
+                method=RESTMethod.PUT,
+                endpoint=endpoint,
+                params=params,
+            )
+
+    def test_raises_on_params_supplied_to_patch_request(self):
+        endpoint = "some/endpoint"
+        params = {"one": 1}
+
+        with self.assertRaises(ValueError):
+            EndpointRESTRequestDummy(
+                method=RESTMethod.PATCH,
+                endpoint=endpoint,
+                params=params,
+            )
+
+    def test_data_to_str_for_put_request(self):
+        endpoint = "some/endpoint"
+        data = {"one": 1}
+
+        request = EndpointRESTRequestDummy(
+            method=RESTMethod.PUT,
+            endpoint=endpoint,
+            data=data,
+        )
+
+        self.assertIsInstance(request.data, str)
+        self.assertEqual(data, json.loads(request.data))
+
+    def test_data_to_str_for_patch_request(self):
+        endpoint = "some/endpoint"
+        data = {"one": 1}
+
+        request = EndpointRESTRequestDummy(
+            method=RESTMethod.PATCH,
+            endpoint=endpoint,
+            data=data,
+        )
+
+        self.assertIsInstance(request.data, str)
+        self.assertEqual(data, json.loads(request.data))
+
+    def test_patch_method_to_str(self):
+        method = RESTMethod.PATCH
+        method_str = str(method)
+
+        self.assertEqual("PATCH", method_str)

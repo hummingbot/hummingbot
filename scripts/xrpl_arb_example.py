@@ -27,7 +27,7 @@ class XRPLSimpleArbConfig(StrategyV2ConfigBase):
         "binance", json_schema_extra={"prompt": "CEX exchange(e.g. binance)", "prompt_on_new": True}
     )
     trading_pair_cex: str = Field(
-        "XRP-FDUSD", json_schema_extra={"prompt": "Trading pair on CEX(e.g. XRP-FDUSD)", "prompt_on_new": True}
+        "XRP-USDT", json_schema_extra={"prompt": "Trading pair on CEX(e.g. XRP-USDT)", "prompt_on_new": True}
     )
     order_amount_in_base: Decimal = Field(
         Decimal("1.0"), json_schema_extra={"prompt": "Order amount in base", "prompt_on_new": True}

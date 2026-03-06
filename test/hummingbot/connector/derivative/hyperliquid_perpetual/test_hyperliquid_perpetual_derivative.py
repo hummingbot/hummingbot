@@ -327,12 +327,13 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         step_size = Decimal(str(10 ** -coin_info.get("szDecimals")))
         price_size = Decimal(str(10 ** -len(price_info.get("markPx").split('.')[1])))
-        _min_order_size = Decimal(str(10 ** -len(price_info.get("openInterest").split('.')[1])))
+        min_order_size = step_size
 
         return TradingRule(self.trading_pair,
                            min_base_amount_increment=step_size,
                            min_price_increment=price_size,
-                           min_order_size=_min_order_size,
+                           min_order_size=min_order_size,
+                           min_notional_size=Decimal(str(CONSTANTS.MIN_NOTIONAL_SIZE)),
                            buy_order_collateral_token=collateral_token,
                            sell_order_collateral_token=collateral_token,
                            )
@@ -2009,22 +2010,33 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         base_response = self.trading_rules_request_mock_response
         mock_api.post(self.trading_rules_url, body=json.dumps(base_response))
 
-        # Mock DEX markets response with perpMeta
-        dex_response = [{
-            "name": "xyz",
-            "perpMeta": [{
-                "name": "xyz:XYZ100",
-                "szDecimals": 3
-            }, {
-                "name": "xyz:TSLA",
-                "szDecimals": 2
-            }]
+        # Mock allPerpMetas response (meta-only payloads; assetCtxs fetched per dex)
+        dex_perp_meta = [{
+            "name": "xyz:XYZ100",
+            "szDecimals": 3
+        }, {
+            "name": "xyz:TSLA",
+            "szDecimals": 2
         }]
+        dex_asset_ctxs = [{
+            "markPx": "100.0",
+            "openInterest": "1.0",
+        }, {
+            "markPx": "200.0",
+            "openInterest": "1.0",
+        }]
+        dex_response = [
+            {"universe": [{"name": "BTC", "szDecimals": 5}], "collateralToken": 0, "marginTables": []},
+            {"universe": dex_perp_meta, "collateralToken": 0, "marginTables": []},
+        ]
         mock_api.post(self.trading_rules_url, body=json.dumps(dex_response))
-
-        # Mock meta endpoint for DEX
-        dex_meta_response = [{"universe": dex_response[0]["perpMeta"]}, {}]
-        mock_api.post(self.trading_rules_url, body=json.dumps(dex_meta_response))
+        mock_api.post(
+            self.trading_rules_url,
+            body=json.dumps([
+                {"universe": dex_perp_meta, "collateralToken": 0, "marginTables": []},
+                dex_asset_ctxs,
+            ]),
+        )
 
         self.async_run_with_timeout(self.exchange._update_trading_rules())
 
@@ -2044,12 +2056,19 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         base_response = self.trading_rules_request_mock_response
         mock_api.post(self.trading_rules_url, body=json.dumps(base_response))
 
-        dex_response = [{
-            "name": "xyz",
-            "perpMeta": [{"name": "xyz:XYZ100", "szDecimals": 3}]
-        }]
+        dex_perp_meta = [{"name": "xyz:XYZ100", "szDecimals": 3}]
+        dex_response = [
+            {"universe": [{"name": "BTC", "szDecimals": 5}], "collateralToken": 0, "marginTables": []},
+            {"universe": dex_perp_meta, "collateralToken": 0, "marginTables": []},
+        ]
         mock_api.post(self.trading_rules_url, body=json.dumps(dex_response))
-        mock_api.post(self.trading_rules_url, body=json.dumps([{"universe": dex_response[0]["perpMeta"]}]))
+        mock_api.post(
+            self.trading_rules_url,
+            body=json.dumps([
+                {"universe": dex_perp_meta, "collateralToken": 0, "marginTables": []},
+                [{"markPx": "100.0", "openInterest": "1.0"}],
+            ]),
+        )
 
         self.async_run_with_timeout(self.exchange._initialize_trading_pair_symbol_map())
 
@@ -2364,17 +2383,17 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         ]
         mock_api.post(url, body=json.dumps(base_response))
 
-        # Mock DEX markets response
-        dex_response = [{
-            "name": "xyz",
-            "perpMeta": [{"name": "xyz:XYZ100", "szDecimals": 3}],
-            "assetCtxs": [{"markPx": "25349.0"}]
-        }]
+        # Mock allPerpMetas meta-only response (assetCtxs will be fetched per dex)
+        dex_perp_meta = [{"name": "xyz:XYZ100", "szDecimals": 3}]
+        dex_response = [
+            {"universe": [{"name": "BTC", "szDecimals": 5}], "collateralToken": 0, "marginTables": []},
+            {"universe": dex_perp_meta, "collateralToken": 0, "marginTables": []},
+        ]
         mock_api.post(url, body=json.dumps(dex_response))
 
         # Mock metaAndAssetCtxs for DEX
         dex_meta_response = [
-            {"universe": [{"name": "xyz:XYZ100", "szDecimals": 3}]},
+            {"universe": dex_perp_meta},
             [{"markPx": "25349.0"}]
         ]
         mock_api.post(url, body=json.dumps(dex_meta_response))
@@ -2510,7 +2529,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             "time": 1640780000000,
             "delta": {
                 "coin": "BTC",
-                "USD": "0.5",
+                "usdc": "0.5",
                 "fundingRate": "0.0001"
             }
         }]
@@ -2537,7 +2556,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             "time": 1640780000000,
             "delta": {
                 "coin": "BTC",
-                "USD": "0",  # Zero payment
+                "usdc": "0",  # Zero payment
                 "fundingRate": "0.0001"
             }
         }]
@@ -2969,7 +2988,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         )
 
     def test_format_trading_rules_with_hip3_markets(self):
-        """Test _format_trading_rules processes HIP-3 DEX markets from hip_3_result (lines 300, 321, 329, 335)."""
+        """Test _format_trading_rules processes HIP-3 DEX markets from _dex_markets."""
         # Initialize trading rules first to setup symbol mapping
         self._simulate_trading_rules_initialized()
 
@@ -3371,13 +3390,12 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         """Test _format_trading_rules HIP-3 exception path (lines 855-856)."""
         self._simulate_trading_rules_initialized()
 
-        # Setup HIP-3 market data with missing required fields
-        self.exchange.hip_3_result = [
-            {
-                "name": "xyz:AAPL",
-                # Missing markPx, openInterest - will cause exception
-            }
-        ]
+        # Setup HIP-3 market data with missing required ctx fields
+        self.exchange._dex_markets = [{
+            "name": "xyz",
+            "perpMeta": [{"name": "xyz:AAPL", "szDecimals": 3}],
+            "assetCtxs": [{}],  # Missing markPx/openInterest after merge -> triggers exception path
+        }]
 
         # Setup symbol mapping for HIP-3 market
         from bidict import bidict
@@ -3437,3 +3455,111 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         )
 
         self.assertGreaterEqual(len(rules), 1)
+
+    def test_infer_hip3_dex_name_handles_non_dict_and_multi_prefix(self):
+        result = self.exchange._infer_hip3_dex_name([
+            None,
+            {"name": "xyz:AAPL"},
+            {"name": "flx:TSLA"},
+        ])
+
+        self.assertIsNone(result)
+
+    def test_parse_all_perp_metas_response_handles_invalid_entries_and_mismatch(self):
+        parsed = self.exchange._parse_all_perp_metas_response([
+            "invalid-entry",  # ignored
+            [{"universe": []}],  # no markets
+            [
+                {"universe": [{"name": "xyz:AAPL", "szDecimals": 3}]},
+                [{"markPx": "100.0"}, {"markPx": "101.0"}],  # mismatch length
+            ],
+        ])
+
+        self.assertEqual(1, len(parsed))
+        self.assertEqual("xyz", parsed[0]["name"])
+        self.assertEqual(2, len(parsed[0]["assetCtxs"]))
+
+    def test_extract_asset_ctxs_from_meta_and_ctxs_response_returns_none_for_malformed_response(self):
+        self.assertIsNone(self.exchange._extract_asset_ctxs_from_meta_and_ctxs_response({"unexpected": "shape"}))
+
+    def test_iter_hip3_merged_markets_skips_invalid_rows(self):
+        markets = list(self.exchange._iter_hip3_merged_markets(dex_markets=[{
+            "name": "xyz",
+            "perpMeta": [
+                None,  # invalid perp_meta
+                {"name": "xyz:AAPL", "szDecimals": 3},  # invalid asset_ctx type
+                {"name": "BTC", "szDecimals": 5},  # not HIP-3
+                {"name": "xyz:TSLA", "szDecimals": 2},  # valid
+            ],
+            "assetCtxs": [
+                {},
+                "invalid-ctx",
+                {"markPx": "50000.0", "openInterest": "1.0"},
+                {"markPx": "200.0", "openInterest": "1.0"},
+            ],
+        }]))
+
+        self.assertEqual(1, len(markets))
+        self.assertEqual("xyz:TSLA", markets[0]["name"])
+
+    def test_fetch_and_cache_hip3_market_data_returns_empty_when_disabled_or_non_list(self):
+        self.exchange._enable_hip3_markets = False
+        result_disabled = self.async_run_with_timeout(self.exchange._fetch_and_cache_hip3_market_data())
+        self.assertEqual([], result_disabled)
+
+        self.exchange._enable_hip3_markets = True
+        self.exchange._api_post = AsyncMock(return_value={"unexpected": "shape"})
+        result_non_list = self.async_run_with_timeout(self.exchange._fetch_and_cache_hip3_market_data())
+        self.assertEqual([], result_non_list)
+
+    def test_hydrate_dex_markets_asset_ctxs_handles_skip_malformed_mismatch_and_exception(self):
+        async def api_post_side_effect(*args, **kwargs):
+            dex_name = kwargs["data"]["dex"]
+            if dex_name == "badshape":
+                return {"unexpected": "shape"}
+            if dex_name == "mismatch":
+                return [
+                    {"universe": [{"name": "mismatch:A"}, {"name": "mismatch:B"}]},
+                    [{"markPx": "1.0", "openInterest": "1.0"}],  # mismatch
+                ]
+            if dex_name == "boom":
+                raise RuntimeError("boom")
+            raise AssertionError(f"Unexpected dex requested: {dex_name}")
+
+        self.exchange._api_post = AsyncMock(side_effect=api_post_side_effect)
+
+        dex_markets = [
+            None,  # skipped (non-dict)
+            {  # already complete -> pass through
+                "name": "complete",
+                "perpMeta": [{"name": "complete:A"}],
+                "assetCtxs": [{"markPx": "1.0", "openInterest": "1.0"}],
+            },
+            {  # no dex name -> pass through
+                "perpMeta": [{"name": "xyz:NO_NAME"}],
+                "assetCtxs": [],
+            },
+            {  # malformed response
+                "name": "malformed",
+                "perpMeta": [{"name": "malformed:A"}],
+                "assetCtxs": [],
+            },
+            {  # mismatched hydrated ctxs
+                "name": "mismatch",
+                "perpMeta": [{"name": "mismatch:A"}, {"name": "mismatch:B"}],
+                "assetCtxs": [],
+            },
+            {  # exception while fetching
+                "name": "exception",
+                "perpMeta": [{"name": "exception:A"}],
+                "assetCtxs": [],
+            },
+        ]
+
+        hydrated = self.async_run_with_timeout(self.exchange._hydrate_dex_markets_asset_ctxs(dex_markets))
+
+        self.assertEqual(5, len(hydrated))
+        self.assertEqual("complete", hydrated[0]["name"])
+        self.assertEqual("malformed", hydrated[2]["name"])
+        self.assertEqual(1, len(hydrated[3]["assetCtxs"]))
+        self.assertEqual("exception", hydrated[4]["name"])

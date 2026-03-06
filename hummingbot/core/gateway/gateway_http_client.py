@@ -445,22 +445,28 @@ class GatewayHttpClient:
                 response = await client.delete(url, json=params)
             else:
                 raise ValueError(f"Unsupported request method {method}")
-            if not fail_silently and response.status == 504:
-                self.logger().network(f"The network call to {url} has timed out.")
-            else:
-                try:
-                    parsed_response = await response.json()
-                except ContentTypeError:
-                    parsed_response = await response.text()
-                if response.status != 200 and \
-                   not fail_silently and \
-                   not self.is_timeout_error(parsed_response):
-                    self.log_error_codes(parsed_response)
+            # Always parse the response
+            try:
+                parsed_response = await response.json()
+            except ContentTypeError:
+                parsed_response = await response.text()
 
-                    if "error" in parsed_response:
-                        raise ValueError(f"Error on {method.upper()} {url} Error: {parsed_response['error']}")
-                    else:
-                        raise ValueError(f"Error on {method.upper()} {url} Error: {parsed_response}")
+            # Handle non-200 responses
+            if response.status != 200 and not fail_silently:
+                self.log_error_codes(parsed_response)
+
+                if "message" in parsed_response:
+                    # Gateway HttpError format: message (detailed), code (optional), error (generic HTTP name), name
+                    error_msg = parsed_response.get('message')
+                    error_code = parsed_response.get('code', '')
+                    error_name = parsed_response.get('error', '')
+                    error_type = parsed_response.get('name', '')
+                    code_suffix = f" [code: {error_code}]" if error_code else ""
+                    type_prefix = f"{error_type}: " if error_type else ""
+                    name_suffix = f" ({error_name})" if error_name else ""
+                    raise ValueError(f"Gateway error: {type_prefix}{error_msg}{name_suffix}{code_suffix}")
+                else:
+                    raise ValueError(f"Error on {method.upper()} {url}: {parsed_response}")
 
         except Exception as e:
             if not fail_silently:
@@ -642,15 +648,25 @@ class GatewayHttpClient:
         chain: str,
         network: str,
         address: str,
-        token_symbols: List[str],
+        token_symbols: List[str],  # Can be symbols or addresses
         fail_silently: bool = False,
     ) -> Dict[str, Any]:
+        """
+        Get token balances for a wallet address.
+
+        :param chain: The blockchain (e.g., "solana", "ethereum")
+        :param network: The network (e.g., "mainnet-beta", "mainnet")
+        :param address: The wallet address
+        :param token_symbols: List of token symbols OR token addresses to fetch balances for
+        :param fail_silently: If True, suppress errors
+        :return: Dictionary with balances
+        """
         if isinstance(token_symbols, list):
             token_symbols = [x for x in token_symbols if isinstance(x, str) and x.strip() != '']
             request_params = {
                 "network": network,
                 "address": address,
-                "tokens": token_symbols,
+                "tokens": token_symbols,  # Gateway accepts both symbols and addresses
             }
             return await self.api_request(
                 method="post",
@@ -873,6 +889,8 @@ class GatewayHttpClient:
     ) -> Dict[str, Any]:
         """
         Gets information about a AMM or CLMM pool
+
+        Note: Meteora pools will automatically include bins in the response
         """
         query_params = {
             "network": network,
@@ -960,10 +978,13 @@ class GatewayHttpClient:
         base_token_amount: Optional[float] = None,
         quote_token_amount: Optional[float] = None,
         slippage_pct: Optional[float] = None,
+        extra_params: Optional[Dict[str, Any]] = None,
         fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
         Opens a new concentrated liquidity position
+
+        :param extra_params: Optional connector-specific parameters (e.g., {"strategyType": 0} for Meteora)
         """
         request_payload = {
             "network": network,
@@ -978,6 +999,10 @@ class GatewayHttpClient:
             request_payload["quoteTokenAmount"] = quote_token_amount
         if slippage_pct is not None:
             request_payload["slippagePct"] = slippage_pct
+
+        # Add connector-specific parameters
+        if extra_params:
+            request_payload.update(extra_params)
 
         # Parse connector to get name and type
         connector_name, connector_type = connector.split("/", 1)
@@ -1027,10 +1052,13 @@ class GatewayHttpClient:
         base_token_amount: Optional[float] = None,
         quote_token_amount: Optional[float] = None,
         slippage_pct: Optional[float] = None,
+        extra_params: Optional[Dict[str, Any]] = None,
         fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
         Add liquidity to an existing concentrated liquidity position
+
+        :param extra_params: Optional connector-specific parameters (e.g., {"strategyType": 0} for Meteora)
         """
         request_payload = {
             "network": network,
@@ -1043,6 +1071,10 @@ class GatewayHttpClient:
             request_payload["quoteTokenAmount"] = quote_token_amount
         if slippage_pct is not None:
             request_payload["slippagePct"] = slippage_pct
+
+        # Add connector-specific parameters
+        if extra_params:
+            request_payload.update(extra_params)
 
         # Parse connector to get name and type
         connector_name, connector_type = connector.split("/", 1)
@@ -1118,18 +1150,21 @@ class GatewayHttpClient:
         connector: str,
         network: str,
         wallet_address: str,
-        pool_address: Optional[str] = None,
+        pool_address: Optional[str] = None,  # Not used by API, kept for compatibility
         fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
-        Get all CLMM positions owned by a wallet, optionally filtered by pool
+        Get all CLMM positions owned by a wallet.
+
+        Note: The Gateway API does not support filtering by pool_address.
+        Filtering must be done client-side.
         """
         query_params = {
             "network": network,
             "walletAddress": wallet_address,
         }
-        if pool_address:
-            query_params["poolAddress"] = pool_address
+        # Note: poolAddress parameter is not supported by Gateway API
+        # Client-side filtering is done in gateway_lp.py
 
         # Parse connector to get name and type
         connector_name, connector_type = connector.split("/", 1)

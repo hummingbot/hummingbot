@@ -1,5 +1,6 @@
 from typing import Dict, Type
 
+from hummingbot.data_feed.candles_feed.aevo_perpetual_candles import AevoPerpetualCandles
 from hummingbot.data_feed.candles_feed.ascend_ex_spot_candles.ascend_ex_spot_candles import AscendExSpotCandles
 from hummingbot.data_feed.candles_feed.binance_perpetual_candles import BinancePerpetualCandles
 from hummingbot.data_feed.candles_feed.binance_spot_candles import BinanceSpotCandles
@@ -27,6 +28,7 @@ from hummingbot.data_feed.candles_feed.mexc_perpetual_candles.mexc_perpetual_can
 from hummingbot.data_feed.candles_feed.mexc_spot_candles.mexc_spot_candles import MexcSpotCandles
 from hummingbot.data_feed.candles_feed.okx_perpetual_candles.okx_perpetual_candles import OKXPerpetualCandles
 from hummingbot.data_feed.candles_feed.okx_spot_candles.okx_spot_candles import OKXSpotCandles
+from hummingbot.data_feed.candles_feed.pacifica_perpetual_candles import PacificaPerpetualCandles
 
 
 class UnsupportedConnectorException(Exception):
@@ -46,6 +48,7 @@ class CandlesFactory:
     """
 
     _candles_map: Dict[str, Type[CandlesBase]] = {
+        "aevo_perpetual": AevoPerpetualCandles,
         "binance_perpetual": BinancePerpetualCandles,
         "binance": BinanceSpotCandles,
         "bitget": BitgetSpotCandles,
@@ -67,6 +70,7 @@ class CandlesFactory:
         "dexalot": DexalotSpotCandles,
         "bitmart_perpetual": BitmartPerpetualCandles,
         "btc_markets": BtcMarketsSpotCandles,
+        "pacifica_perpetual": PacificaPerpetualCandles,
     }
 
     @classmethod

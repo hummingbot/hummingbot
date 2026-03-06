@@ -91,6 +91,15 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
                                 dest="precision", help="Level of precions for values displayed")
     history_parser.set_defaults(func=hummingbot.history)
 
+    lphistory_parser = subparsers.add_parser("lphistory", help="See LP position history and performance")
+    lphistory_parser.add_argument("-d", "--days", type=float, default=0, dest="days",
+                                  help="How many days in the past (can be decimal value)")
+    lphistory_parser.add_argument("-v", "--verbose", action="store_true", default=False,
+                                  dest="verbose", help="List all LP position updates")
+    lphistory_parser.add_argument("-p", "--precision", default=None, type=int,
+                                  dest="precision", help="Level of precision for values displayed")
+    lphistory_parser.set_defaults(func=hummingbot.lphistory)
+
     gateway_parser = subparsers.add_parser("gateway", help="Helper commands for Gateway server.")
     gateway_parser.set_defaults(func=hummingbot.gateway)
     gateway_subparsers = gateway_parser.add_subparsers()

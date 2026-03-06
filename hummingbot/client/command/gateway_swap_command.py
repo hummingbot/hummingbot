@@ -313,19 +313,20 @@ class GatewaySwapCommand:
                 self.notify(f"Order created: {order_id}")
                 self.notify("Monitoring transaction status...")
 
-                # Register the connector temporarily so events can be processed
-                # This allows MarketsRecorder to capture order events if it's running
-                if hasattr(self, 'connector_manager') and self.connector_manager:
-                    self.connector_manager.connectors[swap_connector.name] = swap_connector
-
                 # Use the common transaction monitoring helper
-                await GatewayCommandUtils.monitor_transaction_with_timeout(
+                result = await GatewayCommandUtils.monitor_transaction_with_timeout(
                     app=self,
                     connector=swap_connector,
                     order_id=order_id,
                     timeout=60.0,
                     check_interval=1.0,
                     pending_msg_delay=3.0
+                )
+
+                GatewayCommandUtils.handle_transaction_result(
+                    self, result,
+                    success_msg="Swap completed successfully!",
+                    failure_msg="Swap failed. Please try again."
                 )
 
                 # Clean up - remove temporary connector and stop network
