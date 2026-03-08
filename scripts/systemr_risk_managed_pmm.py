@@ -28,8 +28,8 @@ Risk gate payload (POST https://agents.systemr.ai/v1/compound/pre-trade-gate):
     "equity": 10000.00
   }
 
-The gate returns {"allow": true/false, "reasons": [...]}. Only orders with
-allow=true are placed. Rejected orders are logged with reasons.
+The gate returns {"gate_passed": true/false, "risk": {"errors": [...]}, "sizing": {"shares": N}}.
+Only orders where gate_passed=true are placed. Rejected orders are logged with reasons.
 """
 import asyncio
 import logging
@@ -132,8 +132,8 @@ class SystemRRiskManagedPMM(StrategyV2Base):
         """
         Call System R pre-trade gate.
 
-        Returns a dict with at least:
-          {"allow": bool, "reasons": list[str]}
+        Returns the full gate response dict with at least:
+          {"gate_passed": bool, "risk": {"errors": [...]}, "sizing": {"shares": int}}
 
         On network errors the gate defaults to REJECT (fail-closed).
         """
@@ -142,14 +142,14 @@ class SystemRRiskManagedPMM(StrategyV2Base):
 
         headers = {"Content-Type": "application/json"}
         if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
+            headers["X-API-Key"] = api_key
 
         payload = {
             "symbol": self.config.trading_pair,
             "direction": direction,
-            "entry_price": float(entry_price),
-            "stop_price": float(stop_price),
-            "equity": float(self.config.equity),
+            "entry_price": str(entry_price),
+            "stop_price": str(stop_price),
+            "equity": str(self.config.equity),
         }
 
         try:
@@ -166,11 +166,11 @@ class SystemRRiskManagedPMM(StrategyV2Base):
                     self.logger().warning(
                         f"System R gate returned HTTP {resp.status}: {body}"
                     )
-                    return {"allow": False, "reasons": [f"HTTP {resp.status}"]}
+                    return {"gate_passed": False, "risk": {"errors": [f"HTTP {resp.status}"]}}
         except Exception as e:
             # Fail-closed: if the risk service is unreachable, reject the order.
             self.logger().warning(f"System R gate unreachable ({e}); rejecting order (fail-closed).")
-            return {"allow": False, "reasons": [f"Network error: {e}"]}
+            return {"gate_passed": False, "risk": {"errors": [f"Network error: {e}"]}}
 
     # -- Order lifecycle ---------------------------------------------------
 
@@ -198,7 +198,7 @@ class SystemRRiskManagedPMM(StrategyV2Base):
 
             gate_result = await self._check_risk_gate(direction, entry_price, stop_price)
 
-            if gate_result.get("allow"):
+            if gate_result.get("gate_passed"):
                 approved.append(order)
                 self._orders_approved += 1
                 self.logger().info(
@@ -207,7 +207,7 @@ class SystemRRiskManagedPMM(StrategyV2Base):
                 )
             else:
                 self._orders_rejected += 1
-                reasons = gate_result.get("reasons", [])
+                reasons = gate_result.get("risk", {}).get("errors", [])
                 self.logger().info(
                     f"Risk gate REJECTED {direction.upper()} {self.config.trading_pair} "
                     f"@ {entry_price} -- reasons: {reasons}"
