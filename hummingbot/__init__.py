@@ -18,7 +18,6 @@ _prefix_path = None
 # Do not raise exceptions during log handling
 logging.setLogRecordFactory(StructLogRecord)
 logging.setLoggerClass(StructLogger)
-
 _shared_executor = None
 _data_path = None
 _cert_path = None
