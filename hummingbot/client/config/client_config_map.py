@@ -658,6 +658,11 @@ class HyperliquidPerpetualRateSourceMode(ExchangeRateSourceModeBase):
     model_config = ConfigDict(title="hyperliquid_perpetual")
 
 
+class BluefinPerpetualRateSourceMode(ExchangeRateSourceModeBase):
+    name: str = Field(default="bluefin_perpetual")
+    model_config = ConfigDict(title="bluefin_perpetual")
+
+
 class DeriveRateSourceMode(ExchangeRateSourceModeBase):
     name: str = Field(default="derive")
     model_config = ConfigDict(title="derive")
@@ -666,6 +671,7 @@ class DeriveRateSourceMode(ExchangeRateSourceModeBase):
 RATE_SOURCE_MODES = {
     AscendExRateSourceMode.model_config["title"]: AscendExRateSourceMode,
     BinanceRateSourceMode.model_config["title"]: BinanceRateSourceMode,
+    BluefinPerpetualRateSourceMode.model_config["title"]: BluefinPerpetualRateSourceMode,
     CoinGeckoRateSourceMode.model_config["title"]: CoinGeckoRateSourceMode,
     CoinCapRateSourceMode.model_config["title"]: CoinCapRateSourceMode,
     DexalotRateSourceMode.model_config["title"]: DexalotRateSourceMode,
