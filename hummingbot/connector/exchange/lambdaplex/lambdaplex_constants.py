@@ -37,6 +37,9 @@ MY_TRADES_PATH_URL = "/myTrades"
 ORDER_PATH_URL = "/order"
 USER_FEES_PATH_URL = "/account/commission"
 
+# Rate limit IDs (non-path) for endpoints with variant weights
+ORDER_QUERY_LIMIT = "ORDER_QUERY"
+
 # Order States
 ORDER_STATE = {
     "ACTIVE": OrderState.OPEN,
@@ -78,7 +81,7 @@ RATE_LIMITS = [
     ),
     RateLimit(
         limit_id=API_KEY_REQUESTS_WEIGHT,
-        limit=600,
+        limit=6_000,
         time_interval=ONE_MINUTE,
     ),
     RateLimit(
@@ -185,6 +188,16 @@ RATE_LIMITS = [
             LinkedLimitWeightPair(REQUEST_WEIGHT, 1),
             LinkedLimitWeightPair(API_KEY_REQUESTS_WEIGHT, 1),
             LinkedLimitWeightPair(ORDERS_WEIGHT, 1),
+        ],
+    ),
+    # GET /order: query single order status (weight 4) but does not count against the orders bucket.
+    RateLimit(
+        limit_id=ORDER_QUERY_LIMIT,
+        limit=MAX_REQUEST,
+        time_interval=ONE_MINUTE,
+        linked_limits=[
+            LinkedLimitWeightPair(REQUEST_WEIGHT, 4),
+            LinkedLimitWeightPair(API_KEY_REQUESTS_WEIGHT, 4),
         ],
     ),
     RateLimit(

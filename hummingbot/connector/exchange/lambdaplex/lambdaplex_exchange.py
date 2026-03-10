@@ -446,6 +446,8 @@ class LambdaplexExchange(ExchangePyBase):
                 "origClientOrderId": tracked_order.client_order_id,
             },
             is_auth_required=True,
+            # GET /order is a heavier request (weight 4) and should not consume from the orders mutation bucket.
+            limit_id=CONSTANTS.ORDER_QUERY_LIMIT,
         )
 
         new_state = CONSTANTS.ORDER_STATE[updated_data["status"]]
