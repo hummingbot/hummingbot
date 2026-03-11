@@ -11,12 +11,13 @@ from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.executor_base import ExecutorBase
+from hummingbot.strategy_v2.executors.gateway_retry import GatewayRetryMixin
 from hummingbot.strategy_v2.executors.lp_executor.data_types import LPExecutorConfig, LPExecutorState, LPExecutorStates
 from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executors import CloseType, TrackedOrder
 
 
-class LPExecutor(ExecutorBase):
+class LPExecutor(ExecutorBase, GatewayRetryMixin):
     """
     Executor for a single LP position lifecycle.
 
@@ -49,13 +50,11 @@ class LPExecutor(ExecutorBase):
         # Extract connector names from config for ExecutorBase
         connectors = [config.connector_name]
         super().__init__(strategy, connectors, config, update_interval)
+        self.init_retry_state(max_retries)  # Initialize retry mixin
         self.config: LPExecutorConfig = config
         self.lp_position_state = LPExecutorState()
         self._pool_info: Optional[Union[CLMMPoolInfo, AMMPoolInfo]] = None
         self._current_price: Optional[Decimal] = None  # Updated from pool_info or position_info
-        self._max_retries = max_retries
-        self._current_retries = 0
-        self._max_retries_reached = False  # True when max retries reached, requires intervention
         self._last_attempted_signature: Optional[str] = None  # Track for retry logging
 
     async def on_start(self):
@@ -235,7 +234,7 @@ class LPExecutor(ExecutorBase):
 
             # Position is created - clear open order and reset retries
             self.lp_position_state.active_open_order = None
-            self._current_retries = 0
+            self.reset_retry_state()
 
             # Clean up connector metadata
             if order_id in connector._lp_orders_metadata:
@@ -321,9 +320,9 @@ class LPExecutor(ExecutorBase):
     async def _handle_create_failure(self, error: Exception, signature: Optional[str] = None):
         """Handle position creation failure with retry logic."""
         error_str = str(error)
-        sig_info = f" [sig: {signature}]" if signature else ""
 
         # Check if this is a "price moved" error - position bounds need shifting
+        # This is LP-specific and requires shifting bounds, not just a retry
         is_price_moved = "Price has moved" in error_str or "Position would require" in error_str
 
         if is_price_moved and self.config.side != 0:
@@ -333,35 +332,15 @@ class LPExecutor(ExecutorBase):
             self.lp_position_state.active_open_order = None
             return
 
-        self._current_retries += 1
-        max_retries = self._max_retries
+        # Use mixin for standard retry logic
+        self.handle_gateway_failure(
+            error=error,
+            operation="LP OPEN",
+            trading_pair=self.config.trading_pair,
+            signature=signature,
+        )
 
-        # Check if this is a timeout error (retryable)
-        is_timeout = "TRANSACTION_TIMEOUT" in error_str
-
-        if self._current_retries >= max_retries:
-            msg = (
-                f"LP OPEN FAILED after {max_retries} retries for {self.config.trading_pair}.{sig_info} "
-                f"Manual intervention required. Error: {error}"
-            )
-            self.logger().error(msg)
-            self._strategy.notify_hb_app_with_timestamp(msg)
-            self._max_retries_reached = True
-            # Keep state as OPENING - don't shut down, wait for user intervention
-            self.lp_position_state.active_open_order = None
-            return
-
-        if is_timeout:
-            self.logger().warning(
-                f"LP open timeout (retry {self._current_retries}/{max_retries}).{sig_info} "
-                "Chain may be congested. Retrying..."
-            )
-        else:
-            self.logger().warning(
-                f"LP open failed (retry {self._current_retries}/{max_retries}): {error}"
-            )
-
-        # Clear open order to allow retry - state stays OPENING
+        # Keep state as OPENING - don't shut down, wait for user intervention or retry
         self.lp_position_state.active_open_order = None
 
     async def _shift_bounds_for_price_move(self):
@@ -527,7 +506,7 @@ class LPExecutor(ExecutorBase):
             self.lp_position_state.active_close_order = None
             self.lp_position_state.position_address = None
             self.lp_position_state.state = LPExecutorStates.COMPLETE
-            self._current_retries = 0
+            self.reset_retry_state()
 
         except Exception as e:
             # Try to get signature from connector metadata (gateway may have stored it before timeout)
@@ -539,37 +518,13 @@ class LPExecutor(ExecutorBase):
 
     def _handle_close_failure(self, error: Exception, signature: Optional[str] = None):
         """Handle position close failure with retry logic."""
-        self._current_retries += 1
-        max_retries = self._max_retries
-
-        # Check if this is a timeout error (retryable)
-        error_str = str(error)
-        is_timeout = "TRANSACTION_TIMEOUT" in error_str
-
-        # Format signature for logging
-        sig_info = f" [sig: {signature}]" if signature else ""
-
-        if self._current_retries >= max_retries:
-            msg = (
-                f"LP CLOSE FAILED after {max_retries} retries for {self.config.trading_pair}.{sig_info} "
-                f"Position {self.lp_position_state.position_address} may need manual close. Error: {error}"
-            )
-            self.logger().error(msg)
-            self._strategy.notify_hb_app_with_timestamp(msg)
-            self._max_retries_reached = True
-            # Keep state as CLOSING - don't shut down, wait for user intervention
-            self.lp_position_state.active_close_order = None
-            return
-
-        if is_timeout:
-            self.logger().warning(
-                f"LP close timeout (retry {self._current_retries}/{max_retries}).{sig_info} "
-                "Chain may be congested. Retrying..."
-            )
-        else:
-            self.logger().warning(
-                f"LP close failed (retry {self._current_retries}/{max_retries}): {error}"
-            )
+        # Use mixin for standard retry logic
+        self.handle_gateway_failure(
+            error=error,
+            operation="LP CLOSE",
+            trading_pair=self.config.trading_pair,
+            signature=signature,
+        )
 
         # Clear active order - state stays CLOSING for retry in next control_task
         self.lp_position_state.active_close_order = None
