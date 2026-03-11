@@ -2,7 +2,6 @@ from decimal import Decimal
 from typing import List
 
 import numpy as np
-from sklearn.linear_model import LinearRegression
 
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PriceType, TradeType
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
@@ -377,11 +376,8 @@ class StatArb(ControllerBase):
         dominant_cum_returns = dominant_cum_returns / dominant_cum_returns[0] if len(dominant_cum_returns) > 0 else np.array([1.0])
         hedge_cum_returns = hedge_cum_returns / hedge_cum_returns[0] if len(hedge_cum_returns) > 0 else np.array([1.0])
 
-        # Perform linear regression
-        dominant_cum_returns_reshaped = dominant_cum_returns.reshape(-1, 1)
-        reg = LinearRegression().fit(dominant_cum_returns_reshaped, hedge_cum_returns)
-        alpha = reg.intercept_
-        beta = reg.coef_[0]
+        # Fit a simple linear model without pulling in an extra runtime dependency.
+        beta, alpha = np.polyfit(dominant_cum_returns, hedge_cum_returns, 1)
         self.processed_data.update({
             "alpha": alpha,
             "beta": beta,
