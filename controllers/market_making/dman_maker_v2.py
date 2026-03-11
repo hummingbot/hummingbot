@@ -57,11 +57,15 @@ class DManMakerV2Config(MarketMakingControllerConfigBase):
         if v is None or v == "":
             return [1 for _ in validation_info.data['dca_spreads']]
         if isinstance(v, str):
-            return [float(x.strip()) for x in v.split(',')]
-        elif isinstance(v, list) and len(v) != len(validation_info.data['dca_spreads']):
+            parsed_amounts = [float(x.strip()) for x in v.split(',')]
+        else:
+            parsed_amounts = v
+        if isinstance(parsed_amounts, list) and len(parsed_amounts) != len(validation_info.data['dca_spreads']):
             raise ValueError(
                 f"The number of dca amounts must match the number of {validation_info.data['dca_spreads']}.")
-        return v
+        if sum(Decimal(str(amount)) for amount in parsed_amounts) <= Decimal("0"):
+            raise ValueError("The sum of dca amounts must be greater than 0.")
+        return parsed_amounts
 
 
 class DManMakerV2(MarketMakingControllerBase):
