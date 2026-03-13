@@ -114,6 +114,15 @@ def format_df_for_printout(
     tabulate.PRESERVE_WHITESPACE = True
     tabulate.WIDE_CHARS_MODE = False  # Use len() for column widths for consistent cross-platform behavior
     try:
+        # Pass preserve_whitespace as kwarg for tabulate >= 0.10.0 where the
+        # module-level PRESERVE_WHITESPACE is no longer read by tabulate().
+        formatted_df = tabulate.tabulate(
+            df, tablefmt=table_format, showindex=index, headers="keys",
+            **{"preserve_whitespace": True},
+        )
+    except TypeError:
+        # tabulate < 0.10.0 does not accept preserve_whitespace as a kwarg;
+        # it reads the module-level PRESERVE_WHITESPACE variable instead.
         formatted_df = tabulate.tabulate(df, tablefmt=table_format, showindex=index, headers="keys")
     finally:
         tabulate.PRESERVE_WHITESPACE = original_preserve_whitespace
