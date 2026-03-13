@@ -4,6 +4,7 @@ import datetime
 import hashlib
 import hmac
 import json
+from datetime import timezone
 from typing import Awaitable
 from unittest import TestCase
 from unittest.mock import MagicMock
@@ -43,7 +44,8 @@ class OkxAuthTests(TestCase):
         return signed_message.decode("utf-8")
 
     def _format_timestamp(self, timestamp: int) -> str:
-        return datetime.datetime.utcfromtimestamp(timestamp).isoformat(timespec="milliseconds") + 'Z'
+        ts = datetime.datetime.fromtimestamp(timestamp, timezone.utc).isoformat(timespec="milliseconds")
+        return ts.replace('+00:00', 'Z')
 
     def test_add_auth_headers_to_get_request_without_params(self):
         request = RESTRequest(

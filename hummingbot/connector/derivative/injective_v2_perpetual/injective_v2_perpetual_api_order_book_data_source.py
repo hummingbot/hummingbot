@@ -91,3 +91,17 @@ class InjectiveV2PerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
 
     def _process_funding_info_event(self, funding_info_update: FundingInfoUpdate):
         self._message_queue[self._funding_info_messages_queue_key].put_nowait(funding_info_update)
+
+    async def subscribe_to_trading_pair(self, trading_pair: str) -> bool:
+        """Dynamic subscription not supported for this connector."""
+        self.logger().warning(
+            f"Dynamic subscription not supported for {self.__class__.__name__}"
+        )
+        return False
+
+    async def unsubscribe_from_trading_pair(self, trading_pair: str) -> bool:
+        """Dynamic unsubscription not supported for this connector."""
+        self.logger().warning(
+            f"Dynamic unsubscription not supported for {self.__class__.__name__}"
+        )
+        return False

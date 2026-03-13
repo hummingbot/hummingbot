@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import List, Optional
 
@@ -28,8 +28,8 @@ class ArbProposalSide:
     order_price: Decimal
     amount: Decimal
     extra_flat_fees: List[TokenAmount]
-    completed_event: asyncio.Event = asyncio.Event()
-    failed_event: asyncio.Event = asyncio.Event()
+    completed_event: asyncio.Event = field(default_factory=asyncio.Event)
+    failed_event: asyncio.Event = field(default_factory=asyncio.Event)
 
     def __repr__(self):
         side = "buy" if self.is_buy else "sell"
@@ -62,6 +62,7 @@ class ArbProposal:
     """
     An arbitrage proposal which contains 2 sides of the proposal - one buy and one sell.
     """
+
     def __init__(self, first_side: ArbProposalSide, second_side: ArbProposalSide):
         if first_side.is_buy == second_side.is_buy:
             raise Exception("first_side and second_side must be on different side of buy and sell.")
@@ -73,9 +74,9 @@ class ArbProposal:
         return any([self.first_side.is_failed, self.second_side.is_failed])
 
     def profit_pct(
-            self,
-            rate_source: Optional[RateOracle] = None,
-            account_for_fee: bool = False,
+        self,
+        rate_source: Optional[RateOracle] = None,
+        account_for_fee: bool = False,
     ) -> Decimal:
         """
         Returns a profit in percentage value (e.g. 0.01 for 1% profitability)

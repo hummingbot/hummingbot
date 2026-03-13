@@ -13,7 +13,7 @@ class TestMexcSpotCandles(TestCandlesBase):
     def setUpClass(cls) -> None:
         super().setUpClass()
         cls.base_asset = "BTC"
-        cls.quote_asset = "USDT"
+        cls.quote_asset = "USDC"
         cls.interval = "1h"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = cls.base_asset + cls.quote_asset
@@ -98,40 +98,40 @@ class TestMexcSpotCandles(TestCandlesBase):
 
     def get_candles_ws_data_mock_1(self):
         return {
-            "c": "spot@public.kline.v3.api@BTCUSDT@Min15",
-            "d": {
-                "k": {
-                    "T": 1661931900,
-                    "a": 29043.48804658,
-                    "c": 20279.43,
-                    "h": 20284.93,
-                    "i": "Min60",
-                    "l": 20277.52,
-                    "o": 20284.93,
-                    "t": 1661931000,
-                    "v": 1.43211},
-                "e": "spot@public.kline.v3.api"},
-            "s": "BTCUSDT",
-            "t": 1661931016878
+            "channel": "spot@public.kline.v3.api.pb@BTCUSDC@Min15",
+            "symbol": "BTCUSDC",
+            "symbolId": "c7e899ca05814c20b4b1c853946a0c89",
+            "createTime": "1755975496761",
+            "publicSpotKline": {
+                "interval": "Min15",
+                "windowStart": "1755974700",
+                "openingPrice": "115145",
+                "closingPrice": "115128.41",
+                "highestPrice": "115183.85",
+                "lowestPrice": "115106.87",
+                "volume": "0.250632",
+                "amount": "28858.75",
+                "windowEnd": "1755975600"
+            }
         }
 
     def get_candles_ws_data_mock_2(self):
         return {
-            "c": "spot@public.kline.v3.api@BTCUSDT@Min15",
-            "d": {
-                "k": {
-                    "T": 1661931900,
-                    "a": 29043.48804658,
-                    "c": 20279.43,
-                    "h": 20284.93,
-                    "i": "Min60",
-                    "l": 20277.52,
-                    "o": 20284.93,
-                    "t": 1661934600,
-                    "v": 1.43211},
-                "e": "spot@public.kline.v3.api"},
-            "s": "BTCUSDT",
-            "t": 1661931016878
+            "channel": "spot@public.kline.v3.api.pb@BTCUSDC@Min15",
+            "symbol": "BTCUSDC",
+            "symbolId": "c7e899ca05814c20b4b1c853946a0c89",
+            "createTime": "1755975496761",
+            "publicSpotKline": {
+                "interval": "Min15",
+                "windowStart": "1755975600",
+                "openingPrice": "115145",
+                "closingPrice": "115128.41",
+                "highestPrice": "115183.85",
+                "lowestPrice": "115106.87",
+                "volume": "0.250632",
+                "amount": "28858.75",
+                "windowEnd": "1755976500"
+            }
         }
 
     @staticmethod

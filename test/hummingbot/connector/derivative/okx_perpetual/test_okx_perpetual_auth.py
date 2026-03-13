@@ -38,9 +38,9 @@ class OkxPerpetualAuthTests(TestCase):
     def _get_timestamp():
         return datetime.datetime.utcnow().isoformat(timespec='milliseconds') + 'Z'
 
-    @staticmethod
-    def _format_timestamp(timestamp: int) -> str:
-        return datetime.datetime.utcfromtimestamp(timestamp).isoformat(timespec="milliseconds") + 'Z'
+    def _format_timestamp(self, timestamp: int) -> str:
+        ts = datetime.datetime.fromtimestamp(timestamp, datetime.timezone.utc).isoformat(timespec="milliseconds")
+        return ts.replace('+00:00', 'Z')
 
     @staticmethod
     def _sign(message: str, key: str) -> str:

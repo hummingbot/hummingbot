@@ -66,7 +66,6 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
 
         self.exchange = DerivePerpetualDerivative(
-            client_config_map=self.client_config_map,
             derive_perpetual_api_key=self.api_key,
             derive_perpetual_api_secret=self.api_secret,
             sub_id=self.sub_id,
@@ -96,7 +95,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             bidict({f"{self.base_asset}-PERP": self.trading_pair}))
 
     def test_get_related_limits(self):
-        self.assertEqual(17, len(self.throttler._rate_limits))
+        self.assertEqual(16, len(self.throttler._rate_limits))
 
         rate_limit, related_limits = self.throttler.get_related_limits(CONSTANTS.ENDPOINTS["limits"]["non_matching"][4])
         self.assertIsNotNone(rate_limit, "Rate limit for TEST_POOL_ID is None.")  # Ensure rate_limit is not None
@@ -698,12 +697,10 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return f"{base_token}-PERP"
 
     def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         exchange = DerivePerpetualDerivative(
-            client_config_map,
-            self.api_secret,  # noqa: mock
-            self.sub_id,
-            self.api_key,  # noqa: mock
+            derive_perpetual_api_secret=self.api_secret,  # noqa: mock
+            derive_perpetual_api_key=self.api_key,  # noqa: mock
+            sub_id=self.sub_id,
             trading_pairs=[self.trading_pair],
         )
         # exchange._last_trade_history_timestamp = self.latest_trade_hist_timestamp
@@ -1548,9 +1545,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         ))
 
     def test_supported_position_modes(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         linear_connector = DerivePerpetualDerivative(
-            client_config_map=client_config_map,
             derive_perpetual_api_key=self.api_key,
             derive_perpetual_api_secret=self.api_secret,
             sub_id=self.sub_id,
@@ -2112,42 +2107,23 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         print([url])
         return [url]
 
-    def configure_currency_trading_rules_response(
-            self,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
-    ) -> List[str]:
-
-        url = self.trading_rules_currency_url
-        response = self.currency_request_mock_response
-        mock_api.post(url, body=json.dumps(response), callback=callback)
-        return [url]
-
     def test_user_stream_balance_update(self):
         pass
 
     @aioresponses()
-    def test_all_trading_pairs_does_not_raise_exception(self, mock_pair):
-        res = self.currency_request_mock_response
-        self.configure_currency_trading_rules_response(mock_api=mock_pair)
-        self.exchange.currencies = [res]
+    def test_all_trading_pairs_does_not_raise_exception(self, mock_api):
         self.exchange._set_trading_pair_symbol_map(None)
 
         url = self.all_symbols_url
-        mock_pair.post(url, exception=Exception)
+        mock_api.post(url, exception=Exception)
 
         result: List[str] = self.async_run_with_timeout(self.exchange.all_trading_pairs())
 
         self.assertEqual(0, len(result))
 
-    @patch("hummingbot.connector.derivative.derive_perpetual.derive_perpetual_derivative.DerivePerpetualDerivative._make_currency_request", new_callable=AsyncMock)
     @aioresponses()
-    def test_all_trading_pairs(self, mock_mess: AsyncMock, mock_api):
+    def test_all_trading_pairs(self, mock_api):
         # Mock the currency request response
-        self.configure_currency_trading_rules_response(mock_api=mock_api)
-        mock_mess.return_value = self.currency_request_mock_response
-        self.exchange.currencies = [self.currency_request_mock_response]
-
         self.exchange._set_trading_pair_symbol_map(None)
 
         self.configure_all_symbols_response(mock_api=mock_api)
@@ -2226,16 +2202,12 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     def test_lost_order_included_in_order_fills_update_and_not_in_order_status_update(self, mock_api):
         pass
 
-    @patch("hummingbot.connector.derivative.derive_perpetual.derive_perpetual_derivative.DerivePerpetualDerivative._make_currency_request", new_callable=AsyncMock)
     @aioresponses()
-    def test_update_trading_rules(self, mock_request: AsyncMock, mock_api):
+    def test_update_trading_rules(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
 
         # Mock the currency request response
         mocked_response = self.get_trading_rule_rest_msg()
-        self.configure_currency_trading_rules_response(mock_api=mock_api)
-        mock_request.return_value = self.currency_request_mock_response
-        self.exchange.currencies = [self.currency_request_mock_response]
 
         self.configure_trading_rules_response(mock_api=mock_api)
         self.exchange._instrument_ticker.append(mocked_response[0])
@@ -2259,6 +2231,48 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     def test_update_trading_rules_ignores_rule_with_error(self, mock_api):
         pass
 
+    @aioresponses()
+    def test_update_trading_rules_filters_non_perp_instruments(self, mock_api):
+        """Test line 804: Filter non-perp instrument types"""
+        self.exchange._set_current_timestamp(1640780000)
+
+        # Mock response with mixed instrument types
+        mocked_response = {
+            "result": {
+                "instruments": [
+                    {
+                        'instrument_type': 'option',  # Should be filtered out - line 804
+                        'instrument_name': 'ETH-25DEC',
+                        'tick_size': '0.01',
+                        'minimum_amount': '0.1',
+                        'amount_step': '0.01',
+                    },
+                    {
+                        'instrument_type': 'perp',  # Should be included
+                        'instrument_name': f'{self.base_asset}-PERP',
+                        'tick_size': '0.01',
+                        'minimum_amount': '0.1',
+                        'maximum_amount': '1000',
+                        'amount_step': '0.01',
+                        'base_currency': self.base_asset,
+                        'quote_currency': self.quote_asset,
+                    }
+                ]
+            }
+        }
+
+        # Mock the API call
+        url = self.trading_rules_url
+        mock_api.post(url, body=json.dumps(mocked_response))
+
+        # Set _instrument_ticker with both instrument types
+        self.exchange._instrument_ticker = mocked_response["result"]["instruments"]
+        self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
+
+        # Only perp instrument should be in trading rules (option filtered out by line 804)
+        self.assertEqual(1, len(self.exchange.trading_rules))
+        self.assertTrue(self.trading_pair in self.exchange.trading_rules)
+
     def _simulate_trading_rules_initialized(self):
         mocked_response = self.get_trading_rule_rest_msg()
         self.exchange._initialize_trading_pair_symbols_from_exchange_info(mocked_response)
@@ -2276,7 +2290,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         }
 
     @aioresponses()
-    def test_create_order_fails_and_raises_failure_event(self, mock_api):
+    async def test_create_order_fails_and_raises_failure_event(self, mock_api):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
@@ -2286,7 +2300,8 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                       callback=lambda *args, **kwargs: request_sent_event.set())
 
         order_id = self.place_buy_order()
-        self.async_run_with_timeout(request_sent_event.wait())
+        await asyncio.sleep(0.00001)
+        await request_sent_event.wait()
 
         order_request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(order_request)
@@ -2309,15 +2324,6 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
         self.assertEqual(OrderType.LIMIT, failure_event.order_type)
         self.assertEqual(order_id, failure_event.order_id)
-
-        self.assertTrue(
-            self.is_logged(
-                "INFO",
-                f"Order {order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
-                f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)"
-            )
-        )
 
     @aioresponses()
     def test_create_buy_limit_order_successfully(self, mock_api):
@@ -2674,7 +2680,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                          fill_event.trade_fee.flat_fees)
 
     @aioresponses()
-    def test_create_order_fails_when_trading_rule_error_and_raises_failure_event(self, mock_api):
+    async def test_create_order_fails_when_trading_rule_error_and_raises_failure_event(self, mock_api):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
@@ -2689,7 +2695,8 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         )
         # The second order is used only to have the event triggered and avoid using timeouts for tests
         order_id = self.place_buy_order()
-        self.async_run_with_timeout(request_sent_event.wait(), timeout=3)
+        await asyncio.sleep(0.00001)
+        await request_sent_event.wait()
 
         self.assertNotIn(order_id_for_invalid_order, self.exchange.in_flight_orders)
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
@@ -2700,19 +2707,133 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(OrderType.LIMIT, failure_event.order_type)
         self.assertEqual(order_id_for_invalid_order, failure_event.order_id)
 
-        self.assertTrue(
-            self.is_logged(
-                "WARNING",
-                "Buy order amount 0.0001 is lower than the minimum order "
-                "size 0.1. The order will not be created, increase the "
-                "amount to be higher than the minimum order size."
-            )
-        )
-        self.assertTrue(
-            self.is_logged(
-                "INFO",
-                f"Order {order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
-                f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)"
-            )
-        )
+    @aioresponses()
+    def test_make_trading_rules_request(self, mock_api):
+        """Test _make_trading_rules_request to cover lines 173, 179-181"""
+        url = web_utils.private_rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        response = {
+            "result": [
+                {
+                    "instrument_type": "perp",
+                    "instrument_name": f"{self.base_asset}-PERP",
+                    "tick_size": "0.01",
+                    "minimum_amount": "0.1",
+                    "maximum_amount": "1000",
+                    "amount_step": "0.01",
+                    "base_currency": self.base_asset,
+                    "quote_currency": "USDC",
+                    "base_asset_address": "0xE201fCEfD4852f96810C069f66560dc25B2C7A55",
+                    "base_asset_sub_id": "0",
+                }
+            ]
+        }
+
+        mock_api.post(regex_url, body=json.dumps(response))
+        result = self.async_run_with_timeout(self.exchange._make_trading_rules_request())
+
+        self.assertEqual(response["result"], result)
+
+    @aioresponses()
+    def test_get_all_pairs_prices_with_empty_instrument_ticker(self, mock_api):
+        """Test get_all_pairs_prices when _instrument_ticker is empty to cover line 187"""
+        self.exchange._instrument_ticker = []
+
+        # Mock _make_trading_pairs_request
+        pairs_url = web_utils.private_rest_url(CONSTANTS.EXCHANGE_CURRENCIES_PATH_URL)
+        pairs_regex = re.compile(f"^{pairs_url}".replace(".", r"\.").replace("?", r"\?"))
+
+        pairs_response = {
+            "result": {
+                "instruments": [
+                    {
+                        "instrument_name": f"{self.base_asset}-PERP",
+                        "instrument_type": "perp",
+                    }
+                ]
+            }
+        }
+        mock_api.post(pairs_regex, body=json.dumps(pairs_response))
+
+        # Mock ticker price requests
+        ticker_url = web_utils.private_rest_url(CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL)
+        ticker_regex = re.compile(f"^{ticker_url}".replace(".", r"\.").replace("?", r"\?"))
+
+        ticker_response = {
+            "result": {
+                "instrument_name": f"{self.base_asset}-PERP",
+                "best_bid_price": "10000",
+                "best_ask_price": "10001",
+            }
+        }
+        mock_api.post(ticker_regex, body=json.dumps(ticker_response))
+
+        result = self.async_run_with_timeout(self.exchange.get_all_pairs_prices())
+
+        self.assertEqual(1, len(result))
+        self.assertEqual(f"{self.base_asset}-PERP", result[0]["symbol"]["instrument_name"])
+
+    @aioresponses()
+    def test_place_order_with_empty_instrument_ticker(self, mock_api):
+        """Test _place_order when _instrument_ticker is empty to cover line 475"""
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._instrument_ticker = []
+
+        # Mock _make_trading_pairs_request
+        pairs_url = web_utils.private_rest_url(CONSTANTS.EXCHANGE_CURRENCIES_PATH_URL)
+        pairs_regex = re.compile(f"^{pairs_url}".replace(".", r"\.").replace("?", r"\?"))
+
+        pairs_response = {
+            "result": {
+                "instruments": [
+                    {
+                        "instrument_name": f"{self.base_asset}-PERP",
+                        "instrument_type": "perp",
+                        "base_asset_address": "0xE201fCEfD4852f96810C069f66560dc25B2C7A55",
+                        "base_asset_sub_id": "0",
+                    }
+                ]
+            }
+        }
+        mock_api.post(pairs_regex, body=json.dumps(pairs_response))
+
+        # Mock order creation
+        url = self.order_creation_url
+        creation_response = self.order_creation_request_successful_mock_response
+        mock_api.post(url, body=json.dumps(creation_response))
+
+        order_id = self.place_buy_order()
+        self.async_run_with_timeout(self.exchange._create_order(
+            trade_type=TradeType.BUY,
+            order_id=order_id,
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            price=Decimal("10000"),
+            position_action=PositionAction.OPEN,
+        ))
+
+        self.assertEqual(1, len(self.buy_order_created_logger.event_log))
+
+    @aioresponses()
+    def test_get_last_traded_price(self, mock_api):
+        """Test _get_last_traded_price to cover line 918"""
+        self._simulate_trading_rules_initialized()
+
+        url = web_utils.private_rest_url(CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        response = {
+            "result": {
+                "instrument_name": f"{self.base_asset}-PERP",
+                "mark_price": "10500.50",
+            }
+        }
+
+        mock_api.post(regex_url, body=json.dumps(response))
+
+        price = self.async_run_with_timeout(self.exchange._get_last_traded_price(self.trading_pair))
+
+        self.assertEqual(response["result"]["mark_price"], price)

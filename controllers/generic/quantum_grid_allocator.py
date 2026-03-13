@@ -16,7 +16,6 @@ from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
 
 class QGAConfig(ControllerConfigBase):
     controller_name: str = "quantum_grid_allocator"
-    candles_config: List[CandlesConfig] = []
 
     # Portfolio allocation zones
     long_only_threshold: Decimal = Field(default=Decimal("0.2"), json_schema_extra={"is_updatable": True})
@@ -50,7 +49,7 @@ class QGAConfig(ControllerConfigBase):
     connector_name: str = "binance"
     leverage: int = 1
     position_mode: PositionMode = PositionMode.HEDGE
-    quote_asset: str = "FDUSD"
+    quote_asset: str = "USDT"
     fee_asset: str = "BNB"
     # Grid price multipliers
     min_spread_between_orders: Decimal = Field(
@@ -66,7 +65,7 @@ class QGAConfig(ControllerConfigBase):
     activation_bounds: Decimal = Field(
         default=Decimal("0.0002"),  # Activation bounds for orders
         json_schema_extra={"is_updatable": True})
-    bb_lenght: int = 100
+    bb_length: int = 100
     bb_std_dev: float = 2.0
     interval: str = "1s"
     dynamic_grid_range: bool = Field(default=False, json_schema_extra={"is_updatable": True})
@@ -74,7 +73,7 @@ class QGAConfig(ControllerConfigBase):
 
     @property
     def quote_asset_allocation(self) -> Decimal:
-        """Calculate the implicit quote asset (FDUSD) allocation"""
+        """Calculate the implicit quote asset (USDT) allocation"""
         return Decimal("1") - sum(self.portfolio_allocation.values())
 
     @field_validator("portfolio_allocation")
@@ -82,9 +81,9 @@ class QGAConfig(ControllerConfigBase):
     def validate_allocation(cls, v):
         total = sum(v.values())
         if total >= Decimal("1"):
-            raise ValueError(f"Total allocation {total} exceeds or equals 100%. Must leave room for FDUSD allocation.")
-        if "FDUSD" in v:
-            raise ValueError("FDUSD should not be explicitly allocated as it is the quote asset")
+            raise ValueError(f"Total allocation {total} exceeds or equals 100%. Must leave room for USDT allocation.")
+        if "USDT" in v:
+            raise ValueError("USDT should not be explicitly allocated as it is the quote asset")
         return v
 
     def update_markets(self, markets: Dict[str, Set[str]]) -> Dict[str, Set[str]]:
@@ -109,12 +108,6 @@ class QuantumGridAllocator(ControllerBase):
             }
             for asset in config.portfolio_allocation
         }
-        self.config.candles_config = [CandlesConfig(
-            connector=config.connector_name,
-            trading_pair=trading_pair + "-" + config.quote_asset,
-            interval=config.interval,
-            max_records=config.bb_lenght + 100
-        ) for trading_pair in config.portfolio_allocation.keys()]
         super().__init__(config, *args, **kwargs)
         self.initialize_rate_sources()
 
@@ -130,13 +123,13 @@ class QuantumGridAllocator(ControllerBase):
                 connector_name=self.config.connector_name,
                 trading_pair=trading_pair,
                 interval=self.config.interval,
-                max_records=self.config.bb_lenght + 100
+                max_records=self.config.bb_length + 100
             )
             if len(candles) == 0:
                 bb_width = self.config.grid_range
             else:
-                bb = ta.bbands(candles["close"], length=self.config.bb_lenght, std=self.config.bb_std_dev)
-                bb_width = bb[f"BBB_{self.config.bb_lenght}_{self.config.bb_std_dev}"].iloc[-1] / 100
+                bb = ta.bbands(candles["close"], length=self.config.bb_length, std=self.config.bb_std_dev)
+                bb_width = bb[f"BBB_{self.config.bb_length}_{self.config.bb_std_dev}"].iloc[-1] / 100
             self.processed_data[trading_pair] = {
                 "bb_width": bb_width
             }
@@ -490,3 +483,11 @@ class QuantumGridAllocator(ControllerBase):
 
     def get_mid_price(self, trading_pair: str) -> Decimal:
         return self.market_data_provider.get_price_by_type(self.config.connector_name, trading_pair, PriceType.MidPrice)
+
+    def get_candles_config(self) -> List[CandlesConfig]:
+        return [CandlesConfig(
+            connector=self.config.connector_name,
+            trading_pair=trading_pair + "-" + self.config.quote_asset,
+            interval=self.config.interval,
+            max_records=self.config.bb_length + 100
+        ) for trading_pair in self.config.portfolio_allocation.keys()]

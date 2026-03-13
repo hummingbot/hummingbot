@@ -24,6 +24,7 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
         self._trading_pairs: List[str] = trading_pairs
         self._order_book_create_function = lambda: OrderBook()
         self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
+        self._ws_assistant: Optional[WSAssistant] = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -76,6 +77,7 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
         while True:
             try:
                 ws: WSAssistant = await self._connected_websocket_assistant()
+                self._ws_assistant = ws  # Store reference for incremental subscriptions
                 await self._subscribe_channels(ws)
                 await self._process_websocket_messages(websocket_assistant=ws)
             except asyncio.CancelledError:
@@ -88,6 +90,7 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
                 )
                 await self._sleep(1.0)
             finally:
+                self._ws_assistant = None  # Clear reference on disconnect
                 await self._on_order_stream_interruption(websocket_assistant=ws)
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
@@ -256,3 +259,43 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
 
     def _time(self):
         return time.time()
+
+    def add_trading_pair(self, trading_pair: str):
+        """
+        Adds a trading pair to the internal list of tracked pairs.
+
+        :param trading_pair: the trading pair to add
+        """
+        if trading_pair not in self._trading_pairs:
+            self._trading_pairs.append(trading_pair)
+
+    def remove_trading_pair(self, trading_pair: str):
+        """
+        Removes a trading pair from the internal list of tracked pairs.
+
+        :param trading_pair: the trading pair to remove
+        """
+        if trading_pair in self._trading_pairs:
+            self._trading_pairs.remove(trading_pair)
+
+    @abstractmethod
+    async def subscribe_to_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Subscribes to order book and trade channels for a single trading pair on an
+        existing WebSocket connection.
+
+        :param trading_pair: the trading pair to subscribe to
+        :return: True if subscription was successful, False otherwise
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    async def unsubscribe_from_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Unsubscribes from order book and trade channels for a single trading pair on an
+        existing WebSocket connection.
+
+        :param trading_pair: the trading pair to unsubscribe from
+        :return: True if unsubscription was successful, False otherwise
+        """
+        raise NotImplementedError

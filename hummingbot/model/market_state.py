@@ -1,13 +1,6 @@
 #!/usr/bin/env python
 
-from sqlalchemy import (
-    Column,
-    Text,
-    JSON,
-    Integer,
-    BigInteger,
-    Index
-)
+from sqlalchemy import JSON, BigInteger, Column, Index, Integer, Text
 
 from . import HummingbotBase
 

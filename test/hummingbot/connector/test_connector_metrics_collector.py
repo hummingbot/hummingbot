@@ -97,7 +97,7 @@ class TradeVolumeMetricCollectorTests(TestCase):
         last_process_tick_timestamp_copy = self.metrics_collector._last_process_tick_timestamp
         last_executed_collection_process = self.metrics_collector._last_executed_collection_process
 
-        self.metrics_collector.process_tick(timestamp=5)
+        self.metrics_collector.tick(timestamp=5)
 
         self.assertEqual(last_process_tick_timestamp_copy, self.metrics_collector._last_process_tick_timestamp)
         self.assertEqual(last_executed_collection_process, self.metrics_collector._last_executed_collection_process)
@@ -118,7 +118,7 @@ class TradeVolumeMetricCollectorTests(TestCase):
 
         last_executed_collection_process = self.metrics_collector._last_executed_collection_process
 
-        self.metrics_collector.process_tick(timestamp=15)
+        self.metrics_collector.tick(timestamp=15)
 
         self.assertEqual(15, self.metrics_collector._last_process_tick_timestamp)
         self.assertNotEqual(last_executed_collection_process, self.metrics_collector._last_executed_collection_process)

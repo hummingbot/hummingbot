@@ -1,11 +1,11 @@
 import re
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import TYPE_CHECKING, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Union
 
 from pydantic import ConfigDict, Field, SecretStr, field_validator
-from pyinjective.async_client import AsyncClient
-from pyinjective.composer import Composer
+from pyinjective.async_client_v2 import AsyncClient
+from pyinjective.composer_v2 import Composer
 from pyinjective.core.broadcaster import (
     MessageBasedTransactionFeeCalculator,
     SimulatedTransactionFeeCalculator,
@@ -21,9 +21,6 @@ from hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_d
 )
 from hummingbot.connector.exchange.injective_v2.data_sources.injective_read_only_data_source import (
     InjectiveReadOnlyDataSource,
-)
-from hummingbot.connector.exchange.injective_v2.data_sources.injective_vaults_data_source import (
-    InjectiveVaultsDataSource,
 )
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
@@ -55,7 +52,7 @@ class InjectiveFeeCalculatorMode(BaseClientModel, ABC):
 
 
 class InjectiveSimulatedTransactionFeeCalculatorMode(InjectiveFeeCalculatorMode):
-    name: str = Field(default="simulated_transaction_fee_calculator")
+    name: Literal["simulated_transaction_fee_calculator"] = "simulated_transaction_fee_calculator"
     model_config = ConfigDict(title="simulated_transaction_fee_calculator")
 
     def create_calculator(
@@ -74,7 +71,7 @@ class InjectiveSimulatedTransactionFeeCalculatorMode(InjectiveFeeCalculatorMode)
 
 
 class InjectiveMessageBasedTransactionFeeCalculatorMode(InjectiveFeeCalculatorMode):
-    name: str = Field(default="message_based_transaction_fee_calculator")
+    name: Literal["message_based_transaction_fee_calculator"] = "message_based_transaction_fee_calculator"
     model_config = ConfigDict(title="message_based_transaction_fee_calculator")
 
     def create_calculator(
@@ -272,52 +269,6 @@ class InjectiveDelegatedAccountMode(InjectiveAccountMode):
         )
 
 
-class InjectiveVaultAccountMode(InjectiveAccountMode):
-    private_key: SecretStr = Field(
-        default=...,
-        json_schema_extra={
-            "prompt": "Enter the vault admin private key",
-            "is_secure": True,
-            "is_connect_key": True,
-            "prompt_on_new": True,
-        }
-    )
-    subaccount_index: int = Field(
-        default=...,
-        json_schema_extra={
-            "prompt": "Enter the vault admin subaccount index",
-            "is_secure": True,
-            "is_connect_key": True,
-            "prompt_on_new": True,
-        }
-    )
-    vault_contract_address: str = Field(
-        default=...,
-        json_schema_extra={
-            "prompt": "Enter the vault contract address",
-            "prompt_on_new": True,
-        }
-    )
-    vault_subaccount_index: int = Field(default=1)
-    model_config = ConfigDict(title="vault_account")
-
-    def create_data_source(
-            self,
-            network: Network,
-            rate_limits: List[RateLimit],
-            fee_calculator_mode: InjectiveFeeCalculatorMode,
-    ) -> "InjectiveDataSource":
-        return InjectiveVaultsDataSource(
-            private_key=self.private_key.get_secret_value(),
-            subaccount_index=self.subaccount_index,
-            vault_contract_address=self.vault_contract_address,
-            vault_subaccount_index=self.vault_subaccount_index,
-            network=network,
-            rate_limits=rate_limits,
-            fee_calculator_mode=fee_calculator_mode,
-        )
-
-
 class InjectiveReadOnlyAccountMode(InjectiveAccountMode):
     model_config = ConfigDict(title="read_only_account")
 
@@ -335,7 +286,6 @@ class InjectiveReadOnlyAccountMode(InjectiveAccountMode):
 
 ACCOUNT_MODES = {
     InjectiveDelegatedAccountMode.model_config["title"]: InjectiveDelegatedAccountMode,
-    InjectiveVaultAccountMode.model_config["title"]: InjectiveVaultAccountMode,
     InjectiveReadOnlyAccountMode.model_config["title"]: InjectiveReadOnlyAccountMode,
 }
 
@@ -357,7 +307,8 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
             "prompt_on_new": True},
     )
     fee_calculator: Union[tuple(FEE_CALCULATOR_MODES.values())] = Field(
-        default=InjectiveSimulatedTransactionFeeCalculatorMode(),
+        default=InjectiveMessageBasedTransactionFeeCalculatorMode(),
+        discriminator="name",
         json_schema_extra={
             "prompt": f"Select the fee calculator ({'/'.join(list(FEE_CALCULATOR_MODES.keys()))})",
             "prompt_on_new": True},

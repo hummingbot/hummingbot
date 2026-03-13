@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
-from aiohttp import ClientRequest
-import certifi
 import ssl
 from typing import Optional
+
+import certifi
+from aiohttp import ClientRequest
 
 
 class SSLClientRequest(ClientRequest):

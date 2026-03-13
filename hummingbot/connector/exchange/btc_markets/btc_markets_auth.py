@@ -16,6 +16,7 @@ class BtcMarketsAuth(AuthBase):
     Auth class required by btc_markets API
     Learn more at https://api.btcmarkets.net/doc/v3#section/Authentication/Authentication-process
     """
+
     def __init__(self, api_key: str, secret_key: str, time_provider: TimeSynchronizer):
         self.api_key = api_key
         self.secret_key = secret_key

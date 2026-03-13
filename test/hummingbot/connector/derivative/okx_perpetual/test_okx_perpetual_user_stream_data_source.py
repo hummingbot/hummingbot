@@ -10,7 +10,6 @@ from hummingbot.connector.derivative.okx_perpetual.okx_perpetual_user_stream_dat
     OkxPerpetualUserStreamDataSource,
 )
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
-from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
 
 class OkxPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
@@ -48,8 +47,6 @@ class OkxPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.mocking_assistant = NetworkMockingAssistant()
 
     async def asyncSetUp(self) -> None:
-        await super().asyncSetUp()
-        await ConnectionsFactory().close()
         self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()
 

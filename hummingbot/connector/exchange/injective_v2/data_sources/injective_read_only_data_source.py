@@ -1,11 +1,13 @@
 import asyncio
+from decimal import Decimal
 from typing import Any, Dict, List, Mapping, Optional
 
 from google.protobuf import any_pb2
 from pyinjective import Transaction
-from pyinjective.async_client import AsyncClient
-from pyinjective.composer import Composer, injective_exchange_tx_pb
+from pyinjective.async_client_v2 import AsyncClient
+from pyinjective.composer_v2 import Composer, injective_exchange_tx_pb
 from pyinjective.core.network import Network
+from pyinjective.indexer_client import IndexerClient
 
 from hummingbot.connector.exchange.injective_v2 import injective_constants as CONSTANTS
 from hummingbot.connector.exchange.injective_v2.data_sources.injective_data_source import InjectiveDataSource
@@ -37,8 +39,14 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
         self._client = AsyncClient(
             network=self._network,
         )
+        self._indexer_client = IndexerClient(
+            network=self._network,
+        )
         self._composer = None
-        self._query_executor = PythonSDKInjectiveQueryExecutor(sdk_client=self._client)
+        self._query_executor = PythonSDKInjectiveQueryExecutor(
+            sdk_client=self._client,
+            indexer_client=self._indexer_client,
+        )
 
         self._publisher = PubSub()
         self._last_received_message_timestamp = 0
@@ -93,6 +101,10 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
     @property
     def network_name(self) -> str:
         return self._network.string()
+
+    @property
+    def gas_price(self) -> Decimal:
+        return Decimal(str(CONSTANTS.TX_GAS_PRICE))
 
     @property
     def last_received_message_timestamp(self) -> float:
@@ -255,6 +267,9 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
 
     def supported_order_types(self) -> List[OrderType]:
         return []
+
+    def update_timeout_height(self, block_height: int):
+        raise NotImplementedError
 
     async def _initialize_timeout_height(self):  # pragma: no cover
         # Do nothing

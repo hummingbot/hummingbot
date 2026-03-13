@@ -18,7 +18,7 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
 )
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.data_types import ExecutorConfigBase
 from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executors import CloseType
@@ -31,7 +31,7 @@ class ExecutorBase(RunnableBase):
     Base class for all executors. Executors are responsible for executing orders based on the strategy.
     """
 
-    def __init__(self, strategy: ScriptStrategyBase, connectors: List[str], config: ExecutorConfigBase, update_interval: float = 0.5):
+    def __init__(self, strategy: StrategyV2Base, connectors: List[str], config: ExecutorConfigBase, update_interval: float = 0.5):
         """
         Initializes the executor with the given strategy, connectors and update interval.
 
@@ -43,7 +43,7 @@ class ExecutorBase(RunnableBase):
         self.config = config
         self.close_type: Optional[CloseType] = None
         self.close_timestamp: Optional[float] = None
-        self._strategy: ScriptStrategyBase = strategy
+        self._strategy: StrategyV2Base = strategy
         self._held_position_orders = []  # Keep track of orders that become held positions
         self.connectors = {connector_name: connector for connector_name, connector in strategy.connectors.items() if
                            connector_name in connectors}
@@ -108,6 +108,10 @@ class ExecutorBase(RunnableBase):
         """
         Returns the executor info.
         """
+        def _safe_decimal(value) -> Decimal:
+            d = Decimal(str(value))
+            return d if d.is_finite() else Decimal("0")
+
         ei = ExecutorInfo(
             id=self.config.id,
             timestamp=self.config.timestamp,
@@ -116,19 +120,15 @@ class ExecutorBase(RunnableBase):
             close_type=self.close_type,
             close_timestamp=self.close_timestamp,
             config=self.config,
-            net_pnl_pct=self.net_pnl_pct,
-            net_pnl_quote=self.net_pnl_quote,
-            cum_fees_quote=self.cum_fees_quote,
-            filled_amount_quote=self.filled_amount_quote,
+            net_pnl_pct=_safe_decimal(self.net_pnl_pct),
+            net_pnl_quote=_safe_decimal(self.net_pnl_quote),
+            cum_fees_quote=_safe_decimal(self.cum_fees_quote),
+            filled_amount_quote=_safe_decimal(self.filled_amount_quote),
             is_active=self.is_active,
             is_trading=self.is_trading,
             custom_info=self.get_custom_info(),
             controller_id=self.config.controller_id,
         )
-        ei.filled_amount_quote = ei.filled_amount_quote if not ei.filled_amount_quote.is_nan() else Decimal("0")
-        ei.net_pnl_quote = ei.net_pnl_quote if not ei.net_pnl_quote.is_nan() else Decimal("0")
-        ei.cum_fees_quote = ei.cum_fees_quote if not ei.cum_fees_quote.is_nan() else Decimal("0")
-        ei.net_pnl_pct = ei.net_pnl_pct if not ei.net_pnl_pct.is_nan() else Decimal("0")
         return ei
 
     def get_custom_info(self) -> Dict:

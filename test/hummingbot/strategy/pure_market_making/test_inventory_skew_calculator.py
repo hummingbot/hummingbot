@@ -2,8 +2,9 @@
 import unittest
 
 from hummingbot.strategy.pure_market_making.data_types import InventorySkewBidAskRatios
-from hummingbot.strategy.pure_market_making.inventory_skew_calculator import \
-    calculate_bid_ask_ratios_from_base_asset_ratio
+from hummingbot.strategy.pure_market_making.inventory_skew_calculator import (
+    calculate_bid_ask_ratios_from_base_asset_ratio,
+)
 
 
 class InventorySkewCalculatorUnitTest(unittest.TestCase):

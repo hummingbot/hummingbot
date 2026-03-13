@@ -1,6 +1,6 @@
 import asyncio
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
+from typing import Any, AsyncIterable, Dict, List, Optional
 
 from bidict import bidict
 
@@ -22,9 +22,6 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
-if TYPE_CHECKING:
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
-
 
 class HtxExchange(ExchangePyBase):
 
@@ -32,9 +29,10 @@ class HtxExchange(ExchangePyBase):
 
     def __init__(
         self,
-        client_config_map: "ClientConfigAdapter",
         htx_api_key: str,
         htx_secret_key: str,
+        balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
+        rate_limits_share_pct: Decimal = Decimal("100"),
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = True,
     ):
@@ -43,7 +41,7 @@ class HtxExchange(ExchangePyBase):
         self._trading_pairs = trading_pairs
         self._trading_required = trading_required
         self._account_id = ""
-        super().__init__(client_config_map=client_config_map)
+        super().__init__(balance_asset_limit, rate_limits_share_pct)
 
     @property
     def name(self) -> str:

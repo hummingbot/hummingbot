@@ -48,11 +48,6 @@ _microseconds_nonce_provider = NonceCreator.for_microseconds()
 
 
 def get_tracking_nonce() -> int:
-    # todo: remove
-    warnings.warn(
-        message=f"This method has been deprecate in favor of {NonceCreator.__class__.__name__}.",
-        category=DeprecationWarning,
-    )
     nonce = _microseconds_nonce_provider.get_tracking_nonce()
     return nonce
 

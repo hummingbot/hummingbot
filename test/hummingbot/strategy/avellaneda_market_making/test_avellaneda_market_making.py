@@ -8,7 +8,6 @@ from typing import Dict, List, Tuple
 import numpy as np
 import pandas as pd
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
@@ -92,9 +91,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         trade_fee_schema = TradeFeeSchema(
             maker_percent_fee_decimal=Decimal("0.25"), taker_percent_fee_decimal=Decimal("0.25")
         )
-        self.market: MockPaperExchange = MockPaperExchange(
-            client_config_map=ClientConfigAdapter(ClientConfigMap()),
-            trade_fee_schema=trade_fee_schema)
+        self.market: MockPaperExchange = MockPaperExchange(trade_fee_schema=trade_fee_schema)
         self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             self.market, self.trading_pair, *self.trading_pair.split("-")
         )

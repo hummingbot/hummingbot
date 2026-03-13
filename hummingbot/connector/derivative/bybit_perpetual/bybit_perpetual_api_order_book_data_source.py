@@ -34,6 +34,9 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._api_factory = api_factory
         self._domain = domain
         self._nonce_provider = NonceCreator.for_microseconds()
+        # Store separate WebSocket assistants for linear and non-linear perpetuals
+        self._linear_ws_assistant: Optional[WSAssistant] = None
+        self._non_linear_ws_assistant: Optional[WSAssistant] = None
 
     async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
@@ -72,6 +75,8 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     async def listen_for_subscriptions(self):
         """
         Subscribe to all required events and start the listening cycle.
+        Only establishes WebSocket connections for the types of perpetuals that are configured.
+        Dynamic subscription is only supported for pair types that have an active WebSocket connection.
         """
         tasks_future = None
         try:
@@ -83,11 +88,13 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             if linear_trading_pairs:
                 tasks.append(self._listen_for_subscriptions_on_url(
                     url=web_utils.wss_linear_public_url(self._domain),
-                    trading_pairs=linear_trading_pairs))
+                    trading_pairs=linear_trading_pairs,
+                    is_linear=True))
             if non_linear_trading_pairs:
                 tasks.append(self._listen_for_subscriptions_on_url(
                     url=web_utils.wss_non_linear_public_url(self._domain),
-                    trading_pairs=non_linear_trading_pairs))
+                    trading_pairs=non_linear_trading_pairs,
+                    is_linear=False))
 
             if tasks:
                 tasks_future = asyncio.gather(*tasks)
@@ -97,17 +104,23 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             tasks_future and tasks_future.cancel()
             raise
 
-    async def _listen_for_subscriptions_on_url(self, url: str, trading_pairs: List[str]):
+    async def _listen_for_subscriptions_on_url(self, url: str, trading_pairs: List[str], is_linear: bool = True):
         """
         Subscribe to all required events and start the listening cycle.
         :param url: the wss url to connect to
         :param trading_pairs: the trading pairs for which the function should listen events
+        :param is_linear: True if this is for linear perpetuals, False for non-linear
         """
 
         ws: Optional[WSAssistant] = None
         while True:
             try:
                 ws = await self._get_connected_websocket_assistant(url)
+                # Store the WebSocket assistant for dynamic subscriptions
+                if is_linear:
+                    self._linear_ws_assistant = ws
+                else:
+                    self._non_linear_ws_assistant = ws
                 await self._subscribe_to_channels(ws, trading_pairs)
                 await self._process_websocket_messages(ws)
             except asyncio.CancelledError:
@@ -118,6 +131,11 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 )
                 await self._sleep(5.0)
             finally:
+                # Clear the WebSocket assistant reference on disconnect
+                if is_linear:
+                    self._linear_ws_assistant = None
+                else:
+                    self._non_linear_ws_assistant = None
                 ws and await ws.disconnect()
 
     async def _get_connected_websocket_assistant(self, ws_url: str) -> WSAssistant:
@@ -341,3 +359,108 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _subscribe_channels(self, ws: WSAssistant):
         pass  # unused
+
+    async def subscribe_to_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Subscribes to order book and trade channels for a single trading pair
+        on the appropriate WebSocket connection (linear or non-linear).
+
+        Note: Dynamic subscription only works for pair types that were configured at startup.
+        For example, if you started with only linear pairs (USDT-margined), you can only
+        dynamically add other linear pairs. To add non-linear pairs, include at least one
+        non-linear pair in your initial configuration.
+
+        :param trading_pair: the trading pair to subscribe to
+        :return: True if subscription was successful, False otherwise
+        """
+        is_linear = bybit_perpetual_utils.is_linear_perpetual(trading_pair)
+        ws_assistant = self._linear_ws_assistant if is_linear else self._non_linear_ws_assistant
+
+        if ws_assistant is None:
+            ws_type = "linear (USDT-margined)" if is_linear else "non-linear (coin-margined)"
+            self.logger().warning(
+                f"Cannot subscribe to {trading_pair}: {ws_type} WebSocket not connected. "
+                f"To dynamically add {ws_type} pairs, include at least one in your initial configuration."
+            )
+            return False
+
+        try:
+            symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+
+            # Subscribe to trades
+            trade_payload = {
+                "op": "subscribe",
+                "args": [f"{CONSTANTS.WS_TRADES_TOPIC}.{symbol}"],
+            }
+            trade_request = WSJSONRequest(payload=trade_payload)
+
+            # Subscribe to order book
+            orderbook_payload = {
+                "op": "subscribe",
+                "args": [f"{CONSTANTS.WS_ORDER_BOOK_EVENTS_TOPIC}.{symbol}"],
+            }
+            orderbook_request = WSJSONRequest(payload=orderbook_payload)
+
+            # Subscribe to instruments info (funding)
+            instruments_payload = {
+                "op": "subscribe",
+                "args": [f"{CONSTANTS.WS_INSTRUMENTS_INFO_TOPIC}.{symbol}"],
+            }
+            instruments_request = WSJSONRequest(payload=instruments_payload)
+
+            await ws_assistant.send(trade_request)
+            await ws_assistant.send(orderbook_request)
+            await ws_assistant.send(instruments_request)
+
+            self.add_trading_pair(trading_pair)
+            self.logger().info(f"Subscribed to {trading_pair} order book, trade and funding info channels")
+            return True
+
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().exception(f"Error subscribing to {trading_pair}")
+            return False
+
+    async def unsubscribe_from_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Unsubscribes from order book and trade channels for a single trading pair
+        on the appropriate WebSocket connection (linear or non-linear).
+
+        :param trading_pair: the trading pair to unsubscribe from
+        :return: True if unsubscription was successful, False otherwise
+        """
+        is_linear = bybit_perpetual_utils.is_linear_perpetual(trading_pair)
+        ws_assistant = self._linear_ws_assistant if is_linear else self._non_linear_ws_assistant
+
+        if ws_assistant is None:
+            ws_type = "linear (USDT-margined)" if is_linear else "non-linear (coin-margined)"
+            self.logger().warning(
+                f"Cannot unsubscribe from {trading_pair}: {ws_type} WebSocket not connected"
+            )
+            return False
+
+        try:
+            symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+
+            # Unsubscribe from all channels
+            unsubscribe_payload = {
+                "op": "unsubscribe",
+                "args": [
+                    f"{CONSTANTS.WS_TRADES_TOPIC}.{symbol}",
+                    f"{CONSTANTS.WS_ORDER_BOOK_EVENTS_TOPIC}.{symbol}",
+                    f"{CONSTANTS.WS_INSTRUMENTS_INFO_TOPIC}.{symbol}",
+                ],
+            }
+            unsubscribe_request = WSJSONRequest(payload=unsubscribe_payload)
+            await ws_assistant.send(unsubscribe_request)
+
+            self.remove_trading_pair(trading_pair)
+            self.logger().info(f"Unsubscribed from {trading_pair} order book, trade and funding info channels")
+            return True
+
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().exception(f"Error unsubscribing from {trading_pair}")
+            return False

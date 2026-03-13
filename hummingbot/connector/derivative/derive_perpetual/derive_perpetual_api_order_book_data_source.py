@@ -34,6 +34,9 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     _logger: Optional[HummingbotLogger] = None
 
+    _DYNAMIC_SUBSCRIBE_ID_START = 100
+    _next_subscribe_id: int = _DYNAMIC_SUBSCRIBE_ID_START
+
     def __init__(self,
                  trading_pairs: List[str],
                  connector: 'DerivePerpetualDerivative',
@@ -47,8 +50,8 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._trading_pairs: List[str] = trading_pairs
         self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
         self._trade_messages_queue_key = CONSTANTS.TRADE_EVENT_TYPE
+        self._funding_info_messages_queue_key = CONSTANTS.FUNDING_INFO_STREAM_ID
         self._snapshot_messages_queue_key = "order_book_snapshot"
-        self._instrument_ticker = []
 
     async def get_last_traded_prices(self,
                                      trading_pairs: List[str],
@@ -69,29 +72,68 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def listen_for_funding_info(self, output: asyncio.Queue):
         """
-        Reads the funding info events queue and updates the local funding info information.
+        Reads the funding info events from WebSocket queue and updates the local funding info information.
         """
+        message_queue = self._message_queue[self._funding_info_messages_queue_key]
         while True:
             try:
-                for trading_pair in self._trading_pairs:
-                    funding_info = await self.get_funding_info(trading_pair)
-                    funding_info_update = FundingInfoUpdate(
-                        trading_pair=trading_pair,
-                        index_price=funding_info.index_price,
-                        mark_price=funding_info.mark_price,
-                        next_funding_utc_timestamp=funding_info.next_funding_utc_timestamp,
-                        rate=funding_info.rate,
-                    )
-                    output.put_nowait(funding_info_update)
-                await self._sleep(CONSTANTS.FUNDING_RATE_UPDATE_INTERNAL_SECOND)
+                funding_info_event = await message_queue.get()
+                await self._parse_funding_info_message(funding_info_event, output)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().exception("Unexpected error when processing public funding info updates from exchange")
-                await self._sleep(CONSTANTS.FUNDING_RATE_UPDATE_INTERNAL_SECOND)
+                await self._sleep(5)
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
-        pass
+        """
+        Retrieve orderbook snapshot for a trading pair.
+        Since we're already subscribed to orderbook updates via the main WebSocket in _subscribe_channels,
+        we simply wait for a snapshot message from the message queue.
+        """
+        # Check if we already have a cached snapshot
+        if trading_pair in self._snapshot_messages:
+            cached_snapshot = self._snapshot_messages[trading_pair]
+            # Convert OrderBookMessage back to dict format for compatibility
+            return {
+                "params": {
+                    "data": {
+                        "instrument_name": await self._connector.exchange_symbol_associated_to_pair(trading_pair),
+                        "publish_id": cached_snapshot.update_id,
+                        "bids": cached_snapshot.bids,
+                        "asks": cached_snapshot.asks,
+                        "timestamp": cached_snapshot.timestamp * 1000  # Convert back to milliseconds
+                    }
+                }
+            }
+
+        # If no cached snapshot, wait for one from the main WebSocket stream
+        # The main WebSocket connection in listen_for_subscriptions() is already
+        # subscribed to orderbook updates, so we just need to wait
+        message_queue = self._message_queue[self._snapshot_messages_queue_key]
+
+        max_attempts = 100
+        for _ in range(max_attempts):
+            try:
+                # Wait for snapshot message with timeout
+                snapshot_event = await asyncio.wait_for(message_queue.get(), timeout=1.0)
+
+                # Check if this snapshot is for our trading pair
+                if "params" in snapshot_event and "data" in snapshot_event["params"]:
+                    instrument_name = snapshot_event["params"]["data"].get("instrument_name")
+                    ex_trading_pair = await self._connector.exchange_symbol_associated_to_pair(trading_pair)
+
+                    if instrument_name == ex_trading_pair:
+                        return snapshot_event
+                    else:
+                        # Put it back for other trading pairs
+                        message_queue.put_nowait(snapshot_event)
+
+            except asyncio.TimeoutError:
+                continue
+
+        raise RuntimeError(f"Failed to receive orderbook snapshot for {trading_pair} after {max_attempts} attempts. "
+                           f"Make sure the main WebSocket connection is active.")
 
     async def _subscribe_channels(self, ws: WSAssistant):
         """
@@ -104,9 +146,10 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
             for trading_pair in self._trading_pairs:
                 # NB: DONT want exchange_symbol_associated_with_trading_pair, to avoid too much request
-                symbol = trading_pair.replace("USDC", "PERP")
+                symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
                 params.append(f"trades.{symbol.upper()}")
-                params.append(f"orderbook.{symbol.upper()}.1.100")
+                params.append(f"orderbook.{symbol.upper()}.10.10")
+                params.append(f"ticker_slim.{symbol.upper()}.1000")
 
             trades_payload = {
                 "method": "subscribe",
@@ -132,20 +175,15 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot_timestamp: float = self._time()
-        if trading_pair in self._snapshot_messages:
-            snapshot_msg = self._snapshot_messages[trading_pair]
-            return snapshot_msg
-        # If we don't have a snapshot message, create one
-        order_book_message_content = {
+        snapshot_response: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
+        snapshot_response.update({"trading_pair": trading_pair})
+        data = snapshot_response["params"]["data"]
+        snapshot_msg: OrderBookMessage = OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": trading_pair,
-            "update_id": snapshot_timestamp,
-            "bids": [],
-            "asks": [],
-        }
-        snapshot_msg: OrderBookMessage = OrderBookMessage(
-            OrderBookMessageType.SNAPSHOT,
-            order_book_message_content,
-            snapshot_timestamp)
+            "update_id": int(data['publish_id']),
+            "bids": [[i[0], i[1]] for i in data.get('bids', [])],
+            "asks": [[i[0], i[1]] for i in data.get('asks', [])],
+        }, timestamp=snapshot_timestamp)
         return snapshot_msg
 
     async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
@@ -189,10 +227,29 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                     channel = self._snapshot_messages_queue_key
                 elif "trades" in stream_name:
                     channel = self._trade_messages_queue_key
+                elif "ticker_slim" in stream_name:
+                    channel = self._funding_info_messages_queue_key
             return channel
 
     async def _parse_funding_info_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        pass
+
+        data: Dict[str, Any] = raw_message["params"]["data"]
+        # ticker_slim.ETH-PERP.1000
+
+        symbol = raw_message["params"]["channel"].split(".")[1]
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
+
+        if trading_pair not in self._trading_pairs:
+            return
+        funding_info = FundingInfoUpdate(
+            trading_pair=trading_pair,
+            index_price=Decimal(data["instrument_ticker"]["I"]),
+            mark_price=Decimal(data["instrument_ticker"]["M"]),
+            next_funding_utc_timestamp=self._next_funding_time(),
+            rate=Decimal(data["instrument_ticker"]["f"]),
+        )
+
+        message_queue.put_nowait(funding_info)
 
     async def _request_complete_funding_info(self, trading_pair: str):
         # NB: DONT want exchange_symbol_associated_with_trading_pair, to avoid too much request
@@ -208,3 +265,96 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     def _next_funding_time(self) -> int:
         return int(((time.time() // 3600) + 1) * 3600)
+
+    @classmethod
+    def _get_next_subscribe_id(cls) -> int:
+        """Get the next subscription ID and increment the counter."""
+        subscribe_id = cls._next_subscribe_id
+        cls._next_subscribe_id += 1
+        return subscribe_id
+
+    async def subscribe_to_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Subscribe to order book channels for a single trading pair dynamically.
+
+        :param trading_pair: The trading pair to subscribe to.
+        :return: True if subscription was successful, False otherwise.
+        """
+        if self._ws_assistant is None:
+            self.logger().warning(
+                f"Cannot subscribe to {trading_pair}: WebSocket connection not established."
+            )
+            return False
+
+        try:
+            symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+            params = [
+                f"trades.{symbol.upper()}",
+                f"orderbook.{symbol.upper()}.10.10",
+                f"ticker_slim.{symbol.upper()}.1000",
+            ]
+
+            trades_payload = {
+                "method": "subscribe",
+                "params": {
+                    "channels": params
+                }
+            }
+            subscribe_request: WSJSONRequest = WSJSONRequest(payload=trades_payload)
+            await self._ws_assistant.send(subscribe_request)
+
+            self.add_trading_pair(trading_pair)
+
+            # Wait for WebSocket subscription to be established and start receiving messages
+            # This prevents the race condition where _request_order_book_snapshot tries to
+            # read from the queue before any messages have arrived
+            await asyncio.sleep(2.0)
+
+            self.logger().info(f"Successfully subscribed to {trading_pair}")
+            return True
+
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger().error(f"Error subscribing to {trading_pair}: {e}")
+            return False
+
+    async def unsubscribe_from_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Unsubscribe from order book channels for a single trading pair dynamically.
+
+        :param trading_pair: The trading pair to unsubscribe from.
+        :return: True if unsubscription was successful, False otherwise.
+        """
+        if self._ws_assistant is None:
+            self.logger().warning(
+                f"Cannot unsubscribe from {trading_pair}: WebSocket connection not established."
+            )
+            return False
+
+        try:
+            symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+            params = [
+                f"trades.{symbol.upper()}",
+                f"orderbook.{symbol.upper()}.10.10",
+                f"ticker_slim.{symbol.upper()}.1000",
+            ]
+
+            trades_payload = {
+                "method": "unsubscribe",
+                "params": {
+                    "channels": params
+                }
+            }
+            unsubscribe_request: WSJSONRequest = WSJSONRequest(payload=trades_payload)
+            await self._ws_assistant.send(unsubscribe_request)
+
+            self.remove_trading_pair(trading_pair)
+            self.logger().info(f"Successfully unsubscribed from {trading_pair}")
+            return True
+
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger().error(f"Error unsubscribing from {trading_pair}: {e}")
+            return False

@@ -43,7 +43,9 @@ class XRPLAuth(AuthBase):
                     # Seed format
                     self._wallet = Wallet.from_seed(xrpl_secret_key, algorithm=self.get_algorithm(key=xrpl_secret_key))
                 else:
-                    raise ValueError("Invalid XRPL secret key format. Must be either a seed (starting with 's'), or a raw private key (starting with 'ED' or '00')")
+                    raise ValueError(
+                        "Invalid XRPL secret key format. Must be either a seed (starting with 's'), or a raw private key (starting with 'ED' or '00')"
+                    )
         except Exception as e:
             raise ValueError(f"Invalid XRPL secret key: {e}")
 

@@ -135,6 +135,7 @@ class HttpRecorder(HttpPlayerBase):
           data = await resp.json()      # the request and response are recorded to test.db
           ...
     """
+
     async def aiohttp_request_method(
             self,
             client: ClientSession,

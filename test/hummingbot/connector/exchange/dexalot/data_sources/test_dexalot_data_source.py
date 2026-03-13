@@ -9,8 +9,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses import aioresponses
 from web3 import AsyncWeb3
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.dexalot import dexalot_constants as CONSTANTS, dexalot_web_utils as web_utils
 from hummingbot.connector.exchange.dexalot.data_sources.dexalot_data_source import DexalotClient
 from hummingbot.connector.exchange.dexalot.dexalot_exchange import DexalotExchange
@@ -29,9 +27,7 @@ class DexalotClientTests(TestCase):
         self.quote_asset = "USDC"
         self.trading_pair = "AVAX-USDC"
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.exchange = DexalotExchange(
-            client_config_map=client_config_map,
             dexalot_api_key=self.api_key,
             dexalot_api_secret=self.api_secret,
             trading_pairs=[self.trading_pair],

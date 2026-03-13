@@ -13,7 +13,6 @@ from hummingbot.strategy_v2.controllers.directional_trading_controller_base impo
 
 class MACDBBV1ControllerConfig(DirectionalTradingControllerConfigBase):
     controller_name: str = "macd_bb_v1"
-    candles_config: List[CandlesConfig] = []
     candles_connector: str = Field(
         default=None,
         json_schema_extra={
@@ -65,13 +64,6 @@ class MACDBBV1Controller(DirectionalTradingControllerBase):
     def __init__(self, config: MACDBBV1ControllerConfig, *args, **kwargs):
         self.config = config
         self.max_records = max(config.macd_slow, config.macd_fast, config.macd_signal, config.bb_length) + 20
-        if len(self.config.candles_config) == 0:
-            self.config.candles_config = [CandlesConfig(
-                connector=config.candles_connector,
-                trading_pair=config.candles_trading_pair,
-                interval=config.interval,
-                max_records=self.max_records
-            )]
         super().__init__(config, *args, **kwargs)
 
     async def update_processed_data(self):
@@ -80,10 +72,10 @@ class MACDBBV1Controller(DirectionalTradingControllerBase):
                                                       interval=self.config.interval,
                                                       max_records=self.max_records)
         # Add indicators
-        df.ta.bbands(length=self.config.bb_length, std=self.config.bb_std, append=True)
+        df.ta.bbands(length=self.config.bb_length, lower_std=self.config.bb_std, upper_std=self.config.bb_std, append=True)
         df.ta.macd(fast=self.config.macd_fast, slow=self.config.macd_slow, signal=self.config.macd_signal, append=True)
 
-        bbp = df[f"BBP_{self.config.bb_length}_{self.config.bb_std}"]
+        bbp = df[f"BBP_{self.config.bb_length}_{self.config.bb_std}_{self.config.bb_std}"]
         macdh = df[f"MACDh_{self.config.macd_fast}_{self.config.macd_slow}_{self.config.macd_signal}"]
         macd = df[f"MACD_{self.config.macd_fast}_{self.config.macd_slow}_{self.config.macd_signal}"]
 
@@ -98,3 +90,11 @@ class MACDBBV1Controller(DirectionalTradingControllerBase):
         # Update processed data
         self.processed_data["signal"] = df["signal"].iloc[-1]
         self.processed_data["features"] = df
+
+    def get_candles_config(self) -> List[CandlesConfig]:
+        return [CandlesConfig(
+            connector=self.config.candles_connector,
+            trading_pair=self.config.candles_trading_pair,
+            interval=self.config.interval,
+            max_records=self.max_records
+        )]

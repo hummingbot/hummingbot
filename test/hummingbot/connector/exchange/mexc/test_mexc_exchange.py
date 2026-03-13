@@ -8,8 +8,6 @@ from unittest.mock import patch
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.mexc import mexc_constants as CONSTANTS, mexc_web_utils as web_utils
 from hummingbot.connector.exchange.mexc.mexc_exchange import MexcExchange
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
@@ -332,17 +330,19 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
     @property
     def balance_event_websocket_update(self):
         return {
-            "c": "spot@private.account.v3.api",
-            "d": {
-                "a": self.base_asset,
-                "c": 1564034571105,
-                "f": "10",
-                "fd": "-4.990689704",
-                "l": "5",
-                "ld": "4.990689704",
-                "o": "ENTRUST_PLACE"
-            },
-            "t": 1564034571073
+            "channel": "spot@private.account.v3.api.pb",
+            "createTime": 1736417034305,
+            "sendTime": 1736417034307,
+            "privateAccount": {
+                "vcoinName": self.base_asset,
+                "coinId": "128f589271cb4951b03e71e6323eb7be",
+                "balanceAmount": "10",
+                "balanceAmountChange": "0",
+                "frozenAmount": "5",
+                "frozenAmountChange": "0",
+                "type": "CONTRACT_TRANSFER",
+                "time": 1736416910000
+            }
         }
 
     @property
@@ -404,9 +404,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return f"{base_token}{quote_token}"
 
     def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         return MexcExchange(
-            client_config_map=client_config_map,
             mexc_api_key="testAPIKey",
             mexc_api_secret="testSecret",
             trading_pairs=[self.trading_pair],
@@ -592,95 +590,93 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     def order_event_for_new_order_websocket_update(self, order: InFlightOrder):
         return {
-            "c": "spot@private.orders.v3.api",
-            "d": {
-                "A": 8.0,
-                "O": 1661938138000,
-                "S": 1,
-                "V": 10,
-                "a": 8,
-                "c": order.client_order_id,
-                "i": order.exchange_order_id,
-                "m": 0,
-                "o": 1,
-                "p": order.price,
-                "s": 1,
-                "v": order.amount,
-                "ap": 0,
-                "cv": 0,
-                "ca": 0
-            },
-            "s": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-            "t": 1499405658657
+            "channel": "spot@private.orders.v3.api.pb",
+            "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+            "sendTime": 1661938138040,
+            "privateOrders": {
+                "id": order.exchange_order_id,
+                "clientId": order.client_order_id,
+                "price": order.price,
+                "quantity": order.amount,
+                "amount": "1",
+                "avgPrice": "10100",
+                "orderType": 1,
+                "tradeType": 1,
+                "remainAmount": "0",
+                "remainQuantity": "0",
+                "lastDealQuantity": "1",
+                "cumulativeQuantity": "1",
+                "cumulativeAmount": "10100",
+                "status": 1,
+                "createTime": 1661938138000
+            }
         }
 
     def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
         return {
-            "c": "spot@private.orders.v3.api",
-            "d": {
-                "A": 8.0,
-                "O": 1661938138000,
-                "S": 1,
-                "V": 10,
-                "a": 8,
-                "c": order.client_order_id,
-                "i": order.exchange_order_id,
-                "m": 0,
-                "o": 1,
-                "p": order.price,
-                "s": 4,
-                "v": order.amount,
-                "ap": 0,
-                "cv": 0,
-                "ca": 0
-            },
-            "s": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-            "t": 1499405658657
+            "channel": "spot@private.orders.v3.api.pb",
+            "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+            "sendTime": 1661938138040,
+            "privateOrders": {
+                "id": order.exchange_order_id,
+                "clientId": order.client_order_id,
+                "price": order.price,
+                "quantity": order.amount,
+                "amount": "1",
+                "avgPrice": "10100",
+                "orderType": 1,
+                "tradeType": 1,
+                "remainAmount": "0",
+                "remainQuantity": "0",
+                "lastDealQuantity": "1",
+                "cumulativeQuantity": "1",
+                "cumulativeAmount": "10100",
+                "status": 4,
+                "createTime": 1661938138000
+            }
         }
 
     def order_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         return {
-            "c": "spot@private.orders.v3.api",
-            "d": {
-                "A": 8.0,
-                "O": 1661938138000,
-                "S": 1,
-                "V": 10,
-                "a": 8,
-                "c": order.client_order_id,
-                "i": order.exchange_order_id,
-                "m": 0,
-                "o": 1,
-                "p": order.price,
-                "s": 2,
-                "v": order.amount,
-                "ap": 0,
-                "cv": 0,
-                "ca": 0
-            },
-            "s": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-            "t": 1499405658657
+            "channel": "spot@private.orders.v3.api.pb",
+            "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+            "sendTime": 1661938138040,
+            "privateOrders": {
+                "id": order.exchange_order_id,
+                "clientId": order.client_order_id,
+                "price": order.price,
+                "quantity": order.amount,
+                "amount": "1",
+                "avgPrice": "10100",
+                "orderType": 1,
+                "tradeType": 1,
+                "remainAmount": "0",
+                "remainQuantity": "0",
+                "lastDealQuantity": "1",
+                "cumulativeQuantity": "1",
+                "cumulativeAmount": "10100",
+                "status": 2,
+                "createTime": 1661938138000
+            }
         }
 
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         return {
-            "c": "spot@private.deals.v3.api",
-            "d": {
-                "p": order.price,
-                "v": order.amount,
-                "a": order.price * order.amount,
-                "S": 1,
-                "T": 1678901086198,
-                "t": "5bbb6ad8b4474570b155610e3960cd",
-                "c": order.client_order_id,
-                "i": order.exchange_order_id,
-                "m": 0,
-                "st": 0,
-                "n": Decimal(self.expected_fill_fee.flat_fees[0].amount),
-                "N": self.quote_asset
-            },
-            "s": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-            "t": 1661938980285
+            "channel": "spot@private.deals.v3.api.pb",
+            "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+            "sendTime": 1661938980325,
+            "privateDeals": {
+                "price": order.price,
+                "quantity": order.amount,
+                "amount": order.price * order.amount,
+                "tradeType": 1,
+                "tradeId": "505979017439002624X1",
+                "orderId": order.exchange_order_id,
+                "clientOrderId": order.client_order_id,
+                "feeAmount": Decimal(self.expected_fill_fee.flat_fees[0].amount),
+                "feeCurrency": self.quote_asset,
+                "time": 1661938980285
+            }
         }
 
     @aioresponses()
@@ -1127,31 +1123,36 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
     def test_format_trading_rules__min_notional_present(self):
         trading_rules = [{
             "symbol": "COINALPHAHBOT",
-            "baseSizePrecision": 1e-8,
-            "quotePrecision": 8,
-            "baseAssetPrecision": 8,
             "status": "1",
-            "quoteAmountPrecision": "0.001",
-            "orderTypes": ["LIMIT", "MARKET"],
-            "filters": [
-                {
-                    "filterType": "PRICE_FILTER",
-                    "minPrice": "0.00000100",
-                    "maxPrice": "100000.00000000",
-                    "tickSize": "0.00000100"
-                }, {
-                    "filterType": "LOT_SIZE",
-                    "minQty": "0.00100000",
-                    "maxQty": "100000.00000000",
-                    "stepSize": "0.00100000"
-                }, {
-                    "filterType": "MIN_NOTIONAL",
-                    "minNotional": "0.00300000"
-                }
+            "baseAsset": "COINALPHA",
+            "baseAssetPrecision": 8,
+            "quoteAsset": "HBOT",
+            "quotePrecision": 8,
+            "quoteAssetPrecision": 8,
+            "baseCommissionPrecision": 8,
+            "quoteCommissionPrecision": 8,
+            "orderTypes": [
+                "LIMIT",
+                "MARKET",
+                "LIMIT_MAKER"
             ],
+            "isSpotTradingAllowed": True,
+            "isMarginTradingAllowed": False,
+            "quoteAmountPrecision": "0.001",
+            "baseSizePrecision": "0.00000001",
             "permissions": [
                 "SPOT"
-            ]
+            ],
+            "filters": [],
+            "maxQuoteAmount": "2000000",
+            "makerCommission": "0",
+            "takerCommission": "0",
+            "quoteAmountPrecisionMarket": "1",
+            "maxQuoteAmountMarket": "100000",
+            "fullName": "CoinAlpha",
+            "tradeSideType": 1,
+            "contractAddress": "",
+            "st": False
         }]
         exchange_info = {"symbols": trading_rules}
 

@@ -68,14 +68,14 @@ class StatusCommand:
         return "\n".join(lines)
 
     async def strategy_status(self, live: bool = False):
-        active_paper_exchanges = [exchange for exchange in self.markets.keys() if exchange.endswith("paper_trade")]
+        active_paper_exchanges = [exchange for exchange in self.trading_core.markets.keys() if exchange.endswith("paper_trade")]
 
         paper_trade = "\n  Paper Trading Active: All orders are simulated, and no real orders are placed." if len(active_paper_exchanges) > 0 \
             else ""
-        if asyncio.iscoroutinefunction(self.strategy.format_status):
-            st_status = await self.strategy.format_status()
+        if asyncio.iscoroutinefunction(self.trading_core.strategy.format_status):
+            st_status = await self.trading_core.strategy.format_status()
         else:
-            st_status = self.strategy.format_status()
+            st_status = self.trading_core.strategy.format_status()
         status = paper_trade + "\n" + st_status
         return status
 
@@ -107,7 +107,7 @@ class StatusCommand:
         missing_configs = []
         if not isinstance(config_map, ClientConfigAdapter):
             missing_configs = missing_required_configs_legacy(
-                get_strategy_config_map(self.strategy_name)
+                get_strategy_config_map(self.trading_core.strategy_name)
             )
         return missing_configs
 
@@ -123,11 +123,11 @@ class StatusCommand:
                                notify_success=True,
                                live=False) -> bool:
 
-        if self.strategy is not None:
+        if self.trading_core.strategy is not None:
             if live:
                 await self.stop_live_update()
                 self.app.live_updates = True
-                while self.app.live_updates and self.strategy:
+                while self.app.live_updates and self.trading_core.strategy:
                     await self.cls_display_delay(
                         await self.strategy_status(live=True) + "\n\n Press escape key to stop update.", 0.1
                     )
@@ -139,7 +139,7 @@ class StatusCommand:
 
         # Preliminary checks.
         self.notify("\nPreliminary checks:")
-        if self.strategy_name is None or self.strategy_file_name is None:
+        if self.trading_core.strategy_name is None or self.strategy_file_name is None:
             self.notify('  - Strategy check: Please import or create a strategy.')
             return False
 
@@ -172,7 +172,7 @@ class StatusCommand:
             return False
 
         loading_markets: List[ConnectorBase] = []
-        for market in self.markets.values():
+        for market in self.trading_core.markets.values():
             if not market.ready:
                 loading_markets.append(market)
 
@@ -191,11 +191,11 @@ class StatusCommand:
                 )
             return False
 
-        elif not all([market.network_status is NetworkStatus.CONNECTED for market in self.markets.values()]):
+        elif not all([market.network_status is NetworkStatus.CONNECTED for market in self.trading_core.markets.values()]):
             offline_markets: List[str] = [
                 market_name
                 for market_name, market
-                in self.markets.items()
+                in self.trading_core.markets.items()
                 if market.network_status is not NetworkStatus.CONNECTED
             ]
             for offline_market in offline_markets:

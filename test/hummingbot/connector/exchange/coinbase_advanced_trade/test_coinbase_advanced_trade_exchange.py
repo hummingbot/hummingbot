@@ -9,8 +9,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.coinbase_advanced_trade import (
     coinbase_advanced_trade_constants as CONSTANTS,
     coinbase_advanced_trade_web_utils as web_utils,
@@ -360,9 +358,7 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
         return f"{base_token}-{quote_token}"
 
     def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         return CoinbaseAdvancedTradeExchange(
-            client_config_map=client_config_map,
             coinbase_advanced_trade_api_key="testAPIKey",
             coinbase_advanced_trade_api_secret="testSecret",
             trading_pairs=[self.trading_pair],

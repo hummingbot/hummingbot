@@ -5,8 +5,9 @@ Debug console diagnosis tools.
 """
 
 import asyncio
+from typing import Coroutine, Generator, List, Union
+
 import pandas as pd
-from typing import Coroutine, Generator, Union, List
 
 
 def get_coro_name(coro: Union[Coroutine, Generator]) -> str:

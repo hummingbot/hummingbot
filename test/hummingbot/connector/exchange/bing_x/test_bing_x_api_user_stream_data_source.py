@@ -12,7 +12,6 @@ from hummingbot.connector.exchange.bing_x.bing_x_api_user_stream_data_source imp
 from hummingbot.connector.exchange.bing_x.bing_x_auth import BingXAuth
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
 
 class TestBingXAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
@@ -61,8 +60,6 @@ class TestBingXAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
         self.resume_test_event = asyncio.Event()
 
     async def asyncSetUp(self) -> None:
-        await super().asyncSetUp()
-        await ConnectionsFactory().close()
         self.mocking_assistant = NetworkMockingAssistant()
 
     def tearDown(self) -> None:

@@ -9,7 +9,7 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.event.events import MarketOrderFailureEvent
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.order_executor.data_types import (
     ExecutionStrategy,
     LimitChaserConfig,
@@ -32,7 +32,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         market_info = MagicMock()
         market_info.market = market
 
-        strategy = MagicMock(spec=ScriptStrategyBase)
+        strategy = MagicMock(spec=StrategyV2Base)
         type(strategy).market_info = PropertyMock(return_value=market_info)
         type(strategy).trading_pair = PropertyMock(return_value="ETH-USDT")
         strategy.buy.side_effect = ["OID-BUY-1", "OID-BUY-2", "OID-BUY-3"]
@@ -291,13 +291,16 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(executor.net_pnl_quote, Decimal("0"))
         self.assertEqual(executor.cum_fees_quote, Decimal("0"))
 
+    @patch.object(OrderExecutor, 'current_market_price', new_callable=PropertyMock)
     @patch.object(OrderExecutor, 'get_trading_rules')
     @patch.object(OrderExecutor, 'adjust_order_candidates')
-    async def test_validate_sufficient_balance(self, mock_adjust_order_candidates, mock_get_trading_rules):
+    async def test_validate_sufficient_balance(self, mock_adjust_order_candidates, mock_get_trading_rules,
+                                               mock_current_market_price):
         # Mock trading rules
         trading_rules = TradingRule(trading_pair="ETH-USDT", min_order_size=Decimal("0.1"),
                                     min_price_increment=Decimal("0.1"), min_base_amount_increment=Decimal("0.1"))
         mock_get_trading_rules.return_value = trading_rules
+        mock_current_market_price.return_value = Decimal("100")
         config = OrderExecutorConfig(
             id="test",
             timestamp=123,
@@ -330,13 +333,16 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(executor.close_type, CloseType.INSUFFICIENT_BALANCE)
         self.assertEqual(executor.status, RunnableStatus.TERMINATED)
 
+    @patch.object(OrderExecutor, 'current_market_price', new_callable=PropertyMock)
     @patch.object(OrderExecutor, 'get_trading_rules')
     @patch.object(OrderExecutor, 'adjust_order_candidates')
-    async def test_validate_sufficient_balance_perpetual(self, mock_adjust_order_candidates, mock_get_trading_rules):
+    async def test_validate_sufficient_balance_perpetual(self, mock_adjust_order_candidates, mock_get_trading_rules,
+                                                         mock_current_market_price):
         # Mock trading rules
         trading_rules = TradingRule(trading_pair="ETH-USDT", min_order_size=Decimal("0.1"),
                                     min_price_increment=Decimal("0.1"), min_base_amount_increment=Decimal("0.1"))
         mock_get_trading_rules.return_value = trading_rules
+        mock_current_market_price.return_value = Decimal("100")
         config = OrderExecutorConfig(
             id="test",
             timestamp=123,
@@ -512,6 +518,43 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor = self.get_order_executor_from_config(config)
         price = executor.get_order_price()
         self.assertTrue(price.is_nan())
+
+    @patch.object(OrderExecutor, 'current_market_price', new_callable=PropertyMock)
+    def test_get_price_for_balance_validation_market_order(self, mock_current_market_price):
+        """Test that MARKET orders use current market price for balance validation instead of NaN."""
+        mock_current_market_price.return_value = Decimal("120")
+        config = OrderExecutorConfig(
+            id="test",
+            timestamp=123,
+            side=TradeType.BUY,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            amount=Decimal("1"),
+            execution_strategy=ExecutionStrategy.MARKET
+        )
+        executor = self.get_order_executor_from_config(config)
+        price = executor.get_price_for_balance_validation()
+        # For MARKET orders, should return current market price instead of NaN
+        self.assertEqual(price, Decimal("120"))
+
+    @patch.object(OrderExecutor, 'current_market_price', new_callable=PropertyMock)
+    def test_get_price_for_balance_validation_limit_order(self, mock_current_market_price):
+        """Test that LIMIT orders use config price for balance validation."""
+        mock_current_market_price.return_value = Decimal("120")
+        config = OrderExecutorConfig(
+            id="test",
+            timestamp=123,
+            side=TradeType.BUY,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            execution_strategy=ExecutionStrategy.LIMIT
+        )
+        executor = self.get_order_executor_from_config(config)
+        price = executor.get_price_for_balance_validation()
+        # For LIMIT orders, should return config price
+        self.assertEqual(price, Decimal("100"))
 
     @patch.object(OrderExecutor, 'current_market_price', new_callable=PropertyMock)
     def test_get_order_price_limit_chaser_buy(self, mock_current_market_price):

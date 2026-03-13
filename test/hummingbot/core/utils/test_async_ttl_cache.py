@@ -1,6 +1,6 @@
-import unittest
 import asyncio
 import time
+import unittest
 
 from hummingbot.core.utils import async_ttl_cache
 

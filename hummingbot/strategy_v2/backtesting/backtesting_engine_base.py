@@ -84,6 +84,11 @@ class BacktestingEngineBase:
                               start: int, end: int,
                               backtesting_resolution: str = "1m",
                               trade_cost=0.0006):
+        # Generate unique ID if not set to avoid race conditions
+        if not controller_config.id or controller_config.id.strip() == "":
+            from hummingbot.strategy_v2.utils.common import generate_unique_id
+            controller_config.id = generate_unique_id()
+
         controller_class = self.__controller_class_cache.get_or_add(controller_config.controller_name, controller_config.get_controller_class)
         # controller_class = controller_config.get_controller_class()
         # Load historical candles
@@ -130,7 +135,7 @@ class BacktestingEngineBase:
             for action in self.controller.determine_executor_actions():
                 if isinstance(action, CreateExecutorAction):
                     executor_simulation = self.simulate_executor(action.executor_config, processed_features.loc[i:], trade_cost)
-                    if executor_simulation.close_type != CloseType.FAILED:
+                    if executor_simulation is not None and executor_simulation.close_type != CloseType.FAILED:
                         self.manage_active_executors(executor_simulation)
                 elif isinstance(action, StopExecutorAction):
                     self.handle_stop_action(action, row["timestamp"])

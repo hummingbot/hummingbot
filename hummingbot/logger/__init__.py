@@ -2,14 +2,7 @@ import dataclasses
 import logging
 from decimal import Decimal
 from enum import Enum
-from logging import (
-    DEBUG,
-    INFO,
-    WARNING,
-    ERROR,
-    CRITICAL
-)
-
+from logging import CRITICAL, DEBUG, ERROR, INFO, WARNING
 
 from .logger import HummingbotLogger
 

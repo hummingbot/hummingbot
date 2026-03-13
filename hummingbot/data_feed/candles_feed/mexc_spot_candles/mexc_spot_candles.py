@@ -1,7 +1,10 @@
 import logging
 from typing import Any, Dict, List, Optional
 
+from hummingbot.connector.exchange.mexc.mexc_post_processor import MexcPostProcessor
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
 from hummingbot.data_feed.candles_feed.mexc_spot_candles import constants as CONSTANTS
 from hummingbot.logger import HummingbotLogger
@@ -18,6 +21,8 @@ class MexcSpotCandles(CandlesBase):
 
     def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 150):
         super().__init__(trading_pair, interval, max_records)
+        async_throttler = AsyncThrottler(rate_limits=self.rate_limits)
+        self._api_factory = WebAssistantsFactory(throttler=async_throttler, ws_post_processors=[MexcPostProcessor])
 
     @property
     def name(self):
@@ -110,7 +115,7 @@ class MexcSpotCandles(CandlesBase):
     def ws_subscription_payload(self):
         trading_pair = self.get_exchange_trading_pair(self._trading_pair)
         interval = CONSTANTS.WS_INTERVALS[self.interval]
-        candle_params = [f"spot@public.kline.v3.api@{trading_pair}@{interval}"]
+        candle_params = [f"{CONSTANTS.KLINE_ENDPOINT_NAME}@{trading_pair}@{interval}"]
         payload = {
             "method": "SUBSCRIPTION",
             "params": candle_params,
@@ -119,14 +124,14 @@ class MexcSpotCandles(CandlesBase):
 
     def _parse_websocket_message(self, data):
         candles_row_dict: Dict[str, Any] = {}
-        if data is not None and data.get("d") is not None:
-            candle = data["d"]["k"]
-            candles_row_dict["timestamp"] = self.ensure_timestamp_in_seconds(candle["t"])
-            candles_row_dict["open"] = candle["o"]
-            candles_row_dict["low"] = candle["l"]
-            candles_row_dict["high"] = candle["h"]
-            candles_row_dict["close"] = candle["c"]
-            candles_row_dict["volume"] = candle["v"]
+        if data is not None and data.get("publicSpotKline") is not None:
+            candle = data["publicSpotKline"]
+            candles_row_dict["timestamp"] = self.ensure_timestamp_in_seconds(candle["windowStart"])
+            candles_row_dict["open"] = candle["openingPrice"]
+            candles_row_dict["low"] = candle["lowestPrice"]
+            candles_row_dict["high"] = candle["highestPrice"]
+            candles_row_dict["close"] = candle["closingPrice"]
+            candles_row_dict["volume"] = candle["volume"]
             candles_row_dict["quote_asset_volume"] = 0.
             candles_row_dict["n_trades"] = 0.
             candles_row_dict["taker_buy_base_volume"] = 0.

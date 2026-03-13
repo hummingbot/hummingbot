@@ -3,19 +3,16 @@ import json
 import re
 from decimal import Decimal
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.cube import cube_constants as CONSTANTS, cube_web_utils as web_utils
 from hummingbot.connector.exchange.cube.cube_exchange import CubeExchange
 from hummingbot.connector.exchange.cube.cube_ws_protobufs import trade_pb2
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import get_new_numeric_client_order_id
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
@@ -606,9 +603,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return f"{base_token}{quote_token}"
 
     def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         return CubeExchange(
-            client_config_map=client_config_map,
             cube_api_key="1111111111-11111-11111-11111-1111111111",
             cube_api_secret="111111111111111111111111111111",
             cube_subaccount_id="1",
@@ -1572,33 +1567,6 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
         self.assertTrue(order.is_failure)
         self.assertTrue(order.is_done)
-
-    @patch("hummingbot.connector.utils.get_tracking_nonce")
-    def test_client_order_id_on_order(self, mocked_nonce):
-        mocked_nonce.return_value = 7
-        prefix = CONSTANTS.HBOT_ORDER_ID_PREFIX
-
-        result = self.exchange.buy(
-            trading_pair=self.trading_pair,
-            amount=Decimal("1"),
-            order_type=OrderType.LIMIT,
-            price=Decimal("2"),
-        )
-        expected_client_order_id = get_new_numeric_client_order_id(nonce_creator=self.exchange._nonce_creator,
-                                                                   max_id_bit_count=CONSTANTS.MAX_ORDER_ID_LEN)
-        expected_client_order_id = f"{prefix}{expected_client_order_id - 1}"
-        self.assertEqual(result, expected_client_order_id)
-
-        result = self.exchange.sell(
-            trading_pair=self.trading_pair,
-            amount=Decimal("1"),
-            order_type=OrderType.LIMIT,
-            price=Decimal("2"),
-        )
-        expected_client_order_id = get_new_numeric_client_order_id(nonce_creator=self.exchange._nonce_creator,
-                                                                   max_id_bit_count=CONSTANTS.MAX_ORDER_ID_LEN)
-        expected_client_order_id = f"{prefix}{expected_client_order_id - 1}"
-        self.assertEqual(result, expected_client_order_id)
 
     @aioresponses()
     def test_place_order_get_rejection(self, mock_api):

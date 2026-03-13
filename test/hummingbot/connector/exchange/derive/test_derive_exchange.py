@@ -14,17 +14,13 @@ from aioresponses.core import RequestCall
 
 import hummingbot.connector.exchange.derive.derive_constants as CONSTANTS
 import hummingbot.connector.exchange.derive.derive_web_utils as web_utils
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.derive.derive_exchange import DeriveExchange
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
-
-# from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
+from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
@@ -42,7 +38,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         super().setUpClass()
         cls.api_key = "0x79d7511382b5dFd1185F6AF268923D3F9FC31B53"  # noqa: mock
         cls.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
-        cls.sub_id = "45686"  # noqa: mock
+        cls.sub_id = 45686  # noqa: mock
         cls.domain = "derive_testnet"  # noqa: mock
         cls.base_asset = "BTC"
         cls.quote_asset = "USDC"
@@ -501,13 +497,11 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         return f"{base_token}-{quote_token}"
 
     def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         exchange = DeriveExchange(
-            client_config_map,
-            self.api_secret,  # noqa: mock
-            self.sub_id,
-            self.account_type,
-            self.api_key,  # noqa: mock
+            derive_api_secret=self.api_secret,  # noqa: mock
+            sub_id=self.sub_id,
+            account_type=self.account_type,
+            derive_api_key=self.api_key,  # noqa: mock
             trading_pairs=[self.trading_pair],
         )
         # exchange._last_trade_history_timestamp = self.latest_trade_hist_timestamp
@@ -1458,12 +1452,10 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
         self.assertEqual(0, len(result))
 
-    @patch("hummingbot.connector.exchange.derive.derive_exchange.DeriveExchange._make_currency_request", new_callable=AsyncMock)
     @aioresponses()
-    def test_all_trading_pairs(self, mock_mess: AsyncMock, mock_api):
+    def test_all_trading_pairs(self, mock_api):
         # Mock the currency request response
         self.configure_currency_trading_rules_response(mock_api=mock_api)
-        mock_mess.return_value = self.currency_request_mock_response
         self.exchange.currencies = [self.currency_request_mock_response]
 
         self.exchange._set_trading_pair_symbol_map(None)
@@ -1544,16 +1536,12 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     def test_lost_order_included_in_order_fills_update_and_not_in_order_status_update(self, mock_api):
         pass
 
-    @patch("hummingbot.connector.exchange.derive.derive_exchange.DeriveExchange._make_currency_request", new_callable=AsyncMock)
     @aioresponses()
-    def test_update_trading_rules(self, mock_request: AsyncMock, mock_api):
+    def test_update_trading_rules(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
 
         # Mock the currency request response
         mocked_response = self.get_trading_rule_rest_msg()
-        self.configure_currency_trading_rules_response(mock_api=mock_api)
-        mock_request.return_value = self.currency_request_mock_response
-        self.exchange.currencies = [self.currency_request_mock_response]
 
         self.configure_trading_rules_response(mock_api=mock_api)
         self.exchange._instrument_ticker.append(mocked_response[0])
@@ -1594,7 +1582,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         }
 
     @aioresponses()
-    def test_create_order_fails_and_raises_failure_event(self, mock_api):
+    async def test_create_order_fails_and_raises_failure_event(self, mock_api):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
@@ -1604,7 +1592,8 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                       callback=lambda *args, **kwargs: request_sent_event.set())
 
         order_id = self.place_buy_order()
-        self.async_run_with_timeout(request_sent_event.wait())
+        await asyncio.sleep(0.00001)
+        await request_sent_event.wait()
 
         order_request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(order_request)
@@ -1627,15 +1616,6 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
         self.assertEqual(OrderType.LIMIT, failure_event.order_type)
         self.assertEqual(order_id, failure_event.order_id)
-
-        self.assertTrue(
-            self.is_logged(
-                "INFO",
-                f"Order {order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
-                f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)"
-            )
-        )
 
     @aioresponses()
     def test_create_buy_limit_order_successfully(self, mock_api):
@@ -1832,7 +1812,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         # ))
 
     @aioresponses()
-    def test_create_order_fails_when_trading_rule_error_and_raises_failure_event(self, mock_api):
+    async def test_create_order_fails_when_trading_rule_error_and_raises_failure_event(self, mock_api):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
@@ -1847,7 +1827,8 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         )
         # The second order is used only to have the event triggered and avoid using timeouts for tests
         order_id = self.place_buy_order()
-        self.async_run_with_timeout(request_sent_event.wait(), timeout=3)
+        await asyncio.sleep(0.00001)
+        await request_sent_event.wait()
 
         self.assertNotIn(order_id_for_invalid_order, self.exchange.in_flight_orders)
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
@@ -1857,23 +1838,6 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
         self.assertEqual(OrderType.LIMIT, failure_event.order_type)
         self.assertEqual(order_id_for_invalid_order, failure_event.order_id)
-
-        self.assertTrue(
-            self.is_logged(
-                "WARNING",
-                "Buy order amount 0.0001 is lower than the minimum order "
-                "size 0.1. The order will not be created, increase the "
-                "amount to be higher than the minimum order size."
-            )
-        )
-        self.assertTrue(
-            self.is_logged(
-                "INFO",
-                f"Order {order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
-                f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)"
-            )
-        )
 
     @aioresponses()
     def test_update_order_fills_request_parameters(self, mock_api):

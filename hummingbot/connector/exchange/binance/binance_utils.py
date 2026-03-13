@@ -62,34 +62,3 @@ class BinanceConfigMap(BaseConnectorConfigMap):
 
 
 KEYS = BinanceConfigMap.model_construct()
-
-OTHER_DOMAINS = ["binance_us"]
-OTHER_DOMAINS_PARAMETER = {"binance_us": "us"}
-OTHER_DOMAINS_EXAMPLE_PAIR = {"binance_us": "BTC-USDT"}
-OTHER_DOMAINS_DEFAULT_FEES = {"binance_us": DEFAULT_FEES}
-
-
-class BinanceUSConfigMap(BaseConnectorConfigMap):
-    connector: str = "binance_us"
-    binance_api_key: SecretStr = Field(
-        default=...,
-        json_schema_extra={
-            "prompt": "Enter your Binance US API key",
-            "is_secure": True,
-            "is_connect_key": True,
-            "prompt_on_new": True,
-        }
-    )
-    binance_api_secret: SecretStr = Field(
-        default=...,
-        json_schema_extra={
-            "prompt": "Enter your Binance US API secret",
-            "is_secure": True,
-            "is_connect_key": True,
-            "prompt_on_new": True,
-        }
-    )
-    model_config = ConfigDict(title="binance_us")
-
-
-OTHER_DOMAINS_KEYS = {"binance_us": BinanceUSConfigMap.model_construct()}

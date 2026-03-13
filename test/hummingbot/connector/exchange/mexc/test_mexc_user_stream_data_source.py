@@ -8,8 +8,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses import aioresponses
 from bidict import bidict
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.mexc import mexc_constants as CONSTANTS, mexc_web_utils as web_utils
 from hummingbot.connector.exchange.mexc.mexc_api_user_stream_data_source import MexcAPIUserStreamDataSource
 from hummingbot.connector.exchange.mexc.mexc_auth import MexcAuth
@@ -26,8 +24,8 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.base_asset = "COINALPHA"
-        cls.quote_asset = "HBOT"
+        cls.base_asset = "BTC"
+        cls.quote_asset = "USDC"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = cls.base_asset + cls.quote_asset
         cls.domain = "com"
@@ -47,9 +45,7 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = MexcExchange(
-            client_config_map=client_config_map,
             mexc_api_key="",
             mexc_api_secret="",
             trading_pairs=[],
@@ -80,7 +76,7 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message
+        return any(record.levelname == log_level and message in record.getMessage()
                    for record in self.log_records)
 
     def _raise_exception(self, exception_class):
@@ -105,17 +101,19 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
     def _user_update_event(self):
         # Balance Update
         resp = {
-            "c": "spot@private.account.v3.api",
-            "d": {
-                "a": "BTC",
-                "c": 1678185928428,
-                "f": "302.185113007893322435",
-                "fd": "-4.990689704",
-                "l": "4.990689704",
-                "ld": "4.990689704",
-                "o": "ENTRUST_PLACE"
-            },
-            "t": 1678185928435
+            "channel": "spot@private.account.v3.api.pb",
+            "createTime": 1736417034305,
+            "sendTime": 1736417034307,
+            "privateAccount": {
+                "vcoinName": "USDC",
+                "coinId": "128f589271cb4951b03e71e6323eb7be",
+                "balanceAmount": "21.94210356004384",
+                "balanceAmountChange": "10",
+                "frozenAmount": "0",
+                "frozenAmountChange": "0",
+                "type": "CONTRACT_TRANSFER",
+                "time": 1736416910000
+            }
         }
         return json.dumps(resp)
 
@@ -127,7 +125,8 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         return resp
 
     @aioresponses()
-    async def test_get_listen_key_log_exception(self, mock_api):
+    @patch("hummingbot.connector.exchange.mexc.mexc_api_user_stream_data_source.MexcAPIUserStreamDataSource._sleep")
+    async def test_get_listen_key_log_exception(self, mock_api, _):
         url = web_utils.private_rest_url(path_url=CONSTANTS.MEXC_USER_STREAM_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -149,6 +148,24 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         result: str = await self.data_source._get_listen_key()
 
         self.assertEqual(self.listen_key, result)
+
+    @aioresponses()
+    @patch("hummingbot.connector.exchange.mexc.mexc_api_user_stream_data_source.MexcAPIUserStreamDataSource._sleep")
+    async def test_get_listen_key_retry_on_error(self, mock_api, mock_sleep):
+        url = web_utils.private_rest_url(path_url=CONSTANTS.MEXC_USER_STREAM_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        # First two calls fail, third succeeds
+        mock_api.post(regex_url, status=400, body=json.dumps(self._error_response()))
+        mock_api.post(regex_url, status=500, body=json.dumps(self._error_response()))
+        mock_api.post(regex_url, body=json.dumps({"listenKey": self.listen_key}))
+
+        result: str = await self.data_source._get_listen_key()
+
+        self.assertEqual(self.listen_key, result)
+        self.assertTrue(self._is_logged("WARNING", "Retry 1/3 fetching user stream listen key. Error:"))
+        self.assertTrue(self._is_logged("WARNING", "Retry 2/3 fetching user stream listen key. Error:"))
+        self.assertEqual(2, mock_sleep.call_count)
 
     @aioresponses()
     async def test_ping_listen_key_log_exception(self, mock_api):
@@ -190,7 +207,7 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         await self.resume_test_event.wait()
 
-        self.assertTrue(self._is_logged("ERROR", "Error occurred renewing listen key ..."))
+        self.assertTrue(self._is_logged("ERROR", "Error occurred renewing listen key ... Listen key refresh failed"))
         self.assertIsNone(self.data_source._current_listen_key)
         self.assertFalse(self.data_source._listen_key_initialized_event.is_set())
 
@@ -210,8 +227,20 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         await self.resume_test_event.wait()
 
-        self.assertTrue(self._is_logged("INFO", f"Refreshed listen key {self.listen_key}."))
+        self.assertTrue(self._is_logged("INFO", f"Successfully refreshed listen key {self.listen_key}"))
         self.assertGreater(self.data_source._last_listen_key_ping_ts, 0)
+
+    async def test_ensure_listen_key_task_running(self):
+        # Test that task is created when None
+        self.assertIsNone(self.data_source._manage_listen_key_task)
+
+        await self.data_source._ensure_listen_key_task_running()
+
+        self.assertIsNotNone(self.data_source._manage_listen_key_task)
+        self.assertFalse(self.data_source._manage_listen_key_task.done())
+
+        # Cancel the task for cleanup
+        self.data_source._manage_listen_key_task.cancel()
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -312,3 +341,44 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             self._is_logged(
                 "ERROR",
                 "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
+
+    @patch("hummingbot.connector.exchange.mexc.mexc_api_user_stream_data_source.safe_ensure_future")
+    async def test_ensure_listen_key_task_running_with_running_task(self, mock_safe_ensure_future):
+        # Test when task is already running - should return early (line 58)
+        from unittest.mock import MagicMock
+        mock_task = MagicMock()
+        mock_task.done.return_value = False
+        self.data_source._manage_listen_key_task = mock_task
+
+        # Call the method
+        await self.data_source._ensure_listen_key_task_running()
+
+        # Should return early without creating a new task
+        mock_safe_ensure_future.assert_not_called()
+        self.assertEqual(mock_task, self.data_source._manage_listen_key_task)
+
+    async def test_ensure_listen_key_task_running_with_done_task_cancelled_error(self):
+        mock_task = MagicMock()
+        mock_task.done.return_value = True
+        mock_task.side_effect = asyncio.CancelledError()
+        self.data_source._manage_listen_key_task = mock_task
+
+        await self.data_source._ensure_listen_key_task_running()
+
+        # Task should be cancelled and replaced
+        mock_task.cancel.assert_called_once()
+        self.assertIsNotNone(self.data_source._manage_listen_key_task)
+        self.assertNotEqual(mock_task, self.data_source._manage_listen_key_task)
+
+    async def test_ensure_listen_key_task_running_with_done_task_exception(self):
+        mock_task = MagicMock()
+        mock_task.done.return_value = True
+        mock_task.side_effect = Exception("Test exception")
+        self.data_source._manage_listen_key_task = mock_task
+
+        await self.data_source._ensure_listen_key_task_running()
+
+        # Task should be cancelled and replaced, exception should be ignored
+        mock_task.cancel.assert_called_once()
+        self.assertIsNotNone(self.data_source._manage_listen_key_task)
+        self.assertNotEqual(mock_task, self.data_source._manage_listen_key_task)

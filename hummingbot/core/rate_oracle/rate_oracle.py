@@ -7,9 +7,9 @@ import hummingbot.client.settings  # noqa
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.network_base import NetworkBase
 from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.rate_oracle.sources.aevo_rate_source import AevoRateSource
 from hummingbot.core.rate_oracle.sources.ascend_ex_rate_source import AscendExRateSource
 from hummingbot.core.rate_oracle.sources.binance_rate_source import BinanceRateSource
-from hummingbot.core.rate_oracle.sources.binance_us_rate_source import BinanceUSRateSource
 from hummingbot.core.rate_oracle.sources.coin_cap_rate_source import CoinCapRateSource
 from hummingbot.core.rate_oracle.sources.coin_gecko_rate_source import CoinGeckoRateSource
 from hummingbot.core.rate_oracle.sources.coinbase_advanced_trade_rate_source import CoinbaseAdvancedTradeRateSource
@@ -17,18 +17,19 @@ from hummingbot.core.rate_oracle.sources.cube_rate_source import CubeRateSource
 from hummingbot.core.rate_oracle.sources.derive_rate_source import DeriveRateSource
 from hummingbot.core.rate_oracle.sources.dexalot_rate_source import DexalotRateSource
 from hummingbot.core.rate_oracle.sources.gate_io_rate_source import GateIoRateSource
+from hummingbot.core.rate_oracle.sources.hyperliquid_perpetual_rate_source import HyperliquidPerpetualRateSource
 from hummingbot.core.rate_oracle.sources.hyperliquid_rate_source import HyperliquidRateSource
 from hummingbot.core.rate_oracle.sources.kucoin_rate_source import KucoinRateSource
 from hummingbot.core.rate_oracle.sources.mexc_rate_source import MexcRateSource
+from hummingbot.core.rate_oracle.sources.pacifica_perpetual_rate_source import PacificaPerpetualRateSource
 from hummingbot.core.rate_oracle.sources.rate_source_base import RateSourceBase
-from hummingbot.core.rate_oracle.sources.tegro_rate_source import TegroRateSource
 from hummingbot.core.rate_oracle.utils import find_rate
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 
 RATE_ORACLE_SOURCES = {
+    "aevo_perpetual": AevoRateSource,
     "binance": BinanceRateSource,
-    "binance_us": BinanceUSRateSource,
     "coin_gecko": CoinGeckoRateSource,
     "coin_cap": CoinCapRateSource,
     "kucoin": KucoinRateSource,
@@ -38,9 +39,10 @@ RATE_ORACLE_SOURCES = {
     "cube": CubeRateSource,
     "dexalot": DexalotRateSource,
     "hyperliquid": HyperliquidRateSource,
+    "hyperliquid_perpetual": HyperliquidPerpetualRateSource,
     "derive": DeriveRateSource,
-    "tegro": TegroRateSource,
     "mexc": MexcRateSource,
+    "pacifica_perpetual": PacificaPerpetualRateSource,
 }
 
 

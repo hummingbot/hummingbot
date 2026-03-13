@@ -10,7 +10,6 @@ from hummingbot.connector.exchange.htx.htx_api_user_stream_data_source import Ht
 from hummingbot.connector.exchange.htx.htx_auth import HtxAuth
 from hummingbot.connector.exchange.htx.htx_web_utils import build_api_factory
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
-from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
 
 class HtxAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
@@ -26,8 +25,6 @@ class HtxAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         cls.ex_trading_pair = f"{cls.base_asset}{cls.quote_asset}".lower()
 
     async def asyncSetUp(self) -> None:
-        await super().asyncSetUp()
-        await ConnectionsFactory().close()
         self.log_records = []
         self.async_tasks: List[asyncio.Task] = []
         self.mock_time_provider = MagicMock()

@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, List, Tuple
 from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair
 from hummingbot.core.event.event_forwarder import EventForwarder
 from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
+from hummingbot.core.py_time_iterator import PyTimeIterator
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
@@ -22,7 +23,8 @@ with open(realpath(join(dirname(__file__), '../VERSION'))) as version_file:
     CLIENT_VERSION = version_file.read().strip()
 
 
-class MetricsCollector(ABC):
+class MetricsCollector(PyTimeIterator, ABC):
+    """Base class for metrics collectors"""
 
     DEFAULT_METRICS_SERVER_URL = "https://api.coinalpha.com/reporting-proxy-v2"
 
@@ -34,9 +36,8 @@ class MetricsCollector(ABC):
     def stop(self):
         raise NotImplementedError
 
-    @abstractmethod
-    def process_tick(self, timestamp: float):
-        raise NotImplementedError
+    def tick(self, timestamp: float):
+        pass
 
 
 class DummyMetricsCollector(MetricsCollector):
@@ -46,10 +47,6 @@ class DummyMetricsCollector(MetricsCollector):
         pass
 
     def stop(self):
-        # Nothing is required
-        pass
-
-    def process_tick(self, timestamp: float):
         # Nothing is required
         pass
 
@@ -91,9 +88,8 @@ class TradeVolumeMetricCollector(MetricsCollector):
         return cls._logger
 
     def start(self):
+        self.register_listener()
         self._dispatcher.start()
-        for event_pair in self._event_pairs:
-            self._connector.add_listener(event_pair[0], event_pair[1])
 
     def stop(self):
         self.trigger_metrics_collection_process()
@@ -101,7 +97,13 @@ class TradeVolumeMetricCollector(MetricsCollector):
             self._connector.remove_listener(event_pair[0], event_pair[1])
         self._dispatcher.stop()
 
-    def process_tick(self, timestamp: float):
+    def register_listener(self):
+        for event_pair in self._event_pairs:
+            self._connector.add_listener(event_pair[0], event_pair[1])
+
+    def tick(self, timestamp: float):
+        if self._fill_event_forwarder not in self._connector.get_listeners(MarketEvent.OrderFilled):
+            self.register_listener()
         inactivity_time = timestamp - self._last_process_tick_timestamp
         if inactivity_time >= self._activation_interval:
             self._last_process_tick_timestamp = timestamp

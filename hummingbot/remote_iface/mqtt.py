@@ -34,7 +34,6 @@ from hummingbot.remote_iface.messages import (
     MQTT_STATUS_CODE,
     BalanceLimitCommandMessage,
     BalancePaperCommandMessage,
-    CommandShortcutMessage,
     ConfigCommandMessage,
     ExternalEventMessage,
     HistoryCommandMessage,
@@ -60,7 +59,6 @@ class CommandTopicSpecs:
     HISTORY: str = '/history'
     BALANCE_LIMIT: str = '/balance/limit'
     BALANCE_PAPER: str = '/balance/paper'
-    COMMAND_SHORTCUT: str = '/command_shortcuts'
 
 
 class TopicSpecs:
@@ -99,7 +97,6 @@ class MQTTCommands:
         self._history_uri = f'{topic_prefix}{TopicSpecs.COMMANDS.HISTORY}'
         self._balance_limit_uri = f'{topic_prefix}{TopicSpecs.COMMANDS.BALANCE_LIMIT}'
         self._balance_paper_uri = f'{topic_prefix}{TopicSpecs.COMMANDS.BALANCE_PAPER}'
-        self._shortcuts_uri = f'{topic_prefix}{TopicSpecs.COMMANDS.COMMAND_SHORTCUT}'
 
         self._init_commands()
 
@@ -143,11 +140,6 @@ class MQTTCommands:
             rpc_name=self._balance_paper_uri,
             msg_type=BalancePaperCommandMessage,
             on_request=self._on_cmd_balance_paper
-        )
-        self._node.create_rpc(
-            rpc_name=self._shortcuts_uri,
-            msg_type=CommandShortcutMessage,
-            on_request=self._on_cmd_command_shortcut
         )
 
     def _on_cmd_start(self, msg: StartCommandMessage.Request):
@@ -349,16 +341,6 @@ class MQTTCommands:
             response.msg = str(e)
         return response
 
-    def _on_cmd_command_shortcut(self, msg: CommandShortcutMessage.Request):
-        response = CommandShortcutMessage.Response()
-        try:
-            for param in msg.params:
-                response.success.append(self._hb_app._handle_shortcut(param))
-        except Exception as e:
-            response.status = MQTT_STATUS_CODE.ERROR
-            response.msg = str(e)
-        return response
-
 
 class MQTTMarketEventForwarder:
     @classmethod
@@ -400,10 +382,7 @@ class MQTTMarketEventForwarder:
             (events.MarketEvent.FundingPaymentCompleted, self._mqtt_fowarder),
             (events.MarketEvent.RangePositionLiquidityAdded, self._mqtt_fowarder),
             (events.MarketEvent.RangePositionLiquidityRemoved, self._mqtt_fowarder),
-            (events.MarketEvent.RangePositionUpdate, self._mqtt_fowarder),
             (events.MarketEvent.RangePositionUpdateFailure, self._mqtt_fowarder),
-            (events.MarketEvent.RangePositionFeeCollected, self._mqtt_fowarder),
-            (events.MarketEvent.RangePositionClosed, self._mqtt_fowarder),
         ]
 
         self.event_fw_pub = self._node.create_publisher(
@@ -433,10 +412,7 @@ class MQTTMarketEventForwarder:
                 events.MarketEvent.FundingPaymentCompleted.value: "FundingPaymentCompleted",
                 events.MarketEvent.RangePositionLiquidityAdded.value: "RangePositionLiquidityAdded",
                 events.MarketEvent.RangePositionLiquidityRemoved.value: "RangePositionLiquidityRemoved",
-                events.MarketEvent.RangePositionUpdate.value: "RangePositionUpdate",
                 events.MarketEvent.RangePositionUpdateFailure.value: "RangePositionUpdateFailure",
-                events.MarketEvent.RangePositionFeeCollected.value: "RangePositionFeeCollected",
-                events.MarketEvent.RangePositionClosed.value: "RangePositionClosed",
             }
             event_type = event_types[event_tag]
         except KeyError:
@@ -720,7 +696,7 @@ class MQTTGateway(Node):
 
     def start_market_events_fw(self):
         # Must be called after loading the strategy.
-        # HummingbotApplication._initialize_markets() must be be called before
+        # Markets must be initialized via TradingCore before calling this method
         if self._hb_app.client_config_map.mqtt_bridge.mqtt_events:
             self._market_events = MQTTMarketEventForwarder(self._hb_app, self)
             if self.state == NodeState.RUNNING:
@@ -932,7 +908,7 @@ class MQTTExternalEvents:
         )
         self._listeners: Dict[
             str,
-            List[Callable[ExternalEventMessage, str], None]
+            List[Callable[[ExternalEventMessage], str], None]
         ] = {'*': []}
 
     def _event_uri_to_name(self, topic: str) -> str:

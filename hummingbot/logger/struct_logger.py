@@ -1,10 +1,7 @@
 import json
 import logging
 
-from hummingbot.logger import (
-    HummingbotLogger,
-    log_encoder,
-)
+from hummingbot.logger import HummingbotLogger, log_encoder
 
 EVENT_LOG_LEVEL = 15
 METRICS_LOG_LEVEL = 14

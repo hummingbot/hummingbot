@@ -6,7 +6,6 @@ from hummingbot.client.config.client_config_map import AutofillImportEnum
 from hummingbot.client.config.config_helpers import (
     format_config_file_name,
     load_strategy_config_map_from_file,
-    save_previous_strategy_value,
     short_strategy_name,
     validate_strategy_file,
 )
@@ -37,8 +36,6 @@ class ImportCommand:
         required_exchanges.clear()
         if file_name is None:
             file_name = await self.prompt_a_file_name()
-            if file_name is not None:
-                save_previous_strategy_value(file_name, self.client_config_map)
         if self.app.to_stop_config:
             self.app.to_stop_config = False
             return
@@ -53,7 +50,7 @@ class ImportCommand:
             self.app.change_prompt(prompt=">>> ")
             raise
         self.strategy_file_name = file_name
-        self.strategy_name = (
+        self.trading_core.strategy_name = (
             config_map.strategy
             if not isinstance(config_map, dict)
             else config_map.get("strategy").value  # legacy
@@ -67,7 +64,7 @@ class ImportCommand:
             all_status_go = await self.status_check_all()
         except asyncio.TimeoutError:
             self.strategy_file_name = None
-            self.strategy_name = None
+            self.trading_core.strategy_name = None
             self.strategy_config_map = None
             raise
         if all_status_go:

@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, TypedDict
 
 
 class Chain(Enum):
@@ -22,6 +22,21 @@ class ConnectorType(Enum):
     SWAP = "SWAP"
     CLMM = "CLMM"
     AMM = "AMM"
+
+
+class TransactionStatus(Enum):
+    """Transaction status constants for gateway operations."""
+    CONFIRMED = 1
+    PENDING = 0
+    FAILED = -1
+
+
+class Token(TypedDict):
+    """Token information from gateway."""
+    symbol: str
+    address: str
+    decimals: int
+    name: str
 
 
 def get_connector_type(connector_name: str) -> ConnectorType:

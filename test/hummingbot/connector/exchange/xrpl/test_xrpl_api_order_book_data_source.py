@@ -1,13 +1,15 @@
 import asyncio
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from xrpl.models import XRP, IssuedCurrency
+from xrpl.models.response import Response, ResponseStatus, ResponseType
+
 from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS
 from hummingbot.connector.exchange.xrpl.xrpl_api_order_book_data_source import XRPLAPIOrderBookDataSource
 from hummingbot.connector.exchange.xrpl.xrpl_exchange import XrplExchange
+from hummingbot.connector.exchange.xrpl.xrpl_worker_pool import QueryResult
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
@@ -29,13 +31,10 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.log_records = []
         self.listening_task = None
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = XrplExchange(
-            client_config_map=client_config_map,
             xrpl_secret_key="",
-            wss_node_url="wss://sample.com",
-            wss_second_node_url="wss://sample.com",
-            wss_third_node_url="wss://sample.com",
+            wss_node_urls=["wss://sample.com"],
+            max_request_per_minute=100,
             trading_pairs=[self.trading_pair],
             trading_required=False,
         )
@@ -50,11 +49,9 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.data_source.logger().addHandler(self)
 
         self._original_full_order_book_reset_time = self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS
-        self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = -1
         self.resume_test_event = asyncio.Event()
 
-        exchange_market_info = CONSTANTS.MARKETS
-        self.connector._initialize_trading_pair_symbols_from_exchange_info(exchange_market_info)
+        self.connector._lock_delay_seconds = 0
 
         trading_rule = TradingRule(
             trading_pair=self.trading_pair,
@@ -66,12 +63,13 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         )
 
         self.connector._trading_rules[self.trading_pair] = trading_rule
-        self.data_source._xrpl_client = AsyncMock()
-        self.data_source._xrpl_client.__aenter__.return_value = self.data_source._xrpl_client
-        self.data_source._xrpl_client.__aexit__.return_value = None
+
+        # Setup mock worker manager
+        self.mock_query_pool = MagicMock()
+        self.mock_worker_manager = MagicMock()
+        self.mock_worker_manager.get_query_pool.return_value = self.mock_query_pool
 
     def tearDown(self) -> None:
-        self.listening_task and self.listening_task.cancel()
         self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = self._original_full_order_book_reset_time
         super().tearDown()
 
@@ -112,8 +110,8 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
                     "PreviousTxnLgrSeq": 88935730,
                     "Sequence": 86514258,
                     "TakerGets": {
-                        "currency": "534F4C4F00000000000000000000000000000000",
-                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
+                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
                         "value": "91.846106",
                     },
                     "TakerPays": "20621931",
@@ -122,7 +120,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
                     "quality": "224527.003899327",
                 },
                 {
-                    "Account": "rhqTdSsJAaEReRsR27YzddqyGoWTNMhEvC",
+                    "Account": "rhqTdSsJAaEReRsR27YzddqyGoWTNMhEvC",  # noqa: mock
                     "BookDirectory": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07FA8ECFD95726",  # noqa: mock
                     "BookNode": "0",
                     "Flags": 0,
@@ -132,8 +130,8 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
                     "PreviousTxnLgrSeq": 88935726,
                     "Sequence": 71762354,
                     "TakerGets": {
-                        "currency": "534F4C4F00000000000000000000000000000000",
-                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
+                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
                         "value": "44.527243023",
                     },
                     "TakerPays": "10000000",
@@ -155,8 +153,8 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
                     "Sequence": 74073461,
                     "TakerGets": "187000000",
                     "TakerPays": {
-                        "currency": "534F4C4F00000000000000000000000000000000",
-                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
+                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
                         "value": "836.5292665312212",
                     },
                     "index": "3F41585F327EA3690AD19F2A302C5DF2904E01D39C9499B303DB7FA85868B69F",  # noqa: mock
@@ -227,139 +225,448 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         result = await self.data_source.get_last_traded_prices(["SOLO-XRP"])
         self.assertEqual(result, {"SOLO-XRP": 0.5})
 
-    @patch("xrpl.models.requests.BookOffers")
-    async def test_request_order_book_snapshot(self, mock_book_offers):
-        mock_book_offers.return_value.status = "success"
-        mock_book_offers.return_value.result = {"offers": []}
+    async def test_request_order_book_snapshot(self):
+        """Test requesting order book snapshot with worker pool."""
+        # Set up the worker manager
+        self.data_source.set_worker_manager(self.mock_worker_manager)
 
-        self.data_source._xrpl_client.is_open = Mock(return_value=True)
-        self.data_source._xrpl_client.request.return_value = mock_book_offers.return_value
+        # Mock the connector's get_currencies_from_trading_pair
+        base_currency = IssuedCurrency(
+            currency="534F4C4F00000000000000000000000000000000",
+            issuer="rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
+        )
+        quote_currency = XRP()
+        self.connector.get_currencies_from_trading_pair = Mock(
+            return_value=(base_currency, quote_currency)
+        )
 
-        await self.data_source._request_order_book_snapshot("SOLO-XRP")
+        # Create mock responses for asks and bids
+        asks_response = Response(
+            status=ResponseStatus.SUCCESS,
+            result={"offers": []},
+            id=1,
+            type=ResponseType.RESPONSE
+        )
+        bids_response = Response(
+            status=ResponseStatus.SUCCESS,
+            result={"offers": []},
+            id=2,
+            type=ResponseType.RESPONSE
+        )
 
-        assert self.data_source._xrpl_client.request.call_count == 2
+        # Create QueryResult objects
+        asks_result = QueryResult(success=True, response=asks_response, error=None)
+        bids_result = QueryResult(success=True, response=bids_response, error=None)
 
-        order_book: OrderBook = await self.data_source.get_new_order_book(self.trading_pair)
+        # Mock query pool submit to return different results for asks and bids
+        self.mock_query_pool.submit = AsyncMock(side_effect=[asks_result, bids_result])
 
-        bids = list(order_book.bid_entries())
-        asks = list(order_book.ask_entries())
-        self.assertEqual(0, len(bids))
-        self.assertEqual(0, len(asks))
+        # Call the method
+        result = await self.data_source._request_order_book_snapshot("SOLO-XRP")
 
-    @patch("xrpl.models.requests.BookOffers")
-    async def test_request_order_book_snapshot_exception(self, mock_book_offers):
-        mock_book_offers.return_value.status = "error"
-        mock_book_offers.return_value.result = {"offers": []}
+        # Verify
+        self.assertEqual(result, {"asks": [], "bids": []})
+        self.assertEqual(self.mock_query_pool.submit.call_count, 2)
 
-        self.data_source._xrpl_client.is_open = Mock(return_value=True)
-        self.data_source._xrpl_client.request.return_value = mock_book_offers.return_value
+    async def test_request_order_book_snapshot_without_worker_manager(self):
+        """Test that _request_order_book_snapshot raises error without worker manager."""
+        # Don't set worker manager - it should raise
+        with self.assertRaises(RuntimeError) as context:
+            await self.data_source._request_order_book_snapshot("SOLO-XRP")
 
+        self.assertIn("Worker manager not initialized", str(context.exception))
+
+    async def test_request_order_book_snapshot_error_response(self):
+        """Test error handling when query pool returns error result."""
+        # Set up the worker manager
+        self.data_source.set_worker_manager(self.mock_worker_manager)
+
+        # Mock the connector's get_currencies_from_trading_pair
+        base_currency = IssuedCurrency(
+            currency="534F4C4F00000000000000000000000000000000",
+            issuer="rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
+        )
+        quote_currency = XRP()
+        self.connector.get_currencies_from_trading_pair = Mock(
+            return_value=(base_currency, quote_currency)
+        )
+
+        # Create error result for asks
+        asks_result = QueryResult(success=False, response=None, error="Connection failed")
+
+        # Mock query pool submit
+        self.mock_query_pool.submit = AsyncMock(return_value=asks_result)
+
+        # Call the method - should raise ValueError
+        with self.assertRaises(ValueError) as context:
+            await self.data_source._request_order_book_snapshot("SOLO-XRP")
+
+        self.assertIn("Error fetching", str(context.exception))
+
+    async def test_request_order_book_snapshot_exception(self):
+        """Test exception handling in _request_order_book_snapshot."""
+        # Set up the worker manager
+        self.data_source.set_worker_manager(self.mock_worker_manager)
+
+        # Mock the connector's get_currencies_from_trading_pair
+        base_currency = IssuedCurrency(
+            currency="534F4C4F00000000000000000000000000000000",
+            issuer="rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
+        )
+        quote_currency = XRP()
+        self.connector.get_currencies_from_trading_pair = Mock(
+            return_value=(base_currency, quote_currency)
+        )
+
+        # Mock query pool submit to raise exception
+        self.mock_query_pool.submit = AsyncMock(side_effect=Exception("Network error"))
+
+        # Call the method - should raise
         with self.assertRaises(Exception) as context:
             await self.data_source._request_order_book_snapshot("SOLO-XRP")
 
-        self.assertTrue("Error fetching order book snapshot" in str(context.exception))
+        self.assertIn("Network error", str(context.exception))
 
-    async def test_fetch_order_book_side_exception(self):
-        self.data_source._xrpl_client.request.side_effect = TimeoutError
-        self.data_source._sleep = AsyncMock()
+    async def test_set_worker_manager(self):
+        """Test setting worker manager."""
+        self.assertIsNone(self.data_source._worker_manager)
 
-        with self.assertRaises(TimeoutError):
-            await self.data_source.fetch_order_book_side(self.data_source._xrpl_client, 12345, {}, {}, 50)
+        self.data_source.set_worker_manager(self.mock_worker_manager)
 
-    @patch("hummingbot.connector.exchange.xrpl.xrpl_api_order_book_data_source.XRPLAPIOrderBookDataSource._get_client")
-    async def test_process_websocket_messages_for_pair(self, mock_get_client):
+        self.assertEqual(self.data_source._worker_manager, self.mock_worker_manager)
+
+    async def test_get_next_node_url(self):
+        """Test _get_next_node_url method."""
+        # Setup mock node pool
+        self.connector._node_pool = MagicMock()
+        self.connector._node_pool._node_urls = ["wss://node1.com", "wss://node2.com", "wss://node3.com"]
+        self.connector._node_pool._bad_nodes = {}
+
+        # Get first URL
+        url1 = self.data_source._get_next_node_url()
+        self.assertEqual(url1, "wss://node1.com")
+
+        # Get next URL - should rotate
+        url2 = self.data_source._get_next_node_url()
+        self.assertEqual(url2, "wss://node2.com")
+
+        # Get next URL with exclusion
+        url3 = self.data_source._get_next_node_url(exclude_url="wss://node3.com")
+        self.assertEqual(url3, "wss://node1.com")
+
+    async def test_get_next_node_url_skips_bad_nodes(self):
+        """Test that _get_next_node_url skips bad nodes."""
+        import time
+
+        # Setup mock node pool with bad node
+        self.connector._node_pool = MagicMock()
+        self.connector._node_pool._node_urls = ["wss://node1.com", "wss://node2.com"]
+        # Mark node1 as bad (future timestamp means still in cooldown)
+        self.connector._node_pool._bad_nodes = {"wss://node1.com": time.time() + 3600}
+
+        # Reset the index
+        self.data_source._subscription_node_index = 0
+
+        # Should skip node1 and return node2
+        url = self.data_source._get_next_node_url()
+        self.assertEqual(url, "wss://node2.com")
+
+    async def test_close_subscription_connection(self):
+        """Test _close_subscription_connection method."""
+        # Test with None client
+        await self.data_source._close_subscription_connection(None)
+
+        # Test with mock client
         mock_client = AsyncMock()
-        mock_client.__aenter__.return_value = mock_client
-        mock_client.__aexit__ = AsyncMock()
-        mock_client.send.return_value = None
-        mock_client.__aiter__.return_value = iter(
-            [
-                {
-                    "transaction": {
-                        "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",
-                        "Fee": "10",
-                        "Flags": 786432,
-                        "LastLedgerSequence": 88954510,
-                        "Memos": [
-                            {
-                                "Memo": {
-                                    "MemoData": "68626F742D313731393430303738313137303331392D42534F585036316263393330633963366139393139386462343432343461383637313231373562313663"  # noqa: mock
-                                }
-                            }
-                        ],
-                        "Sequence": 84437780,
-                        "SigningPubKey": "ED23BA20D57103E05BA762F0A04FE50878C11BD36B7BF9ADACC3EDBD9E6D320923",  # noqa: mock
-                        "TakerGets": "502953",
-                        "TakerPays": {
-                            "currency": "534F4C4F00000000000000000000000000000000",
-                            "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
-                            "value": "2.239836701211152",
-                        },
-                        "TransactionType": "OfferCreate",
-                        "TxnSignature": "2E87E743DE37738DCF1EE6C28F299C4FF18BDCB064A07E9068F1E920F8ACA6C62766177E82917ED0995635E636E3BB8B4E2F4DDCB198B0B9185041BEB466FD03 #",  # noqa: mock
-                        "hash": "undefined",
-                        "ctid": "C54D567C00030000",
-                        "meta": "undefined",
-                        "validated": "undefined",
-                        "date": 772640450,
-                        "ledger_index": "undefined",
-                        "inLedger": "undefined",
-                        "metaData": "undefined",
-                        "status": "undefined",
-                    },
-                    "meta": {
-                        "AffectedNodes": [
-                            {
-                                "ModifiedNode": {
-                                    "FinalFields": {
-                                        "Account": "rhqTdSsJAaEReRsR27YzddqyGoWTNMhEvC",
-                                        "BookDirectory": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07F01A195F8476",  # noqa: mock
-                                        "BookNode": "0",
-                                        "Flags": 0,
-                                        "OwnerNode": "2",
-                                        "Sequence": 71762948,
-                                        "TakerGets": {
-                                            "currency": "534F4C4F00000000000000000000000000000000",
-                                            "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
-                                            "value": "42.50531785780174",
-                                        },
-                                        "TakerPays": "9497047",
-                                    },
-                                    "LedgerEntryType": "Offer",
-                                    "LedgerIndex": "3ABFC9B192B73ECE8FB6E2C46E49B57D4FBC4DE8806B79D913C877C44E73549E",  # noqa: mock
-                                    "PreviousFields": {
-                                        "TakerGets": {
-                                            "currency": "534F4C4F00000000000000000000000000000000",
-                                            "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
-                                            "value": "44.756352009",
-                                        },
-                                        "TakerPays": "10000000",
-                                    },
-                                    "PreviousTxnID": "7398CE2FDA7FF61B52C1039A219D797E526ACCCFEC4C44A9D920ED28B551B539",  # noqa: mock
-                                    "PreviousTxnLgrSeq": 88954480,
-                                }
-                            }
-                        ]
-                    },
-                }
-            ]
+        await self.data_source._close_subscription_connection(mock_client)
+        mock_client.close.assert_called_once()
+
+        # Test with client that raises exception
+        mock_client_error = AsyncMock()
+        mock_client_error.close.side_effect = Exception("Close error")
+        # Should not raise
+        await self.data_source._close_subscription_connection(mock_client_error)
+
+    @patch(
+        "hummingbot.connector.exchange.xrpl.xrpl_api_order_book_data_source.AsyncWebsocketClient"
+    )
+    async def test_create_subscription_connection_success(self, mock_ws_class):
+        """Test successful creation of subscription connection."""
+        # Setup mock node pool
+        self.connector._node_pool = MagicMock()
+        self.connector._node_pool._node_urls = ["wss://node1.com"]
+        self.connector._node_pool._bad_nodes = {}
+
+        # Setup mock websocket client
+        mock_client = AsyncMock()
+        mock_client._websocket = MagicMock()
+        mock_ws_class.return_value = mock_client
+
+        # Reset node index
+        self.data_source._subscription_node_index = 0
+
+        # Create connection
+        result = await self.data_source._create_subscription_connection(self.trading_pair)
+
+        self.assertEqual(result, mock_client)
+        mock_client.open.assert_called_once()
+
+    @patch(
+        "hummingbot.connector.exchange.xrpl.xrpl_api_order_book_data_source.AsyncWebsocketClient"
+    )
+    async def test_create_subscription_connection_timeout(self, mock_ws_class):
+        """Test subscription connection timeout handling."""
+        # Setup mock node pool
+        self.connector._node_pool = MagicMock()
+        self.connector._node_pool._node_urls = ["wss://node1.com"]
+        self.connector._node_pool._bad_nodes = {}
+
+        # Setup mock websocket client that times out
+        mock_client = AsyncMock()
+        mock_client.open.side_effect = asyncio.TimeoutError()
+        mock_ws_class.return_value = mock_client
+
+        # Reset node index
+        self.data_source._subscription_node_index = 0
+
+        # Create connection - should return None after trying all nodes
+        result = await self.data_source._create_subscription_connection(self.trading_pair)
+
+        self.assertIsNone(result)
+        self.connector._node_pool.mark_bad_node.assert_called_with("wss://node1.com")
+
+    async def test_on_message_with_health_tracking(self):
+        """Test _on_message_with_health_tracking processes trade messages correctly."""
+        # Setup mock client with async iterator
+        mock_client = AsyncMock()
+
+        mock_message = {
+            "transaction": {
+                "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                "Fee": "10",
+                "Flags": 786432,
+                "LastLedgerSequence": 88954510,
+                "Sequence": 84437780,
+                "TakerGets": "502953",
+                "TakerPays": {
+                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                    "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                    "value": "2.239836701211152",
+                },
+                "TransactionType": "OfferCreate",
+                "date": 772640450,
+            },
+            "meta": {
+                "AffectedNodes": [],
+                "TransactionIndex": 0,
+                "TransactionResult": "tesSUCCESS",
+                "delivered_amount": {
+                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                    "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                    "value": "2.239836701211152",
+                },
+            },
+        }
+
+        # Make mock_client async iterable with one message then stop
+        async def async_iter():
+            yield mock_message
+
+        mock_client.__aiter__ = lambda self: async_iter()
+
+        # Setup base currency
+        base_currency = IssuedCurrency(
+            currency="534F4C4F00000000000000000000000000000000",
+            issuer="rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
         )
 
-        mock_get_client.return_value = mock_client
+        # Initialize message queue
+        self.data_source._message_queue = {CONSTANTS.TRADE_EVENT_TYPE: asyncio.Queue()}
 
-        await self.data_source._process_websocket_messages_for_pair("SOLO-XRP")
+        # Run the method - it should process the message without trades (no offer_changes)
+        await self.data_source._on_message_with_health_tracking(mock_client, self.trading_pair, base_currency)
 
-        mock_get_client.assert_called_once_with()
-        mock_client.send.assert_called_once()
+        # No trades should be added since there are no offer_changes in meta
+        self.assertTrue(self.data_source._message_queue[CONSTANTS.TRADE_EVENT_TYPE].empty())
 
-    @patch("hummingbot.connector.exchange.xrpl.xrpl_api_order_book_data_source.XRPLAPIOrderBookDataSource._get_client")
-    async def test_process_websocket_messages_for_pair_exception(self, mock_get_client):
-        mock_client = AsyncMock()
-        mock_client.__aenter__.return_value = mock_client
-        mock_client.__aexit__ = None
-        mock_client.send.side_effect = Exception("Error")
+    async def test_on_message_with_health_tracking_with_trade(self):
+        """Test _on_message_with_health_tracking processes trade messages with offer changes."""
+        # Setup mock client with async iterator
+        mock_client = MagicMock()
 
-        mock_get_client.return_value = mock_client
+        mock_message = {
+            "transaction": {
+                "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                "Fee": "10",
+                "Flags": 786432,
+                "LastLedgerSequence": 88954510,
+                "Sequence": 84437780,
+                "TakerGets": "502953",
+                "TakerPays": {
+                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                    "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                    "value": "2.239836701211152",
+                },
+                "TransactionType": "OfferCreate",
+                "date": 772640450,
+            },
+            "meta": {
+                "AffectedNodes": [
+                    {
+                        "ModifiedNode": {
+                            "FinalFields": {
+                                "Account": "rhqTdSsJAaEReRsR27YzddqyGoWTNMhEvC",  # noqa: mock
+                                "BookDirectory": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07F01A195F8476",  # noqa: mock
+                                "BookNode": "0",
+                                "Flags": 0,
+                                "OwnerNode": "2",
+                                "Sequence": 71762948,
+                                "TakerGets": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                                    "value": "42.50531785780174",
+                                },
+                                "TakerPays": "9497047",
+                            },
+                            "LedgerEntryType": "Offer",
+                            "PreviousFields": {
+                                "TakerGets": {
+                                    "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                                    "value": "44.756352009",
+                                },
+                                "TakerPays": "10000000",
+                            },
+                            "LedgerIndex": "186D33545697D90A5F18C1541F2228A629435FC540D473574B3B75FEA7B4B88B",  # noqa: mock
+                        }
+                    }
+                ],
+                "TransactionIndex": 0,
+                "TransactionResult": "tesSUCCESS",
+            },
+        }
 
-        with self.assertRaises(Exception):
-            await self.data_source._process_websocket_messages_for_pair("SOLO-XRP")
+        # Make mock_client async iterable - using a helper class
+        class AsyncIteratorMock:
+            def __init__(self, messages):
+                self.messages = messages
+                self.index = 0
+
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                if self.index < len(self.messages):
+                    msg = self.messages[self.index]
+                    self.index += 1
+                    return msg
+                raise StopAsyncIteration
+
+        mock_client = AsyncIteratorMock([mock_message])
+
+        # Setup base currency
+        base_currency = IssuedCurrency(
+            currency="534F4C4F00000000000000000000000000000000",
+            issuer="rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
+        )
+
+        # Initialize message queue
+        self.data_source._message_queue = {CONSTANTS.TRADE_EVENT_TYPE: asyncio.Queue()}
+
+        # Run the method
+        await self.data_source._on_message_with_health_tracking(mock_client, self.trading_pair, base_currency)
+
+        # Check if trade was added to the queue (depends on get_order_book_changes result)
+        # The actual result depends on xrpl library processing
+
+    async def test_on_message_with_invalid_message(self):
+        """Test _on_message_with_health_tracking handles invalid messages."""
+        # Message without transaction or meta
+        invalid_message = {"some": "data"}
+
+        class AsyncIteratorMock:
+            def __init__(self, messages):
+                self.messages = messages
+                self.index = 0
+
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                if self.index < len(self.messages):
+                    msg = self.messages[self.index]
+                    self.index += 1
+                    return msg
+                raise StopAsyncIteration
+
+        mock_client = AsyncIteratorMock([invalid_message])
+
+        base_currency = IssuedCurrency(
+            currency="534F4C4F00000000000000000000000000000000",
+            issuer="rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
+        )
+
+        self.data_source._message_queue = {CONSTANTS.TRADE_EVENT_TYPE: asyncio.Queue()}
+
+        # Should not raise, just log debug message
+        await self.data_source._on_message_with_health_tracking(mock_client, self.trading_pair, base_currency)
+
+        # No trades should be added
+        self.assertTrue(self.data_source._message_queue[CONSTANTS.TRADE_EVENT_TYPE].empty())
+
+    async def test_parse_trade_message(self):
+        """Test _parse_trade_message method."""
+        raw_message = {
+            "trading_pair": self.trading_pair,
+            "trade": {
+                "trade_type": float(TradeType.BUY.value),
+                "trade_id": 123456,
+                "update_id": 789012,
+                "price": Decimal("0.25"),
+                "amount": Decimal("100"),
+                "timestamp": 1234567890,
+            },
+        }
+
+        message_queue = asyncio.Queue()
+
+        await self.data_source._parse_trade_message(raw_message, message_queue)
+
+        # Verify message was added to queue
+        self.assertFalse(message_queue.empty())
+
+    async def test_subscribe_to_trading_pair_not_supported(self):
+        """Test that dynamic subscription returns False."""
+        result = await self.data_source.subscribe_to_trading_pair(self.trading_pair)
+        self.assertFalse(result)
+
+    async def test_unsubscribe_from_trading_pair_not_supported(self):
+        """Test that dynamic unsubscription returns False."""
+        result = await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
+        self.assertFalse(result)
+
+    async def test_subscription_connection_dataclass(self):
+        """Test SubscriptionConnection dataclass."""
+        from hummingbot.connector.exchange.xrpl.xrpl_api_order_book_data_source import SubscriptionConnection
+
+        conn = SubscriptionConnection(
+            trading_pair=self.trading_pair,
+            url="wss://test.com",
+        )
+
+        # Test default values
+        self.assertIsNone(conn.client)
+        self.assertIsNone(conn.listener_task)
+        self.assertFalse(conn.is_connected)
+        self.assertEqual(conn.reconnect_count, 0)
+
+        # Test update_last_message_time
+        old_time = conn.last_message_time
+        conn.update_last_message_time()
+        self.assertGreaterEqual(conn.last_message_time, old_time)
+
+        # Test is_stale
+        self.assertFalse(conn.is_stale(timeout=3600))  # Not stale with 1 hour timeout
+        # Manually set old time to test stale detection
+        conn.last_message_time = 0
+        self.assertTrue(conn.is_stale(timeout=1))  # Stale with 1 second timeout

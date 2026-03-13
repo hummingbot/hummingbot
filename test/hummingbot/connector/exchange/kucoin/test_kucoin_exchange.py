@@ -57,7 +57,6 @@ class KucoinExchangeTests(unittest.TestCase):
         self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         self.exchange = KucoinExchange(
-            client_config_map=self.client_config_map,
             kucoin_api_key=self.api_key,
             kucoin_passphrase=self.api_passphrase,
             kucoin_secret_key=self.api_secret_key,
@@ -375,10 +374,9 @@ class KucoinExchangeTests(unittest.TestCase):
     @aioresponses()
     def test_fee_request_for_multiple_pairs(self, mocked_api):
         self.exchange = KucoinExchange(
-            self.client_config_map,
-            self.api_key,
-            self.api_passphrase,
-            self.api_secret_key,
+            kucoin_api_key=self.api_key,
+            kucoin_passphrase=self.api_passphrase,
+            kucoin_secret_key=self.api_secret_key,
             trading_pairs=[self.trading_pair, "BTC-USDT"]
         )
 
@@ -749,10 +747,8 @@ class KucoinExchangeTests(unittest.TestCase):
         self.assertRaises(IOError)
         self.assertTrue(
             self._is_logged(
-                "INFO",
-                f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
-                f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                "client_order_id='OID1', exchange_order_id=None, misc_updates=None)"
+                "NETWORK",
+                f"Error submitting buy LIMIT order to {self.exchange.name_cap} for 100.000000 {self.trading_pair} 10000.0000."
             )
         )
 
@@ -796,18 +792,11 @@ class KucoinExchangeTests(unittest.TestCase):
 
         self.assertTrue(
             self._is_logged(
-                "WARNING",
-                "Buy order amount 0.0001 is lower than the minimum order "
-                "size 0.01. The order will not be created, increase the "
-                "amount to be higher than the minimum order size."
-            )
-        )
-        self.assertTrue(
-            self._is_logged(
                 "INFO",
                 f"Order OID1 has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                "client_order_id='OID1', exchange_order_id=None, misc_updates=None)"
+                "client_order_id='OID1', exchange_order_id=None, "
+                "misc_updates={'error_message': 'Order amount 0.0001 is lower than minimum order size 0.01 for the pair COINALPHA-HBOT. The order will not be created.', 'error_type': 'ValueError'})"
             )
         )
 

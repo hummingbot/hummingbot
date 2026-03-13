@@ -1,7 +1,7 @@
 import asyncio
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from hummingbot.connector.constants import s_decimal_0, s_decimal_NaN
 from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
@@ -21,15 +21,14 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 
-if TYPE_CHECKING:
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
-
 
 class PerpetualDerivativePyBase(ExchangePyBase, ABC):
     VALID_POSITION_ACTIONS = [PositionAction.OPEN, PositionAction.CLOSE]
 
-    def __init__(self, client_config_map: "ClientConfigAdapter"):
-        super().__init__(client_config_map)
+    def __init__(self,
+                 balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
+                 rate_limits_share_pct: Decimal = Decimal("100")):
+        super().__init__(balance_asset_limit, rate_limits_share_pct)
         self._last_funding_fee_payment_ts: Dict[str, float] = {}
 
         self._perpetual_trading = PerpetualTrading(self.trading_pairs)
@@ -202,14 +201,14 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
         """
         raise NotImplementedError
 
-    def _stop_network(self):
+    async def stop_network(self):
         self._funding_fee_poll_notifier = asyncio.Event()
         self._perpetual_trading.stop()
         if self._funding_info_listener_task is not None:
             self._funding_info_listener_task.cancel()
             self._funding_info_listener_task = None
         self._last_funding_fee_payment_ts.clear()
-        super()._stop_network()
+        await super().stop_network()
 
     async def _create_order(
         self,
@@ -370,6 +369,68 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
         for trading_pair in self.trading_pairs:
             funding_info = await self._orderbook_ds.get_funding_info(trading_pair)
             self._perpetual_trading.initialize_funding_info(funding_info)
+
+    async def add_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Dynamically adds a trading pair to the perpetual connector.
+        Overrides ExchangePyBase to also handle funding info initialization.
+
+        :param trading_pair: the trading pair to add (e.g., "BTC-USDT")
+        :return: True if successfully added, False otherwise
+        """
+        try:
+            # Step 1: Fetch and initialize funding info (perpetual-specific)
+            self.logger().info(f"Fetching funding info for {trading_pair}...")
+            funding_info = await self._orderbook_ds.get_funding_info(trading_pair)
+            self._perpetual_trading.initialize_funding_info(funding_info)
+
+            # Step 2: Add to perpetual trading's trading pairs list
+            self._perpetual_trading.add_trading_pair(trading_pair)
+
+            # Step 3: Call parent to handle order book (WebSocket subscription + snapshot)
+            success = await super().add_trading_pair(trading_pair)
+            if not success:
+                # Rollback on failure
+                self._perpetual_trading.remove_trading_pair(trading_pair)
+                return False
+
+            self.logger().info(f"Successfully added trading pair {trading_pair} to perpetual connector")
+            return True
+
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().exception(f"Error adding trading pair {trading_pair}")
+            # Attempt cleanup on failure
+            self._perpetual_trading.remove_trading_pair(trading_pair)
+            return False
+
+    async def remove_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Dynamically removes a trading pair from the perpetual connector.
+        Overrides ExchangePyBase to also clean up funding info.
+
+        :param trading_pair: the trading pair to remove (e.g., "BTC-USDT")
+        :return: True if successfully removed, False otherwise
+        """
+        try:
+            # Step 1: Call parent to handle order book removal
+            success = await super().remove_trading_pair(trading_pair)
+            if not success:
+                self.logger().warning(f"Failed to remove {trading_pair} from order book tracker")
+                # Continue with cleanup anyway
+
+            # Step 2: Clean up perpetual-specific data (funding info, trading pairs list)
+            self._perpetual_trading.remove_trading_pair(trading_pair)
+
+            self.logger().info(f"Successfully removed trading pair {trading_pair} from perpetual connector")
+            return True
+
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().exception(f"Error removing trading pair {trading_pair}")
+            return False
 
     async def _funding_payment_polling_loop(self):
         """

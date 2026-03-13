@@ -10,7 +10,7 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState,
 from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketOrderFailureEvent
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.twap_executor.data_types import TWAPExecutorConfig, TWAPMode
 from hummingbot.strategy_v2.executors.twap_executor.twap_executor import TWAPExecutor
 from hummingbot.strategy_v2.models.base import RunnableStatus
@@ -29,7 +29,7 @@ class TestTWAPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         market_info = MagicMock()
         market_info.market = market
 
-        strategy = MagicMock(spec=ScriptStrategyBase)
+        strategy = MagicMock(spec=StrategyV2Base)
         type(strategy).market_info = PropertyMock(return_value=market_info)
         type(strategy).trading_pair = PropertyMock(return_value="ETH-USDT")
         type(strategy).current_timestamp = PropertyMock(side_effect=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
@@ -129,7 +129,7 @@ class TestTWAPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
     @patch.object(TWAPExecutor, 'get_trading_rules')
     @patch.object(TWAPExecutor, 'adjust_order_candidates')
-    def test_validate_sufficient_balance(self, mock_adjust_order_candidates, mock_get_trading_rules):
+    async def test_validate_sufficient_balance(self, mock_adjust_order_candidates, mock_get_trading_rules):
         # Mock trading rules
         trading_rules = TradingRule(trading_pair="ETH-USDT", min_order_size=Decimal("0.1"),
                                     min_price_increment=Decimal("0.1"), min_base_amount_increment=Decimal("0.1"))
@@ -146,13 +146,13 @@ class TestTWAPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         )
         # Test for sufficient balance
         mock_adjust_order_candidates.return_value = [order_candidate]
-        executor.validate_sufficient_balance()
+        await executor.validate_sufficient_balance()
         self.assertNotEqual(executor.close_type, CloseType.INSUFFICIENT_BALANCE)
 
         # Test for insufficient balance
         order_candidate.amount = Decimal("0")
         mock_adjust_order_candidates.return_value = [order_candidate]
-        executor.validate_sufficient_balance()
+        await executor.validate_sufficient_balance()
         self.assertEqual(executor.close_type, CloseType.INSUFFICIENT_BALANCE)
         self.assertEqual(executor.status, RunnableStatus.TERMINATED)
 

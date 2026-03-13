@@ -70,7 +70,9 @@ class Security:
     @classmethod
     def decrypt_connector_config(cls, file_path: Path):
         connector_name = connector_name_from_file(file_path)
-        cls._secure_configs[connector_name] = load_connector_config_map_from_file(file_path)
+        connector_config = load_connector_config_map_from_file(file_path)
+        cls._secure_configs[connector_name] = connector_config
+        update_connector_hb_config(connector_config)
 
     @classmethod
     def update_secure_config(cls, connector_config: ClientConfigAdapter):

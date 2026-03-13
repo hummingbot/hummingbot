@@ -1,7 +1,9 @@
 import unittest
-from hummingbot.strategy.__utils__.ring_buffer import RingBuffer
-import numpy as np
 from decimal import Decimal
+
+import numpy as np
+
+from hummingbot.strategy.__utils__.ring_buffer import RingBuffer
 
 
 class RingBufferTest(unittest.TestCase):

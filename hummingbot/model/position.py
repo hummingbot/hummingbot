@@ -24,6 +24,7 @@ class Position(HummingbotBase):
     amount = Column(SqliteDecimal(6), nullable=False)
     breakeven_price = Column(SqliteDecimal(6), nullable=False)
     unrealized_pnl_quote = Column(SqliteDecimal(6), nullable=False)
+    realized_pnl_quote = Column(SqliteDecimal(6), nullable=False)
     cum_fees_quote = Column(SqliteDecimal(6), nullable=False)
 
     def __repr__(self) -> str:
@@ -32,4 +33,4 @@ class Position(HummingbotBase):
                 f"trading_pair='{self.trading_pair}', timestamp={self.timestamp}, "
                 f"volume_traded_quote={self.volume_traded_quote}, amount={self.amount}, "
                 f"breakeven_price={self.breakeven_price}, unrealized_pnl_quote={self.unrealized_pnl_quote}, "
-                f"cum_fees_quote={self.cum_fees_quote})")
+                f"realized_pnl_quote={self.realized_pnl_quote}, cum_fees_quote={self.cum_fees_quote})")

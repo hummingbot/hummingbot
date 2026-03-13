@@ -141,6 +141,41 @@ REST_WS_LOGIN_PATH = {METHOD: GET,
 RET_CODE_OK = "0"
 
 RET_CODE_TIMESTAMP_HEADER_MISSING = "50107"
+
+# -------------------------------------------
+# RATE LIMITS CONFIGURATION
+# OKX rate limits: https://www.okx.com/docs-v5/en/#overview-rate-limits
+# -------------------------------------------
+# Time intervals
+ONE_SECOND = 1
+TWO_SECONDS = 2
+ONE_MINUTE = 60
+
+# WebSocket rate limits
+WS_CONNECTION_LIMIT = 3  # connections per second
+WS_SUBSCRIPTION_LIMIT = 480  # subscriptions per minute
+
+# Public endpoint rate limits (requests per 2 seconds)
+RATE_LIMIT_LATEST_SYMBOL_INFO = 20
+RATE_LIMIT_ORDER_BOOK = 40
+RATE_LIMIT_SERVER_TIME = 10
+RATE_LIMIT_GET_INSTRUMENTS = 20
+
+# Pair-specific endpoint rate limits (requests per 2 seconds)
+RATE_LIMIT_FUNDING_RATE_INFO = 20
+RATE_LIMIT_MARK_PRICE = 10
+RATE_LIMIT_INDEX_TICKERS = 20
+
+# Private general endpoint rate limits
+RATE_LIMIT_QUERY_ACTIVE_ORDER = 60  # per 2 seconds
+RATE_LIMIT_PLACE_ACTIVE_ORDER = 60  # per 2 seconds
+RATE_LIMIT_CANCEL_ACTIVE_ORDER = 60  # per 2 seconds
+RATE_LIMIT_SET_LEVERAGE = 20  # per 2 seconds
+RATE_LIMIT_USER_TRADE_RECORDS = 120  # per 60 seconds
+RATE_LIMIT_GET_POSITIONS = 10  # per 2 seconds
+RATE_LIMIT_GET_WALLET_BALANCE = 10  # per 2 seconds
+RATE_LIMIT_SET_POSITION_MODE = 5  # per 2 seconds
+RATE_LIMIT_BILLS_DETAILS = 5  # per 1 second
 RET_CODE_TIMESTAMP_HEADER_INVALID = "50112"
 RET_CODE_PARAMS_ERROR = "51000"
 RET_CODE_API_KEY_INVALID = "50111"

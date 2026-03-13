@@ -23,7 +23,6 @@ from hummingbot.client.config.config_helpers import (
     get_strategy_template_path,
     parse_config_default_to_text,
     parse_cvar_value,
-    save_previous_strategy_value,
     save_to_yml,
     save_to_yml_legacy,
 )
@@ -187,9 +186,8 @@ class CreateCommand:
         if self.app.to_stop_config:
             return
 
-        save_previous_strategy_value(file_name, self.client_config_map)
         self.strategy_file_name = file_name
-        self.strategy_name = strategy
+        self.trading_core.strategy_name = strategy
         self.strategy_config_map = config_map
         # Reload completer here otherwise the new file will not appear
         self.app.input_field.completer = load_completer(self)
@@ -361,7 +359,7 @@ class CreateCommand:
         except asyncio.TimeoutError:
             self.notify("\nA network error prevented the connection check to complete. See logs for more details.")
             self.strategy_file_name = None
-            self.strategy_name = None
+            self.trading_core.strategy_name = None
             self.strategy_config = None
             raise
         if all_status_go:

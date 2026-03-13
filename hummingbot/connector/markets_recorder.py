@@ -27,8 +27,6 @@ from hummingbot.core.event.events import (
     OrderExpiredEvent,
     OrderFilledEvent,
     PositionAction,
-    RangePositionClosedEvent,
-    RangePositionFeeCollectedEvent,
     RangePositionLiquidityAddedEvent,
     RangePositionLiquidityRemovedEvent,
     SellOrderCompletedEvent,
@@ -43,7 +41,6 @@ from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.order_status import OrderStatus
 from hummingbot.model.position import Position
-from hummingbot.model.range_position_collected_fees import RangePositionCollectedFees
 from hummingbot.model.range_position_update import RangePositionUpdate
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.model.trade_fill import TradeFill
@@ -103,12 +100,8 @@ class MarketsRecorder:
         self._fail_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_fail_order)
         self._complete_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_complete_order)
         self._expire_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_expire_order)
-        self._funding_payment_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(
-            self._did_complete_funding_payment)
-        self._update_range_position_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(
-            self._did_update_range_position)
-        self._close_range_position_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(
-            self._did_close_position)
+        self._funding_payment_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_complete_funding_payment)
+        self._update_range_position_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_update_range_position)
 
         self._event_pairs: List[Tuple[MarketEvent, SourceInfoEventForwarder]] = [
             (MarketEvent.BuyOrderCreated, self._create_order_forwarder),
@@ -122,8 +115,6 @@ class MarketsRecorder:
             (MarketEvent.FundingPaymentCompleted, self._funding_payment_forwarder),
             (MarketEvent.RangePositionLiquidityAdded, self._update_range_position_forwarder),
             (MarketEvent.RangePositionLiquidityRemoved, self._update_range_position_forwarder),
-            (MarketEvent.RangePositionFeeCollected, self._update_range_position_forwarder),
-            (MarketEvent.RangePositionClosed, self._close_range_position_forwarder),
         ]
         MarketsRecorder._shared_instance = self
 
@@ -186,6 +177,36 @@ class MarketsRecorder:
         if self._market_data_collection_config.market_data_collection_enabled:
             self._start_market_data_recording()
 
+    def add_market(self, market: ConnectorBase):
+        """Add a new market/connector dynamically."""
+        if market not in self._markets:
+            self._markets.append(market)
+
+            # Add trade fills from recorder
+            trade_fills = self.get_trades_for_config(self._config_file_path, 2000)
+            market.add_trade_fills_from_market_recorder({TradeFillOrderDetails(tf.market,
+                                                                               tf.exchange_trade_id,
+                                                                               tf.symbol) for tf in trade_fills
+                                                         if tf.market == market.name})
+
+            # Add exchange order IDs
+            exchange_order_ids = self.get_orders_for_config_and_market(self._config_file_path, market, True, 2000)
+            market.add_exchange_order_ids_from_market_recorder({o.exchange_order_id: o.id for o in exchange_order_ids})
+
+            # Add event listeners
+            for event_pair in self._event_pairs:
+                market.add_listener(event_pair[0], event_pair[1])
+
+    def remove_market(self, market: ConnectorBase):
+        """Remove a market/connector dynamically."""
+        if market in self._markets:
+            # Remove event listeners
+            for event_pair in self._event_pairs:
+                market.remove_listener(event_pair[0], event_pair[1])
+
+            # Remove from markets list
+            self._markets.remove(market)
+
     def stop(self):
         for market in self._markets:
             for event_pair in self._event_pairs:
@@ -196,7 +217,7 @@ class MarketsRecorder:
     def store_or_update_executor(self, executor):
         with self._sql_manager.get_new_session() as session:
             existing_executor = session.query(Executors).filter(Executors.id == executor.config.id).one_or_none()
-            serialized_config = executor.executor_info.json()
+            serialized_config = executor.executor_info.model_dump_json()
             executor_dict = json.loads(serialized_config)
             if existing_executor:
                 # Update existing executor
@@ -211,6 +232,30 @@ class MarketsRecorder:
     def store_position(self, position: Position):
         with self._sql_manager.get_new_session() as session:
             session.add(position)
+            session.commit()
+
+    def update_or_store_position(self, position: Position):
+        with self._sql_manager.get_new_session() as session:
+            # Check if a position already exists for this controller, connector, trading pair, and side
+            existing_position = session.query(Position).filter(
+                Position.controller_id == position.controller_id,
+                Position.connector_name == position.connector_name,
+                Position.trading_pair == position.trading_pair,
+                Position.side == position.side
+            ).first()
+
+            if existing_position:
+                # Update the existing position
+                existing_position.timestamp = position.timestamp
+                existing_position.volume_traded_quote = position.volume_traded_quote
+                existing_position.amount = position.amount
+                existing_position.breakeven_price = position.breakeven_price
+                existing_position.unrealized_pnl_quote = position.unrealized_pnl_quote
+                existing_position.cum_fees_quote = position.cum_fees_quote
+            else:
+                # Insert new position
+                session.add(position)
+
             session.commit()
 
     def store_controller_config(self, controller_config: ControllerConfigBase):
@@ -238,6 +283,21 @@ class MarketsRecorder:
         with self._sql_manager.get_new_session() as session:
             executors = session.query(Executors).all()
             return [executor.to_executor_info() for executor in executors]
+
+    def get_positions_by_ids(self, position_ids: List[str]) -> List[Position]:
+        with self._sql_manager.get_new_session() as session:
+            positions = session.query(Position).filter(Position.id.in_(position_ids)).all()
+            return positions
+
+    def get_positions_by_controller(self, controller_id: str = None) -> List[Position]:
+        with self._sql_manager.get_new_session() as session:
+            positions = session.query(Position).filter(Position.controller_id == controller_id).all()
+            return positions
+
+    def get_all_positions(self) -> List[Position]:
+        with self._sql_manager.get_new_session() as session:
+            positions = session.query(Position).all()
+            return positions
 
     def get_orders_for_config_and_market(self, config_file_path: str, market: ConnectorBase,
                                          with_exchange_order_id_present: Optional[bool] = False,
@@ -509,41 +569,67 @@ class MarketsRecorder:
     def _did_update_range_position(self,
                                    event_tag: int,
                                    connector: ConnectorBase,
-                                   evt: Union[RangePositionLiquidityAddedEvent, RangePositionLiquidityRemovedEvent, RangePositionFeeCollectedEvent]):
+                                   evt: Union[RangePositionLiquidityAddedEvent, RangePositionLiquidityRemovedEvent]):
         if threading.current_thread() != threading.main_thread():
             self._ev_loop.call_soon_threadsafe(self._did_update_range_position, event_tag, connector, evt)
             return
 
         timestamp: int = self.db_timestamp
+        event_type: MarketEvent = self.market_event_tag_map[event_tag]
+
+        # Determine order_action based on event type
+        order_action = None
+        if event_type == MarketEvent.RangePositionLiquidityAdded:
+            order_action = "ADD"
+        elif event_type == MarketEvent.RangePositionLiquidityRemoved:
+            order_action = "REMOVE"
+
+        # Calculate trade_fee_in_quote similar to _did_fill_order
+        trading_pair = getattr(evt, 'trading_pair', None)
+        mid_price = Decimal(str(getattr(evt, 'mid_price', 0) or 0))
+        base_amount = Decimal(str(getattr(evt, 'base_amount', 0) or 0))
+        fee_in_quote = Decimal("0")
+        if trading_pair:
+            _, quote_asset = trading_pair.split("-")
+            try:
+                fee_in_quote = evt.trade_fee.fee_amount_in_token(
+                    trading_pair=trading_pair,
+                    price=mid_price,
+                    order_amount=base_amount,
+                    token=quote_asset,
+                    exchange=connector
+                )
+            except Exception as e:
+                self.logger().error(f"Error calculating fee in quote for LP position: {e}, will be stored as 0.")
+                fee_in_quote = Decimal("0")
 
         with self._sql_manager.get_new_session() as session:
             with session.begin():
-                rp_update: RangePositionUpdate = RangePositionUpdate(hb_id=evt.order_id,
-                                                                     timestamp=timestamp,
-                                                                     tx_hash=evt.exchange_order_id,
-                                                                     token_id=evt.token_id,
-                                                                     trade_fee=evt.trade_fee.to_json())
+                rp_update: RangePositionUpdate = RangePositionUpdate(
+                    hb_id=evt.order_id,
+                    timestamp=timestamp,
+                    tx_hash=evt.exchange_order_id,
+                    token_id=getattr(evt, 'token_id', 0) or 0,
+                    trade_fee=evt.trade_fee.to_json(),
+                    trade_fee_in_quote=float(fee_in_quote),
+                    # P&L tracking fields
+                    config_file_path=self._config_file_path,
+                    market=connector.display_name,
+                    order_action=order_action,
+                    trading_pair=trading_pair,
+                    position_address=getattr(evt, 'position_address', None),
+                    lower_price=float(getattr(evt, 'lower_price', 0) or 0),
+                    upper_price=float(getattr(evt, 'upper_price', 0) or 0),
+                    mid_price=float(mid_price),
+                    base_amount=float(base_amount),
+                    quote_amount=float(getattr(evt, 'quote_amount', 0) or 0),
+                    base_fee=float(getattr(evt, 'base_fee', 0) or 0),
+                    quote_fee=float(getattr(evt, 'quote_fee', 0) or 0),
+                    # Rent tracking: position_rent on ADD, position_rent_refunded on REMOVE
+                    position_rent=float(getattr(evt, 'position_rent', 0) or 0),
+                    position_rent_refunded=float(getattr(evt, 'position_rent_refunded', 0) or 0),
+                )
                 session.add(rp_update)
-                self.save_market_states(self._config_file_path, connector, session=session)
-
-    def _did_close_position(self,
-                            event_tag: int,
-                            connector: ConnectorBase,
-                            evt: RangePositionClosedEvent):
-        if threading.current_thread() != threading.main_thread():
-            self._ev_loop.call_soon_threadsafe(self._did_close_position, event_tag, connector, evt)
-            return
-
-        with self._sql_manager.get_new_session() as session:
-            with session.begin():
-                rp_fees: RangePositionCollectedFees = RangePositionCollectedFees(config_file_path=self._config_file_path,
-                                                                                 strategy=self._strategy_name,
-                                                                                 token_id=evt.token_id,
-                                                                                 token_0=evt.token_0,
-                                                                                 token_1=evt.token_1,
-                                                                                 claimed_fee_0=Decimal(evt.claimed_fee_0),
-                                                                                 claimed_fee_1=Decimal(evt.claimed_fee_1))
-                session.add(rp_fees)
                 self.save_market_states(self._config_file_path, connector, session=session)
 
     @staticmethod

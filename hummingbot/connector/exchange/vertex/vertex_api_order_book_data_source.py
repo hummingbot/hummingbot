@@ -20,6 +20,9 @@ if TYPE_CHECKING:
 
 
 class VertexAPIOrderBookDataSource(OrderBookTrackerDataSource):
+    _DYNAMIC_SUBSCRIBE_ID_START = 100
+    _next_subscribe_id: int = _DYNAMIC_SUBSCRIBE_ID_START
+
     def __init__(
         self,
         trading_pairs: List[str],
@@ -172,3 +175,101 @@ class VertexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         await websocket_assistant.connect(ws_url=ws_url, message_timeout=self._ping_interval)
 
         return websocket_assistant
+
+    @classmethod
+    def _get_next_subscribe_id(cls) -> int:
+        subscribe_id = cls._next_subscribe_id
+        cls._next_subscribe_id += 1
+        return subscribe_id
+
+    async def subscribe_to_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Subscribe to order book and trade channels for a single trading pair.
+
+        :param trading_pair: the trading pair to subscribe to
+        :return: True if successful, False otherwise
+        """
+        if self._ws_assistant is None:
+            self.logger().warning("Cannot subscribe: WebSocket connection not established")
+            return False
+
+        try:
+            product_id = utils.trading_pair_to_product_id(
+                trading_pair, self._connector._exchange_market_info[self._domain]
+            )
+            trade_payload = {
+                "method": CONSTANTS.WS_SUBSCRIBE_METHOD,
+                "stream": {"type": CONSTANTS.TRADE_EVENT_TYPE, "product_id": product_id},
+                "id": product_id,
+            }
+            subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trade_payload)
+
+            order_book_payload = {
+                "method": CONSTANTS.WS_SUBSCRIBE_METHOD,
+                "stream": {"type": CONSTANTS.DIFF_EVENT_TYPE, "product_id": product_id},
+                "id": product_id,
+            }
+            subscribe_order_book_dif_request: WSJSONRequest = WSJSONRequest(payload=order_book_payload)
+
+            await self._ws_assistant.send(subscribe_trade_request)
+            await self._ws_assistant.send(subscribe_order_book_dif_request)
+
+            self._last_ws_message_sent_timestamp = self._time()
+
+            self.add_trading_pair(trading_pair)
+            self.logger().info(f"Subscribed to public trade and order book diff channels of {trading_pair}...")
+            return True
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().error(
+                f"Unexpected error occurred subscribing to {trading_pair}...",
+                exc_info=True
+            )
+            return False
+
+    async def unsubscribe_from_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Unsubscribe from order book and trade channels for a single trading pair.
+
+        :param trading_pair: the trading pair to unsubscribe from
+        :return: True if successful, False otherwise
+        """
+        if self._ws_assistant is None:
+            self.logger().warning("Cannot unsubscribe: WebSocket connection not established")
+            return False
+
+        try:
+            product_id = utils.trading_pair_to_product_id(
+                trading_pair, self._connector._exchange_market_info[self._domain]
+            )
+            trade_payload = {
+                "method": CONSTANTS.WS_UNSUBSCRIBE_METHOD,
+                "stream": {"type": CONSTANTS.TRADE_EVENT_TYPE, "product_id": product_id},
+                "id": product_id,
+            }
+            unsubscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trade_payload)
+
+            order_book_payload = {
+                "method": CONSTANTS.WS_UNSUBSCRIBE_METHOD,
+                "stream": {"type": CONSTANTS.DIFF_EVENT_TYPE, "product_id": product_id},
+                "id": product_id,
+            }
+            unsubscribe_order_book_dif_request: WSJSONRequest = WSJSONRequest(payload=order_book_payload)
+
+            await self._ws_assistant.send(unsubscribe_trade_request)
+            await self._ws_assistant.send(unsubscribe_order_book_dif_request)
+
+            self._last_ws_message_sent_timestamp = self._time()
+
+            self.remove_trading_pair(trading_pair)
+            self.logger().info(f"Unsubscribed from public trade and order book diff channels of {trading_pair}...")
+            return True
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().error(
+                f"Unexpected error occurred unsubscribing from {trading_pair}...",
+                exc_info=True
+            )
+            return False

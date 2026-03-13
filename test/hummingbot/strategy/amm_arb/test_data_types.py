@@ -204,3 +204,28 @@ class ArbProposalTests(TestCase):
         calculated_profit: Decimal = proposal.profit_pct(account_for_fee=True, rate_source=rate_source)
 
         self.assertEqual(expected_profit_pct, calculated_profit)
+
+    def test_arb_proposal_side_awaiting_is_independent(self):
+        buy_market_info = MarketTradingPairTuple(self.buy_market, "BTC-USDT", "BTC", "USDT")
+        sell_market_info = MarketTradingPairTuple(self.sell_market, "BTC-DAI", "BTC", "DAI")
+
+        buy_side = ArbProposalSide(
+            buy_market_info,
+            True,
+            Decimal(30000),
+            Decimal(30000),
+            Decimal(10),
+            []
+        )
+        sell_side = ArbProposalSide(
+            sell_market_info,
+            False,
+            Decimal(32000),
+            Decimal(32000),
+            Decimal(10),
+            []
+        )
+
+        buy_side.set_completed()
+
+        self.assertFalse(sell_side.is_completed)

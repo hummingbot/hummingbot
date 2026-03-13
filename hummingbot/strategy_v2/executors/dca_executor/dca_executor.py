@@ -14,7 +14,7 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
 )
 from hummingbot.logger import HummingbotLogger
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.dca_executor.data_types import DCAExecutorConfig, DCAMode
 from hummingbot.strategy_v2.executors.executor_base import ExecutorBase
 from hummingbot.strategy_v2.models.base import RunnableStatus
@@ -30,7 +30,7 @@ class DCAExecutor(ExecutorBase):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, strategy: ScriptStrategyBase, config: DCAExecutorConfig, update_interval: float = 1.0,
+    def __init__(self, strategy: StrategyV2Base, config: DCAExecutorConfig, update_interval: float = 1.0,
                  max_retries: int = 15):
         # validate amounts and prices
         if len(config.amounts_quote) != len(config.prices):
@@ -231,7 +231,7 @@ class DCAExecutor(ExecutorBase):
         """
         return all([order.is_done for order in self._open_orders]) and len(self._open_orders) == self.n_levels
 
-    def validate_sufficient_balance(self):
+    async def validate_sufficient_balance(self):
         """
         This method is responsible for checking the budget
         """
@@ -336,7 +336,7 @@ class DCAExecutor(ExecutorBase):
         This method is responsible for controlling the trailing stop. In order to activated the trailing stop the net
         pnl must be higher than the activation price delta. Once the trailing stop is activated, the trailing stop trigger
         will be the activation price delta minus the trailing delta and the stop loss will be triggered if the net pnl
-        is lower than the trailing stop trigger. the value of hte trailing stop trigger will be updated if the net pnl
+        is lower than the trailing stop trigger. the value of the trailing stop trigger will be updated if the net pnl
         minus the trailing delta is higher than the current value of the trailing stop trigger.
         """
         if self.config.trailing_stop:

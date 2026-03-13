@@ -51,7 +51,6 @@ class BtcMarketsAPIUserStreamDataSourceTest(IsolatedAsyncioWrapperTestCase):
             time_provider=self.mock_time_provider)
 
         self.connector = BtcMarketsExchange(
-            client_config_map=self.client_config_map,
             btc_markets_api_key="",
             btc_markets_api_secret="",
             trading_pairs=[self.trading_pair],

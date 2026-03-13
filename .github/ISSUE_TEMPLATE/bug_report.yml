@@ -7,7 +7,7 @@ body:
    attributes:
      value: |
        ## **Before Submitting:**
-       
+
        * Please edit the "Bug Report" to the title of the bug or issue
        * Please make sure to look on our GitHub issues to avoid duplicate tickets
        * You can add additional `Labels` to support this ticket (connectors, strategies, etc)
@@ -26,9 +26,9 @@ body:
      label: Steps to reproduce
      description: A concise description of the steps to reproduce the buggy behavior
      value: |
-       1. 
-       2. 
-       3. 
+       1.
+       2.
+       3.
    validations:
      required: true
  - type: input
@@ -44,7 +44,7 @@ body:
      label: Type of installation
      description: What type of installation did you use?
      options:
-       - Source 
+       - Source
        - Docker
    validations:
      required: true
@@ -52,6 +52,6 @@ body:
    id: attachment
    attributes:
      label: Attach required files
-     description: Please attach your config file and log file located on the "../hummingbot/logs/" folder. It would be difficult for us to help you without those! 
+     description: Please attach your config file and log file located on the "../hummingbot/logs/" folder. It would be difficult for us to help you without those!
    validations:
      required: false

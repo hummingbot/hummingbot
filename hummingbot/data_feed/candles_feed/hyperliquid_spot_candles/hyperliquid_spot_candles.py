@@ -24,6 +24,7 @@ class HyperliquidSpotCandles(CandlesBase):
         self._base_asset = trading_pair.split("-")[0]
         self._universe_ready = asyncio.Event()
         super().__init__(trading_pair, interval, max_records)
+        self._ping_timeout = CONSTANTS.PING_TIMEOUT
 
     @property
     def name(self):
@@ -144,6 +145,10 @@ class HyperliquidSpotCandles(CandlesBase):
 
     async def initialize_exchange_data(self):
         await self._initialize_coins_dict()
+
+    @property
+    def _ping_payload(self):
+        return CONSTANTS.PING_PAYLOAD
 
     async def _initialize_coins_dict(self):
         rest_assistant = await self._api_factory.get_rest_assistant()

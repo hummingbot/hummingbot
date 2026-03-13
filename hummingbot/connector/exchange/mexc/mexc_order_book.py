@@ -26,7 +26,7 @@ class MexcOrderBook(OrderBook):
             "update_id": msg["lastUpdateId"],
             "bids": msg["bids"],
             "asks": msg["asks"]
-        }, timestamp=timestamp)
+        }, timestamp=float(timestamp))
 
     @classmethod
     def diff_message_from_exchange(cls,
@@ -44,10 +44,10 @@ class MexcOrderBook(OrderBook):
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
             "trading_pair": msg["trading_pair"],
-            "update_id": int(msg['d']["r"]),
-            "bids": [[i['p'], i['v']] for i in msg['d'].get("bids", [])],
-            "asks": [[i['p'], i['v']] for i in msg['d'].get("asks", [])],
-        }, timestamp=timestamp * 1e-3)
+            "update_id": timestamp,
+            "bids": [[i['price'], i['quantity']] for i in msg['publicAggreDepths'].get("bids", [])],
+            "asks": [[i['price'], i['quantity']] for i in msg['publicAggreDepths'].get("asks", [])],
+        }, timestamp=float(timestamp) * 1e-3)
 
     @classmethod
     def trade_message_from_exchange(cls,
@@ -66,9 +66,9 @@ class MexcOrderBook(OrderBook):
         ts = timestamp
         return OrderBookMessage(OrderBookMessageType.TRADE, {
             "trading_pair": msg["trading_pair"],
-            "trade_type": float(TradeType.SELL.value) if msg["S"] == 2 else float(TradeType.BUY.value),
-            "trade_id": msg["t"],
+            "trade_type": float(TradeType.SELL.value) if msg["tradeType"] == 2 else float(TradeType.BUY.value),
+            "trade_id": msg["time"],
             "update_id": ts,
-            "price": msg["p"],
-            "amount": msg["v"]
-        }, timestamp=ts * 1e-3)
+            "price": msg["price"],
+            "amount": msg["quantity"]
+        }, timestamp=float(ts) * 1e-3)

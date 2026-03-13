@@ -49,7 +49,7 @@ class NetworkBaseTest(IsolatedAsyncioWrapperTestCase):
         await nb.stop_network()
         self.assertEqual(await nb.check_network(), NetworkStatus.NOT_CONNECTED)
 
-    def test_start_and_stop_network(self):
+    async def test_start_and_stop_network(self):
         """
         Assert that start and stop update the started property.
         """

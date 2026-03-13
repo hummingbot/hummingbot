@@ -1,8 +1,7 @@
 import os
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, List
 
 import pandas as pd
-from sqlalchemy.orm import Query, Session
 
 from hummingbot.client.config.security import Security
 from hummingbot.client.settings import DEFAULT_LOG_FILE_PATH
@@ -63,7 +62,7 @@ class ExportCommand:
 
     async def export_trades(self,  # type: HummingbotApplication
                             ):
-        with self.trade_fill_db.get_new_session() as session:
+        with self.trading_core.trade_fill_db.get_new_session() as session:
             trades: List[TradeFill] = self._get_trades_from_session(
                 int(self.init_time * 1e3),
                 session=session)
@@ -88,25 +87,3 @@ class ExportCommand:
             self.app.change_prompt(prompt=">>> ")
             self.placeholder_mode = False
             self.app.hide_input = False
-
-    def _get_trades_from_session(self,  # type: HummingbotApplication
-                                 start_timestamp: int,
-                                 session: Session,
-                                 number_of_rows: Optional[int] = None,
-                                 config_file_path: str = None) -> List[TradeFill]:
-
-        filters = [TradeFill.timestamp >= start_timestamp]
-        if config_file_path is not None:
-            filters.append(TradeFill.config_file_path.like(f"%{config_file_path}%"))
-        query: Query = (session
-                        .query(TradeFill)
-                        .filter(*filters)
-                        .order_by(TradeFill.timestamp.desc()))
-        if number_of_rows is None:
-            result: List[TradeFill] = query.all() or []
-        else:
-            result: List[TradeFill] = query.limit(number_of_rows).all() or []
-
-        # Get the latest 100 trades in ascending timestamp order
-        result.reverse()
-        return result

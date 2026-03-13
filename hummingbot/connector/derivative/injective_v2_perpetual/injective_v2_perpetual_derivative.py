@@ -2,7 +2,7 @@ import asyncio
 from collections import defaultdict
 from decimal import Decimal
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from async_timeout import timeout
 
@@ -40,17 +40,15 @@ from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
-if TYPE_CHECKING:
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
-
 
 class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
     web_utils = web_utils
 
     def __init__(
             self,
-            client_config_map: "ClientConfigAdapter",
             connector_configuration: InjectiveConfigMap,
+            balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
+            rate_limits_share_pct: Decimal = Decimal("100"),
             trading_pairs: Optional[List[str]] = None,
             trading_required: bool = True,
             **kwargs,
@@ -62,7 +60,7 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
         self._data_source = connector_configuration.create_data_source()
         self._rate_limits = connector_configuration.network.rate_limits()
 
-        super().__init__(client_config_map=client_config_map)
+        super().__init__(balance_asset_limit, rate_limits_share_pct)
         self._data_source.configure_throttler(throttler=self._throttler)
         self._forwarders = []
         self._configure_event_forwarders()
@@ -711,6 +709,20 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
                         is_partial_fill = order_update.new_state == OrderState.FILLED and not tracked_order.is_filled
                         if not is_partial_fill:
                             self._order_tracker.process_order_update(order_update=order_update)
+                elif channel == "order_failure":
+                    original_order_update = event_data
+                    tracked_order = self._order_tracker.all_updatable_orders.get(original_order_update.client_order_id)
+                    if tracked_order is not None:
+                        # we need to set the trading_pair in the order update because that info is not included in the chain stream update
+                        order_update = OrderUpdate(
+                            trading_pair=tracked_order.trading_pair,
+                            update_timestamp=original_order_update.update_timestamp,
+                            new_state=original_order_update.new_state,
+                            client_order_id=original_order_update.client_order_id,
+                            exchange_order_id=original_order_update.exchange_order_id,
+                            misc_updates=original_order_update.misc_updates,
+                        )
+                        self._order_tracker.process_order_update(order_update=order_update)
                 elif channel == "balance":
                     if event_data.total_balance is not None:
                         self._account_balances[event_data.asset_name] = event_data.total_balance
@@ -912,6 +924,10 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
         self._forwarders.append(event_forwarder)
         self._data_source.add_listener(event_tag=MarketEvent.OrderUpdate, listener=event_forwarder)
 
+        event_forwarder = EventForwarder(to_function=self._process_user_order_failure_update)
+        self._forwarders.append(event_forwarder)
+        self._data_source.add_listener(event_tag=MarketEvent.OrderFailure, listener=event_forwarder)
+
         event_forwarder = EventForwarder(to_function=self._process_balance_event)
         self._forwarders.append(event_forwarder)
         self._data_source.add_listener(event_tag=AccountEvent.BalanceEvent, listener=event_forwarder)
@@ -937,6 +953,11 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
     def _process_user_order_update(self, order_update: OrderUpdate):
         self._all_trading_events_queue.put_nowait(
             {"channel": "order", "data": order_update}
+        )
+
+    def _process_user_order_failure_update(self, order_update: OrderUpdate):
+        self._all_trading_events_queue.put_nowait(
+            {"channel": "order_failure", "data": order_update}
         )
 
     def _process_user_trade_update(self, trade_update: TradeUpdate):

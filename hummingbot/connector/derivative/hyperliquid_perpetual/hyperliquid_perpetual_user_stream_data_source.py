@@ -76,7 +76,7 @@ class HyperliquidPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 "method": "subscribe",
                 "subscription": {
                     "type": "orderUpdates",
-                    "user": self._connector.hyperliquid_perpetual_api_key,
+                    "user": self._connector.hyperliquid_perpetual_address,
                 }
             }
             subscribe_order_change_request: WSJSONRequest = WSJSONRequest(
@@ -87,7 +87,7 @@ class HyperliquidPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 "method": "subscribe",
                 "subscription": {
                     "type": "user",
-                    "user": self._connector.hyperliquid_perpetual_api_key,
+                    "user": self._connector.hyperliquid_perpetual_address,
                 }
             }
             subscribe_positions_request: WSJSONRequest = WSJSONRequest(

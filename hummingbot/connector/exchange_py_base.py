@@ -4,7 +4,7 @@ import logging
 import math
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, AsyncIterable, Callable, Dict, List, Optional, Tuple
+from typing import Any, AsyncIterable, Callable, Dict, List, Optional, Tuple
 
 from async_timeout import timeout
 
@@ -33,9 +33,6 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.logger import HummingbotLogger
 
-if TYPE_CHECKING:
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
-
 
 class ExchangePyBase(ExchangeBase, ABC):
     _logger = None
@@ -46,8 +43,10 @@ class ExchangePyBase(ExchangeBase, ABC):
     TRADING_FEES_INTERVAL = TWELVE_HOURS
     TICK_INTERVAL_LIMIT = 60.0
 
-    def __init__(self, client_config_map: "ClientConfigAdapter"):
-        super().__init__(client_config_map)
+    def __init__(self,
+                 balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
+                 rate_limits_share_pct: Decimal = Decimal("100")):
+        super().__init__(balance_asset_limit)
 
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
@@ -64,7 +63,7 @@ class ExchangePyBase(ExchangeBase, ABC):
         self._time_synchronizer = TimeSynchronizer()
         self._throttler = AsyncThrottler(
             rate_limits=self.rate_limits_rules,
-            limits_share_percentage=client_config_map.rate_limits_share_pct)
+            limits_share_percentage=rate_limits_share_pct)
         self._poll_notifier = asyncio.Event()
 
         # init Auth and Api factory
@@ -432,21 +431,23 @@ class ExchangePyBase(ExchangeBase, ABC):
 
         if order_type not in self.supported_order_types():
             self.logger().error(f"{order_type} is not in the list of supported order types")
-            self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
+            self._update_order_after_failure(
+                order_id=order_id, trading_pair=trading_pair,
+                exception=ValueError(f"{order_type} is not in the list of supported order types"))
             return
 
         elif quantized_amount < trading_rule.min_order_size:
-            self.logger().warning(f"{trade_type.name.title()} order amount {amount} is lower than the minimum order "
-                                  f"size {trading_rule.min_order_size}. The order will not be created, increase the "
-                                  f"amount to be higher than the minimum order size.")
-            self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
+            self._update_order_after_failure(
+                order_id=order_id, trading_pair=trading_pair,
+                exception=ValueError(f"Order amount {amount} is lower than minimum order size {trading_rule.min_order_size} "
+                                     f"for the pair {trading_pair}. The order will not be created."))
             return
 
         elif notional_size < trading_rule.min_notional_size:
-            self.logger().warning(f"{trade_type.name.title()} order notional {notional_size} is lower than the "
-                                  f"minimum notional size {trading_rule.min_notional_size}. The order will not be "
-                                  f"created. Increase the amount or the price to be higher than the minimum notional.")
-            self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
+            self._update_order_after_failure(
+                order_id=order_id, trading_pair=trading_pair,
+                exception=ValueError(f"Order notional {notional_size} is lower than minimum notional size {trading_rule.min_notional_size}"
+                                     f" for the pair {trading_pair}. The order will not be created."))
             return
         try:
             await self._place_order_and_process_update(order=order, **kwargs,)
@@ -504,18 +505,24 @@ class ExchangePyBase(ExchangeBase, ABC):
             exc_info=True,
             app_warning_msg=f"Failed to submit {trade_type.name.upper()} order to {self.name_cap}. Check API key and network connection."
         )
-        self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
+        self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair, exception=exception)
 
-    def _update_order_after_failure(self, order_id: str, trading_pair: str):
+    def _update_order_after_failure(self, order_id: str, trading_pair: str, exception: Optional[Exception] = None):
+        misc_updates = {}
+        if exception:
+            misc_updates['error_message'] = str(exception)
+            misc_updates['error_type'] = exception.__class__.__name__
+
         order_update: OrderUpdate = OrderUpdate(
             client_order_id=order_id,
             trading_pair=trading_pair,
             update_timestamp=self.current_timestamp,
             new_state=OrderState.FAILED,
+            misc_updates=misc_updates
         )
         self._order_tracker.process_order_update(order_update)
 
-    async def _execute_order_cancel(self, order: InFlightOrder) -> str:
+    async def _execute_order_cancel(self, order: InFlightOrder) -> Optional[str]:
         try:
             cancelled = await self._execute_order_cancel_and_process_update(order=order)
             if cancelled:
@@ -535,6 +542,7 @@ class ExchangePyBase(ExchangeBase, ABC):
                 await self._order_tracker.process_order_not_found(order.client_order_id)
             else:
                 self.logger().error(f"Failed to cancel order {order.client_order_id}", exc_info=True)
+        return None
 
     async def _execute_order_cancel_and_process_update(self, order: InFlightOrder) -> bool:
         cancelled = await self._place_cancel(order.client_order_id, order)
@@ -665,7 +673,7 @@ class ExchangePyBase(ExchangeBase, ABC):
         - The polling loop to update order status and balance status using REST API (backup for main update process)
         - The background task to process the events received through the user stream tracker (websocket connection)
         """
-        self._stop_network()
+        await self.stop_network()
         self.order_book_tracker.start()
         if self.is_trading_required:
             self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
@@ -674,13 +682,6 @@ class ExchangePyBase(ExchangeBase, ABC):
             self._user_stream_tracker_task = self._create_user_stream_tracker_task()
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
             self._lost_orders_update_task = safe_ensure_future(self._lost_orders_update_polling_loop())
-
-    async def stop_network(self):
-        """
-        This function is executed when the connector is stopped. It perform a general cleanup and stops all background
-        tasks that require the connection with the exchange to work.
-        """
-        self._stop_network()
 
     async def check_network(self) -> NetworkStatus:
         """
@@ -694,7 +695,7 @@ class ExchangePyBase(ExchangeBase, ABC):
             return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
 
-    def _stop_network(self):
+    async def stop_network(self):
         # Resets timestamps and events for status_polling_loop
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
@@ -713,12 +714,42 @@ class ExchangePyBase(ExchangeBase, ABC):
         if self._user_stream_tracker_task is not None:
             self._user_stream_tracker_task.cancel()
             self._user_stream_tracker_task = None
+
+        # Stop the user stream tracker to properly clean up child tasks
+        if self._user_stream_tracker is not None:
+            await self._user_stream_tracker.stop()
         if self._user_stream_event_listener_task is not None:
             self._user_stream_event_listener_task.cancel()
             self._user_stream_event_listener_task = None
         if self._lost_orders_update_task is not None:
             self._lost_orders_update_task.cancel()
             self._lost_orders_update_task = None
+
+    async def add_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Dynamically adds a trading pair to the connector.
+        This method handles order book subscription and tracking.
+
+        Subclasses (e.g., perpetual connectors) may override this to add
+        additional initialization like funding info.
+
+        :param trading_pair: the trading pair to add (e.g., "BTC-USDT")
+        :return: True if successfully added, False otherwise
+        """
+        return await self.order_book_tracker.add_trading_pair(trading_pair)
+
+    async def remove_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Dynamically removes a trading pair from the connector.
+        This method handles order book unsubscription and cleanup.
+
+        Subclasses (e.g., perpetual connectors) may override this to add
+        additional cleanup like funding info.
+
+        :param trading_pair: the trading pair to remove (e.g., "BTC-USDT")
+        :return: True if successfully removed, False otherwise
+        """
+        return await self.order_book_tracker.remove_trading_pair(trading_pair)
 
     # === loops and sync related methods ===
     #
@@ -985,7 +1016,7 @@ class ExchangePyBase(ExchangeBase, ABC):
         is_not_found = self._is_order_not_found_during_status_update_error(status_update_exception=error)
         self.logger().debug(f"Order update error for lost order {order.client_order_id}\n{order}\nIs order not found: {is_not_found} ({error})")
         if is_not_found:
-            self._update_order_after_failure(order.client_order_id, order.trading_pair)
+            self._update_order_after_failure(order.client_order_id, order.trading_pair, exception=error)
         else:
             self.logger().warning(f"Error fetching status update for the lost order {order.client_order_id}: {error}.")
 

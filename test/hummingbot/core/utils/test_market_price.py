@@ -12,8 +12,6 @@ from bidict import bidict
 import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
 import hummingbot.connector.exchange.binance.binance_web_utils as web_utils
 import hummingbot.core.utils.market_price as market_price
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
 
 
@@ -35,9 +33,7 @@ class MarketPriceUnitTests(unittest.TestCase):
     @aioresponses()
     @patch("hummingbot.client.settings.ConnectorSetting.non_trading_connector_instance_with_default_configuration")
     def test_get_last_price(self, mock_api, connector_creator_mock):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         connector = BinanceExchange(
-            client_config_map,
             binance_api_key="",
             binance_api_secret="",
             trading_pairs=[],

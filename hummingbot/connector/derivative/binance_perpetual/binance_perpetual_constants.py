@@ -61,6 +61,7 @@ ORDER_STATE = {
     "CANCELED": OrderState.CANCELED,
     "EXPIRED": OrderState.CANCELED,
     "REJECTED": OrderState.FAILED,
+    "EXPIRED_IN_MATCH": OrderState.FAILED,
 }
 
 # Rate Limit Type

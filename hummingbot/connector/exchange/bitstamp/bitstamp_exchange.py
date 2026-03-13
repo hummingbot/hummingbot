@@ -1,7 +1,7 @@
 import asyncio
 from datetime import datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from bidict import bidict
 
@@ -26,9 +26,6 @@ from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
-if TYPE_CHECKING:
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
-
 
 class BitstampExchange(ExchangePyBase):
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
@@ -36,9 +33,10 @@ class BitstampExchange(ExchangePyBase):
     web_utils = web_utils
 
     def __init__(self,
-                 client_config_map: "ClientConfigAdapter",
                  bitstamp_api_key: str,
                  bitstamp_api_secret: str,
+                 balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
+                 rate_limits_share_pct: Decimal = Decimal("100"),
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True,
                  domain: str = CONSTANTS.DEFAULT_DOMAIN,
@@ -52,9 +50,9 @@ class BitstampExchange(ExchangePyBase):
         self._time_provider = time_provider
         self._last_trades_poll_bitstamp_timestamp = 1.0
 
-        super().__init__(client_config_map)
+        super().__init__(balance_asset_limit, rate_limits_share_pct)
         self._real_time_balance_update = False
-        self._trading_fees
+        self._trading_fees = {}
 
     @staticmethod
     def bitstamp_order_type(order_type: OrderType) -> str:

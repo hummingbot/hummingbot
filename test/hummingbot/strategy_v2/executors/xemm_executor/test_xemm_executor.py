@@ -9,7 +9,7 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.event.events import BuyOrderCompletedEvent, BuyOrderCreatedEvent, MarketOrderFailureEvent
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.data_types import ConnectorPair
 from hummingbot.strategy_v2.executors.xemm_executor.data_types import XEMMExecutorConfig
 from hummingbot.strategy_v2.executors.xemm_executor.xemm_executor import XEMMExecutor
@@ -58,7 +58,7 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         market_info = MagicMock()
         market_info.market = market
 
-        strategy = MagicMock(spec=ScriptStrategyBase)
+        strategy = MagicMock(spec=StrategyV2Base)
         type(strategy).market_info = PropertyMock(return_value=market_info)
         type(strategy).trading_pair = PropertyMock(return_value="ETH-USDT")
         strategy.buy.side_effect = ["OID-BUY-1", "OID-BUY-2", "OID-BUY-3"]
@@ -142,9 +142,32 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         resulting_price_mock.return_value = Decimal("100")
         self.executor._status = RunnableStatus.RUNNING
         await self.executor.control_task()
+        # Calculate expected maker target price using the new formula:
+        # maker_price = taker_price / (1 + target_profitability + tx_cost_pct)
+        # tx_cost_pct = (0.01 + 0.01) / 100 = 0.0002
+        # maker_price = 100 / (1 + 0.015 + 0.0002) = 100 / 1.0152
+        expected_price = Decimal("100") / (Decimal("1") + Decimal("0.015") + Decimal("0.02") / Decimal("100"))
         self.assertEqual(self.executor._status, RunnableStatus.RUNNING)
         self.assertEqual(self.executor.maker_order.order_id, "OID-BUY-1")
-        self.assertEqual(self.executor._maker_target_price, Decimal("98.48"))
+        self.assertEqual(self.executor._maker_target_price, expected_price)
+
+    @patch.object(XEMMExecutor, "get_resulting_price_for_amount")
+    @patch.object(XEMMExecutor, "get_tx_cost_in_asset")
+    async def test_control_task_running_order_not_placed_sell_side(self, tx_cost_mock, resulting_price_mock):
+        # Test maker SELL side (taker BUY) to cover line 155
+        executor = XEMMExecutor(self.strategy, self.base_config_short, self.update_interval)
+        tx_cost_mock.return_value = Decimal('0.01')
+        resulting_price_mock.return_value = Decimal("100")
+        executor._status = RunnableStatus.RUNNING
+        await executor.control_task()
+        # Calculate expected maker target price using the new formula for SELL side:
+        # maker_price = taker_price / (1 - target_profitability - tx_cost_pct)
+        # tx_cost_pct = (0.01 + 0.01) / 100 = 0.0002
+        # maker_price = 100 / (1 - 0.015 - 0.0002) = 100 / 0.9848
+        expected_price = Decimal("100") / (Decimal("1") - Decimal("0.015") - Decimal("0.02") / Decimal("100"))
+        self.assertEqual(executor._status, RunnableStatus.RUNNING)
+        self.assertEqual(executor.maker_order.order_id, "OID-SELL-1")
+        self.assertEqual(executor._maker_target_price, expected_price)
 
     @patch.object(XEMMExecutor, "get_resulting_price_for_amount")
     @patch.object(XEMMExecutor, "get_tx_cost_in_asset")

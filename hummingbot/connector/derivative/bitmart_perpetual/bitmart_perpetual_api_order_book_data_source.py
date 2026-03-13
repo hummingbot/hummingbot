@@ -28,6 +28,9 @@ class BitmartPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     _trading_pair_symbol_map: Dict[str, Mapping[str, str]] = {}
     _mapping_initialization_lock = asyncio.Lock()
 
+    _DYNAMIC_SUBSCRIBE_ID_START = 100
+    _next_subscribe_id: int = _DYNAMIC_SUBSCRIBE_ID_START
+
     def __init__(
             self,
             trading_pairs: List[str],
@@ -277,3 +280,94 @@ class BitmartPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             8: TradeType.BUY,  # sell_close_long or buy_close_short (treated as buy)
         }
         return way_to_trade_type.get(way)  # Default to "unknown" if way is invalid
+
+    @classmethod
+    def _get_next_subscribe_id(cls) -> int:
+        """Get the next subscription ID and increment the counter."""
+        subscribe_id = cls._next_subscribe_id
+        cls._next_subscribe_id += 1
+        return subscribe_id
+
+    async def subscribe_to_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Subscribe to order book channels for a single trading pair dynamically.
+
+        :param trading_pair: The trading pair to subscribe to.
+        :return: True if subscription was successful, False otherwise.
+        """
+        if self._ws_assistant is None:
+            self.logger().warning(
+                f"Cannot subscribe to {trading_pair}: WebSocket connection not established."
+            )
+            return False
+
+        try:
+            symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+
+            stream_id_channel_pairs = [
+                CONSTANTS.ORDER_BOOK_CHANNEL,
+                CONSTANTS.TRADE_STREAM_CHANNEL,
+                CONSTANTS.FUNDING_INFO_CHANNEL,
+                CONSTANTS.TICKERS_CHANNEL,
+            ]
+
+            for channel in stream_id_channel_pairs:
+                params = [f"{channel}{f':{symbol.upper()}' if channel != 'futures/ticker' else ''}"]
+                payload = {
+                    "action": "subscribe",
+                    "args": params,
+                }
+                subscribe_request: WSJSONRequest = WSJSONRequest(payload)
+                await self._ws_assistant.send(subscribe_request)
+
+            self.add_trading_pair(trading_pair)
+            self.logger().info(f"Successfully subscribed to {trading_pair}")
+            return True
+
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger().error(f"Error subscribing to {trading_pair}: {e}")
+            return False
+
+    async def unsubscribe_from_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Unsubscribe from order book channels for a single trading pair dynamically.
+
+        :param trading_pair: The trading pair to unsubscribe from.
+        :return: True if unsubscription was successful, False otherwise.
+        """
+        if self._ws_assistant is None:
+            self.logger().warning(
+                f"Cannot unsubscribe from {trading_pair}: WebSocket connection not established."
+            )
+            return False
+
+        try:
+            symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+
+            stream_id_channel_pairs = [
+                CONSTANTS.ORDER_BOOK_CHANNEL,
+                CONSTANTS.TRADE_STREAM_CHANNEL,
+                CONSTANTS.FUNDING_INFO_CHANNEL,
+                CONSTANTS.TICKERS_CHANNEL,
+            ]
+
+            for channel in stream_id_channel_pairs:
+                params = [f"{channel}{f':{symbol.upper()}' if channel != 'futures/ticker' else ''}"]
+                payload = {
+                    "action": "unsubscribe",
+                    "args": params,
+                }
+                unsubscribe_request: WSJSONRequest = WSJSONRequest(payload)
+                await self._ws_assistant.send(unsubscribe_request)
+
+            self.remove_trading_pair(trading_pair)
+            self.logger().info(f"Successfully unsubscribed from {trading_pair}")
+            return True
+
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger().error(f"Error unsubscribing from {trading_pair}: {e}")
+            return False

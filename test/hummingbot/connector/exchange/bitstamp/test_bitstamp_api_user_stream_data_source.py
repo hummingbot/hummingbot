@@ -8,8 +8,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses import aioresponses
 from bidict import bidict
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.bitstamp import bitstamp_constants as CONSTANTS, bitstamp_web_utils as web_utils
 from hummingbot.connector.exchange.bitstamp.bitstamp_api_user_stream_data_source import BitstampAPIUserStreamDataSource
 from hummingbot.connector.exchange.bitstamp.bitstamp_exchange import BitstampExchange
@@ -37,9 +35,7 @@ class BitstampUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.mock_time_provider = MagicMock()
         self.mock_time_provider.time.return_value = 1000
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = BitstampExchange(
-            client_config_map=client_config_map,
             bitstamp_api_key="TEST_API_KEY",
             bitstamp_api_secret="TEST_SECRET",
             trading_pairs=[],

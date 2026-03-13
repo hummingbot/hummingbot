@@ -13,8 +13,6 @@ from aioresponses.core import RequestCall
 
 import hummingbot.connector.exchange.hyperliquid.hyperliquid_constants as CONSTANTS
 import hummingbot.connector.exchange.hyperliquid.hyperliquid_web_utils as web_utils
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.hyperliquid.hyperliquid_exchange import HyperliquidExchange
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
 from hummingbot.connector.trading_rule import TradingRule
@@ -38,9 +36,10 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.api_key = "someKey"
+        cls.api_address = "someAddress"
         cls.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
-        cls.use_vault = False  # noqa: mock
+        cls.hyperliquid_mode = "arb_wallet"  # noqa: mock
+        cls.use_vault = False
         cls.user_id = "someUserId"
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "USDC"  # linear
@@ -403,7 +402,7 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         return TradingRule(self.trading_pair,
                            min_base_amount_increment=step_size,
                            min_price_increment=price_size,
-                           )
+                           min_order_size=step_size)
 
     @property
     def expected_logged_error_for_erroneous_trading_rule(self):
@@ -453,12 +452,11 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         return f"{base_token}-{quote_token}"
 
     def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         exchange = HyperliquidExchange(
-            client_config_map,
-            self.api_secret,
-            self.use_vault,
-            self.api_key,
+            hyperliquid_secret_key=self.api_secret,
+            hyperliquid_mode=self.hyperliquid_mode,
+            hyperliquid_address=self.api_address,
+            use_vault=self.use_vault,
             trading_pairs=[self.trading_pair],
         )
         # exchange._last_trade_history_timestamp = self.latest_trade_hist_timestamp
@@ -481,7 +479,7 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = json.loads(request_call.kwargs["data"])
-        self.assertEqual(self.api_key, request_params["user"])
+        self.assertEqual(self.api_address, request_params["user"])
 
     def configure_successful_cancelation_response(
             self,
@@ -770,8 +768,8 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         self._simulate_trading_rules_initialized()
-        return {'channel': 'user', 'data': {'fills': [
-            {'coin': 'COINALPHA', 'px': order.price, 'sz': float(order.amount), 'side': 'B', 'time': 1700819083138,
+        return {'channel': 'userFills', 'data': {'fills': [
+            {'coin': 'COINALPHA/USDC', 'px': order.price, 'sz': float(order.amount), 'side': 'B', 'time': 1700819083138,
              'closedPnl': '0.0',
              'hash': '0x6065d86346c0ee0f5d9504081647930115005f95c201c3a6fb5ba2440507f2cf',  # noqa: mock
              'tid': '0x6065d86346c0ee0f5d9504081647930115005f95c201c3a6fb5ba2440507f2cf',  # noqa: mock
@@ -1549,13 +1547,9 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.assertEqual(OrderType.LIMIT, failure_event.order_type)
         self.assertEqual(order_id, failure_event.order_id)
 
-        self.assertTrue(
-            self.is_logged(
-                "INFO",
-                f"Order {order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
-                f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)"
-            )
+        self.is_logged(
+            "NETWORK",
+            f"Error submitting buy LIMIT order to {self.exchange.name_cap} for 100.000000 {self.trading_pair} 10000.0000."
         )
 
     @aioresponses()
@@ -1641,6 +1635,74 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         )
 
     @aioresponses()
+    def test_create_buy_market_order_successfully(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+
+        url = self.order_creation_url
+        creation_response = self.order_creation_request_successful_mock_response
+
+        mock_api.post(url,
+                      body=json.dumps(creation_response),
+                      callback=lambda *args, **kwargs: request_sent_event.set())
+
+        # Create a market buy order - this will trigger lines 286-287
+        order_id = self.place_buy_order(order_type=OrderType.MARKET)
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        order_request = self._all_executed_requests(mock_api, url)[0]
+        self.validate_auth_credentials_present(order_request)
+        self.assertIn(order_id, self.exchange.in_flight_orders)
+
+        order = self.exchange.in_flight_orders[order_id]
+        self.assertEqual(OrderType.MARKET, order.order_type)
+
+        self.validate_order_creation_request(
+            order=order,
+            request_call=order_request)
+
+        create_event: BuyOrderCreatedEvent = self.buy_order_created_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
+        self.assertEqual(self.trading_pair, create_event.trading_pair)
+        self.assertEqual(OrderType.MARKET, create_event.type)
+        self.assertEqual(order_id, create_event.order_id)
+
+    @aioresponses()
+    def test_create_sell_market_order_successfully(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+
+        url = self.order_creation_url
+        creation_response = self.order_creation_request_successful_mock_response
+
+        mock_api.post(url,
+                      body=json.dumps(creation_response),
+                      callback=lambda *args, **kwargs: request_sent_event.set())
+
+        # Create a market sell order - this will trigger lines 323-324
+        order_id = self.place_sell_order(order_type=OrderType.MARKET)
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        order_request = self._all_executed_requests(mock_api, url)[0]
+        self.validate_auth_credentials_present(order_request)
+        self.assertIn(order_id, self.exchange.in_flight_orders)
+
+        order = self.exchange.in_flight_orders[order_id]
+        self.assertEqual(OrderType.MARKET, order.order_type)
+
+        self.validate_order_creation_request(
+            order=order,
+            request_call=order_request)
+
+        create_event: SellOrderCreatedEvent = self.sell_order_created_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
+        self.assertEqual(self.trading_pair, create_event.trading_pair)
+        self.assertEqual(OrderType.MARKET, create_event.type)
+        self.assertEqual(order_id, create_event.order_id)
+
+    @aioresponses()
     def test_update_order_fills_from_trades_triggers_filled_event(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
         self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
@@ -1707,7 +1769,7 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(request)
         request_params = request.kwargs["params"]
-        self.assertEqual(self.api_key, request_params["user"])
+        self.assertEqual(self.api_address, request_params["user"])
 
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
@@ -1806,7 +1868,7 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(request)
         request_params = request.kwargs["params"]
-        self.assertEqual(self.api_key, request_params["user"])
+        self.assertEqual(self.api_address, request_params["user"])
 
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
@@ -1826,3 +1888,56 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             "INFO",
             f"Recreating missing trade in TradeFill: {trade_fill_non_tracked_order}"
         ))
+
+    @aioresponses()
+    async def test_create_order_fails_when_trading_rule_error_and_raises_failure_event(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+
+        url = self.order_creation_url
+        mock_api.post(url,
+                      status=400,
+                      callback=lambda *args, **kwargs: request_sent_event.set())
+
+        order_id_for_invalid_order = self.place_buy_order(
+            amount=Decimal("0.0001"), price=Decimal("0.0001")
+        )
+        # The second order is used only to have the event triggered and avoid using timeouts for tests
+        order_id = self.place_buy_order()
+        await asyncio.wait_for(request_sent_event.wait(), timeout=3)
+        await asyncio.sleep(0.1)
+
+        self.assertNotIn(order_id_for_invalid_order, self.exchange.in_flight_orders)
+        self.assertNotIn(order_id, self.exchange.in_flight_orders)
+
+        self.assertEqual(0, len(self.buy_order_created_logger.event_log))
+        failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
+        self.assertEqual(OrderType.LIMIT, failure_event.order_type)
+        self.assertEqual(order_id_for_invalid_order, failure_event.order_id)
+
+        self.assertTrue(
+            self.is_logged(
+                "NETWORK",
+                f"Error submitting buy LIMIT order to {self.exchange.name_cap} for 100.000000 {self.trading_pair} 10000."
+            )
+        )
+        error_message = (
+            f"Order amount 0.0001 is lower than minimum order size 0.01 for the pair {self.trading_pair}. "
+            "The order will not be created."
+        )
+        misc_updates = {
+            "error_message": error_message,
+            "error_type": "ValueError"
+        }
+
+        expected_log = (
+            f"Order {order_id_for_invalid_order} has failed. Order Update: "
+            f"OrderUpdate(trading_pair='{self.trading_pair}', "
+            f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
+            f"client_order_id='{order_id_for_invalid_order}', exchange_order_id=None, "
+            f"misc_updates={repr(misc_updates)})"
+        )
+
+        self.assertTrue(self.is_logged("INFO", expected_log))

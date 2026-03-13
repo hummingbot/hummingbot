@@ -3,11 +3,8 @@ from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCa
 from typing import Optional
 from unittest.mock import AsyncMock, patch
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_derivative import DydxV4PerpetualDerivative
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
-from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
 
 class DydxV4PerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
@@ -29,9 +26,7 @@ class DydxV4PerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCas
         self.log_records = []
         self.async_task: Optional[asyncio.Task] = None
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = DydxV4PerpetualDerivative(
-            client_config_map,
             dydx_v4_perpetual_secret_phrase="mirror actor skill push coach wait confirm orchard "
                                             "lunch mobile athlete gossip awake miracle matter "
                                             "bus reopen team ladder lazy list timber render wait",
@@ -46,8 +41,6 @@ class DydxV4PerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCas
         self.data_source.logger().addHandler(self)
 
     async def asyncSetUp(self) -> None:
-        await super().asyncSetUp()
-        await ConnectionsFactory().close()
         self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()
 

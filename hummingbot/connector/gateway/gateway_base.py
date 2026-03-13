@@ -5,25 +5,25 @@ import logging
 import re
 import time
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union, cast
+from typing import Any, Dict, List, Optional, Set, Union, cast
 
-from hummingbot.client.settings import GatewayConnectionSetting
+from hummingbot.client.config.client_config_map import GatewayConfigMap
+from hummingbot.connector.budget_checker import BudgetChecker
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.connector.gateway.common_types import TransactionStatus
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
+from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeFeeBase, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.data_type.trade_fee import TokenAmount
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
+from hummingbot.core.event.events import MarketEvent, MarketTransactionFailureEvent
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
-
-if TYPE_CHECKING:
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 s_logger = None
 s_decimal_0 = Decimal("0")
@@ -31,12 +31,11 @@ s_decimal_0 = Decimal("0")
 
 class GatewayBase(ConnectorBase):
     """
-    Defines basic functions common to all Gateway AMM connectors
+    Defines basic functions common to all Gateway connectors
     """
 
-    API_CALL_TIMEOUT = 10.0
     POLL_INTERVAL = 1.0
-    UPDATE_BALANCE_INTERVAL = 30.0
+    BALANCE_POLL_INTERVAL = 60.0  # Update balances every 60 seconds
     APPROVAL_ORDER_ID_PATTERN = re.compile(r"approve-(\w+)-(\w+)")
 
     _connector_name: str
@@ -49,6 +48,7 @@ class GatewayBase(ConnectorBase):
     _trading_required: bool
     _last_poll_timestamp: float
     _last_balance_poll_timestamp: float
+    _balance_polling_task: Optional[asyncio.Task]
     _last_est_gas_cost_reported: float
     _poll_notifier: Optional[asyncio.Event]
     _status_polling_task: Optional[asyncio.Task]
@@ -59,41 +59,46 @@ class GatewayBase(ConnectorBase):
     _order_tracker: ClientOrderTracker
     _native_currency: str
     _amount_quantum_dict: Dict[str, Decimal]
-    _allowances: Dict[str, Decimal]
-    _get_allowances_task: Optional[asyncio.Task]
 
     def __init__(self,
-                 client_config_map: "ClientConfigAdapter",
                  connector_name: str,
-                 chain: str,
-                 network: str,
-                 address: str,
+                 chain: Optional[str] = None,
+                 network: Optional[str] = None,
+                 address: Optional[str] = None,
+                 balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
                  trading_pairs: List[str] = [],
-                 trading_required: bool = True
+                 trading_required: bool = True,
+                 gateway_config: Optional["GatewayConfigMap"] = None
                  ):
         """
-        :param connector_name: name of connector on gateway
-        :param chain: refers to a block chain, e.g. solana
-        :param network: refers to a network of a particular blockchain e.g. mainnet or devnet
-        :param address: the address of the sol wallet which has been added on gateway
+        :param connector_name: name of connector on gateway (e.g., 'uniswap/amm', 'jupiter/router')
+        :param chain: refers to a block chain, e.g. solana (auto-detected if not provided)
+        :param network: refers to a network of a particular blockchain e.g. mainnet or devnet (auto-detected if not provided)
+        :param address: the address of the wallet which has been added on gateway (uses default wallet if not provided)
         :param trading_pairs: a list of trading pairs
         :param trading_required: Whether actual trading is needed. Useful for some functionalities or commands like the balance command
         """
         self._connector_name = connector_name
         self._name = f"{connector_name}_{chain}_{network}"
-        super().__init__(client_config_map)
+        # Temporarily set chain/network/address - will be populated in start_network if not provided
         self._chain = chain
         self._network = network
+        self._wallet_address = address
+        # Use connector name as temporary name until we have chain/network info
+        self._name = connector_name
+        super().__init__(balance_asset_limit)
+        self._budget_checker = BudgetChecker(exchange=self)
+        self._gateway_config = gateway_config
         self._trading_pairs = trading_pairs
         self._tokens = set()
         [self._tokens.update(set(trading_pair.split("_")[0].split("-"))) for trading_pair in trading_pairs]
-        self._wallet_address = address
         self._trading_required = trading_required
         self._last_poll_timestamp = 0.0
-        self._last_balance_poll_timestamp = time.time()
+        self._last_balance_poll_timestamp = 0.0
         self._last_est_gas_cost_reported = 0
         self._chain_info = {}
         self._status_polling_task = None
+        self._balance_polling_task = None
         self._get_chain_info_task = None
         self._get_gas_estimate_task = None
         self._network_transaction_fee = None
@@ -101,9 +106,8 @@ class GatewayBase(ConnectorBase):
         self._native_currency = None
         self._order_tracker: ClientOrderTracker = ClientOrderTracker(connector=self, lost_order_count_limit=10)
         self._amount_quantum_dict = {}
+        self._token_data = {}  # Store complete token information
         self._allowances = {}
-        self._get_allowances_task: Optional[asyncio.Task] = None
-        safe_ensure_future(self.load_token_data())
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -111,6 +115,10 @@ class GatewayBase(ConnectorBase):
         if s_logger is None:
             s_logger = logging.getLogger(cls.__name__)
         return cast(HummingbotLogger, s_logger)
+
+    @property
+    def budget_checker(self) -> BudgetChecker:
+        return self._budget_checker
 
     @property
     def connector_name(self):
@@ -134,6 +142,13 @@ class GatewayBase(ConnectorBase):
     @property
     def address(self):
         return self._wallet_address
+
+    @property
+    def trading_pairs(self):
+        """
+        Returns the list of trading pairs supported by this connector.
+        """
+        return self._trading_pairs
 
     async def all_trading_pairs(self) -> List[str]:
         """
@@ -168,6 +183,11 @@ class GatewayBase(ConnectorBase):
     def network_transaction_fee(self) -> TokenAmount:
         return self._network_transaction_fee
 
+    @property
+    def native_currency(self) -> Optional[str]:
+        """Returns the native currency symbol for this chain."""
+        return self._native_currency
+
     @network_transaction_fee.setter
     def network_transaction_fee(self, new_fee: TokenAmount):
         self._network_transaction_fee = new_fee
@@ -175,6 +195,10 @@ class GatewayBase(ConnectorBase):
     @property
     def in_flight_orders(self) -> Dict[str, GatewayInFlightOrder]:
         return self._order_tracker.active_orders
+
+    def get_order(self, client_order_id: str) -> Optional[GatewayInFlightOrder]:
+        """Get a specific order."""
+        return self._order_tracker.fetch_order(client_order_id)
 
     @property
     def tracking_states(self) -> Dict[str, Any]:
@@ -194,47 +218,86 @@ class GatewayBase(ConnectorBase):
         return f"{side.name.lower()}-{trading_pair}-{get_tracking_nonce()}"
 
     async def start_network(self):
+        # Auto-detect chain and network if not provided
+        if not self._chain or not self._network:
+            chain, network, error = await self._get_gateway_instance().get_connector_chain_network(
+                self._connector_name
+            )
+            if error:
+                raise ValueError(f"Failed to get chain/network info: {error}")
+            if not self._chain:
+                self._chain = chain
+            if not self._network:
+                self._network = network
+
+        # Get default wallet if not provided
+        if not self._wallet_address:
+            wallet_address, error = await self._get_gateway_instance().get_default_wallet(
+                self._chain
+            )
+            if error:
+                raise ValueError(f"Failed to get default wallet: {error}")
+            self._wallet_address = wallet_address
+
+        # Update the name to same as the connector name
+        self._name = f"{self._connector_name}"
+
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
+            self._balance_polling_task = safe_ensure_future(self._balance_polling_loop())
             self._get_gas_estimate_task = safe_ensure_future(self.get_gas_estimate())
-            if self.chain == "ethereum":
-                self._get_allowances_task = safe_ensure_future(self.update_allowances())
         self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
+        # Load token data to populate amount quantum dict
+        await self.load_token_data()
+        # Fetch initial balances
+        if self._trading_required:
+            await self.update_balances()
 
     async def stop_network(self):
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
             self._status_polling_task = None
+        if self._balance_polling_task is not None:
+            self._balance_polling_task.cancel()
+            self._balance_polling_task = None
         if self._get_chain_info_task is not None:
             self._get_chain_info_task.cancel()
             self._get_chain_info_task = None
         if self._get_gas_estimate_task is not None:
             self._get_gas_estimate_task.cancel()
             self._get_gas_estimate_task = None
-        if self._get_allowances_task is not None:
-            self._get_allowances_task.cancel()
-            self._get_allowances_task = None
 
     async def _status_polling_loop(self):
-        await self.update_balances(on_interval=False)
         while True:
             try:
                 self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
-                await safe_gather(
-                    self.update_balances(on_interval=True),
-                    self.update_order_status(self.gateway_orders)
-                )
+                await self.update_order_status(self.gateway_orders)
                 self._last_poll_timestamp = self.current_timestamp
             except asyncio.CancelledError:
                 raise
             except Exception as e:
                 self.logger().error(str(e), exc_info=True)
 
+    async def _balance_polling_loop(self):
+        """Periodically update wallet balances."""
+        while True:
+            try:
+                await asyncio.sleep(self.BALANCE_POLL_INTERVAL)
+                await self.update_balances()
+                self._last_balance_poll_timestamp = self.current_timestamp
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().error(f"Error updating balances: {str(e)}", exc_info=True)
+
     async def load_token_data(self):
         tokens = await GatewayHttpClient.get_instance().get_tokens(self.chain, self.network)
         for t in tokens.get("tokens", []):
-            self._amount_quantum_dict[t["symbol"]] = Decimal(str(10 ** -t["decimals"]))
+            symbol = t["symbol"]
+            self._amount_quantum_dict[symbol] = Decimal(str(10 ** -t["decimals"]))
+            # Store complete token data for easy access
+            self._token_data[symbol] = t
 
     def get_taker_order_type(self):
         return OrderType.LIMIT
@@ -246,6 +309,18 @@ class GatewayBase(ConnectorBase):
         base, quote = trading_pair.split("-")
         return max(self._amount_quantum_dict[base], self._amount_quantum_dict[quote])
 
+    def get_token_info(self, token_symbol: str) -> Optional[Dict[str, Any]]:
+        """Get token information for a given symbol."""
+        return self._token_data.get(token_symbol)
+
+    def get_token_by_address(self, token_address: str) -> Optional[Dict[str, Any]]:
+        """Get token information for a given address."""
+        # Search through all tokens to find matching address
+        for symbol, token_data in self._token_data.items():
+            if token_data.get("address", "").lower() == token_address.lower():
+                return token_data
+        return None
+
     async def get_chain_info(self):
         """
         Calls the base endpoint of the connector on Gateway to know basic info about chain being used.
@@ -254,8 +329,16 @@ class GatewayBase(ConnectorBase):
             self._chain_info = await self._get_gateway_instance().get_network_status(
                 chain=self.chain, network=self.network
             )
-            if not isinstance(self._chain_info, list):
-                self._native_currency = self._chain_info.get("nativeCurrency", "SOL")
+            # Get native currency using the proper method from gateway_http_client
+            self.logger().debug(f"Getting native currency for chain={self.chain}, network={self.network}")
+            native_currency = await self._get_gateway_instance().get_native_currency_symbol(
+                chain=self.chain, network=self.network
+            )
+            if native_currency:
+                self._native_currency = native_currency
+                self.logger().info(f"Set native currency to: {self._native_currency} for {self.chain}-{self.network}")
+            else:
+                self.logger().error(f"Failed to get native currency for {self.chain}-{self.network}, got: {native_currency}")
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -273,29 +356,61 @@ class GatewayBase(ConnectorBase):
             response: Dict[Any] = await self._get_gateway_instance().estimate_gas(
                 chain=self.chain, network=self.network
             )
-            self.network_transaction_fee = TokenAmount(
-                response.get("gasPriceToken"), Decimal(response.get("gasCost"))
-            )
+
+            # Use the new fee and feeAsset fields from the response
+            fee = response.get("fee", None)
+            fee_asset = response.get("feeAsset", None)
+
+            if fee is not None and fee_asset is not None:
+                # Create a TokenAmount object for the network fee using the provided fee asset
+                self.network_transaction_fee = TokenAmount(
+                    token=fee_asset,
+                    amount=Decimal(str(fee))
+                )
+                self.logger().debug(f"Set network transaction fee: {fee} {fee_asset}")
+            else:
+                self.logger().warning(
+                    f"Incomplete gas estimate response: fee={fee}, feeAsset={fee_asset}"
+                )
         except asyncio.CancelledError:
             raise
         except Exception as e:
             self.logger().network(
-                f"Error getting gas price estimates for {self.connector_name} on {self.network}.",
+                f"Error getting gas estimates for {self.connector_name} on {self.network}.",
                 exc_info=True,
                 app_warning_msg=str(e)
             )
 
     @property
     def ready(self):
-        return all(self.status_dict.values())
+        status = self.status_dict
+        if not all(status.values()):
+            # Log which items are not ready
+            not_ready = [k for k, v in status.items() if not v]
+            self.logger().debug(f"Connector {self.name} not ready. Missing: {not_ready}. Status: {status}")
+        return all(status.values())
 
     @property
     def status_dict(self) -> Dict[str, bool]:
+        has_balance = len(self._account_balances) > 0
+        has_native_currency = self._native_currency is not None
+        has_network_fee = self.network_transaction_fee is not None
+
         status = {
-            "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
-            "native_currency": self._native_currency is not None,
-            "network_transaction_fee": self.network_transaction_fee is not None if self._trading_required else True,
+            "account_balance": has_balance if self._trading_required else True,
+            "native_currency": has_native_currency,
+            "network_transaction_fee": has_network_fee if self._trading_required else True,
         }
+
+        # Debug logging
+        self.logger().debug(
+            f"Status check for {self.name}: "
+            f"balances={len(self._account_balances)}, "
+            f"native_currency={self._native_currency}, "
+            f"network_fee={self.network_transaction_fee}, "
+            f"trading_required={self._trading_required}"
+        )
+
         return status
 
     async def check_network(self) -> NetworkStatus:
@@ -320,42 +435,74 @@ class GatewayBase(ConnectorBase):
             if self._poll_notifier is not None and not self._poll_notifier.is_set():
                 self._poll_notifier.set()
 
-    async def update_balances(self, on_interval: bool = False):
+    async def update_balances(self):
         """
-        Calls Solana API to update total and available balances.
+        Calls Gateway API to update total and available balances.
         """
         if self._native_currency is None:
             await self.get_chain_info()
-        connector_tokens = GatewayConnectionSetting.get_connector_spec_from_market_name(self._name).get("tokens", "").split(",")
-        last_tick = self._last_balance_poll_timestamp
-        current_tick = self.current_timestamp
-        if not on_interval or (current_tick - last_tick) > self.UPDATE_BALANCE_INTERVAL:
-            self._last_balance_poll_timestamp = current_tick
-            local_asset_names = set(self._account_balances.keys())
-            remote_asset_names = set()
-            token_list = list(self._tokens) + [self._native_currency] + connector_tokens
-            resp_json: Dict[str, Any] = await self._get_gateway_instance().get_balances(
-                chain=self.chain,
-                network=self.network,
-                address=self.address,
-                token_symbols=token_list
-            )
-            for token, bal in resp_json["balances"].items():
-                self._account_available_balances[token] = Decimal(str(bal))
-                self._account_balances[token] = Decimal(str(bal))
-                remote_asset_names.add(token)
-            asset_names_to_remove = local_asset_names.difference(remote_asset_names)
-            for asset_name in asset_names_to_remove:
-                del self._account_available_balances[asset_name]
-                del self._account_balances[asset_name]
-            self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._order_tracker.all_orders.items()}
-            self._in_flight_orders_snapshot_timestamp = self.current_timestamp
+        local_asset_names = set(self._account_balances.keys())
+        remote_asset_names = set()
+        token_list = list(self._tokens)
+        if self._native_currency:
+            token_list.append(self._native_currency)
+        resp_json: Dict[str, Any] = await self._get_gateway_instance().get_balances(
+            chain=self.chain,
+            network=self.network,
+            address=self.address,
+            token_symbols=token_list
+        )
+        for token, bal in resp_json["balances"].items():
+            self._account_available_balances[token] = Decimal(str(bal))
+            self._account_balances[token] = Decimal(str(bal))
+            remote_asset_names.add(token)
+        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+        for asset_name in asset_names_to_remove:
+            del self._account_available_balances[asset_name]
+            del self._account_balances[asset_name]
+        self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._order_tracker.all_orders.items()}
+        self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 
     async def _update_balances(self):
         """
         This is called by UserBalances.
         """
         await self.update_balances()
+
+    async def _initialize_trading_pair_symbol_map(self):
+        """
+        Initialize chain/network info for gateway connectors.
+        This ensures chain is detected before _update_balances is called.
+        """
+        # Auto-detect chain and network if not provided
+        if not self._chain or not self._network:
+            chain, network, error = await self._get_gateway_instance().get_connector_chain_network(
+                self._connector_name
+            )
+            if error:
+                raise ValueError(f"Failed to get chain/network info: {error}")
+            if not self._chain:
+                self._chain = chain
+            if not self._network:
+                self._network = network
+            # Update name now that we have chain/network
+            self._name = f"{self._connector_name}_{self._chain}_{self._network}"
+
+        # Auto-detect wallet if not provided
+        if not self._wallet_address:
+            wallet_address, error = await self._get_gateway_instance().get_default_wallet(
+                self._chain
+            )
+            if error:
+                raise ValueError(f"Failed to get default wallet: {error}")
+            self._wallet_address = wallet_address
+
+    async def _update_trading_rules(self):
+        """
+        No-op for gateway connectors.
+        Gateway connectors don't have trading rules in the same way as exchange connectors.
+        """
+        pass
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         """
@@ -368,7 +515,7 @@ class GatewayBase(ConnectorBase):
         """
         Returns the Gateway HTTP instance.
         """
-        gateway_instance = GatewayHttpClient.get_instance(self._client_config)
+        gateway_instance = GatewayHttpClient.get_instance(self._gateway_config)
         return gateway_instance
 
     def start_tracking_order(self,
@@ -379,7 +526,8 @@ class GatewayBase(ConnectorBase):
                              price: Decimal = s_decimal_0,
                              amount: Decimal = s_decimal_0,
                              gas_price: Decimal = s_decimal_0,
-                             is_approval: bool = False):
+                             is_approval: bool = False,
+                             order_type: OrderType = OrderType.AMM_SWAP):
         """
         Starts tracking an order by simply adding it into _in_flight_orders dictionary in ClientOrderTracker.
         """
@@ -388,7 +536,7 @@ class GatewayBase(ConnectorBase):
                 client_order_id=order_id,
                 exchange_order_id=exchange_order_id,
                 trading_pair=trading_pair,
-                order_type=OrderType.LIMIT,
+                order_type=order_type,
                 trade_type=trade_type,
                 price=price,
                 amount=amount,
@@ -404,6 +552,28 @@ class GatewayBase(ConnectorBase):
         """
         self._order_tracker.stop_tracking_order(client_order_id=order_id)
 
+    def _handle_operation_failure(self, order_id: str, trading_pair: str, operation_name: str, error: Exception):
+        """
+        Helper method to handle operation failures consistently across different methods.
+        Logs the error and updates the order state to FAILED.
+
+        :param order_id: The ID of the order that failed
+        :param trading_pair: The trading pair for the order
+        :param operation_name: A description of the operation that failed
+        :param error: The exception that occurred
+        """
+        self.logger().error(
+            f"Error {operation_name} for {trading_pair} on {self.connector_name}: {str(error)}",
+            exc_info=True
+        )
+        order_update: OrderUpdate = OrderUpdate(
+            client_order_id=order_id,
+            trading_pair=trading_pair,
+            update_timestamp=self.current_timestamp,
+            new_state=OrderState.FAILED
+        )
+        self._order_tracker.process_order_update(order_update)
+
     async def update_order_status(self, tracked_orders: List[GatewayInFlightOrder]):
         """
         Calls REST API to get status update for each in-flight AMM orders.
@@ -411,9 +581,13 @@ class GatewayBase(ConnectorBase):
         if len(tracked_orders) < 1:
             return
 
-        tx_hash_list: List[str] = await safe_gather(
-            *[tracked_order.get_exchange_order_id() for tracked_order in tracked_orders]
-        )
+        tx_hash_list: List[str] = [
+            tx_hash for tx_hash in await safe_gather(
+                *[tracked_order.get_exchange_order_id() for tracked_order in tracked_orders],
+                return_exceptions=True
+            )
+            if not isinstance(tx_hash, Exception)
+        ]
 
         self.logger().info(
             "Polling for order status updates of %d orders. Transaction hashes: %s",
@@ -435,76 +609,230 @@ class GatewayBase(ConnectorBase):
                 self.logger().error(f"An error occurred fetching transaction status of {tracked_order.client_order_id}")
                 continue
 
-            if "txHash" not in tx_details:
-                self.logger().error(f"No txHash field for transaction status of {tracked_order.client_order_id}: "
+            if "signature" not in tx_details:
+                self.logger().error(f"No signature field for transaction status of {tracked_order.client_order_id}: "
                                     f"{tx_details}.")
                 continue
 
             tx_status: int = tx_details["txStatus"]
-
-            # Call chain-specific method to get transaction receipt
-            tx_receipt = self._get_transaction_receipt_from_details(tx_details)
+            fee = tx_details.get("fee", 0)
 
             # Chain-specific check for transaction success
-            if self._is_transaction_successful(tx_status, tx_receipt):
-                # Calculate fee using chain-specific method
-                fee = self._calculate_transaction_fee(tracked_order, tx_receipt)
-
-                self.process_trade_fill_update(tracked_order=tracked_order, fee=fee)
+            if tx_status == TransactionStatus.CONFIRMED.value:
+                self.process_transaction_confirmation_update(tracked_order=tracked_order, fee=Decimal(str(fee or 0)))
 
                 order_update: OrderUpdate = OrderUpdate(
                     client_order_id=tracked_order.client_order_id,
                     trading_pair=tracked_order.trading_pair,
                     update_timestamp=self.current_timestamp,
                     new_state=OrderState.FILLED,
+                    misc_updates={
+                        "fee_asset": self._native_currency,
+                    }
                 )
                 self._order_tracker.process_order_update(order_update)
 
-            # Check if transaction is still pending using chain-specific method
-            elif self._is_transaction_pending(tx_status):
+            # Check if transaction is still pending
+            elif tx_status == TransactionStatus.PENDING.value:
                 pass
 
             # Transaction failed
-            elif self._is_transaction_failed(tx_status, tx_receipt):
+            elif tx_status == TransactionStatus.FAILED.value:
                 self.logger().network(
-                    f"Error fetching transaction status for the order {tracked_order.client_order_id}: {tx_details}.",
-                    app_warning_msg=f"Failed to fetch transaction status for the order {tracked_order.client_order_id}."
+                    f"Transaction failed for order {tracked_order.client_order_id}: {tx_details}.",
+                    app_warning_msg=f"Transaction failed for order {tracked_order.client_order_id}."
                 )
-                await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
+                order_update: OrderUpdate = OrderUpdate(
+                    client_order_id=tracked_order.client_order_id,
+                    trading_pair=tracked_order.trading_pair,
+                    update_timestamp=self.current_timestamp,
+                    new_state=OrderState.FAILED
+                )
+                self._order_tracker.process_order_update(order_update)
 
-    def _get_transaction_receipt_from_details(self, tx_details: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        if self.chain == "ethereum":
-            return tx_details.get("txReceipt")
-        elif self.chain == "solana":
-            return tx_details.get("txData")
-        raise NotImplementedError(f"Unsupported chain: {self.chain}")
+                # Trigger TransactionFailure event
+                self.trigger_event(
+                    MarketEvent.TransactionFailure,
+                    MarketTransactionFailureEvent(
+                        timestamp=self.current_timestamp,
+                        order_id=tracked_order.client_order_id,
+                    )
+                )
 
-    def _is_transaction_successful(self, tx_status: int, tx_receipt: Optional[Dict[str, Any]]) -> bool:
-        if self.chain == "ethereum":
-            return tx_status == 1 and tx_receipt is not None and tx_receipt.get("status") == 1
-        elif self.chain == "solana":
-            return tx_status == 1 and tx_receipt is not None
-        raise NotImplementedError(f"Unsupported chain: {self.chain}")
+    def process_transaction_confirmation_update(self, tracked_order: GatewayInFlightOrder, fee: Decimal):
+        fee_asset = tracked_order.fee_asset if tracked_order.fee_asset else self._native_currency
+        trade_fee: TradeFeeBase = AddedToCostTradeFee(
+            flat_fees=[TokenAmount(fee_asset, fee)]
+        )
 
-    def _is_transaction_pending(self, tx_status: int) -> bool:
-        if self.chain == "ethereum":
-            return tx_status in [0, 2, 3]
-        elif self.chain == "solana":
-            return tx_status == 0
-        raise NotImplementedError(f"Unsupported chain: {self.chain}")
+        trade_update: TradeUpdate = TradeUpdate(
+            trade_id=tracked_order.exchange_order_id,
+            client_order_id=tracked_order.client_order_id,
+            exchange_order_id=tracked_order.exchange_order_id,
+            trading_pair=tracked_order.trading_pair,
+            fill_timestamp=self.current_timestamp,
+            fill_price=tracked_order.price,
+            fill_base_amount=tracked_order.amount,
+            fill_quote_amount=tracked_order.amount * tracked_order.price,
+            fee=trade_fee
+        )
 
-    def _is_transaction_failed(self, tx_status: int, tx_receipt: Optional[Dict[str, Any]]) -> bool:
-        if self.chain == "ethereum":
-            return tx_status == -1 or (tx_receipt is not None and tx_receipt.get("status") == 0)
-        elif self.chain == "solana":
-            return tx_status == -1
-        raise NotImplementedError(f"Unsupported chain: {self.chain}")
+        self._order_tracker.process_trade_update(trade_update)
 
-    def _calculate_transaction_fee(self, tracked_order: GatewayInFlightOrder, tx_receipt: Dict[str, Any]) -> Decimal:
-        if self.chain == "ethereum":
-            gas_used: int = tx_receipt["gasUsed"]
-            gas_price: Decimal = tracked_order.gas_price
-            return Decimal(str(gas_used)) * gas_price / Decimal(1e9)
-        elif self.chain == "solana":
-            return Decimal(tx_receipt["meta"]["fee"]) / Decimal(1e9)
-        raise NotImplementedError(f"Unsupported chain: {self.chain}")
+    def update_order_from_hash(self, order_id: str, trading_pair: str, transaction_hash: str, transaction_result: dict):
+        """
+        Helper to create and process an OrderUpdate from a transaction hash and result dict.
+        """
+        # Extract fee from data field if present (new response format)
+        # Otherwise fall back to top-level fee field (legacy format)
+        fee = 0
+        if "data" in transaction_result and isinstance(transaction_result["data"], dict):
+            fee = transaction_result["data"].get("fee", 0)
+        else:
+            fee = transaction_result.get("fee", 0)
+
+        order_update = OrderUpdate(
+            client_order_id=order_id,
+            exchange_order_id=transaction_hash,
+            trading_pair=trading_pair,
+            update_timestamp=self.current_timestamp,
+            new_state=OrderState.OPEN,
+            misc_updates={
+                "gas_cost": Decimal(str(fee or 0)),
+                "gas_price_token": self._native_currency,
+            }
+        )
+        self._order_tracker.process_order_update(order_update)
+
+    def get_balance(self, currency: str) -> Decimal:
+        """
+        Override the parent method to ensure we have fresh balances.
+        Forces a balance update if the balance is not available.
+
+        :param currency: The currency (token) name
+        :return: A balance for the given currency (token)
+        """
+        # If we don't have this currency in our balances, trigger an update
+        if currency not in self._account_balances:
+            # Schedule an async balance update
+            safe_ensure_future(self._update_single_balance(currency))
+            # Return 0 for now, will be updated async
+            return s_decimal_0
+
+        return self._account_balances.get(currency, s_decimal_0)
+
+    async def _update_single_balance(self, currency: str):
+        """
+        Update balance for a single currency.
+
+        :param currency: The currency (token) to update
+        """
+        try:
+            resp_json: Dict[str, Any] = await self._get_gateway_instance().get_balances(
+                chain=self.chain,
+                network=self.network,
+                address=self.address,
+                token_symbols=[currency]
+            )
+
+            if "balances" in resp_json and currency in resp_json["balances"]:
+                balance = Decimal(str(resp_json["balances"][currency]))
+                self._account_available_balances[currency] = balance
+                self._account_balances[currency] = balance
+                self.logger().debug(f"Updated balance for {currency}: {balance}")
+        except Exception as e:
+            self.logger().error(f"Error updating balance for {currency}: {str(e)}", exc_info=True)
+
+    async def get_balance_by_address(self, token_address: str) -> Decimal:
+        """
+        Get balance for a token by its contract address.
+        Fetches directly from Gateway using the token address.
+
+        Gateway automatically converts addresses to symbols in the response
+        (e.g., wrapped SOL address returns balance keyed by "SOL").
+
+        :param token_address: The token contract address
+        :return: Balance for the token
+        """
+        try:
+            resp_json: Dict[str, Any] = await self._get_gateway_instance().get_balances(
+                chain=self.chain,
+                network=self.network,
+                address=self.address,
+                token_symbols=[token_address]
+            )
+
+            if "balances" in resp_json:
+                balances = resp_json["balances"]
+
+                # First try the address as key
+                if token_address in balances:
+                    return Decimal(str(balances[token_address]))
+
+                # Gateway may return balance keyed by symbol instead of address
+                # Since we requested one token, take the first (and only) balance
+                elif len(balances) == 1:
+                    symbol, balance_str = next(iter(balances.items()))
+                    return Decimal(str(balance_str))
+                else:
+                    return s_decimal_0
+            else:
+                return s_decimal_0
+        except Exception as e:
+            self.logger().error(f"Error fetching balance for token address {token_address}: {str(e)}", exc_info=True)
+            return s_decimal_0
+
+    async def approve_token(self, token_symbol: str, spender: Optional[str] = None, amount: Optional[Decimal] = None) -> str:
+        """
+        Approve tokens for spending by the connector's spender contract.
+
+        :param token_symbol: The token to approve
+        :param spender: Optional custom spender address (defaults to connector's spender)
+        :param amount: Optional approval amount (defaults to max uint256)
+        :return: The approval transaction hash
+        """
+        try:
+            # Create approval order ID
+            order_id = f"approve-{token_symbol.lower()}-{get_tracking_nonce()}"
+
+            # Call gateway to approve token
+            approve_result = await self._get_gateway_instance().approve_token(
+                network=self.network,
+                address=self.address,
+                token=token_symbol,
+                spender=spender or self._connector_name,
+                amount=str(amount) if amount else None
+            )
+
+            if "signature" not in approve_result:
+                raise Exception(f"No transaction hash returned from approval: {approve_result}")
+
+            transaction_hash = approve_result["signature"]
+
+            # Start tracking the approval order
+            self.start_tracking_order(
+                order_id=order_id,
+                exchange_order_id=transaction_hash,
+                trading_pair=f"{token_symbol}-APPROVAL",
+                trade_type=TradeType.BUY,  # Use BUY as a placeholder for approval
+                price=s_decimal_0,
+                amount=amount or s_decimal_0,
+                gas_price=Decimal(str(approve_result.get("gasPrice", 0))),
+                is_approval=True
+            )
+
+            # Update order with transaction hash
+            self.update_order_from_hash(
+                order_id=order_id,
+                trading_pair=f"{token_symbol}-APPROVAL",
+                transaction_hash=transaction_hash,
+                transaction_result=approve_result
+            )
+
+            self.logger().info(f"Token approval submitted. Order ID: {order_id}, Transaction: {transaction_hash}")
+
+            return order_id
+
+        except Exception as e:
+            self.logger().error(f"Error approving {token_symbol}: {str(e)}", exc_info=True)
+            raise

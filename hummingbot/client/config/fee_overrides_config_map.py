@@ -24,7 +24,6 @@ def fee_overrides_dict() -> Dict[str, ConfigVar]:
 
 
 def init_fee_overrides_config():
-    global fee_overrides_config_map
     fee_overrides_config_map.clear()
     fee_overrides_config_map.update(fee_overrides_dict())
 
