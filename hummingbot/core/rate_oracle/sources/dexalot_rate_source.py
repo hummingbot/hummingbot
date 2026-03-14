@@ -30,9 +30,13 @@ class DexalotRateSource(RateSourceBase):
                     # Ignore results for which their symbols is not tracked by the connector
                     continue
 
-                if Decimal(str(record["low"])) > 0 and Decimal(str(record["high"])) > 0:
-                    results[pair] = (Decimal(str(record["low"])) +
-                                     Decimal(str(record["high"]))) / Decimal("2")
+                try:
+                    low = Decimal(str(record["low"]))
+                    high = Decimal(str(record["high"]))
+                except Exception:
+                    continue
+                if low > 0 and high > 0:
+                    results[pair] = (low + high) / Decimal("2")
         except Exception:
             self.logger().exception(
                 msg="Unexpected error while retrieving rates from Dexalot. Check the log file for more info.",
