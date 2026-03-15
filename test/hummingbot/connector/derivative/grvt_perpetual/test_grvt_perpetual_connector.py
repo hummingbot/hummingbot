@@ -194,5 +194,176 @@ class TestGrvtAPILive(unittest.TestCase):
             self.assertGreater(parsed["tick_size"], Decimal("0"))
 
 
+class TestGrvtAuth(unittest.TestCase):
+    """Test GrvtPerpetualAuth without requiring live credentials."""
+
+    def _make_auth(self):
+        from hummingbot.connector.derivative.grvt_perpetual.grvt_perpetual_auth import GrvtPerpetualAuth
+        auth = GrvtPerpetualAuth.__new__(GrvtPerpetualAuth)
+        auth._api_key = "test_api_key"
+        auth._private_key = "0x" + "ab" * 32
+        auth._trading_account_id = 123456
+        auth._testnet = False
+        auth._chain_id = 325
+        auth._session_cookie = None
+        auth._cookie_expiry = 0.0
+        return auth
+
+    def test_size_to_int_default_decimals(self):
+        auth = self._make_auth()
+        self.assertEqual(auth.size_to_int(1.5), 1_500_000_000)
+
+    def test_size_to_int_custom_decimals(self):
+        auth = self._make_auth()
+        self.assertEqual(auth.size_to_int(1.0, base_decimals=6), 1_000_000)
+
+    def test_price_to_int_large(self):
+        auth = self._make_auth()
+        self.assertEqual(auth.price_to_int(100000.0), 100_000_000_000_000)
+
+    def test_price_to_int_zero(self):
+        auth = self._make_auth()
+        self.assertEqual(auth.price_to_int(0.0), 0)
+
+    def test_get_eip712_domain_mainnet(self):
+        auth = self._make_auth()
+        domain = auth.get_eip712_domain()
+        self.assertEqual(domain["name"], "GRVT Exchange")
+        self.assertEqual(domain["version"], "0")
+        self.assertEqual(domain["chainId"], 325)
+
+    def test_get_eip712_domain_testnet(self):
+        auth = self._make_auth()
+        auth._testnet = True
+        auth._chain_id = 326
+        domain = auth.get_eip712_domain()
+        self.assertEqual(domain["chainId"], 326)
+
+    def test_set_session_cookie(self):
+        auth = self._make_auth()
+        self.assertIsNone(auth._session_cookie)
+        auth.set_session_cookie("gravity=test_token", ttl_seconds=3600)
+        self.assertEqual(auth._session_cookie, "gravity=test_token")
+        self.assertGreater(auth._cookie_expiry, time.time())
+
+    def test_cookie_not_authenticated_initially(self):
+        auth = self._make_auth()
+        self.assertFalse(time.time() < auth._cookie_expiry)
+
+    def test_cookie_authenticated_after_set(self):
+        auth = self._make_auth()
+        auth.set_session_cookie("gravity=abc123", ttl_seconds=3600)
+        self.assertTrue(bool(auth._session_cookie) and time.time() < auth._cookie_expiry)
+
+    def test_get_login_payload(self):
+        auth = self._make_auth()
+        payload = auth.get_login_payload()
+        self.assertIn("api_key", payload)
+        self.assertEqual(payload["api_key"], "test_api_key")
+
+    def test_rest_authenticate_adds_cookie(self):
+        auth = self._make_auth()
+        auth.set_session_cookie("gravity=session_token", ttl_seconds=3600)
+
+        class FakeRequest:
+            headers = {}
+
+        req = FakeRequest()
+        result = asyncio.get_event_loop().run_until_complete(auth.rest_authenticate(req))
+        self.assertIn("Cookie", result.headers)
+        self.assertIn("gravity=session_token", result.headers["Cookie"])
+
+    def test_rest_authenticate_no_cookie(self):
+        auth = self._make_auth()
+
+        class FakeRequest:
+            headers = {}
+
+        req = FakeRequest()
+        result = asyncio.get_event_loop().run_until_complete(auth.rest_authenticate(req))
+        self.assertNotIn("Cookie", result.headers)
+
+
+class TestGrvtUtils(unittest.TestCase):
+    """Test utility and parsing functions."""
+
+    def test_is_exchange_information_valid_perpetual(self):
+        from hummingbot.connector.derivative.grvt_perpetual.grvt_perpetual_utils import is_exchange_information_valid
+        valid = {"kind": "PERPETUAL", "settlement_period": "PERPETUAL"}
+        self.assertTrue(is_exchange_information_valid(valid))
+
+    def test_is_exchange_information_valid_rejects_spot(self):
+        from hummingbot.connector.derivative.grvt_perpetual.grvt_perpetual_utils import is_exchange_information_valid
+        self.assertFalse(is_exchange_information_valid({"kind": "SPOT", "settlement_period": "PERPETUAL"}))
+
+    def test_parse_instrument_info_fields(self):
+        from hummingbot.connector.derivative.grvt_perpetual.grvt_perpetual_utils import parse_instrument_info
+        parsed = parse_instrument_info(SAMPLE_INSTRUMENTS[0])
+        self.assertEqual(parsed["trading_pair"], "BTC-USDT")
+        self.assertEqual(parsed["base_asset"], "BTC")
+        self.assertEqual(parsed["quote_asset"], "USDT")
+        self.assertEqual(parsed["tick_size"], Decimal("0.1"))
+        self.assertEqual(parsed["min_order_size"], Decimal("0.001"))
+        self.assertEqual(parsed["base_decimals"], 9)
+
+    def test_parse_instrument_info_eth(self):
+        from hummingbot.connector.derivative.grvt_perpetual.grvt_perpetual_utils import parse_instrument_info
+        parsed = parse_instrument_info(SAMPLE_INSTRUMENTS[1])
+        self.assertEqual(parsed["trading_pair"], "ETH-USDT")
+        self.assertEqual(parsed["step_size"], Decimal("0.01"))
+
+    def test_grvt_order_status_mapping(self):
+        from hummingbot.connector.derivative.grvt_perpetual.grvt_perpetual_utils import grvt_order_status_to_hummingbot
+        from hummingbot.core.data_type.in_flight_order import OrderState
+        self.assertEqual(grvt_order_status_to_hummingbot("FILLED"), OrderState.FILLED)
+        self.assertEqual(grvt_order_status_to_hummingbot("CANCELLED"), OrderState.CANCELED)
+        self.assertEqual(grvt_order_status_to_hummingbot("REJECTED"), OrderState.FAILED)
+        self.assertEqual(grvt_order_status_to_hummingbot("OPEN"), OrderState.OPEN)
+
+    def test_order_side_buy_sell(self):
+        from hummingbot.connector.derivative.grvt_perpetual.grvt_perpetual_utils import order_side_to_grvt
+        self.assertTrue(order_side_to_grvt(True))
+        self.assertFalse(order_side_to_grvt(False))
+
+    def test_time_in_force_map(self):
+        from hummingbot.connector.derivative.grvt_perpetual.grvt_perpetual_utils import TIME_IN_FORCE_MAP
+        self.assertIn("GTC", TIME_IN_FORCE_MAP)
+        self.assertIn("IOC", TIME_IN_FORCE_MAP)
+        self.assertEqual(TIME_IN_FORCE_MAP["IOC"], 3)
+        self.assertEqual(TIME_IN_FORCE_MAP["FOK"], 4)
+
+    def test_default_fees(self):
+        from hummingbot.connector.derivative.grvt_perpetual.grvt_perpetual_utils import DEFAULT_FEES
+        self.assertEqual(DEFAULT_FEES.maker_percent_fee_decimal, Decimal("0.0002"))
+        self.assertEqual(DEFAULT_FEES.taker_percent_fee_decimal, Decimal("0.0005"))
+
+
+class TestGrvtConstants(unittest.TestCase):
+    """Test that all required connector constants are defined."""
+
+    def test_required_endpoint_constants(self):
+        from hummingbot.connector.derivative.grvt_perpetual import grvt_perpetual_constants as C
+        for attr in ["CREATE_ORDER_URL", "CANCEL_ORDER_URL", "ACCOUNT_BALANCES_URL",
+                     "OPEN_ORDERS_URL", "FUNDING_INFO_URL"]:
+            self.assertTrue(hasattr(C, attr), "Missing constant: %s" % attr)
+
+    def test_domain_constants(self):
+        from hummingbot.connector.derivative.grvt_perpetual import grvt_perpetual_constants as C
+        self.assertIn("grvt.io", C.DOMAIN)
+        self.assertIn("testnet", C.TESTNET_DOMAIN)
+
+    def test_order_states_complete(self):
+        from hummingbot.connector.derivative.grvt_perpetual import grvt_perpetual_constants as C
+        from hummingbot.core.data_type.in_flight_order import OrderState
+        for state in ["FILLED", "CANCELLED", "REJECTED"]:
+            self.assertIn(state, C.ORDER_STATE)
+
+    def test_chain_id_values(self):
+        from hummingbot.connector.derivative.grvt_perpetual import grvt_perpetual_constants as C
+        self.assertEqual(C.CHAIN_ID_PROD, 325)
+        self.assertEqual(C.CHAIN_ID_TESTNET, 326)
+        self.assertNotEqual(C.CHAIN_ID_PROD, C.CHAIN_ID_TESTNET)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
